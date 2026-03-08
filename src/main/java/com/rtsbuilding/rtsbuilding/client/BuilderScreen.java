@@ -70,6 +70,7 @@ public final class BuilderScreen extends Screen {
     private static final int INTERACT_WHEEL_SLOT = 18;
     private static final int INTERACT_WHEEL_SLOT_HALF = INTERACT_WHEEL_SLOT / 2;
     private static final int TOP_BUTTON_GAP = 5;
+    private static final int MIN_TOP_BUTTON_W = 28;
     private static final int TOP_ACTION_BUTTON_W = 74;
     private static final int TOP_SENS_BUTTON_W = 96;
     private static final int TOP_AUTOSTORE_BUTTON_W = 116;
@@ -323,10 +324,7 @@ public final class BuilderScreen extends Screen {
 
         if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             if (isSearchFocused()) {
-                if (this.searchBox != null) {
-                    this.searchBox.setFocused(false);
-                    this.setFocused(null);
-                }
+                blurSearchFocus();
             }
             if (mouseY >= getBottomY()) {
                 return handleBottomPanelRightClick(mouseX, mouseY);
@@ -611,13 +609,20 @@ public final class BuilderScreen extends Screen {
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_4) {
-                this.controller.setBuildShape(ClientRtsController.BuildShape.CIRCLE);
+                this.controller.setBuildShape(ClientRtsController.BuildShape.WALL);
                 ensureFillModeForShape(this.controller.getBuildShape());
                 clearShapeBuildSession();
                 closeShapeWheel();
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_5) {
+                this.controller.setBuildShape(ClientRtsController.BuildShape.CIRCLE);
+                ensureFillModeForShape(this.controller.getBuildShape());
+                clearShapeBuildSession();
+                closeShapeWheel();
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_6) {
                 this.controller.setBuildShape(ClientRtsController.BuildShape.BOX);
                 ensureFillModeForShape(this.controller.getBuildShape());
                 clearShapeBuildSession();
@@ -688,15 +693,13 @@ public final class BuilderScreen extends Screen {
             if (this.searchBox != null && this.searchBox.isFocused()) {
                 this.searchBox.setValue("");
                 this.controller.setStorageSearch("");
-                this.searchBox.setFocused(false);
-                this.setFocused(null);
+                blurSearchFocus();
                 return true;
             }
             if (this.craftSearchBox != null && this.craftSearchBox.isFocused()) {
                 this.craftSearchBox.setValue("");
                 this.controller.setCraftablesSearch("");
-                this.craftSearchBox.setFocused(false);
-                this.setFocused(null);
+                blurSearchFocus();
                 return true;
             }
             return true;
@@ -852,19 +855,9 @@ public final class BuilderScreen extends Screen {
 
     private void renderTopBar(GuiGraphics g) {
         ensureFillModeForShape(this.controller.getBuildShape());
-        int x = 8;
-        x = drawTopButton(g, x, "INTERACT", topActionForMode() == TopAction.INTERACT);
-        x = drawTopButton(g, x, "LINK", topActionForMode() == TopAction.LINK);
-        x = drawTopButton(g, x, "FUNNEL", topActionForMode() == TopAction.FUNNEL);
-        x = drawTopButton(g, x, "ROTATE", topActionForMode() == TopAction.ROTATE);
-        x = drawTopButtonSized(g, x, "SENS " + this.controller.getInputSensitivityLabel(), false, TOP_SENS_BUTTON_W);
-        x = drawTopButtonSized(g, x,
-                this.controller.isAutoStoreMinedDrops() ? "AUTO STORE: ON" : "AUTO STORE: OFF",
-                this.controller.isAutoStoreMinedDrops(), TOP_AUTOSTORE_BUTTON_W);
-        x = drawTopButtonSized(g, x, "SHAPE: " + shapeLabel(this.controller.getBuildShape()), this.shapeWheelOpen, SHAPE_BUTTON_W);
-        x = drawTopButtonSized(g, x, "ROT: " + this.shapeRotateDegrees + "deg", false, SHAPE_ROTATE_BUTTON_W);
-        x = drawTopButtonSized(g, x, "GUIDE", this.guideOpen, TOP_GUIDE_BUTTON_W);
-        drawTopButtonSized(g, x, "QUEST DETECT", false, QUEST_DETECT_BUTTON_W);
+        for (TopBarButtonLayout button : buildTopBarButtonLayouts()) {
+            drawTopButtonSized(g, button.x(), button.label(), button.active(), button.width());
+        }
 
         String modeText = switch (this.controller.getMode()) {
             case INTERACT -> "Mode: Interact";
@@ -921,7 +914,10 @@ public final class BuilderScreen extends Screen {
 
         int panelX = this.width - FUNNEL_BUFFER_PANEL_W - 8;
         int panelY = TOP_H + 26;
-        int panelH = Math.max(48, getBottomY() - panelY - 6);
+        int panelH = getFloatingPanelAvailableHeight(panelY);
+        if (panelH < 20) {
+            return;
+        }
         g.fill(panelX, panelY, panelX + FUNNEL_BUFFER_PANEL_W, panelY + panelH, 0xAA17191F);
         g.drawString(this.font, "Funnel Buffer", panelX + 6, panelY + 4, 0xF0F0F0);
 
@@ -956,11 +952,7 @@ public final class BuilderScreen extends Screen {
             g.drawString(this.font, "empty", panelX + 6, panelY + 20, 0x99B4BCC8);
         }
     }
-    private int drawTopButton(GuiGraphics g, int x, String label, boolean active) {
-        return drawTopButtonSized(g, x, label, active, TOP_ACTION_BUTTON_W);
-    }
-
-    private int drawTopButtonSized(GuiGraphics g, int x, String label, boolean active, int w) {
+    private void drawTopButtonSized(GuiGraphics g, int x, String label, boolean active, int w) {
         int y = 4;
         int h = 20;
         int bg = active ? 0xFF2E6A50 : 0xAA1F2329;
@@ -969,8 +961,55 @@ public final class BuilderScreen extends Screen {
         g.hLine(x, x + w, y + h, 0xFF0D0E10);
         g.vLine(x, y, y + h, 0xFF5B6673);
         g.vLine(x + w, y, y + h, 0xFF0D0E10);
-        g.drawCenteredString(this.font, label, x + w / 2, y + 6, 0xFFFFFF);
-        return x + w + TOP_BUTTON_GAP;
+        g.drawCenteredString(this.font, trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 6, 0xFFFFFF);
+    }
+
+    private List<TopBarButtonLayout> buildTopBarButtonLayouts() {
+        List<TopBarButtonSpec> specs = List.of(
+                new TopBarButtonSpec(TopBarButtonId.INTERACT, "INTERACT", topActionForMode() == TopAction.INTERACT, TOP_ACTION_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.LINK, "LINK", topActionForMode() == TopAction.LINK, TOP_ACTION_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.FUNNEL, "FUNNEL", topActionForMode() == TopAction.FUNNEL, TOP_ACTION_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.ROTATE, "ROTATE", topActionForMode() == TopAction.ROTATE, TOP_ACTION_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.SENSITIVITY, "SENS " + this.controller.getInputSensitivityLabel(), false, TOP_SENS_BUTTON_W),
+                new TopBarButtonSpec(
+                        TopBarButtonId.AUTO_STORE,
+                        this.controller.isAutoStoreMinedDrops() ? "AUTO STORE: ON" : "AUTO STORE: OFF",
+                        this.controller.isAutoStoreMinedDrops(),
+                        TOP_AUTOSTORE_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.SHAPE, "SHAPE: " + shapeLabel(this.controller.getBuildShape()), this.shapeWheelOpen, SHAPE_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.SHAPE_ROTATE, "ROT: " + this.shapeRotateDegrees + "deg", false, SHAPE_ROTATE_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.GUIDE, "GUIDE", this.guideOpen, TOP_GUIDE_BUTTON_W),
+                new TopBarButtonSpec(TopBarButtonId.QUEST_DETECT, "QUEST DETECT", false, QUEST_DETECT_BUTTON_W));
+
+        int gapsTotal = Math.max(0, specs.size() - 1) * TOP_BUTTON_GAP;
+        int buttonsBaseWidth = 0;
+        for (TopBarButtonSpec spec : specs) {
+            buttonsBaseWidth += spec.baseWidth();
+        }
+
+        int availableWidth = Math.max(80, this.width - 16);
+        int availableForButtons = Math.max(MIN_TOP_BUTTON_W, availableWidth - gapsTotal);
+        int minButtonWidth = Math.max(12, Math.min(MIN_TOP_BUTTON_W, availableForButtons / Math.max(1, specs.size())));
+        double widthScale = Math.min(1.0D, availableForButtons / (double) Math.max(1, buttonsBaseWidth));
+
+        List<TopBarButtonLayout> layouts = new ArrayList<>(specs.size());
+        int x = 8;
+        int remainingWidth = availableForButtons;
+        for (int i = 0; i < specs.size(); i++) {
+            TopBarButtonSpec spec = specs.get(i);
+            int remainingButtons = specs.size() - i - 1;
+            int minReserved = remainingButtons * minButtonWidth;
+            int width = i == specs.size() - 1
+                    ? Math.max(minButtonWidth, remainingWidth)
+                    : Math.max(minButtonWidth, (int) Math.round(spec.baseWidth() * widthScale));
+            if (remainingButtons > 0) {
+                width = Math.min(width, Math.max(minButtonWidth, remainingWidth - minReserved));
+            }
+            layouts.add(new TopBarButtonLayout(spec.id(), x, width, spec.label(), spec.active()));
+            remainingWidth -= width;
+            x += width + TOP_BUTTON_GAP;
+        }
+        return layouts;
     }
 
     private void renderShapeContextPanel(GuiGraphics g, int mouseX, int mouseY) {
@@ -984,6 +1023,9 @@ public final class BuilderScreen extends Screen {
         int panelY = SHAPE_CONTEXT_PANEL_Y;
         int panelW = SHAPE_CONTEXT_PANEL_W;
         int panelH = 122;
+        if (getFloatingPanelAvailableHeight(panelY) < panelH) {
+            return;
+        }
 
         g.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xAA111820);
         g.hLine(panelX, panelX + panelW, panelY, 0xFF5B7085);
@@ -1035,6 +1077,9 @@ public final class BuilderScreen extends Screen {
         int panelY = SHAPE_CONTEXT_PANEL_Y;
         int panelW = SHAPE_CONTEXT_PANEL_W;
         int panelH = 122;
+        if (getFloatingPanelAvailableHeight(panelY) < panelH) {
+            return false;
+        }
         if (!inside(mouseX, mouseY, panelX, panelY, panelW, panelH)) {
             return false;
         }
@@ -1528,7 +1573,10 @@ public final class BuilderScreen extends Screen {
 
         int panelX = this.width - FUNNEL_BUFFER_PANEL_W - 8;
         int panelY = TOP_H + 26;
-        int panelH = Math.max(48, getBottomY() - panelY - 6);
+        int panelH = getFloatingPanelAvailableHeight(panelY);
+        if (panelH < 20) {
+            return false;
+        }
         return inside(mouseX, mouseY, panelX, panelY, FUNNEL_BUFFER_PANEL_W, panelH);
     }
 
@@ -1591,70 +1639,41 @@ public final class BuilderScreen extends Screen {
             return false;
         }
 
-        int x = 8;
-        for (TopAction action : TopAction.values()) {
-            int w = TOP_ACTION_BUTTON_W;
-            if (mouseX >= x && mouseX <= x + w) {
-                switch (action) {
-                    case INTERACT -> {
-                        this.controller.setMode(BuilderMode.INTERACT);
-                        this.controller.setFunnelEnabled(false);
-                    }
-                    case LINK -> {
-                        this.controller.setMode(BuilderMode.LINK_STORAGE);
-                        this.controller.setFunnelEnabled(false);
-                    }
-                    case FUNNEL -> {
-                        this.controller.setMode(BuilderMode.FUNNEL);
-                        this.controller.setFunnelEnabled(true);
-                    }
-                    case ROTATE -> {
-                        this.controller.setMode(BuilderMode.ROTATE);
-                        this.controller.setFunnelEnabled(false);
-                    }
-                }
-                clearShapeBuildSession();
-                return true;
+        for (TopBarButtonLayout button : buildTopBarButtonLayouts()) {
+            if (!inside(mouseX, mouseY, button.x(), 4, button.width(), 20)) {
+                continue;
             }
-            x += w + TOP_BUTTON_GAP;
-        }
-
-        int sensW = TOP_SENS_BUTTON_W;
-        if (mouseX >= x && mouseX <= x + sensW) {
-            this.controller.cycleInputSensitivity();
-            return true;
-        }
-        x += sensW + TOP_BUTTON_GAP;
-
-        int autoW = TOP_AUTOSTORE_BUTTON_W;
-        if (mouseX >= x && mouseX <= x + autoW) {
-            this.controller.toggleAutoStoreMinedDrops();
-            return true;
-        }
-        x += autoW + TOP_BUTTON_GAP;
-
-        if (mouseX >= x && mouseX <= x + SHAPE_BUTTON_W) {
-            this.shapeWheelOpenedByAlt = false;
-            openShapeWheel(mouseX, mouseY);
-            return true;
-        }
-        x += SHAPE_BUTTON_W + TOP_BUTTON_GAP;
-
-        if (mouseX >= x && mouseX <= x + SHAPE_ROTATE_BUTTON_W) {
-            rotateShapeByStep(1);
-            return true;
-        }
-        x += SHAPE_ROTATE_BUTTON_W + TOP_BUTTON_GAP;
-
-        int guideW = TOP_GUIDE_BUTTON_W;
-        if (mouseX >= x && mouseX <= x + guideW) {
-            this.guideOpen = !this.guideOpen;
-            return true;
-        }
-        x += guideW + TOP_BUTTON_GAP;
-
-        if (mouseX >= x && mouseX <= x + QUEST_DETECT_BUTTON_W) {
-            this.controller.detectQuestsNow();
+            switch (button.id()) {
+                case INTERACT -> {
+                    this.controller.setMode(BuilderMode.INTERACT);
+                    this.controller.setFunnelEnabled(false);
+                    clearShapeBuildSession();
+                }
+                case LINK -> {
+                    this.controller.setMode(BuilderMode.LINK_STORAGE);
+                    this.controller.setFunnelEnabled(false);
+                    clearShapeBuildSession();
+                }
+                case FUNNEL -> {
+                    this.controller.setMode(BuilderMode.FUNNEL);
+                    this.controller.setFunnelEnabled(true);
+                    clearShapeBuildSession();
+                }
+                case ROTATE -> {
+                    this.controller.setMode(BuilderMode.ROTATE);
+                    this.controller.setFunnelEnabled(false);
+                    clearShapeBuildSession();
+                }
+                case SENSITIVITY -> this.controller.cycleInputSensitivity();
+                case AUTO_STORE -> this.controller.toggleAutoStoreMinedDrops();
+                case SHAPE -> {
+                    this.shapeWheelOpenedByAlt = false;
+                    openShapeWheel(mouseX, mouseY);
+                }
+                case SHAPE_ROTATE -> rotateShapeByStep(1);
+                case GUIDE -> this.guideOpen = !this.guideOpen;
+                case QUEST_DETECT -> this.controller.detectQuestsNow();
+            }
             return true;
         }
         return false;
@@ -1685,7 +1704,7 @@ public final class BuilderScreen extends Screen {
         }
 
         if (this.searchBox != null && this.searchBox.mouseClicked(mouseX, mouseY, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
-            this.setFocused(this.searchBox);
+            focusStorageSearchBox();
             return true;
         }
 
@@ -1829,8 +1848,7 @@ public final class BuilderScreen extends Screen {
         }
         this.searchBox.setValue("");
         this.controller.setStorageSearch("");
-        this.searchBox.setFocused(false);
-        this.setFocused(null);
+        blurSearchFocus();
         return true;
     }
 
@@ -1846,6 +1864,26 @@ public final class BuilderScreen extends Screen {
         }
         if (blurred) {
             this.setFocused(null);
+        }
+    }
+
+    private void focusStorageSearchBox() {
+        if (this.craftSearchBox != null && this.craftSearchBox.isFocused()) {
+            this.craftSearchBox.setFocused(false);
+        }
+        if (this.searchBox != null) {
+            this.searchBox.setFocused(true);
+            this.setFocused(this.searchBox);
+        }
+    }
+
+    private void focusCraftSearchBox() {
+        if (this.searchBox != null && this.searchBox.isFocused()) {
+            this.searchBox.setFocused(false);
+        }
+        if (this.craftSearchBox != null) {
+            this.craftSearchBox.setFocused(true);
+            this.setFocused(this.craftSearchBox);
         }
     }
 
@@ -1984,7 +2022,7 @@ public final class BuilderScreen extends Screen {
         int toggleX = searchX + searchW + 4;
 
         if (this.craftSearchBox != null && this.craftSearchBox.mouseClicked(mouseX, mouseY, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
-            this.setFocused(this.craftSearchBox);
+            focusCraftSearchBox();
             return true;
         }
         if (inside(mouseX, mouseY, toggleX, searchY, CRAFT_PANEL_TOGGLE_W, CRAFT_PANEL_SEARCH_H)) {
@@ -2250,6 +2288,10 @@ public final class BuilderScreen extends Screen {
         return this.height - getBottomHeight();
     }
 
+    private int getFloatingPanelAvailableHeight(int panelY) {
+        return Math.max(0, getBottomY() - panelY - 6);
+    }
+
     private int getBottomHeight() {
         int dynamicMax = Math.max(MIN_BOTTOM_H, Math.min(MAX_BOTTOM_H, this.height - TOP_H - 16));
         int minAllowed = Math.min(dynamicMax, Math.max(MIN_BOTTOM_H, minimumBottomHeightForGridRows(MIN_STORAGE_GRID_ROWS)));
@@ -2376,7 +2418,7 @@ public final class BuilderScreen extends Screen {
             this.shapeFootprintNudgeB = 0;
             this.shapeBuildSession = new ShapeBuildSession(
                     shape,
-                    hit.getDirection(),
+                    resolveShapeBuildFace(shape, hit.getDirection(), rayDir),
                     hit.getBlockPos(),
                     null,
                     ShapeBuildPhase.NEED_SECOND_POINT,
@@ -2387,12 +2429,13 @@ public final class BuilderScreen extends Screen {
 
         ShapeBuildSession session = this.shapeBuildSession;
         if (session.phase() == ShapeBuildPhase.NEED_SECOND_POINT) {
+            BlockPos pointB = resolveShapePlanePoint(session, hit);
             if (requiresThirdPoint(shape)) {
                 this.shapeBuildSession = new ShapeBuildSession(
                         shape,
                         session.face(),
                         session.pointA(),
-                        hit.getBlockPos(),
+                        pointB,
                         ShapeBuildPhase.NEED_THIRD_POINT,
                         0,
                         mouseY);
@@ -2401,7 +2444,7 @@ public final class BuilderScreen extends Screen {
                         shape,
                         session.face(),
                         session.pointA(),
-                        hit.getBlockPos(),
+                        pointB,
                         ShapeBuildPhase.READY_CONFIRM,
                         0,
                         session.boxHeightMouseBaseY());
@@ -2503,7 +2546,7 @@ public final class BuilderScreen extends Screen {
             if (requireReady) {
                 return null;
             }
-            BlockPos pointB = cursorHit != null ? cursorHit.getBlockPos() : pointA;
+            BlockPos pointB = resolveShapePlanePoint(session, cursorHit);
             pointB = applyShapeFootprintNudges(session.shape(), session.face(), pointA, pointB);
             return new ShapeBuildInput(session.shape(), session.face(), pointA, pointB, 0);
         }
@@ -2525,6 +2568,90 @@ public final class BuilderScreen extends Screen {
         return new ShapeBuildInput(session.shape(), session.face(), pointA, pointB, session.boxHeightOffset());
     }
 
+    private BlockPos resolveShapePlanePoint(ShapeBuildSession session, BlockHitResult cursorHit) {
+        if (session == null) {
+            return cursorHit != null ? cursorHit.getBlockPos() : null;
+        }
+        BlockPos pointA = session.pointA();
+        if (pointA == null) {
+            return cursorHit != null ? cursorHit.getBlockPos() : null;
+        }
+
+        ClientRtsController.BuildShape shape = session.shape();
+        if (shape == null
+                || shape == ClientRtsController.BuildShape.BLOCK
+                || shape == ClientRtsController.BuildShape.LINE) {
+            return cursorHit != null ? cursorHit.getBlockPos() : pointA;
+        }
+
+        Direction planeFace = session.face();
+        if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
+            planeFace = Direction.UP;
+        } else if (shape == ClientRtsController.BuildShape.WALL && planeFace == null) {
+            planeFace = resolveWallFace(cursorHit == null ? null : cursorHit.getDirection(), computeCursorRayDirection());
+        }
+        if (planeFace == null) {
+            return cursorHit != null ? cursorHit.getBlockPos() : pointA;
+        }
+
+        Vec3 planeHit = intersectCursorRayWithShapePlane(pointA, planeFace);
+        if (planeHit == null && cursorHit != null) {
+            planeHit = cursorHit.getLocation();
+        }
+        if (planeHit == null) {
+            return pointA;
+        }
+        return blockPosFromPlaneHit(pointA, planeFace, planeHit);
+    }
+
+    private Vec3 intersectCursorRayWithShapePlane(BlockPos anchor, Direction face) {
+        if (anchor == null || face == null || this.minecraft == null || this.minecraft.gameRenderer == null) {
+            return null;
+        }
+        Vec3 rayOrigin = this.minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 rayDir = computeCursorRayDirection();
+        if (rayOrigin == null || rayDir == null) {
+            return null;
+        }
+
+        Vec3 planeAnchor = Vec3.atCenterOf(anchor);
+        double planeCoord = switch (face.getAxis()) {
+            case X -> planeAnchor.x;
+            case Y -> planeAnchor.y;
+            case Z -> planeAnchor.z;
+        };
+        double originCoord = switch (face.getAxis()) {
+            case X -> rayOrigin.x;
+            case Y -> rayOrigin.y;
+            case Z -> rayOrigin.z;
+        };
+        double dirCoord = switch (face.getAxis()) {
+            case X -> rayDir.x;
+            case Y -> rayDir.y;
+            case Z -> rayDir.z;
+        };
+        if (Math.abs(dirCoord) < 1.0E-5D) {
+            return null;
+        }
+
+        double t = (planeCoord - originCoord) / dirCoord;
+        if (t <= 0.0D || t > 128.0D) {
+            return null;
+        }
+        return rayOrigin.add(rayDir.scale(t));
+    }
+
+    private static BlockPos blockPosFromPlaneHit(BlockPos anchor, Direction face, Vec3 hitVec) {
+        if (anchor == null || face == null || hitVec == null) {
+            return anchor;
+        }
+        return switch (face.getAxis()) {
+            case X -> new BlockPos(anchor.getX(), Mth.floor(hitVec.y), Mth.floor(hitVec.z));
+            case Y -> new BlockPos(Mth.floor(hitVec.x), anchor.getY(), Mth.floor(hitVec.z));
+            case Z -> new BlockPos(Mth.floor(hitVec.x), Mth.floor(hitVec.y), anchor.getZ());
+        };
+    }
+
     private BlockPos applyShapeFootprintNudges(ClientRtsController.BuildShape shape, Direction face, BlockPos pointA, BlockPos pointB) {
         if (pointA == null || pointB == null) {
             return pointB;
@@ -2542,10 +2669,10 @@ public final class BuilderScreen extends Screen {
             axisA = Direction.EAST;
             axisB = Direction.SOUTH;
         } else {
-            if (face == null) {
+            Direction[] axes = resolveShapePlaneAxes(shape, face);
+            if (axes.length < 2) {
                 return pointB;
             }
-            Direction[] axes = resolveSquareAxes(face);
             axisA = axes[0];
             axisB = axes[1];
         }
@@ -2574,6 +2701,7 @@ public final class BuilderScreen extends Screen {
         switch (input.shape()) {
             case LINE -> addLineTargets(targets, start, end);
             case SQUARE -> addSquareTargets(targets, start, end, input.face(), fillMode);
+            case WALL -> addWallTargets(targets, start, end, input.face(), fillMode);
             case CIRCLE -> addCircleTargets(targets, start, end, input.face(), fillMode);
             case BOX -> addBoxTargets(targets, start, end, input.boxHeightOffset(), fillMode);
             default -> targets.add(start);
@@ -2691,7 +2819,17 @@ public final class BuilderScreen extends Screen {
     }
 
     private void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
-        Direction[] axes = resolveSquareAxes(face);
+        Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.SQUARE, face);
+        int dx = end.getX() - start.getX();
+        int dy = end.getY() - start.getY();
+        int dz = end.getZ() - start.getZ();
+        int aOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[0]));
+        int bOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[1]));
+        addRotatedPlaneRectangleTargets(targets, start, axes[0], axes[1], aOffset, bOffset, fillMode);
+    }
+
+    private void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+        Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.WALL, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
@@ -2701,7 +2839,7 @@ public final class BuilderScreen extends Screen {
     }
 
     private void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
-        Direction[] axes = resolveSquareAxes(face);
+        Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.CIRCLE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
@@ -2993,7 +3131,47 @@ public final class BuilderScreen extends Screen {
         return new RotatedOffset(ra, rb);
     }
 
-    private Direction[] resolveSquareAxes(Direction face) {
+    private Direction resolveShapeBuildFace(ClientRtsController.BuildShape shape, Direction clickedFace, Vec3 rayDir) {
+        if (shape == null) {
+            return clickedFace == null ? Direction.UP : clickedFace;
+        }
+        return switch (shape) {
+            case SQUARE, BOX -> Direction.UP;
+            case WALL -> resolveWallFace(clickedFace, rayDir);
+            default -> clickedFace == null ? Direction.UP : clickedFace;
+        };
+    }
+
+    private Direction resolveWallFace(Direction clickedFace, Vec3 rayDir) {
+        if (clickedFace != null && clickedFace.getAxis().isHorizontal()) {
+            return clickedFace;
+        }
+        if (rayDir == null) {
+            return Direction.SOUTH;
+        }
+        if (Math.abs(rayDir.x) >= Math.abs(rayDir.z)) {
+            return rayDir.x >= 0.0D ? Direction.WEST : Direction.EAST;
+        }
+        return rayDir.z >= 0.0D ? Direction.NORTH : Direction.SOUTH;
+    }
+
+    private Direction[] resolveShapePlaneAxes(ClientRtsController.BuildShape shape, Direction face) {
+        if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
+            return new Direction[] { Direction.EAST, Direction.SOUTH };
+        }
+        if (shape == ClientRtsController.BuildShape.WALL) {
+            if (face == null) {
+                return new Direction[] { Direction.EAST, Direction.UP };
+            }
+            return switch (face.getAxis()) {
+                case X -> new Direction[] { Direction.SOUTH, Direction.UP };
+                case Z -> new Direction[] { Direction.EAST, Direction.UP };
+                case Y -> new Direction[] { Direction.EAST, Direction.UP };
+            };
+        }
+        if (face == null) {
+            return new Direction[] { Direction.EAST, Direction.SOUTH };
+        }
         return switch (face.getAxis()) {
             case Y -> new Direction[] { Direction.EAST, Direction.SOUTH };
             case X -> new Direction[] { Direction.UP, Direction.SOUTH };
@@ -3037,7 +3215,7 @@ public final class BuilderScreen extends Screen {
         }
         return switch (shape) {
             case LINE -> List.of(ShapeFillMode.FILL);
-            case SQUARE, CIRCLE -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW);
+            case SQUARE, WALL, CIRCLE -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW);
             case BOX -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW, ShapeFillMode.SKELETON);
             default -> List.of(ShapeFillMode.FILL);
         };
@@ -3303,11 +3481,12 @@ public final class BuilderScreen extends Screen {
     }
 
     private List<ShapeWheelSlot> collectShapeWheelSlots() {
-        List<ShapeWheelSlot> slots = new ArrayList<>(5);
+        List<ShapeWheelSlot> slots = new ArrayList<>(6);
         ClientRtsController.BuildShape[] shapes = new ClientRtsController.BuildShape[] {
                 ClientRtsController.BuildShape.BLOCK,
                 ClientRtsController.BuildShape.LINE,
                 ClientRtsController.BuildShape.SQUARE,
+                ClientRtsController.BuildShape.WALL,
                 ClientRtsController.BuildShape.CIRCLE,
                 ClientRtsController.BuildShape.BOX
         };
@@ -3812,8 +3991,12 @@ public final class BuilderScreen extends Screen {
         if (this.shapeBuildSession != null && this.shapeBuildSession.face() != null) {
             return this.shapeBuildSession.face();
         }
-        if (this.controller.getBuildShape() == ClientRtsController.BuildShape.BOX) {
+        ClientRtsController.BuildShape shape = this.controller.getBuildShape();
+        if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
             return Direction.UP;
+        }
+        if (shape == ClientRtsController.BuildShape.WALL) {
+            return resolveWallFace(null, dir);
         }
         return Direction.getNearest(-dir.x, -dir.y, -dir.z);
     }
@@ -3987,7 +4170,7 @@ public final class BuilderScreen extends Screen {
             case NEED_SECOND_POINT -> {
                 BlockPos a = this.shapeBuildSession.pointA();
                 yield "A: " + a.getX() + "," + a.getY() + "," + a.getZ()
-                        + "  Step2: RMB set B, PgUp/PgDn length, Shift for width";
+                        + "  Step2: RMB set B";
             }
             case NEED_THIRD_POINT -> "Step3: Ctrl+PgUp/PgDn adjust height, RMB lock height";
             case READY_CONFIRM -> "RMB: confirm build";
@@ -4002,6 +4185,7 @@ public final class BuilderScreen extends Screen {
             case BLOCK -> "BLOCK";
             case LINE -> "LINE";
             case SQUARE -> "SQUARE";
+            case WALL -> "WALL";
             case CIRCLE -> "CIRCLE";
             case BOX -> "CUBE";
         };
@@ -4015,6 +4199,7 @@ public final class BuilderScreen extends Screen {
             case BLOCK -> "B";
             case LINE -> "L";
             case SQUARE -> "SQ";
+            case WALL -> "W";
             case CIRCLE -> "C";
             case BOX -> "CU";
         };
@@ -4193,6 +4378,34 @@ public final class BuilderScreen extends Screen {
         private boolean isEntityTarget() {
             return this.entityId >= 0;
         }
+    }
+
+    private record TopBarButtonSpec(
+            TopBarButtonId id,
+            String label,
+            boolean active,
+            int baseWidth) {
+    }
+
+    private record TopBarButtonLayout(
+            TopBarButtonId id,
+            int x,
+            int width,
+            String label,
+            boolean active) {
+    }
+
+    private enum TopBarButtonId {
+        INTERACT,
+        LINK,
+        FUNNEL,
+        ROTATE,
+        SENSITIVITY,
+        AUTO_STORE,
+        SHAPE,
+        SHAPE_ROTATE,
+        GUIDE,
+        QUEST_DETECT
     }
 
     private enum TopAction {

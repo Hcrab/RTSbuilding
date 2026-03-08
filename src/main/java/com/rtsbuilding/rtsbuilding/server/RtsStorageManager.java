@@ -63,6 +63,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingContainer;
@@ -665,6 +666,9 @@ public final class RtsStorageManager {
         Map<String, Long> availableCounts = summarizeAvailableCraftItems(player, session, activeLinked);
         Map<String, CraftableCandidate> byResultItem = new LinkedHashMap<>();
         for (RecipeHolder<CraftingRecipe> holder : player.serverLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
+            if (!supportsWorkbenchCraftPanelRecipe(holder.value())) {
+                continue;
+            }
             CraftableCandidate candidate = buildCraftableCandidate(player, holder, availableCounts, session.craftSearch);
             if (candidate == null) {
                 continue;
@@ -701,6 +705,10 @@ public final class RtsStorageManager {
 
         RecipeHolder<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
         if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
+            requestCraftables(player, session.craftSearch, session.craftShowUnavailable);
+            return;
+        }
+        if (!supportsWorkbenchCraftPanelRecipe(craftingRecipe)) {
             requestCraftables(player, session.craftSearch, session.craftShowUnavailable);
             return;
         }
@@ -786,10 +794,7 @@ public final class RtsStorageManager {
             return null;
         }
 
-        ItemStack result = holder.value().assemble(CraftingInput.EMPTY, player.registryAccess());
-        if (result.isEmpty()) {
-            result = holder.value().getResultItem(player.registryAccess());
-        }
+        ItemStack result = resolveCraftablePreviewResult(holder.value(), player);
         if (result.isEmpty()) {
             return null;
         }
@@ -814,16 +819,76 @@ public final class RtsStorageManager {
                 availability.missingTotal());
     }
 
+    private static boolean supportsWorkbenchCraftPanelRecipe(CraftingRecipe recipe) {
+        if (recipe == null) {
+            return false;
+        }
+        List<Ingredient> ingredients = recipe.getIngredients();
+        if (ingredients == null || ingredients.isEmpty()) {
+            return false;
+        }
+
+        if (recipe instanceof ShapedRecipe shaped) {
+            if (shaped.getWidth() < 1 || shaped.getWidth() > 3 || shaped.getHeight() < 1 || shaped.getHeight() > 3) {
+                return false;
+            }
+        } else if (recipe instanceof ShapelessRecipe shapeless) {
+            if (shapeless.getIngredients().isEmpty() || shapeless.getIngredients().size() > 9) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        boolean anyNonEmpty = false;
+        for (Ingredient ingredient : mapCraftingIngredients(recipe)) {
+            if (ingredient == null || ingredient.isEmpty()) {
+                continue;
+            }
+            anyNonEmpty = true;
+        }
+        return anyNonEmpty;
+    }
+
+    private static ItemStack resolveCraftablePreviewResult(CraftingRecipe recipe, ServerPlayer player) {
+        if (recipe == null || player == null) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack result = recipe.getResultItem(player.registryAccess());
+        if (!result.isEmpty()) {
+            return result.copy();
+        }
+
+        Ingredient[] mapped = mapCraftingIngredients(recipe);
+        List<ItemStack> previewStacks = new ArrayList<>(9);
+        for (Ingredient ingredient : mapped) {
+            if (ingredient == null || ingredient.isEmpty()) {
+                previewStacks.add(ItemStack.EMPTY);
+                continue;
+            }
+            ItemStack[] options = ingredient.getItems();
+            if (options.length <= 0 || options[0].isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            previewStacks.add(options[0].copyWithCount(1));
+        }
+
+        ItemStack assembled = recipe.assemble(CraftingInput.of(3, 3, previewStacks), player.registryAccess());
+        return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
+    }
+
     private static RecipeAvailability evaluateRecipeAvailability(CraftingRecipe recipe, Map<String, Long> availableCounts) {
         Ingredient[] required = mapCraftingIngredients(recipe);
         Map<String, Long> remaining = new HashMap<>(availableCounts);
+        Map<String, ItemStack> testStackCache = new HashMap<>();
         Map<String, Integer> missing = new LinkedHashMap<>();
         int missingTotal = 0;
         for (Ingredient ingredient : required) {
             if (ingredient == null || ingredient.isEmpty()) {
                 continue;
             }
-            String matchedId = selectBestIngredientMatch(ingredient, remaining);
+            String matchedId = selectBestIngredientMatch(ingredient, remaining, testStackCache);
             if (matchedId != null) {
                 remaining.computeIfPresent(matchedId, (id, count) -> count > 1L ? count - 1L : null);
                 continue;
@@ -856,27 +921,44 @@ public final class RtsStorageManager {
         return rawId.contains(query) || label.contains(query);
     }
 
-    private static String selectBestIngredientMatch(Ingredient ingredient, Map<String, Long> remaining) {
+    private static String selectBestIngredientMatch(Ingredient ingredient, Map<String, Long> remaining, Map<String, ItemStack> testStackCache) {
         String bestId = null;
         long bestCount = 0L;
-        for (ItemStack option : ingredient.getItems()) {
-            if (option.isEmpty()) {
-                continue;
-            }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(option.getItem());
-            if (id == null) {
-                continue;
-            }
-            long available = remaining.getOrDefault(id.toString(), 0L);
+        for (var entry : remaining.entrySet()) {
+            long available = entry.getValue() == null ? 0L : entry.getValue();
             if (available <= 0L) {
                 continue;
             }
+            ItemStack probe = resolveIngredientProbeStack(entry.getKey(), testStackCache);
+            if (probe.isEmpty() || !ingredient.test(probe)) {
+                continue;
+            }
             if (bestId == null || available > bestCount) {
-                bestId = id.toString();
+                bestId = entry.getKey();
                 bestCount = available;
             }
         }
         return bestId;
+    }
+
+    private static ItemStack resolveIngredientProbeStack(String itemId, Map<String, ItemStack> testStackCache) {
+        if (itemId == null || itemId.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack cached = testStackCache.get(itemId);
+        if (cached != null) {
+            return cached;
+        }
+
+        ResourceLocation key = ResourceLocation.tryParse(itemId);
+        if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            testStackCache.put(itemId, ItemStack.EMPTY);
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack resolved = new ItemStack(BuiltInRegistries.ITEM.get(key));
+        testStackCache.put(itemId, resolved);
+        return resolved;
     }
 
     private static String resolveIngredientLabel(Ingredient ingredient) {
@@ -885,7 +967,7 @@ public final class RtsStorageManager {
                 return option.getHoverName().getString();
             }
         }
-        return "Unknown";
+        return "Ingredient";
     }
 
     private static String buildMissingSummary(Map<String, Integer> missing) {
