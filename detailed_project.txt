@@ -1,5 +1,5 @@
 RTSBUILDING DETAILED PROJECT RECORD
-Last Rewrite: 2026-03-29
+Last Rewrite: 2026-03-31
 Project Root: E:\RTSbuilding
 Runtime Target: Minecraft 1.21.1 + NeoForge 21.1.219 + Java 21
 
@@ -114,6 +114,14 @@ Client:
 - `client/RtsClientInputGate.java`
   - draggable overlay UI for container/crafting screens
   - intercepts input for linked pickup/import/crafting shortcuts
+- `client/RtsClientUiUtil.java`
+  - shared client UI primitives
+  - panel-frame drawing, text trimming, compact item counts, compact fluid
+    amounts
+- `client/RtsCraftablesUiHelper.java`
+  - shared craftables UI glue
+  - craft dialog open/submit flow and search-draft normalization shared
+    between `BuilderScreen` and `RtsClientInputGate`
 - `client/RtsClientLayoutStore.java`
   - persists normalized storage overlay layout to local config JSON
 - `client/RtsCraftTerminalScreen.java`
@@ -510,5 +518,8 @@ Post-2026-03-28 15:30 follow-up reflected in the current repo state:
 - added dedicated Sophisticated Storage remote-menu compat because the official
   `1.21.x` storage menu bypasses `ContainerLevelAccess` and performs its own
   direct distance `stillValid(...)` check
+- started a deshitfication pass on the client UI layer by extracting shared
+  UI primitives and craftables dialog flow out of `BuilderScreen` /
+  `RtsClientInputGate` and reusing them in the craft-related screens
 
 End of file.

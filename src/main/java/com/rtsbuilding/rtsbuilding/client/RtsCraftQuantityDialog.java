@@ -392,11 +392,7 @@ public final class RtsCraftQuantityDialog {
     }
 
     private static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        g.fill(x, y, x + w, y + h, fillColor);
-        g.hLine(x, x + w, y, light);
-        g.hLine(x, x + w, y + h, dark);
-        g.vLine(x, y, y + h, light);
-        g.vLine(x + w, y, y + h, dark);
+        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
     }
 
     private static Layout resolveLayout(int screenWidth, int screenHeight) {

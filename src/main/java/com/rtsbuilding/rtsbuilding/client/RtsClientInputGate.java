@@ -756,11 +756,7 @@ public final class RtsClientInputGate {
     }
 
     private static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        g.fill(x, y, x + w, y + h, fillColor);
-        g.hLine(x, x + w, y, light);
-        g.hLine(x, x + w, y + h, dark);
-        g.vLine(x, y, y + h, light);
-        g.vLine(x + w, y, y + h, dark);
+        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
     }
 
     private static void drawMiniButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label) {
@@ -781,16 +777,7 @@ public final class RtsClientInputGate {
     }
 
     private static String trimToWidth(Font font, String text, int maxWidth) {
-        if (text == null || text.isEmpty() || font.width(text) <= maxWidth) {
-            return text == null ? "" : text;
-        }
-        String ellipsis = "...";
-        int limit = Math.max(0, maxWidth - font.width(ellipsis));
-        int cut = text.length();
-        while (cut > 0 && font.width(text.substring(0, cut)) > limit) {
-            cut--;
-        }
-        return text.substring(0, cut) + ellipsis;
+        return RtsClientUiUtil.trimToWidth(font, text, maxWidth);
     }
 
     private static void clearOverlaySearchFocus() {
@@ -1105,20 +1092,12 @@ public final class RtsClientInputGate {
             return true;
         }
         clearOverlaySearchFocus();
-        OVERLAY_CRAFT_DIALOG.open(
-                entry.stack().getHoverName().getString(),
-                entry.stack(),
-                entry.recipeOptions(),
-                1);
+        RtsCraftablesUiHelper.openCraftQuantityDialog(OVERLAY_CRAFT_DIALOG, entry);
         return true;
     }
 
     private static void submitOverlayCraftDialogIfReady() {
-        RtsCraftQuantityDialog.Request request = OVERLAY_CRAFT_DIALOG.consumePendingRequest();
-        if (request == null) {
-            return;
-        }
-        ClientRtsController.get().craftRecipeToLinked(request.recipeId(), request.craftCount());
+        RtsCraftablesUiHelper.submitPendingCraftRequest(OVERLAY_CRAFT_DIALOG, ClientRtsController.get());
     }
 
     private static void applyOverlayCraftSearch() {
@@ -1133,7 +1112,7 @@ public final class RtsClientInputGate {
     }
 
     private static String normalizeOverlayCraftSearchDraft(String value) {
-        return value == null ? "" : value.trim();
+        return RtsCraftablesUiHelper.normalizeSearchDraft(value);
     }
 
     private static int resolveOverlaySlotIndex(double mouseX, double mouseY, int gridX, int gridY) {
@@ -1253,13 +1232,7 @@ public final class RtsClientInputGate {
     }
 
     private static String compactCount(long value) {
-        if (value >= 1_000_000L) {
-            return String.format("%.1fM", value / 1_000_000.0);
-        }
-        if (value >= 1_000L) {
-            return String.format("%.1fK", value / 1_000.0);
-        }
-        return Long.toString(value);
+        return RtsClientUiUtil.compactCount(value);
     }
 
     private static void drawSlotCountOverlay(GuiGraphics g, net.minecraft.client.gui.Font font, int slotX, int slotY,

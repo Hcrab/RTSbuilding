@@ -1573,6 +1573,44 @@ Compile validation
 - Build check
   - Ran `./gradlew.bat build`
   - Result: SUCCESS
+
+[2026-03-31] Deshitfication phase 1 kickoff
+- User request
+  - identify the growing God Classes in the project
+  - write a deshitfication plan to disk
+  - start the first low-risk refactor slice without changing existing
+    function entry points
+  - update `Journal.txt` and `detailed_project.txt`
+
+- Safety / process
+  - created a pre-refactor git snapshot commit:
+    - `backup: pre-deshitfication snapshot`
+
+- Changes made
+  - `deshitfication_plan.txt`
+    - added the staged refactor plan with guardrails and execution order
+  - `client/RtsClientUiUtil.java`
+    - added shared panel-frame drawing, text trimming, compact count, and
+      compact fluid amount helpers
+  - `client/RtsCraftablesUiHelper.java`
+    - added shared craftables dialog open/submit/search-normalization helpers
+  - `client/BuilderScreen.java`
+    - delegated repeated craft dialog flow and UI primitive formatting into
+      shared helpers
+  - `client/RtsClientInputGate.java`
+    - delegated repeated craft overlay dialog flow and UI primitive
+      formatting into shared helpers
+  - `client/RtsCraftTerminalScreen.java`
+    - switched local count/panel helpers to the shared client UI helper
+  - `client/RtsCraftQuantityDialog.java`
+    - switched panel frame drawing to the shared client UI helper
+  - `client/RtsCraftFeedbackPopup.java`
+    - switched panel frame drawing to the shared client UI helper
+
+- Build check
+  - Ran `./gradlew.bat build`
+  - Result: SUCCESS
+  - Warnings only: existing `EventBusSubscriber.Bus.GAME` deprecation warnings
 [2026-03-05] RTS terminal-only search/category migration pass
 - User target
   - add search box + category column directly in RTS craft terminal linked panel

@@ -1,0 +1,66 @@
+RTSBUILDING DESHITFICATION PLAN
+Date: 2026-03-31
+
+Goal
+- Reduce God Class pressure without changing existing public function names,
+  packet shapes, or user-visible behavior.
+
+Guardrails
+- Keep current entry points in place.
+- First passes only extract helpers/services and delegate back through the
+  original classes.
+- Prefer small, buildable slices over wide rewrites.
+
+Primary God Classes
+- `server/RtsStorageManager.java`
+  - Session persistence + storage query + crafting + fluids + mining +
+    funnel + quest detect + remote menu validity.
+- `client/BuilderScreen.java`
+  - Full-screen RTS UI, input routing, shape planning, interaction wheel,
+    funnel panel, guide panel.
+- `client/ClientRtsController.java`
+  - RTS lifecycle, camera prediction, storage/craftables view state,
+    packet sending, remote menu compat.
+- `client/RtsClientInputGate.java`
+  - Overlay rendering, overlay input, linked pickup/deposit behavior,
+    craft overlay state.
+
+Execution Order
+1. Shared client UI extraction.
+   - Pull duplicated panel-frame drawing, text trimming, count formatting,
+     and craft dialog flow out of `BuilderScreen` / `RtsClientInputGate`
+     and related craft screens.
+2. Split `ClientRtsController` into collaborators behind the existing facade.
+   - camera runtime / prediction
+   - storage + craftables view state
+   - packet gateway
+   - remote menu compat
+3. Split `RtsStorageManager` by vertical feature slices.
+   - session repository
+   - storage page service
+   - crafting service
+   - world interaction service
+   - fluid service
+   - mining service
+   - funnel service
+   - remote menu service
+   - quest detect service
+4. Shrink `BuilderScreen` into a routing shell.
+   - shape planner
+   - storage/craft panel renderer
+   - interaction wheel
+   - funnel panel
+   - guide panel
+
+Current Progress
+- Phase 1 started.
+- Added shared client helpers:
+  - `client/RtsClientUiUtil.java`
+  - `client/RtsCraftablesUiHelper.java`
+- `BuilderScreen`, `RtsClientInputGate`, `RtsCraftTerminalScreen`,
+  `RtsCraftQuantityDialog`, and `RtsCraftFeedbackPopup` now delegate repeated
+  UI primitives / craft-dialog flow into shared helpers.
+
+Immediate Next Slice
+- Continue Phase 1 by extracting the shared craft/storage panel widgets used
+  by both `BuilderScreen` and `RtsClientInputGate`.

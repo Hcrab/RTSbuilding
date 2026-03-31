@@ -558,13 +558,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     private static String compactCount(long value) {
-        if (value >= 1_000_000L) {
-            return String.format("%.1fM", value / 1_000_000.0);
-        }
-        if (value >= 1_000L) {
-            return String.format("%.1fK", value / 1_000.0);
-        }
-        return Long.toString(value);
+        return RtsClientUiUtil.compactCount(value);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
@@ -572,10 +566,6 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     private static void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        guiGraphics.fill(x, y, x + w, y + h, fillColor);
-        guiGraphics.hLine(x, x + w, y, light);
-        guiGraphics.hLine(x, x + w, y + h, dark);
-        guiGraphics.vLine(x, y, y + h, light);
-        guiGraphics.vLine(x + w, y, y + h, dark);
+        RtsClientUiUtil.drawPanelFrame(guiGraphics, x, y, w, h, fillColor, light, dark);
     }
 }
