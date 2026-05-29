@@ -2,7 +2,7 @@
   "itemGroup.rtsbuilding": "俯視角建造",
   "block.rtsbuilding.example_block": "示例方塊",
   "item.rtsbuilding.example_item": "示例物品",
-  "key.categories.rtsbuilding": "俯視角建造",
+  "key.categories.rtsbuilding": "RTSbuilding",
   "key.rtsbuilding.toggle_rts": "切換俯視建造模式",
   "key.rtsbuilding.quick_funnel": "快速漏斗",
   "key.rtsbuilding.quick_drop": "快速丟棄",
