@@ -245,7 +245,7 @@
   "screen.rtsbuilding.guide.top.build.2": "直线/方形/墙/圆用 A、B 点。立方体用 A、B 和高度。",
   "screen.rtsbuilding.guide.top.build.3": "预览不对时，关闭快速建造或再次点击顶部按钮即可取消。已确认的批次可用 Ctrl+Z 撤销。",
   "screen.rtsbuilding.guide.top.ultimine.title": "连锁挖掘",
-  "screen.rtsbuilding.guide.top.ultimine.1": "按住左键时会高亮相连的同类方块。",
+  "screen.rtsbuilding.guide.top.ultimine.1": "按住左键时会高亮相连的同类方块。可用 -/+、MIN/MAX，或点击数字直接输入连锁上限。",
   "screen.rtsbuilding.guide.top.ultimine.2": "提前松手不会破坏；只有第一个方块挖完时，整组才会一起破坏。",
   "screen.rtsbuilding.guide.top.chunk.title": "区块显示",
   "screen.rtsbuilding.guide.top.chunk.1": "显示区块边界，方便规划农场、机器和基地模块。",

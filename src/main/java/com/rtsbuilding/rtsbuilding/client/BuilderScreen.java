@@ -101,8 +101,10 @@ public final class BuilderScreen extends Screen {
     private static final int STORAGE_SCAN_POPUP_H = 30;
     private static final int QUICK_BUILD_PANEL_W = 188;
     private static final int QUICK_BUILD_PANEL_H = 216;
-    private static final int ULTIMINE_PANEL_W = 188;
+    private static final int ULTIMINE_PANEL_W = 238;
     private static final int ULTIMINE_PANEL_H = 122;
+    private static final int ULTIMINE_MIN_LIMIT = 1;
+    private static final int ULTIMINE_MAX_LIMIT = 256;
     private static final int QUICK_BUILD_SHAPE_SLOT = 32;
     private static final int QUICK_BUILD_SHAPE_GAP = 8;
     private static final int QUICK_BUILD_GEAR_MENU_W = 148;
@@ -181,6 +183,9 @@ public final class BuilderScreen extends Screen {
     private boolean quickBuildOpen = true;
     private boolean ultimineOpen = false;
     private int ultimineLimit = 64;
+    private boolean ultimineLimitEditing = false;
+    private boolean ultimineLimitSelectAll = false;
+    private String ultimineLimitDraft = "";
     private int lastUltimineSentLimit = 0;
     private int pinPage = 0;
     private int craftScroll = 0;
@@ -390,6 +395,11 @@ public final class BuilderScreen extends Screen {
             boolean handled = this.craftQuantityDialog.mouseClicked(mouseX, mouseY, button, this.width, this.height);
             submitCraftQuantityDialogIfReady();
             return handled;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && this.ultimineLimitEditing
+                && !isInsideUltimineLimitInput(mouseX, mouseY)) {
+            commitUltimineLimitEdit();
         }
 
         if (this.controller.isHomeSelectionMode()) {
@@ -1058,6 +1068,9 @@ public final class BuilderScreen extends Screen {
             }
             return true;
         }
+        if (this.ultimineLimitEditing) {
+            return handleUltimineLimitKeyPressed(keyCode);
+        }
 
         if (this.shapeWheelOpen) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -1339,6 +1352,9 @@ public final class BuilderScreen extends Screen {
         if (this.craftSearchBox != null && this.craftSearchBox.isFocused()) {
             this.craftSearchBox.charTyped(codePoint, modifiers);
             return true;
+        }
+        if (this.ultimineLimitEditing) {
+            return handleUltimineLimitCharTyped(codePoint);
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -2225,7 +2241,7 @@ public final class BuilderScreen extends Screen {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         this.quickBuildOpen = state.quickBuildOpen;
         this.ultimineOpen = state.ultimineOpen;
-        this.ultimineLimit = Math.max(1, Math.min(256, state.ultimineLimit));
+        this.ultimineLimit = clampUltimineLimit(state.ultimineLimit);
         this.fixedRtsGuiScale = sanitizeRtsGuiScale(state.rtsGuiScale);
         this.controller.setStartCameraAtPlayerHead(state.startCameraAtPlayerHead);
         this.controller.setAllowPlacedBlockRecovery(state.allowPlacedBlockRecovery);
@@ -2680,12 +2696,8 @@ public final class BuilderScreen extends Screen {
         if (!this.ultimineOpen || !hasProgressionNode(RtsProgressionNodes.ULTIMINE)) {
             return;
         }
-        int x = this.width - ULTIMINE_PANEL_W - 10;
-        int y = TOP_H + 10 + (this.quickBuildOpen
-                && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)
-                && getFloatingPanelAvailableHeight(TOP_H + 10) >= QUICK_BUILD_PANEL_H
-                ? QUICK_BUILD_PANEL_H + 8
-                : 0);
+        int x = ultiminePanelX();
+        int y = ultiminePanelY();
         if (getFloatingPanelAvailableHeight(y) < ULTIMINE_PANEL_H) {
             return;
         }
@@ -2699,11 +2711,20 @@ public final class BuilderScreen extends Screen {
         drawPanelFrame(g, x + 8, rowY + 12, 24, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
         g.drawCenteredString(this.font, "-", x + 20, rowY + 17, 0xFFFFFF);
         drawPanelFrame(g, x + 38, rowY + 12, 58, 18, 0xAA243547, 0xFF647B92, 0xFF0D1117);
-        g.drawCenteredString(this.font, Integer.toString(this.ultimineLimit), x + 67, rowY + 17, 0xF2F7FF);
+        if (this.ultimineLimitEditing) {
+            g.fill(x + 40, rowY + 14, x + 94, rowY + 28, 0x552D82C8);
+        }
+        String limitText = this.ultimineLimitEditing ? this.ultimineLimitDraft : Integer.toString(this.ultimineLimit);
+        if (limitText.isEmpty()) {
+            limitText = "_";
+        }
+        g.drawCenteredString(this.font, limitText, x + 67, rowY + 17, this.ultimineLimitEditing ? 0xFFFFFF : 0xF2F7FF);
         drawPanelFrame(g, x + 102, rowY + 12, 24, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
         g.drawCenteredString(this.font, "+", x + 114, rowY + 17, 0xFFFFFF);
-        drawPanelFrame(g, x + 132, rowY + 12, 48, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
-        g.drawCenteredString(this.font, "MAX", x + 156, rowY + 17, 0xFFFFFF);
+        drawPanelFrame(g, x + 132, rowY + 12, 42, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
+        g.drawCenteredString(this.font, "MIN", x + 153, rowY + 17, 0xFFFFFF);
+        drawPanelFrame(g, x + 180, rowY + 12, 48, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
+        g.drawCenteredString(this.font, "MAX", x + 204, rowY + 17, 0xFFFFFF);
 
         int stage = this.controller.getMineProgressStage();
         int progressY = y + 82;
@@ -2722,12 +2743,8 @@ public final class BuilderScreen extends Screen {
         if (!this.ultimineOpen || !hasProgressionNode(RtsProgressionNodes.ULTIMINE)) {
             return false;
         }
-        int x = this.width - ULTIMINE_PANEL_W - 10;
-        int y = TOP_H + 10 + (this.quickBuildOpen
-                && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)
-                && getFloatingPanelAvailableHeight(TOP_H + 10) >= QUICK_BUILD_PANEL_H
-                ? QUICK_BUILD_PANEL_H + 8
-                : 0);
+        int x = ultiminePanelX();
+        int y = ultiminePanelY();
         if (getFloatingPanelAvailableHeight(y) < ULTIMINE_PANEL_H || !inside(mouseX, mouseY, x, y, ULTIMINE_PANEL_W, ULTIMINE_PANEL_H)) {
             return false;
         }
@@ -2741,8 +2758,19 @@ public final class BuilderScreen extends Screen {
             adjustUltimineLimit(hasShiftDown() ? 16 : 1);
             return true;
         }
-        if (inside(mouseX, mouseY, x + 132, rowY + 12, 48, 18)) {
-            this.ultimineLimit = 256;
+        if (inside(mouseX, mouseY, x + 38, rowY + 12, 58, 18)) {
+            beginUltimineLimitEdit();
+            return true;
+        }
+        if (inside(mouseX, mouseY, x + 132, rowY + 12, 42, 18)) {
+            this.ultimineLimit = ULTIMINE_MIN_LIMIT;
+            cancelUltimineLimitEdit();
+            persistUiState();
+            return true;
+        }
+        if (inside(mouseX, mouseY, x + 180, rowY + 12, 48, 18)) {
+            this.ultimineLimit = ULTIMINE_MAX_LIMIT;
+            cancelUltimineLimitEdit();
             persistUiState();
             return true;
         }
@@ -2750,8 +2778,105 @@ public final class BuilderScreen extends Screen {
     }
 
     private void adjustUltimineLimit(int delta) {
-        this.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit + delta));
+        this.ultimineLimit = clampUltimineLimit(this.ultimineLimit + delta);
+        cancelUltimineLimitEdit();
         persistUiState();
+    }
+
+    private int ultiminePanelX() {
+        return this.width - ULTIMINE_PANEL_W - 10;
+    }
+
+    private int ultiminePanelY() {
+        return TOP_H + 10 + (this.quickBuildOpen
+                && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)
+                && getFloatingPanelAvailableHeight(TOP_H + 10) >= QUICK_BUILD_PANEL_H
+                ? QUICK_BUILD_PANEL_H + 8
+                : 0);
+    }
+
+    private boolean isInsideUltimineLimitInput(double mouseX, double mouseY) {
+        if (!this.ultimineOpen || !hasProgressionNode(RtsProgressionNodes.ULTIMINE)) {
+            return false;
+        }
+        int x = ultiminePanelX();
+        int y = ultiminePanelY();
+        if (getFloatingPanelAvailableHeight(y) < ULTIMINE_PANEL_H) {
+            return false;
+        }
+        int rowY = y + 32;
+        return inside(mouseX, mouseY, x + 38, rowY + 12, 58, 18);
+    }
+
+    private void beginUltimineLimitEdit() {
+        this.ultimineLimitDraft = Integer.toString(this.ultimineLimit);
+        this.ultimineLimitEditing = true;
+        this.ultimineLimitSelectAll = true;
+        blurSearchFocus();
+    }
+
+    private void commitUltimineLimitEdit() {
+        if (!this.ultimineLimitEditing) {
+            return;
+        }
+        try {
+            if (!this.ultimineLimitDraft.isBlank()) {
+                this.ultimineLimit = clampUltimineLimit(Integer.parseInt(this.ultimineLimitDraft));
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        cancelUltimineLimitEdit();
+        persistUiState();
+    }
+
+    private void cancelUltimineLimitEdit() {
+        this.ultimineLimitEditing = false;
+        this.ultimineLimitSelectAll = false;
+        this.ultimineLimitDraft = "";
+    }
+
+    private boolean handleUltimineLimitKeyPressed(int keyCode) {
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            commitUltimineLimitEdit();
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            cancelUltimineLimitEdit();
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (this.ultimineLimitSelectAll) {
+                this.ultimineLimitDraft = "";
+                this.ultimineLimitSelectAll = false;
+            } else if (!this.ultimineLimitDraft.isEmpty()) {
+                this.ultimineLimitDraft = this.ultimineLimitDraft.substring(0, this.ultimineLimitDraft.length() - 1);
+            }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            this.ultimineLimitDraft = "";
+            this.ultimineLimitSelectAll = false;
+            return true;
+        }
+        return true;
+    }
+
+    private boolean handleUltimineLimitCharTyped(char codePoint) {
+        if (!Character.isDigit(codePoint)) {
+            return true;
+        }
+        if (this.ultimineLimitSelectAll) {
+            this.ultimineLimitDraft = "";
+            this.ultimineLimitSelectAll = false;
+        }
+        if (this.ultimineLimitDraft.length() < 3) {
+            this.ultimineLimitDraft += codePoint;
+        }
+        return true;
+    }
+
+    private int clampUltimineLimit(int value) {
+        return Math.max(ULTIMINE_MIN_LIMIT, Math.min(ULTIMINE_MAX_LIMIT, value));
     }
 
     private void renderShapeContextPanel(GuiGraphics g, int mouseX, int mouseY) {
@@ -4616,7 +4741,7 @@ public final class BuilderScreen extends Screen {
             return List.of();
         }
 
-        int limit = Math.max(1, Math.min(256, this.ultimineLimit));
+        int limit = clampUltimineLimit(this.ultimineLimit);
         List<BlockPos> result = new ArrayList<>();
         Set<BlockPos> visited = new HashSet<>();
         Deque<BlockPos> frontier = new ArrayDeque<>();

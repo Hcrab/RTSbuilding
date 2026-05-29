@@ -245,7 +245,7 @@
   "screen.rtsbuilding.guide.top.build.2": "Line/Square/Wall/Circle use A and B. Cube uses A, B, and height.",
   "screen.rtsbuilding.guide.top.build.3": "If the preview is wrong, close Quick Build or click its top button again to cancel. Ctrl+Z undoes confirmed batches.",
   "screen.rtsbuilding.guide.top.ultimine.title": "Ultimine",
-  "screen.rtsbuilding.guide.top.ultimine.1": "Highlights connected matching blocks while you hold left click.",
+  "screen.rtsbuilding.guide.top.ultimine.1": "Highlights connected matching blocks while you hold left click. Use -/+, MIN/MAX, or click the number to type the chain limit.",
   "screen.rtsbuilding.guide.top.ultimine.2": "Nothing breaks if you let go early; the chain breaks only when the first block finishes.",
   "screen.rtsbuilding.guide.top.chunk.title": "Chunk View",
   "screen.rtsbuilding.guide.top.chunk.1": "Shows chunk boundaries so you can plan farms, machines, and base modules cleanly.",
