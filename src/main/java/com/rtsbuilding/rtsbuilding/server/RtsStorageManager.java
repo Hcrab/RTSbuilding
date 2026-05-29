@@ -2631,6 +2631,7 @@ public final class RtsStorageManager {
         }
 
         ItemEntity dropped = new ItemEntity(player.serverLevel(), dropPos.x, dropPos.y, dropPos.z, extracted);
+        dropped.setDeltaMovement(Vec3.ZERO);
         dropped.setPickUpDelay(10);
         player.serverLevel().addFreshEntity(dropped);
         requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);

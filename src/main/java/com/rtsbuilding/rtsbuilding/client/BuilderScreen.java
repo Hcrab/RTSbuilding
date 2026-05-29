@@ -3524,7 +3524,7 @@ public final class BuilderScreen extends Screen {
         Vec3 dropPos = origin.add(dir.scale(3.25D));
         BlockHitResult hit = pickBlockHit(true);
         if (hit != null) {
-            dropPos = hit.getLocation().add(dir.scale(0.12D));
+            dropPos = Vec3.atCenterOf(hit.getBlockPos()).add(0.0D, 1.05D, 0.0D);
         }
         this.controller.quickDropSelectedItem(dropItemId, 1, dropPos);
     }
