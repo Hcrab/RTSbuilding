@@ -176,7 +176,6 @@ public final class BuilderScreen extends Screen {
     private int guideTopicScroll = 0;
     private int guideTextScroll = 0;
     private boolean gearMenuOpen = false;
-    private boolean suppressGearMenuRender = false;
     private int gearMenuScroll = 0;
     private boolean debugButtonVisible = false;
     private boolean draggingInputSensitivity = false;
@@ -373,9 +372,6 @@ public final class BuilderScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (!this.fixedRtsScaleInputPass && handleUnscaledGearMenuClick(mouseX, mouseY, button)) {
-            return true;
-        }
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
             if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
@@ -584,10 +580,6 @@ public final class BuilderScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (!this.fixedRtsScaleInputPass && this.draggingInputSensitivity) {
-            this.draggingInputSensitivity = false;
-            return true;
-        }
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
             if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
@@ -671,10 +663,6 @@ public final class BuilderScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (!this.fixedRtsScaleInputPass && this.draggingInputSensitivity) {
-            updateInputSensitivityFromMouse(mouseX);
-            return true;
-        }
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
             if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
@@ -967,20 +955,14 @@ public final class BuilderScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (!this.fixedRtsScaleInputPass && this.gearMenuOpen && isInsideGearMenu(mouseX, mouseY)) {
-            return scrollGearMenu(scrollY);
-        }
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
             if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-                boolean restoreGearMenu = this.gearMenuOpen;
-                this.gearMenuOpen = false;
                 this.fixedRtsScaleInputPass = true;
                 try {
                     return mouseScrolled(mouseX / frame.scale(), mouseY / frame.scale(), scrollX, scrollY);
                 } finally {
                     this.fixedRtsScaleInputPass = false;
-                    this.gearMenuOpen = restoreGearMenu;
                     frame.close();
                 }
             }
@@ -1509,21 +1491,14 @@ public final class BuilderScreen extends Screen {
             return false;
         }
         this.fixedRtsScaleRenderPass = true;
-        boolean renderGearMenuUnscaled = this.gearMenuOpen;
-        boolean previousSuppressGearMenuRender = this.suppressGearMenuRender;
-        this.suppressGearMenuRender = true;
         g.pose().pushPose();
         g.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
         try {
             render(g, (int) Math.round(mouseX / frame.scale()), (int) Math.round(mouseY / frame.scale()), partialTick);
         } finally {
             g.pose().popPose();
-            this.suppressGearMenuRender = previousSuppressGearMenuRender;
             this.fixedRtsScaleRenderPass = false;
             frame.close();
-        }
-        if (renderGearMenuUnscaled) {
-            renderGearMenu(g, mouseX, mouseY);
         }
         return true;
     }
@@ -2286,7 +2261,7 @@ public final class BuilderScreen extends Screen {
     }
 
     private void renderGearMenu(GuiGraphics g, int mouseX, int mouseY) {
-        if (!this.gearMenuOpen || this.suppressGearMenuRender) {
+        if (!this.gearMenuOpen) {
             return;
         }
         int w = Math.min(300, this.width - 24);
@@ -2413,22 +2388,6 @@ public final class BuilderScreen extends Screen {
         int x = (this.width - w) / 2;
         int y = (this.height - h) / 2;
         return inside(mouseX, mouseY, x, y, w, h);
-    }
-
-    private boolean handleUnscaledGearMenuClick(double mouseX, double mouseY, int button) {
-        if (!this.gearMenuOpen) {
-            return false;
-        }
-        if (isInsideGearMenu(mouseX, mouseY)) {
-            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                return handleGearMenuClick(mouseX, mouseY);
-            }
-            return true;
-        }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            this.gearMenuOpen = false;
-        }
-        return false;
     }
 
     private boolean scrollGearMenu(double scrollY) {
