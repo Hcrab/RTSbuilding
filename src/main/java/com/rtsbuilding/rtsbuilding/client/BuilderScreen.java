@@ -175,6 +175,8 @@ public final class BuilderScreen extends Screen {
     private int guidePage = 0;
     private int guideTopicScroll = 0;
     private int guideTextScroll = 0;
+    private int guideAnchorX = -1;
+    private int guideAnchorY = -1;
     private boolean gearMenuOpen = false;
     private int gearMenuScroll = 0;
     private boolean debugButtonVisible = false;
@@ -3540,7 +3542,7 @@ public final class BuilderScreen extends Screen {
                     if (this.guideOpen && this.guideContext == GuideContext.TOP) {
                         this.guideOpen = false;
                     } else {
-                        openGuide(GuideContext.TOP);
+                        openGuide(GuideContext.TOP, button.x() + button.width() / 2, 4 + TOP_BUTTON_H);
                     }
                     this.gearMenuOpen = false;
                 }
@@ -3631,7 +3633,7 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (inside(mouseX, mouseY, bottomGuideButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
-            openGuide(GuideContext.BOTTOM);
+            openGuide(GuideContext.BOTTOM, bottomGuideButtonX(layout) + 6, bottomGuideButtonY(layout));
             this.gearMenuOpen = false;
             return true;
         }
@@ -5665,18 +5667,32 @@ public final class BuilderScreen extends Screen {
         if (this.minecraft == null || this.minecraft.getWindow() == null) {
             return 0.0D;
         }
-        return this.minecraft.mouseHandler.xpos()
+        double guiX = this.minecraft.mouseHandler.xpos()
                 * this.minecraft.getWindow().getGuiScaledWidth()
                 / this.minecraft.getWindow().getScreenWidth();
+        return guiX / currentRtsGuiRenderScale();
     }
 
     private double currentMouseY() {
         if (this.minecraft == null || this.minecraft.getWindow() == null) {
             return 0.0D;
         }
-        return this.minecraft.mouseHandler.ypos()
+        double guiY = this.minecraft.mouseHandler.ypos()
                 * this.minecraft.getWindow().getGuiScaledHeight()
                 / this.minecraft.getWindow().getScreenHeight();
+        return guiY / currentRtsGuiRenderScale();
+    }
+
+    private double currentRtsGuiRenderScale() {
+        if (this.minecraft == null || this.minecraft.getWindow() == null || this.width <= 0) {
+            return 1.0D;
+        }
+        double currentScale = this.minecraft.getWindow().getScreenWidth() / (double) Math.max(1, this.width);
+        if (currentScale <= 0.0D || !Double.isFinite(currentScale)) {
+            return 1.0D;
+        }
+        double renderScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale) / currentScale;
+        return renderScale > 0.0D && Double.isFinite(renderScale) ? renderScale : 1.0D;
     }
 
     private boolean tryDirectToolInteraction() {
@@ -6245,11 +6261,17 @@ public final class BuilderScreen extends Screen {
     }
 
     private void openGuide(GuideContext context) {
+        openGuide(context, -1, -1);
+    }
+
+    private void openGuide(GuideContext context, int anchorX, int anchorY) {
         this.guideOpen = true;
         this.guideContext = context;
         this.guidePage = 0;
         this.guideTopicScroll = 0;
         this.guideTextScroll = 0;
+        this.guideAnchorX = anchorX;
+        this.guideAnchorY = anchorY;
     }
 
     private Component guideTitle() {
@@ -6303,8 +6325,13 @@ public final class BuilderScreen extends Screen {
         int x;
         int y;
         if (this.guideContext == GuideContext.BOTTOM) {
-            x = Math.max(8, this.width - panelW - 8);
-            y = Math.max(TOP_H + 6, getBottomY() - panelH - 6);
+            if (hasGuideAnchor()) {
+                x = clampGuidePanelX(this.guideAnchorX - panelW + 20, panelW);
+                y = clampGuidePanelY(this.guideAnchorY - panelH - 8, panelH);
+            } else {
+                x = Math.max(8, this.width - panelW - 8);
+                y = Math.max(TOP_H + 6, getBottomY() - panelH - 6);
+            }
         } else if (this.guideContext == GuideContext.SETTINGS) {
             int settingsW = Math.min(300, this.width - 24);
             int settingsX = (this.width - settingsW) / 2;
@@ -6326,10 +6353,28 @@ public final class BuilderScreen extends Screen {
                         : Math.max(8, settingsY - panelH - gap);
             }
         } else {
-            x = 8;
-            y = TOP_H + 6;
+            if (hasGuideAnchor()) {
+                x = clampGuidePanelX(this.guideAnchorX - panelW / 2, panelW);
+                y = clampGuidePanelY(this.guideAnchorY + 8, panelH);
+            } else {
+                x = 8;
+                y = TOP_H + 6;
+            }
         }
         return new GuidePanelRect(x, y, panelW, panelH);
+    }
+
+    private boolean hasGuideAnchor() {
+        return this.guideAnchorX >= 0 && this.guideAnchorY >= 0;
+    }
+
+    private int clampGuidePanelX(int x, int panelW) {
+        return Mth.clamp(x, 8, Math.max(8, this.width - panelW - 8));
+    }
+
+    private int clampGuidePanelY(int y, int panelH) {
+        int minY = TOP_H + 6;
+        return Mth.clamp(y, minY, Math.max(minY, this.height - panelH - 8));
     }
 
     private int resolveGuideTopicClick(double mouseX, double mouseY) {
