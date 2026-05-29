@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.Mod;
 public final class ClientKeyMappings {
     public static final KeyMapping TOGGLE_RTS = new KeyMapping(
             "key.rtsbuilding.toggle_rts",
-            GLFW.GLFW_KEY_R,
+            GLFW.GLFW_KEY_G,
             "key.categories.rtsbuilding");
     public static final KeyMapping QUICK_FUNNEL = new KeyMapping(
             "key.rtsbuilding.quick_funnel",
