@@ -207,6 +207,7 @@ public final class BuilderScreen extends Screen {
     private boolean nativeCursorHidden = false;
     private boolean fixedRtsScaleRenderPass = false;
     private boolean fixedRtsScaleInputPass = false;
+    private double activeRtsGuiRenderScale = 1.0D;
     private double fixedRtsGuiScale = DEFAULT_RTS_GUI_SCALE;
     private ShapeBuildSession shapeBuildSession;
     private int shapeFootprintNudgeA = 0;
@@ -1491,12 +1492,15 @@ public final class BuilderScreen extends Screen {
             return false;
         }
         this.fixedRtsScaleRenderPass = true;
+        double previousActiveRenderScale = this.activeRtsGuiRenderScale;
+        this.activeRtsGuiRenderScale = frame.scale();
         g.pose().pushPose();
         g.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
         try {
             render(g, (int) Math.round(mouseX / frame.scale()), (int) Math.round(mouseY / frame.scale()), partialTick);
         } finally {
             g.pose().popPose();
+            this.activeRtsGuiRenderScale = previousActiveRenderScale;
             this.fixedRtsScaleRenderPass = false;
             frame.close();
         }
@@ -2279,7 +2283,7 @@ public final class BuilderScreen extends Screen {
 
         int viewportTop = gearMenuViewportTop(y);
         int viewportBottom = gearMenuViewportBottom(y, h);
-        g.enableScissor(x + 8, viewportTop, x + w - 8, viewportBottom);
+        enableRtsScissor(g, x + 8, viewportTop, x + w - 8, viewportBottom);
         renderGearMenuControls(g, mouseX, mouseY, x, y, w);
         g.disableScissor();
         renderGearMenuScrollbar(g, x, y, w, h);
@@ -6156,7 +6160,7 @@ public final class BuilderScreen extends Screen {
         List<FormattedCharSequence> bodyLines = collectGuideTextLines(topic, maxTextW);
         this.guideTextScroll = Mth.clamp(this.guideTextScroll, 0, Math.max(0, bodyLines.size() - visibleTextLines));
         int lineEnd = Math.min(bodyLines.size(), this.guideTextScroll + visibleTextLines);
-        g.enableScissor(textX, bodyTop, textX + maxTextW, bodyTop + bodyAreaH);
+        enableRtsScissor(g, textX, bodyTop, textX + maxTextW, bodyTop + bodyAreaH);
         try {
             for (int i = this.guideTextScroll; i < lineEnd; i++) {
                 g.drawString(this.font, bodyLines.get(i), textX, bodyTop + (i - this.guideTextScroll) * 12, 0xE6EDF8);
@@ -6233,6 +6237,19 @@ public final class BuilderScreen extends Screen {
         int knobY = y + (h - knobH) * Mth.clamp(scroll, 0, maxScroll) / maxScroll;
         g.fill(x, y, x + trackW, y + h, 0x55303A45);
         g.fill(x, knobY, x + trackW, knobY + knobH, 0xCC8FB4D0);
+    }
+
+    private void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) {
+        double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
+        if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
+            g.enableScissor(
+                    (int) Math.floor(x1 * scale),
+                    (int) Math.floor(y1 * scale),
+                    (int) Math.ceil(x2 * scale),
+                    (int) Math.ceil(y2 * scale));
+            return;
+        }
+        g.enableScissor(x1, y1, x2, y2);
     }
 
     private boolean isInsideGuidePanel(double mouseX, double mouseY) {
