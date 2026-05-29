@@ -5,6 +5,10 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -41,6 +45,16 @@ final class RtsClientUiStateStore {
         }
     }
 
+    static synchronized boolean isIntroReminderDismissed(String key) {
+        return load().isIntroReminderDismissed(key);
+    }
+
+    static synchronized void dismissIntroReminder(String key) {
+        UiState state = load();
+        state.addDismissedIntroReminderKey(key);
+        save(state);
+    }
+
     static synchronized boolean isContainerOverlayEnabled() {
         return load().containerOverlayEnabled;
     }
@@ -65,6 +79,7 @@ final class RtsClientUiStateStore {
         boolean allowPlacedBlockRecovery = false;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
+        List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
         static UiState defaults() {
             return new UiState();
@@ -85,7 +100,33 @@ final class RtsClientUiStateStore {
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
+            clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             return clean;
+        }
+
+        boolean isIntroReminderDismissed(String key) {
+            String normalized = normalizeKey(key);
+            if (normalized.isBlank()) {
+                return false;
+            }
+            for (String existing : sanitizeKeys(this.dismissedIntroReminderKeys)) {
+                if (normalized.equals(existing)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void addDismissedIntroReminderKey(String key) {
+            String normalized = normalizeKey(key);
+            if (normalized.isBlank()) {
+                return;
+            }
+            List<String> clean = sanitizeKeys(this.dismissedIntroReminderKeys);
+            if (!clean.contains(normalized)) {
+                clean.add(normalized);
+            }
+            this.dismissedIntroReminderKeys = clean;
         }
 
         private static String sanitizeEnum(String value, String fallback) {
@@ -101,6 +142,23 @@ final class RtsClientUiStateStore {
             }
             double snapped = Math.round(value / 0.5D) * 0.5D;
             return Math.max(1.0D, Math.min(4.0D, snapped));
+        }
+
+        private static List<String> sanitizeKeys(List<String> values) {
+            Set<String> unique = new LinkedHashSet<>();
+            if (values != null) {
+                for (String value : values) {
+                    String normalized = normalizeKey(value);
+                    if (!normalized.isBlank()) {
+                        unique.add(normalized);
+                    }
+                }
+            }
+            return new ArrayList<>(unique);
+        }
+
+        private static String normalizeKey(String key) {
+            return key == null ? "" : key.trim().toLowerCase(java.util.Locale.ROOT);
         }
     }
 }
