@@ -79,7 +79,7 @@ final class RtsClientUiStateStore {
         boolean allowPlacedBlockRecovery = false;
         boolean invertPanDragX = false;
         boolean invertPanDragY = false;
-        boolean smoothCamera = false;
+        boolean smoothCamera = true;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
