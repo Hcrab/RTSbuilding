@@ -23,6 +23,7 @@ public record S2CRtsStoragePagePayload(
         byte sort,
         boolean ascending,
         boolean autoStoreMinedDrops,
+        boolean useBdNetwork,
         List<String> categories,
         List<ItemStack> itemStacks,
         List<Long> counts,
@@ -67,6 +68,7 @@ public record S2CRtsStoragePagePayload(
                 buf.writeByte(payload.sort());
                 buf.writeBoolean(payload.ascending());
                 buf.writeBoolean(payload.autoStoreMinedDrops());
+                buf.writeBoolean(payload.useBdNetwork());
 
                 buf.writeVarInt(payload.categories().size());
                 for (String category : payload.categories()) {
@@ -148,6 +150,7 @@ public record S2CRtsStoragePagePayload(
                 byte sort = buf.readByte();
                 boolean ascending = buf.readBoolean();
                 boolean autoStoreMinedDrops = buf.readBoolean();
+                boolean useBdNetwork = buf.readBoolean();
                 int categorySize = buf.readVarInt();
                 List<String> categories = new ArrayList<>(categorySize);
                 for (int i = 0; i < categorySize; i++) {
@@ -222,6 +225,7 @@ public record S2CRtsStoragePagePayload(
                         sort,
                         ascending,
                         autoStoreMinedDrops,
+                        useBdNetwork,
                         categories,
                         itemStacks,
                         counts,
