@@ -32,6 +32,7 @@ public final class RtsProgressionNodes {
 
     private static final Map<ResourceLocation, RtsProgressionNode> NODES = buildNodes();
     private static volatile Map<String, String> syncedCostOverrides = Map.of();
+    private static volatile boolean hasSyncedCostOverrides;
 
     private RtsProgressionNodes() {
     }
@@ -58,7 +59,19 @@ public final class RtsProgressionNodes {
         return parseCostText(override, node.costs());
     }
 
+    public static List<RtsIngredientCost> syncedCostsFor(RtsProgressionNode node) {
+        if (node == null) {
+            return List.of();
+        }
+        if (!hasSyncedCostOverrides) {
+            return costsFor(node);
+        }
+        String override = syncedCostOverrides.get(node.id().getPath());
+        return override == null ? node.costs() : parseCostText(override, node.costs());
+    }
+
     public static void applySyncedCostOverrides(List<String> overrides) {
+        hasSyncedCostOverrides = true;
         if (overrides == null || overrides.isEmpty()) {
             syncedCostOverrides = Map.of();
             return;

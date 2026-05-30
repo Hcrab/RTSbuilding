@@ -311,7 +311,7 @@ public final class RtsProgressionScreen extends Screen {
         g.fill(rect.x() + 4, rect.y() + 4, rect.x() + 9, rect.y() + rect.h() - 4, state.accent());
         g.drawString(this.font, trim(Component.translatable(node.titleKey()).getString(), rect.w() - 18), rect.x() + 14, rect.y() + 5, state.text());
         g.drawString(this.font, Component.translatable(state.labelKey()), rect.x() + 14, rect.y() + 16, state.subtext());
-        renderCostIcons(g, RtsProgressionNodes.costsFor(node), rect.x() + 10, rect.y() + rect.h() - 18, rect.w() - 66);
+        renderCostIcons(g, RtsProgressionNodes.syncedCostsFor(node), rect.x() + 10, rect.y() + rect.h() - 18, rect.w() - 66);
 
         int bx = rect.x() + rect.w() - BADGE_W - 4;
         int by = rect.y() + rect.h() - BADGE_H - 4;
@@ -431,7 +431,7 @@ public final class RtsProgressionScreen extends Screen {
     private int drawDetailsMaterials(GuiGraphics g, RtsProgressionNode node, int x, int y, int width) {
         g.drawString(this.font, Component.translatable("screen.rtsbuilding.progression.details.materials"), x, y, 0xFFFFD47A);
         y += 14;
-        List<RtsIngredientCost> costs = RtsProgressionNodes.costsFor(node);
+        List<RtsIngredientCost> costs = RtsProgressionNodes.syncedCostsFor(node);
         if (costs.isEmpty()) {
             g.drawString(this.font, Component.translatable("screen.rtsbuilding.progression.details.no_materials"), x + 8, y, 0xAEE8AE);
             return y + 14;
@@ -516,7 +516,7 @@ public final class RtsProgressionScreen extends Screen {
     }
 
     private boolean hasAllCosts(RtsProgressionNode node) {
-        for (RtsIngredientCost cost : RtsProgressionNodes.costsFor(node)) {
+        for (RtsIngredientCost cost : RtsProgressionNodes.syncedCostsFor(node)) {
             if (countPlayerInventory(BuiltInRegistries.ITEM.get(cost.itemId())) < cost.count()) {
                 return false;
             }
