@@ -3,6 +3,7 @@
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "RtsPlayerInputMixin",
     "compat.generatorgalore.GeneratorMenuMixin",
     "compat.ironfurnaces.IronFurnaceContainerMixin",
     "compat.ironfurnaces.WirelessEnergyHeaterContainerMixin",

@@ -79,6 +79,7 @@ final class RtsClientUiStateStore {
         boolean allowPlacedBlockRecovery = false;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
+        boolean smoothCamera = false;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
         static UiState defaults() {
@@ -100,6 +101,7 @@ final class RtsClientUiStateStore {
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
+            clean.smoothCamera = this.smoothCamera;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             return clean;
         }

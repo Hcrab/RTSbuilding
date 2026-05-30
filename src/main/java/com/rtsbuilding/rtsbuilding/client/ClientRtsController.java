@@ -133,6 +133,7 @@ public final class ClientRtsController {
     private boolean suppressBuilderScreenRestoreUntilRtsRestart;
     private boolean startCameraAtPlayerHead;
     private boolean allowPlacedBlockRecovery;
+    private boolean smoothCamera;
 
     private boolean localStateReady;
     private double localX;
@@ -249,6 +250,7 @@ public final class ClientRtsController {
         RtsClientUiStateStore.UiState uiState = RtsClientUiStateStore.load();
         this.startCameraAtPlayerHead = uiState.startCameraAtPlayerHead;
         this.allowPlacedBlockRecovery = uiState.allowPlacedBlockRecovery;
+        this.smoothCamera = uiState.smoothCamera;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -793,6 +795,17 @@ public final class ClientRtsController {
         this.allowPlacedBlockRecovery = !this.allowPlacedBlockRecovery;
     }
 
+    public boolean isSmoothCamera() {
+        return this.smoothCamera;
+    }
+
+    public void toggleSmoothCamera() {
+        this.smoothCamera = !this.smoothCamera;
+        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
+        state.smoothCamera = this.smoothCamera;
+        RtsClientUiStateStore.save(state);
+    }
+
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
 
@@ -1111,15 +1124,15 @@ public final class ClientRtsController {
                 || scrollForTick != 0.0F || this.pendingRotateSteps != 0;
         if (hasCameraInput) {
             this.applyLocalPrediction(
-                    forward,
-                    strafe,
-                    vertical,
-                    this.pendingPanX,
-                    this.pendingPanY,
-                    rotateXForTick,
-                    rotateYForTick,
-                    scrollForTick,
-                    this.pendingRotateSteps,
+                    this.smoothCamera ? 0.0F : forward,
+                    this.smoothCamera ? 0.0F : strafe,
+                    this.smoothCamera ? 0.0F : vertical,
+                    this.smoothCamera ? 0.0F : this.pendingPanX,
+                    this.smoothCamera ? 0.0F : this.pendingPanY,
+                    this.smoothCamera ? 0.0F : rotateXForTick,
+                    this.smoothCamera ? 0.0F : rotateYForTick,
+                    this.smoothCamera ? 0.0F : scrollForTick,
+                    this.smoothCamera ? 0 : this.pendingRotateSteps,
                     fast);
         }
 
@@ -1197,6 +1210,19 @@ public final class ClientRtsController {
     public void queuePanDrag(double dragX, double dragY) {
         this.pendingPanX -= (float) dragX;
         this.pendingPanY -= (float) dragY;
+    }
+
+    public void applyImmediateRotation(float dragX, float dragY) {
+        float sens = getInputSensitivityScale() * this.rotateSensitivity;
+        float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens * ROTATE_GAIN_X;
+        float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens * ROTATE_GAIN_Y;
+        this.localYawDeg += yawDelta;
+        this.localPitchDeg = Mth.clamp(this.localPitchDeg + pitchDelta, MIN_CAMERA_PITCH, MAX_CAMERA_PITCH);
+        this.pendingRawRotateX += Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        this.pendingRawRotateY += Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        if (this.localMirrorCamera != null) {
+            this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+        }
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
@@ -2340,6 +2366,36 @@ public final class ClientRtsController {
         }
 
         this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+
+        if (this.smoothCamera) {
+            boolean suppressMoveKeys = minecraft.screen instanceof BuilderScreen screen && screen.isSearchFocused();
+            long window = minecraft.getWindow().getWindow();
+            boolean w = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_UP));
+            boolean s = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_DOWN));
+            boolean a = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT));
+            boolean d = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT));
+            boolean up = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_SPACE);
+            boolean down = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_SHIFT) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_SHIFT));
+            boolean fast = !suppressMoveKeys && minecraft.options.keySprint.isDown();
+            float forward = (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F);
+            float strafe = (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F);
+            float vertical = (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F);
+
+            float inputSensScale = getInputSensitivityScale();
+            float scroll = this.pendingScroll * inputSensScale;
+            this.pendingScroll = 0.0F;
+
+            this.applyLocalPrediction(
+                    forward, strafe, vertical,
+                    this.pendingPanX, this.pendingPanY,
+                    0.0F, 0.0F,
+                    scroll,
+                    this.pendingRotateSteps,
+                    fast);
+            this.pendingPanX = 0.0F;
+            this.pendingPanY = 0.0F;
+            this.pendingRotateSteps = 0;
+        }
 
         if (minecraft.getCameraEntity() != this.localMirrorCamera) {
             if (this.cameraRestoreCooldownTicks <= 0) {

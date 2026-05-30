@@ -126,7 +126,7 @@ public final class BuilderScreen extends Screen {
     private static final int FUNNEL_BUFFER_TOGGLE_H = 16;
     private static final int GEAR_MENU_H = 284;
     private static final int GEAR_MENU_MIN_H = 168;
-    private static final int GEAR_MENU_CONTENT_H = 292;
+    private static final int GEAR_MENU_CONTENT_H = 328;
     private static final double MIDDLE_CLICK_DRAG_THRESHOLD = 1.5D;
     private static final double DEFAULT_RTS_GUI_SCALE = 2.0D;
     private static final double MIN_RTS_GUI_SCALE = 1.0D;
@@ -155,12 +155,6 @@ public final class BuilderScreen extends Screen {
     private int categoryScroll = 0;
     private final Set<String> expandedCategoryMods = new HashSet<>();
     private int bottomPanelHeight = DEFAULT_BOTTOM_H;
-    private boolean rightPressActive = false;
-    private int rightPressButton = -1;
-    private boolean rightPressCanPrimary = false;
-    private boolean rightPressCanRotate = false;
-    private boolean rightDragRotated = false;
-    private double rightDragDistance = 0.0D;
     private boolean middlePressActive = false;
     private int middlePressButton = -1;
     private boolean middlePressCanPan = false;
@@ -531,25 +525,24 @@ public final class BuilderScreen extends Screen {
         }
 
         boolean primaryMouse = isPrimaryActionMouse(button);
-        boolean rotateMouse = isRotateDragActionMouse(button);
-        if (primaryMouse || rotateMouse) {
+        if (primaryMouse) {
             if (isSearchFocused()) {
                 blurSearchFocus();
             }
-            if (primaryMouse && this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
+            if (this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
                 return true;
             }
-            if (primaryMouse && !rotateMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
+            if (isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
                 BlockHitResult hit = pickBlockHit();
                 if (hit != null) {
                     this.controller.linkStorage(hit.getBlockPos(), false);
                 }
                 return true;
             }
-            if (primaryMouse && isInsideBottomPanel(mouseX, mouseY)) {
+            if (isInsideBottomPanel(mouseX, mouseY)) {
                 return handleBottomPanelRightClick(mouseX, mouseY);
             }
-            if (primaryMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE && !rotateMouse) {
+            if (isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE) {
                 BlockHitResult hit = pickBlockHit();
                 if (hit != null) {
                     clearShapeBuildSession();
@@ -558,13 +551,7 @@ public final class BuilderScreen extends Screen {
                 return true;
             }
             if (isWorldArea(mouseX, mouseY)) {
-                this.rightPressActive = true;
-                this.rightPressButton = button;
-                this.rightPressCanPrimary = primaryMouse;
-                this.rightPressCanRotate = rotateMouse;
-                this.rightDragRotated = false;
-                this.rightDragDistance = 0.0D;
-                return true;
+                return runPrimaryActionAt(mouseX, mouseY, button);
             }
             return true;
         }
@@ -625,30 +612,6 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.rightPressActive && button == this.rightPressButton) {
-            boolean canPrimary = this.rightPressCanPrimary;
-
-            this.rightPressActive = false;
-            this.rightPressButton = -1;
-            this.rightPressCanPrimary = false;
-            this.rightPressCanRotate = false;
-            if (this.rightDragRotated) {
-                this.rightDragRotated = false;
-                this.rightDragDistance = 0.0D;
-                return true;
-            }
-
-            if (!isWorldArea(mouseX, mouseY)) {
-                return true;
-            }
-
-            if (!canPrimary) {
-                return true;
-            }
-
-            return runPrimaryActionAt(mouseX, mouseY, button);
-        }
-
         if (this.middlePressActive && button == this.middlePressButton) {
             if (this.middlePressCanPick
                     && this.middleDragDistance <= MIDDLE_CLICK_DRAG_THRESHOLD
@@ -703,16 +666,12 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.rightPressActive
-                && button == this.rightPressButton
-                && this.rightPressCanRotate
-                && isWorldArea(mouseX, mouseY)
-                && !isAltDown()) {
-            this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
-            if (this.rightDragDistance > 1.5D) {
-                this.rightDragRotated = true;
+        if (isRotateDragActionMouse(button) && isWorldArea(mouseX, mouseY) && !isAltDown()) {
+            if (this.controller.isSmoothCamera()) {
+                this.controller.applyImmediateRotation((float) dragX, (float) dragY);
+            } else {
+                this.controller.queueRotateDrag(dragX, dragY);
             }
-            this.controller.queueRotateDrag(dragX, dragY);
             return true;
         }
 
@@ -2369,6 +2328,12 @@ public final class BuilderScreen extends Screen {
                 "screen.rtsbuilding.settings.container_overlay",
                 "screen.rtsbuilding.settings.container_overlay.hint",
                 RtsClientUiStateStore.isContainerOverlayEnabled());
+
+        int smoothCamY = controlsY + 276;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCamY,
+                "screen.rtsbuilding.settings.smooth_camera",
+                "screen.rtsbuilding.settings.smooth_camera.hint",
+                this.controller.isSmoothCamera());
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -2519,6 +2484,10 @@ public final class BuilderScreen extends Screen {
         }
         if (inside(mouseX, contentMouseY, x + 12, controlsY + 236, w - 24, 34)) {
             RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
+            return true;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 272, w - 24, 34)) {
+            this.controller.toggleSmoothCamera();
             return true;
         }
         return true;

@@ -78,6 +78,8 @@
   "screen.rtsbuilding.settings.debug_button.hint": "Shows a top button that copies RTS state.",
   "screen.rtsbuilding.settings.container_overlay": "Container overlay",
   "screen.rtsbuilding.settings.container_overlay.hint": "Show RTS overlay on chests, worktables, and machines.",
+  "screen.rtsbuilding.settings.smooth_camera": "Smooth camera",
+  "screen.rtsbuilding.settings.smooth_camera.hint": "Render-rate camera: eliminates tick delay on WASD and rotation.",
   "screen.rtsbuilding.top_hint.guide": "Need help? Click i",
   "screen.rtsbuilding.debug.copied": "RTS debug snapshot copied",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
