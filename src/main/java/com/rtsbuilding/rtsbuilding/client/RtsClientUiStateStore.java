@@ -13,7 +13,7 @@ import java.util.Set;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import net.neoforged.fml.loading.FMLPaths;
+import com.rtsbuilding.rtsbuilding.forgecompat.fml.FMLPaths;
 
 final class RtsClientUiStateStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -78,6 +78,7 @@ final class RtsClientUiStateStore {
         boolean startCameraAtPlayerHead = false;
         boolean allowPlacedBlockRecovery = false;
         boolean debugButtonVisible = false;
+        boolean smoothCamera = false;
         boolean containerOverlayEnabled = true;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
@@ -99,6 +100,7 @@ final class RtsClientUiStateStore {
             clean.startCameraAtPlayerHead = this.startCameraAtPlayerHead;
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
             clean.debugButtonVisible = this.debugButtonVisible;
+            clean.smoothCamera = this.smoothCamera;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             return clean;

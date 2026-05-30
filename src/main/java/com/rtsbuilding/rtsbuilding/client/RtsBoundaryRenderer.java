@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -19,18 +22,13 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
-
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
-public final class RtsBoundaryRenderer {
+@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+public final class RtsBoundaryRenderer extends RenderStateShard {
     private static final int CHUNK_GUIDE_RADIUS_CHUNKS = 1;
 
     private static final RenderType CHUNK_XRAY_FILL = RenderType.create(
@@ -41,12 +39,12 @@ public final class RtsBoundaryRenderer {
             false,
             true,
             RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
+                    .setShaderState(POSITION_COLOR_SHADER)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(NO_DEPTH_TEST)
+                    .setOutputState(MAIN_TARGET)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setCullState(NO_CULL)
                     .createCompositeState(false));
 
     private static final RenderType CHUNK_XRAY_LINES = RenderType.create(
@@ -54,21 +52,24 @@ public final class RtsBoundaryRenderer {
             DefaultVertexFormat.POSITION_COLOR_NORMAL,
             VertexFormat.Mode.LINES,
             2 * 1024 * 1024,
+            false,
+            true,
             RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
-                    .setLineState(RenderStateShard.DEFAULT_LINE)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
+                    .setShaderState(RENDERTYPE_LINES_SHADER)
+                    .setLineState(DEFAULT_LINE)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(NO_DEPTH_TEST)
+                    .setOutputState(MAIN_TARGET)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setCullState(NO_CULL)
                     .createCompositeState(false));
 
     private RtsBoundaryRenderer() {
+        super("rtsbuilding_boundary", () -> {}, () -> {});
     }
 
     @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
+    public static void onRenderLevel(final RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
@@ -89,19 +90,12 @@ public final class RtsBoundaryRenderer {
         poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
         MultiBufferSource.BufferSource bufferSource = minecraft.renderBuffers().bufferSource();
-        if (controller.isChunkCurtainVisible()) {
-            renderChunkGuides(
-                    minecraft,
-                    camPos,
-                    poseStack,
-                    bufferSource.getBuffer(CHUNK_XRAY_FILL),
-                    bufferSource.getBuffer(CHUNK_XRAY_LINES));
-            bufferSource.endBatch(CHUNK_XRAY_FILL);
-            bufferSource.endBatch(CHUNK_XRAY_LINES);
-        }
+        // Chunk curtain disabled: NO_DEPTH_TEST custom RenderTypes contaminate
+        // Oculus/Iris G-buffer, causing duplicate/misaligned overlay lines.
+        // Keep RenderStateShard subclass — essential for class-loading order.
 
         VertexConsumer lineBuffer = bufferSource.getBuffer(RenderType.lines());
-        VertexConsumer fillBuffer = bufferSource.getBuffer(RenderType.debugFilledBox());
+
         double ax = controller.getAnchorX();
         double ay = controller.getAnchorY();
         double az = controller.getAnchorZ();
@@ -112,13 +106,13 @@ public final class RtsBoundaryRenderer {
         double minZ = az - r;
         double maxZ = az + r;
 
-        // Drag limit boundary (3 chunks radius => 48 blocks)
-        LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, ay - 0.25D, minZ, maxX, ay + 0.25D, maxZ,
-                1.0F, 0.25F, 0.25F, 1.0F);
+        // Drag-limit box disabled — also contaminates Oculus G-buffer
+        // LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, ay - 0.25D, minZ, maxX, ay + 0.25D, maxZ,
+        //         1.0F, 0.25F, 0.25F, 1.0F);
 
         renderLinkedStorages(minecraft, controller, poseStack, lineBuffer);
         renderHoveredInteractionTarget(minecraft, controller, poseStack, lineBuffer);
-        renderShapeGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
+        renderShapeGhostPreview(minecraft, poseStack, bufferSource);
 
         bufferSource.endBatch(RenderType.lines());
         bufferSource.endBatch(RenderType.debugFilledBox());
@@ -126,11 +120,11 @@ public final class RtsBoundaryRenderer {
     }
 
     private static void renderChunkGuides(
-            Minecraft minecraft,
-            Vec3 cameraPosition,
-            PoseStack poseStack,
-            VertexConsumer fillBuffer,
-            VertexConsumer lineBuffer) {
+            final Minecraft minecraft,
+            final Vec3 cameraPosition,
+            final PoseStack poseStack,
+            final VertexConsumer fillBuffer,
+            final VertexConsumer lineBuffer) {
         if (minecraft.level == null) {
             return;
         }
@@ -152,13 +146,13 @@ public final class RtsBoundaryRenderer {
     }
 
     private static void renderChunkEdgeHighlights(
-            Minecraft minecraft,
-            PoseStack poseStack,
-            VertexConsumer fillBuffer,
-            VertexConsumer lineBuffer,
-            int chunkX,
-            int chunkZ,
-            int guideY) {
+            final Minecraft minecraft,
+            final PoseStack poseStack,
+            final VertexConsumer fillBuffer,
+            final VertexConsumer lineBuffer,
+            final int chunkX,
+            final int chunkZ,
+            final int guideY) {
         int startX = chunkX << 4;
         int startZ = chunkZ << 4;
         int endX = startX + 15;
@@ -179,13 +173,13 @@ public final class RtsBoundaryRenderer {
     }
 
     private static void renderChunkGuideCell(
-            PoseStack poseStack,
-            VertexConsumer fillBuffer,
-            VertexConsumer lineBuffer,
-            int x,
-            int z,
-            int guideY,
-            ChunkGuideColor color) {
+            final PoseStack poseStack,
+            final VertexConsumer fillBuffer,
+            final VertexConsumer lineBuffer,
+            final int x,
+            final int z,
+            final int guideY,
+            final ChunkGuideColor color) {
         double inset = 0.04D;
         double minX = x + inset;
         double minY = guideY + inset;
@@ -221,7 +215,7 @@ public final class RtsBoundaryRenderer {
                 0.92F);
     }
 
-    private static ChunkGuideColor chunkGuideColor(int chunkX, int chunkZ) {
+    private static ChunkGuideColor chunkGuideColor(final int chunkX, final int chunkZ) {
         return ((chunkX ^ chunkZ) & 1) == 0
                 ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)
                 : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);
@@ -230,8 +224,8 @@ public final class RtsBoundaryRenderer {
     private record ChunkGuideColor(float r, float g, float b, float a) {
     }
 
-    private static void renderLinkedStorages(Minecraft minecraft, ClientRtsController controller, PoseStack poseStack,
-            VertexConsumer lineBuffer) {
+    private static void renderLinkedStorages(final Minecraft minecraft, final ClientRtsController controller, final PoseStack poseStack,
+            final VertexConsumer lineBuffer) {
         if (minecraft.level == null || controller.getLinkedStoragePositions().isEmpty()) {
             return;
         }
@@ -258,8 +252,8 @@ public final class RtsBoundaryRenderer {
         }
     }
 
-    private static void renderHoveredInteractionTarget(Minecraft minecraft, ClientRtsController controller,
-            PoseStack poseStack, VertexConsumer lineBuffer) {
+    private static void renderHoveredInteractionTarget(final Minecraft minecraft, final ClientRtsController controller,
+            final PoseStack poseStack, final VertexConsumer lineBuffer) {
         if (controller.isRotateCaptured() || minecraft.level == null || minecraft.getCameraEntity() == null) {
             return;
         }
@@ -339,8 +333,8 @@ public final class RtsBoundaryRenderer {
         }
     }
 
-    private static void renderShapeGhostPreview(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer,
-            VertexConsumer fillBuffer) {
+    private static void renderShapeGhostPreview(final Minecraft minecraft, final PoseStack poseStack,
+            final MultiBufferSource.BufferSource bufferSource) {
         if (!(minecraft.screen instanceof BuilderScreen builderScreen)) {
             return;
         }
@@ -356,6 +350,7 @@ public final class RtsBoundaryRenderer {
         float fillG = preview.readyConfirm() ? 0.72F : 0.55F;
         float fillB = preview.readyConfirm() ? 0.24F : 0.90F;
         float fillA = preview.readyConfirm() ? 0.22F : 0.16F;
+        VertexConsumer fillBuffer = bufferSource.getBuffer(RenderType.debugFilledBox());
 
         for (BlockPos pos : preview.blocks()) {
             double minX = pos.getX() + 0.03D;
@@ -379,6 +374,7 @@ public final class RtsBoundaryRenderer {
                     fillA);
         }
 
+        VertexConsumer lineBuffer = bufferSource.getBuffer(RenderType.lines());
         for (BlockPos pos : preview.blocks()) {
             double minX = pos.getX() + 0.03D;
             double minY = pos.getY() + 0.03D;
@@ -402,8 +398,8 @@ public final class RtsBoundaryRenderer {
         }
     }
 
-    private static BlockHitResult raycastBlockFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to,
-            boolean includeFluidSource) {
+    private static BlockHitResult raycastBlockFromCursor(final Minecraft minecraft, final Vec3 camPos, final Vec3 to,
+            final boolean includeFluidSource) {
         ClipContext.Fluid fluidMode = includeFluidSource ? ClipContext.Fluid.SOURCE_ONLY : ClipContext.Fluid.NONE;
         HitResult hit = minecraft.level.clip(new ClipContext(camPos, to, ClipContext.Block.OUTLINE, fluidMode,
                 minecraft.getCameraEntity()));
@@ -413,8 +409,8 @@ public final class RtsBoundaryRenderer {
         return null;
     }
 
-    private static EntityHitResult raycastEntityFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to, Vec3 viewDir,
-            double reach) {
+    private static EntityHitResult raycastEntityFromCursor(final Minecraft minecraft, final Vec3 camPos, final Vec3 to, final Vec3 viewDir,
+            final double reach) {
         Entity cameraEntity = minecraft.getCameraEntity();
         if (cameraEntity == null) {
             return null;
@@ -433,7 +429,7 @@ public final class RtsBoundaryRenderer {
                 reach * reach);
     }
 
-    private static Vec3 computeCursorRayDirection(Minecraft minecraft) {
+    private static Vec3 computeCursorRayDirection(final Minecraft minecraft) {
         double mouseX = minecraft.mouseHandler.xpos();
         double mouseY = minecraft.mouseHandler.ypos();
         double width = Math.max(1.0D, minecraft.getWindow().getScreenWidth());
@@ -459,7 +455,6 @@ public final class RtsBoundaryRenderer {
         double tanY = Math.tan(fovY * 0.5D);
         double tanX = tanY * (width / height);
 
-        // Current yaw basis yields a left-vector here; invert X NDC to keep screen-right -> ray-right.
         return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
     }
 }
