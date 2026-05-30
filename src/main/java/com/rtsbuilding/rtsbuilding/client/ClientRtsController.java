@@ -111,6 +111,8 @@ public final class ClientRtsController {
     private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
     private static final int CAMERA_IDLE_HEARTBEAT_TICKS = 20;
     private static final int CAMERA_RESTORE_COOLDOWN_TICKS = 10;
+    private static final long NANOS_PER_TICK = 50_000_000L;
+    private static final float MAX_SMOOTH_FRAME_TICKS = 2.00F;
 
     private boolean enabled;
     private int serverCameraEntityId = -1;
@@ -134,6 +136,7 @@ public final class ClientRtsController {
     private boolean startCameraAtPlayerHead;
     private boolean invertPanDragX;
     private boolean invertPanDragY;
+    private boolean smoothCamera;
 
     private boolean localStateReady;
     private double localX;
@@ -154,6 +157,7 @@ public final class ClientRtsController {
     private float emaRotateY;
     private int cameraMoveHeartbeatTicks;
     private int cameraRestoreCooldownTicks;
+    private long lastSmoothCameraFrameNanos;
 
     private float rotateSensitivity = 5.00F;
     private int inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
@@ -253,6 +257,7 @@ public final class ClientRtsController {
         this.allowPlacedBlockRecovery = uiState.allowPlacedBlockRecovery;
         this.invertPanDragX = uiState.invertPanDragX;
         this.invertPanDragY = uiState.invertPanDragY;
+        this.smoothCamera = uiState.smoothCamera;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -809,6 +814,21 @@ public final class ClientRtsController {
         this.invertPanDragY = !this.invertPanDragY;
     }
 
+    public boolean isSmoothCamera() {
+        return this.smoothCamera;
+    }
+
+    public void setSmoothCamera(boolean smoothCamera) {
+        if (this.smoothCamera != smoothCamera) {
+            this.lastSmoothCameraFrameNanos = 0L;
+        }
+        this.smoothCamera = smoothCamera;
+    }
+
+    public void toggleSmoothCamera() {
+        setSmoothCamera(!this.smoothCamera);
+    }
+
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
 
@@ -856,6 +876,7 @@ public final class ClientRtsController {
             this.emaRotateY = 0.0F;
             this.cameraMoveHeartbeatTicks = 0;
             this.cameraRestoreCooldownTicks = 0;
+            this.lastSmoothCameraFrameNanos = 0L;
             this.mode = BuilderMode.INTERACT;
             this.storageCollapsed = false;
             this.storageEntries.clear();
@@ -910,6 +931,7 @@ public final class ClientRtsController {
         this.localStateReady = false;
         this.homeSelectionMode = false;
         this.closeRangeAllowed = false;
+        this.lastSmoothCameraFrameNanos = 0L;
         this.funnelEnabled = false;
         this.lastFunnelTarget = null;
         this.funnelTargetCooldownTicks = 0;
@@ -1071,25 +1093,11 @@ public final class ClientRtsController {
 
         this.ensureLocalMirrorCamera(minecraft);
 
-        long window = minecraft.getWindow().getWindow();
-        BuilderScreen builderScreen = minecraft.screen instanceof BuilderScreen screen ? screen : null;
-        boolean suppressMoveKeys = builderScreen != null && builderScreen.isSearchFocused();
-        boolean w = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W);
-        boolean s = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S);
-        boolean a = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A);
-        boolean d = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D);
-        boolean up = !suppressMoveKeys
-                && (ClientKeyMappings.CAMERA_UP.isDown()
-                        || ClientKeyMappings.CAMERA_UP_SECONDARY.isDown()
-                        || (builderScreen != null && builderScreen.isCameraUpActionHeld()));
-        boolean down = !suppressMoveKeys
-                && (ClientKeyMappings.CAMERA_DOWN.isDown()
-                        || (builderScreen != null && builderScreen.isCameraDownActionHeld()));
-        boolean fast = !suppressMoveKeys && minecraft.options.keySprint.isDown();
-
-        float forward = (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F);
-        float strafe = (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F);
-        float vertical = (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F);
+        CameraInput cameraInput = readCameraInput(minecraft);
+        float forward = cameraInput.forward;
+        float strafe = cameraInput.strafe;
+        float vertical = cameraInput.vertical;
+        boolean fast = cameraInput.fast;
 
         float safeRawX = Mth.clamp(this.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
         float safeRawY = Mth.clamp(this.pendingRawRotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
@@ -1125,7 +1133,7 @@ public final class ClientRtsController {
                 || Math.abs(this.pendingPanY) > CAMERA_INPUT_EPSILON
                 || rotateXForTick != 0.0F || rotateYForTick != 0.0F
                 || scrollForTick != 0.0F || this.pendingRotateSteps != 0;
-        if (hasCameraInput) {
+        if (hasCameraInput && !this.smoothCamera) {
             this.applyLocalPrediction(
                     forward,
                     strafe,
@@ -1162,6 +1170,32 @@ public final class ClientRtsController {
         this.pendingRawRotateY = 0.0F;
 
         this.syncVisualCameraFrame();
+    }
+
+    private CameraInput readCameraInput(Minecraft minecraft) {
+        BuilderScreen builderScreen = minecraft.screen instanceof BuilderScreen screen ? screen : null;
+        boolean suppressMoveKeys = builderScreen != null && builderScreen.isSearchFocused();
+        if (suppressMoveKeys) {
+            return CameraInput.NONE;
+        }
+
+        long window = minecraft.getWindow().getWindow();
+        boolean w = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W);
+        boolean s = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S);
+        boolean a = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A);
+        boolean d = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D);
+        boolean up = ClientKeyMappings.CAMERA_UP.isDown()
+                || ClientKeyMappings.CAMERA_UP_SECONDARY.isDown()
+                || (builderScreen != null && builderScreen.isCameraUpActionHeld());
+        boolean down = ClientKeyMappings.CAMERA_DOWN.isDown()
+                || (builderScreen != null && builderScreen.isCameraDownActionHeld());
+        boolean fast = minecraft.options.keySprint.isDown();
+
+        return new CameraInput(
+                (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F),
+                (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F),
+                (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F),
+                fast);
     }
 
     private boolean handleDeathScreenHandoff(Minecraft minecraft) {
@@ -1204,6 +1238,7 @@ public final class ClientRtsController {
         this.closeRangeAllowed = false;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
+        this.lastSmoothCameraFrameNanos = 0L;
         this.previousCameraEntity = null;
         this.localMirrorCamera = null;
         RtsClientPacketGateway.sendToggleCamera(false);
@@ -1213,21 +1248,52 @@ public final class ClientRtsController {
     public void queuePanDrag(double dragX, double dragY) {
         float signedDragX = (float) dragX;
         float signedDragY = (float) dragY;
-        this.pendingPanX += this.invertPanDragX ? signedDragX : -signedDragX;
-        this.pendingPanY += this.invertPanDragY ? signedDragY : -signedDragY;
+        float panX = this.invertPanDragX ? signedDragX : -signedDragX;
+        float panY = this.invertPanDragY ? signedDragY : -signedDragY;
+        this.pendingPanX += panX;
+        this.pendingPanY += panY;
+        if (this.smoothCamera) {
+            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, panX, panY, 0.0F, 0.0F, 0.0F, 0, false);
+        }
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
         this.pendingRawRotateX += (float) dragX;
         this.pendingRawRotateY += (float) dragY;
+        if (this.smoothCamera) {
+            applyImmediateRotation((float) dragX, (float) dragY);
+        }
     }
 
     public void queueScroll(double scrollY) {
         this.pendingScroll += (float) scrollY;
+        if (this.smoothCamera) {
+            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+                    (float) scrollY * getInputSensitivityScale(), 0, false);
+        }
     }
 
     public void queueRotateQuarter(int direction) {
         this.pendingRotateSteps += direction;
+        if (this.smoothCamera) {
+            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, direction, false);
+        }
+    }
+
+    private void applyImmediateRotation(float dragX, float dragY) {
+        float sens = getInputSensitivityScale() * this.rotateSensitivity;
+        float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
+        float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
+        applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, yawDelta, pitchDelta, 0.0F, 0, false);
+    }
+
+    private void applyImmediateCameraInput(float forward, float strafe, float vertical, float panX, float panY,
+            float rotateX, float rotateY, float scroll, int rotateSteps, boolean fast) {
+        if (!this.enabled || !this.localStateReady) {
+            return;
+        }
+        applyLocalPrediction(forward, strafe, vertical, panX, panY, rotateX, rotateY, scroll, rotateSteps, fast);
+        snapLocalMirrorCameraPose();
     }
 
     public void updateFunnelTarget(BlockPos target) {
@@ -2400,7 +2466,13 @@ public final class ClientRtsController {
             return;
         }
 
-        this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+        if (this.smoothCamera) {
+            applySmoothFrameMovement(minecraft);
+        } else {
+            this.lastSmoothCameraFrameNanos = 0L;
+        }
+
+        snapLocalMirrorCameraPose();
 
         if (minecraft.getCameraEntity() != this.localMirrorCamera) {
             if (this.cameraRestoreCooldownTicks <= 0) {
@@ -2411,6 +2483,48 @@ public final class ClientRtsController {
             }
         } else if (this.cameraRestoreCooldownTicks > 0) {
             this.cameraRestoreCooldownTicks--;
+        }
+    }
+
+    private void applySmoothFrameMovement(Minecraft minecraft) {
+        long now = System.nanoTime();
+        if (this.lastSmoothCameraFrameNanos == 0L) {
+            this.lastSmoothCameraFrameNanos = now;
+            return;
+        }
+
+        long elapsed = now - this.lastSmoothCameraFrameNanos;
+        this.lastSmoothCameraFrameNanos = now;
+        if (elapsed <= 0L) {
+            return;
+        }
+
+        float tickDelta = Mth.clamp(elapsed / (float) NANOS_PER_TICK, 0.0F, MAX_SMOOTH_FRAME_TICKS);
+        if (tickDelta <= CAMERA_INPUT_EPSILON) {
+            return;
+        }
+
+        CameraInput input = readCameraInput(minecraft);
+        if (!input.hasMovement()) {
+            return;
+        }
+
+        applyLocalPrediction(
+                input.forward * tickDelta,
+                input.strafe * tickDelta,
+                input.vertical * tickDelta,
+                0.0F,
+                0.0F,
+                0.0F,
+                0.0F,
+                0.0F,
+                0,
+                input.fast);
+    }
+
+    private void snapLocalMirrorCameraPose() {
+        if (this.localMirrorCamera != null) {
+            this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
         }
     }
 
@@ -2593,6 +2707,26 @@ public final class ClientRtsController {
         WALL,
         CIRCLE,
         BOX
+    }
+
+    private static final class CameraInput {
+        private static final CameraInput NONE = new CameraInput(0.0F, 0.0F, 0.0F, false);
+
+        final float forward;
+        final float strafe;
+        final float vertical;
+        final boolean fast;
+
+        CameraInput(float forward, float strafe, float vertical, boolean fast) {
+            this.forward = forward;
+            this.strafe = strafe;
+            this.vertical = vertical;
+            this.fast = fast;
+        }
+
+        boolean hasMovement() {
+            return this.forward != 0.0F || this.strafe != 0.0F || this.vertical != 0.0F;
+        }
     }
 
     private static RecentEntry decodeRecentEntry(String idText, long amount, long capacity, byte kind) {

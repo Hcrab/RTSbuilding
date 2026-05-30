@@ -79,6 +79,7 @@ final class RtsClientUiStateStore {
         boolean allowPlacedBlockRecovery = false;
         boolean invertPanDragX = false;
         boolean invertPanDragY = false;
+        boolean smoothCamera = false;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
@@ -102,6 +103,7 @@ final class RtsClientUiStateStore {
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
             clean.invertPanDragX = this.invertPanDragX;
             clean.invertPanDragY = this.invertPanDragY;
+            clean.smoothCamera = this.smoothCamera;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);

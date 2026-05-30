@@ -127,7 +127,7 @@ public final class BuilderScreen extends Screen {
     private static final int FUNNEL_BUFFER_TOGGLE_H = 16;
     private static final int GEAR_MENU_H = 284;
     private static final int GEAR_MENU_MIN_H = 168;
-    private static final int GEAR_MENU_CONTENT_H = 364;
+    private static final int GEAR_MENU_CONTENT_H = 400;
     private static final double MIDDLE_CLICK_DRAG_THRESHOLD = 1.5D;
     private static final double DEFAULT_RTS_GUI_SCALE = 2.0D;
     private static final double MIN_RTS_GUI_SCALE = 1.0D;
@@ -2256,6 +2256,7 @@ public final class BuilderScreen extends Screen {
         this.controller.setAllowPlacedBlockRecovery(state.allowPlacedBlockRecovery);
         this.controller.setInvertPanDragX(state.invertPanDragX);
         this.controller.setInvertPanDragY(state.invertPanDragY);
+        this.controller.setSmoothCamera(state.smoothCamera);
         this.debugButtonVisible = state.debugButtonVisible;
         int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
         double sensitivityFraction = sensitivityPresetCount <= 1
@@ -2292,6 +2293,7 @@ public final class BuilderScreen extends Screen {
         state.allowPlacedBlockRecovery = this.controller.isAllowPlacedBlockRecovery();
         state.invertPanDragX = this.controller.isInvertPanDragX();
         state.invertPanDragY = this.controller.isInvertPanDragY();
+        state.smoothCamera = this.controller.isSmoothCamera();
         state.debugButtonVisible = this.debugButtonVisible;
         RtsClientUiStateStore.save(state);
     }
@@ -2384,6 +2386,12 @@ public final class BuilderScreen extends Screen {
                 "screen.rtsbuilding.settings.pan_drag_y_invert",
                 "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
                 this.controller.isInvertPanDragY());
+
+        int smoothCameraToggleY = controlsY + 348;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCameraToggleY,
+                "screen.rtsbuilding.settings.smooth_camera",
+                "screen.rtsbuilding.settings.smooth_camera.hint",
+                this.controller.isSmoothCamera());
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -2543,6 +2551,11 @@ public final class BuilderScreen extends Screen {
         }
         if (inside(mouseX, contentMouseY, x + 12, controlsY + 308, w - 24, 34)) {
             this.controller.toggleInvertPanDragY();
+            persistUiState();
+            return true;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 344, w - 24, 34)) {
+            this.controller.toggleSmoothCamera();
             persistUiState();
             return true;
         }
@@ -3656,6 +3669,7 @@ public final class BuilderScreen extends Screen {
                 .append(" debugButton=").append(this.debugButtonVisible)
                 .append(" invertPanDragX=").append(this.controller.isInvertPanDragX())
                 .append(" invertPanDragY=").append(this.controller.isInvertPanDragY())
+                .append(" smoothCamera=").append(this.controller.isSmoothCamera())
                 .append('\n');
         out.append("storageLinked=").append(this.controller.isStorageLinked())
                 .append(" name=").append(this.controller.getLinkedStorageName())

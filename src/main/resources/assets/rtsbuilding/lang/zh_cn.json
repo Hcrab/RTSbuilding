@@ -102,6 +102,8 @@
   "screen.rtsbuilding.settings.pan_drag_x_invert.hint": "切换左右拖动时镜头平移方向。",
   "screen.rtsbuilding.settings.pan_drag_y_invert": "垂直拖屏反向",
   "screen.rtsbuilding.settings.pan_drag_y_invert.hint": "切换上下拖动时镜头平移方向。",
+  "screen.rtsbuilding.settings.smooth_camera": "平滑 RTS 镜头",
+  "screen.rtsbuilding.settings.smooth_camera.hint": "用渲染帧预测移动和拖拽输入。",
   "screen.rtsbuilding.top_hint.guide": "不会操作？点 i",
   "screen.rtsbuilding.debug.copied": "RTS debug 状态已复制",
   "screen.rtsbuilding.home_select.title": "设置 RTS 家园",

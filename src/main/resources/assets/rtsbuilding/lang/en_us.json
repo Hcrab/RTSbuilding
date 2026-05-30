@@ -102,6 +102,8 @@
   "screen.rtsbuilding.settings.pan_drag_x_invert.hint": "Flip left/right movement while dragging the pan key.",
   "screen.rtsbuilding.settings.pan_drag_y_invert": "Invert vertical pan drag",
   "screen.rtsbuilding.settings.pan_drag_y_invert.hint": "Flip up/down movement while dragging the pan key.",
+  "screen.rtsbuilding.settings.smooth_camera": "Smooth RTS camera",
+  "screen.rtsbuilding.settings.smooth_camera.hint": "Render-frame visual prediction for movement and drag input.",
   "screen.rtsbuilding.top_hint.guide": "Need help? Click i",
   "screen.rtsbuilding.debug.copied": "RTS debug snapshot copied",
   "screen.rtsbuilding.home_select.title": "Set RTS Home",
