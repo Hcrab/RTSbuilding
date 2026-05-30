@@ -65,6 +65,16 @@ final class RtsClientUiStateStore {
         save(state);
     }
 
+    static synchronized boolean isOverlayShiftImportEnabled() {
+        return load().overlayShiftImportEnabled;
+    }
+
+    static synchronized void setOverlayShiftImportEnabled(boolean enabled) {
+        UiState state = load();
+        state.overlayShiftImportEnabled = enabled;
+        save(state);
+    }
+
     static final class UiState {
         String buildShape = ClientRtsController.BuildShape.BLOCK.name();
         String fillMode = "FILL";
@@ -82,6 +92,7 @@ final class RtsClientUiStateStore {
         boolean smoothCamera = true;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
+        boolean overlayShiftImportEnabled = false;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
         static UiState defaults() {
@@ -106,6 +117,7 @@ final class RtsClientUiStateStore {
             clean.smoothCamera = this.smoothCamera;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
+            clean.overlayShiftImportEnabled = this.overlayShiftImportEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             return clean;
         }

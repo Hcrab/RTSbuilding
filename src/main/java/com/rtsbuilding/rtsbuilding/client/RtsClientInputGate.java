@@ -19,6 +19,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -57,7 +58,7 @@ public final class RtsClientInputGate {
     private static final int CRAFT_SEARCH_H = 12;
     private static final int CRAFT_APPLY_W = 18;
     private static final int CRAFT_TOGGLE_W = 34;
-    private static final int RETURN_SLOTS = 5;
+    private static final int RETURN_SLOTS = 2;
     private static final int PAGE_BUTTON_W = 14;
     private static final int PAGE_BUTTON_H = 11;
     private static final double OVERLAY_TARGET_GUI_SCALE = 3.0D;
@@ -152,6 +153,46 @@ public final class RtsClientInputGate {
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         overlayBootstrapRequested = false;
         activeOverlayScreen = null;
+    }
+
+    public static List<Rect2i> getJeiOverlayExtraAreas(Screen screen) {
+        VisibleOverlayLayout visible = resolveVisibleOverlayLayout(screen);
+        if (visible == null) {
+            return List.of();
+        }
+        return List.of(toGuiRect(
+                visible.layout().panelX(),
+                visible.layout().panelY(),
+                visible.layout().panelW(),
+                visible.layout().panelH(),
+                visible.profile().renderScale()));
+    }
+
+    public static JeiOverlayIngredient getJeiOverlayIngredientUnderMouse(double mouseX, double mouseY) {
+        Minecraft minecraft = Minecraft.getInstance();
+        VisibleOverlayLayout visible = resolveVisibleOverlayLayout(minecraft == null ? null : minecraft.screen);
+        if (visible == null || visible.layout().overlayCollapsed()) {
+            return null;
+        }
+        double scale = Math.max(0.001D, visible.profile().renderScale());
+        double overlayMouseX = mouseX / scale;
+        double overlayMouseY = mouseY / scale;
+        OverlayLayout layout = visible.layout();
+        int index = resolveOverlaySlotIndex(overlayMouseX, overlayMouseY, layout.gridX(), layout.gridY(), layout.storageRows());
+        if (index < 0) {
+            return null;
+        }
+        List<ClientRtsController.StorageEntry> entries = ClientRtsController.get().getStorageEntries();
+        if (index >= entries.size()) {
+            return null;
+        }
+        ItemStack stack = entries.get(index).stack();
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        int slotX = layout.gridX() + (index % STORAGE_COLS) * SLOT_PITCH;
+        int slotY = layout.gridY() + (index / STORAGE_COLS) * SLOT_PITCH;
+        return new JeiOverlayIngredient(stack.copy(), toGuiRect(slotX, slotY, SLOT_SIZE, SLOT_SIZE, scale));
     }
 
     @SubscribeEvent
@@ -275,6 +316,9 @@ public final class RtsClientInputGate {
         renderOverlayBottomControls(g, minecraft.font, layout);
         renderOverlayRefreshButton(g, minecraft.font, layout, mouseX, mouseY, controller);
         renderOverlayInfoButton(g, minecraft.font, layout, mouseX, mouseY);
+        if (!layout.overlayCollapsed()) {
+            renderOverlayShiftImportButton(g, minecraft.font, layout, mouseX, mouseY);
+        }
 
         if (!OVERLAY_CRAFT_DIALOG.isOpen()) {
             int hoveredStorage = resolveOverlaySlotIndex(mouseX, mouseY, layout.gridX(), layout.gridY(), visibleStorageRows);
@@ -421,15 +465,17 @@ public final class RtsClientInputGate {
                 return;
             }
             if (Screen.hasShiftDown()) {
-                if (tryStartShiftImportDrag((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy)) {
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy, event.getButton())) {
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
+                if (RtsClientUiStateStore.isOverlayShiftImportEnabled()) {
+                    if (tryStartShiftImportDrag((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy)) {
+                        captureLeftRelease = true;
+                        event.setCanceled(true);
+                        return;
+                    }
+                    if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy, event.getButton())) {
+                        captureLeftRelease = true;
+                        event.setCanceled(true);
+                        return;
+                    }
                 }
                 if (tryQuickMoveOverlayEntry((AbstractContainerScreen<?>) event.getScreen(), mx, my)) {
                     captureLeftRelease = true;
@@ -565,6 +611,12 @@ public final class RtsClientInputGate {
                 event.setCanceled(true);
                 return;
             }
+            if (inside(mx, my, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE)) {
+                toggleOverlayShiftImportEnabled();
+                captureLeftRelease = true;
+                event.setCanceled(true);
+                return;
+            }
 
             int returnIdx = resolveReturnSlotIndex(mx, my, layout.returnX(), layout.returnY());
             if (returnIdx >= 0) {
@@ -613,10 +665,12 @@ public final class RtsClientInputGate {
                 return;
             }
             if (Screen.hasShiftDown()) {
-                if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), mx, my, event.getButton())) {
-                    captureRightRelease = true;
-                    event.setCanceled(true);
-                    return;
+                if (RtsClientUiStateStore.isOverlayShiftImportEnabled()) {
+                    if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), mx, my, event.getButton())) {
+                        captureRightRelease = true;
+                        event.setCanceled(true);
+                        return;
+                    }
                 }
                 if (tryQuickMoveOverlayEntry((AbstractContainerScreen<?>) event.getScreen(), mx, my)) {
                     captureRightRelease = true;
@@ -659,6 +713,7 @@ public final class RtsClientInputGate {
         if (shiftImportDragging) {
             if (isLeftMouseDown()
                     && Screen.hasShiftDown()
+                    && RtsClientUiStateStore.isOverlayShiftImportEnabled()
                     && ClientRtsController.get().canUseStorageOverlay()
                     && event.getScreen() == shiftImportDragScreen
                     && event.getScreen() instanceof AbstractContainerScreen<?> screen
@@ -967,6 +1022,33 @@ public final class RtsClientInputGate {
 
     private static OverlayLayout resolveOverlayLayout(Screen screen) {
         return resolveOverlayLayout(overlayProfile());
+    }
+
+    private static VisibleOverlayLayout resolveVisibleOverlayLayout(Screen screen) {
+        if (!shouldRenderContainerOverlay(screen)) {
+            return null;
+        }
+        OverlayProfile profile = overlayProfile();
+        return new VisibleOverlayLayout(profile, resolveOverlayLayout(profile));
+    }
+
+    private static boolean shouldRenderContainerOverlay(Screen screen) {
+        if (screen == null
+                || screen instanceof BuilderScreen
+                || screen instanceof RtsCraftTerminalScreen
+                || !(screen instanceof AbstractContainerScreen<?>)) {
+            return false;
+        }
+        return RtsClientUiStateStore.isContainerOverlayEnabled()
+                && ClientRtsController.get().canUseStorageOverlay();
+    }
+
+    private static Rect2i toGuiRect(int x, int y, int w, int h, double scale) {
+        int rx = (int) Math.round(x * scale);
+        int ry = (int) Math.round(y * scale);
+        int rw = Math.max(1, (int) Math.round(w * scale));
+        int rh = Math.max(1, (int) Math.round(h * scale));
+        return new Rect2i(rx, ry, rw, rh);
     }
 
     private static OverlayLayout resolveOverlayLayout(OverlayProfile profile) {
@@ -1441,6 +1523,23 @@ public final class RtsClientInputGate {
         g.drawCenteredString(font, "i", layout.infoX() + OVERLAY_BOTTOM_SMALL_W / 2, layout.controlsY() + 2, 0xFFEAF2FF);
     }
 
+    private static void renderOverlayShiftImportButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
+        boolean enabled = RtsClientUiStateStore.isOverlayShiftImportEnabled();
+        boolean hovered = inside(mouseX, mouseY, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE);
+        int bg = enabled
+                ? hovered ? 0xCC3AA156 : 0xCC2C873F
+                : hovered ? 0xAA3E5368 : 0xAA24303A;
+        int light = enabled ? 0xFF74E88C : 0xFF6E8799;
+        int dark = enabled ? 0xFF123A1D : 0xFF111821;
+        drawPanelFrame(g, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE, bg, light, dark);
+        g.drawCenteredString(
+                font,
+                Component.translatable("screen.rtsbuilding.overlay.shift_import_button").getString(),
+                layout.shiftImportX() + layout.shiftImportW() / 2,
+                layout.returnY() + 4,
+                0xFFEAF2FF);
+    }
+
     private static void renderOverlayBottomControls(
             GuiGraphics g,
             Font font,
@@ -1475,6 +1574,14 @@ public final class RtsClientInputGate {
         overlayDragging = false;
         clearOverlaySearchFocus();
         OVERLAY_CRAFT_DIALOG.close();
+    }
+
+    private static void toggleOverlayShiftImportEnabled() {
+        boolean enabled = !RtsClientUiStateStore.isOverlayShiftImportEnabled();
+        RtsClientUiStateStore.setOverlayShiftImportEnabled(enabled);
+        if (!enabled) {
+            endShiftImportDrag();
+        }
     }
 
     private static void renderOverlayInfoPanel(GuiGraphics g, Font font, OverlayLayout layout) {
@@ -2097,6 +2204,15 @@ public final class RtsClientInputGate {
             return this.storagePanelX + 6;
         }
 
+        private int shiftImportX() {
+            return this.returnX() + RETURN_SLOTS * SLOT_PITCH + OVERLAY_BOTTOM_GAP;
+        }
+
+        private int shiftImportW() {
+            int right = this.storagePanelX + STORAGE_PANEL_W - 6;
+            return Math.max(48, right - this.shiftImportX());
+        }
+
         private int controlsY() {
             if (this.overlayCollapsed) {
                 return this.storagePanelY + collapsedControlsYOff();
@@ -2126,6 +2242,12 @@ public final class RtsClientInputGate {
     }
 
     private record OverlayProfile(double guiScale, double renderScale, int storageRows, boolean stackCraftBelow) {
+    }
+
+    private record VisibleOverlayLayout(OverlayProfile profile, OverlayLayout layout) {
+    }
+
+    public record JeiOverlayIngredient(ItemStack stack, Rect2i area) {
     }
 
 }
