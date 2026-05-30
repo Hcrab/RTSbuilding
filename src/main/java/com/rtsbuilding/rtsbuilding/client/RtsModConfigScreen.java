@@ -207,14 +207,22 @@ public final class RtsModConfigScreen extends Screen {
 
     private void saveAndClose() {
         captureVisibleDrafts();
-        Config.setSurvivalProgressionEnabled(this.survivalEnabled);
-        Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(this.shareWithTeams);
-        Config.setMaxActionRadiusBlocks(parseMaxRadius());
-        Config.SPEC.save();
-        ClientRtsController.get().setSurvivalProgressionEnabled(this.survivalEnabled);
+        Map<String, String> costOverrides = new LinkedHashMap<>();
         for (RtsProgressionNode node : this.nodes) {
-            Config.setProgressionCostOverride(node.id().getPath(), this.draftCosts.getOrDefault(node.id(), ""));
+            String costs = this.draftCosts.getOrDefault(node.id(), "");
+            if (costs != null && !costs.trim().isBlank()) {
+                costOverrides.put(node.id().getPath(), costs.trim());
+            }
         }
+        try {
+            Config.saveProgressionSettings(this.survivalEnabled, this.shareWithTeams, parseMaxRadius(), costOverrides);
+        } catch (RuntimeException ex) {
+            if (this.minecraft != null && this.minecraft.player != null) {
+                this.minecraft.player.displayClientMessage(Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()), false);
+            }
+            return;
+        }
+        ClientRtsController.get().setSurvivalProgressionEnabled(this.survivalEnabled);
         this.minecraft.setScreen(this.parent);
     }
 

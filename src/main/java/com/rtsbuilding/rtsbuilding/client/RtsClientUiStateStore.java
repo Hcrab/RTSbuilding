@@ -77,6 +77,8 @@ final class RtsClientUiStateStore {
         int inputSensitivityIndex = 2;
         boolean startCameraAtPlayerHead = false;
         boolean allowPlacedBlockRecovery = false;
+        boolean invertPanDragX = false;
+        boolean invertPanDragY = false;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
@@ -98,6 +100,8 @@ final class RtsClientUiStateStore {
             clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));
             clean.startCameraAtPlayerHead = this.startCameraAtPlayerHead;
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
+            clean.invertPanDragX = this.invertPanDragX;
+            clean.invertPanDragY = this.invertPanDragY;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);

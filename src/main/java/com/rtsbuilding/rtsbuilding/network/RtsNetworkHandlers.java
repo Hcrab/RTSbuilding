@@ -182,6 +182,28 @@ public final class RtsNetworkHandlers {
         });
     }
 
+    public static void handlePlaceBatch(C2SRtsPlaceBatchPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                Direction face = Direction.from3DDataValue(payload.face());
+                RtsStorageManager.enqueuePlaceBatch(
+                        serverPlayer,
+                        payload.clickedPositions(),
+                        face,
+                        payload.rotateSteps(),
+                        payload.forcePlace(),
+                        payload.skipIfOccupied(),
+                        payload.itemId(),
+                        payload.rayOriginX(),
+                        payload.rayOriginY(),
+                        payload.rayOriginZ(),
+                        payload.rayDirX(),
+                        payload.rayDirY(),
+                        payload.rayDirZ());
+            }
+        });
+    }
+
     public static void handlePlaceFluid(C2SRtsPlaceFluidPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
@@ -276,6 +298,7 @@ public final class RtsNetworkHandlers {
                         payload.start(),
                         payload.toolSlot(),
                         payload.toolItemId(),
+                        payload.toolPrototype(),
                         payload.allowPlacedBlockRecovery());
             }
         });
@@ -285,7 +308,14 @@ public final class RtsNetworkHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
-                RtsStorageManager.startUltimine(serverPlayer, payload.pos(), face, payload.toolSlot(), payload.toolItemId(), payload.limit());
+                RtsStorageManager.startUltimine(
+                        serverPlayer,
+                        payload.pos(),
+                        face,
+                        payload.toolSlot(),
+                        payload.toolItemId(),
+                        payload.toolPrototype(),
+                        payload.limit());
             }
         });
     }

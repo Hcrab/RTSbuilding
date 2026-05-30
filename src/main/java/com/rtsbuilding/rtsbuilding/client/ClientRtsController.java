@@ -132,6 +132,8 @@ public final class ClientRtsController {
     private boolean closeRangeAllowed;
     private boolean suppressBuilderScreenRestoreUntilRtsRestart;
     private boolean startCameraAtPlayerHead;
+    private boolean invertPanDragX;
+    private boolean invertPanDragY;
 
     private boolean localStateReady;
     private double localX;
@@ -249,6 +251,8 @@ public final class ClientRtsController {
         RtsClientUiStateStore.UiState uiState = RtsClientUiStateStore.load();
         this.startCameraAtPlayerHead = uiState.startCameraAtPlayerHead;
         this.allowPlacedBlockRecovery = uiState.allowPlacedBlockRecovery;
+        this.invertPanDragX = uiState.invertPanDragX;
+        this.invertPanDragY = uiState.invertPanDragY;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -781,6 +785,30 @@ public final class ClientRtsController {
         this.startCameraAtPlayerHead = !this.startCameraAtPlayerHead;
     }
 
+    public boolean isInvertPanDragX() {
+        return this.invertPanDragX;
+    }
+
+    public void setInvertPanDragX(boolean invertPanDragX) {
+        this.invertPanDragX = invertPanDragX;
+    }
+
+    public void toggleInvertPanDragX() {
+        this.invertPanDragX = !this.invertPanDragX;
+    }
+
+    public boolean isInvertPanDragY() {
+        return this.invertPanDragY;
+    }
+
+    public void setInvertPanDragY(boolean invertPanDragY) {
+        this.invertPanDragY = invertPanDragY;
+    }
+
+    public void toggleInvertPanDragY() {
+        this.invertPanDragY = !this.invertPanDragY;
+    }
+
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
 
@@ -1183,8 +1211,10 @@ public final class ClientRtsController {
     }
 
     public void queuePanDrag(double dragX, double dragY) {
-        this.pendingPanX -= (float) dragX;
-        this.pendingPanY -= (float) dragY;
+        float signedDragX = (float) dragX;
+        float signedDragY = (float) dragY;
+        this.pendingPanX += this.invertPanDragX ? signedDragX : -signedDragX;
+        this.pendingPanY += this.invertPanDragY ? signedDragY : -signedDragY;
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
@@ -2058,6 +2088,24 @@ public final class ClientRtsController {
                 quickBuild);
     }
 
+    public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
+            boolean skipIfOccupied) {
+        beginRemoteMenuOpenGrace();
+        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
+            clearSelectedItemOnly();
+            itemId = "";
+        }
+        RtsClientPacketGateway.sendPlaceBatch(
+                hits,
+                forcePlace,
+                skipIfOccupied,
+                itemId,
+                itemId.isBlank() ? 0 : this.placeRotateSteps,
+                rayOrigin,
+                rayDir);
+    }
+
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
         if (hit == null || this.selectedFluidId.isBlank()) {
             return;
@@ -2217,6 +2265,7 @@ public final class ClientRtsController {
                 face,
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(),
+                selectedMiningToolPrototype(),
                 this.allowPlacedBlockRecovery);
     }
 
@@ -2229,7 +2278,13 @@ public final class ClientRtsController {
         this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
-        RtsClientPacketGateway.sendUltimineStart(this.activeMinePos, face, this.activeMineToolSlot, selectedMiningToolItemId(), limit);
+        RtsClientPacketGateway.sendUltimineStart(
+                this.activeMinePos,
+                face,
+                this.activeMineToolSlot,
+                selectedMiningToolItemId(),
+                selectedMiningToolPrototype(),
+                limit);
     }
 
     public void continueMining(int toolSlot) {
@@ -2247,13 +2302,19 @@ public final class ClientRtsController {
     }
 
     private String selectedMiningToolItemId() {
+        return selectedMiningToolPrototype().isEmpty() ? "" : this.selectedItemId;
+    }
+
+    private ItemStack selectedMiningToolPrototype() {
         if (this.selectedItemId == null || this.selectedItemId.isBlank() || this.selectedItemPreview == null || this.selectedItemPreview.isEmpty()) {
-            return "";
+            return ItemStack.EMPTY;
         }
         if (this.selectedItemPreview.getItem() instanceof BlockItem) {
-            return "";
+            return ItemStack.EMPTY;
         }
-        return this.selectedItemId;
+        ItemStack prototype = this.selectedItemPreview.copy();
+        prototype.setCount(1);
+        return prototype;
     }
 
     public int getMineProgressStage() {
