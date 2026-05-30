@@ -71,6 +71,14 @@ public final class RtsNetworkHandlers {
         });
     }
 
+    public static void handleSetBdNetwork(C2SRtsSetBdNetworkPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsStorageManager.setBdNetworkEnabled(serverPlayer, payload.enabled());
+            }
+        });
+    }
+
     public static void handleLinkStorage(C2SRtsLinkStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {

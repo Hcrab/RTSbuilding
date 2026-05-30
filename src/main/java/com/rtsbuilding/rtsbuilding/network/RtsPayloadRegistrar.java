@@ -42,6 +42,11 @@ public final class RtsPayloadRegistrar {
                 RtsNetworkHandlers::handleSetAutoStore);
 
         registrar.playToServer(
+                C2SRtsSetBdNetworkPayload.TYPE,
+                C2SRtsSetBdNetworkPayload.STREAM_CODEC,
+                RtsNetworkHandlers::handleSetBdNetwork);
+
+        registrar.playToServer(
                 C2SRtsLinkStoragePayload.TYPE,
                 C2SRtsLinkStoragePayload.STREAM_CODEC,
                 RtsNetworkHandlers::handleLinkStorage);
