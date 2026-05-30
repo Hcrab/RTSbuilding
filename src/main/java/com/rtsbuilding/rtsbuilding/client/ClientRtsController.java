@@ -105,7 +105,6 @@ public final class ClientRtsController {
     private static final long STORAGE_SCAN_RESULT_VISIBLE_MS = 450L;
     private static final double MIN_CAMERA_HEIGHT_OFFSET = -5.0D;
     private static final double MAX_CAMERA_HEIGHT_OFFSET = 80.0D;
-    private static final double DEFAULT_MIN_CAMERA_DISTANCE = 8.0D;
     private static final double MAX_CAMERA_DISTANCE = 72.0D;
     private static final float MIN_CAMERA_PITCH = -90.0F;
     private static final float MAX_CAMERA_PITCH = 90.0F;
@@ -1047,16 +1046,13 @@ public final class ClientRtsController {
         long window = minecraft.getWindow().getWindow();
         BuilderScreen builderScreen = minecraft.screen instanceof BuilderScreen screen ? screen : null;
         boolean suppressMoveKeys = builderScreen != null && builderScreen.isSearchFocused();
-        boolean w = !suppressMoveKeys
-                && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_UP));
-        boolean s = !suppressMoveKeys
-                && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_DOWN));
-        boolean a = !suppressMoveKeys
-                && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT));
-        boolean d = !suppressMoveKeys
-                && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT));
+        boolean w = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W);
+        boolean s = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S);
+        boolean a = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A);
+        boolean d = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D);
         boolean up = !suppressMoveKeys
                 && (ClientKeyMappings.CAMERA_UP.isDown()
+                        || ClientKeyMappings.CAMERA_UP_SECONDARY.isDown()
                         || (builderScreen != null && builderScreen.isCameraUpActionHeld()));
         boolean down = !suppressMoveKeys
                 && (ClientKeyMappings.CAMERA_DOWN.isDown()
@@ -1187,8 +1183,8 @@ public final class ClientRtsController {
     }
 
     public void queuePanDrag(double dragX, double dragY) {
-        this.pendingPanX += (float) dragX;
-        this.pendingPanY += (float) dragY;
+        this.pendingPanX -= (float) dragX;
+        this.pendingPanY -= (float) dragY;
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
@@ -1562,6 +1558,9 @@ public final class ClientRtsController {
                 this.selectedItemPreview.setCount(1);
                 return;
             }
+        }
+        if (hasStoragePageSnapshot() && getStorageTotalCount(this.selectedItemId) <= 0L) {
+            clearSelectedItemOnly();
         }
     }
 
@@ -2043,12 +2042,17 @@ public final class ClientRtsController {
     public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied,
             boolean quickBuild) {
         beginRemoteMenuOpenGrace();
+        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
+            clearSelectedItemOnly();
+            itemId = "";
+        }
         RtsClientPacketGateway.sendPlace(
                 hit,
                 forcePlace,
                 skipIfOccupied,
-                this.selectedItemId,
-                this.selectedItemId.isBlank() ? 0 : this.placeRotateSteps,
+                itemId,
+                itemId.isBlank() ? 0 : this.placeRotateSteps,
                 rayOrigin,
                 rayDir,
                 quickBuild);
@@ -2427,15 +2431,11 @@ public final class ClientRtsController {
 
         Vec3 toCam = new Vec3(targetX - this.anchorX, targetY - this.anchorY, targetZ - this.anchorZ);
         double dist = toCam.length();
-        if (dist > 1.0e-6) {
-            double minDist = this.closeRangeAllowed || safeVertical != 0.0F ? 0.0D : DEFAULT_MIN_CAMERA_DISTANCE;
-            double clamped = Mth.clamp(dist, minDist, MAX_CAMERA_DISTANCE);
-            if (Math.abs(clamped - dist) > 1.0e-4) {
-                Vec3 n = toCam.scale(clamped / dist);
-                targetX = this.anchorX + n.x;
-                targetY = this.anchorY + n.y;
-                targetZ = this.anchorZ + n.z;
-            }
+        if (dist > MAX_CAMERA_DISTANCE) {
+            Vec3 n = toCam.scale(MAX_CAMERA_DISTANCE / dist);
+            targetX = this.anchorX + n.x;
+            targetY = this.anchorY + n.y;
+            targetZ = this.anchorZ + n.z;
         }
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
