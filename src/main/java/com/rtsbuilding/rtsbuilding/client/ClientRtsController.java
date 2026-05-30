@@ -62,14 +62,14 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -138,6 +138,7 @@ public final class ClientRtsController {
     private boolean closeRangeAllowed;
     private boolean suppressBuilderScreenRestoreUntilRtsRestart;
     private boolean startCameraAtPlayerHead;
+    private boolean allowPlacedBlockRecovery;
     private boolean smoothCamera;
 
     private boolean localStateReady;
@@ -221,7 +222,6 @@ public final class ClientRtsController {
     private int screenlessRemoteMenuTicks;
     private AbstractContainerMenu relaxedRemoteMenu;
     private boolean autoStoreMinedDrops = true;
-    private boolean allowPlacedBlockRecovery;
     private final String[] quickSlotItemIds = new String[QUICK_SLOT_COUNT];
     private final String[] quickSlotLabels = new String[QUICK_SLOT_COUNT];
     private final ItemStack[] quickSlotPreviews = new ItemStack[QUICK_SLOT_COUNT];
@@ -277,17 +277,6 @@ public final class ClientRtsController {
 
     public boolean isEnabled() {
         return enabled;
-    }
-
-    public boolean isSmoothCamera() {
-        return this.smoothCamera;
-    }
-
-    public void toggleSmoothCamera() {
-        this.smoothCamera = !this.smoothCamera;
-        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
-        state.smoothCamera = this.smoothCamera;
-        RtsClientUiStateStore.save(state);
     }
 
     public boolean canUseStorageOverlay() {
@@ -800,6 +789,29 @@ public final class ClientRtsController {
         this.startCameraAtPlayerHead = !this.startCameraAtPlayerHead;
     }
 
+    public boolean isAllowPlacedBlockRecovery() {
+        return this.allowPlacedBlockRecovery;
+    }
+
+    public void setAllowPlacedBlockRecovery(boolean allowPlacedBlockRecovery) {
+        this.allowPlacedBlockRecovery = allowPlacedBlockRecovery;
+    }
+
+    public void toggleAllowPlacedBlockRecovery() {
+        this.allowPlacedBlockRecovery = !this.allowPlacedBlockRecovery;
+    }
+
+    public boolean isSmoothCamera() {
+        return this.smoothCamera;
+    }
+
+    public void toggleSmoothCamera() {
+        this.smoothCamera = !this.smoothCamera;
+        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
+        state.smoothCamera = this.smoothCamera;
+        RtsClientUiStateStore.save(state);
+    }
+
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
 
@@ -1015,10 +1027,10 @@ public final class ClientRtsController {
 
         if (minecraft.screen instanceof CraftingScreen craftingScreen
                 && minecraft.player != null
+                && (craftingScreen.getMenu() instanceof CraftingMenu)
                 && !(minecraft.screen instanceof RtsCraftTerminalScreen)
                 && shouldUseRtsCraftTerminalScreen(craftingScreen)) {
-            CraftingMenu craftingMenu = craftingScreen.getMenu();
-            minecraft.setScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.player.getInventory(), craftingScreen.getTitle()));
+            minecraft.setScreen(new RtsCraftTerminalScreen((CraftingMenu) craftingScreen.getMenu(), minecraft.player.getInventory(), craftingScreen.getTitle()));
             this.pendingCraftTerminalOpen = false;
             this.pendingCraftTerminalOpenTicks = 0;
         } else if (this.pendingCraftTerminalOpen) {
@@ -1121,15 +1133,15 @@ public final class ClientRtsController {
                 || scrollForTick != 0.0F || this.pendingRotateSteps != 0;
         if (hasCameraInput) {
             this.applyLocalPrediction(
-                    forward,
-                    strafe,
-                    vertical,
-                    this.pendingPanX,
-                    this.pendingPanY,
-                    rotateXForTick,
-                    rotateYForTick,
-                    scrollForTick,
-                    this.pendingRotateSteps,
+                    this.smoothCamera ? 0.0F : forward,
+                    this.smoothCamera ? 0.0F : strafe,
+                    this.smoothCamera ? 0.0F : vertical,
+                    this.smoothCamera ? 0.0F : this.pendingPanX,
+                    this.smoothCamera ? 0.0F : this.pendingPanY,
+                    this.smoothCamera ? 0.0F : rotateXForTick,
+                    this.smoothCamera ? 0.0F : rotateYForTick,
+                    this.smoothCamera ? 0.0F : scrollForTick,
+                    this.smoothCamera ? 0 : this.pendingRotateSteps,
                     fast);
         }
 
@@ -1304,18 +1316,6 @@ public final class ClientRtsController {
 
     public void toggleAutoStoreMinedDrops() {
         setAutoStoreMinedDrops(!this.autoStoreMinedDrops);
-    }
-
-    public boolean isAllowPlacedBlockRecovery() {
-        return this.allowPlacedBlockRecovery;
-    }
-
-    public void setAllowPlacedBlockRecovery(boolean allowPlacedBlockRecovery) {
-        this.allowPlacedBlockRecovery = allowPlacedBlockRecovery;
-    }
-
-    public void toggleAllowPlacedBlockRecovery() {
-        this.allowPlacedBlockRecovery = !this.allowPlacedBlockRecovery;
     }
 
     public void setStorageSearch(String search) {
@@ -2377,6 +2377,38 @@ public final class ClientRtsController {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {
             return;
+        }
+
+        if (this.smoothCamera) {
+            boolean suppressMoveKeys = minecraft.screen instanceof BuilderScreen screen && screen.isSearchFocused();
+            long window = minecraft.getWindow().getWindow();
+            boolean w = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_UP));
+            boolean s = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_DOWN));
+            boolean a = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT));
+            boolean d = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT));
+            boolean up = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_SPACE);
+            boolean down = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_SHIFT) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_SHIFT));
+            boolean fast = !suppressMoveKeys && minecraft.options.keySprint.isDown();
+            float forward = (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F);
+            float strafe = (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F);
+            float vertical = (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F);
+
+            float inputSensScale = getInputSensitivityScale();
+            float scroll = this.pendingScroll * inputSensScale;
+            this.pendingScroll = 0.0F;
+
+            this.applyLocalPrediction(
+                    forward * inputSensScale,
+                    strafe  * inputSensScale,
+                    vertical * inputSensScale,
+                    this.pendingPanX, this.pendingPanY,
+                    0.0F, 0.0F,
+                    scroll,
+                    this.pendingRotateSteps,
+                    fast);
+            this.pendingPanX = 0.0F;
+            this.pendingPanY = 0.0F;
+            this.pendingRotateSteps = 0;
         }
 
         this.ensureLocalMirrorCamera(minecraft);

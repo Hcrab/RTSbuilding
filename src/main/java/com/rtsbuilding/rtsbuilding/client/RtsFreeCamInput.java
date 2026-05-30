@@ -10,6 +10,14 @@ import net.minecraft.client.player.Input;
  */
 public class RtsFreeCamInput extends Input {
 
+    private static RtsFreeCamInput instance;
+
+    /** Lazy singleton — safe to call at any time. */
+    public static RtsFreeCamInput dummy() {
+        if (instance == null) instance = new RtsFreeCamInput();
+        return instance;
+    }
+
     @Override
     public void tick(final boolean sneaking, final float speedModifier) {
         // NO-OP: zero out every movement flag.

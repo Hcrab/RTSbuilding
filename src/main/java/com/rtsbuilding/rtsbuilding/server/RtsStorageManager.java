@@ -21,6 +21,7 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
@@ -73,7 +74,6 @@ import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.BoneMealItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ShearsItem;
@@ -183,7 +183,7 @@ public final class RtsStorageManager {
 
     private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> ITEM_CREATIVE_TAB_CACHE = new ConcurrentHashMap<>();
-    private static volatile Boolean creativeTabContentsOperatorState;
+    private static final Set<String> BROKEN_CREATIVE_TAB_CACHE = ConcurrentHashMap.newKeySet();
     private static volatile boolean creativeTabCacheWarmNormal;
     private static volatile boolean creativeTabCacheWarmOperator;
     private static final PreviewCraftingMenu PREVIEW_CRAFTING_MENU = new PreviewCraftingMenu();
@@ -201,15 +201,12 @@ public final class RtsStorageManager {
         if (server == null) {
             return;
         }
-        ServerLevel level = server.overworld();
-        if (level == null) {
-            return;
-        }
         synchronized (RtsStorageManager.class) {
-            ITEM_CREATIVE_TAB_CACHE.clear();
-            creativeTabContentsOperatorState = null;
-            creativeTabCacheWarmNormal = false;
-            creativeTabCacheWarmOperator = false;
+            clearCreativeTabCacheState();
+            ServerLevel level = server.overworld();
+            if (level == null) {
+                return;
+            }
             warmCreativeTabCacheMode(level, false);
             warmCreativeTabCacheMode(level, true);
         }
@@ -1015,7 +1012,7 @@ public final class RtsStorageManager {
 
         List<LinkedHandler> activeHandlers = resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> activeFluidHandlers = resolveLinkedFluidHandlers(player, session);
-        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player);
+        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
         List<Long> linkedPackedPositions = toPackedPositions(player, session.linkedStorages);
         if (session.linkedStorages.isEmpty()
                 && activeHandlers.isEmpty()
@@ -1092,21 +1089,22 @@ public final class RtsStorageManager {
         Map<String, Set<String>> itemTabKeys = new HashMap<>();
         Map<String, Set<String>> modTabKeys = new HashMap<>();
         if (!counts.isEmpty()) {
-            ensureCreativeTabContents(player);
             boolean operatorTabs = player.canUseGameMasterBlocks();
-            for (String itemId : counts.keySet()) {
-                ResourceLocation rl = ResourceLocation.tryParse(itemId);
-                if (rl == null || !BuiltInRegistries.ITEM.containsKey(rl)) {
-                    continue;
+            if (ensureCreativeTabContents(player)) {
+                for (String itemId : counts.keySet()) {
+                    ResourceLocation rl = ResourceLocation.tryParse(itemId);
+                    if (rl == null || !BuiltInRegistries.ITEM.containsKey(rl)) {
+                        continue;
+                    }
+                    Item item = BuiltInRegistries.ITEM.get(rl);
+                    Set<String> tabs = resolveCreativeTabKeys(itemId, item, operatorTabs);
+                    if (tabs.isEmpty()) {
+                        continue;
+                    }
+                    Set<String> copied = new HashSet<>(tabs);
+                    itemTabKeys.put(itemId, copied);
+                    modTabKeys.computeIfAbsent(rl.getNamespace(), ignored -> new HashSet<>()).addAll(copied);
                 }
-                Item item = BuiltInRegistries.ITEM.get(rl);
-                Set<String> tabs = resolveCreativeTabKeys(itemId, item, operatorTabs);
-                if (tabs.isEmpty()) {
-                    continue;
-                }
-                Set<String> copied = new HashSet<>(tabs);
-                itemTabKeys.put(itemId, copied);
-                modTabKeys.computeIfAbsent(rl.getNamespace(), ignored -> new HashSet<>()).addAll(copied);
             }
         }
 
@@ -1996,47 +1994,21 @@ public final class RtsStorageManager {
     }
 
     private static Set<String> resolveCreativeTabKeys(String itemId, Item item, boolean operatorTabs) {
-        String cacheKey = (operatorTabs ? "op|" : "normal|") + itemId;
-        return ITEM_CREATIVE_TAB_CACHE.computeIfAbsent(cacheKey, ignored -> {
-            ItemStack probe = new ItemStack(item);
-            Set<String> tabKeys = new HashSet<>();
-            for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
-                if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY || !tab.shouldDisplay()) {
-                    continue;
-                }
-                if (!tab.contains(probe)) {
-                    continue;
-                }
-                ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
-                if (key != null) {
-                    tabKeys.add(key.toString());
-                }
-            }
-            return tabKeys;
-        });
+        Set<String> tabKeys = ITEM_CREATIVE_TAB_CACHE.get(creativeTabItemCacheKey(itemId, operatorTabs));
+        return tabKeys == null ? Set.of() : tabKeys;
     }
 
-    private static void ensureCreativeTabContents(ServerPlayer player) {
+    private static boolean ensureCreativeTabContents(ServerPlayer player) {
         boolean operatorTabs = player.canUseGameMasterBlocks();
         if (isCreativeTabCacheWarm(operatorTabs)) {
-            return;
-        }
-        Boolean current = creativeTabContentsOperatorState;
-        if (current != null && current.booleanValue() == operatorTabs) {
-            return;
+            return true;
         }
         synchronized (RtsStorageManager.class) {
-            current = creativeTabContentsOperatorState;
-            if (current != null && current.booleanValue() == operatorTabs) {
-                return;
+            if (isCreativeTabCacheWarm(operatorTabs)) {
+                return true;
             }
-            // Creative tab contents are client-oriented and may be uninitialized on dedicated/server runtime.
-            // Rebuild only when the operator-item visibility mode changes; large modpacks make this expensive.
-            CreativeModeTabs.tryRebuildTabContents(
-                    player.serverLevel().enabledFeatures(),
-                    operatorTabs,
-                    player.serverLevel().registryAccess());
-            creativeTabContentsOperatorState = operatorTabs;
+            warmCreativeTabCacheMode(player.serverLevel(), operatorTabs);
+            return true;
         }
     }
 
@@ -2044,21 +2016,101 @@ public final class RtsStorageManager {
         if (isCreativeTabCacheWarm(operatorTabs)) {
             return;
         }
-        CreativeModeTabs.tryRebuildTabContents(
+        rebuildCreativeTabContentsSafely(level, operatorTabs);
+        setCreativeTabCacheWarm(operatorTabs);
+    }
+
+    private static void clearCreativeTabCacheState() {
+        ITEM_CREATIVE_TAB_CACHE.clear();
+        BROKEN_CREATIVE_TAB_CACHE.clear();
+        creativeTabCacheWarmNormal = false;
+        creativeTabCacheWarmOperator = false;
+    }
+
+    private static void rebuildCreativeTabContentsSafely(ServerLevel level, boolean operatorTabs) {
+        CreativeModeTab.ItemDisplayParameters parameters = new CreativeModeTab.ItemDisplayParameters(
                 level.enabledFeatures(),
                 operatorTabs,
                 level.registryAccess());
-        creativeTabContentsOperatorState = operatorTabs;
-        for (Item item : BuiltInRegistries.ITEM) {
-            if (item == null) {
+        rebuildCreativeTabContentsSafely(parameters, operatorTabs, true);
+        rebuildCreativeTabContentsSafely(parameters, operatorTabs, false);
+    }
+
+    private static void rebuildCreativeTabContentsSafely(
+            CreativeModeTab.ItemDisplayParameters parameters,
+            boolean operatorTabs,
+            boolean categoryTabs) {
+        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
+            if (tab == null) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-            if (id != null) {
-                resolveCreativeTabKeys(id.toString(), item, operatorTabs);
+            boolean category = tab.getType() == CreativeModeTab.Type.CATEGORY;
+            if (category != categoryTabs) {
+                continue;
+            }
+            ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
+            if (isBrokenCreativeTab(key, operatorTabs)) {
+                continue;
+            }
+            try {
+                tab.buildContents(parameters);
+                if (category) {
+                    indexCreativeTabContents(tab, key, operatorTabs);
+                }
+            } catch (RuntimeException | LinkageError ex) {
+                markBrokenCreativeTab(key, operatorTabs, ex);
             }
         }
-        setCreativeTabCacheWarm(operatorTabs);
+    }
+
+    private static void indexCreativeTabContents(CreativeModeTab tab, ResourceLocation key, boolean operatorTabs) {
+        if (key == null || !tab.shouldDisplay()) {
+            return;
+        }
+        String tabKey = key.toString();
+        for (ItemStack stack : tab.getDisplayItems()) {
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            if (itemId == null) {
+                continue;
+            }
+            ITEM_CREATIVE_TAB_CACHE.compute(creativeTabItemCacheKey(itemId.toString(), operatorTabs), (ignored, existing) -> {
+                Set<String> tabs = existing == null ? ConcurrentHashMap.newKeySet() : existing;
+                tabs.add(tabKey);
+                return tabs;
+            });
+        }
+    }
+
+    private static boolean isBrokenCreativeTab(ResourceLocation key, boolean operatorTabs) {
+        return BROKEN_CREATIVE_TAB_CACHE.contains(creativeTabModeKey(key, operatorTabs));
+    }
+
+    private static void markBrokenCreativeTab(ResourceLocation key, boolean operatorTabs, Throwable ex) {
+        String tabKey = key == null ? "unknown" : key.toString();
+        if (!BROKEN_CREATIVE_TAB_CACHE.add(creativeTabModeKey(tabKey, operatorTabs))) {
+            return;
+        }
+        RtsbuildingMod.LOGGER.warn(
+                "Skipping RTS creative tab {} for {} cache because it failed to build. "
+                        + "The RTS storage browser will continue without this tab.",
+                tabKey,
+                operatorTabs ? "operator" : "normal",
+                ex);
+    }
+
+    private static String creativeTabModeKey(ResourceLocation key, boolean operatorTabs) {
+        return creativeTabModeKey(key == null ? "unknown" : key.toString(), operatorTabs);
+    }
+
+    private static String creativeTabModeKey(String key, boolean operatorTabs) {
+        return (operatorTabs ? "op|" : "normal|") + key;
+    }
+
+    private static String creativeTabItemCacheKey(String itemId, boolean operatorTabs) {
+        return (operatorTabs ? "op|" : "normal|") + itemId;
     }
 
     private static boolean isCreativeTabCacheWarm(boolean operatorTabs) {
@@ -2085,9 +2137,12 @@ public final class RtsStorageManager {
         return false;
     }
 
-    private static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player) {
+    private static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, Session session) {
         if (player == null || player.containerMenu instanceof RtsCraftTerminalMenu) {
             return false;
+        }
+        if (session != null && session.linkedStorages.isEmpty()) {
+            return true;
         }
         return player.containerMenu == player.inventoryMenu;
     }
@@ -2245,7 +2300,7 @@ public final class RtsStorageManager {
         }
 
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player);
+        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
         if (activeLinked.isEmpty() && !includePlayerMainInventory) {
             return;
         }
@@ -2271,6 +2326,7 @@ public final class RtsStorageManager {
                 ? extractOneFromNetwork(handlers, player, item)
                 : extractOneFromLinked(handlers, item);
         if (extracted.isEmpty()) {
+            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
             return;
         }
         ItemStack selectedSoundStack = extracted.copy();
@@ -3106,7 +3162,11 @@ public final class RtsStorageManager {
     }
 
     public static void breakPlaced(ServerPlayer player, BlockPos pos, Direction face, boolean allowAdjacentFallback) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_BREAK)) {
+        boolean undoRecovery = allowAdjacentFallback;
+        if (!undoRecovery && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_BREAK)) {
+            return;
+        }
+        if (undoRecovery && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return;
         }
         Session session = SESSIONS.get(player.getUUID());
@@ -3114,7 +3174,7 @@ public final class RtsStorageManager {
             return;
         }
         sanitizeSessionDimension(player, session);
-        if (session.linkedStorages.isEmpty()) {
+        if (!undoRecovery && session.linkedStorages.isEmpty()) {
             return;
         }
         ServerLevel level = player.serverLevel();
@@ -3133,7 +3193,7 @@ public final class RtsStorageManager {
         }
 
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
+        if (!undoRecovery && activeLinked.isEmpty()) {
             return;
         }
         List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
@@ -3144,6 +3204,7 @@ public final class RtsStorageManager {
             }
             handlers.add(linked.handler());
         }
+        boolean hasLinkedRecoveryTarget = !handlers.isEmpty();
 
         BlockState state = level.getBlockState(targetPos);
         if (state.isAir()) {
@@ -3175,7 +3236,13 @@ public final class RtsStorageManager {
             droppedEntity.discard();
         }
         if (overflow.hasOverflow()) {
-            sendStorageOverflowHint(player, "Absorb", overflow);
+            if (hasLinkedRecoveryTarget) {
+                sendStorageOverflowHint(player, "Absorb", overflow);
+            } else if (overflow.dropped() > 0) {
+                player.displayClientMessage(
+                        Component.literal("Inventory full, dropped " + overflow.dropped() + "."),
+                        true);
+            }
         }
 
         // If a linked storage block itself is broken, unlink it immediately.
@@ -3238,7 +3305,8 @@ public final class RtsStorageManager {
             return;
         }
         sanitizeSessionDimension(player, session);
-        if (session.linkedStorages.isEmpty()) {
+        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
+        if (session.linkedStorages.isEmpty() && !includePlayerMainInventory) {
             return;
         }
         if (prototype == null || prototype.isEmpty() || amount <= 0) {
@@ -3246,7 +3314,7 @@ public final class RtsStorageManager {
         }
 
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
+        if (activeLinked.isEmpty() && !includePlayerMainInventory) {
             return;
         }
         List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
