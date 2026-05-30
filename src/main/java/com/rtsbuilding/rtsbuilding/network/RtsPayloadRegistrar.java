@@ -83,6 +83,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, S2CRtsQuestDetectStatusPayload.class, S2CRtsQuestDetectStatusPayload.STREAM_CODEC, RtsClientPayloadBridge::handleQuestDetectStatus);
         registerMessage(id++, S2CRtsMineProgressPayload.class, S2CRtsMineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleMineProgress);
         registerMessage(id++, S2CRtsProgressionStatePayload.class, S2CRtsProgressionStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleProgressionState);
+        registerMessage(id++, S2CRtsDamageFeedbackPayload.class, S2CRtsDamageFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleDamageFeedback);
     }
 
     public static void sendToPlayer(final ServerPlayer player, final Object message) {

@@ -44,6 +44,7 @@ import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
@@ -54,6 +55,8 @@ import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -65,6 +68,8 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -1937,6 +1942,24 @@ public final class ClientRtsController {
             clearProgressionLocksForDisabled(payload.radiusBlocks(), payload.fluidCapacityBuckets(), payload.ultimineLimit());
         }
         RtsProgressionNodes.applySyncedCostOverrides(payload.costOverrides());
+    }
+
+    public void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null) {
+            return;
+        }
+        minecraft.getSoundManager().play(new SimpleSoundInstance(
+                SoundEvents.PLAYER_HURT,
+                SoundSource.PLAYERS,
+                1.0F, 1.0F,
+                SoundInstance.createUnseededRandom(),
+                0.0, 0.0, 0.0) {
+            @Override
+            public SoundInstance.Attenuation getAttenuation() {
+                return SoundInstance.Attenuation.NONE;
+            }
+        });
     }
 
     private void clearProgressionLocksForDisabled() {

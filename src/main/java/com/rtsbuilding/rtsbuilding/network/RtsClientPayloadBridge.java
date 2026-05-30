@@ -48,4 +48,9 @@ public final class RtsClientPayloadBridge {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleProgressionState(payload, context));
     }
+
+    public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, IPayloadContext context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleDamageFeedback(payload, context));
+    }
 }
