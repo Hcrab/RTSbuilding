@@ -711,7 +711,11 @@ public final class BuilderScreen extends Screen {
             if (this.rightDragDistance > 1.5D) {
                 this.rightDragRotated = true;
             }
-            this.controller.queueRotateDrag(dragX, dragY);
+            if (this.controller.isSmoothCamera()) {
+                this.controller.applyImmediateRotation((float) dragX, (float) dragY);
+            } else {
+                this.controller.queueRotateDrag(dragX, dragY);
+            }
             return true;
         }
 
@@ -2340,6 +2344,12 @@ public final class BuilderScreen extends Screen {
                 "screen.rtsbuilding.settings.container_overlay",
                 "screen.rtsbuilding.settings.container_overlay.hint",
                 RtsClientUiStateStore.isContainerOverlayEnabled());
+
+        int smoothCamY = controlsY + 276;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCamY,
+                "screen.rtsbuilding.settings.smooth_camera",
+                "screen.rtsbuilding.settings.smooth_camera.hint",
+                this.controller.isSmoothCamera());
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -2490,6 +2500,10 @@ public final class BuilderScreen extends Screen {
         }
         if (inside(mouseX, contentMouseY, x + 12, controlsY + 236, w - 24, 34)) {
             RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
+            return true;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 272, w - 24, 34)) {
+            this.controller.toggleSmoothCamera();
             return true;
         }
         return true;

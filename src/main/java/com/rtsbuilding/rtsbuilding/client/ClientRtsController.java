@@ -138,6 +138,7 @@ public final class ClientRtsController {
     private boolean closeRangeAllowed;
     private boolean suppressBuilderScreenRestoreUntilRtsRestart;
     private boolean startCameraAtPlayerHead;
+    private boolean smoothCamera;
 
     private boolean localStateReady;
     private double localX;
@@ -255,6 +256,7 @@ public final class ClientRtsController {
         RtsClientUiStateStore.UiState uiState = RtsClientUiStateStore.load();
         this.startCameraAtPlayerHead = uiState.startCameraAtPlayerHead;
         this.allowPlacedBlockRecovery = uiState.allowPlacedBlockRecovery;
+        this.smoothCamera = uiState.smoothCamera;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -275,6 +277,17 @@ public final class ClientRtsController {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public boolean isSmoothCamera() {
+        return this.smoothCamera;
+    }
+
+    public void toggleSmoothCamera() {
+        this.smoothCamera = !this.smoothCamera;
+        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
+        state.smoothCamera = this.smoothCamera;
+        RtsClientUiStateStore.save(state);
     }
 
     public boolean canUseStorageOverlay() {
@@ -1194,6 +1207,19 @@ public final class ClientRtsController {
     public void queuePanDrag(double dragX, double dragY) {
         this.pendingPanX += (float) dragX;
         this.pendingPanY += (float) dragY;
+    }
+
+    public void applyImmediateRotation(float dragX, float dragY) {
+        float sens = getInputSensitivityScale() * this.rotateSensitivity;
+        float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens * ROTATE_GAIN_X;
+        float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens * ROTATE_GAIN_Y;
+        this.localYawDeg += yawDelta;
+        this.localPitchDeg = Mth.clamp(this.localPitchDeg + pitchDelta, MIN_CAMERA_PITCH, MAX_CAMERA_PITCH);
+        this.pendingRawRotateX += Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        this.pendingRawRotateY += Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        if (this.localMirrorCamera != null) {
+            this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+        }
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
