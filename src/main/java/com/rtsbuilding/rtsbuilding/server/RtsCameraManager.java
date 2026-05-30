@@ -22,6 +22,7 @@ public final class RtsCameraManager {
     private static final double MAX_RADIUS = 48.0D; // 3 chunks
     private static final double MIN_HEIGHT = -5.0D;
     private static final double MAX_HEIGHT = 80.0D;
+    private static final double MIN_DIST = 8.0D;
     private static final double MAX_DIST = 72.0D;
     private static final float MIN_PITCH = -90.0F;
     private static final float MAX_PITCH = 90.0F;
@@ -278,11 +279,15 @@ public final class RtsCameraManager {
 
         Vec3 toCam = new Vec3(targetX - session.anchor().x, targetY - session.anchor().y, targetZ - session.anchor().z);
         double dist = toCam.length();
-        if (dist > MAX_DIST) {
-            Vec3 n = toCam.scale(MAX_DIST / dist);
-            targetX = session.anchor().x + n.x;
-            targetY = session.anchor().y + n.y;
-            targetZ = session.anchor().z + n.z;
+        if (dist > 1.0e-6) {
+            double minDist = session.closeRangeAllowed() || safeVertical != 0.0F ? 0.0D : MIN_DIST;
+            double clamped = Mth.clamp(dist, minDist, MAX_DIST);
+            if (Math.abs(clamped - dist) > 1.0e-4) {
+                Vec3 n = toCam.scale(clamped / dist);
+                targetX = session.anchor().x + n.x;
+                targetY = session.anchor().y + n.y;
+                targetZ = session.anchor().z + n.z;
+            }
         }
 
         targetY = Mth.clamp(targetY, session.anchor().y + MIN_HEIGHT, session.anchor().y + MAX_HEIGHT);

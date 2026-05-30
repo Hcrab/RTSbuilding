@@ -4,9 +4,13 @@
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "RtsFreeCamMixin",
+    "compat.generatorgalore.GeneratorMenuMixin",
+    "compat.ironfurnaces.IronFurnaceContainerMixin",
+    "compat.ironfurnaces.WirelessEnergyHeaterContainerMixin",
     "compat.sophisticatedstorage.StorageContainerMenuMixin"
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }
