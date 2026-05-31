@@ -2,7 +2,9 @@ package com.rtsbuilding.rtsbuilding;
 
 import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
@@ -12,6 +14,7 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -125,6 +128,18 @@ public final class RtsbuildingMod {
             var server = ServerLifecycleHooks.getCurrentServer();
             if (server != null) {
                 RtsStorageManager.tickMining(server);
+            }
+        }
+
+        @SubscribeEvent
+        static void onHurt(final LivingHurtEvent event) {
+            if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+                return;
+            }
+            if (RtsCameraManager.isActive(serverPlayer)) {
+                PacketDistributor.sendToPlayer(serverPlayer,
+                        new S2CRtsDamageFeedbackPayload(event.getAmount()));
+                RtsCameraManager.stop(serverPlayer);
             }
         }
     }

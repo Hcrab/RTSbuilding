@@ -101,7 +101,6 @@ public final class BuilderScreen extends Screen {
     private static final int STORAGE_SCAN_POPUP_H = 30;
     private static final int QUICK_BUILD_PANEL_W = 188;
     private static final int QUICK_BUILD_PANEL_H = 216;
-    private static final int QUICK_BUILD_PANEL_MIN_H = 156;
     private static final int ULTIMINE_PANEL_W = 238;
     private static final int ULTIMINE_PANEL_H = 122;
     private static final int ULTIMINE_MIN_LIMIT = 1;
@@ -127,13 +126,12 @@ public final class BuilderScreen extends Screen {
     private static final int FUNNEL_BUFFER_TOGGLE_H = 16;
     private static final int GEAR_MENU_H = 284;
     private static final int GEAR_MENU_MIN_H = 168;
-    private static final int GEAR_MENU_CONTENT_H = 400;
+    private static final int GEAR_MENU_CONTENT_H = 370;
     private static final double MIDDLE_CLICK_DRAG_THRESHOLD = 1.5D;
     private static final double DEFAULT_RTS_GUI_SCALE = 2.0D;
     private static final double MIN_RTS_GUI_SCALE = 1.0D;
     private static final double MAX_RTS_GUI_SCALE = 4.0D;
     private static final double RTS_GUI_SCALE_STEP = 0.5D;
-    private static final float RTS_MODAL_LAYER_Z = 400.0F;
     private static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(Items.HOPPER);
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
@@ -156,12 +154,6 @@ public final class BuilderScreen extends Screen {
     private int categoryScroll = 0;
     private final Set<String> expandedCategoryMods = new HashSet<>();
     private int bottomPanelHeight = DEFAULT_BOTTOM_H;
-    private boolean rightPressActive = false;
-    private int rightPressButton = -1;
-    private boolean rightPressCanPrimary = false;
-    private boolean rightPressCanRotate = false;
-    private boolean rightDragRotated = false;
-    private double rightDragDistance = 0.0D;
     private boolean middlePressActive = false;
     private int middlePressButton = -1;
     private boolean middlePressCanPan = false;
@@ -182,7 +174,8 @@ public final class BuilderScreen extends Screen {
     private boolean gearMenuOpen = false;
     private int gearMenuScroll = 0;
     private boolean debugButtonVisible = false;
-    private boolean draggingInputSensitivity = false;
+    private boolean draggingTranslateSensitivity = false;
+    private boolean draggingRotateSensitivity = false;
     private boolean quickBuildOpen = true;
     private boolean ultimineOpen = false;
     private int ultimineLimit = 64;
@@ -532,25 +525,24 @@ public final class BuilderScreen extends Screen {
         }
 
         boolean primaryMouse = isPrimaryActionMouse(button);
-        boolean rotateMouse = isRotateDragActionMouse(button);
-        if (primaryMouse || rotateMouse) {
+        if (primaryMouse) {
             if (isSearchFocused()) {
                 blurSearchFocus();
             }
-            if (primaryMouse && this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
+            if (this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
                 return true;
             }
-            if (primaryMouse && !rotateMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
+            if (isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
                 BlockHitResult hit = pickBlockHit();
                 if (hit != null) {
                     this.controller.linkStorage(hit.getBlockPos(), false);
                 }
                 return true;
             }
-            if (primaryMouse && isInsideBottomPanel(mouseX, mouseY)) {
+            if (isInsideBottomPanel(mouseX, mouseY)) {
                 return handleBottomPanelRightClick(mouseX, mouseY);
             }
-            if (primaryMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE && !rotateMouse) {
+            if (isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE) {
                 BlockHitResult hit = pickBlockHit();
                 if (hit != null) {
                     clearShapeBuildSession();
@@ -559,13 +551,7 @@ public final class BuilderScreen extends Screen {
                 return true;
             }
             if (isWorldArea(mouseX, mouseY)) {
-                this.rightPressActive = true;
-                this.rightPressButton = button;
-                this.rightPressCanPrimary = primaryMouse;
-                this.rightPressCanRotate = rotateMouse;
-                this.rightDragRotated = false;
-                this.rightDragDistance = 0.0D;
-                return true;
+                return runPrimaryActionAt(mouseX, mouseY);
             }
             return true;
         }
@@ -604,8 +590,10 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.draggingInputSensitivity) {
-            this.draggingInputSensitivity = false;
+        if (this.draggingTranslateSensitivity || this.draggingRotateSensitivity) {
+            this.draggingTranslateSensitivity = false;
+            this.draggingRotateSensitivity = false;
+            persistUiState();
             return true;
         }
 
@@ -624,30 +612,6 @@ public final class BuilderScreen extends Screen {
         if (this.leftMiningActive && !this.activeMiningKeyboard && button == this.activeMiningMouseButton) {
             stopActiveMining();
             return true;
-        }
-
-        if (this.rightPressActive && button == this.rightPressButton) {
-            boolean canPrimary = this.rightPressCanPrimary;
-
-            this.rightPressActive = false;
-            this.rightPressButton = -1;
-            this.rightPressCanPrimary = false;
-            this.rightPressCanRotate = false;
-            if (this.rightDragRotated) {
-                this.rightDragRotated = false;
-                this.rightDragDistance = 0.0D;
-                return true;
-            }
-
-            if (!isWorldArea(mouseX, mouseY)) {
-                return true;
-            }
-
-            if (!canPrimary) {
-                return true;
-            }
-
-            return runPrimaryActionAt(mouseX, mouseY, button);
         }
 
         if (this.middlePressActive && button == this.middlePressButton) {
@@ -687,8 +651,12 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.draggingInputSensitivity) {
-            updateInputSensitivityFromMouse(mouseX);
+        if (this.draggingTranslateSensitivity) {
+            updateTranslateSensitivityFromMouse(mouseX);
+            return true;
+        }
+        if (this.draggingRotateSensitivity) {
+            updateRotateSensitivityFromMouse(mouseX);
             return true;
         }
 
@@ -704,16 +672,12 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.rightPressActive
-                && button == this.rightPressButton
-                && this.rightPressCanRotate
-                && isWorldArea(mouseX, mouseY)
-                && !isAltDown()) {
-            this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
-            if (this.rightDragDistance > 1.5D) {
-                this.rightDragRotated = true;
+        if (isRotateDragActionMouse(button) && isWorldArea(mouseX, mouseY) && !isAltDown()) {
+            if (this.controller.isSmoothCamera()) {
+                this.controller.applyImmediateRotation((float) dragX, (float) dragY);
+            } else {
+                this.controller.queueRotateDrag(dragX, dragY);
             }
-            this.controller.queueRotateDrag(dragX, dragY);
             return true;
         }
 
@@ -816,10 +780,6 @@ public final class BuilderScreen extends Screen {
     }
 
     private boolean runPrimaryActionAt(double mouseX, double mouseY) {
-        return runPrimaryActionAt(mouseX, mouseY, -1);
-    }
-
-    private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton) {
         if (this.pendingGuiBindSlot >= 0) {
             return true;
         }
@@ -829,15 +789,7 @@ public final class BuilderScreen extends Screen {
         if (!isWorldArea(mouseX, mouseY)) {
             return true;
         }
-        if (this.controller.getMode() == BuilderMode.LINK_STORAGE) {
-            clearShapeBuildSession();
-            BlockHitResult hit = pickBlockHit();
-            if (hit != null) {
-                this.controller.linkStorage(hit.getBlockPos(), mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT);
-            }
-            return true;
-        }
-        if (this.controller.getMode() == BuilderMode.FUNNEL) {
+        if (this.controller.getMode() == BuilderMode.LINK_STORAGE || this.controller.getMode() == BuilderMode.FUNNEL) {
             clearShapeBuildSession();
             return true;
         }
@@ -977,7 +929,7 @@ public final class BuilderScreen extends Screen {
             if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
                 this.fixedRtsScaleInputPass = true;
                 try {
-                    return mouseScrolled(mouseX / frame.scale(), mouseY / frame.scale(), scrollY);
+                    return mouseScrolled(mouseX / frame.scale(), mouseY / frame.scale(), scrollY / frame.scale());
                 } finally {
                     this.fixedRtsScaleInputPass = false;
                     frame.close();
@@ -1385,44 +1337,46 @@ public final class BuilderScreen extends Screen {
         renderBottomPanel(guiGraphics, mouseX, mouseY, partialTick);
         renderQuickBuildPanel(guiGraphics, mouseX, mouseY);
         renderUltiminePanel(guiGraphics, mouseX, mouseY);
+        renderGearMenu(guiGraphics, mouseX, mouseY);
         renderFunnelBufferPanel(guiGraphics, mouseX, mouseY);
         renderQuestDetectPopup(guiGraphics);
         renderStorageScanPopup(guiGraphics);
 
-        boolean modalOpen = this.gearMenuOpen
-                || this.guideOpen
-                || this.interactionWheelOpen
-                || this.shapeWheelOpen
-                || this.craftQuantityDialog.isOpen();
-        boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
-        if (!modalOpen) {
-            if (!placementSelectionActive
-                    && this.hoveredEntry >= 0
-                    && this.hoveredEntry < this.controller.getStorageEntries().size()) {
+        if (!this.craftQuantityDialog.isOpen()) {
+            if (this.hoveredEntry >= 0 && this.hoveredEntry < this.controller.getStorageEntries().size()) {
                 var entry = this.controller.getStorageEntries().get(this.hoveredEntry);
                 guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
+                guiGraphics.drawString(this.font, storageCountDetail(entry.count()), mouseX + 10, mouseY + 18, 0xFFFFAA);
             }
 
-            if (!placementSelectionActive
-                    && this.hoveredRecentEntry >= 0
-                    && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
+            if (this.hoveredRecentEntry >= 0 && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
                 var entry = this.controller.getRecentEntries().get(this.hoveredRecentEntry);
                 if (!entry.preview().isEmpty()) {
                     guiGraphics.renderTooltip(this.font, entry.preview(), mouseX, mouseY);
                 } else {
                     guiGraphics.renderTooltip(this.font, Component.literal(entry.label()), mouseX, mouseY);
                 }
+                guiGraphics.drawString(
+                        this.font,
+                        formatRecentAmount(entry),
+                        mouseX + 10,
+                        mouseY + 18,
+                        entry.fluid() ? 0xFFBEE6FF : 0xFFE6F1B8);
             }
 
-            if (!placementSelectionActive
-                    && this.hoveredFluidEntry >= 0
-                    && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
+            if (this.hoveredFluidEntry >= 0 && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
                 var fluid = this.controller.getFluidEntries().get(this.hoveredFluidEntry);
                 if (!fluid.preview().isEmpty()) {
                     guiGraphics.renderTooltip(this.font, fluid.preview(), mouseX, mouseY);
                 } else {
                     guiGraphics.renderTooltip(this.font, Component.literal(fluid.label()), mouseX, mouseY);
                 }
+                guiGraphics.drawString(
+                        this.font,
+                        compactFluidAmount(fluid.amount()) + " / " + compactFluidAmount(fluid.capacity()),
+                        mouseX + 10,
+                        mouseY + 18,
+                        0xFFDFAE);
             }
 
             if (this.hoveredCraftableEntry >= 0 && this.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
@@ -1459,6 +1413,8 @@ public final class BuilderScreen extends Screen {
                         0xFFCFE3F7);
             }
 
+            renderDiscoverabilityTooltips(guiGraphics, mouseX, mouseY);
+
             boolean funnelCursor = shouldRenderFunnelCursor();
             updateNativeCursorVisibility(funnelCursor);
             if (funnelCursor) {
@@ -1477,38 +1433,22 @@ public final class BuilderScreen extends Screen {
             updateNativeCursorVisibility(false);
         }
 
-        renderCraftFeedback(guiGraphics);
-
         if (this.interactionWheelOpen) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z, () -> renderInteractionWheel(guiGraphics, mouseX, mouseY));
+            renderInteractionWheel(guiGraphics, mouseX, mouseY);
         }
 
         if (this.shapeWheelOpen) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z, () -> renderShapeWheel(guiGraphics, mouseX, mouseY));
-        }
-
-        if (this.gearMenuOpen) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 20.0F, () -> renderGearMenu(guiGraphics, mouseX, mouseY));
+            renderShapeWheel(guiGraphics, mouseX, mouseY);
         }
 
         if (this.guideOpen) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 40.0F, () -> renderGuidePanel(guiGraphics));
+            renderGuidePanel(guiGraphics);
         }
 
         if (this.craftQuantityDialog.isOpen()) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 60.0F,
-                    () -> this.craftQuantityDialog.render(guiGraphics, this.font, this.width, this.height, mouseX, mouseY));
+            this.craftQuantityDialog.render(guiGraphics, this.font, this.width, this.height, mouseX, mouseY);
         }
-    }
-
-    private void renderAtGuiLayer(GuiGraphics g, float z, Runnable renderer) {
-        g.pose().pushPose();
-        g.pose().translate(0.0F, 0.0F, z);
-        try {
-            renderer.run();
-        } finally {
-            g.pose().popPose();
-        }
+        renderCraftFeedback(guiGraphics);
     }
 
     private boolean renderWithFixedRtsGuiScale(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
@@ -2238,12 +2178,12 @@ public final class BuilderScreen extends Screen {
 
     private static ResourceLocation quickBuildTexture(String key) {
         ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/quickbuild/" + key + ".png");
-        return id == null ? new ResourceLocation("minecraft", "missingno") : id;
+        return id == null ? ResourceLocation.withDefaultNamespace("missingno") : id;
     }
 
     private static ResourceLocation topbarTexture(String key) {
         ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/topbar/" + key + ".png");
-        return id == null ? new ResourceLocation("minecraft", "missingno") : id;
+        return id == null ? ResourceLocation.withDefaultNamespace("missingno") : id;
     }
 
     private void applyStoredUiState() {
@@ -2254,15 +2194,11 @@ public final class BuilderScreen extends Screen {
         this.fixedRtsGuiScale = sanitizeRtsGuiScale(state.rtsGuiScale);
         this.controller.setStartCameraAtPlayerHead(state.startCameraAtPlayerHead);
         this.controller.setAllowPlacedBlockRecovery(state.allowPlacedBlockRecovery);
-        this.controller.setInvertPanDragX(state.invertPanDragX);
-        this.controller.setInvertPanDragY(state.invertPanDragY);
-        this.controller.setSmoothCamera(state.smoothCamera);
         this.debugButtonVisible = state.debugButtonVisible;
-        int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
-        double sensitivityFraction = sensitivityPresetCount <= 1
-                ? 0.0D
-                : Mth.clamp(state.inputSensitivityIndex, 0, sensitivityPresetCount - 1) / (double) (sensitivityPresetCount - 1);
-        this.controller.setInputSensitivityByFraction(sensitivityFraction);
+        this.controller.setTranslateSensitivityByFraction(
+                (state.translateSensitivityScale - 0.25F) / (3.00F - 0.25F));
+        this.controller.setRotateSensitivityByFraction(
+                (state.rotateSensitivityScale - 0.25F) / (3.00F - 0.25F));
         this.controller.setChunkCurtainVisible(state.chunkCurtainVisible);
         try {
             this.controller.setBuildShape(ClientRtsController.BuildShape.valueOf(state.buildShape));
@@ -2288,12 +2224,10 @@ public final class BuilderScreen extends Screen {
         state.ultimineLimit = this.ultimineLimit;
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
-        state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
+        state.translateSensitivityScale = this.controller.getTranslateSensitivityScale();
+        state.rotateSensitivityScale = this.controller.getRotateSensitivityScale();
         state.startCameraAtPlayerHead = this.controller.isStartCameraAtPlayerHead();
         state.allowPlacedBlockRecovery = this.controller.isAllowPlacedBlockRecovery();
-        state.invertPanDragX = this.controller.isInvertPanDragX();
-        state.invertPanDragY = this.controller.isInvertPanDragY();
-        state.smoothCamera = this.controller.isSmoothCamera();
         state.debugButtonVisible = this.debugButtonVisible;
         RtsClientUiStateStore.save(state);
     }
@@ -2326,20 +2260,30 @@ public final class BuilderScreen extends Screen {
     private void renderGearMenuControls(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w) {
         int controlsY = gearMenuContentY(y);
         drawSettingsSection(g, x + 8, controlsY, w - 16, GEAR_MENU_CONTENT_H, Component.translatable("screen.rtsbuilding.settings.controls").getString());
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.sensitivity"), x + 16, controlsY + 20, 0xC8D3DF);
-        g.drawString(this.font, this.controller.getInputSensitivityLabel(), x + w - 60, controlsY + 20, 0xEAF4FF);
-        int trackX = x + 16;
-        int trackY = controlsY + 42;
-        int trackW = w - 32;
-        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
-        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
-        int presetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
-        int knobX = trackX + (int) Math.round((this.controller.getInputSensitivityIndex() / (double) Math.max(1, presetCount - 1)) * trackW);
-        g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8, 0xFF5FE36C);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.slow"), trackX, trackY + 10, 0xB5C1CE);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.fast"), trackX + trackW - 24, trackY + 10, 0xB5C1CE);
 
-        int scaleButtonY = controlsY + 70;
+        int trackX = x + 16;
+        int trackW = w - 32;
+
+        // Translate speed slider
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.translate_speed"), x + 16, controlsY + 20, 0xC8D3DF);
+        g.drawString(this.font, this.controller.getTranslateSensitivityLabel(), x + w - 60, controlsY + 20, 0xEAF4FF);
+        int transTrackY = controlsY + 38;
+        drawSensitivityTrack(g, trackX, transTrackY, trackW);
+        int transKnobX = trackX + (int) Math.round(this.controller.getTranslateSensitivityFraction() * trackW);
+        g.fill(transKnobX - 3, transTrackY - 5, transKnobX + 4, transTrackY + 8, 0xFF5FE36C);
+
+        // Rotate speed slider
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.rotate_speed"), x + 16, controlsY + 60, 0xC8D3DF);
+        g.drawString(this.font, this.controller.getRotateSensitivityLabel(), x + w - 60, controlsY + 60, 0xEAF4FF);
+        int rotTrackY = controlsY + 78;
+        drawSensitivityTrack(g, trackX, rotTrackY, trackW);
+        int rotKnobX = trackX + (int) Math.round(this.controller.getRotateSensitivityFraction() * trackW);
+        g.fill(rotKnobX - 3, rotTrackY - 5, rotKnobX + 4, rotTrackY + 8, 0xFF5FE36C);
+
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.slow"), trackX, rotTrackY + 10, 0xB5C1CE);
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.fast"), trackX + trackW - 24, rotTrackY + 10, 0xB5C1CE);
+
+        int scaleButtonY = controlsY + 110;
         int minusX = x + w - 124;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
@@ -2349,49 +2293,42 @@ public final class BuilderScreen extends Screen {
         g.drawCenteredString(this.font, rtsGuiScaleLabel(), valueX + 28, scaleButtonY + 7, 0xEAF4FF);
         drawGearMenuRow(g, mouseX, mouseY, plusX, scaleButtonY, 22, 22, "+", false);
 
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.auto_store"), x + 16, controlsY + 118, 0xC8D3DF);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 112, 76, 22, this.controller.isAutoStoreMinedDrops(),
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.auto_store"), x + 16, controlsY + 158, 0xC8D3DF);
+        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 152, 76, 22, this.controller.isAutoStoreMinedDrops(),
                 text(this.controller.isAutoStoreMinedDrops() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
 
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.head_start"), x + 16, controlsY + 146, 0xC8D3DF);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 140, 76, 22, this.controller.isStartCameraAtPlayerHead(),
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.head_start"), x + 16, controlsY + 186, 0xC8D3DF);
+        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 180, 76, 22, this.controller.isStartCameraAtPlayerHead(),
                 text(this.controller.isStartCameraAtPlayerHead() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
 
-        int placedRecoveryY = controlsY + 168;
+        int placedRecoveryY = controlsY + 208;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, placedRecoveryY,
                 "screen.rtsbuilding.settings.placed_recovery",
                 "screen.rtsbuilding.settings.placed_recovery.hint",
                 this.controller.isAllowPlacedBlockRecovery());
 
-        int debugButtonY = controlsY + 204;
+        int debugButtonY = controlsY + 244;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, debugButtonY,
                 "screen.rtsbuilding.settings.debug_button",
                 "screen.rtsbuilding.settings.debug_button.hint",
                 this.debugButtonVisible);
 
-        int overlayToggleY = controlsY + 240;
+        int overlayToggleY = controlsY + 280;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, overlayToggleY,
                 "screen.rtsbuilding.settings.container_overlay",
                 "screen.rtsbuilding.settings.container_overlay.hint",
                 RtsClientUiStateStore.isContainerOverlayEnabled());
 
-        int panDragXToggleY = controlsY + 276;
-        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragXToggleY,
-                "screen.rtsbuilding.settings.pan_drag_x_invert",
-                "screen.rtsbuilding.settings.pan_drag_x_invert.hint",
-                this.controller.isInvertPanDragX());
-
-        int panDragYToggleY = controlsY + 312;
-        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragYToggleY,
-                "screen.rtsbuilding.settings.pan_drag_y_invert",
-                "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
-                this.controller.isInvertPanDragY());
-
-        int smoothCameraToggleY = controlsY + 348;
-        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCameraToggleY,
+        int smoothCamY = controlsY + 316;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCamY,
                 "screen.rtsbuilding.settings.smooth_camera",
                 "screen.rtsbuilding.settings.smooth_camera.hint",
                 this.controller.isSmoothCamera());
+    }
+
+    private void drawSensitivityTrack(GuiGraphics g, int trackX, int trackY, int trackW) {
+        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
+        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -2505,12 +2442,17 @@ public final class BuilderScreen extends Screen {
         }
         double contentMouseY = mouseY + this.gearMenuScroll;
         int controlsY = y + 30;
-        if (inside(mouseX, contentMouseY, x + 16, controlsY + 34, w - 32, 24)) {
-            this.draggingInputSensitivity = true;
-            updateInputSensitivityFromMouse(mouseX);
+        if (inside(mouseX, contentMouseY, x + 16, controlsY + 30, w - 32, 24)) {
+            this.draggingTranslateSensitivity = true;
+            updateTranslateSensitivityFromMouse(mouseX);
             return true;
         }
-        int scaleButtonY = controlsY + 70;
+        if (inside(mouseX, contentMouseY, x + 16, controlsY + 70, w - 32, 24)) {
+            this.draggingRotateSensitivity = true;
+            updateRotateSensitivityFromMouse(mouseX);
+            return true;
+        }
+        int scaleButtonY = controlsY + 110;
         int minusX = x + w - 124;
         int plusX = minusX + 86;
         if (inside(mouseX, contentMouseY, minusX, scaleButtonY, 22, 22)) {
@@ -2521,54 +2463,52 @@ public final class BuilderScreen extends Screen {
             adjustRtsGuiScale(RTS_GUI_SCALE_STEP);
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 104, w - 24, 42)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 144, w - 24, 28)) {
             this.controller.toggleAutoStoreMinedDrops();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 132, w - 24, 36)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 172, w - 24, 36)) {
             this.controller.toggleStartCameraAtPlayerHead();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 164, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 204, w - 24, 34)) {
             this.controller.toggleAllowPlacedBlockRecovery();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 200, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 240, w - 24, 34)) {
             this.debugButtonVisible = !this.debugButtonVisible;
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 236, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 276, w - 24, 34)) {
             RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 272, w - 24, 34)) {
-            this.controller.toggleInvertPanDragX();
-            persistUiState();
-            return true;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 308, w - 24, 34)) {
-            this.controller.toggleInvertPanDragY();
-            persistUiState();
-            return true;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 344, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 312, w - 24, 34)) {
             this.controller.toggleSmoothCamera();
-            persistUiState();
             return true;
         }
         return true;
     }
 
-    private void updateInputSensitivityFromMouse(double mouseX) {
+    private void updateTranslateSensitivityFromMouse(double mouseX) {
         int w = Math.min(300, this.width - 24);
         int x = (this.width - w) / 2;
         int trackX = x + 16;
         int trackW = w - 32;
         double fraction = (mouseX - trackX) / Math.max(1.0D, trackW);
-        this.controller.setInputSensitivityByFraction(fraction);
+        this.controller.setTranslateSensitivityByFraction(fraction);
+    }
+
+    private void updateRotateSensitivityFromMouse(double mouseX) {
+        int w = Math.min(300, this.width - 24);
+        int x = (this.width - w) / 2;
+        int trackX = x + 16;
+        int trackW = w - 32;
+        double fraction = (mouseX - trackX) / Math.max(1.0D, trackW);
+        this.controller.setRotateSensitivityByFraction(fraction);
     }
 
     private void adjustRtsGuiScale(double delta) {
@@ -2593,14 +2533,15 @@ public final class BuilderScreen extends Screen {
     }
 
     private void renderQuickBuildPanel(GuiGraphics g, int mouseX, int mouseY) {
-        QuickBuildPanelLayout layout = resolveQuickBuildPanelLayout();
-        if (layout == null) {
+        if (!this.quickBuildOpen || !hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
             return;
         }
-        int x = layout.x();
-        int y = layout.y();
-        int panelH = layout.h();
-        drawPanelFrame(g, x, y, QUICK_BUILD_PANEL_W, panelH, 0xEE161C24, 0xFF6C839A, 0xFF0D1117);
+        int x = this.width - QUICK_BUILD_PANEL_W - 10;
+        int y = TOP_H + 10;
+        if (getFloatingPanelAvailableHeight(y) < QUICK_BUILD_PANEL_H) {
+            return;
+        }
+        drawPanelFrame(g, x, y, QUICK_BUILD_PANEL_W, QUICK_BUILD_PANEL_H, 0xEE161C24, 0xFF6C839A, 0xFF0D1117);
         g.fill(x + 1, y + 1, x + QUICK_BUILD_PANEL_W - 1, y + 20, 0xCC233345);
         g.drawString(this.font, Component.translatable("screen.rtsbuilding.quick_build.title"), x + 8, y + 6, 0xF2F7FF);
 
@@ -2652,11 +2593,9 @@ public final class BuilderScreen extends Screen {
         drawPanelFrame(g, rightX + 84, rotY + 10, 20, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
         g.drawCenteredString(this.font, "+", rightX + 94, rotY + 15, 0xFFFFFF);
 
-        if (panelH >= QUICK_BUILD_PANEL_H - 20) {
-            String materialCost = text("screen.rtsbuilding.quick_build.materials", currentShapeCostText());
-            g.drawString(this.font, materialCost, x + 8, y + QUICK_BUILD_PANEL_H - 34, 0xB8FFB8);
-            g.drawString(this.font, "Selection persists automatically", x + 8, y + QUICK_BUILD_PANEL_H - 18, 0xAFC0D3);
-        }
+        String materialCost = text("screen.rtsbuilding.quick_build.materials", currentShapeCostText());
+        g.drawString(this.font, materialCost, x + 8, y + QUICK_BUILD_PANEL_H - 34, 0xB8FFB8);
+        g.drawString(this.font, "Selection persists automatically", x + 8, y + QUICK_BUILD_PANEL_H - 18, 0xAFC0D3);
     }
 
     private void drawShapeTexture(GuiGraphics g, ClientRtsController.BuildShape shape, String state, int x, int y) {
@@ -2672,12 +2611,14 @@ public final class BuilderScreen extends Screen {
     }
 
     private boolean handleQuickBuildPanelClick(double mouseX, double mouseY) {
-        QuickBuildPanelLayout layout = resolveQuickBuildPanelLayout();
-        if (layout == null || !layout.contains(mouseX, mouseY)) {
+        if (!this.quickBuildOpen || !hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
             return false;
         }
-        int x = layout.x();
-        int y = layout.y();
+        int x = this.width - QUICK_BUILD_PANEL_W - 10;
+        int y = TOP_H + 10;
+        if (getFloatingPanelAvailableHeight(y) < QUICK_BUILD_PANEL_H || !inside(mouseX, mouseY, x, y, QUICK_BUILD_PANEL_W, QUICK_BUILD_PANEL_H)) {
+            return false;
+        }
         ClientRtsController.BuildShape[] shapes = new ClientRtsController.BuildShape[] {
                 ClientRtsController.BuildShape.BLOCK,
                 ClientRtsController.BuildShape.LINE,
@@ -2721,21 +2662,6 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         return true;
-    }
-
-    private QuickBuildPanelLayout resolveQuickBuildPanelLayout() {
-        if (!this.quickBuildOpen || !hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
-            return null;
-        }
-        int y = TOP_H + 10;
-        int availableH = getFloatingPanelAvailableHeight(y);
-        if (availableH < QUICK_BUILD_PANEL_MIN_H) {
-            return null;
-        }
-        int panelH = Math.min(QUICK_BUILD_PANEL_H, availableH);
-        int maxX = Math.max(4, this.width - QUICK_BUILD_PANEL_W - 4);
-        int x = Mth.clamp(this.width - QUICK_BUILD_PANEL_W - 10, 4, maxX);
-        return new QuickBuildPanelLayout(x, y, QUICK_BUILD_PANEL_W, panelH);
     }
 
     private void renderUltiminePanel(GuiGraphics g, int mouseX, int mouseY) {
@@ -2834,8 +2760,11 @@ public final class BuilderScreen extends Screen {
     }
 
     private int ultiminePanelY() {
-        QuickBuildPanelLayout quickBuildLayout = resolveQuickBuildPanelLayout();
-        return TOP_H + 10 + (quickBuildLayout == null ? 0 : quickBuildLayout.h() + 8);
+        return TOP_H + 10 + (this.quickBuildOpen
+                && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)
+                && getFloatingPanelAvailableHeight(TOP_H + 10) >= QUICK_BUILD_PANEL_H
+                ? QUICK_BUILD_PANEL_H + 8
+                : 0);
     }
 
     private boolean isInsideUltimineLimitInput(double mouseX, double mouseY) {
@@ -3307,6 +3236,22 @@ public final class BuilderScreen extends Screen {
                 }
             }
         }
+        if (entries.isEmpty()) {
+            renderStorageEmptyState(g, x, y, width, height);
+        }
+    }
+
+    private void renderStorageEmptyState(GuiGraphics g, int x, int y, int width, int height) {
+        int messageW = Math.max(24, width - 12);
+        Component title = this.controller.isStorageLinked()
+                ? Component.translatable("screen.rtsbuilding.storage.empty_linked")
+                : Component.translatable("screen.rtsbuilding.storage.empty_unlinked");
+        Component detail = this.controller.isStorageLinked()
+                ? Component.translatable("screen.rtsbuilding.storage.empty_linked.detail")
+                : Component.translatable("screen.rtsbuilding.storage.empty_unlinked.detail");
+        int centerY = y + Math.max(8, height / 2 - 10);
+        g.drawCenteredString(this.font, trimToWidth(title.getString(), messageW), x + width / 2, centerY, 0xFFE7C46A);
+        g.drawCenteredString(this.font, trimToWidth(detail.getString(), messageW), x + width / 2, centerY + 12, 0xFFB8C7D6);
     }
 
     private void drawRecentGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
@@ -3667,9 +3612,6 @@ public final class BuilderScreen extends Screen {
                 .append(" quickBuild=").append(this.quickBuildOpen)
                 .append(" ultimine=").append(this.ultimineOpen)
                 .append(" debugButton=").append(this.debugButtonVisible)
-                .append(" invertPanDragX=").append(this.controller.isInvertPanDragX())
-                .append(" invertPanDragY=").append(this.controller.isInvertPanDragY())
-                .append(" smoothCamera=").append(this.controller.isSmoothCamera())
                 .append('\n');
         out.append("storageLinked=").append(this.controller.isStorageLinked())
                 .append(" name=").append(this.controller.getLinkedStorageName())
@@ -3693,7 +3635,8 @@ public final class BuilderScreen extends Screen {
                 .append(" rotation=").append(this.shapeRotateDegrees)
                 .append(" pending=").append(pendingShapeStatusText())
                 .append('\n');
-        out.append("allowPlacedRecovery=").append(this.controller.isAllowPlacedBlockRecovery())
+        out.append("cameraHeadStart=").append(this.controller.isStartCameraAtPlayerHead())
+                .append(" allowPlacedRecovery=").append(this.controller.isAllowPlacedBlockRecovery())
                 .append(" chunkCurtain=").append(this.controller.isChunkCurtainVisible())
                 .append(" funnel=").append(this.controller.isFunnelEnabled())
                 .append('\n');
@@ -3704,6 +3647,30 @@ public final class BuilderScreen extends Screen {
                     .append('\n');
         }
         return out.toString();
+    }
+
+    private void renderDiscoverabilityTooltips(GuiGraphics g, int mouseX, int mouseY) {
+        if (this.guideOpen || this.interactionWheelOpen || this.shapeWheelOpen) {
+            return;
+        }
+        if (mouseY >= 42 && mouseY <= 56) {
+            g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.undo_redo_keys"), mouseX, mouseY);
+            return;
+        }
+        for (TopBarButtonLayout button : buildTopBarButtonLayouts()) {
+            if (button.id() == TopBarButtonId.QUICK_BUILD
+                    && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
+                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
+                return;
+            }
+        }
+        if (this.quickBuildOpen && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
+            int x = this.width - QUICK_BUILD_PANEL_W - 10;
+            int y = TOP_H + 10;
+            if (inside(mouseX, mouseY, x, y, QUICK_BUILD_PANEL_W, QUICK_BUILD_PANEL_H)) {
+                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_cancel"), mouseX, mouseY);
+            }
+        }
     }
 
     private boolean handleBottomPanelClick(double mouseX, double mouseY) {
@@ -4483,12 +4450,6 @@ public final class BuilderScreen extends Screen {
         }
     }
 
-    private record QuickBuildPanelLayout(int x, int y, int w, int h) {
-        private boolean contains(double mouseX, double mouseY) {
-            return inside(mouseX, mouseY, this.x, this.y, this.w, this.h);
-        }
-    }
-
     private record CraftDockLayout(int cX, int cY) {
         private int slotX(int slot) {
             return switch (slot) {
@@ -4717,12 +4678,12 @@ public final class BuilderScreen extends Screen {
         Vec3 rayDir = computeCursorRayDirection();
         List<BlockHitResult> hits = buildShapePlacementHits(input, this.shapeFillMode);
         clearShapeBuildSession();
-        if (useFluid) {
-            for (BlockHitResult shapedHit : hits) {
+        for (BlockHitResult shapedHit : hits) {
+            if (useFluid) {
                 this.controller.placeSelectedFluid(shapedHit, forcePlace, rayOrigin, rayDir);
+            } else {
+                this.controller.placeSelected(shapedHit, forcePlace, rayOrigin, rayDir, true, true);
             }
-        } else {
-            this.controller.placeSelectedBatch(hits, forcePlace, rayOrigin, rayDir, true);
         }
         if (!useFluid) {
             List<BlockPos> positions = new ArrayList<>(hits.size());
@@ -5660,11 +5621,9 @@ public final class BuilderScreen extends Screen {
         this.shapeRedoStack.remove(idx);
         Vec3 rayOrigin = this.minecraft.gameRenderer.getMainCamera().getPosition();
         Vec3 rayDir = computeCursorRayDirection();
-        List<BlockHitResult> hits = new ArrayList<>(batch.positions().size());
         for (BlockPos pos : batch.positions()) {
-            hits.add(createShapePlacementHit(pos, batch.face()));
+            this.controller.placeSelected(createShapePlacementHit(pos, batch.face()), false, rayOrigin, rayDir);
         }
-        this.controller.placeSelectedBatch(hits, false, rayOrigin, rayDir, false);
         this.shapeUndoStack.add(batch);
         if (this.shapeUndoStack.size() > SHAPE_HISTORY_LIMIT) {
             this.shapeUndoStack.remove(0);
@@ -6489,8 +6448,10 @@ public final class BuilderScreen extends Screen {
         int tabX = rect.x() + 8;
         int tabY = rect.y() + 30;
         int tabW = guideTopicTabWidth();
-        for (int i = 0; i < topics.length; i++) {
-            if (inside(mouseX, mouseY, tabX, tabY + i * 22, tabW, 18)) {
+        int visible = guideVisibleTopicRows(rect.h());
+        int end = Math.min(topics.length, this.guideTopicScroll + visible);
+        for (int i = this.guideTopicScroll; i < end; i++) {
+            if (inside(mouseX, mouseY, tabX, tabY + (i - this.guideTopicScroll) * 22, tabW, 18)) {
                 return i;
             }
         }

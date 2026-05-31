@@ -30,7 +30,6 @@ import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedS
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
@@ -105,6 +104,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidType;
@@ -121,8 +122,11 @@ public final class RtsStorageManager {
     private static final int PAGE_SIZE = 90;
     private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
     private static final long INTERNAL_FLUID_CAPACITY_MB = 100L * FluidType.BUCKET_VOLUME;
-    private static final double REMOTE_POV_BLOCK_REACH = 4.5D;
+    private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
     private static final double REMOTE_POV_EPSILON = 0.1D;
+    private static final double WRENCH_TOOL_REACH = 4.0D;
+    private static final TagKey<Item> FORGE_WRENCHES = ItemTags.create(
+            new ResourceLocation("forge", "wrenches"));
     private static final double FUNNEL_RADIUS = 2.0D;
     private static final int FUNNEL_MAX_ENTITIES_PER_TICK = 24;
     private static final int FUNNEL_MAX_ITEMS_PER_TICK = 48;
@@ -138,8 +142,6 @@ public final class RtsStorageManager {
     private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     private static final int QUICK_SLOT_COUNT = 27;
     private static final int GUI_BINDING_SLOT_COUNT = 8;
-    private static final int QUICK_BUILD_BATCH_BLOCKS_PER_TICK = 64;
-    private static final int QUICK_BUILD_BATCH_MAX_QUEUED_JOBS = 4;
     private static final int QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS = 3;
     private static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
     private static final byte LINK_MODE_EXTRACT_ONLY = C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
@@ -219,7 +221,6 @@ public final class RtsStorageManager {
         // Keep linked-storage state across RTS toggles, but stop active mining.
         Session session = getOrCreateSession(player);
         stopActiveMining(player, session);
-        session.placeBatchJobs.clear();
         disableFunnelAndFlushBuffer(player, session);
         closeTrackedRemoteMenu(player, session);
         saveSessionToPlayerNbt(player, session);
@@ -228,7 +229,6 @@ public final class RtsStorageManager {
     public static void onPlayerLogout(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
         if (session != null) {
-            session.placeBatchJobs.clear();
             disableFunnelAndFlushBuffer(player, session);
             closeTrackedRemoteMenu(player, session);
             saveSessionToPlayerNbt(player, session);
@@ -262,7 +262,6 @@ public final class RtsStorageManager {
             session.remoteMenuPos = null;
         }
         tickQuickBuildCompletionSound(player, session);
-        tickPlaceBatchJobs(player, session);
     }
 
     private static Session getOrCreateSession(ServerPlayer player) {
@@ -2196,132 +2195,12 @@ public final class RtsStorageManager {
             double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild) {
-        placeSelectedInternal(
-                player,
-                clickedPos,
-                face,
-                hitX,
-                hitY,
-                hitZ,
-                rotateSteps,
-                forcePlace,
-                skipIfOccupied,
-                itemId,
-                rayOriginX,
-                rayOriginY,
-                rayOriginZ,
-                rayDirX,
-                rayDirY,
-                rayDirZ,
-                quickBuild,
-                true,
-                true);
-    }
-
-    public static void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
-            byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return;
         }
-        if (clickedPositions == null || clickedPositions.isEmpty() || face == null) {
-            return;
-        }
         Session session = SESSIONS.get(player.getUUID());
-        if (session == null) {
+        if (session == null || !canAccessWorldTarget(player, clickedPos)) {
             return;
-        }
-        sanitizeSessionDimension(player, session);
-        List<BlockPos> positions = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
-        for (BlockPos pos : clickedPositions) {
-            if (pos == null || !canAccessWorldTarget(player, pos)) {
-                continue;
-            }
-            positions.add(pos.immutable());
-            if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
-                break;
-            }
-        }
-        if (positions.isEmpty()) {
-            return;
-        }
-        while (session.placeBatchJobs.size() >= QUICK_BUILD_BATCH_MAX_QUEUED_JOBS) {
-            session.placeBatchJobs.removeFirst();
-        }
-        session.placeBatchJobs.addLast(new PlaceBatchJob(
-                positions,
-                face,
-                rotateSteps,
-                forcePlace,
-                skipIfOccupied,
-                itemId == null ? "" : itemId,
-                rayOriginX,
-                rayOriginY,
-                rayOriginZ,
-                rayDirX,
-                rayDirY,
-                rayDirZ));
-    }
-
-    private static void tickPlaceBatchJobs(ServerPlayer player, Session session) {
-        int remaining = QUICK_BUILD_BATCH_BLOCKS_PER_TICK;
-        boolean finishedJob = false;
-        while (remaining > 0 && !session.placeBatchJobs.isEmpty()) {
-            PlaceBatchJob job = session.placeBatchJobs.peekFirst();
-            while (remaining > 0 && job.hasNext()) {
-                BlockPos clickedPos = job.next();
-                Vec3 faceNormal = Vec3.atLowerCornerOf(job.face().getNormal());
-                Vec3 hitLocation = Vec3.atCenterOf(clickedPos).add(faceNormal.scale(0.5D));
-                boolean keepGoing = placeSelectedInternal(
-                        player,
-                        clickedPos,
-                        job.face(),
-                        hitLocation.x,
-                        hitLocation.y,
-                        hitLocation.z,
-                        job.rotateSteps(),
-                        job.forcePlace(),
-                        job.skipIfOccupied(),
-                        job.itemId(),
-                        job.rayOriginX(),
-                        job.rayOriginY(),
-                        job.rayOriginZ(),
-                        job.rayDirX(),
-                        job.rayDirY(),
-                        job.rayDirZ(),
-                        true,
-                        false,
-                        false);
-                remaining--;
-                if (!keepGoing) {
-                    session.placeBatchJobs.removeFirst();
-                    finishedJob = true;
-                    break;
-                }
-            }
-            if (!session.placeBatchJobs.isEmpty() && session.placeBatchJobs.peekFirst() == job && !job.hasNext()) {
-                session.placeBatchJobs.removeFirst();
-                finishedJob = true;
-            }
-        }
-        if (finishedJob) {
-            saveSessionToPlayerNbt(player, session);
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        }
-    }
-
-    private static boolean placeSelectedInternal(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
-            double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean refreshStoragePage,
-            boolean sendRemoteHint) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return false;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null || !canAccessWorldTarget(player, clickedPos) || face == null) {
-            return false;
         }
         sanitizeSessionDimension(player, session);
         boolean useSelectedStorageItem = itemId != null && !itemId.isBlank();
@@ -2333,19 +2212,15 @@ public final class RtsStorageManager {
         RayContext rayContext = parseRayContext(
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ);
-        if (sendRemoteHint) {
-            sendRemoteMenuOpenHint(player, clickedPos);
-        }
+        sendRemoteMenuOpenHint(player, clickedPos);
 
         if (!useSelectedStorageItem) {
             ItemStack sourceSnapshot = player.getMainHandItem().copy();
             boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
             if (skipIfOccupied && player.getMainHandItem().getItem() instanceof BlockItem) {
                 if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
-                    if (refreshStoragePage) {
-                        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                    }
-                    return true;
+                    requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+                    return;
                 }
             }
 
@@ -2369,7 +2244,7 @@ public final class RtsStorageManager {
             AbstractContainerMenu menuAfterMainHandUse = player.containerMenu;
             if (menuAfterMainHandUse != menuBeforeMainHandUse) {
                 markRemoteMenuOpen(player, session, menuAfterMainHandUse, clickedPos);
-                return false;
+                return;
             }
 
             if (mainHandUse.consumesAction()) {
@@ -2393,7 +2268,7 @@ public final class RtsStorageManager {
                     }
                 }
                 saveSessionToPlayerNbt(player, session);
-                return true;
+                return;
             }
 
             // Some items (e.g. bucket) work via "use in air" fallback instead of use-on-block.
@@ -2412,7 +2287,7 @@ public final class RtsStorageManager {
             AbstractContainerMenu menuAfterUseFallback = player.containerMenu;
             if (menuAfterUseFallback != menuBeforeUseFallback) {
                 markRemoteMenuOpen(player, session, menuAfterUseFallback, clickedPos);
-                return false;
+                return;
             }
             if (mainHandUseFallback.consumesAction()) {
                 if (!sourceSnapshot.isEmpty()) {
@@ -2423,16 +2298,16 @@ public final class RtsStorageManager {
                     }
                 }
                 saveSessionToPlayerNbt(player, session);
-                return true;
+                return;
             }
 
-            return false;
+            return;
         }
 
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
         boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
         if (activeLinked.isEmpty() && !includePlayerMainInventory) {
-            return false;
+            return;
         }
 
         List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
@@ -2442,26 +2317,22 @@ public final class RtsStorageManager {
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return false;
+            return;
         }
 
         Item item = BuiltInRegistries.ITEM.get(id);
         if (skipIfOccupied && item instanceof BlockItem) {
             if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
-                if (refreshStoragePage) {
-                    requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                }
-                return true;
+                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+                return;
             }
         }
         ItemStack extracted = includePlayerMainInventory
                 ? extractOneFromNetwork(handlers, player, item)
                 : extractOneFromLinked(handlers, item);
         if (extracted.isEmpty()) {
-            if (refreshStoragePage) {
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            }
-            return false;
+            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            return;
         }
         ItemStack selectedSoundStack = extracted.copy();
         boolean selectedPlacesBlock = item instanceof BlockItem;
@@ -2499,10 +2370,8 @@ public final class RtsStorageManager {
         }
 
         if (!finalOutcome.result().consumesAction()) {
-            if (refreshStoragePage) {
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            }
-            return false;
+            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            return;
         }
 
         BlockPos placedPos = detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
@@ -2520,10 +2389,7 @@ public final class RtsStorageManager {
             recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
         }
 
-        if (refreshStoragePage) {
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        }
-        return true;
+        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
     }
 
     private static BlockPos resolvePlacementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
@@ -3600,7 +3466,7 @@ public final class RtsStorageManager {
     }
 
     public static void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
-            String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery) {
+            String toolItemId, boolean allowPlacedBlockRecovery) {
         if (start && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_BREAK)) {
             return;
         }
@@ -3635,7 +3501,7 @@ public final class RtsStorageManager {
                 requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
                 return;
             }
-            session.miningLinkedTool = extractLinkedMiningTool(player, session, toolItemId, toolPrototype);
+            session.miningLinkedTool = extractLinkedMiningTool(player, session, toolItemId);
             beginRemoteMining(player, session, pos, face, slot);
             return;
         }
@@ -3643,8 +3509,7 @@ public final class RtsStorageManager {
         stopActiveMining(player, session);
     }
 
-    public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
-            ItemStack toolPrototype, int requestedLimit) {
+    public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId, int requestedLimit) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.ULTIMINE)) {
             return;
         }
@@ -3660,7 +3525,7 @@ public final class RtsStorageManager {
             return;
         }
         int limit = Math.max(1, Math.min(Math.min(ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
-        ItemStack linkedTool = extractLinkedMiningTool(player, session, toolItemId, toolPrototype);
+        ItemStack linkedTool = extractLinkedMiningTool(player, session, toolItemId);
         Deque<BlockPos> targets = collectUltimineTargets(player, pos, slot, linkedTool, limit);
         if (targets.isEmpty()) {
             refundLinkedMiningTool(player, session, linkedTool);
@@ -3922,10 +3787,8 @@ public final class RtsStorageManager {
         return withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
     }
 
-    private static ItemStack extractLinkedMiningTool(ServerPlayer player, Session session, String toolItemId,
-            ItemStack toolPrototype) {
-        if (player == null || session == null || toolPrototype == null || toolPrototype.isEmpty()
-                || toolItemId == null || toolItemId.isBlank() || session.linkedStorages.isEmpty()) {
+    private static ItemStack extractLinkedMiningTool(ServerPlayer player, Session session, String toolItemId) {
+        if (player == null || session == null || toolItemId == null || toolItemId.isBlank() || session.linkedStorages.isEmpty()) {
             return ItemStack.EMPTY;
         }
         ResourceLocation id = ResourceLocation.tryParse(toolItemId);
@@ -3933,7 +3796,7 @@ public final class RtsStorageManager {
             return ItemStack.EMPTY;
         }
         Item item = BuiltInRegistries.ITEM.get(id);
-        if (item instanceof BlockItem || toolPrototype.getItem() != item) {
+        if (item instanceof BlockItem) {
             return ItemStack.EMPTY;
         }
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
@@ -3944,7 +3807,7 @@ public final class RtsStorageManager {
         for (LinkedHandler linked : activeLinked) {
             handlers.add(linked.handler());
         }
-        return extractMatchingFromLinked(handlers, item, toolPrototype, 1);
+        return extractOneFromNetwork(handlers, player, item);
     }
 
     private static void refundLinkedMiningTool(ServerPlayer player, Session session, ItemStack stack) {
@@ -3960,8 +3823,8 @@ public final class RtsStorageManager {
     }
 
     private static MiningDestroyOutcome destroyBlockWithTemporaryMainHand(ServerPlayer player, BlockPos pos, ItemStack tool) {
-        ItemStack previousMainHand = player.getMainHandItem();
-        player.setItemInHand(InteractionHand.MAIN_HAND, tool);
+        ItemStack previousMainHand = player.getMainHandItem().copy();
+        player.setItemInHand(InteractionHand.MAIN_HAND, tool.copy());
         boolean broken;
         ItemStack remainder;
         try {
@@ -4003,8 +3866,8 @@ public final class RtsStorageManager {
     }
 
     private static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
-        ItemStack previousMainHand = player.getMainHandItem();
-        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+        ItemStack previousMainHand = player.getMainHandItem().copy();
+        player.setItemInHand(InteractionHand.MAIN_HAND, stack.copy());
         try {
             return action.get();
         } finally {
@@ -5905,13 +5768,14 @@ public final class RtsStorageManager {
             BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
         int previousSelected = player.getInventory().selected;
+        double reach = WRENCH_TOOL_REACH; // Temporarily use reduced reach for all tools
         Vec3 interactionPos = resolveInteractionPosition(targetEntity, blockHit, hit);
         return withTemporaryUseItemContext(
                 player,
                 interactionPos,
                 hit,
                 rayContext,
-                REMOTE_POV_BLOCK_REACH,
+                reach,
                 () -> {
             player.getInventory().selected = slot;
             try {
@@ -7082,91 +6946,6 @@ public final class RtsStorageManager {
         }
     }
 
-    private static final class PlaceBatchJob {
-        private final List<BlockPos> clickedPositions;
-        private final Direction face;
-        private final byte rotateSteps;
-        private final boolean forcePlace;
-        private final boolean skipIfOccupied;
-        private final String itemId;
-        private final double rayOriginX;
-        private final double rayOriginY;
-        private final double rayOriginZ;
-        private final double rayDirX;
-        private final double rayDirY;
-        private final double rayDirZ;
-        private int index;
-
-        private PlaceBatchJob(List<BlockPos> clickedPositions, Direction face, byte rotateSteps, boolean forcePlace,
-                boolean skipIfOccupied, String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
-                double rayDirX, double rayDirY, double rayDirZ) {
-            this.clickedPositions = clickedPositions;
-            this.face = face;
-            this.rotateSteps = rotateSteps;
-            this.forcePlace = forcePlace;
-            this.skipIfOccupied = skipIfOccupied;
-            this.itemId = itemId;
-            this.rayOriginX = rayOriginX;
-            this.rayOriginY = rayOriginY;
-            this.rayOriginZ = rayOriginZ;
-            this.rayDirX = rayDirX;
-            this.rayDirY = rayDirY;
-            this.rayDirZ = rayDirZ;
-        }
-
-        private boolean hasNext() {
-            return this.index < this.clickedPositions.size();
-        }
-
-        private BlockPos next() {
-            return this.clickedPositions.get(this.index++);
-        }
-
-        private Direction face() {
-            return this.face;
-        }
-
-        private byte rotateSteps() {
-            return this.rotateSteps;
-        }
-
-        private boolean forcePlace() {
-            return this.forcePlace;
-        }
-
-        private boolean skipIfOccupied() {
-            return this.skipIfOccupied;
-        }
-
-        private String itemId() {
-            return this.itemId;
-        }
-
-        private double rayOriginX() {
-            return this.rayOriginX;
-        }
-
-        private double rayOriginY() {
-            return this.rayOriginY;
-        }
-
-        private double rayOriginZ() {
-            return this.rayOriginZ;
-        }
-
-        private double rayDirX() {
-            return this.rayDirX;
-        }
-
-        private double rayDirY() {
-            return this.rayDirY;
-        }
-
-        private double rayDirZ() {
-            return this.rayDirZ;
-        }
-    }
-
     private static final class Session {
         private BuilderMode mode = BuilderMode.INTERACT;
         private final List<LinkedStorageRef> linkedStorages = new ArrayList<>();
@@ -7210,7 +6989,6 @@ public final class RtsStorageManager {
         private double quickBuildSoundX;
         private double quickBuildSoundY;
         private double quickBuildSoundZ;
-        private final Deque<PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
         private final Deque<RecentEntry> recentEntries = new ArrayDeque<>();
         private final String[] quickSlotItemIds = new String[QUICK_SLOT_COUNT];
         private final GuiBinding[] guiBindings = new GuiBinding[GUI_BINDING_SLOT_COUNT];

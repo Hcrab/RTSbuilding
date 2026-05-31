@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -16,7 +14,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
@@ -46,22 +43,6 @@ public final class RtsProgressionScreen extends Screen {
     private int zoomTrackY;
     private int zoomTrackW;
     private int zoomTrackH;
-    private ResourceLocation detailNodeId;
-    private int detailPanelX;
-    private int detailPanelY;
-    private int detailPanelW;
-    private int detailPanelH;
-    private int detailCloseX;
-    private int detailCloseY;
-    private int detailCloseW;
-    private int detailCloseH;
-    private int detailUnlockX;
-    private int detailUnlockY;
-    private int detailUnlockW;
-    private int detailUnlockH;
-    private int detailViewH;
-    private int detailContentH;
-    private int detailScrollY;
 
     public RtsProgressionScreen(Screen parent) {
         super(Component.translatable("screen.rtsbuilding.progression"));
@@ -128,16 +109,10 @@ public final class RtsProgressionScreen extends Screen {
         this.backY = y + panelH - this.backH - 10;
         drawButton(g, this.backX, this.backY, this.backW, this.backH, Component.translatable("gui.rtsbuilding.back"), inside(mouseX, mouseY, this.backX, this.backY, this.backW, this.backH), true);
         drawZoomControl(g, x + 12, y + panelH - 28, panelW - 92, mouseX, mouseY);
-        if (this.detailNodeId != null) {
-            renderDetailsModal(g, mouseX, mouseY);
-        }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (this.detailNodeId != null) {
-            return handleDetailsClick(mouseX, mouseY);
-        }
         if (inside(mouseX, mouseY, this.zoomTrackX, this.zoomTrackY - 5, this.zoomTrackW, this.zoomTrackH + 10)) {
             this.draggingZoom = true;
             updateZoomFromMouse(mouseX);
@@ -150,14 +125,14 @@ public final class RtsProgressionScreen extends Screen {
         boolean insideViewport = inside(mouseX, mouseY, this.viewportX, this.viewportY, this.viewportW, this.viewportH);
         for (RtsProgressionNode node : RtsProgressionNodes.all()) {
             NodeRect rect = this.nodeRects.get(node.id());
-            if (rect == null || !insideViewport) {
+            if (rect == null || isUnlocked(node.id()) || !isUnlockable(node.id())
+                    || !insideViewport) {
                 continue;
             }
             int bx = rect.x() + rect.w() - BADGE_W - 4;
             int by = rect.y() + rect.h() - BADGE_H - 4;
             if (inside(mouseX, mouseY, bx, by, BADGE_W, BADGE_H)) {
-                this.detailNodeId = node.id();
-                this.detailScrollY = 0;
+                this.controller.unlockProgressionNode(node.id());
                 this.controller.requestProgressionState();
                 return true;
             }
@@ -171,9 +146,6 @@ public final class RtsProgressionScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (this.detailNodeId != null) {
-            return true;
-        }
         if (this.draggingZoom) {
             updateZoomFromMouse(mouseX);
             return true;
@@ -189,9 +161,6 @@ public final class RtsProgressionScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (this.detailNodeId != null) {
-            return true;
-        }
         if (this.draggingZoom) {
             this.draggingZoom = false;
             return true;
@@ -205,10 +174,6 @@ public final class RtsProgressionScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
-        if (this.detailNodeId != null) {
-            scrollDetails(scrollY);
-            return true;
-        }
         this.zoom = Mth.clamp(this.zoom + scrollY * 0.12D, 0.45D, 2.35D);
         clampPan();
         return true;
@@ -217,10 +182,6 @@ public final class RtsProgressionScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-            if (this.detailNodeId != null) {
-                this.detailNodeId = null;
-                return true;
-            }
             this.minecraft.setScreen(this.parent);
             return true;
         }
@@ -368,202 +329,6 @@ public final class RtsProgressionScreen extends Screen {
             g.drawString(this.font, "x" + cost.count(), cursor + 15, y + 6, 0xF4F7FF);
             cursor += 34;
         }
-    }
-
-    private void renderDetailsModal(GuiGraphics g, int mouseX, int mouseY) {
-        RtsProgressionNode node = detailNode();
-        if (node == null) {
-            this.detailNodeId = null;
-            return;
-        }
-
-        this.detailPanelW = Math.min(380, Math.max(220, this.width - 48));
-        this.detailPanelH = Math.min(292, Math.max(190, this.height - 48));
-        this.detailPanelX = (this.width - this.detailPanelW) / 2;
-        this.detailPanelY = (this.height - this.detailPanelH) / 2;
-        this.detailCloseW = 20;
-        this.detailCloseH = 18;
-        this.detailCloseX = this.detailPanelX + this.detailPanelW - this.detailCloseW - 8;
-        this.detailCloseY = this.detailPanelY + 8;
-        this.detailUnlockW = 84;
-        this.detailUnlockH = 20;
-        this.detailUnlockX = this.detailPanelX + this.detailPanelW - this.detailUnlockW - 12;
-        this.detailUnlockY = this.detailPanelY + this.detailPanelH - this.detailUnlockH - 10;
-        int contentX = this.detailPanelX + 14;
-        int contentY = this.detailPanelY + 72;
-        int contentW = this.detailPanelW - 28;
-        this.detailViewH = Math.max(40, this.detailUnlockY - contentY - 8);
-
-        g.pose().pushPose();
-        g.pose().translate(0.0F, 0.0F, 720.0F);
-        g.fill(0, 0, this.width, this.height, 0x99000000);
-        drawPanel(g, this.detailPanelX, this.detailPanelY, this.detailPanelW, this.detailPanelH);
-        g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.progression.details"),
-                this.detailPanelX + this.detailPanelW / 2, this.detailPanelY + 12, 0xF4F7FF);
-        drawButton(g, this.detailCloseX, this.detailCloseY, this.detailCloseW, this.detailCloseH,
-                Component.literal("x"), inside(mouseX, mouseY, this.detailCloseX, this.detailCloseY, this.detailCloseW, this.detailCloseH), false);
-
-        NodeState state = stateFor(node);
-        g.drawString(this.font, trim(Component.translatable(node.titleKey()).getString(), this.detailPanelW - 32),
-                this.detailPanelX + 14, this.detailPanelY + 34, state.text());
-        g.drawString(this.font, Component.translatable(state.labelKey()), this.detailPanelX + 14, this.detailPanelY + 46, state.subtext());
-        g.drawString(this.font, trim(Component.translatable(node.descriptionKey()).getString(), this.detailPanelW - 32),
-                this.detailPanelX + 14, this.detailPanelY + 58, 0xCFE3F7);
-
-        g.enableScissor(contentX, contentY, contentX + contentW, contentY + this.detailViewH);
-        int cursorY = contentY - this.detailScrollY;
-        cursorY = drawDetailsMaterials(g, node, contentX, cursorY, contentW);
-        cursorY += 6;
-        cursorY = drawDetailsPrerequisites(g, node, contentX, cursorY, contentW);
-        this.detailContentH = Math.max(0, cursorY - contentY + this.detailScrollY);
-        this.detailScrollY = Mth.clamp(this.detailScrollY, 0, Math.max(0, this.detailContentH - this.detailViewH));
-        g.disableScissor();
-        drawDetailsScrollbar(g, contentX + contentW - 3, contentY);
-
-        boolean canUnlock = canUnlockFromDetails(node);
-        drawButton(g, this.detailUnlockX, this.detailUnlockY, this.detailUnlockW, this.detailUnlockH,
-                Component.translatable("screen.rtsbuilding.progression.unlock"),
-                inside(mouseX, mouseY, this.detailUnlockX, this.detailUnlockY, this.detailUnlockW, this.detailUnlockH),
-                canUnlock);
-        g.pose().popPose();
-    }
-
-    private int drawDetailsMaterials(GuiGraphics g, RtsProgressionNode node, int x, int y, int width) {
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.progression.details.materials"), x, y, 0xFFFFD47A);
-        y += 14;
-        List<RtsIngredientCost> costs = RtsProgressionNodes.costsFor(node);
-        if (costs.isEmpty()) {
-            g.drawString(this.font, Component.translatable("screen.rtsbuilding.progression.details.no_materials"), x + 8, y, 0xAEE8AE);
-            return y + 14;
-        }
-        for (RtsIngredientCost cost : costs) {
-            Item item = BuiltInRegistries.ITEM.get(cost.itemId());
-            ItemStack stack = new ItemStack(item);
-            long have = countPlayerInventory(item);
-            boolean enough = have >= cost.count();
-            int rowColor = enough ? 0xAEE8AE : 0xFFB0B0;
-            g.renderItem(stack, x + 6, y - 2);
-            int nameX = x + 28;
-            int countW = 80;
-            g.drawString(this.font, trim(stack.getHoverName().getString(), width - countW - 36), nameX, y + 2, 0xE6EDF7);
-            String countText = Component.translatable("screen.rtsbuilding.progression.details.have_count", have, cost.count()).getString();
-            g.drawString(this.font, trim(countText, countW), x + width - countW, y + 2, rowColor);
-            String statusKey = enough ? "screen.rtsbuilding.progression.details.available" : "screen.rtsbuilding.progression.details.missing";
-            g.drawString(this.font, Component.translatable(statusKey), x + width - countW, y + 12, rowColor);
-            y += 24;
-        }
-        return y;
-    }
-
-    private int drawDetailsPrerequisites(GuiGraphics g, RtsProgressionNode node, int x, int y, int width) {
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.progression.details.prerequisites"), x, y, 0xFFFFD47A);
-        y += 14;
-        List<RtsProgressionNode> missing = missingPrerequisites(node);
-        if (missing.isEmpty()) {
-            g.drawString(this.font, Component.translatable("screen.rtsbuilding.progression.details.no_prerequisites"), x + 8, y, 0xAEE8AE);
-            return y + 14;
-        }
-        for (RtsProgressionNode dependency : missing) {
-            NodeState state = stateFor(dependency);
-            String title = Component.translatable(dependency.titleKey()).getString();
-            String stateLabel = Component.translatable(state.labelKey()).getString();
-            g.drawString(this.font, trim("- " + title + " / " + stateLabel, width - 12), x + 8, y, state.subtext());
-            y += 12;
-        }
-        return y;
-    }
-
-    private void drawDetailsScrollbar(GuiGraphics g, int x, int y) {
-        int maxScroll = Math.max(0, this.detailContentH - this.detailViewH);
-        if (maxScroll <= 0) {
-            return;
-        }
-        g.fill(x, y, x + 2, y + this.detailViewH, 0x77000000);
-        int knobH = Math.max(12, this.detailViewH * this.detailViewH / Math.max(this.detailViewH, this.detailContentH));
-        int knobY = y + (int) Math.round((this.detailViewH - knobH) * (this.detailScrollY / (double) maxScroll));
-        g.fill(x, knobY, x + 2, knobY + knobH, 0xFF8FA5BC);
-    }
-
-    private boolean handleDetailsClick(double mouseX, double mouseY) {
-        if (inside(mouseX, mouseY, this.detailCloseX, this.detailCloseY, this.detailCloseW, this.detailCloseH)
-                || !inside(mouseX, mouseY, this.detailPanelX, this.detailPanelY, this.detailPanelW, this.detailPanelH)) {
-            this.detailNodeId = null;
-            return true;
-        }
-        RtsProgressionNode node = detailNode();
-        if (node != null
-                && inside(mouseX, mouseY, this.detailUnlockX, this.detailUnlockY, this.detailUnlockW, this.detailUnlockH)
-                && canUnlockFromDetails(node)) {
-            this.controller.unlockProgressionNode(node.id());
-            this.controller.requestProgressionState();
-            this.detailNodeId = null;
-            return true;
-        }
-        return true;
-    }
-
-    private void scrollDetails(double scrollY) {
-        int maxScroll = Math.max(0, this.detailContentH - this.detailViewH);
-        this.detailScrollY = Mth.clamp(this.detailScrollY - (int) Math.round(scrollY * 18.0D), 0, maxScroll);
-    }
-
-    private boolean canUnlockFromDetails(RtsProgressionNode node) {
-        return this.controller.isProgressionEnabled()
-                && node != null
-                && !isUnlocked(node.id())
-                && missingPrerequisites(node).isEmpty()
-                && hasAllCosts(node);
-    }
-
-    private boolean hasAllCosts(RtsProgressionNode node) {
-        for (RtsIngredientCost cost : RtsProgressionNodes.costsFor(node)) {
-            if (countPlayerInventory(BuiltInRegistries.ITEM.get(cost.itemId())) < cost.count()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private long countPlayerInventory(Item item) {
-        if (item == null || this.minecraft == null || this.minecraft.player == null) {
-            return 0L;
-        }
-        long count = 0L;
-        for (ItemStack stack : this.minecraft.player.getInventory().items) {
-            if (!stack.isEmpty() && stack.is(item)) {
-                count += stack.getCount();
-            }
-        }
-        return count;
-    }
-
-    private List<RtsProgressionNode> missingPrerequisites(RtsProgressionNode node) {
-        LinkedHashSet<ResourceLocation> missingIds = new LinkedHashSet<>();
-        collectMissingPrerequisites(node, missingIds);
-        ArrayList<RtsProgressionNode> missing = new ArrayList<>(missingIds.size());
-        for (ResourceLocation id : missingIds) {
-            RtsProgressionNode dependency = RtsProgressionNodes.get(id);
-            if (dependency != null) {
-                missing.add(dependency);
-            }
-        }
-        return missing;
-    }
-
-    private void collectMissingPrerequisites(RtsProgressionNode node, LinkedHashSet<ResourceLocation> missingIds) {
-        if (node == null) {
-            return;
-        }
-        for (ResourceLocation dependency : node.dependencies()) {
-            if (!isUnlocked(dependency)) {
-                missingIds.add(dependency);
-                collectMissingPrerequisites(RtsProgressionNodes.get(dependency), missingIds);
-            }
-        }
-    }
-
-    private RtsProgressionNode detailNode() {
-        return this.detailNodeId == null ? null : RtsProgressionNodes.get(this.detailNodeId);
     }
 
     private boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

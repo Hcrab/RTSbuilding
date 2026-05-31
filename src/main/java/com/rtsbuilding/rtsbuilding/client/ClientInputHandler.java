@@ -11,6 +11,21 @@ import net.minecraftforge.fml.common.Mod;
 public final class ClientInputHandler {
     private static boolean toggleKeyWasDown = false;
     private static int toggleCooldownTicks = 0;
+    private static java.lang.reflect.Field inputField;
+    private static Object savedInput;
+
+    /** Find the Input-typed field by type name (SRG-safe, no compile-time class ref). */
+    private static java.lang.reflect.Field inputField() {
+        if (inputField == null) {
+            for (final java.lang.reflect.Field f : Minecraft.getInstance().player.getClass().getFields()) {
+                if (f.getType().getSimpleName().contains("Input")) {
+                    inputField = f;
+                    break;
+                }
+            }
+        }
+        return inputField;
+    }
 
     private ClientInputHandler() {
     }
@@ -18,11 +33,32 @@ public final class ClientInputHandler {
     @SubscribeEvent
     public static void onClientTick(final TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
+            final Object player = Minecraft.getInstance().player;
+            if (player != null && ClientRtsController.get().isEnabled()) {
+                try {
+                    final java.lang.reflect.Field f = inputField();
+                    if (f != null) {
+                        savedInput = f.get(player);
+                        f.set(player, RtsFreeCamInput.dummy());
+                    }
+                } catch (final Exception ignored) {
+                }
+            }
             ClientRtsController.get().preTick();
             return;
         }
 
-        Minecraft minecraft = Minecraft.getInstance();
+        final Minecraft minecraft = Minecraft.getInstance();
+        final Object saved = savedInput;
+        if (saved != null && minecraft.player != null) {
+            try {
+                final java.lang.reflect.Field f = inputField();
+                if (f != null) f.set(minecraft.player, saved);
+            } catch (final Exception ignored) {
+            }
+            savedInput = null;
+        }
+
         if (minecraft.player == null) {
             toggleKeyWasDown = false;
             toggleCooldownTicks = 0;
@@ -44,4 +80,3 @@ public final class ClientInputHandler {
         ClientRtsController.get().tick();
     }
 }
-

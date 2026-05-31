@@ -49,7 +49,6 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, C2SRtsRequestStoragePagePayload.class, C2SRtsRequestStoragePagePayload.STREAM_CODEC, RtsNetworkHandlers::handleRequestStoragePage);
         registerMessage(id++, C2SRtsRequestCraftablesPayload.class, C2SRtsRequestCraftablesPayload.STREAM_CODEC, RtsNetworkHandlers::handleRequestCraftables);
         registerMessage(id++, C2SRtsPlacePayload.class, C2SRtsPlacePayload.STREAM_CODEC, RtsNetworkHandlers::handlePlace);
-        registerMessage(id++, C2SRtsPlaceBatchPayload.class, C2SRtsPlaceBatchPayload.STREAM_CODEC, RtsNetworkHandlers::handlePlaceBatch);
         registerMessage(id++, C2SRtsPlaceFluidPayload.class, C2SRtsPlaceFluidPayload.STREAM_CODEC, RtsNetworkHandlers::handlePlaceFluid);
         registerMessage(id++, C2SRtsStoreFluidPayload.class, C2SRtsStoreFluidPayload.STREAM_CODEC, RtsNetworkHandlers::handleStoreFluid);
         registerMessage(id++, C2SRtsInteractPayload.class, C2SRtsInteractPayload.STREAM_CODEC, RtsNetworkHandlers::handleInteract);
@@ -83,6 +82,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, S2CRtsQuestDetectStatusPayload.class, S2CRtsQuestDetectStatusPayload.STREAM_CODEC, RtsClientPayloadBridge::handleQuestDetectStatus);
         registerMessage(id++, S2CRtsMineProgressPayload.class, S2CRtsMineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleMineProgress);
         registerMessage(id++, S2CRtsProgressionStatePayload.class, S2CRtsProgressionStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleProgressionState);
+        registerMessage(id++, S2CRtsDamageFeedbackPayload.class, S2CRtsDamageFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleDamageFeedback);
     }
 
     public static void sendToPlayer(final ServerPlayer player, final Object message) {

@@ -74,13 +74,12 @@ final class RtsClientUiStateStore {
         int ultimineLimit = 64;
         boolean chunkCurtainVisible = false;
         double rtsGuiScale = 2.0D;
-        int inputSensitivityIndex = 2;
+        float translateSensitivityScale = 1.0F;
+        float rotateSensitivityScale = 1.0F;
         boolean startCameraAtPlayerHead = false;
         boolean allowPlacedBlockRecovery = false;
-        boolean invertPanDragX = false;
-        boolean invertPanDragY = false;
-        boolean smoothCamera = true;
         boolean debugButtonVisible = false;
+        boolean smoothCamera = false;
         boolean containerOverlayEnabled = true;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
@@ -98,13 +97,12 @@ final class RtsClientUiStateStore {
             clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
             clean.chunkCurtainVisible = this.chunkCurtainVisible;
             clean.rtsGuiScale = sanitizeScale(this.rtsGuiScale);
-            clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));
+            clean.translateSensitivityScale = Math.max(0.25F, Math.min(3.00F, this.translateSensitivityScale));
+            clean.rotateSensitivityScale = Math.max(0.25F, Math.min(3.00F, this.rotateSensitivityScale));
             clean.startCameraAtPlayerHead = this.startCameraAtPlayerHead;
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
-            clean.invertPanDragX = this.invertPanDragX;
-            clean.invertPanDragY = this.invertPanDragY;
-            clean.smoothCamera = this.smoothCamera;
             clean.debugButtonVisible = this.debugButtonVisible;
+            clean.smoothCamera = this.smoothCamera;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             return clean;

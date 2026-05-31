@@ -68,15 +68,6 @@ public final class Config {
         SPEC.save();
     }
 
-    public static void saveProgressionSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
-            Map<String, String> costOverrides) {
-        ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
-        SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
-        MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
-        setProgressionCostOverrides(costOverrides);
-        SPEC.save();
-    }
-
     public static Map<String, String> progressionCostOverrides() {
         Map<String, String> out = new LinkedHashMap<>();
         for (String raw : PROGRESSION_COST_OVERRIDES.get()) {
@@ -107,21 +98,12 @@ public final class Config {
         } else {
             current.put(nodePath, clean);
         }
-        setProgressionCostOverrides(current);
-        SPEC.save();
-    }
-
-    private static void setProgressionCostOverrides(Map<String, String> overrides) {
-        Map<String, String> current = overrides == null ? Map.of() : overrides;
         List<String> encoded = new ArrayList<>(current.size());
         for (var entry : current.entrySet()) {
-            String node = entry.getKey() == null ? "" : entry.getKey().trim();
-            String costs = entry.getValue() == null ? "" : entry.getValue().trim();
-            if (!node.isBlank() && !costs.isBlank()) {
-                encoded.add(node + "=" + costs);
-            }
+            encoded.add(entry.getKey() + "=" + entry.getValue());
         }
         PROGRESSION_COST_OVERRIDES.set(encoded);
+        SPEC.save();
     }
 }
 
