@@ -104,6 +104,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidType;
@@ -120,8 +122,11 @@ public final class RtsStorageManager {
     private static final int PAGE_SIZE = 90;
     private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
     private static final long INTERNAL_FLUID_CAPACITY_MB = 100L * FluidType.BUCKET_VOLUME;
-    private static final double REMOTE_POV_BLOCK_REACH = 4.5D;
+    private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
     private static final double REMOTE_POV_EPSILON = 0.1D;
+    private static final double WRENCH_TOOL_REACH = 4.0D;
+    private static final TagKey<Item> FORGE_WRENCHES = ItemTags.create(
+            new ResourceLocation("forge", "wrenches"));
     private static final double FUNNEL_RADIUS = 2.0D;
     private static final int FUNNEL_MAX_ENTITIES_PER_TICK = 24;
     private static final int FUNNEL_MAX_ITEMS_PER_TICK = 48;
@@ -5763,13 +5768,14 @@ public final class RtsStorageManager {
             BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
         int previousSelected = player.getInventory().selected;
+        double reach = WRENCH_TOOL_REACH; // Temporarily use reduced reach for all tools
         Vec3 interactionPos = resolveInteractionPosition(targetEntity, blockHit, hit);
         return withTemporaryUseItemContext(
                 player,
                 interactionPos,
                 hit,
                 rayContext,
-                REMOTE_POV_BLOCK_REACH,
+                reach,
                 () -> {
             player.getInventory().selected = slot;
             try {

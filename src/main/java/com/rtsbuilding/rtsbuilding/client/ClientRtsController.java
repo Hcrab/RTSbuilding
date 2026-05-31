@@ -85,14 +85,12 @@ public final class ClientRtsController {
     private static final float ROT_INPUT_CLAMP = 20.0F;
     private static final float ROTATE_GAIN_X = 0.24F;
     private static final float ROTATE_GAIN_Y = 0.22F;
-    private static final float ROT_SENS_MIN = 1.00F;
-    private static final float ROT_SENS_MAX = 10.00F;
-    private static final float ROT_SENS_STEP = 0.50F;
     private static final double DOLLY_PER_SCROLL = 2.6D;
-    private static final double VERTICAL_SPEED = 0.32D;
-    private static final double FAST_VERTICAL_SPEED = 0.55D;
-    private static final float[] INPUT_SENS_PRESETS = new float[] { 0.50F, 0.75F, 1.00F, 1.25F, 1.50F, 2.00F };
-    private static final int INPUT_SENS_DEFAULT_INDEX = 2;
+    private static final double VERTICAL_SPEED = 0.20D;
+    private static final double FAST_VERTICAL_SPEED = 0.35D;
+    private static final float SENSITIVITY_MIN = 0.25F;
+    private static final float SENSITIVITY_MAX = 3.00F;
+    private static final float SENSITIVITY_DEFAULT = 1.00F;
     private static final int QUICK_SLOT_COUNT = 27;
     private static final int GUI_BINDING_SLOT_COUNT = 8;
     private static final int CRAFTABLE_BATCH_SIZE = 12;
@@ -161,8 +159,8 @@ public final class ClientRtsController {
     private int cameraMoveHeartbeatTicks;
     private int cameraRestoreCooldownTicks;
 
-    private float rotateSensitivity = 5.00F;
-    private int inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+    private float translateSensitivityScale = SENSITIVITY_DEFAULT;
+    private float rotateSensitivityScale = SENSITIVITY_DEFAULT;
 
     private BuilderMode mode = BuilderMode.INTERACT;
     private boolean storageCollapsed;
@@ -257,6 +255,8 @@ public final class ClientRtsController {
         this.startCameraAtPlayerHead = uiState.startCameraAtPlayerHead;
         this.allowPlacedBlockRecovery = uiState.allowPlacedBlockRecovery;
         this.smoothCamera = uiState.smoothCamera;
+        this.translateSensitivityScale = Mth.clamp(uiState.translateSensitivityScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
+        this.rotateSensitivityScale = Mth.clamp(uiState.rotateSensitivityScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -689,8 +689,20 @@ public final class ClientRtsController {
         return this.quickSlotPreviews[index];
     }
 
-    public float getRotateSensitivity() {
-        return this.rotateSensitivity;
+    public float getTranslateSensitivityScale() {
+        return this.translateSensitivityScale;
+    }
+
+    public float getRotateSensitivityScale() {
+        return this.rotateSensitivityScale;
+    }
+
+    public double getTranslateSensitivityFraction() {
+        return (this.translateSensitivityScale - SENSITIVITY_MIN) / (SENSITIVITY_MAX - SENSITIVITY_MIN);
+    }
+
+    public double getRotateSensitivityFraction() {
+        return (this.rotateSensitivityScale - SENSITIVITY_MIN) / (SENSITIVITY_MAX - SENSITIVITY_MIN);
     }
 
     public int getGuiBindingCount() {
@@ -715,37 +727,32 @@ public final class ClientRtsController {
         return !getGuiBindingLabel(index).isBlank();
     }
 
-    public String getInputSensitivityLabel() {
-        return String.format(Locale.ROOT, "x%.2f", getInputSensitivityScale());
+    public String getTranslateSensitivityLabel() {
+        return String.format(Locale.ROOT, "x%.2f", getTranslateSensitivityScale());
     }
 
-    public int getInputSensitivityIndex() {
-        if (this.inputSensitivityIndex < 0 || this.inputSensitivityIndex >= INPUT_SENS_PRESETS.length) {
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-        }
-        return this.inputSensitivityIndex;
+    public String getRotateSensitivityLabel() {
+        return String.format(Locale.ROOT, "x%.2f", getRotateSensitivityScale());
     }
 
-    public int getInputSensitivityPresetCount() {
-        return INPUT_SENS_PRESETS.length;
+    public void setTranslateSensitivityByFraction(double fraction) {
+        this.translateSensitivityScale = Mth.clamp(
+                (float) (SENSITIVITY_MIN + fraction * (SENSITIVITY_MAX - SENSITIVITY_MIN)),
+                SENSITIVITY_MIN, SENSITIVITY_MAX);
     }
 
-    public void setInputSensitivityByFraction(double fraction) {
-        double clamped = Mth.clamp(fraction, 0.0D, 1.0D);
-        int next = (int) Math.round(clamped * (INPUT_SENS_PRESETS.length - 1));
-        this.inputSensitivityIndex = Mth.clamp(next, 0, INPUT_SENS_PRESETS.length - 1);
-    }
-
-    public void cycleInputSensitivity() {
-        this.inputSensitivityIndex = (this.inputSensitivityIndex + 1) % INPUT_SENS_PRESETS.length;
+    public void setRotateSensitivityByFraction(double fraction) {
+        this.rotateSensitivityScale = Mth.clamp(
+                (float) (SENSITIVITY_MIN + fraction * (SENSITIVITY_MAX - SENSITIVITY_MIN)),
+                SENSITIVITY_MIN, SENSITIVITY_MAX);
     }
 
     public void increaseRotateSensitivity() {
-            this.rotateSensitivity = Mth.clamp(this.rotateSensitivity + ROT_SENS_STEP, ROT_SENS_MIN, ROT_SENS_MAX);
+        this.rotateSensitivityScale = Mth.clamp(this.rotateSensitivityScale + 0.25F, SENSITIVITY_MIN, SENSITIVITY_MAX);
     }
 
     public void decreaseRotateSensitivity() {
-            this.rotateSensitivity = Mth.clamp(this.rotateSensitivity - ROT_SENS_STEP, ROT_SENS_MIN, ROT_SENS_MAX);
+        this.rotateSensitivityScale = Mth.clamp(this.rotateSensitivityScale - 0.25F, SENSITIVITY_MIN, SENSITIVITY_MAX);
     }
 
     public void beginRotateCapture(double cursorX, double cursorY) {
@@ -873,7 +880,7 @@ public final class ClientRtsController {
             this.storageCategory = "all";
             this.storageSort = RtsStorageSort.QUANTITY;
             this.storageSortAscending = false;
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+            this.translateSensitivityScale = SENSITIVITY_DEFAULT;
             this.storageCategories.clear();
             this.storageCategories.add("all");
             clearStorageScanState();
@@ -937,7 +944,7 @@ public final class ClientRtsController {
         this.emaRotateY = 0.0F;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
-        this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+        this.translateSensitivityScale = SENSITIVITY_DEFAULT;
         this.selectedItemId = "";
         this.selectedItemLabel = "";
         this.selectedItemPreview = ItemStack.EMPTY;
@@ -1110,10 +1117,11 @@ public final class ClientRtsController {
             this.emaRotateY *= ROT_EMA_DECAY;
         }
 
-        float inputSensScale = getInputSensitivityScale();
-        float rotateXForTick = Mth.clamp(this.emaRotateX * this.rotateSensitivity * inputSensScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float rotateYForTick = Mth.clamp(this.emaRotateY * this.rotateSensitivity * inputSensScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float scrollForTick = this.pendingScroll * inputSensScale;
+        float translateScale = getTranslateSensitivityScale();
+        float rotateScale = getRotateSensitivityScale();
+        float rotateXForTick = Mth.clamp(this.emaRotateX * rotateScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float rotateYForTick = Mth.clamp(this.emaRotateY * rotateScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float scrollForTick = this.pendingScroll * translateScale;
         if (Math.abs(rotateXForTick) < CAMERA_INPUT_EPSILON) {
             rotateXForTick = 0.0F;
             this.emaRotateX = 0.0F;
@@ -1222,7 +1230,7 @@ public final class ClientRtsController {
     }
 
     public void applyImmediateRotation(float dragX, float dragY) {
-        float sens = getInputSensitivityScale() * this.rotateSensitivity;
+        float sens = getRotateSensitivityScale();
         float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens * ROTATE_GAIN_X;
         float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens * ROTATE_GAIN_Y;
         this.localYawDeg += yawDelta;
@@ -2382,25 +2390,25 @@ public final class ClientRtsController {
         if (this.smoothCamera) {
             boolean suppressMoveKeys = minecraft.screen instanceof BuilderScreen screen && screen.isSearchFocused();
             long window = minecraft.getWindow().getWindow();
-            boolean w = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_UP));
-            boolean s = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_DOWN));
-            boolean a = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT));
-            boolean d = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT));
+            boolean w = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W);
+            boolean s = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S);
+            boolean a = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A);
+            boolean d = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D);
             boolean up = !suppressMoveKeys && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_SPACE);
-            boolean down = !suppressMoveKeys && (InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_SHIFT) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_SHIFT));
+            boolean down = !suppressMoveKeys && ClientKeyMappings.CAMERA_DOWN.isDown();
             boolean fast = !suppressMoveKeys && minecraft.options.keySprint.isDown();
             float forward = (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F);
             float strafe = (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F);
             float vertical = (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F);
 
-            float inputSensScale = getInputSensitivityScale();
-            float scroll = this.pendingScroll * inputSensScale;
+            float translateScale = getTranslateSensitivityScale();
+            float scroll = this.pendingScroll * translateScale;
             this.pendingScroll = 0.0F;
 
             this.applyLocalPrediction(
-                    forward * inputSensScale,
-                    strafe  * inputSensScale,
-                    vertical * inputSensScale,
+                    forward * translateScale,
+                    strafe  * translateScale,
+                    vertical * translateScale,
                     this.pendingPanX, this.pendingPanY,
                     0.0F, 0.0F,
                     scroll,
@@ -2452,7 +2460,7 @@ public final class ClientRtsController {
         }
         this.localPitchDeg = Mth.clamp(this.localPitchDeg + (rotateY * ROTATE_GAIN_Y), MIN_CAMERA_PITCH, MAX_CAMERA_PITCH);
 
-        double speed = fast ? 0.80D : 0.45D;
+        double speed = fast ? 0.50D : 0.28D;
         double yawRad = Math.toRadians(this.localYawDeg);
         double sin = Math.sin(yawRad);
         double cos = Math.cos(yawRad);
@@ -2532,12 +2540,6 @@ public final class ClientRtsController {
         return quarter * 90.0F;
     }
 
-    private float getInputSensitivityScale() {
-        if (this.inputSensitivityIndex < 0 || this.inputSensitivityIndex >= INPUT_SENS_PRESETS.length) {
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-        }
-        return INPUT_SENS_PRESETS[this.inputSensitivityIndex];
-    }
 
     private static String normalizeCategory(String category) {
         if (category == null) {
