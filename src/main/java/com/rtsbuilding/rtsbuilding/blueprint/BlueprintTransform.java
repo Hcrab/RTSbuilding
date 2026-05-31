@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.blueprint;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
+import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -19,13 +20,50 @@ public final class BlueprintTransform {
         if (pos == null) {
             return BlockPos.ZERO;
         }
-        int x = pos.getX();
-        int y = pos.getY();
-        int z = pos.getZ();
-        int[] xyz = rotateY(x, y, z, normalizeSteps(ySteps));
-        xyz = rotateX(xyz[0], xyz[1], xyz[2], normalizeSteps(xSteps));
-        xyz = rotateZ(xyz[0], xyz[1], xyz[2], normalizeSteps(zSteps));
+        int[] xyz = rotateRaw(pos.getX(), pos.getY(), pos.getZ(), ySteps, xSteps, zSteps);
         return new BlockPos(xyz[0], xyz[1], xyz[2]);
+    }
+
+    public static BlockPos centerRotationOffset(Vec3i size, int ySteps, int xSteps, int zSteps) {
+        if (size == null || size.getX() <= 0 || size.getY() <= 0 || size.getZ() <= 0) {
+            return BlockPos.ZERO;
+        }
+        int maxX = size.getX() - 1;
+        int maxY = size.getY() - 1;
+        int maxZ = size.getZ() - 1;
+        int minRotX = Integer.MAX_VALUE;
+        int minRotY = Integer.MAX_VALUE;
+        int minRotZ = Integer.MAX_VALUE;
+        int maxRotX = Integer.MIN_VALUE;
+        int maxRotY = Integer.MIN_VALUE;
+        int maxRotZ = Integer.MIN_VALUE;
+
+        int[] xs = new int[] { 0, maxX };
+        int[] ys = new int[] { 0, maxY };
+        int[] zs = new int[] { 0, maxZ };
+        for (int x : xs) {
+            for (int y : ys) {
+                for (int z : zs) {
+                    int[] rotated = rotateRaw(x, y, z, ySteps, xSteps, zSteps);
+                    minRotX = Math.min(minRotX, rotated[0]);
+                    minRotY = Math.min(minRotY, rotated[1]);
+                    minRotZ = Math.min(minRotZ, rotated[2]);
+                    maxRotX = Math.max(maxRotX, rotated[0]);
+                    maxRotY = Math.max(maxRotY, rotated[1]);
+                    maxRotZ = Math.max(maxRotZ, rotated[2]);
+                }
+            }
+        }
+
+        return new BlockPos(
+                nearestInteger((maxX * 0.5D) - ((minRotX + maxRotX) * 0.5D)),
+                nearestInteger((maxY * 0.5D) - ((minRotY + maxRotY) * 0.5D)),
+                nearestInteger((maxZ * 0.5D) - ((minRotZ + maxRotZ) * 0.5D)));
+    }
+
+    public static BlockPos rotateAroundCenter(BlockPos pos, int ySteps, int xSteps, int zSteps, BlockPos centerOffset) {
+        BlockPos rotated = rotate(pos, ySteps, xSteps, zSteps);
+        return centerOffset == null ? rotated : rotated.offset(centerOffset);
     }
 
     public static BlockState rotateState(BlockState state, int ySteps, int xSteps, int zSteps) {
@@ -112,6 +150,16 @@ public final class BlueprintTransform {
             case 3 -> new int[] { y, -x, z };
             default -> new int[] { x, y, z };
         };
+    }
+
+    private static int[] rotateRaw(int x, int y, int z, int ySteps, int xSteps, int zSteps) {
+        int[] xyz = rotateY(x, y, z, normalizeSteps(ySteps));
+        xyz = rotateX(xyz[0], xyz[1], xyz[2], normalizeSteps(xSteps));
+        return rotateZ(xyz[0], xyz[1], xyz[2], normalizeSteps(zSteps));
+    }
+
+    private static int nearestInteger(double value) {
+        return (int) Math.floor(value + 0.5D);
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

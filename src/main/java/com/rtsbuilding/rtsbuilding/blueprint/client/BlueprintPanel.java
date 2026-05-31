@@ -609,18 +609,21 @@ public final class BlueprintPanel {
         int gap = 4;
         if (inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H)) {
             yRotationSteps = BlueprintTransform.normalizeSteps(yRotationSteps + 1);
+            rememberCurrentRotationAsDefault();
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
             return true;
         }
         xPos += btnW + gap;
         if (inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H)) {
             xRotationSteps = BlueprintTransform.normalizeSteps(xRotationSteps + 1);
+            rememberCurrentRotationAsDefault();
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
             return true;
         }
         xPos += btnW + gap;
         if (inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H)) {
             zRotationSteps = BlueprintTransform.normalizeSteps(zRotationSteps + 1);
+            rememberCurrentRotationAsDefault();
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
             return true;
         }
@@ -629,6 +632,7 @@ public final class BlueprintPanel {
             yRotationSteps = 0;
             xRotationSteps = 0;
             zRotationSteps = 0;
+            rememberCurrentRotationAsDefault();
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
             return true;
         }
@@ -1075,8 +1079,9 @@ public final class BlueprintPanel {
         int y = BlueprintTransform.normalizeSteps(yRotationSteps);
         int x = BlueprintTransform.normalizeSteps(xRotationSteps);
         int z = BlueprintTransform.normalizeSteps(zRotationSteps);
+        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(entry.blueprint().size(), y, x, z);
         for (RtsBlueprintBlock block : entry.blueprint().blocks()) {
-            BlockPos pos = anchor.offset(BlueprintTransform.rotate(block.relativePos(), y, x, z)).immutable();
+            BlockPos pos = anchor.offset(BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset)).immutable();
             BlockState state = block.isMissingBlock()
                     ? Blocks.AIR.defaultBlockState()
                     : BlueprintTransform.rotateState(block.state(), y, x, z);
@@ -1138,9 +1143,17 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
         }
+        rememberCurrentRotationAsDefault();
+        setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
+    }
+
+    private static void rememberCurrentRotationAsDefault() {
+        BlueprintEntry entry = selectedEntry();
+        if (entry == null || !entry.error().isBlank()) {
+            return;
+        }
         DEFAULT_ROTATIONS.put(entry.fileName(), new RotationPreset(yRotationSteps, xRotationSteps, zRotationSteps));
         saveDefaultRotations();
-        setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
     }
 
     private static void saveRotatedCopy() {
