@@ -154,6 +154,7 @@ public final class RtsStorageManager {
     private static final String NBT_LINKED_ENTRY_POS = "pos";
     private static final String NBT_LINKED_ENTRY_DIMENSION = "dimension";
     private static final String NBT_LINKED_ENTRY_MODE = "mode";
+    private static final String NBT_LINKED_ENTRY_BACKPACK_UUID = "bpUuid";
     private static final String NBT_LINKED_POSITIONS = "linked_positions";
     private static final String NBT_LINKED_MODES = "linked_modes";
     private static final String NBT_LINKED_DIMENSION = "linked_dimension";
@@ -296,6 +297,7 @@ public final class RtsStorageManager {
         session.linkedStorages.clear();
         session.linkedNames.clear();
         session.linkedModes.clear();
+        session.backpackUuids.clear();
 
         session.page = root.contains(NBT_PAGE, Tag.TAG_INT) ? Math.max(0, root.getInt(NBT_PAGE)) : 0;
         session.search = sanitizeSavedText(root.getString(NBT_SEARCH), 128);
@@ -336,6 +338,9 @@ public final class RtsStorageManager {
                 if (!session.linkedStorages.contains(ref)) {
                     session.linkedStorages.add(ref);
                     session.linkedModes.put(ref, sanitizeLinkMode(linkedTag.getByte(NBT_LINKED_ENTRY_MODE)));
+                    if (linkedTag.contains(NBT_LINKED_ENTRY_BACKPACK_UUID, Tag.TAG_INT_ARRAY)) {
+                        session.backpackUuids.put(ref, linkedTag.getUUID(NBT_LINKED_ENTRY_BACKPACK_UUID));
+                    }
                 }
             }
         } else {
@@ -471,6 +476,10 @@ public final class RtsStorageManager {
             linkedTag.putLong(NBT_LINKED_ENTRY_POS, ref.pos().asLong());
             linkedTag.putString(NBT_LINKED_ENTRY_DIMENSION, ref.dimension().location().toString());
             linkedTag.putByte(NBT_LINKED_ENTRY_MODE, linkMode);
+            UUID bpUuid = session.backpackUuids.get(ref);
+            if (bpUuid != null) {
+                linkedTag.putUUID(NBT_LINKED_ENTRY_BACKPACK_UUID, bpUuid);
+            }
             linkedEntries.add(linkedTag);
         }
         root.put(NBT_LINKED_ENTRIES, linkedEntries);
@@ -630,6 +639,15 @@ public final class RtsStorageManager {
             return;
         }
 
+        Optional<UUID> backpackUuid = Optional.empty();
+        if (com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat.isAvailable()) {
+            BlockEntity be = player.serverLevel().getBlockEntity(pos);
+            if (be != null) {
+                backpackUuid = com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat
+                        .getBackpackUuid(be);
+            }
+        }
+
         byte normalizedMode = sanitizeLinkMode(linkMode);
         if (session.linkedStorages.contains(ref)) {
             byte existingMode = session.linkedModes.getOrDefault(ref, LINK_MODE_BIDIRECTIONAL);
@@ -637,14 +655,19 @@ public final class RtsStorageManager {
                 session.linkedStorages.remove(ref);
                 session.linkedNames.remove(ref);
                 session.linkedModes.remove(ref);
+                session.backpackUuids.remove(ref);
             } else {
                 session.linkedModes.put(ref, normalizedMode);
                 session.linkedNames.put(ref, resolveDisplayName(player.serverLevel(), ref.pos()));
+                backpackUuid.ifPresentOrElse(
+                        uuid -> session.backpackUuids.put(ref, uuid),
+                        () -> session.backpackUuids.remove(ref));
             }
         } else {
             session.linkedStorages.add(ref);
             session.linkedNames.put(ref, resolveDisplayName(player.serverLevel(), ref.pos()));
             session.linkedModes.put(ref, normalizedMode);
+            backpackUuid.ifPresent(uuid -> session.backpackUuids.put(ref, uuid));
         }
         saveSessionToPlayerNbt(player, session);
         requestPage(player, 0, session.search, session.category, session.sort, session.ascending);
@@ -6646,6 +6669,13 @@ public final class RtsStorageManager {
             }
             IItemHandler handler = findLinkedItemHandler(player, pos);
             if (handler == null) {
+                UUID uuid = session.backpackUuids.get(ref);
+                if (uuid != null && com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat.isAvailable()) {
+                    handler = com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat
+                            .findBackpackHandlerByUuid(player, uuid).orElse(null);
+                }
+            }
+            if (handler == null) {
                 continue;
             }
             String name = session.linkedNames.computeIfAbsent(ref, ignored -> resolveDisplayName(player.serverLevel(), pos));
@@ -6738,6 +6768,7 @@ public final class RtsStorageManager {
         session.linkedStorages.removeIf(ref -> ref == null || ref.dimension() == null || ref.pos() == null);
         session.linkedNames.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
         session.linkedModes.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+        session.backpackUuids.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
     }
 
     private static String buildLinkedSummary(Session session) {
@@ -7469,6 +7500,7 @@ public final class RtsStorageManager {
         private final List<LinkedStorageRef> linkedStorages = new ArrayList<>();
         private final Map<LinkedStorageRef, String> linkedNames = new HashMap<>();
         private final Map<LinkedStorageRef, Byte> linkedModes = new HashMap<>();
+        private final Map<LinkedStorageRef, UUID> backpackUuids = new HashMap<>();
         private int page;
         private String search = "";
         private String category = "all";

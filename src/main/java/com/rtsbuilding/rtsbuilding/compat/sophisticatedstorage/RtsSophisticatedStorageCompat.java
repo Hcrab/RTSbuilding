@@ -11,7 +11,9 @@ import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 
 public final class RtsSophisticatedStorageCompat {
     private static final String MOD_ID = "sophisticatedstorage";
+    private static final String BACKPACKS_MOD_ID = "sophisticatedbackpacks";
     private static final String MENU_CLASS_PREFIX = "net.p3pp3rf1y.sophisticatedstorage.common.gui.";
+    private static final String BACKPACK_MENU_PREFIX = "net.p3pp3rf1y.sophisticatedbackpacks.common.gui.";
     private static final String STORAGE_MENU_BASE_CLASS = "net.p3pp3rf1y.sophisticatedcore.common.gui.StorageContainerMenuBase";
     private static final Map<UUID, Integer> SERVER_REMOTE_MENU_IDS = new ConcurrentHashMap<>();
     private static volatile int clientRemoteMenuId = -1;
@@ -30,9 +32,15 @@ public final class RtsSophisticatedStorageCompat {
     }
 
     public static boolean isSupportedRemoteMenu(AbstractContainerMenu menu) {
-        return menu != null
-                && ModList.get().isLoaded(MOD_ID)
-                && menu.getClass().getName().startsWith(MENU_CLASS_PREFIX);
+        if (menu == null) {
+            return false;
+        }
+        if (ModList.get().isLoaded(MOD_ID)
+                && menu.getClass().getName().startsWith(MENU_CLASS_PREFIX)) {
+            return true;
+        }
+        return ModList.get().isLoaded(BACKPACKS_MOD_ID)
+                && menu.getClass().getName().startsWith(BACKPACK_MENU_PREFIX);
     }
 
     public static boolean isStorageContainerMenuBase(AbstractContainerMenu menu) {
