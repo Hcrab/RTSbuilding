@@ -13,8 +13,11 @@ import java.util.Set;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
@@ -156,6 +159,7 @@ public final class BuilderScreen extends Screen {
     private int categoryScroll = 0;
     private final Set<String> expandedCategoryMods = new HashSet<>();
     private int bottomPanelHeight = DEFAULT_BOTTOM_H;
+    private BottomPanelTab bottomPanelTab = BottomPanelTab.STORAGE;
     private boolean rightPressActive = false;
     private int rightPressButton = -1;
     private boolean rightPressCanPrimary = false;
@@ -215,6 +219,8 @@ public final class BuilderScreen extends Screen {
     private int shapeFootprintNudgeA = 0;
     private int shapeFootprintNudgeB = 0;
     private double shapeCursorY = 0.0D;
+    private int lastMouseX = 0;
+    private int lastMouseY = 0;
     private ShapeFillMode shapeFillMode = ShapeFillMode.FILL;
     private int shapeRotateDegrees = 0;
     private boolean shapeWheelOpenedByAlt = false;
@@ -397,6 +403,41 @@ public final class BuilderScreen extends Screen {
             submitCraftQuantityDialogIfReady();
             return handled;
         }
+        if (BlueprintPanel.isNameDialogOpen()) {
+            return BlueprintPanel.mouseClickedNameDialog(mouseX, mouseY, button, this.width, this.height);
+        }
+        if (BlueprintPanel.isMaterialDialogOpen()) {
+            return BlueprintPanel.mouseClickedMaterialDialog(mouseX, mouseY, button, this.width, this.height);
+        }
+        if (BlueprintPanel.isCaptureModeActive()) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                stopActiveMining();
+                if (!BlueprintPanel.mouseClickedCaptureOverlay(mouseX, mouseY, this.width, this.height, TOP_H + 8)) {
+                    if (BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
+                        BlockHitResult hit = pickBlockHit();
+                        if (hit != null
+                                && hit.getType() == HitResult.Type.BLOCK
+                                && BlueprintPanel.toggleCaptureBlockExclusion(hit.getBlockPos())) {
+                            return true;
+                        }
+                    }
+                    BlueprintPanel.cancelCaptureFromClick();
+                }
+                return true;
+            }
+            if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                if (!BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
+                    BlockHitResult hit = pickBlockHit();
+                    if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
+                        BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
+                    }
+                    return true;
+                }
+                if (!BlueprintPanel.isCaptureSelectionComplete()) {
+                    return true;
+                }
+            }
+        }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && this.ultimineLimitEditing
                 && !isInsideUltimineLimitInput(mouseX, mouseY)) {
@@ -485,6 +526,10 @@ public final class BuilderScreen extends Screen {
                     return true;
                 }
                 this.gearMenuOpen = false;
+            }
+            if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS
+                    && BlueprintPanel.mouseClickedPlacementHud(mouseX, mouseY, this.width, this.height, TOP_H + 8, getBottomY())) {
+                return true;
             }
             if (handleQuickBuildPanelClick(mouseX, mouseY)) {
                 return true;
@@ -783,6 +828,7 @@ public final class BuilderScreen extends Screen {
 
     private boolean startMiningAt(double mouseX, double mouseY, int mouseButton, boolean keyboard) {
         if (this.pendingGuiBindSlot >= 0
+                || BlueprintPanel.isCaptureModeActive()
                 || !isWorldArea(mouseX, mouseY)
                 || this.controller.getMode() == BuilderMode.LINK_STORAGE
                 || this.controller.getMode() == BuilderMode.FUNNEL) {
@@ -823,6 +869,15 @@ public final class BuilderScreen extends Screen {
         if (this.pendingGuiBindSlot >= 0) {
             return true;
         }
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
+            if (!BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
+                BlockHitResult hit = pickBlockHit();
+                if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
+                    BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
+                }
+            }
+            return true;
+        }
         if (isInsideBottomPanel(mouseX, mouseY)) {
             return handleBottomPanelRightClick(mouseX, mouseY);
         }
@@ -856,6 +911,20 @@ public final class BuilderScreen extends Screen {
         }
         boolean forcePlace = hasShiftDown();
         if (tryConfirmPendingShapeBuild(forcePlace)) {
+            return true;
+        }
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.hasSelectedBlueprint()) {
+            if (BlueprintPanel.hasPinnedPreview()) {
+                BlueprintPanel.confirmPinnedPreview();
+                return true;
+            }
+            BlockHitResult blueprintHit = pickBlueprintPlacementHit();
+            if (blueprintHit != null) {
+                BlockPos anchor = resolveBlueprintAnchor(blueprintHit);
+                if (anchor != null) {
+                    BlueprintPanel.pinSelected(anchor);
+                }
+            }
             return true;
         }
         InteractionTarget target = pickInteractionTarget(false);
@@ -944,6 +1013,24 @@ public final class BuilderScreen extends Screen {
         return true;
     }
 
+    private BlockPos resolveBlueprintAnchor(BlockHitResult hit) {
+        if (hit == null || this.minecraft == null || this.minecraft.level == null) {
+            return null;
+        }
+        BlockPos clicked = hit.getBlockPos();
+        return BlueprintReplaceRules.canBlueprintReplace(this.minecraft.level.getBlockState(clicked))
+                ? clicked
+                : clicked.relative(hit.getDirection());
+    }
+
+    private BlockHitResult pickBlueprintPlacementHit() {
+        InteractionTarget target = pickInteractionTarget(false);
+        if (target != null && target.blockHit() != null) {
+            return target.blockHit();
+        }
+        return tryCreateBlueprintAirHit();
+    }
+
     private boolean tryPickHoveredBlockForPlacement() {
         if (this.minecraft == null || this.minecraft.level == null) {
             return false;
@@ -990,6 +1077,12 @@ public final class BuilderScreen extends Screen {
         if (this.craftQuantityDialog.isOpen()) {
             return this.craftQuantityDialog.mouseScrolled(scrollY);
         }
+        if (BlueprintPanel.isNameDialogOpen()) {
+            return true;
+        }
+        if (BlueprintPanel.isMaterialDialogOpen()) {
+            return BlueprintPanel.mouseScrolledMaterialDialog(scrollY, this.controller, this.width, this.height);
+        }
 
         if (this.gearMenuOpen && isInsideGearMenu(mouseX, mouseY)) {
             return scrollGearMenu(scrollY);
@@ -1025,6 +1118,14 @@ public final class BuilderScreen extends Screen {
 
         if (isInsideBottomPanel(mouseX, mouseY)) {
             BottomPanelLayout layout = resolveBottomPanelLayout();
+            if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+                int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
+                int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
+                int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
+                int contentH = Math.max(24, layout.panelH() - BOTTOM_PANEL_HEADER_H - 8);
+                BlueprintPanel.mouseScrolled(mouseX, mouseY, scrollY, contentX, contentY, contentW, contentH);
+                return true;
+            }
             if (inside(mouseX, mouseY, layout.craftPanelX(), layout.craftPanelY(), CRAFT_PANEL_W, layout.craftPanelH())) {
                 int visibleRows = layout.storageRows();
                 int totalRows = Math.max(1, (int) Math.ceil(this.controller.getCraftableEntries().size() / (double) CRAFT_PANEL_COLS));
@@ -1059,6 +1160,18 @@ public final class BuilderScreen extends Screen {
             boolean handled = this.craftQuantityDialog.keyPressed(keyCode, scanCode, modifiers);
             submitCraftQuantityDialogIfReady();
             return handled;
+        }
+        if (BlueprintPanel.keyPressedNameDialog(keyCode)) {
+            return true;
+        }
+        if (BlueprintPanel.keyPressedMaterialDialog(keyCode)) {
+            return true;
+        }
+        if (BlueprintPanel.isCaptureModeActive() && BlueprintPanel.keyPressed(keyCode)) {
+            return true;
+        }
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.keyPressed(keyCode)) {
+            return true;
         }
 
         if (this.controller.isHomeSelectionMode()) {
@@ -1341,6 +1454,12 @@ public final class BuilderScreen extends Screen {
         if (this.craftQuantityDialog.isOpen()) {
             return this.craftQuantityDialog.charTyped(codePoint, modifiers);
         }
+        if (BlueprintPanel.charTypedNameDialog(codePoint)) {
+            return true;
+        }
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.charTyped(codePoint)) {
+            return true;
+        }
 
         if (this.searchBox != null && this.searchBox.isFocused()) {
             if (this.searchBox.charTyped(codePoint, modifiers)) {
@@ -1363,6 +1482,8 @@ public final class BuilderScreen extends Screen {
         if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
             return;
         }
+        this.lastMouseX = mouseX;
+        this.lastMouseY = mouseY;
         this.shapeCursorY = mouseY;
         this.hoveredEntry = -1;
         this.hoveredRecentEntry = -1;
@@ -1388,12 +1509,23 @@ public final class BuilderScreen extends Screen {
         renderFunnelBufferPanel(guiGraphics, mouseX, mouseY);
         renderQuestDetectPopup(guiGraphics);
         renderStorageScanPopup(guiGraphics);
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
+            BlockHitResult hit = isWorldArea(mouseX, mouseY) ? pickBlockHit() : null;
+            BlueprintPanel.updateCaptureHoverPoint(hit == null ? null : hit.getBlockPos());
+        }
+        BlueprintPanel.renderCaptureOverlay(guiGraphics, this.font, this.width, this.height, mouseX, mouseY, TOP_H + 8);
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+            BlueprintPanel.renderPlacementHud(guiGraphics, this.font, this.controller,
+                    this.width, this.height, mouseX, mouseY, TOP_H + 8, getBottomY());
+        }
 
         boolean modalOpen = this.gearMenuOpen
                 || this.guideOpen
                 || this.interactionWheelOpen
                 || this.shapeWheelOpen
-                || this.craftQuantityDialog.isOpen();
+                || this.craftQuantityDialog.isOpen()
+                || BlueprintPanel.isNameDialogOpen()
+                || BlueprintPanel.isMaterialDialogOpen();
         boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
             if (!placementSelectionActive
@@ -1493,6 +1625,17 @@ public final class BuilderScreen extends Screen {
 
         if (this.guideOpen) {
             renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 40.0F, () -> renderGuidePanel(guiGraphics));
+        }
+
+        if (BlueprintPanel.isMaterialDialogOpen()) {
+            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 50.0F,
+                    () -> BlueprintPanel.renderMaterialDialog(guiGraphics, this.font, this.controller,
+                            this.width, this.height, mouseX, mouseY));
+        }
+
+        if (BlueprintPanel.isNameDialogOpen()) {
+            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 55.0F,
+                    () -> BlueprintPanel.renderNameDialog(guiGraphics, this.font, this.width, this.height, mouseX, mouseY));
         }
 
         if (this.craftQuantityDialog.isOpen()) {
@@ -3015,7 +3158,7 @@ public final class BuilderScreen extends Screen {
 
         drawPanelFrame(g, layout.panelX(), layout.panelY(), layout.panelW(), layout.panelH(), 0xD014151A, 0xFF64788E, 0xFF0D1015);
         g.fill(layout.panelX() + 1, layout.panelY() + 1, layout.panelX() + layout.panelW() - 1, layout.panelY() + BOTTOM_PANEL_HEADER_H, 0xCC1C242F);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.storage.title"), layout.panelX() + 8, layout.panelY() + 5, 0xF2F6FB);
+        renderBottomPanelTabs(g, layout, mouseX, mouseY);
         int refreshX = bottomRefreshButtonX(layout);
         int refreshY = bottomGuideButtonY(layout);
         boolean refreshHover = inside(mouseX, mouseY, refreshX, refreshY, 12, 12);
@@ -3029,6 +3172,15 @@ public final class BuilderScreen extends Screen {
         boolean guideHover = inside(mouseX, mouseY, guideX, guideY, 12, 12);
         g.fill(guideX, guideY, guideX + 12, guideY + 12, guideHover ? 0xCC41576F : 0xAA2B3542);
         g.drawCenteredString(this.font, "i", guideX + 6, guideY + 2, 0xEAF4FF);
+
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+            int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
+            int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
+            int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
+            int contentH = Math.max(24, layout.panelH() - BOTTOM_PANEL_HEADER_H - 8);
+            BlueprintPanel.render(g, this.font, this.controller, contentX, contentY, contentW, contentH, mouseX, mouseY);
+            return;
+        }
 
         drawSortButton(g, sortX, sortY, "S");
         drawSortButton(g, sortX, sortY + SORT_BUTTON_SIZE + 4, this.controller.isStorageSortAscending() ? "A" : "D");
@@ -3084,6 +3236,64 @@ public final class BuilderScreen extends Screen {
         drawStorageGrid(g, mouseX, mouseY, itemGridX, gridY, storageGridW, gridH);
         drawRecentGrid(g, mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
         renderCraftablesPanel(g, mouseX, mouseY, craftPanelX, craftPanelY, CRAFT_PANEL_W, craftPanelH, partialTick);
+    }
+
+    private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayout layout, int mouseX, int mouseY) {
+        int labelX = layout.panelX() + 8;
+        int labelY = layout.panelY() + 5;
+        g.drawString(this.font, "RTS", labelX, labelY, 0xF2F6FB);
+        drawBottomPanelTab(
+                g,
+                layout,
+                BottomPanelTab.STORAGE,
+                Component.translatable("screen.rtsbuilding.storage.tab").getString(),
+                mouseX,
+                mouseY);
+        drawBottomPanelTab(
+                g,
+                layout,
+                BottomPanelTab.BLUEPRINTS,
+                Component.translatable("screen.rtsbuilding.blueprints.tab").getString(),
+                mouseX,
+                mouseY);
+    }
+
+    private void drawBottomPanelTab(
+            GuiGraphics g,
+            BottomPanelLayout layout,
+            BottomPanelTab tab,
+            String label,
+            int mouseX,
+            int mouseY) {
+        int x = bottomPanelTabX(layout, tab);
+        int y = layout.panelY() + 2;
+        int w = bottomPanelTabW(tab);
+        boolean active = this.bottomPanelTab == tab;
+        boolean hover = inside(mouseX, mouseY, x, y, w, BOTTOM_PANEL_HEADER_H - 3);
+        int fill = active ? 0xCC355B4C : hover ? 0xAA334052 : 0x8826303B;
+        drawPanelFrame(g, x, y, w, BOTTOM_PANEL_HEADER_H - 3, fill, active ? 0xFF7CCB93 : 0xFF536679, 0xFF0D1015);
+        g.drawCenteredString(this.font, trimToWidth(label, w - 8), x + w / 2, y + 4, active ? 0xFFFFFFFF : 0xFFD8E2EE);
+    }
+
+    private int bottomPanelTabX(BottomPanelLayout layout, BottomPanelTab tab) {
+        int storageX = layout.panelX() + 38;
+        if (tab == BottomPanelTab.STORAGE) {
+            return storageX;
+        }
+        return storageX + bottomPanelTabW(BottomPanelTab.STORAGE) + 4;
+    }
+
+    private int bottomPanelTabW(BottomPanelTab tab) {
+        return tab == BottomPanelTab.STORAGE ? 76 : 86;
+    }
+
+    private BottomPanelTab resolveBottomPanelTabClick(BottomPanelLayout layout, double mouseX, double mouseY) {
+        for (BottomPanelTab tab : BottomPanelTab.values()) {
+            if (inside(mouseX, mouseY, bottomPanelTabX(layout, tab), layout.panelY() + 2, bottomPanelTabW(tab), BOTTOM_PANEL_HEADER_H - 3)) {
+                return tab;
+            }
+        }
+        return null;
     }
 
     private void renderToolArea(GuiGraphics g, int mouseX, int mouseY, int storageX, int rowY, int storageW) {
@@ -3712,8 +3922,19 @@ public final class BuilderScreen extends Screen {
             return false;
         }
 
+        BottomPanelTab clickedTab = resolveBottomPanelTabClick(layout, mouseX, mouseY);
+        if (clickedTab != null) {
+            this.bottomPanelTab = clickedTab;
+            blurSearchFocus();
+            this.gearMenuOpen = false;
+            return true;
+        }
         if (inside(mouseX, mouseY, bottomRefreshButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
-            this.controller.refreshStoragePage();
+            if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+                BlueprintPanel.reload();
+            } else {
+                this.controller.refreshStoragePage();
+            }
             this.gearMenuOpen = false;
             return true;
         }
@@ -3724,6 +3945,13 @@ public final class BuilderScreen extends Screen {
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
             return true;
+        }
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+            int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
+            int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
+            int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
+            int contentH = Math.max(24, layout.panelH() - BOTTOM_PANEL_HEADER_H - 8);
+            return BlueprintPanel.mouseClicked(mouseX, mouseY, contentX, contentY, contentW, contentH);
         }
 
         int sortX = layout.sortX();
@@ -3846,6 +4074,9 @@ public final class BuilderScreen extends Screen {
             return false;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
+            return true;
+        }
+        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
             return true;
         }
 
@@ -4483,6 +4714,11 @@ public final class BuilderScreen extends Screen {
         }
     }
 
+    private enum BottomPanelTab {
+        STORAGE,
+        BLUEPRINTS
+    }
+
     private record QuickBuildPanelLayout(int x, int y, int w, int h) {
         private boolean contains(double mouseX, double mouseY) {
             return inside(mouseX, mouseY, this.x, this.y, this.w, this.h);
@@ -4776,6 +5012,33 @@ public final class BuilderScreen extends Screen {
         return new ShapeGhostPreview(blocks, ready);
     }
 
+    public BlueprintGhostPreview getBlueprintGhostPreview() {
+        if (this.bottomPanelTab != BottomPanelTab.BLUEPRINTS
+                || BlueprintPanel.isCaptureModeActive()
+                || !BlueprintPanel.hasSelectedBlueprint()) {
+            return BlueprintGhostPreview.EMPTY;
+        }
+        BlockPos anchor = BlueprintPanel.getPinnedAnchor();
+        if (anchor == null) {
+            if (!isWorldArea(this.lastMouseX, this.lastMouseY)) {
+                return BlueprintGhostPreview.EMPTY;
+            }
+            BlockHitResult hit = pickBlueprintPlacementHit();
+            if (hit == null) {
+                return BlueprintGhostPreview.EMPTY;
+            }
+            anchor = resolveBlueprintAnchor(hit);
+        }
+        if (anchor == null) {
+            return BlueprintGhostPreview.EMPTY;
+        }
+        var preview = BlueprintPanel.createGhostPreview(anchor, BlueprintPanel.getYRotationSteps(), this.controller);
+        if (preview.blocks().isEmpty()) {
+            return BlueprintGhostPreview.EMPTY;
+        }
+        return new BlueprintGhostPreview(preview.blocks(), preview.materialsReady(), preview.truncated());
+    }
+
     private List<BlockPos> collectUltiminePreviewBlocks() {
         if (this.minecraft == null || this.minecraft.level == null) {
             return List.of();
@@ -4793,32 +5056,15 @@ public final class BuilderScreen extends Screen {
             return List.of();
         }
 
+        boolean creative = this.minecraft.player != null && this.minecraft.player.isCreative();
         int limit = clampUltimineLimit(this.ultimineLimit);
-        List<BlockPos> result = new ArrayList<>();
-        Set<BlockPos> visited = new HashSet<>();
-        Deque<BlockPos> frontier = new ArrayDeque<>();
-        BlockPos immutableSeed = seed.immutable();
-        visited.add(immutableSeed);
-        frontier.addLast(immutableSeed);
-
-        while (!frontier.isEmpty() && result.size() < limit) {
-            BlockPos current = frontier.removeFirst();
-            BlockState state = this.minecraft.level.getBlockState(current);
-            if (state.isAir() || state.getBlock() != seedState.getBlock()) {
-                continue;
-            }
-            result.add(current.immutable());
-            for (Direction direction : Direction.values()) {
-                if (visited.size() >= limit * 8) {
-                    break;
-                }
-                BlockPos next = current.relative(direction).immutable();
-                if (visited.add(next)) {
-                    frontier.addLast(next);
-                }
-            }
-        }
-        return result;
+        return RtsUltimineCollector.collect(
+                this.minecraft.level,
+                seed,
+                limit,
+                (pos, state, originalState) -> !state.isAir()
+                        && state.getBlock() == originalState.getBlock()
+                        && (creative || state.getDestroySpeed(this.minecraft.level, pos) >= 0.0F));
     }
 
     private ShapeBuildInput resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
@@ -6695,6 +6941,25 @@ public final class BuilderScreen extends Screen {
         return new BlockHitResult(hitVec, face, BlockPos.containing(hitVec), false);
     }
 
+    private BlockHitResult tryCreateBlueprintAirHit() {
+        if (this.minecraft == null || this.minecraft.level == null || this.minecraft.player == null
+                || this.minecraft.getCameraEntity() == null) {
+            return null;
+        }
+        Vec3 camPos = this.minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 dir = computeCursorRayDirection();
+        if (Math.abs(dir.y) < 1.0E-5D) {
+            return null;
+        }
+        double planeY = this.minecraft.player.blockPosition().getY();
+        double t = (planeY - camPos.y) / dir.y;
+        if (t <= 0.0D || t > 128.0D) {
+            return null;
+        }
+        Vec3 hitVec = camPos.add(dir.scale(t));
+        return new BlockHitResult(hitVec, Direction.UP, BlockPos.containing(hitVec), false);
+    }
+
     private Direction resolveAirShapeFace(Vec3 dir) {
         if (this.shapeBuildSession != null && this.shapeBuildSession.planeFace() != null) {
             return this.shapeBuildSession.planeFace();
@@ -7100,6 +7365,10 @@ public final class BuilderScreen extends Screen {
 
     public record ShapeGhostPreview(List<BlockPos> blocks, boolean readyConfirm) {
         public static final ShapeGhostPreview EMPTY = new ShapeGhostPreview(List.of(), false);
+    }
+
+    public record BlueprintGhostPreview(List<BlueprintPanel.BlueprintGhostBlock> blocks, boolean materialsReady, boolean truncated) {
+        public static final BlueprintGhostPreview EMPTY = new BlueprintGhostPreview(List.of(), false, false);
     }
 
     private record InteractionTarget(

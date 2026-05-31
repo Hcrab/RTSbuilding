@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.entity;
 
+import java.util.UUID;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
@@ -7,6 +9,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 
 public class RtsCameraEntity extends Entity {
+    private UUID ownerUuid;
+
     public RtsCameraEntity(EntityType<? extends RtsCameraEntity> entityType, Level level) {
         super(entityType, level);
         this.noPhysics = true;
@@ -23,6 +27,14 @@ public class RtsCameraEntity extends Entity {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag compoundTag) {
+    }
+
+    public UUID getOwnerUuid() {
+        return this.ownerUuid;
+    }
+
+    public void setOwnerUuid(UUID ownerUuid) {
+        this.ownerUuid = ownerUuid;
     }
 
     @Override

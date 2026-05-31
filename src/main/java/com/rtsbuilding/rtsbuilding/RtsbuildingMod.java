@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding;
 
 import com.mojang.logging.LogUtils;
+import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
@@ -42,6 +43,8 @@ public final class RtsbuildingMod {
                     .sized(0.1F, 0.1F)
                     .clientTrackingRange(32)
                     .updateInterval(1)
+                    .noSave()
+                    .noSummon()
                     .build("rts_camera"));
 
     public RtsbuildingMod(final FMLJavaModLoadingContext context) {
@@ -79,6 +82,7 @@ public final class RtsbuildingMod {
         @SubscribeEvent
         static void onPlayerLogin(final PlayerEvent.PlayerLoggedInEvent event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                RtsCameraManager.cleanupOrphanCameras(serverPlayer.getServer());
                 RtsProgressionManager.onPlayerLogin(serverPlayer);
             }
         }
@@ -86,12 +90,14 @@ public final class RtsbuildingMod {
         @SubscribeEvent
         static void onServerStarted(final ServerStartedEvent event) {
             RtsStorageManager.warmCreativeTabCaches(event.getServer());
+            RtsCameraManager.cleanupOrphanCameras(event.getServer());
         }
 
         @SubscribeEvent
         static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 RtsCameraManager.stopIfActive(serverPlayer);
+                BlueprintPlacementService.clear(serverPlayer);
                 RtsStorageManager.onPlayerLogout(serverPlayer);
                 RtsProgressionManager.onPlayerLogout(serverPlayer);
             }
@@ -114,6 +120,7 @@ public final class RtsbuildingMod {
                 RtsStorageManager.onPlayerTickPre(serverPlayer);
             } else {
                 RtsStorageManager.onPlayerTickPost(serverPlayer);
+                BlueprintPlacementService.tick(serverPlayer);
             }
         }
 

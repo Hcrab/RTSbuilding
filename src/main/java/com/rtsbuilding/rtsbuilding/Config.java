@@ -44,6 +44,14 @@ public final class Config {
             .comment("Skill material overrides. Format: node_path=minecraft:item:count,minecraft:item2:count. Example: ultimine=minecraft:diamond_pickaxe:1,minecraft:redstone_block:1")
             .defineListAllowEmpty("progressionCostOverrides", List.of(), obj -> obj instanceof String);
 
+    public static final ForgeConfigSpec.BooleanValue ENABLE_BLUEPRINTS = BUILDER
+            .comment("Enable the experimental RTS blueprint panel and direct blueprint placement.")
+            .define("enableBlueprints", true);
+
+    public static final ForgeConfigSpec.IntValue MAX_BLUEPRINT_BLOCKS = BUILDER
+            .comment("Maximum non-air blocks allowed in one RTS blueprint import, capture, or placement job.")
+            .defineInRange("maxBlueprintBlocks", 20000, 1, 200000);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private Config() {
@@ -69,12 +77,22 @@ public final class Config {
     }
 
     public static void saveProgressionSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
-            Map<String, String> costOverrides) {
+            boolean blueprintsEnabled, int maxBlueprintBlocks, Map<String, String> costOverrides) {
         ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
         SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
         MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
+        ENABLE_BLUEPRINTS.set(blueprintsEnabled);
+        MAX_BLUEPRINT_BLOCKS.set(Math.max(1, Math.min(200000, maxBlueprintBlocks)));
         setProgressionCostOverrides(costOverrides);
         SPEC.save();
+    }
+
+    public static boolean areBlueprintsEnabled() {
+        return ENABLE_BLUEPRINTS.get();
+    }
+
+    public static int maxBlueprintBlocks() {
+        return MAX_BLUEPRINT_BLOCKS.get();
     }
 
     public static Map<String, String> progressionCostOverrides() {

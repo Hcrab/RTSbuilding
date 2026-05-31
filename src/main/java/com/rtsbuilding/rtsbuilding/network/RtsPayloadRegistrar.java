@@ -1,6 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintClientPayloadBridge;
+import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintNetworkHandlers;
+import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
+import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
@@ -74,6 +78,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, C2SRtsSetHomePayload.class, C2SRtsSetHomePayload.STREAM_CODEC, RtsNetworkHandlers::handleSetHome);
         registerMessage(id++, C2SRtsBeginHomeSelectionPayload.class, C2SRtsBeginHomeSelectionPayload.STREAM_CODEC, RtsNetworkHandlers::handleBeginHomeSelection);
         registerMessage(id++, C2SRtsRequestProgressionStatePayload.class, C2SRtsRequestProgressionStatePayload.STREAM_CODEC, RtsNetworkHandlers::handleRequestProgressionState);
+        registerMessage(id++, C2SBlueprintPlacePayload.class, C2SBlueprintPlacePayload.STREAM_CODEC, BlueprintNetworkHandlers::handlePlace);
 
         registerMessage(id++, S2CRtsCameraStatePayload.class, S2CRtsCameraStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleCameraState);
         registerMessage(id++, S2CRtsStoragePagePayload.class, S2CRtsStoragePagePayload.STREAM_CODEC, RtsClientPayloadBridge::handleStoragePage);
@@ -83,6 +88,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, S2CRtsQuestDetectStatusPayload.class, S2CRtsQuestDetectStatusPayload.STREAM_CODEC, RtsClientPayloadBridge::handleQuestDetectStatus);
         registerMessage(id++, S2CRtsMineProgressPayload.class, S2CRtsMineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleMineProgress);
         registerMessage(id++, S2CRtsProgressionStatePayload.class, S2CRtsProgressionStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleProgressionState);
+        registerMessage(id++, S2CBlueprintStatusPayload.class, S2CBlueprintStatusPayload.STREAM_CODEC, BlueprintClientPayloadBridge::handleStatus);
     }
 
     public static void sendToPlayer(final ServerPlayer player, final Object message) {

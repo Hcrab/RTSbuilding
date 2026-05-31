@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
@@ -938,6 +939,85 @@ public final class RtsStorageManager {
             }
         }
         return total;
+    }
+
+    public static boolean canAccessBlueprintTarget(ServerPlayer player, BlockPos pos) {
+        return canAccessWorldTarget(player, pos);
+    }
+
+    public static long countBlueprintMaterial(ServerPlayer player, Item item) {
+        if (player == null || item == null || item == Items.AIR) {
+            return 0L;
+        }
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return 0L;
+        }
+
+        long total = 0L;
+        for (LinkedHandler linkedHandler : resolveLinkedHandlers(player, session)) {
+            IItemHandler handler = linkedHandler.handler();
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                ItemStack stack = handler.getStackInSlot(slot);
+                if (!stack.isEmpty() && stack.getItem() == item) {
+                    total = saturatedAdd(total, getHandlerReportedCount(handler, slot, stack));
+                }
+            }
+        }
+
+        int start = getPlayerMainInventoryStart(player);
+        int end = getPlayerMainInventoryEndExclusive(player);
+        for (int slot = start; slot < end; slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (!stack.isEmpty() && stack.getItem() == item) {
+                total = saturatedAdd(total, stack.getCount());
+            }
+        }
+        return total;
+    }
+
+    public static ItemStack extractBlueprintMaterial(ServerPlayer player, Item item, int count) {
+        if (player == null || item == null || item == Items.AIR || count <= 0) {
+            return ItemStack.EMPTY;
+        }
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return ItemStack.EMPTY;
+        }
+        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
+        List<IItemHandler> handlers = activeLinked.stream().map(LinkedHandler::handler).toList();
+        return extractMatchingFromNetwork(handlers, player, item, count);
+    }
+
+    public static void refundBlueprintMaterial(ServerPlayer player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) {
+            return;
+        }
+        Session session = SESSIONS.get(player.getUUID());
+        List<IItemHandler> handlers = session == null
+                ? List.of()
+                : resolveLinkedHandlers(player, session).stream().map(LinkedHandler::handler).toList();
+        refundToLinked(handlers, player, stack);
+    }
+
+    public static void noteBlueprintBlockPlaced(ServerPlayer player, BlockPos pos, String itemId) {
+        if (player == null || pos == null) {
+            return;
+        }
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return;
+        }
+        playRemotePlacedBlockSound(player, player.serverLevel(), session, pos, true);
+        recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
+    }
+
+    public static void refreshBlueprintStoragePage(ServerPlayer player) {
+        Session session = player == null ? null : SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return;
+        }
+        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
     }
 
     private static boolean currentPinyinSearchEnabled(ServerPlayer player) {
@@ -3660,8 +3740,21 @@ public final class RtsStorageManager {
             return;
         }
         int limit = Math.max(1, Math.min(Math.min(ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+
+        if (player.isCreative()) {
+            Deque<BlockPos> targets = collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, limit, true);
+            if (targets.isEmpty()) {
+                stopActiveMining(player, session);
+                return;
+            }
+            stopActiveMining(player, session);
+            breakCreativeUltimineTargets(player, session, targets, slot);
+            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            return;
+        }
+
         ItemStack linkedTool = extractLinkedMiningTool(player, session, toolItemId, toolPrototype);
-        Deque<BlockPos> targets = collectUltimineTargets(player, pos, slot, linkedTool, limit);
+        Deque<BlockPos> targets = collectUltimineTargets(player, pos, slot, linkedTool, limit, false);
         if (targets.isEmpty()) {
             refundLinkedMiningTool(player, session, linkedTool);
             stopActiveMining(player, session);
@@ -3682,42 +3775,28 @@ public final class RtsStorageManager {
     }
 
     private static Deque<BlockPos> collectUltimineTargets(ServerPlayer player, BlockPos seed, int toolSlot, ItemStack linkedTool, int limit) {
-        Deque<BlockPos> result = new ArrayDeque<>();
+        return collectUltimineTargets(player, seed, toolSlot, linkedTool, limit, player != null && player.isCreative());
+    }
+
+    private static Deque<BlockPos> collectUltimineTargets(ServerPlayer player, BlockPos seed, int toolSlot, ItemStack linkedTool, int limit, boolean creative) {
         if (!canAccessWorldTarget(player, seed)) {
-            return result;
+            return new ArrayDeque<>();
         }
 
         ServerLevel level = player.serverLevel();
-        BlockState seedState = level.getBlockState(seed);
-        if (!isUltimineCandidate(player, seed, seedState, seedState, toolSlot, linkedTool)) {
-            return result;
-        }
-
-        Set<BlockPos> visited = new HashSet<>();
-        Deque<BlockPos> frontier = new ArrayDeque<>();
-        frontier.add(seed.immutable());
-        visited.add(seed.immutable());
-
-        while (!frontier.isEmpty() && result.size() < limit) {
-            BlockPos current = frontier.removeFirst();
-            BlockState currentState = level.getBlockState(current);
-            if (!isUltimineCandidate(player, current, currentState, seedState, toolSlot, linkedTool)) {
-                continue;
-            }
-
-            result.add(current.immutable());
-            for (Direction direction : Direction.values()) {
-                BlockPos next = current.relative(direction);
-                if (visited.size() >= limit * 8) {
-                    break;
-                }
-                BlockPos immutableNext = next.immutable();
-                if (visited.add(immutableNext)) {
-                    frontier.addLast(immutableNext);
-                }
-            }
-        }
-        return result;
+        List<BlockPos> targets = RtsUltimineCollector.collect(
+                level,
+                seed,
+                limit,
+                (candidatePos, state, seedState) -> isUltimineCandidate(
+                        player,
+                        candidatePos,
+                        state,
+                        seedState,
+                        toolSlot,
+                        linkedTool,
+                        creative));
+        return new ArrayDeque<>(targets);
     }
 
     private static boolean isUltimineCandidate(
@@ -3726,14 +3805,31 @@ public final class RtsStorageManager {
             BlockState state,
             BlockState seedState,
             int toolSlot,
-            ItemStack linkedTool) {
-        if (state.isAir() || state.getBlock() != seedState.getBlock() || state.getDestroySpeed(player.serverLevel(), pos) < 0.0F) {
+            ItemStack linkedTool,
+            boolean creative) {
+        if (state.isAir() || state.getBlock() != seedState.getBlock()) {
             return false;
         }
         if (!canAccessWorldTarget(player, pos)) {
             return false;
         }
+        if (creative) {
+            return true;
+        }
+        if (state.getDestroySpeed(player.serverLevel(), pos) < 0.0F) {
+            return false;
+        }
         return computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool) > 0.0F;
+    }
+
+    private static void breakCreativeUltimineTargets(ServerPlayer player, Session session, Deque<BlockPos> targets, int toolSlot) {
+        while (!targets.isEmpty()) {
+            BlockPos target = targets.removeFirst();
+            if (!canAccessWorldTarget(player, target)) {
+                continue;
+            }
+            destroyMinedBlock(player, session, target, toolSlot);
+        }
     }
 
     private static void beginRemoteMining(ServerPlayer player, Session session, BlockPos pos, Direction face, int toolSlot) {

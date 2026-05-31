@@ -71,6 +71,8 @@ public final class RtsCameraManager {
     }
 
     private static void startNormal(ServerPlayer player, boolean startAtPlayerHead) {
+        cleanupOrphanCameras(player.getServer());
+        discardOwnedCameras(player, null);
         ServerLevel level = player.serverLevel();
         Vec3 anchor = player.position();
         double maxRadius = RtsProgressionManager.getActionRadius(player);
@@ -80,6 +82,7 @@ public final class RtsCameraManager {
         double cameraY = startAtPlayerHead ? player.getEyeY() : anchor.y + 18.0D;
 
         RtsCameraEntity camera = new RtsCameraEntity(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), level);
+        camera.setOwnerUuid(player.getUUID());
         camera.snapTo(anchor.x, cameraY, anchor.z, yaw, pitch);
         level.addFreshEntity(camera);
 
@@ -118,6 +121,8 @@ public final class RtsCameraManager {
     }
 
     private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead) {
+        cleanupOrphanCameras(player.getServer());
+        discardOwnedCameras(player, null);
         ServerLevel level = player.serverLevel();
         BlockPos playerPos = player.blockPosition();
         int centerChunkX = playerPos.getX() >> 4;
@@ -132,6 +137,7 @@ public final class RtsCameraManager {
         double cameraZ = anchor.z;
 
         RtsCameraEntity camera = new RtsCameraEntity(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), level);
+        camera.setOwnerUuid(player.getUUID());
         camera.snapTo(cameraX, cameraY, cameraZ, yaw, pitch);
         level.addFreshEntity(camera);
 
@@ -164,6 +170,7 @@ public final class RtsCameraManager {
                 RtsProgressionManager.endHomeSelection(player);
             }
         }
+        discardOwnedCameras(player, null);
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(false, -1, 0.0D, 0.0D, 0.0D, RtsProgressionManager.DEFAULT_MAX_ACTION_RADIUS_BLOCKS, 18.0D, 0.0F, 70.0F, false, false));
         RtsStorageManager.onRtsDisabled(player);
@@ -295,7 +302,14 @@ public final class RtsCameraManager {
     private static RtsCameraEntity getOrRestoreCamera(ServerPlayer player, Session session) {
         Entity baseEntity = findCameraEntity(player.getServer(), session.cameraUuid());
         if (baseEntity instanceof RtsCameraEntity camera && baseEntity.level() == player.serverLevel()) {
-            return camera;
+            if (camera.getOwnerUuid() == null) {
+                camera.setOwnerUuid(player.getUUID());
+            }
+            if (!player.getUUID().equals(camera.getOwnerUuid())) {
+                camera.discard();
+            } else {
+                return camera;
+            }
         }
 
         if (baseEntity != null) {
@@ -305,6 +319,7 @@ public final class RtsCameraManager {
         ServerLevel level = player.serverLevel();
         Vec3 cameraPos = session.cameraPos();
         RtsCameraEntity restored = new RtsCameraEntity(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), level);
+        restored.setOwnerUuid(player.getUUID());
         restored.snapTo(cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg(), session.pitchDeg());
         level.addFreshEntity(restored);
 
@@ -332,6 +347,47 @@ public final class RtsCameraManager {
                 session.homeSelection(),
                 session.closeRangeAllowed()));
         return restored;
+    }
+
+    public static void cleanupOrphanCameras(MinecraftServer server) {
+        if (server == null) {
+            return;
+        }
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof RtsCameraEntity camera && !isActiveCamera(camera.getUUID())) {
+                    camera.discard();
+                }
+            }
+        }
+    }
+
+    private static void discardOwnedCameras(ServerPlayer player, UUID keepUuid) {
+        if (player == null || player.getServer() == null) {
+            return;
+        }
+        UUID ownerUuid = player.getUUID();
+        for (ServerLevel level : player.getServer().getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof RtsCameraEntity camera
+                        && ownerUuid.equals(camera.getOwnerUuid())
+                        && !camera.getUUID().equals(keepUuid)) {
+                    camera.discard();
+                }
+            }
+        }
+    }
+
+    private static boolean isActiveCamera(UUID cameraUuid) {
+        if (cameraUuid == null) {
+            return false;
+        }
+        for (Session session : SESSIONS.values()) {
+            if (cameraUuid.equals(session.cameraUuid())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Entity findCameraEntity(MinecraftServer server, UUID cameraUuid) {

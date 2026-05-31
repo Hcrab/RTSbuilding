@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client;
 
+import java.util.List;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -8,16 +10,21 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -33,6 +40,8 @@ import net.minecraftforge.fml.common.Mod;
 public final class RtsBoundaryRenderer extends RenderStateShard {
     private static final int GL_LEQUAL = 515;
     private static final int CHUNK_GUIDE_RADIUS_CHUNKS = 1;
+    private static final int CAPTURE_BLOCK_HIGHLIGHT_LIMIT = 8192;
+    private static final int CAPTURE_EXCLUDED_HIGHLIGHT_LIMIT = 1024;
 
     private static final RenderType CHUNK_XRAY_FILL = RenderType.create(
             "rtsbuilding_chunk_xray_fill",
@@ -127,6 +136,8 @@ public final class RtsBoundaryRenderer extends RenderStateShard {
             renderLinkedStorages(minecraft, controller, poseStack, lineBuffer);
             renderHoveredInteractionTarget(minecraft, controller, poseStack, lineBuffer);
             renderShapeGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
+            renderBlueprintCaptureBox(poseStack, lineBuffer, fillBuffer);
+            renderBlueprintGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
 
             drawBuiltBuffer(lines, lineBuffer);
             drawBuiltBuffer(filledBox, fillBuffer);
@@ -437,6 +448,181 @@ public final class RtsBoundaryRenderer extends RenderStateShard {
                     lineG,
                     lineB,
                     0.95F);
+        }
+    }
+
+    private static void renderBlueprintCaptureBox(final PoseStack poseStack, final VertexConsumer lineBuffer, final VertexConsumer fillBuffer) {
+        BlockPos first = BlueprintPanel.getCapturePointA();
+        if (first == null) {
+            return;
+        }
+        BlockPos second = BlueprintPanel.getCapturePreviewPointB();
+        if (second == null) {
+            second = first;
+        }
+        double minX = Math.min(first.getX(), second.getX()) - 0.01D;
+        double minY = Math.min(first.getY(), second.getY()) + 0.99D;
+        double minZ = Math.min(first.getZ(), second.getZ()) - 0.01D;
+        double maxX = Math.max(first.getX(), second.getX()) + 1.01D;
+        double maxY = Math.max(first.getY(), second.getY()) + 1.01D;
+        double maxZ = Math.max(first.getZ(), second.getZ()) + 1.01D;
+        if (minY > maxY) {
+            minY = maxY - 0.02D;
+        }
+        List<BlockPos> includedBlocks = BlueprintPanel.getCaptureIncludedBlocksForRender(CAPTURE_BLOCK_HIGHLIGHT_LIMIT);
+        if (BlueprintPanel.shouldRenderCapturePreviewFill()
+                && !BlueprintPanel.shouldRenderCaptureBlockHighlights(CAPTURE_BLOCK_HIGHLIGHT_LIMIT)) {
+            LevelRenderer.addChainedFilledBoxVertices(
+                    poseStack,
+                    fillBuffer,
+                    minX,
+                    minY,
+                    minZ,
+                    maxX,
+                    maxY,
+                    maxZ,
+                    0.12F,
+                    0.46F,
+                    0.95F,
+                    0.06F);
+        }
+        for (BlockPos pos : includedBlocks) {
+            LevelRenderer.addChainedFilledBoxVertices(
+                    poseStack,
+                    fillBuffer,
+                    pos.getX() + 0.04D,
+                    pos.getY() + 0.04D,
+                    pos.getZ() + 0.04D,
+                    pos.getX() + 0.96D,
+                    pos.getY() + 0.96D,
+                    pos.getZ() + 0.96D,
+                    0.12F,
+                    0.56F,
+                    1.0F,
+                    0.11F);
+        }
+        for (BlockPos pos : BlueprintPanel.getCaptureExcludedBlocksForRender(CAPTURE_EXCLUDED_HIGHLIGHT_LIMIT)) {
+            LevelRenderer.renderLineBox(
+                    poseStack,
+                    lineBuffer,
+                    pos.getX() + 0.06D,
+                    pos.getY() + 0.06D,
+                    pos.getZ() + 0.06D,
+                    pos.getX() + 0.94D,
+                    pos.getY() + 0.94D,
+                    pos.getZ() + 0.94D,
+                    1.0F,
+                    0.36F,
+                    0.12F,
+                    0.95F);
+        }
+        LevelRenderer.renderLineBox(
+                poseStack,
+                lineBuffer,
+                minX,
+                minY,
+                minZ,
+                maxX,
+                maxY,
+                maxZ,
+                0.35F,
+                0.78F,
+                1.0F,
+                0.95F);
+    }
+
+    private static void renderBlueprintGhostPreview(final Minecraft minecraft, final PoseStack poseStack,
+            final VertexConsumer lineBuffer, final VertexConsumer fillBuffer) {
+        if (!(minecraft.screen instanceof BuilderScreen builderScreen)) {
+            return;
+        }
+        BuilderScreen.BlueprintGhostPreview preview = builderScreen.getBlueprintGhostPreview();
+        if (preview.blocks().isEmpty()) {
+            return;
+        }
+
+        float lineR = preview.materialsReady() ? 0.35F : 1.00F;
+        float lineG = preview.materialsReady() ? 0.95F : 0.72F;
+        float lineB = preview.materialsReady() ? 0.72F : 0.22F;
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        boolean renderedBlockModels = false;
+        MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
+
+        for (BlueprintPanel.BlueprintGhostBlock block : preview.blocks()) {
+            BlockPos pos = block.pos();
+            minX = Math.min(minX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+            maxX = Math.max(maxX, pos.getX() + 1);
+            maxY = Math.max(maxY, pos.getY() + 1);
+            maxZ = Math.max(maxZ, pos.getZ() + 1);
+
+            BlockState state = block.state();
+            if (!block.missing()
+                    && state != null
+                    && !state.isAir()
+                    && state.getRenderShape() == RenderShape.MODEL) {
+                poseStack.pushPose();
+                poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+                minecraft.getBlockRenderer().renderSingleBlock(
+                        state,
+                        poseStack,
+                        blockBuffer,
+                        LightTexture.FULL_BRIGHT,
+                        OverlayTexture.NO_OVERLAY);
+                poseStack.popPose();
+                renderedBlockModels = true;
+                continue;
+            }
+
+            double cellMinX = pos.getX() + 0.04D;
+            double cellMinY = pos.getY() + 0.04D;
+            double cellMinZ = pos.getZ() + 0.04D;
+            double cellMaxX = pos.getX() + 0.96D;
+            double cellMaxY = pos.getY() + 0.96D;
+            double cellMaxZ = pos.getZ() + 0.96D;
+            float fallbackR = block.missing() ? 1.00F : lineR;
+            float fallbackG = block.missing() ? 0.25F : lineG;
+            float fallbackB = block.missing() ? 0.25F : lineB;
+            LevelRenderer.renderLineBox(
+                    poseStack,
+                    lineBuffer,
+                    cellMinX,
+                    cellMinY,
+                    cellMinZ,
+                    cellMaxX,
+                    cellMaxY,
+                    cellMaxZ,
+                    fallbackR,
+                    fallbackG,
+                    fallbackB,
+                    0.90F);
+        }
+
+        if (renderedBlockModels) {
+            blockBuffer.endBatch();
+        }
+
+        if (minX != Integer.MAX_VALUE) {
+            float alpha = preview.truncated() ? 0.55F : 0.75F;
+            LevelRenderer.renderLineBox(
+                    poseStack,
+                    lineBuffer,
+                    minX - 0.02D,
+                    minY - 0.02D,
+                    minZ - 0.02D,
+                    maxX + 0.02D,
+                    maxY + 0.02D,
+                    maxZ + 0.02D,
+                    lineR,
+                    lineG,
+                    lineB,
+                    alpha);
         }
     }
 
