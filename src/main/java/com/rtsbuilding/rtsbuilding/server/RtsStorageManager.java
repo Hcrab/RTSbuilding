@@ -3635,7 +3635,7 @@ public final class RtsStorageManager {
                 requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
                 return;
             }
-            session.miningLinkedTool = extractLinkedMiningTool(player, session, toolItemId, toolPrototype);
+            session.miningToolLease = borrowMiningTool(player, session, toolItemId, toolPrototype, slot);
             beginRemoteMining(player, session, pos, face, slot);
             return;
         }
@@ -3660,16 +3660,15 @@ public final class RtsStorageManager {
             return;
         }
         int limit = Math.max(1, Math.min(Math.min(ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
-        ItemStack linkedTool = extractLinkedMiningTool(player, session, toolItemId, toolPrototype);
-        Deque<BlockPos> targets = collectUltimineTargets(player, pos, slot, linkedTool, limit);
+        stopActiveMining(player, session);
+        ToolLease toolLease = borrowMiningTool(player, session, toolItemId, toolPrototype, slot);
+        Deque<BlockPos> targets = collectUltimineTargets(player, pos, slot, toolLease.stack(), limit);
         if (targets.isEmpty()) {
-            refundLinkedMiningTool(player, session, linkedTool);
-            stopActiveMining(player, session);
+            returnMiningTool(player, session, toolLease);
             return;
         }
 
-        stopActiveMining(player, session);
-        session.miningLinkedTool = linkedTool;
+        session.miningToolLease = toolLease;
         session.ultimineTargets.clear();
         session.ultimineTargets.addAll(targets);
         session.ultimineProgressPos = targets.peekFirst();
@@ -3768,7 +3767,7 @@ public final class RtsStorageManager {
             return;
         }
 
-        float step = computeRemoteDestroyStep(player, state, pos, session.miningToolSlot, session.miningLinkedTool);
+        float step = computeRemoteDestroyStep(player, state, pos, session.miningToolSlot, session.miningToolLease.stack());
         if (step <= 0.0F) {
             return;
         }
@@ -3808,7 +3807,7 @@ public final class RtsStorageManager {
                 runQuestDetect(player, session, false);
             }
         }
-        refundLinkedMiningTool(player, session, session.miningLinkedTool);
+        returnMiningTool(player, session, session.miningToolLease);
         requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         resetMiningState(session);
     }
@@ -3833,7 +3832,7 @@ public final class RtsStorageManager {
             if (targetState.isAir() || targetState.getDestroySpeed(level, target) < 0.0F) {
                 continue;
             }
-            if (computeRemoteDestroyStep(player, targetState, target, session.miningToolSlot, session.miningLinkedTool) <= 0.0F) {
+            if (computeRemoteDestroyStep(player, targetState, target, session.miningToolSlot, session.miningToolLease.stack()) <= 0.0F) {
                 continue;
             }
             boolean targetBroken = destroyMinedBlock(player, session, target, session.miningToolSlot);
@@ -3862,7 +3861,7 @@ public final class RtsStorageManager {
         if (session.ultimineAbsorbedDrops) {
             runQuestDetect(player, session, false);
         }
-        refundLinkedMiningTool(player, session, session.miningLinkedTool);
+        returnMiningTool(player, session, session.miningToolLease);
         requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         BlockPos progressPos = session.ultimineProgressPos;
         if (progressPos != null) {
@@ -3882,7 +3881,7 @@ public final class RtsStorageManager {
             player.serverLevel().destroyBlockProgress(player.getId(), progressPos, -1);
             sendMineProgress(player, progressPos, -1);
         }
-        refundLinkedMiningTool(player, session, session.miningLinkedTool);
+        returnMiningTool(player, session, session.miningToolLease);
         requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         resetMiningState(session);
     }
@@ -3897,7 +3896,7 @@ public final class RtsStorageManager {
         session.miningFace = Direction.DOWN;
         session.miningProgress = 0.0F;
         session.miningStage = -1;
-        session.miningLinkedTool = ItemStack.EMPTY;
+        session.miningToolLease = ToolLease.empty();
     }
 
     private static float computeRemoteDestroyStep(ServerPlayer player, BlockState state, BlockPos pos, int toolSlot, ItemStack linkedTool) {
@@ -3914,41 +3913,114 @@ public final class RtsStorageManager {
     }
 
     private static boolean destroyMinedBlock(ServerPlayer player, Session session, BlockPos pos, int toolSlot) {
-        if (session != null && session.miningLinkedTool != null && !session.miningLinkedTool.isEmpty()) {
-            MiningDestroyOutcome outcome = destroyBlockWithTemporaryMainHand(player, pos, session.miningLinkedTool);
-            session.miningLinkedTool = outcome.remainder();
+        if (session != null && session.miningToolLease != null && !session.miningToolLease.isEmpty()) {
+            ToolLease lease = session.miningToolLease;
+            MiningDestroyOutcome outcome = destroyBlockWithTemporaryMainHand(player, pos, lease.stack());
+            session.miningToolLease = lease.withStack(protectBorrowedToolRemainder(player, lease, outcome.remainder()));
             return outcome.broken();
         }
         return withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
     }
 
-    private static ItemStack extractLinkedMiningTool(ServerPlayer player, Session session, String toolItemId,
-            ItemStack toolPrototype) {
+    private static ToolLease borrowMiningTool(ServerPlayer player, Session session, String toolItemId,
+            ItemStack toolPrototype, int selectedToolSlot) {
         if (player == null || session == null || toolPrototype == null || toolPrototype.isEmpty()
-                || toolItemId == null || toolItemId.isBlank() || session.linkedStorages.isEmpty()) {
-            return ItemStack.EMPTY;
+                || toolItemId == null || toolItemId.isBlank()) {
+            return ToolLease.empty();
         }
         ResourceLocation id = ResourceLocation.tryParse(toolItemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return ItemStack.EMPTY;
+            return ToolLease.empty();
         }
         Item item = BuiltInRegistries.ITEM.get(id);
         if (item instanceof BlockItem || toolPrototype.getItem() != item) {
-            return ItemStack.EMPTY;
+            return ToolLease.empty();
         }
+
+        ToolLease playerLease = borrowMiningToolFromPlayerInventory(player, toolPrototype, selectedToolSlot);
+        if (!playerLease.isEmpty()) {
+            return playerLease;
+        }
+
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
         if (activeLinked.isEmpty()) {
-            return ItemStack.EMPTY;
+            return ToolLease.empty();
         }
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
         for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
+            ToolLease linkedLease = borrowMiningToolFromLinkedHandler(linked.handler(), toolPrototype);
+            if (!linkedLease.isEmpty()) {
+                return linkedLease;
+            }
         }
-        return extractMatchingFromLinked(handlers, item, toolPrototype, 1);
+        return ToolLease.empty();
     }
 
-    private static void refundLinkedMiningTool(ServerPlayer player, Session session, ItemStack stack) {
-        if (player == null || session == null || stack == null || stack.isEmpty()) {
+    private static ToolLease borrowMiningToolFromPlayerInventory(ServerPlayer player, ItemStack prototype, int selectedToolSlot) {
+        int selected = clampHotbarSlot(selectedToolSlot);
+        int start = getPlayerMainInventoryStart(player);
+        int end = getPlayerMainInventoryEndExclusive(player);
+        for (int slot = start; slot < end; slot++) {
+            ToolLease lease = borrowMiningToolFromPlayerSlot(player, prototype, slot);
+            if (!lease.isEmpty()) {
+                return lease;
+            }
+        }
+        for (int slot = 0; slot < PLAYER_HOTBAR_SLOT_COUNT; slot++) {
+            if (slot == selected) {
+                continue;
+            }
+            ToolLease lease = borrowMiningToolFromPlayerSlot(player, prototype, slot);
+            if (!lease.isEmpty()) {
+                return lease;
+            }
+        }
+        return ToolLease.empty();
+    }
+
+    private static ToolLease borrowMiningToolFromPlayerSlot(ServerPlayer player, ItemStack prototype, int slot) {
+        if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
+            return ToolLease.empty();
+        }
+        ItemStack current = player.getInventory().getItem(slot);
+        if (current.isEmpty() || !ItemStack.isSameItemSameTags(current, prototype)) {
+            return ToolLease.empty();
+        }
+        ItemStack borrowed = current.split(1);
+        if (current.isEmpty()) {
+            player.getInventory().setItem(slot, ItemStack.EMPTY);
+        } else {
+            player.getInventory().setItem(slot, current);
+        }
+        player.getInventory().setChanged();
+        return borrowed.isEmpty() ? ToolLease.empty() : ToolLease.playerSlot(slot, borrowed);
+    }
+
+    private static ToolLease borrowMiningToolFromLinkedHandler(IItemHandler handler, ItemStack prototype) {
+        if (handler == null || prototype == null || prototype.isEmpty()) {
+            return ToolLease.empty();
+        }
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (stack.isEmpty() || !ItemStack.isSameItemSameTags(stack, prototype)) {
+                continue;
+            }
+            ItemStack borrowed = handler.extractItem(slot, 1, false);
+            if (!borrowed.isEmpty() && ItemStack.isSameItemSameTags(borrowed, prototype)) {
+                return ToolLease.linkedSlot(handler, slot, borrowed);
+            }
+            if (!borrowed.isEmpty()) {
+                insertToHandlerPreferExisting(handler, borrowed);
+            }
+        }
+        return ToolLease.empty();
+    }
+
+    private static void returnMiningTool(ServerPlayer player, Session session, ToolLease lease) {
+        if (player == null || session == null || lease == null || lease.isEmpty()) {
+            return;
+        }
+        ItemStack remain = lease.returnToSource(player);
+        if (remain.isEmpty()) {
             return;
         }
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
@@ -3956,7 +4028,30 @@ public final class RtsStorageManager {
         for (LinkedHandler linked : activeLinked) {
             handlers.add(linked.handler());
         }
-        refundToLinked(handlers, player, stack);
+        storeToLinkedWithFallback(handlers, player, remain);
+    }
+
+    private static ItemStack protectBorrowedToolRemainder(ServerPlayer player, ToolLease lease, ItemStack remainder) {
+        if (remainder != null && !remainder.isEmpty()) {
+            return remainder;
+        }
+        ItemStack original = lease.original();
+        if (!shouldProtectEmptyBorrowedToolRemainder(original)) {
+            return ItemStack.EMPTY;
+        }
+        RtsbuildingMod.LOGGER.warn(
+                "RTS borrowed mining tool from {} became empty after block break; restoring original stack as a safety fallback for {}.",
+                lease.describeSource(),
+                player == null ? "unknown player" : player.getGameProfile().getName());
+        return original.copy();
+    }
+
+    private static boolean shouldProtectEmptyBorrowedToolRemainder(ItemStack original) {
+        return original != null
+                && !original.isEmpty()
+                && !(original.getItem() instanceof BlockItem)
+                && original.getMaxStackSize() == 1
+                && !original.isDamageableItem();
     }
 
     private static MiningDestroyOutcome destroyBlockWithTemporaryMainHand(ServerPlayer player, BlockPos pos, ItemStack tool) {
@@ -6953,6 +7048,106 @@ public final class RtsStorageManager {
         }
     }
 
+    private static final class ToolLease {
+        private static final ToolLease EMPTY = new ToolLease(
+                ItemStack.EMPTY,
+                ItemStack.EMPTY,
+                null,
+                -1,
+                -1,
+                "none");
+
+        private final ItemStack original;
+        private final ItemStack stack;
+        private final IItemHandler linkedHandler;
+        private final int linkedSlot;
+        private final int playerSlot;
+        private final String sourceDescription;
+
+        private ToolLease(ItemStack original, ItemStack stack, IItemHandler linkedHandler, int linkedSlot, int playerSlot,
+                String sourceDescription) {
+            this.original = original == null || original.isEmpty() ? ItemStack.EMPTY : original.copy();
+            this.stack = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack;
+            this.linkedHandler = linkedHandler;
+            this.linkedSlot = linkedSlot;
+            this.playerSlot = playerSlot;
+            this.sourceDescription = sourceDescription == null ? "unknown" : sourceDescription;
+        }
+
+        private static ToolLease empty() {
+            return EMPTY;
+        }
+
+        private static ToolLease playerSlot(int slot, ItemStack stack) {
+            return new ToolLease(stack, stack, null, -1, slot, "player inventory slot " + slot);
+        }
+
+        private static ToolLease linkedSlot(IItemHandler handler, int slot, ItemStack stack) {
+            return new ToolLease(stack, stack, handler, slot, -1, "linked storage slot " + slot);
+        }
+
+        private boolean isEmpty() {
+            return this.stack.isEmpty();
+        }
+
+        private ItemStack stack() {
+            return this.stack;
+        }
+
+        private ItemStack original() {
+            return this.original;
+        }
+
+        private ToolLease withStack(ItemStack updatedStack) {
+            if (this == EMPTY || updatedStack == null || updatedStack.isEmpty()) {
+                return new ToolLease(this.original, ItemStack.EMPTY, this.linkedHandler, this.linkedSlot, this.playerSlot, this.sourceDescription);
+            }
+            return new ToolLease(this.original, updatedStack, this.linkedHandler, this.linkedSlot, this.playerSlot, this.sourceDescription);
+        }
+
+        private ItemStack returnToSource(ServerPlayer player) {
+            if (this.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack remain = this.stack.copy();
+            if (this.playerSlot >= 0) {
+                remain = returnToPlayerSlot(player, this.playerSlot, remain);
+            } else if (this.linkedHandler != null && this.linkedSlot >= 0) {
+                remain = this.linkedHandler.insertItem(this.linkedSlot, remain, false);
+            }
+            return remain;
+        }
+
+        private String describeSource() {
+            return this.sourceDescription;
+        }
+
+        private static ItemStack returnToPlayerSlot(ServerPlayer player, int slot, ItemStack stack) {
+            if (player == null || stack == null || stack.isEmpty()
+                    || slot < 0 || slot >= player.getInventory().getContainerSize()) {
+                return stack == null ? ItemStack.EMPTY : stack.copy();
+            }
+            ItemStack remain = stack.copy();
+            ItemStack current = player.getInventory().getItem(slot);
+            if (current.isEmpty()) {
+                player.getInventory().setItem(slot, remain);
+                player.getInventory().setChanged();
+                return ItemStack.EMPTY;
+            }
+            if (ItemStack.isSameItemSameTags(current, remain)) {
+                int free = Math.max(0, current.getMaxStackSize() - current.getCount());
+                if (free > 0) {
+                    int moved = Math.min(free, remain.getCount());
+                    current.grow(moved);
+                    remain.shrink(moved);
+                    player.getInventory().setItem(slot, current);
+                    player.getInventory().setChanged();
+                }
+            }
+            return remain;
+        }
+    }
+
     private record MiningDestroyOutcome(boolean broken, ItemStack remainder) {
     }
 
@@ -7200,7 +7395,7 @@ public final class RtsStorageManager {
         private boolean ultimineAbsorbedDrops;
         private Direction miningFace = Direction.DOWN;
         private int miningToolSlot;
-        private ItemStack miningLinkedTool = ItemStack.EMPTY;
+        private ToolLease miningToolLease = ToolLease.empty();
         private float miningProgress;
         private int miningStage = -1;
         private long nextQuestDetectTick;
