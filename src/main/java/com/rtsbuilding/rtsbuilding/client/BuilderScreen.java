@@ -663,6 +663,7 @@ public final class BuilderScreen extends Screen {
 
         if (this.draggingInputSensitivity) {
             this.draggingInputSensitivity = false;
+            saveSensitivityState();
             return true;
         }
 
@@ -746,6 +747,7 @@ public final class BuilderScreen extends Screen {
 
         if (this.draggingInputSensitivity) {
             updateInputSensitivityFromMouse(mouseX);
+            saveSensitivityState();
             return true;
         }
 
@@ -2462,11 +2464,7 @@ public final class BuilderScreen extends Screen {
         this.controller.setDamageSoundEnabled(state.damageSoundEnabled);
         this.controller.setDamageAutoReturnEnabled(state.damageAutoReturnEnabled);
         this.debugButtonVisible = state.debugButtonVisible;
-        int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
-        double sensitivityFraction = sensitivityPresetCount <= 1
-                ? 0.0D
-                : Mth.clamp(state.inputSensitivityIndex, 0, sensitivityPresetCount - 1) / (double) (sensitivityPresetCount - 1);
-        this.controller.setInputSensitivityByFraction(sensitivityFraction);
+        this.controller.setInputSensitivityIndex(state.inputSensitivityIndex);
         this.controller.setChunkCurtainVisible(state.chunkCurtainVisible);
         try {
             this.controller.setBuildShape(ClientRtsController.BuildShape.valueOf(state.buildShape));
@@ -2480,6 +2478,13 @@ public final class BuilderScreen extends Screen {
         }
         this.shapeRotateDegrees = Math.floorMod(state.rotationDegrees, 360);
         ensureFillModeForShape(this.controller.getBuildShape());
+    }
+
+    private void saveSensitivityState() {
+        int idx = this.controller.getInputSensitivityIndex();
+        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
+        state.inputSensitivityIndex = idx;
+        RtsClientUiStateStore.save(state);
     }
 
     private void persistUiState() {

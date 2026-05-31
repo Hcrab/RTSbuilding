@@ -86,8 +86,8 @@ public final class ClientRtsController {
     private static final float ROT_SENS_MAX = 10.00F;
     private static final float ROT_SENS_STEP = 0.50F;
     private static final double DOLLY_PER_SCROLL = 2.6D;
-    private static final double VERTICAL_SPEED = 0.32D;
-    private static final double FAST_VERTICAL_SPEED = 0.55D;
+    private static final double VERTICAL_SPEED = 0.20D;
+    private static final double FAST_VERTICAL_SPEED = 0.35D;
     private static final float[] INPUT_SENS_PRESETS = new float[] { 0.50F, 0.75F, 1.00F, 1.25F, 1.50F, 2.00F };
     private static final int INPUT_SENS_DEFAULT_INDEX = 2;
     private static final int QUICK_SLOT_COUNT = 27;
@@ -264,6 +264,7 @@ public final class ClientRtsController {
         this.invertPanDragY = uiState.invertPanDragY;
         this.smoothCamera = uiState.smoothCamera;
         this.damageSoundEnabled = uiState.damageSoundEnabled;
+        this.inputSensitivityIndex = Math.max(0, Math.min(5, uiState.inputSensitivityIndex));
         this.damageAutoReturnEnabled = uiState.damageAutoReturnEnabled;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
@@ -748,6 +749,10 @@ public final class ClientRtsController {
         this.inputSensitivityIndex = Mth.clamp(next, 0, INPUT_SENS_PRESETS.length - 1);
     }
 
+    public void setInputSensitivityIndex(int index) {
+        this.inputSensitivityIndex = Mth.clamp(index, 0, INPUT_SENS_PRESETS.length - 1);
+    }
+
     public void cycleInputSensitivity() {
         this.inputSensitivityIndex = (this.inputSensitivityIndex + 1) % INPUT_SENS_PRESETS.length;
     }
@@ -926,7 +931,6 @@ public final class ClientRtsController {
             this.storageCategory = "all";
             this.storageSort = RtsStorageSort.QUANTITY;
             this.storageSortAscending = false;
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
             this.storageCategories.clear();
             this.storageCategories.add("all");
             clearStorageScanState();
@@ -992,7 +996,6 @@ public final class ClientRtsController {
         this.emaRotateY = 0.0F;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
-        this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
         this.selectedItemId = "";
         this.selectedItemLabel = "";
         this.selectedItemPreview = ItemStack.EMPTY;
@@ -2646,7 +2649,7 @@ public final class ClientRtsController {
         }
         this.localPitchDeg = Mth.clamp(this.localPitchDeg + (rotateY * ROTATE_GAIN_Y), MIN_CAMERA_PITCH, MAX_CAMERA_PITCH);
 
-        double speed = fast ? 0.80D : 0.45D;
+        double speed = fast ? 0.50D : 0.28D;
         double yawRad = Math.toRadians(this.localYawDeg);
         double sin = Math.sin(yawRad);
         double cos = Math.cos(yawRad);
