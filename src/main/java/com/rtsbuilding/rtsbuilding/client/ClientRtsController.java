@@ -105,9 +105,9 @@ public final class ClientRtsController {
     private static final long QUEST_DETECT_MIN_PROGRESS_MS = 700L;
     private static final long QUEST_DETECT_RESULT_VISIBLE_MS = 3500L;
     private static final long STORAGE_SCAN_RESULT_VISIBLE_MS = 450L;
-    private static final double MIN_CAMERA_HEIGHT_OFFSET = -5.0D;
-    private static final double MAX_CAMERA_HEIGHT_OFFSET = 80.0D;
-    private static final double MAX_CAMERA_DISTANCE = 72.0D;
+    private static final double MIN_CAMERA_HEIGHT_OFFSET = -35.0D;
+    private static final double MAX_CAMERA_HEIGHT_OFFSET = 110.0D;
+    private static final double MAX_HORIZONTAL_CAMERA_DISTANCE = 72.0D;
     private static final float MIN_CAMERA_PITCH = -90.0F;
     private static final float MAX_CAMERA_PITCH = 90.0F;
     private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
@@ -2712,13 +2712,13 @@ public final class ClientRtsController {
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
 
-        Vec3 toCam = new Vec3(targetX - this.anchorX, targetY - this.anchorY, targetZ - this.anchorZ);
-        double dist = toCam.length();
-        if (dist > MAX_CAMERA_DISTANCE) {
-            Vec3 n = toCam.scale(MAX_CAMERA_DISTANCE / dist);
-            targetX = this.anchorX + n.x;
-            targetY = this.anchorY + n.y;
-            targetZ = this.anchorZ + n.z;
+        double horizontalDx = targetX - this.anchorX;
+        double horizontalDz = targetZ - this.anchorZ;
+        double horizontalDist = Math.sqrt(horizontalDx * horizontalDx + horizontalDz * horizontalDz);
+        if (horizontalDist > MAX_HORIZONTAL_CAMERA_DISTANCE) {
+            double scale = MAX_HORIZONTAL_CAMERA_DISTANCE / horizontalDist;
+            targetX = this.anchorX + (horizontalDx * scale);
+            targetZ = this.anchorZ + (horizontalDz * scale);
         }
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
