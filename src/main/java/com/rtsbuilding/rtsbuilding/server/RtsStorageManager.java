@@ -3709,7 +3709,9 @@ public final class RtsStorageManager {
             return;
         }
 
-        stopActiveMining(player, session);
+        if (!isCommittedUltimineBatch(session)) {
+            stopActiveMining(player, session);
+        }
     }
 
     public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
@@ -3958,6 +3960,10 @@ public final class RtsStorageManager {
 
     private static void removeUltimineTarget(Session session, BlockPos pos) {
         session.ultimineTargets.removeIf(target -> target.equals(pos));
+    }
+
+    private static boolean isCommittedUltimineBatch(Session session) {
+        return session.miningPos == null && !session.ultimineTargets.isEmpty();
     }
 
     private static void stopActiveMining(ServerPlayer player, Session session) {
