@@ -1284,13 +1284,13 @@ public final class BuilderScreen extends Screen {
         }
 
         if (!isSearchFocused()
-                && this.controller.getBuildShape() == ClientRtsController.BuildShape.BOX
+                && canAdjustCurrentShapeHeight()
                 && (keyCode == GLFW.GLFW_KEY_PAGE_UP || keyCode == GLFW.GLFW_KEY_PAGE_DOWN)) {
             int delta = keyCode == GLFW.GLFW_KEY_PAGE_UP ? 1 : -1;
             if (isAltDown()) {
                 delta *= 4;
             }
-            if (adjustBoxHeightNudge(delta)) {
+            if (adjustShapeHeightNudge(delta)) {
                 return true;
             }
         }
@@ -5138,10 +5138,9 @@ public final class BuilderScreen extends Screen {
         Direction planeFace = session.planeFace();
         if (shape == ClientRtsController.BuildShape.LINE
                 || shape == ClientRtsController.BuildShape.SQUARE
+                || shape == ClientRtsController.BuildShape.WALL
                 || shape == ClientRtsController.BuildShape.BOX) {
             planeFace = Direction.UP;
-        } else if (shape == ClientRtsController.BuildShape.WALL && planeFace == null) {
-            planeFace = resolveWallFace(cursorHit == null ? null : cursorHit.getDirection(), computeCursorRayDirection());
         }
         if (planeFace == null) {
             return cursorHit != null ? cursorHit.getBlockPos() : pointA;
@@ -5254,7 +5253,7 @@ public final class BuilderScreen extends Screen {
         switch (input.shape()) {
             case LINE -> addLineTargets(targets, start, end);
             case SQUARE -> addSquareTargets(targets, start, end, input.planeFace(), fillMode);
-            case WALL -> addWallTargets(targets, start, end, input.planeFace(), fillMode);
+            case WALL -> addWallTargets(targets, start, end, input.boxHeightOffset(), fillMode);
             case CIRCLE -> addCircleTargets(targets, start, end, input.planeFace(), fillMode);
             case BOX -> addBoxTargets(targets, start, end, input.boxHeightOffset(), fillMode);
             default -> targets.add(start);
@@ -5314,7 +5313,7 @@ public final class BuilderScreen extends Screen {
             return false;
         }
         return switch (input.shape()) {
-            case LINE, SQUARE, BOX -> true;
+            case LINE, SQUARE, WALL, BOX -> true;
             default -> false;
         };
     }
@@ -5415,14 +5414,27 @@ public final class BuilderScreen extends Screen {
         addRotatedPlaneRectangleTargets(targets, start, axes[0], axes[1], aOffset, bOffset, fillMode);
     }
 
-    private void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
-        Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.WALL, face);
-        int dx = end.getX() - start.getX();
-        int dy = end.getY() - start.getY();
-        int dz = end.getZ() - start.getZ();
-        int aOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[0]));
-        int bOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[1]));
-        addRotatedPlaneRectangleTargets(targets, start, axes[0], axes[1], aOffset, bOffset, fillMode);
+    private void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode) {
+        LinkedHashSet<BlockPos> baseLine = new LinkedHashSet<>();
+        addLineTargets(baseLine, start, new BlockPos(end.getX(), start.getY(), end.getZ()));
+        if (baseLine.isEmpty()) {
+            baseLine.add(start);
+        }
+
+        int yOffset = clampShapeOffset(heightOffset);
+        int minY = Math.min(0, yOffset);
+        int maxY = Math.max(0, yOffset);
+        List<BlockPos> base = new ArrayList<>(baseLine);
+        for (int i = 0; i < base.size(); i++) {
+            BlockPos basePos = base.get(i);
+            boolean endColumn = i == 0 || i == base.size() - 1;
+            for (int iy = minY; iy <= maxY; iy++) {
+                if (fillMode != ShapeFillMode.FILL && !endColumn && iy != minY && iy != maxY) {
+                    continue;
+                }
+                targets.add(basePos.above(iy));
+            }
+        }
     }
 
     private void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
@@ -5723,8 +5735,7 @@ public final class BuilderScreen extends Screen {
             return clickedFace == null ? Direction.UP : clickedFace;
         }
         return switch (shape) {
-            case LINE, SQUARE, BOX -> Direction.UP;
-            case WALL -> resolveWallFace(clickedFace, rayDir);
+            case LINE, SQUARE, WALL, BOX -> Direction.UP;
             default -> clickedFace == null ? Direction.UP : clickedFace;
         };
     }
@@ -5736,32 +5747,12 @@ public final class BuilderScreen extends Screen {
         return resolveShapeBuildFace(shape, clickedFace, rayDir);
     }
 
-    private Direction resolveWallFace(Direction clickedFace, Vec3 rayDir) {
-        if (clickedFace != null && clickedFace.getAxis().isHorizontal()) {
-            return clickedFace;
-        }
-        if (rayDir == null) {
-            return Direction.SOUTH;
-        }
-        if (Math.abs(rayDir.x) >= Math.abs(rayDir.z)) {
-            return rayDir.x >= 0.0D ? Direction.WEST : Direction.EAST;
-        }
-        return rayDir.z >= 0.0D ? Direction.NORTH : Direction.SOUTH;
-    }
-
     private Direction[] resolveShapePlaneAxes(ClientRtsController.BuildShape shape, Direction face) {
         if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
             return new Direction[] { Direction.EAST, Direction.SOUTH };
         }
         if (shape == ClientRtsController.BuildShape.WALL) {
-            if (face == null) {
-                return new Direction[] { Direction.EAST, Direction.UP };
-            }
-            return switch (face.getAxis()) {
-                case X -> new Direction[] { Direction.SOUTH, Direction.UP };
-                case Z -> new Direction[] { Direction.EAST, Direction.UP };
-                case Y -> new Direction[] { Direction.EAST, Direction.UP };
-            };
+            return new Direction[] { Direction.EAST, Direction.SOUTH };
         }
         if (face == null) {
             return new Direction[] { Direction.EAST, Direction.SOUTH };
@@ -5823,8 +5814,8 @@ public final class BuilderScreen extends Screen {
         if (delta == 0 || this.shapeBuildSession == null) {
             return false;
         }
-        if (adjustHeight && this.shapeBuildSession.shape() == ClientRtsController.BuildShape.BOX) {
-            return adjustBoxHeightNudge(delta);
+        if (adjustHeight && canAdjustShapeHeight(this.shapeBuildSession.shape())) {
+            return adjustShapeHeightNudge(delta);
         }
         return adjustShapeFootprintNudge(delta, adjustSecondaryAxis);
     }
@@ -5849,11 +5840,26 @@ public final class BuilderScreen extends Screen {
         return true;
     }
 
-    private boolean adjustBoxHeightNudge(int delta) {
-        if (delta == 0 || this.shapeBuildSession == null || this.shapeBuildSession.shape() != ClientRtsController.BuildShape.BOX) {
+    private boolean canAdjustCurrentShapeHeight() {
+        return this.shapeBuildSession != null
+                && this.shapeBuildSession.shape() == this.controller.getBuildShape()
+                && canAdjustShapeHeight(this.shapeBuildSession.shape());
+    }
+
+    private static boolean canAdjustShapeHeight(ClientRtsController.BuildShape shape) {
+        return shape == ClientRtsController.BuildShape.WALL || shape == ClientRtsController.BuildShape.BOX;
+    }
+
+    private boolean adjustShapeHeightNudge(int delta) {
+        if (delta == 0 || this.shapeBuildSession == null || !canAdjustShapeHeight(this.shapeBuildSession.shape())) {
             return false;
         }
-        if (this.shapeBuildSession.phase() != ShapeBuildPhase.NEED_THIRD_POINT
+        if (this.shapeBuildSession.shape() == ClientRtsController.BuildShape.BOX
+                && this.shapeBuildSession.phase() != ShapeBuildPhase.NEED_THIRD_POINT
+                && this.shapeBuildSession.phase() != ShapeBuildPhase.READY_CONFIRM) {
+            return false;
+        }
+        if (this.shapeBuildSession.shape() == ClientRtsController.BuildShape.WALL
                 && this.shapeBuildSession.phase() != ShapeBuildPhase.READY_CONFIRM) {
             return false;
         }
@@ -6971,7 +6977,7 @@ public final class BuilderScreen extends Screen {
             return Direction.UP;
         }
         if (shape == ClientRtsController.BuildShape.WALL) {
-            return resolveWallFace(null, dir);
+            return Direction.UP;
         }
         return Direction.getNearest(-dir.x, -dir.y, -dir.z);
     }
@@ -7147,7 +7153,9 @@ public final class BuilderScreen extends Screen {
                 yield text("screen.rtsbuilding.shape_status.step_b", a.getX(), a.getY(), a.getZ());
             }
             case NEED_THIRD_POINT -> text("screen.rtsbuilding.shape_status.step_height");
-            case READY_CONFIRM -> text("screen.rtsbuilding.shape_status.confirm");
+            case READY_CONFIRM -> currentShape == ClientRtsController.BuildShape.WALL
+                    ? text("screen.rtsbuilding.shape_status.confirm_wall")
+                    : text("screen.rtsbuilding.shape_status.confirm");
         };
     }
 

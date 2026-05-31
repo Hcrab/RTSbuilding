@@ -64,6 +64,7 @@
   "screen.rtsbuilding.shape_status.step_b": "A：%s,%s,%s  第 2 步：右键设置 B 点",
   "screen.rtsbuilding.shape_status.step_height": "鼠标上下移动调高度，右键确认",
   "screen.rtsbuilding.shape_status.confirm": "右键：确认建造；立方体高度跟随鼠标上下移动",
+  "screen.rtsbuilding.shape_status.confirm_wall": "右键：确认建造；PageUp/PageDown 调整墙高",
   "screen.rtsbuilding.settings.title": "RTS 控制设置",
   "screen.rtsbuilding.settings.controls": "控制",
   "screen.rtsbuilding.settings.sensitivity": "灵敏度",
