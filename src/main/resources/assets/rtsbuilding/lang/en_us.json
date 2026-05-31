@@ -95,7 +95,7 @@
   "screen.rtsbuilding.top_hint.guide": "Need help? Click i",
   "screen.rtsbuilding.debug.copied": "RTS debug snapshot copied",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
-  "chat.rtsbuilding.intro.version_warning": "Current version: 1.0.5 beta. This pilot build may be unstable. If you run into crashes or other severe issues, temporarily go back to the latest release version and report the issue through Discord, GitHub, or QQ.",
+  "chat.rtsbuilding.intro.version_warning": "Current version: 1.1.0. If you run into crashes or other severe issues, temporarily go back to the latest release version and report the issue through Discord, GitHub, or QQ.",
   "chat.rtsbuilding.intro.feedback": "Feedback links: Discord %s | GitHub %s | QQ group %s. If RTSBuilding helps you, a GitHub star would mean a lot.",
   "chat.rtsbuilding.intro.config_hint": "Small i buttons open tutorials for panels and overlays.",
   "chat.rtsbuilding.intro.dismiss": "[Don't remind me again]",
