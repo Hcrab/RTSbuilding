@@ -1610,54 +1610,7 @@ public final class BuilderScreen extends Screen {
                 || this.craftQuantityDialog.isOpen()
                 || BlueprintPanel.isNameDialogOpen()
                 || BlueprintPanel.isMaterialDialogOpen();
-        boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
-            if (!placementSelectionActive
-                    && this.hoveredEntry >= 0
-                    && this.hoveredEntry < this.controller.getStorageEntries().size()) {
-                var entry = this.controller.getStorageEntries().get(this.hoveredEntry);
-                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
-            }
-
-            if (!placementSelectionActive
-                    && this.hoveredRecentEntry >= 0
-                    && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
-                var entry = this.controller.getRecentEntries().get(this.hoveredRecentEntry);
-                if (!entry.preview().isEmpty()) {
-                    guiGraphics.renderTooltip(this.font, entry.preview(), mouseX, mouseY);
-                } else {
-                    guiGraphics.renderTooltip(this.font, Component.literal(entry.label()), mouseX, mouseY);
-                }
-            }
-
-            if (!placementSelectionActive
-                    && this.hoveredFluidEntry >= 0
-                    && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
-                var fluid = this.controller.getFluidEntries().get(this.hoveredFluidEntry);
-                if (!fluid.preview().isEmpty()) {
-                    guiGraphics.renderTooltip(this.font, fluid.preview(), mouseX, mouseY);
-                } else {
-                    guiGraphics.renderTooltip(this.font, Component.literal(fluid.label()), mouseX, mouseY);
-                }
-            }
-
-            if (this.hoveredCraftableEntry >= 0 && this.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
-                var entry = this.controller.getCraftableEntries().get(this.hoveredCraftableEntry);
-                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
-                String detail = entry.craftable()
-                        ? text("screen.rtsbuilding.tooltip.craft_choose")
-                        : entry.missingSummary();
-                if (detail != null && !detail.isBlank()) {
-                    guiGraphics.drawString(this.font, detail, mouseX + 10, mouseY + 18, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
-                }
-            }
-
-            if (this.hoveredFunnelBufferEntry >= 0 && this.hoveredFunnelBufferEntry < this.controller.getFunnelBufferEntries().size()) {
-                var entry = this.controller.getFunnelBufferEntries().get(this.hoveredFunnelBufferEntry);
-                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
-                guiGraphics.drawString(this.font, text("screen.rtsbuilding.tooltip.buffered", entry.count()), mouseX + 10, mouseY + 18, 0xFFD8B8);
-            }
-
             if (this.hoveredGuiBindingSlot >= 0 && this.hoveredGuiBindingSlot < this.controller.getGuiBindingCount()) {
                 String detail = this.controller.hasGuiBinding(this.hoveredGuiBindingSlot)
                         ? this.controller.getGuiBindingLabel(this.hoveredGuiBindingSlot)
@@ -1675,10 +1628,7 @@ public final class BuilderScreen extends Screen {
                         0xFFCFE3F7);
             }
 
-            if (this.hoveredEmptyHandSlot) {
-                guiGraphics.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.empty_hand"), mouseX, mouseY);
-                guiGraphics.drawString(this.font, text("screen.rtsbuilding.tooltip.empty_hand_detail"), mouseX + 10, mouseY + 18, 0xFFD8B8);
-            }
+            renderBottomHoverInfoStrip(guiGraphics);
 
             renderDiscoverabilityTooltips(guiGraphics, mouseX, mouseY);
 
@@ -3538,15 +3488,87 @@ public final class BuilderScreen extends Screen {
     }
 
     private void drawEmptyHandButton(GuiGraphics g, int x, int y) {
-        int skin = 0xFFFFC3A3;
-        int shadow = 0xFF8A4E3F;
-        g.fill(x + 7, y + 3, x + 9, y + 11, skin);
-        g.fill(x + 10, y + 4, x + 12, y + 11, skin);
-        g.fill(x + 4, y + 6, x + 6, y + 12, skin);
-        g.fill(x + 12, y + 7, x + 14, y + 13, skin);
-        g.fill(x + 6, y + 9, x + 14, y + 15, skin);
-        g.fill(x + 6, y + 14, x + 14, y + 16, shadow);
-        g.fill(x + 13, y + 9, x + 15, y + 14, shadow);
+        g.fill(x + 2, y + 2, x + HOTBAR_SLOT - 2, y + HOTBAR_SLOT - 2, 0xDDC66A3D);
+        g.fill(x + 3, y + 3, x + HOTBAR_SLOT - 3, y + 5, 0x33FFFFFF);
+        g.drawCenteredString(this.font,
+                trimToWidth(text("screen.rtsbuilding.empty_hand.button"), HOTBAR_SLOT - 4),
+                x + HOTBAR_SLOT / 2,
+                y + 5,
+                0xFFFFE4C7);
+    }
+
+    private void renderBottomHoverInfoStrip(GuiGraphics g) {
+        BottomHoverInfo info = resolveBottomHoverInfo();
+        if (info == null || info.label().isBlank()) {
+            return;
+        }
+
+        BottomPanelLayout layout = resolveBottomPanelLayout();
+        int x = layout.panelX() + 8;
+        int y = Math.max(TOP_H + 2, layout.panelY() - 15);
+        int maxW = Math.max(120, layout.panelW() - 16);
+        String message = info.detail() == null || info.detail().isBlank()
+                ? info.label()
+                : info.label() + "  " + info.detail();
+        int w = Math.min(maxW, Math.max(120, this.font.width(message) + 14));
+        drawPanelFrame(g, x, y, w, 14, 0xC8141A22, 0xFF5F7185, 0xFF0D1118);
+        g.drawString(this.font, trimToWidth(message, w - 10), x + 5, y + 3, info.color(), false);
+    }
+
+    private BottomHoverInfo resolveBottomHoverInfo() {
+        if (this.hoveredEmptyHandSlot) {
+            return new BottomHoverInfo(text("screen.rtsbuilding.tooltip.empty_hand"), "", 0xFFFFC38A);
+        }
+        if (this.minecraft != null && this.minecraft.player != null && this.hoveredToolSlot >= 0) {
+            ItemStack stack = this.minecraft.player.getInventory().getItem(this.hoveredToolSlot);
+            return hoverInfoFromStack(stack, countDetail(stack.getCount()), 0xFFEAF2FF);
+        }
+        if (this.hoveredEntry >= 0 && this.hoveredEntry < this.controller.getStorageEntries().size()) {
+            ClientRtsController.StorageEntry entry = this.controller.getStorageEntries().get(this.hoveredEntry);
+            return hoverInfoFromStack(entry.stack(), countDetail(entry.count()), 0xFFEAF2FF);
+        }
+        if (this.hoveredRecentEntry >= 0 && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
+            ClientRtsController.RecentEntry entry = this.controller.getRecentEntries().get(this.hoveredRecentEntry);
+            String label = !entry.preview().isEmpty() ? entry.preview().getHoverName().getString() : entry.label();
+            return new BottomHoverInfo(label, recentDetail(entry), entry.fluid() ? 0xFFBEE6FF : 0xFFE8F4C0);
+        }
+        if (this.hoveredFluidEntry >= 0 && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
+            ClientRtsController.FluidEntry fluid = this.controller.getFluidEntries().get(this.hoveredFluidEntry);
+            String label = !fluid.preview().isEmpty() ? fluid.preview().getHoverName().getString() : fluid.label();
+            return new BottomHoverInfo(label, compactFluidAmount(fluid.amount()), 0xFFFCCB8A);
+        }
+        if (this.hoveredCraftableEntry >= 0 && this.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
+            ClientRtsController.CraftableEntry entry = this.controller.getCraftableEntries().get(this.hoveredCraftableEntry);
+            String detail = entry.craftable() ? text("screen.rtsbuilding.tooltip.craft_choose") : entry.missingSummary();
+            return hoverInfoFromStack(entry.stack(), detail, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
+        }
+        if (this.hoveredFunnelBufferEntry >= 0 && this.hoveredFunnelBufferEntry < this.controller.getFunnelBufferEntries().size()) {
+            ClientRtsController.FunnelBufferEntry entry = this.controller.getFunnelBufferEntries().get(this.hoveredFunnelBufferEntry);
+            return hoverInfoFromStack(entry.stack(), text("screen.rtsbuilding.tooltip.buffered", entry.count()), 0xFFD8B8);
+        }
+        if (this.hoveredPinIndex >= 0 && this.hoveredPinIndex < this.controller.getQuickSlotCount()) {
+            ItemStack preview = this.controller.getQuickSlotPreview(this.hoveredPinIndex);
+            String itemId = this.controller.getQuickSlotItemId(this.hoveredPinIndex);
+            String detail = itemId == null || itemId.isBlank() ? "" : countDetail(resolvePinnedItemCount(itemId));
+            return hoverInfoFromStack(preview, detail, 0xFFEAF2FF);
+        }
+        return null;
+    }
+
+    private BottomHoverInfo hoverInfoFromStack(ItemStack stack, String detail, int color) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        return new BottomHoverInfo(stack.getHoverName().getString(), detail, color);
+    }
+
+    private String recentDetail(ClientRtsController.RecentEntry entry) {
+        String amount = formatRecentAmount(entry);
+        return entry.fluid() ? amount : "x" + amount;
+    }
+
+    private static String countDetail(long count) {
+        return count > 0 ? "x" + compactCount(count) : "";
     }
 
     private void drawSortButton(GuiGraphics g, int x, int y, String label) {
@@ -4905,6 +4927,9 @@ public final class BuilderScreen extends Screen {
             return mouseX >= this.panelX && mouseX <= this.panelX + this.panelW
                     && mouseY >= this.panelY && mouseY <= this.panelY + BOTTOM_PANEL_HEADER_H;
         }
+    }
+
+    private record BottomHoverInfo(String label, String detail, int color) {
     }
 
     private enum BottomPanelTab {
