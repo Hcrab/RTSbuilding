@@ -64,6 +64,7 @@
   "screen.rtsbuilding.shape_status.step_b": "A: %s,%s,%s  Step 2: RMB set B",
   "screen.rtsbuilding.shape_status.step_height": "Move mouse up/down to set height, RMB confirms",
   "screen.rtsbuilding.shape_status.confirm": "RMB: confirm build; Box height follows mouse up/down",
+  "screen.rtsbuilding.shape_status.confirm_wall": "RMB: confirm build; PageUp/PageDown adjusts wall height",
   "screen.rtsbuilding.settings.title": "RTS Controls",
   "screen.rtsbuilding.settings.controls": "Controls",
   "screen.rtsbuilding.settings.sensitivity": "Sensitivity",
