@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
@@ -62,6 +63,8 @@ public final class BuilderScreen extends Screen {
     private static final int SLOT = 22;
     private static final int HOTBAR_SLOT = 18;
     private static final int HOTBAR_PITCH = 20;
+    private static final int TOOL_HOTBAR_ITEM_SLOTS = 8;
+    private static final int EMPTY_HAND_BUTTON_INDEX = 8;
     private static final int TOOL_AREA_H = HOTBAR_SLOT;
     private static final int SEARCH_CLEAR_SIZE = 12;
     private static final int SORT_BUTTON_SIZE = 16;
@@ -154,6 +157,7 @@ public final class BuilderScreen extends Screen {
     private int hoveredCraftableEntry = -1;
     private int hoveredFunnelBufferEntry = -1;
     private int hoveredToolSlot = -1;
+    private boolean hoveredEmptyHandSlot = false;
     private int hoveredPinIndex = -1;
     private int hoveredGuiBindingSlot = -1;
     private boolean hoveredPinPageButton = false;
@@ -172,6 +176,8 @@ public final class BuilderScreen extends Screen {
     private boolean middlePressCanPan = false;
     private boolean middlePressCanPick = false;
     private double middleDragDistance = 0.0D;
+    private double keyboardPanLastMouseX = Double.NaN;
+    private double keyboardPanLastMouseY = Double.NaN;
     private boolean leftMiningActive = false;
     private int activeMiningMouseButton = -1;
     private boolean activeMiningKeyboard = false;
@@ -777,11 +783,55 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
+        if (canUseKeyboardPanDrag(mouseX, mouseY)) {
+            this.controller.queuePanDrag(dragX, dragY);
+            this.keyboardPanLastMouseX = mouseX;
+            this.keyboardPanLastMouseY = mouseY;
+            return true;
+        }
+
         if (isSearchFocused()) {
             return true;
         }
 
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        if (!this.fixedRtsScaleInputPass) {
+            RtsUiScaleFrame frame = enterFixedRtsGuiScale();
+            if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
+                this.fixedRtsScaleInputPass = true;
+                try {
+                    mouseMoved(mouseX / frame.scale(), mouseY / frame.scale());
+                    return;
+                } finally {
+                    this.fixedRtsScaleInputPass = false;
+                    frame.close();
+                }
+            }
+            if (frame != null) {
+                frame.close();
+            }
+        }
+
+        if (canUseKeyboardPanDrag(mouseX, mouseY)) {
+            if (!Double.isNaN(this.keyboardPanLastMouseX) && !Double.isNaN(this.keyboardPanLastMouseY)) {
+                double dragX = mouseX - this.keyboardPanLastMouseX;
+                double dragY = mouseY - this.keyboardPanLastMouseY;
+                if (Math.abs(dragX) > 0.0D || Math.abs(dragY) > 0.0D) {
+                    this.controller.queuePanDrag(dragX, dragY);
+                }
+            }
+            this.keyboardPanLastMouseX = mouseX;
+            this.keyboardPanLastMouseY = mouseY;
+        } else {
+            this.keyboardPanLastMouseX = Double.NaN;
+            this.keyboardPanLastMouseY = Double.NaN;
+        }
+
+        super.mouseMoved(mouseX, mouseY);
     }
 
     private static boolean isPrimaryActionMouse(int button) {
@@ -800,8 +850,27 @@ public final class BuilderScreen extends Screen {
         return ClientKeyMappings.CAMERA_PAN_DRAG.matchesMouse(button);
     }
 
+    private static boolean isKeyboardPanDragActionHeld() {
+        InputConstants.Key key = ClientKeyMappings.CAMERA_PAN_DRAG.getKey();
+        return key.getType() == InputConstants.Type.KEYSYM && ClientKeyMappings.CAMERA_PAN_DRAG.isDown();
+    }
+
     private static boolean isPickBlockActionMouse(int button) {
         return ClientKeyMappings.PICK_BLOCK.matchesMouse(button);
+    }
+
+    private boolean canUseKeyboardPanDrag(double mouseX, double mouseY) {
+        return isKeyboardPanDragActionHeld()
+                && isWorldArea(mouseX, mouseY)
+                && !this.craftQuantityDialog.isOpen()
+                && !this.draggingInputSensitivity
+                && !this.shapeWheelOpen
+                && !this.interactionWheelOpen
+                && !this.guideOpen
+                && !this.gearMenuOpen
+                && !BlueprintPanel.isNameDialogOpen()
+                && !BlueprintPanel.isMaterialDialogOpen()
+                && !isSearchFocused();
     }
 
     public boolean isCameraUpActionHeld() {
@@ -995,6 +1064,13 @@ public final class BuilderScreen extends Screen {
         }
 
         clearShapeBuildSession();
+        if (this.controller.isEmptyHandSelected()) {
+            if (!target.isEntityTarget() && target.blockHit() != null) {
+                this.controller.interactEmpty(target.blockHit(), target.rayOrigin(), target.rayDir());
+            }
+            return true;
+        }
+
         if (target.isEntityTarget()) {
             if (hasMainHandItem()) {
                 this.controller.interactEntityWithToolSlot(
@@ -1497,6 +1573,7 @@ public final class BuilderScreen extends Screen {
         this.hoveredCraftableEntry = -1;
         this.hoveredFunnelBufferEntry = -1;
         this.hoveredToolSlot = -1;
+        this.hoveredEmptyHandSlot = false;
         this.hoveredPinIndex = -1;
         this.hoveredGuiBindingSlot = -1;
         this.hoveredPinPageButton = false;
@@ -1597,6 +1674,13 @@ public final class BuilderScreen extends Screen {
                         mouseY + 18,
                         0xFFCFE3F7);
             }
+
+            if (this.hoveredEmptyHandSlot) {
+                guiGraphics.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.empty_hand"), mouseX, mouseY);
+                guiGraphics.drawString(this.font, text("screen.rtsbuilding.tooltip.empty_hand_detail"), mouseX + 10, mouseY + 18, 0xFFD8B8);
+            }
+
+            renderDiscoverabilityTooltips(guiGraphics, mouseX, mouseY);
 
             boolean funnelCursor = shouldRenderFunnelCursor();
             updateNativeCursorVisibility(funnelCursor);
@@ -1764,6 +1848,8 @@ public final class BuilderScreen extends Screen {
             selected = text("screen.rtsbuilding.status.selected_fluid", this.controller.getSelectedFluidLabel());
         } else if (!this.controller.getSelectedItemLabel().isEmpty()) {
             selected = text("screen.rtsbuilding.status.selected_item", selectedItemStatusLabel());
+        } else if (this.controller.isEmptyHandSelected()) {
+            selected = text("screen.rtsbuilding.status.selected_empty_hand");
         } else {
             selected = text("screen.rtsbuilding.status.selected_none");
         }
@@ -3352,26 +3438,41 @@ public final class BuilderScreen extends Screen {
 
         int hotbarX = storageX;
         int hotbarW = getHotbarSlotsWidth();
-        int selected = (this.controller.hasSelectedItem() || this.controller.hasSelectedFluid()) ? -1 : getSelectedToolSlot();
+        int selectedToolSlot = getSelectedToolSlot();
+        int selected = (this.controller.hasSelectedItem()
+                || this.controller.hasSelectedFluid()
+                || this.controller.isEmptyHandSelected()
+                || selectedToolSlot >= TOOL_HOTBAR_ITEM_SLOTS) ? -1 : selectedToolSlot;
 
         for (int i = 0; i < 9; i++) {
             int cx = hotbarX + i * HOTBAR_PITCH;
             int cy = rowY;
-            int bg = i == selected ? 0xCC3A6E57 : 0xAA1B1E25;
+            boolean emptyHandButton = i == EMPTY_HAND_BUTTON_INDEX;
+            int bg = emptyHandButton
+                    ? (this.controller.isEmptyHandSelected() ? 0xCC9B604B : 0xB06F5146)
+                    : (i == selected ? 0xCC3A6E57 : 0xAA1B1E25);
             g.fill(cx, cy, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, bg);
-            g.hLine(cx, cx + HOTBAR_SLOT, cy, 0xFF5E6874);
+            g.hLine(cx, cx + HOTBAR_SLOT, cy, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
             g.hLine(cx, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, 0xFF0C0D10);
-            g.vLine(cx, cy, cy + HOTBAR_SLOT, 0xFF5E6874);
+            g.vLine(cx, cy, cy + HOTBAR_SLOT, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
             g.vLine(cx + HOTBAR_SLOT, cy, cy + HOTBAR_SLOT, 0xFF0C0D10);
 
-            ItemStack stack = this.minecraft.player.getInventory().getItem(i);
-            if (!stack.isEmpty()) {
-                g.renderItem(stack, cx + 1, cy + 1);
-                g.renderItemDecorations(this.font, stack, cx + 1, cy + 1);
+            if (emptyHandButton) {
+                drawEmptyHandButton(g, cx, cy);
+            } else {
+                ItemStack stack = this.minecraft.player.getInventory().getItem(i);
+                if (!stack.isEmpty()) {
+                    g.renderItem(stack, cx + 1, cy + 1);
+                    g.renderItemDecorations(this.font, stack, cx + 1, cy + 1);
+                }
             }
             if (mouseX >= cx && mouseX <= cx + HOTBAR_SLOT && mouseY >= cy && mouseY <= cy + HOTBAR_SLOT) {
                 g.fill(cx + 1, cy + 1, cx + HOTBAR_SLOT - 1, cy + HOTBAR_SLOT - 1, 0x22FFFFFF);
-                this.hoveredToolSlot = i;
+                if (emptyHandButton) {
+                    this.hoveredEmptyHandSlot = true;
+                } else {
+                    this.hoveredToolSlot = i;
+                }
             }
         }
 
@@ -3434,6 +3535,18 @@ public final class BuilderScreen extends Screen {
                 }
             }
         }
+    }
+
+    private void drawEmptyHandButton(GuiGraphics g, int x, int y) {
+        int skin = 0xFFFFC3A3;
+        int shadow = 0xFF8A4E3F;
+        g.fill(x + 7, y + 3, x + 9, y + 11, skin);
+        g.fill(x + 10, y + 4, x + 12, y + 11, skin);
+        g.fill(x + 4, y + 6, x + 6, y + 12, skin);
+        g.fill(x + 12, y + 7, x + 14, y + 13, skin);
+        g.fill(x + 6, y + 9, x + 14, y + 15, skin);
+        g.fill(x + 6, y + 14, x + 14, y + 16, shadow);
+        g.fill(x + 13, y + 9, x + 15, y + 14, shadow);
     }
 
     private void drawSortButton(GuiGraphics g, int x, int y, String label) {
@@ -4241,6 +4354,10 @@ public final class BuilderScreen extends Screen {
             if (index >= 0 && index < 9) {
                 int slotX = hotbarX + index * HOTBAR_PITCH;
                 if (mouseX <= slotX + HOTBAR_SLOT) {
+                    if (index == EMPTY_HAND_BUTTON_INDEX) {
+                        this.controller.selectEmptyHand();
+                        return true;
+                    }
                     ItemStack stack = this.minecraft.player.getInventory().getItem(index);
                     if (hasShiftDown() && !stack.isEmpty()) {
                         this.controller.storeHotbarSlotToLinked(index);
@@ -4307,6 +4424,10 @@ public final class BuilderScreen extends Screen {
             if (index >= 0 && index < 9) {
                 int slotX = hotbarX + index * HOTBAR_PITCH;
                 if (mouseX <= slotX + HOTBAR_SLOT) {
+                    if (index == EMPTY_HAND_BUTTON_INDEX) {
+                        this.controller.selectEmptyHand();
+                        return true;
+                    }
                     this.controller.storeFluidFromToolSlot(index);
                     return true;
                 }
@@ -4855,7 +4976,7 @@ public final class BuilderScreen extends Screen {
     }
 
     private boolean canUseToolSlotShapeSource() {
-        if (this.controller.hasSelectedItem() || this.controller.hasSelectedFluid()) {
+        if (this.controller.hasSelectedItem() || this.controller.hasSelectedFluid() || this.controller.isEmptyHandSelected()) {
             return false;
         }
         ItemStack stack = getSelectedToolStack();
@@ -4864,6 +4985,9 @@ public final class BuilderScreen extends Screen {
 
     private boolean tryAssignQuickSlotFromToolSelection(int pinIndex) {
         if (this.minecraft == null || this.minecraft.player == null) {
+            return false;
+        }
+        if (this.controller.isEmptyHandSelected()) {
             return false;
         }
         int slot = this.hoveredToolSlot >= 0 ? this.hoveredToolSlot : getSelectedToolSlot();
@@ -6925,6 +7049,9 @@ public final class BuilderScreen extends Screen {
         }
         if (this.controller.hasSelectedFluid()) {
             return this.controller.getSelectedFluidPreview();
+        }
+        if (this.controller.isEmptyHandSelected()) {
+            return ItemStack.EMPTY;
         }
         if (this.minecraft == null || this.minecraft.player == null) {
             return ItemStack.EMPTY;

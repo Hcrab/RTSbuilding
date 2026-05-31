@@ -211,6 +211,7 @@ public final class ClientRtsController {
     private String selectedFluidId = "";
     private String selectedFluidLabel = "";
     private ItemStack selectedFluidPreview = ItemStack.EMPTY;
+    private boolean emptyHandSelected = false;
     private int placeRotateSteps;
     private BlockPos activeMinePos;
     private int activeMineFace = -1;
@@ -497,6 +498,10 @@ public final class ClientRtsController {
 
     public boolean hasSelectedFluid() {
         return !this.selectedFluidId.isBlank();
+    }
+
+    public boolean isEmptyHandSelected() {
+        return this.emptyHandSelected;
     }
 
     public ItemStack getSelectedItemPreview() {
@@ -932,6 +937,7 @@ public final class ClientRtsController {
             this.selectedFluidId = "";
             this.selectedFluidLabel = "";
             this.selectedFluidPreview = ItemStack.EMPTY;
+            this.emptyHandSelected = false;
             this.placeRotateSteps = 0;
             this.activeMinePos = null;
             this.activeMineFace = -1;
@@ -993,6 +999,7 @@ public final class ClientRtsController {
         this.selectedFluidId = "";
         this.selectedFluidLabel = "";
         this.selectedFluidPreview = ItemStack.EMPTY;
+        this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
         this.activeMinePos = null;
         this.activeMineFace = -1;
@@ -1686,7 +1693,7 @@ public final class ClientRtsController {
             }
         }
         if (hasStoragePageSnapshot() && getStorageTotalCount(this.selectedItemId) <= 0L) {
-            clearSelectedItemOnly();
+            selectEmptyHandPreserveMode();
         }
     }
 
@@ -2064,7 +2071,16 @@ public final class ClientRtsController {
     public void clearPlacementSelectionPreserveMode() {
         clearSelectedItemOnly();
         clearSelectedFluid();
+        this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
+    }
+
+    public void selectEmptyHand() {
+        clearSelectedItemOnly();
+        clearSelectedFluid();
+        this.emptyHandSelected = true;
+        this.placeRotateSteps = 0;
+        setMode(BuilderMode.INTERACT);
     }
 
     public void selectRecentEntry(int index) {
@@ -2186,10 +2202,12 @@ public final class ClientRtsController {
             boolean quickBuild) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
-            clearSelectedItemOnly();
+        long selectedCount = getSelectedItemCountForPlacement(itemId);
+        if (!itemId.isBlank() && selectedCount <= 0L) {
+            selectEmptyHandPreserveMode();
             itemId = "";
         }
+        boolean clearAfterPlace = !itemId.isBlank() && selectedCount <= 1L;
         RtsClientPacketGateway.sendPlace(
                 hit,
                 forcePlace,
@@ -2199,16 +2217,23 @@ public final class ClientRtsController {
                 rayOrigin,
                 rayDir,
                 quickBuild);
+        if (clearAfterPlace) {
+            selectEmptyHandPreserveMode();
+            requestStoragePage(this.storagePage);
+        }
     }
 
     public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
             boolean skipIfOccupied) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
-            clearSelectedItemOnly();
+        long selectedCount = getSelectedItemCountForPlacement(itemId);
+        if (!itemId.isBlank() && selectedCount <= 0L) {
+            selectEmptyHandPreserveMode();
             itemId = "";
         }
+        int attemptedPlacements = hits == null ? 0 : hits.size();
+        boolean clearAfterPlace = !itemId.isBlank() && selectedCount <= Math.max(1, attemptedPlacements);
         RtsClientPacketGateway.sendPlaceBatch(
                 hits,
                 forcePlace,
@@ -2217,6 +2242,10 @@ public final class ClientRtsController {
                 itemId.isBlank() ? 0 : this.placeRotateSteps,
                 rayOrigin,
                 rayDir);
+        if (clearAfterPlace) {
+            selectEmptyHandPreserveMode();
+            requestStoragePage(this.storagePage);
+        }
     }
 
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
@@ -2478,16 +2507,36 @@ public final class ClientRtsController {
         setSelectedFluid("", "", ItemStack.EMPTY);
     }
 
+    private void selectEmptyHandPreserveMode() {
+        clearSelectedItemOnly();
+        clearSelectedFluid();
+        this.emptyHandSelected = true;
+        this.placeRotateSteps = 0;
+    }
+
+    private long getSelectedItemCountForPlacement(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return Long.MAX_VALUE;
+        }
+        return hasStoragePageSnapshot() ? getStorageTotalCount(itemId) : Long.MAX_VALUE;
+    }
+
     private void setSelectedItem(String itemId, String label, ItemStack preview) {
         this.selectedItemId = itemId == null ? "" : itemId;
         this.selectedItemLabel = label == null ? "" : label;
         this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
+        if (!this.selectedItemId.isBlank()) {
+            this.emptyHandSelected = false;
+        }
     }
 
     private void setSelectedFluid(String fluidId, String label, ItemStack preview) {
         this.selectedFluidId = fluidId == null ? "" : fluidId;
         this.selectedFluidLabel = label == null ? "" : label;
         this.selectedFluidPreview = preview == null ? ItemStack.EMPTY : preview;
+        if (!this.selectedFluidId.isBlank()) {
+            this.emptyHandSelected = false;
+        }
     }
 
     public void rotatePlacementClockwise() {
