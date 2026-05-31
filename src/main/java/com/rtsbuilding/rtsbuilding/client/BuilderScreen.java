@@ -4078,6 +4078,29 @@ public final class BuilderScreen extends Screen {
         return out.toString();
     }
 
+    private void renderDiscoverabilityTooltips(GuiGraphics g, int mouseX, int mouseY) {
+        if (this.guideOpen || this.interactionWheelOpen || this.shapeWheelOpen) {
+            return;
+        }
+        if (mouseY >= 42 && mouseY <= 56) {
+            g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.undo_redo_keys"), mouseX, mouseY);
+            return;
+        }
+        for (TopBarButtonLayout button : buildTopBarButtonLayouts()) {
+            if (button.id() == TopBarButtonId.QUICK_BUILD
+                    && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
+                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
+                return;
+            }
+        }
+        if (this.quickBuildOpen && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
+            QuickBuildPanelLayout layout = resolveQuickBuildPanelLayout();
+            if (layout != null && layout.contains(mouseX, mouseY)) {
+                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_cancel"), mouseX, mouseY);
+            }
+        }
+    }
+
     private boolean handleBottomPanelClick(double mouseX, double mouseY) {
         BottomPanelLayout layout = resolveBottomPanelLayout();
         if (!layout.contains(mouseX, mouseY)) {
