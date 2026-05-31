@@ -85,6 +85,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, S2CRtsRemoteMenuHintPayload.class, S2CRtsRemoteMenuHintPayload.STREAM_CODEC, RtsClientPayloadBridge::handleRemoteMenuHint);
         registerMessage(id++, S2CRtsCraftablesPayload.class, S2CRtsCraftablesPayload.STREAM_CODEC, RtsClientPayloadBridge::handleCraftables);
         registerMessage(id++, S2CRtsCraftFeedbackPayload.class, S2CRtsCraftFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleCraftFeedback);
+        registerMessage(id++, S2CRtsDamageFeedbackPayload.class, S2CRtsDamageFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleDamageFeedback);
         registerMessage(id++, S2CRtsQuestDetectStatusPayload.class, S2CRtsQuestDetectStatusPayload.STREAM_CODEC, RtsClientPayloadBridge::handleQuestDetectStatus);
         registerMessage(id++, S2CRtsMineProgressPayload.class, S2CRtsMineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleMineProgress);
         registerMessage(id++, S2CRtsProgressionStatePayload.class, S2CRtsProgressionStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleProgressionState);

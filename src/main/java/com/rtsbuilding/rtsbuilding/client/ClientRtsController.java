@@ -44,6 +44,7 @@ import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
@@ -59,6 +60,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -137,6 +139,8 @@ public final class ClientRtsController {
     private boolean invertPanDragX;
     private boolean invertPanDragY;
     private boolean smoothCamera;
+    private boolean damageSoundEnabled = true;
+    private boolean damageAutoReturnEnabled = true;
 
     private boolean localStateReady;
     private double localX;
@@ -258,6 +262,8 @@ public final class ClientRtsController {
         this.invertPanDragX = uiState.invertPanDragX;
         this.invertPanDragY = uiState.invertPanDragY;
         this.smoothCamera = uiState.smoothCamera;
+        this.damageSoundEnabled = uiState.damageSoundEnabled;
+        this.damageAutoReturnEnabled = uiState.damageAutoReturnEnabled;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -827,6 +833,30 @@ public final class ClientRtsController {
 
     public void toggleSmoothCamera() {
         setSmoothCamera(!this.smoothCamera);
+    }
+
+    public boolean isDamageSoundEnabled() {
+        return this.damageSoundEnabled;
+    }
+
+    public void setDamageSoundEnabled(boolean damageSoundEnabled) {
+        this.damageSoundEnabled = damageSoundEnabled;
+    }
+
+    public void toggleDamageSoundEnabled() {
+        this.damageSoundEnabled = !this.damageSoundEnabled;
+    }
+
+    public boolean isDamageAutoReturnEnabled() {
+        return this.damageAutoReturnEnabled;
+    }
+
+    public void setDamageAutoReturnEnabled(boolean damageAutoReturnEnabled) {
+        this.damageAutoReturnEnabled = damageAutoReturnEnabled;
+    }
+
+    public void toggleDamageAutoReturnEnabled() {
+        this.damageAutoReturnEnabled = !this.damageAutoReturnEnabled;
     }
 
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
@@ -1833,6 +1863,20 @@ public final class ClientRtsController {
             this.craftFeedbackIngredients.addAll(decodedIngredients);
         }
         this.craftFeedbackExpiryMs = now + 2200L;
+    }
+
+    public void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+        if (this.damageSoundEnabled) {
+            float volume = Mth.clamp(0.45F + Math.max(0.0F, payload.amount()) * 0.08F, 0.45F, 1.2F);
+            minecraft.player.playSound(SoundEvents.PLAYER_HURT, volume, 1.0F);
+        }
+        if (payload.lowHealth() && this.damageAutoReturnEnabled && this.enabled) {
+            RtsClientPacketGateway.sendToggleCamera(this.startCameraAtPlayerHead);
+        }
     }
 
     public void applyQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload) {

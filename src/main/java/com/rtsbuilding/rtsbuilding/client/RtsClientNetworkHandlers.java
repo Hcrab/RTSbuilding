@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsMineProgressPayload;
@@ -32,6 +33,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleCraftFeedback(S2CRtsCraftFeedbackPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyCraftFeedback(payload));
+    }
+
+    public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyDamageFeedback(payload));
     }
 
     public static void handleQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload, IPayloadContext context) {

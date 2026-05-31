@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -83,6 +84,7 @@ public final class RtsbuildingMod {
         static void onPlayerLogin(final PlayerEvent.PlayerLoggedInEvent event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 RtsCameraManager.cleanupOrphanCameras(serverPlayer.getServer());
+                RtsDamageFeedbackManager.remember(serverPlayer);
                 RtsProgressionManager.onPlayerLogin(serverPlayer);
             }
         }
@@ -98,6 +100,7 @@ public final class RtsbuildingMod {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 RtsCameraManager.stopIfActive(serverPlayer);
                 BlueprintPlacementService.clear(serverPlayer);
+                RtsDamageFeedbackManager.forget(serverPlayer);
                 RtsStorageManager.onPlayerLogout(serverPlayer);
                 RtsProgressionManager.onPlayerLogout(serverPlayer);
             }
@@ -120,6 +123,7 @@ public final class RtsbuildingMod {
                 RtsStorageManager.onPlayerTickPre(serverPlayer);
             } else {
                 RtsStorageManager.onPlayerTickPost(serverPlayer);
+                RtsDamageFeedbackManager.tick(serverPlayer);
                 BlueprintPlacementService.tick(serverPlayer);
             }
         }

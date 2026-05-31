@@ -90,6 +90,8 @@ final class RtsClientUiStateStore {
         boolean invertPanDragX = false;
         boolean invertPanDragY = false;
         boolean smoothCamera = true;
+        boolean damageSoundEnabled = true;
+        boolean damageAutoReturnEnabled = true;
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = true;
         boolean overlayShiftImportEnabled = false;
@@ -115,6 +117,8 @@ final class RtsClientUiStateStore {
             clean.invertPanDragX = this.invertPanDragX;
             clean.invertPanDragY = this.invertPanDragY;
             clean.smoothCamera = this.smoothCamera;
+            clean.damageSoundEnabled = this.damageSoundEnabled;
+            clean.damageAutoReturnEnabled = this.damageAutoReturnEnabled;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.overlayShiftImportEnabled = this.overlayShiftImportEnabled;

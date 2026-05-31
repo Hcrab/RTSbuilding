@@ -34,6 +34,11 @@ public final class RtsClientPayloadBridge {
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleCraftFeedback(payload, context));
     }
 
+    public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, IPayloadContext context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleDamageFeedback(payload, context));
+    }
+
     public static void handleQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload, IPayloadContext context) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleQuestDetectStatus(payload, context));
