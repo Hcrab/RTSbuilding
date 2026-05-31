@@ -1870,6 +1870,9 @@ public final class ClientRtsController {
         if (minecraft.player == null) {
             return;
         }
+        if (minecraft.screen instanceof BuilderScreen builderScreen) {
+            builderScreen.triggerDamageFlash();
+        }
         if (this.damageSoundEnabled) {
             float volume = Mth.clamp(0.45F + Math.max(0.0F, payload.amount()) * 0.08F, 0.45F, 1.2F);
             minecraft.player.playSound(SoundEvents.PLAYER_HURT, volume, 1.0F);

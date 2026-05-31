@@ -137,6 +137,7 @@ public final class BuilderScreen extends Screen {
     private static final double MAX_RTS_GUI_SCALE = 4.0D;
     private static final double RTS_GUI_SCALE_STEP = 0.5D;
     private static final float RTS_MODAL_LAYER_Z = 400.0F;
+    private static final long DAMAGE_FLASH_DURATION_MS = 300L;
     private static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(Items.HOPPER);
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
@@ -198,6 +199,7 @@ public final class BuilderScreen extends Screen {
     private int craftScroll = 0;
     private int lastCraftablesStorageRevision = -1;
     private final RtsCraftQuantityDialog craftQuantityDialog = new RtsCraftQuantityDialog();
+    private long damageFlashStartMs = -1L;
     private boolean interactionWheelOpen = false;
     private final List<InteractionOption> interactionWheelOptions = new ArrayList<>();
     private InteractionTarget interactionWheelTarget;
@@ -286,6 +288,10 @@ public final class BuilderScreen extends Screen {
     public BuilderScreen(ClientRtsController controller) {
         super(Component.literal("RTS Builder"));
         this.controller = controller;
+    }
+
+    public void triggerDamageFlash() {
+        this.damageFlashStartMs = System.currentTimeMillis();
     }
 
     @Override
@@ -1499,6 +1505,7 @@ public final class BuilderScreen extends Screen {
 
         if (this.controller.isHomeSelectionMode()) {
             renderHomeSelectionOverlay(guiGraphics, mouseX, mouseY);
+            renderDamageFlash(guiGraphics);
             return;
         }
 
@@ -1642,6 +1649,22 @@ public final class BuilderScreen extends Screen {
             renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 60.0F,
                     () -> this.craftQuantityDialog.render(guiGraphics, this.font, this.width, this.height, mouseX, mouseY));
         }
+
+        renderDamageFlash(guiGraphics);
+    }
+
+    private void renderDamageFlash(GuiGraphics guiGraphics) {
+        if (this.damageFlashStartMs < 0L) {
+            return;
+        }
+        long elapsed = System.currentTimeMillis() - this.damageFlashStartMs;
+        if (elapsed >= DAMAGE_FLASH_DURATION_MS) {
+            this.damageFlashStartMs = -1L;
+            return;
+        }
+        float alpha = 1.0F - (float) elapsed / (float) DAMAGE_FLASH_DURATION_MS;
+        int argb = ((int) (alpha * 128.0F) << 24) | 0x00FF0000;
+        guiGraphics.fill(0, 0, this.width, this.height, argb);
     }
 
     private void renderAtGuiLayer(GuiGraphics g, float z, Runnable renderer) {
