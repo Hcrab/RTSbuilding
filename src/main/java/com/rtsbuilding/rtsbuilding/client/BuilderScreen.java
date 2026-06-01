@@ -135,6 +135,7 @@ public final class BuilderScreen extends Screen {
     private static final int GEAR_MENU_MIN_H = 168;
     private static final int GEAR_MENU_CONTENT_H = 508;
     private static final double MIDDLE_CLICK_DRAG_THRESHOLD = 1.5D;
+    private static final double BLUEPRINT_AIR_PLANE_CAMERA_OFFSET = 18.0D;
     private static final double DEFAULT_RTS_GUI_SCALE = 2.0D;
     private static final double MIN_RTS_GUI_SCALE = 1.0D;
     private static final double MAX_RTS_GUI_SCALE = 4.0D;
@@ -1106,11 +1107,29 @@ public final class BuilderScreen extends Screen {
     }
 
     private BlockHitResult pickBlueprintPlacementHit() {
-        InteractionTarget target = pickInteractionTarget(false);
-        if (target != null && target.blockHit() != null) {
-            return target.blockHit();
+        if (this.minecraft == null || this.minecraft.level == null || this.minecraft.getCameraEntity() == null) {
+            return null;
         }
-        return tryCreateBlueprintAirHit();
+
+        Vec3 camPos = this.minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 dir = computeCursorRayDirection();
+        Vec3 to = camPos.add(dir.scale(128.0D));
+        HitResult rawHit = this.minecraft.level.clip(new ClipContext(
+                camPos,
+                to,
+                ClipContext.Block.OUTLINE,
+                ClipContext.Fluid.NONE,
+                this.minecraft.getCameraEntity()));
+        BlockHitResult blockHit = rawHit instanceof BlockHitResult bhr && rawHit.getType() == HitResult.Type.BLOCK
+                ? bhr
+                : null;
+        BlockHitResult planeHit = tryCreateBlueprintAirHit(camPos, dir);
+        if (planeHit != null && blockHit != null) {
+            double planeDist = camPos.distanceToSqr(planeHit.getLocation());
+            double blockDist = camPos.distanceToSqr(blockHit.getLocation());
+            return planeDist + 1.0E-4D < blockDist ? planeHit : blockHit;
+        }
+        return blockHit != null ? blockHit : planeHit;
     }
 
     private boolean tryPickHoveredBlockForPlacement() {
@@ -7201,16 +7220,24 @@ public final class BuilderScreen extends Screen {
     }
 
     private BlockHitResult tryCreateBlueprintAirHit() {
-        if (this.minecraft == null || this.minecraft.level == null || this.minecraft.player == null
-                || this.minecraft.getCameraEntity() == null) {
+        if (this.minecraft == null || this.minecraft.getCameraEntity() == null) {
             return null;
         }
-        Vec3 camPos = this.minecraft.gameRenderer.getMainCamera().getPosition();
-        Vec3 dir = computeCursorRayDirection();
+        return tryCreateBlueprintAirHit(
+                this.minecraft.gameRenderer.getMainCamera().getPosition(),
+                computeCursorRayDirection());
+    }
+
+    private BlockHitResult tryCreateBlueprintAirHit(Vec3 camPos, Vec3 dir) {
+        if (this.minecraft == null || this.minecraft.level == null || this.minecraft.player == null
+                || this.minecraft.getCameraEntity() == null || camPos == null || dir == null) {
+            return null;
+        }
         if (Math.abs(dir.y) < 1.0E-5D) {
             return null;
         }
-        double planeY = this.minecraft.player.blockPosition().getY();
+        double playerY = this.minecraft.player.blockPosition().getY();
+        double planeY = Math.max(playerY, Math.floor(camPos.y - BLUEPRINT_AIR_PLANE_CAMERA_OFFSET));
         double t = (planeY - camPos.y) / dir.y;
         if (t <= 0.0D || t > 128.0D) {
             return null;
