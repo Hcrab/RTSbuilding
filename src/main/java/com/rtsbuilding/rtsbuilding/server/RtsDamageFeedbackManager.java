@@ -1,13 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server;
 
+import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-
-import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
-
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class RtsDamageFeedbackManager {
     private static final float HEALTH_EPSILON = 0.001F;

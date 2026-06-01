@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.neoforged.fml.ModList;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class RtsSophisticatedStorageCompat {
     private static final String MOD_ID = "sophisticatedstorage";

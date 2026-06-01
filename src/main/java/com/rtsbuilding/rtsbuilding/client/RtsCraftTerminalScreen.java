@@ -1,14 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.List;
-
 import com.rtsbuilding.rtsbuilding.network.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
-
-import org.lwjgl.glfw.GLFW;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -27,6 +22,9 @@ import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.glfw.GLFW;
+
+import java.util.List;
 
 public final class RtsCraftTerminalScreen extends AbstractContainerScreen<CraftingMenu> {
     private static final ResourceLocation VANILLA_CRAFTING_BG =

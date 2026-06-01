@@ -1,17 +1,10 @@
 package com.rtsbuilding.rtsbuilding.blueprint.format;
 
-import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
-
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -19,15 +12,17 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.ByteArrayTag;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 final class SpongeSchemReader {
     private SpongeSchemReader() {

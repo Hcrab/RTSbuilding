@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

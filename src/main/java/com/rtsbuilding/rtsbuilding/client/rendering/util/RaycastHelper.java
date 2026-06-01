@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.rts_boundary_renderer;
+package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;

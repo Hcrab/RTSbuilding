@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;

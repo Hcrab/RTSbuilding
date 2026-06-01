@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.ModList;
 

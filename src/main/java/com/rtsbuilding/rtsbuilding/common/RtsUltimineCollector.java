@@ -1,17 +1,11 @@
 package com.rtsbuilding.rtsbuilding.common;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.*;
 
 public final class RtsUltimineCollector {
     public static final int DEFAULT_MAX_RADIUS = 32;

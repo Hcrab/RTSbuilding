@@ -1,9 +1,16 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.rendering;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.rts_boundary_renderer.*;
+import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintCaptureRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.BoundaryLineRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.ChunkGuideRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.InteractionTargetRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.StorageRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -26,7 +33,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * 采用模块化设计，将不同渲染逻辑委托给专门的子渲染器
  */
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
-public final class RtsBoundaryRenderer {
+public final class RtsVisualOverlayRenderer {
     // OpenGL深度测试常量
     private static final int GL_LEQUAL = 515;
 
@@ -97,12 +104,11 @@ public final class RtsBoundaryRenderer {
     private static final ByteBufferBuilder CHUNK_LINE_BACKING = new ByteBufferBuilder(CHUNK_XRAY_LINES.bufferSize());
     private static final ByteBufferBuilder LINE_BACKING = new ByteBufferBuilder(RenderType.lines().bufferSize());
     private static final ByteBufferBuilder FILL_BACKING = new ByteBufferBuilder(RenderType.debugFilledBox().bufferSize());
-    private static final ByteBufferBuilder BARRIER_BACKING = new ByteBufferBuilder(BARRIER_BOUNDARY.bufferSize());
 
     /**
      * 私有构造函数，防止实例化
      */
-    private RtsBoundaryRenderer() {
+    private RtsVisualOverlayRenderer() {
     }
 
     /**
@@ -196,7 +202,6 @@ public final class RtsBoundaryRenderer {
      * @return 配置好的BufferBuilder实例
      */
     private static BufferBuilder bufferFor(RenderType renderType, ByteBufferBuilder backing) {
-        // Minecraft 1.21+: BufferBuilder 构造函数已自动初始化，无需调用 begin()
         return new BufferBuilder(backing, renderType.mode, renderType.format);
     }
 

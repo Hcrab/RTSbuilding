@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.compat.remote;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class RtsRemoteMenuCompat {
     private static final Map<UUID, Integer> SERVER_REMOTE_MENU_IDS = new ConcurrentHashMap<>();

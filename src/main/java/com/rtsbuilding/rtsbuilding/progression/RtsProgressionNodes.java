@@ -1,15 +1,10 @@
 package com.rtsbuilding.rtsbuilding.progression;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.resources.ResourceLocation;
+
+import java.util.*;
 
 public final class RtsProgressionNodes {
     public static final ResourceLocation CAMERA_CORE = id("camera_core");

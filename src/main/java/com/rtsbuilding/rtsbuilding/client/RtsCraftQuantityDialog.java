@@ -1,15 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.lwjgl.glfw.GLFW;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
+import org.lwjgl.glfw.GLFW;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public final class RtsCraftQuantityDialog {
     private static final int PANEL_W = 238;

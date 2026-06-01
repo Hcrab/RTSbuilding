@@ -6,7 +6,6 @@ import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
-
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;

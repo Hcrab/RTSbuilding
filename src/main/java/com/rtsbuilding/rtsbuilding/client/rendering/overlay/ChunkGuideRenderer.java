@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.rts_boundary_renderer;
+package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;

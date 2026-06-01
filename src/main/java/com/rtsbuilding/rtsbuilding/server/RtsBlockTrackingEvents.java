@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.server;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;

@@ -1,51 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsBreakPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsBeginHomeSelectionPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCameraMovePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCraftRecipePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsFillInventoryPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsFunnelTargetPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsMinePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsOpenCraftTerminalPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsOpenGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlacePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsQuestDetectPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsQuickDropPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRotateBlockPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetHomePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetAutoStorePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetBdNetworkPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetFunnelPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetModePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetProgressionCostPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetQuickSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetSurvivalProgressionPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreHotbarSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsToggleCameraPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsUltiminePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsUnlockProgressionNodePayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.network.*;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
-
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
@@ -53,6 +14,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 final class RtsClientPacketGateway {
     private RtsClientPacketGateway() {

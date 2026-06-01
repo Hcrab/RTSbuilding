@@ -1,9 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
-import java.util.Optional;
-
 import com.rtsbuilding.rtsbuilding.network.C2SRtsJeiTransferPayload;
-
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.RecipeType;
@@ -16,6 +13,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.neoforged.neoforge.network.PacketDistributor;
+
+import java.util.Optional;
 
 public final class RtsCraftTerminalJeiTransferHandler
         implements IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> {

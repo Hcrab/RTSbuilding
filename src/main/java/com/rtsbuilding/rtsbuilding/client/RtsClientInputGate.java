@@ -1,43 +1,33 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCraftRefillPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkedQuickMovePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkedPickupPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsImportMenuSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsReturnCarriedPayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
-
+import com.rtsbuilding.rtsbuilding.network.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderHandEvent;
-import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class RtsClientInputGate {

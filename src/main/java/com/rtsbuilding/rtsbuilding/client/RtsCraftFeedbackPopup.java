@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.List;
-
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 
 public final class RtsCraftFeedbackPopup {
     private static final int PANEL_W = 228;

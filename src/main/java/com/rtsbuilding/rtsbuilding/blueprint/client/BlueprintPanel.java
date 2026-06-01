@@ -1,29 +1,7 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.tinyfd.TinyFileDialogs;
-
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
@@ -32,7 +10,6 @@ import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -51,6 +28,18 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.tinyfd.TinyFileDialogs;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public final class BlueprintPanel {
     private static final int ROW_H = 24;

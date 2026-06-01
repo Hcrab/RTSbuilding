@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
-
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public final class BlueprintClientNetworkHandlers {

@@ -1,15 +1,12 @@
 package com.rtsbuilding.rtsbuilding;
 
-import org.slf4j.Logger;
-
 import com.mojang.logging.LogUtils;
-import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
+import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
-
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -37,14 +34,15 @@ import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import org.slf4j.Logger;
 
 @Mod(RtsbuildingMod.MODID)
 public class RtsbuildingMod {

@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
-
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;

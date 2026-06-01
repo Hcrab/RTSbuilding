@@ -1,9 +1,10 @@
-package com.rtsbuilding.rtsbuilding.client.rts_boundary_renderer;
+package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
@@ -40,7 +41,7 @@ public final class BlueprintGhostRenderer {
             return;
         }
 
-        BuilderScreen.BlueprintGhostPreview preview = builderScreen.getBlueprintGhostPreview();
+        BlueprintGhostPreview preview = builderScreen.getBlueprintGhostPreview();
         if (preview.blocks().isEmpty()) {
             return;
         }

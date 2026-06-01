@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.loadout;
 
-import java.util.OptionalInt;
-
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.OptionalInt;
 
 public final class MiningLoadoutState {
     private static final String ROOT_KEY = "rtsbuilding";

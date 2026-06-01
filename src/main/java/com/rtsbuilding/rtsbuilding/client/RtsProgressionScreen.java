@@ -1,15 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-
 import com.rtsbuilding.rtsbuilding.progression.RtsIngredientCost;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,6 +12,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.*;
 
 public final class RtsProgressionScreen extends Screen {
     private static final int BASE_CARD_W = 96;

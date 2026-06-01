@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;

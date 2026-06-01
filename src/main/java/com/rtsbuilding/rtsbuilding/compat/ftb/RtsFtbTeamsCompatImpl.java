@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
+import net.minecraft.server.level.ServerPlayer;
+
 import java.lang.reflect.Method;
 import java.util.Optional;
 import java.util.UUID;
-
-import net.minecraft.server.level.ServerPlayer;
 
 final class RtsFtbTeamsCompatImpl {
     private final Method teamsApiMethod;

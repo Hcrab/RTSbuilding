@@ -1,9 +1,5 @@
 package com.rtsbuilding.rtsbuilding.blueprint.server;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
@@ -13,7 +9,6 @@ import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +18,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BlueprintPlacementService {
     private static final int BLOCKS_PER_TICK = 64;

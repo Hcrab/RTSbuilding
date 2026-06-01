@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.blueprint.format;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-
 import net.minecraft.core.RegistryAccess;
 
 public final class BlueprintReaders {

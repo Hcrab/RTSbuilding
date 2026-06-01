@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.loadout;
 
-import java.util.OptionalInt;
-
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.OptionalInt;
 
 public final class RtsMiningRules {
     private RtsMiningRules() {

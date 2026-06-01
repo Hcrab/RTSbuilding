@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;

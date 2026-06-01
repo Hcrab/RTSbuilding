@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.compat.jei;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.RtsCraftTerminalScreen;
-
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.RecipeTypes;
