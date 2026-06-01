@@ -1,57 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsBreakPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsFunnelTargetPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCraftRecipePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsFillInventoryPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsMinePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsOpenCraftTerminalPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlacePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsQuestDetectPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsQuickDropPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRotateBlockPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsOpenGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreHotbarSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetQuickSlotPayload;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCameraMovePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetAutoStorePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetFunnelPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetModePayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsMineProgressPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsRemoteMenuHintPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.network.*;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
@@ -64,17 +20,18 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
 import net.neoforged.neoforge.fluids.FluidUtil;
-
 import org.lwjgl.glfw.GLFW;
+
+import java.util.*;
 
 public final class ClientRtsController {
     private static final ClientRtsController INSTANCE = new ClientRtsController();
@@ -2704,27 +2661,14 @@ public final class ClientRtsController {
 
         double adx = targetX - this.anchorX;
         double adz = targetZ - this.anchorZ;
-        double distSqr = adx * adx + adz * adz;
-        double maxSqr = this.maxRadius * this.maxRadius;
-        if (distSqr > maxSqr) {
-            double dist = Math.sqrt(distSqr);
-            double scale = this.maxRadius / dist;
-            targetX = this.anchorX + (adx * scale);
-            targetZ = this.anchorZ + (adz * scale);
-        }
+        // 使用正方体边界限制代替圆形边界，与放置限制红线保持一致
+        double halfExtent = this.maxRadius;
+        targetX = Mth.clamp(targetX, this.anchorX - halfExtent, this.anchorX + halfExtent);
+        targetZ = Mth.clamp(targetZ, this.anchorZ - halfExtent, this.anchorZ + halfExtent);
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
 
-        Vec3 toCam = new Vec3(targetX - this.anchorX, targetY - this.anchorY, targetZ - this.anchorZ);
-        double dist = toCam.length();
-        if (dist > MAX_CAMERA_DISTANCE) {
-            Vec3 n = toCam.scale(MAX_CAMERA_DISTANCE / dist);
-            targetX = this.anchorX + n.x;
-            targetY = this.anchorY + n.y;
-            targetZ = this.anchorZ + n.z;
-        }
-
-        targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
+        // 移除球形距离限制，保持正方体边界
 
         this.localX = targetX;
         this.localY = targetY;

@@ -1,23 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.progression.RtsIngredientCost;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-import com.rtsbuilding.rtsbuilding.progression.RtsUnlockEffect;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
+import com.rtsbuilding.rtsbuilding.progression.*;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -37,7 +24,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.scores.PlayerTeam;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public final class RtsProgressionManager {
     public static final int DEFAULT_MAX_ACTION_RADIUS_BLOCKS = 128;
@@ -144,7 +133,8 @@ public final class RtsProgressionManager {
         double radius = getActionRadius(player);
         double dx = (pos.getX() + 0.5D) - (home.pos().getX() + 0.5D);
         double dz = (pos.getZ() + 0.5D) - (home.pos().getZ() + 0.5D);
-        double halfExtent = radius + 8.0D;
+        // 移除 +8 缓冲，使放置范围与红线边界完全一致
+        double halfExtent = radius;
         return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
     }
 

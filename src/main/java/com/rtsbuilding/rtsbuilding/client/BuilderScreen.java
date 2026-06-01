@@ -1,31 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
-import org.lwjgl.glfw.GLFW;
-
 import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
-import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
+import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -38,18 +22,17 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
 import net.neoforged.fml.ModList;
+import org.lwjgl.glfw.GLFW;
+
+import java.util.*;
 
 public final class BuilderScreen extends Screen {
     private static final int TOP_H = 52;
@@ -1610,7 +1593,54 @@ public final class BuilderScreen extends Screen {
                 || this.craftQuantityDialog.isOpen()
                 || BlueprintPanel.isNameDialogOpen()
                 || BlueprintPanel.isMaterialDialogOpen();
+        boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
+            if (!placementSelectionActive
+                    && this.hoveredEntry >= 0
+                    && this.hoveredEntry < this.controller.getStorageEntries().size()) {
+                var entry = this.controller.getStorageEntries().get(this.hoveredEntry);
+                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
+            }
+
+            if (!placementSelectionActive
+                    && this.hoveredRecentEntry >= 0
+                    && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
+                var entry = this.controller.getRecentEntries().get(this.hoveredRecentEntry);
+                if (!entry.preview().isEmpty()) {
+                    guiGraphics.renderTooltip(this.font, entry.preview(), mouseX, mouseY);
+                } else {
+                    guiGraphics.renderTooltip(this.font, Component.literal(entry.label()), mouseX, mouseY);
+                }
+            }
+
+            if (!placementSelectionActive
+                    && this.hoveredFluidEntry >= 0
+                    && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
+                var fluid = this.controller.getFluidEntries().get(this.hoveredFluidEntry);
+                if (!fluid.preview().isEmpty()) {
+                    guiGraphics.renderTooltip(this.font, fluid.preview(), mouseX, mouseY);
+                } else {
+                    guiGraphics.renderTooltip(this.font, Component.literal(fluid.label()), mouseX, mouseY);
+                }
+            }
+
+            if (this.hoveredCraftableEntry >= 0 && this.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
+                var entry = this.controller.getCraftableEntries().get(this.hoveredCraftableEntry);
+                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
+                String detail = entry.craftable()
+                        ? text("screen.rtsbuilding.tooltip.craft_choose")
+                        : entry.missingSummary();
+                if (detail != null && !detail.isBlank()) {
+                    guiGraphics.drawString(this.font, detail, mouseX + 10, mouseY + 18, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
+                }
+            }
+
+            if (this.hoveredFunnelBufferEntry >= 0 && this.hoveredFunnelBufferEntry < this.controller.getFunnelBufferEntries().size()) {
+                var entry = this.controller.getFunnelBufferEntries().get(this.hoveredFunnelBufferEntry);
+                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
+                guiGraphics.drawString(this.font, text("screen.rtsbuilding.tooltip.buffered", entry.count()), mouseX + 10, mouseY + 18, 0xFFD8B8);
+            }
+
             if (this.hoveredGuiBindingSlot >= 0 && this.hoveredGuiBindingSlot < this.controller.getGuiBindingCount()) {
                 String detail = this.controller.hasGuiBinding(this.hoveredGuiBindingSlot)
                         ? this.controller.getGuiBindingLabel(this.hoveredGuiBindingSlot)
@@ -1628,7 +1658,10 @@ public final class BuilderScreen extends Screen {
                         0xFFCFE3F7);
             }
 
-            renderBottomHoverInfoStrip(guiGraphics);
+            if (this.hoveredEmptyHandSlot) {
+                guiGraphics.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.empty_hand"), mouseX, mouseY);
+                guiGraphics.drawString(this.font, text("screen.rtsbuilding.tooltip.empty_hand_detail"), mouseX + 10, mouseY + 18, 0xFFD8B8);
+            }
 
             renderDiscoverabilityTooltips(guiGraphics, mouseX, mouseY);
 
@@ -3498,87 +3531,15 @@ public final class BuilderScreen extends Screen {
     }
 
     private void drawEmptyHandButton(GuiGraphics g, int x, int y) {
-        g.fill(x + 2, y + 2, x + HOTBAR_SLOT - 2, y + HOTBAR_SLOT - 2, 0xDDC66A3D);
-        g.fill(x + 3, y + 3, x + HOTBAR_SLOT - 3, y + 5, 0x33FFFFFF);
-        g.drawCenteredString(this.font,
-                trimToWidth(text("screen.rtsbuilding.empty_hand.button"), HOTBAR_SLOT - 4),
-                x + HOTBAR_SLOT / 2,
-                y + 5,
-                0xFFFFE4C7);
-    }
-
-    private void renderBottomHoverInfoStrip(GuiGraphics g) {
-        BottomHoverInfo info = resolveBottomHoverInfo();
-        if (info == null || info.label().isBlank()) {
-            return;
-        }
-
-        BottomPanelLayout layout = resolveBottomPanelLayout();
-        int x = layout.panelX() + 8;
-        int y = Math.max(TOP_H + 2, layout.panelY() - 15);
-        int maxW = Math.max(120, layout.panelW() - 16);
-        String message = info.detail() == null || info.detail().isBlank()
-                ? info.label()
-                : info.label() + "  " + info.detail();
-        int w = Math.min(maxW, Math.max(120, this.font.width(message) + 14));
-        drawPanelFrame(g, x, y, w, 14, 0xC8141A22, 0xFF5F7185, 0xFF0D1118);
-        g.drawString(this.font, trimToWidth(message, w - 10), x + 5, y + 3, info.color(), false);
-    }
-
-    private BottomHoverInfo resolveBottomHoverInfo() {
-        if (this.hoveredEmptyHandSlot) {
-            return new BottomHoverInfo(text("screen.rtsbuilding.tooltip.empty_hand"), "", 0xFFFFC38A);
-        }
-        if (this.minecraft != null && this.minecraft.player != null && this.hoveredToolSlot >= 0) {
-            ItemStack stack = this.minecraft.player.getInventory().getItem(this.hoveredToolSlot);
-            return hoverInfoFromStack(stack, countDetail(stack.getCount()), 0xFFEAF2FF);
-        }
-        if (this.hoveredEntry >= 0 && this.hoveredEntry < this.controller.getStorageEntries().size()) {
-            ClientRtsController.StorageEntry entry = this.controller.getStorageEntries().get(this.hoveredEntry);
-            return hoverInfoFromStack(entry.stack(), countDetail(entry.count()), 0xFFEAF2FF);
-        }
-        if (this.hoveredRecentEntry >= 0 && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
-            ClientRtsController.RecentEntry entry = this.controller.getRecentEntries().get(this.hoveredRecentEntry);
-            String label = !entry.preview().isEmpty() ? entry.preview().getHoverName().getString() : entry.label();
-            return new BottomHoverInfo(label, recentDetail(entry), entry.fluid() ? 0xFFBEE6FF : 0xFFE8F4C0);
-        }
-        if (this.hoveredFluidEntry >= 0 && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
-            ClientRtsController.FluidEntry fluid = this.controller.getFluidEntries().get(this.hoveredFluidEntry);
-            String label = !fluid.preview().isEmpty() ? fluid.preview().getHoverName().getString() : fluid.label();
-            return new BottomHoverInfo(label, compactFluidAmount(fluid.amount()), 0xFFFCCB8A);
-        }
-        if (this.hoveredCraftableEntry >= 0 && this.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
-            ClientRtsController.CraftableEntry entry = this.controller.getCraftableEntries().get(this.hoveredCraftableEntry);
-            String detail = entry.craftable() ? text("screen.rtsbuilding.tooltip.craft_choose") : entry.missingSummary();
-            return hoverInfoFromStack(entry.stack(), detail, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
-        }
-        if (this.hoveredFunnelBufferEntry >= 0 && this.hoveredFunnelBufferEntry < this.controller.getFunnelBufferEntries().size()) {
-            ClientRtsController.FunnelBufferEntry entry = this.controller.getFunnelBufferEntries().get(this.hoveredFunnelBufferEntry);
-            return hoverInfoFromStack(entry.stack(), text("screen.rtsbuilding.tooltip.buffered", entry.count()), 0xFFD8B8);
-        }
-        if (this.hoveredPinIndex >= 0 && this.hoveredPinIndex < this.controller.getQuickSlotCount()) {
-            ItemStack preview = this.controller.getQuickSlotPreview(this.hoveredPinIndex);
-            String itemId = this.controller.getQuickSlotItemId(this.hoveredPinIndex);
-            String detail = itemId == null || itemId.isBlank() ? "" : countDetail(resolvePinnedItemCount(itemId));
-            return hoverInfoFromStack(preview, detail, 0xFFEAF2FF);
-        }
-        return null;
-    }
-
-    private BottomHoverInfo hoverInfoFromStack(ItemStack stack, String detail, int color) {
-        if (stack == null || stack.isEmpty()) {
-            return null;
-        }
-        return new BottomHoverInfo(stack.getHoverName().getString(), detail, color);
-    }
-
-    private String recentDetail(ClientRtsController.RecentEntry entry) {
-        String amount = formatRecentAmount(entry);
-        return entry.fluid() ? amount : "x" + amount;
-    }
-
-    private static String countDetail(long count) {
-        return count > 0 ? "x" + compactCount(count) : "";
+        int skin = 0xFFFFC3A3;
+        int shadow = 0xFF8A4E3F;
+        g.fill(x + 7, y + 3, x + 9, y + 11, skin);
+        g.fill(x + 10, y + 4, x + 12, y + 11, skin);
+        g.fill(x + 4, y + 6, x + 6, y + 12, skin);
+        g.fill(x + 12, y + 7, x + 14, y + 13, skin);
+        g.fill(x + 6, y + 9, x + 14, y + 15, skin);
+        g.fill(x + 6, y + 14, x + 14, y + 16, shadow);
+        g.fill(x + 13, y + 9, x + 15, y + 14, shadow);
     }
 
     private void drawSortButton(GuiGraphics g, int x, int y, String label) {
@@ -3975,7 +3936,7 @@ public final class BuilderScreen extends Screen {
             if (toolStack.isEmpty()) {
                 return;
             }
-            net.minecraft.resources.ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+            ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
             if (id == null) {
                 return;
             }
@@ -4956,9 +4917,6 @@ public final class BuilderScreen extends Screen {
         }
     }
 
-    private record BottomHoverInfo(String label, String detail, int color) {
-    }
-
     private enum BottomPanelTab {
         STORAGE,
         BLUEPRINTS
@@ -5610,7 +5568,7 @@ public final class BuilderScreen extends Screen {
             if (itemId == null || itemId.isBlank()) {
                 return false;
             }
-            net.minecraft.resources.ResourceLocation key = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+            ResourceLocation key = ResourceLocation.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 return false;
             }
@@ -6417,7 +6375,7 @@ public final class BuilderScreen extends Screen {
             }
             ItemStack preview = this.controller.getQuickSlotPreview(pin);
             if (preview.isEmpty()) {
-                var id = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+                var id = ResourceLocation.tryParse(itemId);
                 if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
                     continue;
                 }
@@ -7448,7 +7406,7 @@ public final class BuilderScreen extends Screen {
     }
 
     private static String formatTabLabel(String tabKey) {
-        net.minecraft.resources.ResourceLocation key = net.minecraft.resources.ResourceLocation.tryParse(tabKey);
+        ResourceLocation key = ResourceLocation.tryParse(tabKey);
         String path = key == null ? tabKey : key.getPath();
         return humanizeToken(path);
     }
