@@ -122,7 +122,7 @@ public final class RtsStorageManager {
     private static final int PAGE_SIZE = 90;
     private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
     private static final long INTERNAL_FLUID_CAPACITY_MB = 100L * FluidType.BUCKET_VOLUME;
-    private static final double REMOTE_POV_BLOCK_REACH = 4.5D;
+    private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
     private static final double REMOTE_POV_EPSILON = 0.1D;
     private static final double FUNNEL_RADIUS = 2.0D;
     private static final int FUNNEL_MAX_ENTITIES_PER_TICK = 24;
