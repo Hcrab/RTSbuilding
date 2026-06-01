@@ -751,17 +751,14 @@ public final class BuilderScreen extends Screen {
 
         if (this.draggingHorizontalSensitivity) {
             updateHorizontalSensitivityFromMouse(mouseX);
-            saveSensitivityState();
             return true;
         }
         if (this.draggingVerticalSensitivity) {
             updateVerticalSensitivityFromMouse(mouseX);
-            saveSensitivityState();
             return true;
         }
         if (this.draggingRotateSensitivity) {
             updateRotateSensitivityFromMouse(mouseX);
-            saveSensitivityState();
             return true;
         }
 
@@ -880,6 +877,8 @@ public final class BuilderScreen extends Screen {
                 && isWorldArea(mouseX, mouseY)
                 && !this.craftQuantityDialog.isOpen()
                 && !this.draggingHorizontalSensitivity
+                && !this.draggingVerticalSensitivity
+                && !this.draggingRotateSensitivity
                 && !this.shapeWheelOpen
                 && !this.interactionWheelOpen
                 && !this.guideOpen

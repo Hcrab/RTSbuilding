@@ -87,6 +87,7 @@ final class RtsClientUiStateStore {
         float horizontalSensitivityScale = 1.0F;
         float verticalSensitivityScale = 1.0F;
         float rotateSensitivityScale = 1.0F;
+        @Deprecated int inputSensitivityIndex = -1;
         boolean startCameraAtPlayerHead = false;
         boolean allowPlacedBlockRecovery = false;
         boolean invertPanDragX = false;

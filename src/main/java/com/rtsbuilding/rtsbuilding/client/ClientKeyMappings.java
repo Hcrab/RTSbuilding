@@ -86,11 +86,11 @@ public final class ClientKeyMappings {
             "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_UP = new KeyMapping(
             "key.rtsbuilding.camera_up",
-            GLFW.GLFW_KEY_UP,
+            GLFW.GLFW_KEY_SPACE,
             "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_UP_SECONDARY = new KeyMapping(
             "key.rtsbuilding.camera_up_secondary",
-            GLFW.GLFW_KEY_SPACE,
+            GLFW.GLFW_KEY_UP,
             "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_DOWN = new KeyMapping(
             "key.rtsbuilding.camera_down_arrow",

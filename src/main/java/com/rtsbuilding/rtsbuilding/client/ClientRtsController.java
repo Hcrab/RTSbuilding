@@ -90,6 +90,8 @@ public final class ClientRtsController {
     private static final float SENSITIVITY_MIN = 0.25F;
     private static final float SENSITIVITY_MAX = 3.00F;
     private static final float SENSITIVITY_DEFAULT = 1.00F;
+    private static final float[] INPUT_SENS_PRESETS = { 0.50F, 0.75F, 1.00F, 1.25F, 1.50F, 2.00F };
+    private static final float ROTATE_SENS_INTERNAL_SCALE = 5.00F;
     private static final int QUICK_SLOT_COUNT = 27;
     private static final int GUI_BINDING_SLOT_COUNT = 8;
     private static final int CRAFTABLE_BATCH_SIZE = 12;
@@ -268,6 +270,11 @@ public final class ClientRtsController {
         this.horizontalSensitivityScale = Mth.clamp(uiState.horizontalSensitivityScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
         this.verticalSensitivityScale = Mth.clamp(uiState.verticalSensitivityScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
         this.rotateSensitivityScale = Mth.clamp(uiState.rotateSensitivityScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
+        if (uiState.inputSensitivityIndex >= 0) {
+            float oldScale = INPUT_SENS_PRESETS[Mth.clamp(uiState.inputSensitivityIndex, 0, INPUT_SENS_PRESETS.length - 1)];
+            this.horizontalSensitivityScale = Mth.clamp(oldScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
+            this.verticalSensitivityScale = Mth.clamp(oldScale, SENSITIVITY_MIN, SENSITIVITY_MAX);
+        }
         this.damageAutoReturnEnabled = uiState.damageAutoReturnEnabled;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
@@ -1181,7 +1188,7 @@ public final class ClientRtsController {
         }
 
         float translateScale = getHorizontalSensitivityScale();
-        float rotateScale = getRotateSensitivityScale();
+        float rotateScale = getRotateSensitivityScale() * ROTATE_SENS_INTERNAL_SCALE;
         float rotateXForTick = Mth.clamp(this.emaRotateX * rotateScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
         float rotateYForTick = Mth.clamp(this.emaRotateY * rotateScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
         float scrollForTick = this.pendingScroll * getVerticalSensitivityScale();
@@ -1352,7 +1359,7 @@ public final class ClientRtsController {
     }
 
     private void applyImmediateRotation(float dragX, float dragY) {
-        float sens = getRotateSensitivityScale();
+        float sens = getRotateSensitivityScale() * ROTATE_SENS_INTERNAL_SCALE;
         float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
         float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
         applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, yawDelta, pitchDelta, 0.0F, 0, false);
