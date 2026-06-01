@@ -1848,10 +1848,11 @@ public final class BlueprintPanel {
     private static void importBlueprintFile() {
         String selected;
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer filters = stack.mallocPointer(3);
+            PointerBuffer filters = stack.mallocPointer(4);
             filters.put(stack.UTF8("*.nbt"));
             filters.put(stack.UTF8("*.schem"));
             filters.put(stack.UTF8("*.schematic"));
+            filters.put(stack.UTF8("*.litematic"));
             filters.flip();
             selected = TinyFileDialogs.tinyfd_openFileDialog(
                     text("screen.rtsbuilding.blueprints.import_file"),
@@ -2142,7 +2143,8 @@ public final class BlueprintPanel {
 
     private static boolean isBlueprintFile(Path path) {
         String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return lower.endsWith(".nbt") || lower.endsWith(".schem") || lower.endsWith(".schematic");
+        return lower.endsWith(".nbt") || lower.endsWith(".schem") || lower.endsWith(".schematic")
+                || lower.endsWith(".litematic");
     }
 
     private static void openBlueprintFolder() {
@@ -2186,6 +2188,9 @@ public final class BlueprintPanel {
         if (lower.endsWith(".schem")) {
             return clean.substring(0, clean.length() - ".schem".length());
         }
+        if (lower.endsWith(".litematic")) {
+            return clean.substring(0, clean.length() - ".litematic".length());
+        }
         if (lower.endsWith(".nbt")) {
             return clean.substring(0, clean.length() - ".nbt".length());
         }
@@ -2199,6 +2204,9 @@ public final class BlueprintPanel {
         }
         if (lower.endsWith(".schem")) {
             return "schem";
+        }
+        if (lower.endsWith(".litematic")) {
+            return "litematic";
         }
         if (lower.endsWith(".nbt")) {
             return "nbt";
