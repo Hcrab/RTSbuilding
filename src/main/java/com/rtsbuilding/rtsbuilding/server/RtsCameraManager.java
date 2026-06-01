@@ -20,9 +20,9 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
 public final class RtsCameraManager {
     private static final double MAX_RADIUS = 48.0D; // 3 chunks
-    private static final double MIN_HEIGHT = -35.0D;
-    private static final double MAX_HEIGHT = 110.0D;
-    private static final double MAX_HORIZONTAL_DIST = 72.0D;
+    private static final double MIN_HEIGHT = -5.0D;
+    private static final double MAX_HEIGHT = 80.0D;
+    private static final double MAX_DIST = 72.0D;
     private static final float MIN_PITCH = -90.0F;
     private static final float MAX_PITCH = 90.0F;
 
@@ -283,13 +283,13 @@ public final class RtsCameraManager {
 
         targetY = Mth.clamp(targetY, session.anchor().y + MIN_HEIGHT, session.anchor().y + MAX_HEIGHT);
 
-        double horizontalDx = targetX - session.anchor().x;
-        double horizontalDz = targetZ - session.anchor().z;
-        double horizontalDist = Math.sqrt(horizontalDx * horizontalDx + horizontalDz * horizontalDz);
-        if (horizontalDist > MAX_HORIZONTAL_DIST) {
-            double scale = MAX_HORIZONTAL_DIST / horizontalDist;
-            targetX = session.anchor().x + (horizontalDx * scale);
-            targetZ = session.anchor().z + (horizontalDz * scale);
+        Vec3 toCam = new Vec3(targetX - session.anchor().x, targetY - session.anchor().y, targetZ - session.anchor().z);
+        double dist = toCam.length();
+        if (dist > MAX_DIST) {
+            Vec3 n = toCam.scale(MAX_DIST / dist);
+            targetX = session.anchor().x + n.x;
+            targetY = session.anchor().y + n.y;
+            targetZ = session.anchor().z + n.z;
         }
 
         targetY = Mth.clamp(targetY, session.anchor().y + MIN_HEIGHT, session.anchor().y + MAX_HEIGHT);

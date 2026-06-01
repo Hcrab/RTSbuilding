@@ -105,9 +105,9 @@ public final class ClientRtsController {
     private static final long QUEST_DETECT_MIN_PROGRESS_MS = 700L;
     private static final long QUEST_DETECT_RESULT_VISIBLE_MS = 3500L;
     private static final long STORAGE_SCAN_RESULT_VISIBLE_MS = 450L;
-    private static final double MIN_CAMERA_HEIGHT_OFFSET = -35.0D;
-    private static final double MAX_CAMERA_HEIGHT_OFFSET = 110.0D;
-    private static final double MAX_HORIZONTAL_CAMERA_DISTANCE = 72.0D;
+    private static final double MIN_CAMERA_HEIGHT_OFFSET = -5.0D;
+    private static final double MAX_CAMERA_HEIGHT_OFFSET = 80.0D;
+    private static final double MAX_CAMERA_DISTANCE = 72.0D;
     private static final float MIN_CAMERA_PITCH = -90.0F;
     private static final float MAX_CAMERA_PITCH = 90.0F;
     private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
@@ -211,7 +211,6 @@ public final class ClientRtsController {
     private String selectedFluidId = "";
     private String selectedFluidLabel = "";
     private ItemStack selectedFluidPreview = ItemStack.EMPTY;
-    private boolean emptyHandSelected = false;
     private int placeRotateSteps;
     private BlockPos activeMinePos;
     private int activeMineFace = -1;
@@ -500,10 +499,6 @@ public final class ClientRtsController {
         return !this.selectedFluidId.isBlank();
     }
 
-    public boolean isEmptyHandSelected() {
-        return this.emptyHandSelected;
-    }
-
     public ItemStack getSelectedItemPreview() {
         return this.selectedItemPreview;
     }
@@ -611,7 +606,7 @@ public final class ClientRtsController {
     }
 
     public boolean isStorageScanPopupVisible() {
-        return false;
+        return this.storageScanRunning || System.currentTimeMillis() < this.storageScanVisibleUntilMs;
     }
 
     public boolean isStorageScanRunning() {
@@ -937,7 +932,6 @@ public final class ClientRtsController {
             this.selectedFluidId = "";
             this.selectedFluidLabel = "";
             this.selectedFluidPreview = ItemStack.EMPTY;
-            this.emptyHandSelected = false;
             this.placeRotateSteps = 0;
             this.activeMinePos = null;
             this.activeMineFace = -1;
@@ -999,7 +993,6 @@ public final class ClientRtsController {
         this.selectedFluidId = "";
         this.selectedFluidLabel = "";
         this.selectedFluidPreview = ItemStack.EMPTY;
-        this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
         this.activeMinePos = null;
         this.activeMineFace = -1;
@@ -1692,17 +1685,9 @@ public final class ClientRtsController {
                 return;
             }
         }
-        if (shouldAutoClearSelectedItemWhenUnavailable()
-                && hasStoragePageSnapshot()
-                && getStorageTotalCount(this.selectedItemId) <= 0L) {
-            selectEmptyHandPreserveMode();
+        if (hasStoragePageSnapshot() && getStorageTotalCount(this.selectedItemId) <= 0L) {
+            clearSelectedItemOnly();
         }
-    }
-
-    private boolean shouldAutoClearSelectedItemWhenUnavailable() {
-        return this.selectedItemPreview != null
-                && !this.selectedItemPreview.isEmpty()
-                && this.selectedItemPreview.getItem() instanceof BlockItem;
     }
 
     public void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
@@ -2079,16 +2064,7 @@ public final class ClientRtsController {
     public void clearPlacementSelectionPreserveMode() {
         clearSelectedItemOnly();
         clearSelectedFluid();
-        this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
-    }
-
-    public void selectEmptyHand() {
-        clearSelectedItemOnly();
-        clearSelectedFluid();
-        this.emptyHandSelected = true;
-        this.placeRotateSteps = 0;
-        setMode(BuilderMode.INTERACT);
     }
 
     public void selectRecentEntry(int index) {
@@ -2210,13 +2186,10 @@ public final class ClientRtsController {
             boolean quickBuild) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        long selectedCount = getSelectedItemCountForPlacement(itemId);
-        boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable();
-        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
-            selectEmptyHandPreserveMode();
+        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
+            clearSelectedItemOnly();
             itemId = "";
         }
-        boolean clearAfterPlace = !itemId.isBlank() && autoClearUnavailable && selectedCount <= 1L;
         RtsClientPacketGateway.sendPlace(
                 hit,
                 forcePlace,
@@ -2226,26 +2199,16 @@ public final class ClientRtsController {
                 rayOrigin,
                 rayDir,
                 quickBuild);
-        if (clearAfterPlace) {
-            selectEmptyHandPreserveMode();
-            requestStoragePage(this.storagePage);
-        }
     }
 
     public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
             boolean skipIfOccupied) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        long selectedCount = getSelectedItemCountForPlacement(itemId);
-        boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable();
-        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
-            selectEmptyHandPreserveMode();
+        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
+            clearSelectedItemOnly();
             itemId = "";
         }
-        int attemptedPlacements = hits == null ? 0 : hits.size();
-        boolean clearAfterPlace = !itemId.isBlank()
-                && autoClearUnavailable
-                && selectedCount <= Math.max(1, attemptedPlacements);
         RtsClientPacketGateway.sendPlaceBatch(
                 hits,
                 forcePlace,
@@ -2254,10 +2217,6 @@ public final class ClientRtsController {
                 itemId.isBlank() ? 0 : this.placeRotateSteps,
                 rayOrigin,
                 rayDir);
-        if (clearAfterPlace) {
-            selectEmptyHandPreserveMode();
-            requestStoragePage(this.storagePage);
-        }
     }
 
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
@@ -2519,36 +2478,16 @@ public final class ClientRtsController {
         setSelectedFluid("", "", ItemStack.EMPTY);
     }
 
-    private void selectEmptyHandPreserveMode() {
-        clearSelectedItemOnly();
-        clearSelectedFluid();
-        this.emptyHandSelected = true;
-        this.placeRotateSteps = 0;
-    }
-
-    private long getSelectedItemCountForPlacement(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
-            return Long.MAX_VALUE;
-        }
-        return hasStoragePageSnapshot() ? getStorageTotalCount(itemId) : Long.MAX_VALUE;
-    }
-
     private void setSelectedItem(String itemId, String label, ItemStack preview) {
         this.selectedItemId = itemId == null ? "" : itemId;
         this.selectedItemLabel = label == null ? "" : label;
         this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
-        if (!this.selectedItemId.isBlank()) {
-            this.emptyHandSelected = false;
-        }
     }
 
     private void setSelectedFluid(String fluidId, String label, ItemStack preview) {
         this.selectedFluidId = fluidId == null ? "" : fluidId;
         this.selectedFluidLabel = label == null ? "" : label;
         this.selectedFluidPreview = preview == null ? ItemStack.EMPTY : preview;
-        if (!this.selectedFluidId.isBlank()) {
-            this.emptyHandSelected = false;
-        }
     }
 
     public void rotatePlacementClockwise() {
@@ -2712,13 +2651,13 @@ public final class ClientRtsController {
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
 
-        double horizontalDx = targetX - this.anchorX;
-        double horizontalDz = targetZ - this.anchorZ;
-        double horizontalDist = Math.sqrt(horizontalDx * horizontalDx + horizontalDz * horizontalDz);
-        if (horizontalDist > MAX_HORIZONTAL_CAMERA_DISTANCE) {
-            double scale = MAX_HORIZONTAL_CAMERA_DISTANCE / horizontalDist;
-            targetX = this.anchorX + (horizontalDx * scale);
-            targetZ = this.anchorZ + (horizontalDz * scale);
+        Vec3 toCam = new Vec3(targetX - this.anchorX, targetY - this.anchorY, targetZ - this.anchorZ);
+        double dist = toCam.length();
+        if (dist > MAX_CAMERA_DISTANCE) {
+            Vec3 n = toCam.scale(MAX_CAMERA_DISTANCE / dist);
+            targetX = this.anchorX + n.x;
+            targetY = this.anchorY + n.y;
+            targetZ = this.anchorZ + n.z;
         }
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);

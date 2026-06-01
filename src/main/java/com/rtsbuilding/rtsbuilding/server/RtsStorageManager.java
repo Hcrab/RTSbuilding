@@ -135,7 +135,6 @@ public final class RtsStorageManager {
     private static final int ULTIMINE_BLOCKS_PER_TICK = 8;
     private static final int RECENT_ENTRY_LIMIT = 24;
     private static final long QUEST_DETECT_COOLDOWN_TICKS = 60L;
-    private static final long MINING_STORAGE_REFRESH_DELAY_TICKS = 10L;
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
     private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     private static final int QUICK_SLOT_COUNT = 27;
@@ -557,7 +556,6 @@ public final class RtsStorageManager {
             Session session = entry.getValue();
             tickActiveMining(player, session);
             tickFunnel(player, session);
-            tickDeferredStoragePageRefresh(player, session);
         }
     }
 
@@ -3722,9 +3720,7 @@ public final class RtsStorageManager {
             return;
         }
 
-        if (!isCommittedUltimineBatch(session)) {
-            stopActiveMining(player, session);
-        }
+        stopActiveMining(player, session);
     }
 
     public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
@@ -3908,7 +3904,7 @@ public final class RtsStorageManager {
             }
         }
         returnMiningTool(player, session, session.miningToolLease);
-        scheduleMiningStorageRefresh(player, session);
+        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         resetMiningState(session);
     }
 
@@ -3962,7 +3958,7 @@ public final class RtsStorageManager {
             runQuestDetect(player, session, false);
         }
         returnMiningTool(player, session, session.miningToolLease);
-        scheduleMiningStorageRefresh(player, session);
+        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         BlockPos progressPos = session.ultimineProgressPos;
         if (progressPos != null) {
             player.serverLevel().destroyBlockProgress(player.getId(), progressPos, -1);
@@ -3975,46 +3971,15 @@ public final class RtsStorageManager {
         session.ultimineTargets.removeIf(target -> target.equals(pos));
     }
 
-    private static boolean isCommittedUltimineBatch(Session session) {
-        return session.miningPos == null && !session.ultimineTargets.isEmpty();
-    }
-
     private static void stopActiveMining(ServerPlayer player, Session session) {
-        boolean hadMiningState = session.miningPos != null
-                || session.ultimineProgressPos != null
-                || !session.ultimineTargets.isEmpty()
-                || !session.miningToolLease.isEmpty();
         BlockPos progressPos = session.miningPos != null ? session.miningPos : session.ultimineProgressPos;
         if (progressPos != null) {
             player.serverLevel().destroyBlockProgress(player.getId(), progressPos, -1);
             sendMineProgress(player, progressPos, -1);
         }
         returnMiningTool(player, session, session.miningToolLease);
-        if (hadMiningState) {
-            scheduleMiningStorageRefresh(player, session);
-        }
-        resetMiningState(session);
-    }
-
-    private static void scheduleMiningStorageRefresh(ServerPlayer player, Session session) {
-        if (player == null || session == null) {
-            return;
-        }
-        session.deferredStorageRefreshTick = player.serverLevel().getGameTime() + MINING_STORAGE_REFRESH_DELAY_TICKS;
-    }
-
-    private static void tickDeferredStoragePageRefresh(ServerPlayer player, Session session) {
-        if (player == null || session == null || session.deferredStorageRefreshTick < 0L) {
-            return;
-        }
-        if (session.miningPos != null || session.ultimineProgressPos != null || !session.ultimineTargets.isEmpty()) {
-            return;
-        }
-        if (player.serverLevel().getGameTime() < session.deferredStorageRefreshTick) {
-            return;
-        }
-        session.deferredStorageRefreshTick = -1L;
         requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        resetMiningState(session);
     }
 
     private static void resetMiningState(Session session) {
@@ -7530,7 +7495,6 @@ public final class RtsStorageManager {
         private float miningProgress;
         private int miningStage = -1;
         private long nextQuestDetectTick;
-        private long deferredStorageRefreshTick = -1L;
         private int quickBuildSoundPlacedCount;
         private long quickBuildCompletionSoundTick = -1L;
         private long lastQuickBuildPlaceSoundTick = Long.MIN_VALUE;

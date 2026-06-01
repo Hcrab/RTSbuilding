@@ -49,7 +49,6 @@ public final class BlueprintWriters {
         int ySteps = BlueprintTransform.normalizeSteps(yRotationSteps);
         int xSteps = BlueprintTransform.normalizeSteps(xRotationSteps);
         int zSteps = BlueprintTransform.normalizeSteps(zRotationSteps);
-        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(blueprint.size(), ySteps, xSteps, zSteps);
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
         int minZ = Integer.MAX_VALUE;
@@ -58,7 +57,7 @@ public final class BlueprintWriters {
         int maxZ = Integer.MIN_VALUE;
 
         for (RtsBlueprintBlock block : blueprint.blocks()) {
-            BlockPos pos = BlueprintTransform.rotateAroundCenter(block.relativePos(), ySteps, xSteps, zSteps, centerOffset);
+            BlockPos pos = BlueprintTransform.rotate(block.relativePos(), ySteps, xSteps, zSteps);
             if (block.isMissingBlock()) {
                 rotated.add(RtsBlueprintBlock.missing(pos, block.missingBlockId(), new CompoundTag()));
                 minX = Math.min(minX, pos.getX());
