@@ -2620,37 +2620,37 @@ public final class BuilderScreen extends Screen {
                 "screen.rtsbuilding.settings.debug_button.hint",
                 this.debugButtonVisible);
 
-        int overlayToggleY = controlsY + 320;
-        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, overlayToggleY,
-                "screen.rtsbuilding.settings.container_overlay",
-                "screen.rtsbuilding.settings.container_overlay.hint",
-                RtsClientUiStateStore.isContainerOverlayEnabled());
-
-        int panDragXToggleY = controlsY + 276;
+        int panDragXToggleY = controlsY + 324;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragXToggleY,
                 "screen.rtsbuilding.settings.pan_drag_x_invert",
                 "screen.rtsbuilding.settings.pan_drag_x_invert.hint",
                 this.controller.isInvertPanDragX());
 
-        int panDragYToggleY = controlsY + 312;
+        int panDragYToggleY = controlsY + 360;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragYToggleY,
                 "screen.rtsbuilding.settings.pan_drag_y_invert",
                 "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
                 this.controller.isInvertPanDragY());
 
-        int smoothCameraToggleY = controlsY + 348;
+        int overlayToggleY = controlsY + 396;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, overlayToggleY,
+                "screen.rtsbuilding.settings.container_overlay",
+                "screen.rtsbuilding.settings.container_overlay.hint",
+                RtsClientUiStateStore.isContainerOverlayEnabled());
+
+        int smoothCameraToggleY = controlsY + 436;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCameraToggleY,
                 "screen.rtsbuilding.settings.smooth_camera",
                 "screen.rtsbuilding.settings.smooth_camera.hint",
                 this.controller.isSmoothCamera());
 
-        int damageSoundToggleY = controlsY + 384;
+        int damageSoundToggleY = controlsY + 472;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, damageSoundToggleY,
                 "screen.rtsbuilding.settings.damage_sound",
                 "screen.rtsbuilding.settings.damage_sound.hint",
                 this.controller.isDamageSoundEnabled());
 
-        int damageAutoReturnToggleY = controlsY + 420;
+        int damageAutoReturnToggleY = controlsY + 508;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, damageAutoReturnToggleY,
                 "screen.rtsbuilding.settings.damage_auto_return",
                 "screen.rtsbuilding.settings.damage_auto_return.hint",
@@ -2799,50 +2799,50 @@ public final class BuilderScreen extends Screen {
             adjustRtsGuiScale(RTS_GUI_SCALE_STEP);
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 144, w - 24, 42)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 184, w - 24, 42)) {
             this.controller.toggleAutoStoreMinedDrops();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 172, w - 24, 36)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 212, w - 24, 36)) {
             this.controller.toggleStartCameraAtPlayerHead();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 204, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 244, w - 24, 34)) {
             this.controller.toggleAllowPlacedBlockRecovery();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 240, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 280, w - 24, 34)) {
             this.debugButtonVisible = !this.debugButtonVisible;
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 276, w - 24, 34)) {
-            RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
-            return true;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 272, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 320, w - 24, 34)) {
             this.controller.toggleInvertPanDragX();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 308, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 356, w - 24, 34)) {
             this.controller.toggleInvertPanDragY();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 344, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 392, w - 24, 34)) {
+            RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
+            return true;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 432, w - 24, 34)) {
             this.controller.toggleSmoothCamera();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 380, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 468, w - 24, 34)) {
             this.controller.toggleDamageSoundEnabled();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 416, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 504, w - 24, 34)) {
             this.controller.toggleDamageAutoReturnEnabled();
             persistUiState();
             return true;
