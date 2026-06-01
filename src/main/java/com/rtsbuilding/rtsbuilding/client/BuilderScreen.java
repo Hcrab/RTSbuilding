@@ -193,9 +193,7 @@ public final class BuilderScreen extends Screen {
     private boolean gearMenuOpen = false;
     private int gearMenuScroll = 0;
     private boolean debugButtonVisible = false;
-    private boolean draggingHorizontalSensitivity = false;
-    private boolean draggingVerticalSensitivity = false;
-    private boolean draggingRotateSensitivity = false;
+    private boolean draggingInputSensitivity = false;
     private boolean quickBuildOpen = true;
     private boolean ultimineOpen = false;
     private int ultimineLimit = 64;
@@ -663,11 +661,8 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.draggingHorizontalSensitivity || this.draggingVerticalSensitivity || this.draggingRotateSensitivity) {
-            this.draggingHorizontalSensitivity = false;
-            this.draggingVerticalSensitivity = false;
-            this.draggingRotateSensitivity = false;
-            saveSensitivityState();
+        if (this.draggingInputSensitivity) {
+            this.draggingInputSensitivity = false;
             return true;
         }
 
@@ -749,19 +744,8 @@ public final class BuilderScreen extends Screen {
             return true;
         }
 
-        if (this.draggingHorizontalSensitivity) {
-            updateHorizontalSensitivityFromMouse(mouseX);
-            saveSensitivityState();
-            return true;
-        }
-        if (this.draggingVerticalSensitivity) {
-            updateVerticalSensitivityFromMouse(mouseX);
-            saveSensitivityState();
-            return true;
-        }
-        if (this.draggingRotateSensitivity) {
-            updateRotateSensitivityFromMouse(mouseX);
-            saveSensitivityState();
+        if (this.draggingInputSensitivity) {
+            updateInputSensitivityFromMouse(mouseX);
             return true;
         }
 
@@ -879,7 +863,7 @@ public final class BuilderScreen extends Screen {
         return isKeyboardPanDragActionHeld()
                 && isWorldArea(mouseX, mouseY)
                 && !this.craftQuantityDialog.isOpen()
-                && !this.draggingHorizontalSensitivity
+                && !this.draggingInputSensitivity
                 && !this.shapeWheelOpen
                 && !this.interactionWheelOpen
                 && !this.guideOpen
@@ -2478,12 +2462,11 @@ public final class BuilderScreen extends Screen {
         this.controller.setDamageSoundEnabled(state.damageSoundEnabled);
         this.controller.setDamageAutoReturnEnabled(state.damageAutoReturnEnabled);
         this.debugButtonVisible = state.debugButtonVisible;
-        this.controller.setHorizontalSensitivityByFraction(
-                (state.horizontalSensitivityScale - 0.25F) / (3.00F - 0.25F));
-        this.controller.setVerticalSensitivityByFraction(
-                (state.verticalSensitivityScale - 0.25F) / (3.00F - 0.25F));
-        this.controller.setRotateSensitivityByFraction(
-                (state.rotateSensitivityScale - 0.25F) / (3.00F - 0.25F));
+        int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
+        double sensitivityFraction = sensitivityPresetCount <= 1
+                ? 0.0D
+                : Mth.clamp(state.inputSensitivityIndex, 0, sensitivityPresetCount - 1) / (double) (sensitivityPresetCount - 1);
+        this.controller.setInputSensitivityByFraction(sensitivityFraction);
         this.controller.setChunkCurtainVisible(state.chunkCurtainVisible);
         try {
             this.controller.setBuildShape(ClientRtsController.BuildShape.valueOf(state.buildShape));
@@ -2499,14 +2482,6 @@ public final class BuilderScreen extends Screen {
         ensureFillModeForShape(this.controller.getBuildShape());
     }
 
-    private void saveSensitivityState() {
-        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
-        state.horizontalSensitivityScale = this.controller.getHorizontalSensitivityScale();
-        state.verticalSensitivityScale = this.controller.getVerticalSensitivityScale();
-        state.rotateSensitivityScale = this.controller.getRotateSensitivityScale();
-        RtsClientUiStateStore.save(state);
-    }
-
     private void persistUiState() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         state.buildShape = this.controller.getBuildShape().name();
@@ -2517,9 +2492,7 @@ public final class BuilderScreen extends Screen {
         state.ultimineLimit = this.ultimineLimit;
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
-        state.horizontalSensitivityScale = this.controller.getHorizontalSensitivityScale();
-        state.verticalSensitivityScale = this.controller.getVerticalSensitivityScale();
-        state.rotateSensitivityScale = this.controller.getRotateSensitivityScale();
+        state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
         state.startCameraAtPlayerHead = this.controller.isStartCameraAtPlayerHead();
         state.allowPlacedBlockRecovery = this.controller.isAllowPlacedBlockRecovery();
         state.invertPanDragX = this.controller.isInvertPanDragX();
@@ -2559,38 +2532,20 @@ public final class BuilderScreen extends Screen {
     private void renderGearMenuControls(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w) {
         int controlsY = gearMenuContentY(y);
         drawSettingsSection(g, x + 8, controlsY, w - 16, GEAR_MENU_CONTENT_H, Component.translatable("screen.rtsbuilding.settings.controls").getString());
-
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.sensitivity"), x + 16, controlsY + 20, 0xC8D3DF);
+        g.drawString(this.font, this.controller.getInputSensitivityLabel(), x + w - 60, controlsY + 20, 0xEAF4FF);
         int trackX = x + 16;
+        int trackY = controlsY + 42;
         int trackW = w - 32;
+        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
+        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
+        int presetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
+        int knobX = trackX + (int) Math.round((this.controller.getInputSensitivityIndex() / (double) Math.max(1, presetCount - 1)) * trackW);
+        g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8, 0xFF5FE36C);
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.slow"), trackX, trackY + 10, 0xB5C1CE);
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.fast"), trackX + trackW - 24, trackY + 10, 0xB5C1CE);
 
-        // Horizontal speed slider
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.horizontal_speed"), x + 16, controlsY + 20, 0xC8D3DF);
-        g.drawString(this.font, this.controller.getHorizontalSensitivityLabel(), x + w - 60, controlsY + 20, 0xEAF4FF);
-        int horzTrackY = controlsY + 38;
-        drawSensitivityTrack(g, trackX, horzTrackY, trackW);
-        int horzKnobX = trackX + (int) Math.round(this.controller.getHorizontalSensitivityFraction() * trackW);
-        g.fill(horzKnobX - 3, horzTrackY - 5, horzKnobX + 4, horzTrackY + 8, 0xFF5FE36C);
-
-        // Vertical speed slider
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.vertical_speed"), x + 16, controlsY + 60, 0xC8D3DF);
-        g.drawString(this.font, this.controller.getVerticalSensitivityLabel(), x + w - 60, controlsY + 60, 0xEAF4FF);
-        int vertTrackY = controlsY + 78;
-        drawSensitivityTrack(g, trackX, vertTrackY, trackW);
-        int vertKnobX = trackX + (int) Math.round(this.controller.getVerticalSensitivityFraction() * trackW);
-        g.fill(vertKnobX - 3, vertTrackY - 5, vertKnobX + 4, vertTrackY + 8, 0xFF5FE36C);
-
-        // Rotate speed slider
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.rotate_speed"), x + 16, controlsY + 100, 0xC8D3DF);
-        g.drawString(this.font, this.controller.getRotateSensitivityLabel(), x + w - 60, controlsY + 100, 0xEAF4FF);
-        int rotTrackY = controlsY + 118;
-        drawSensitivityTrack(g, trackX, rotTrackY, trackW);
-        int rotKnobX = trackX + (int) Math.round(this.controller.getRotateSensitivityFraction() * trackW);
-        g.fill(rotKnobX - 3, rotTrackY - 5, rotKnobX + 4, rotTrackY + 8, 0xFF5FE36C);
-
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.slow"), trackX, rotTrackY + 10, 0xB5C1CE);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.fast"), trackX + trackW - 24, rotTrackY + 10, 0xB5C1CE);
-
-        int scaleButtonY = controlsY + 150;
+        int scaleButtonY = controlsY + 70;
         int minusX = x + w - 124;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
@@ -2600,66 +2555,61 @@ public final class BuilderScreen extends Screen {
         g.drawCenteredString(this.font, rtsGuiScaleLabel(), valueX + 28, scaleButtonY + 7, 0xEAF4FF);
         drawGearMenuRow(g, mouseX, mouseY, plusX, scaleButtonY, 22, 22, "+", false);
 
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.auto_store"), x + 16, controlsY + 198, 0xC8D3DF);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 192, 76, 22, this.controller.isAutoStoreMinedDrops(),
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.auto_store"), x + 16, controlsY + 118, 0xC8D3DF);
+        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 112, 76, 22, this.controller.isAutoStoreMinedDrops(),
                 text(this.controller.isAutoStoreMinedDrops() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
 
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.head_start"), x + 16, controlsY + 226, 0xC8D3DF);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 220, 76, 22, this.controller.isStartCameraAtPlayerHead(),
+        g.drawString(this.font, Component.translatable("screen.rtsbuilding.settings.head_start"), x + 16, controlsY + 146, 0xC8D3DF);
+        drawToggleButton(g, mouseX, mouseY, x + w - 92, controlsY + 140, 76, 22, this.controller.isStartCameraAtPlayerHead(),
                 text(this.controller.isStartCameraAtPlayerHead() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
 
-        int placedRecoveryY = controlsY + 248;
+        int placedRecoveryY = controlsY + 168;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, placedRecoveryY,
                 "screen.rtsbuilding.settings.placed_recovery",
                 "screen.rtsbuilding.settings.placed_recovery.hint",
                 this.controller.isAllowPlacedBlockRecovery());
 
-        int debugButtonY = controlsY + 284;
+        int debugButtonY = controlsY + 204;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, debugButtonY,
                 "screen.rtsbuilding.settings.debug_button",
                 "screen.rtsbuilding.settings.debug_button.hint",
                 this.debugButtonVisible);
 
-        int panDragXToggleY = controlsY + 324;
-        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragXToggleY,
-                "screen.rtsbuilding.settings.pan_drag_x_invert",
-                "screen.rtsbuilding.settings.pan_drag_x_invert.hint",
-                this.controller.isInvertPanDragX());
-
-        int panDragYToggleY = controlsY + 360;
-        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragYToggleY,
-                "screen.rtsbuilding.settings.pan_drag_y_invert",
-                "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
-                this.controller.isInvertPanDragY());
-
-        int overlayToggleY = controlsY + 396;
+        int overlayToggleY = controlsY + 240;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, overlayToggleY,
                 "screen.rtsbuilding.settings.container_overlay",
                 "screen.rtsbuilding.settings.container_overlay.hint",
                 RtsClientUiStateStore.isContainerOverlayEnabled());
 
-        int smoothCameraToggleY = controlsY + 436;
+        int panDragXToggleY = controlsY + 276;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragXToggleY,
+                "screen.rtsbuilding.settings.pan_drag_x_invert",
+                "screen.rtsbuilding.settings.pan_drag_x_invert.hint",
+                this.controller.isInvertPanDragX());
+
+        int panDragYToggleY = controlsY + 312;
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, panDragYToggleY,
+                "screen.rtsbuilding.settings.pan_drag_y_invert",
+                "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
+                this.controller.isInvertPanDragY());
+
+        int smoothCameraToggleY = controlsY + 348;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, smoothCameraToggleY,
                 "screen.rtsbuilding.settings.smooth_camera",
                 "screen.rtsbuilding.settings.smooth_camera.hint",
                 this.controller.isSmoothCamera());
 
-        int damageSoundToggleY = controlsY + 472;
+        int damageSoundToggleY = controlsY + 384;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, damageSoundToggleY,
                 "screen.rtsbuilding.settings.damage_sound",
                 "screen.rtsbuilding.settings.damage_sound.hint",
                 this.controller.isDamageSoundEnabled());
 
-        int damageAutoReturnToggleY = controlsY + 508;
+        int damageAutoReturnToggleY = controlsY + 420;
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, damageAutoReturnToggleY,
                 "screen.rtsbuilding.settings.damage_auto_return",
                 "screen.rtsbuilding.settings.damage_auto_return.hint",
                 this.controller.isDamageAutoReturnEnabled());
-    }
-
-    private void drawSensitivityTrack(GuiGraphics g, int trackX, int trackY, int trackW) {
-        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
-        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -2773,22 +2723,12 @@ public final class BuilderScreen extends Screen {
         }
         double contentMouseY = mouseY + this.gearMenuScroll;
         int controlsY = y + 30;
-        if (inside(mouseX, contentMouseY, x + 16, controlsY + 30, w - 32, 24)) {
-            this.draggingHorizontalSensitivity = true;
-            updateHorizontalSensitivityFromMouse(mouseX);
+        if (inside(mouseX, contentMouseY, x + 16, controlsY + 34, w - 32, 24)) {
+            this.draggingInputSensitivity = true;
+            updateInputSensitivityFromMouse(mouseX);
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 16, controlsY + 70, w - 32, 24)) {
-            this.draggingVerticalSensitivity = true;
-            updateVerticalSensitivityFromMouse(mouseX);
-            return true;
-        }
-        if (inside(mouseX, contentMouseY, x + 16, controlsY + 110, w - 32, 24)) {
-            this.draggingRotateSensitivity = true;
-            updateRotateSensitivityFromMouse(mouseX);
-            return true;
-        }
-        int scaleButtonY = controlsY + 150;
+        int scaleButtonY = controlsY + 70;
         int minusX = x + w - 124;
         int plusX = minusX + 86;
         if (inside(mouseX, contentMouseY, minusX, scaleButtonY, 22, 22)) {
@@ -2799,50 +2739,50 @@ public final class BuilderScreen extends Screen {
             adjustRtsGuiScale(RTS_GUI_SCALE_STEP);
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 184, w - 24, 42)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 104, w - 24, 42)) {
             this.controller.toggleAutoStoreMinedDrops();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 212, w - 24, 36)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 132, w - 24, 36)) {
             this.controller.toggleStartCameraAtPlayerHead();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 244, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 164, w - 24, 34)) {
             this.controller.toggleAllowPlacedBlockRecovery();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 280, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 200, w - 24, 34)) {
             this.debugButtonVisible = !this.debugButtonVisible;
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 320, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 236, w - 24, 34)) {
+            RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
+            return true;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 272, w - 24, 34)) {
             this.controller.toggleInvertPanDragX();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 356, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 308, w - 24, 34)) {
             this.controller.toggleInvertPanDragY();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 392, w - 24, 34)) {
-            RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
-            return true;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 432, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 344, w - 24, 34)) {
             this.controller.toggleSmoothCamera();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 468, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 380, w - 24, 34)) {
             this.controller.toggleDamageSoundEnabled();
             persistUiState();
             return true;
         }
-        if (inside(mouseX, contentMouseY, x + 12, controlsY + 504, w - 24, 34)) {
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 416, w - 24, 34)) {
             this.controller.toggleDamageAutoReturnEnabled();
             persistUiState();
             return true;
@@ -2850,31 +2790,13 @@ public final class BuilderScreen extends Screen {
         return true;
     }
 
-    private void updateHorizontalSensitivityFromMouse(double mouseX) {
+    private void updateInputSensitivityFromMouse(double mouseX) {
         int w = Math.min(300, this.width - 24);
         int x = (this.width - w) / 2;
         int trackX = x + 16;
         int trackW = w - 32;
         double fraction = (mouseX - trackX) / Math.max(1.0D, trackW);
-        this.controller.setHorizontalSensitivityByFraction(fraction);
-    }
-
-    private void updateVerticalSensitivityFromMouse(double mouseX) {
-        int w = Math.min(300, this.width - 24);
-        int x = (this.width - w) / 2;
-        int trackX = x + 16;
-        int trackW = w - 32;
-        double fraction = (mouseX - trackX) / Math.max(1.0D, trackW);
-        this.controller.setVerticalSensitivityByFraction(fraction);
-    }
-
-    private void updateRotateSensitivityFromMouse(double mouseX) {
-        int w = Math.min(300, this.width - 24);
-        int x = (this.width - w) / 2;
-        int trackX = x + 16;
-        int trackW = w - 32;
-        double fraction = (mouseX - trackX) / Math.max(1.0D, trackW);
-        this.controller.setRotateSensitivityByFraction(fraction);
+        this.controller.setInputSensitivityByFraction(fraction);
     }
 
     private void adjustRtsGuiScale(double delta) {

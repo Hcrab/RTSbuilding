@@ -84,9 +84,7 @@ final class RtsClientUiStateStore {
         int ultimineLimit = 64;
         boolean chunkCurtainVisible = false;
         double rtsGuiScale = 2.0D;
-        float horizontalSensitivityScale = 1.0F;
-        float verticalSensitivityScale = 1.0F;
-        float rotateSensitivityScale = 1.0F;
+        int inputSensitivityIndex = 2;
         boolean startCameraAtPlayerHead = false;
         boolean allowPlacedBlockRecovery = false;
         boolean invertPanDragX = false;
@@ -113,9 +111,7 @@ final class RtsClientUiStateStore {
             clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
             clean.chunkCurtainVisible = this.chunkCurtainVisible;
             clean.rtsGuiScale = sanitizeScale(this.rtsGuiScale);
-            clean.horizontalSensitivityScale = Math.max(0.25F, Math.min(3.00F, this.horizontalSensitivityScale));
-            clean.verticalSensitivityScale = Math.max(0.25F, Math.min(3.00F, this.verticalSensitivityScale));
-            clean.rotateSensitivityScale = Math.max(0.25F, Math.min(3.00F, this.rotateSensitivityScale));
+            clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));
             clean.startCameraAtPlayerHead = this.startCameraAtPlayerHead;
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
             clean.invertPanDragX = this.invertPanDragX;
