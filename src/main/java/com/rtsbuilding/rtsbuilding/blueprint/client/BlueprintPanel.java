@@ -38,6 +38,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -76,6 +77,7 @@ public final class BlueprintPanel {
     private static int xRotationSteps = 0;
     private static int zRotationSteps = 0;
     private static BlockPos pinnedAnchor = null;
+    private static Direction pinnedNudgeForward = Direction.SOUTH;
     private static boolean captureMode = false;
     private static boolean capturePreviewVisible = true;
     private static BlockPos capturePointA = null;
@@ -536,26 +538,36 @@ public final class BlueprintPanel {
                 text("screen.rtsbuilding.blueprints.save_rotated_short"),
                 inside(mouseX, mouseY, saveX, buttonY, 48, DETAIL_BUTTON_H));
 
-        int barW = Math.min(420, Math.max(286, screenW - 32));
+        int barW = Math.max(286, Math.min(560, screenW - 32));
         int barH = 24;
         int barX = (screenW - barW) / 2;
         int barY = Math.max(topY + topH + 6, bottomSafeY - barH - 8);
         drawFrame(g, barX, barY, barW, barH, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
 
         int xPos = barX + 6;
-        int btnW = 34;
+        int rotateW = 42;
+        int resetW = 40;
+        int nudgeW = 34;
         int gap = 4;
-        drawButton(g, font, xPos, barY + 5, btnW, DETAIL_BUTTON_H, text("screen.rtsbuilding.blueprints.y_rotate_short"),
-                inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H));
-        xPos += btnW + gap;
-        drawButton(g, font, xPos, barY + 5, btnW, DETAIL_BUTTON_H, text("screen.rtsbuilding.blueprints.x_rotate_short"),
-                inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H));
-        xPos += btnW + gap;
-        drawButton(g, font, xPos, barY + 5, btnW, DETAIL_BUTTON_H, text("screen.rtsbuilding.blueprints.z_rotate_short"),
-                inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H));
-        xPos += btnW + gap;
-        drawButton(g, font, xPos, barY + 5, 40, DETAIL_BUTTON_H, text("screen.rtsbuilding.blueprints.reset_rotation_short"),
-                inside(mouseX, mouseY, xPos, barY + 5, 40, DETAIL_BUTTON_H));
+        drawButton(g, font, xPos, barY + 5, rotateW, DETAIL_BUTTON_H, text("screen.rtsbuilding.blueprints.y_rotate_short"),
+                inside(mouseX, mouseY, xPos, barY + 5, rotateW, DETAIL_BUTTON_H));
+        xPos += rotateW + gap;
+        drawButton(g, font, xPos, barY + 5, resetW, DETAIL_BUTTON_H, text("screen.rtsbuilding.blueprints.reset_rotation_short"),
+                inside(mouseX, mouseY, xPos, barY + 5, resetW, DETAIL_BUTTON_H));
+        xPos += resetW + gap + 4;
+        String[] labels = {
+                text("screen.rtsbuilding.blueprints.nudge_forward_short"),
+                text("screen.rtsbuilding.blueprints.nudge_back_short"),
+                text("screen.rtsbuilding.blueprints.nudge_left_short"),
+                text("screen.rtsbuilding.blueprints.nudge_right_short"),
+                text("screen.rtsbuilding.blueprints.nudge_y_minus_short"),
+                text("screen.rtsbuilding.blueprints.nudge_y_plus_short")
+        };
+        for (String label : labels) {
+            drawButton(g, font, xPos, barY + 5, nudgeW, DETAIL_BUTTON_H, label,
+                    inside(mouseX, mouseY, xPos, barY + 5, nudgeW, DETAIL_BUTTON_H));
+            xPos += nudgeW + gap;
+        }
 
         int buildW = 54;
         int cancelW = 46;
@@ -570,7 +582,7 @@ public final class BlueprintPanel {
     }
 
     public static boolean mouseClickedPlacementHud(double mouseX, double mouseY, int screenW, int screenH,
-            int topSafeY, int bottomSafeY) {
+            int topSafeY, int bottomSafeY, ClientRtsController controller) {
         if (!Config.areBlueprintsEnabled() || captureMode || !hasSelectedBlueprint()) {
             return false;
         }
@@ -600,37 +612,45 @@ public final class BlueprintPanel {
             return true;
         }
 
-        int barW = Math.min(420, Math.max(286, screenW - 32));
+        int barW = Math.max(286, Math.min(560, screenW - 32));
         int barH = 24;
         int barX = (screenW - barW) / 2;
         int barY = Math.max(topY + topH + 6, bottomSafeY - barH - 8);
         int xPos = barX + 6;
-        int btnW = 34;
+        int rotateW = 42;
+        int resetW = 40;
+        int nudgeW = 34;
         int gap = 4;
-        if (inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H)) {
+        if (inside(mouseX, mouseY, xPos, barY + 5, rotateW, DETAIL_BUTTON_H)) {
             yRotationSteps = BlueprintTransform.normalizeSteps(yRotationSteps + 1);
+            rememberCurrentRotationAsDefault();
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
             return true;
         }
-        xPos += btnW + gap;
-        if (inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H)) {
-            xRotationSteps = BlueprintTransform.normalizeSteps(xRotationSteps + 1);
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
-            return true;
-        }
-        xPos += btnW + gap;
-        if (inside(mouseX, mouseY, xPos, barY + 5, btnW, DETAIL_BUTTON_H)) {
-            zRotationSteps = BlueprintTransform.normalizeSteps(zRotationSteps + 1);
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
-            return true;
-        }
-        xPos += btnW + gap;
-        if (inside(mouseX, mouseY, xPos, barY + 5, 40, DETAIL_BUTTON_H)) {
+        xPos += rotateW + gap;
+        if (inside(mouseX, mouseY, xPos, barY + 5, resetW, DETAIL_BUTTON_H)) {
             yRotationSteps = 0;
             xRotationSteps = 0;
             zRotationSteps = 0;
+            rememberCurrentRotationAsDefault();
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
             return true;
+        }
+        xPos += resetW + gap + 4;
+        int[][] deltas = {
+                {0, 1, 0},
+                {0, -1, 0},
+                {-1, 0, 0},
+                {1, 0, 0},
+                {0, 0, -1},
+                {0, 0, 1}
+        };
+        for (int[] delta : deltas) {
+            if (inside(mouseX, mouseY, xPos, barY + 5, nudgeW, DETAIL_BUTTON_H)) {
+                nudgePinnedAnchorRelative(delta[0], delta[1], delta[2], controller);
+                return true;
+            }
+            xPos += nudgeW + gap;
         }
 
         int buildW = 54;
@@ -668,7 +688,7 @@ public final class BlueprintPanel {
         return true;
     }
 
-    public static boolean keyPressed(int keyCode) {
+    public static boolean keyPressed(int keyCode, ClientRtsController controller) {
         if (!Config.areBlueprintsEnabled()) {
             searchFocused = false;
             return false;
@@ -701,6 +721,30 @@ public final class BlueprintPanel {
                 return true;
             }
             return true;
+        }
+        if (hasPinnedPreview()) {
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_4
+                    || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT) {
+                return nudgePinnedAnchorRelative(-1, 0, 0, controller);
+            }
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_6
+                    || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT) {
+                return nudgePinnedAnchorRelative(1, 0, 0, controller);
+            }
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_8
+                    || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_UP) {
+                return nudgePinnedAnchorRelative(0, 1, 0, controller);
+            }
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_2
+                    || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN) {
+                return nudgePinnedAnchorRelative(0, -1, 0, controller);
+            }
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP) {
+                return nudgePinnedAnchor(0, 1, 0, controller);
+            }
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN) {
+                return nudgePinnedAnchor(0, -1, 0, controller);
+            }
         }
         if (!searchFocused) {
             return false;
@@ -1061,6 +1105,7 @@ public final class BlueprintPanel {
             return false;
         }
         pinnedAnchor = anchor.immutable();
+        pinnedNudgeForward = currentHorizontalFacingDirection();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_pinned", shortPos(pinnedAnchor));
         return true;
     }
@@ -1138,9 +1183,89 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
         }
+        rememberCurrentRotationAsDefault();
+        setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
+    }
+
+    private static void rememberCurrentRotationAsDefault() {
+        BlueprintEntry entry = selectedEntry();
+        if (entry == null || !entry.error().isBlank()) {
+            return;
+        }
         DEFAULT_ROTATIONS.put(entry.fileName(), new RotationPreset(yRotationSteps, xRotationSteps, zRotationSteps));
         saveDefaultRotations();
-        setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
+    }
+
+    private static boolean nudgePinnedAnchor(int dx, int dy, int dz, ClientRtsController controller) {
+        if (pinnedAnchor == null) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_preview", "");
+            return true;
+        }
+        BlockPos next = clampAnchorToClientBuildLimits(pinnedAnchor.offset(dx, dy, dz), controller);
+        if (next.equals(pinnedAnchor)) {
+            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.nudge_blocked", "");
+            return true;
+        }
+        pinnedAnchor = next.immutable();
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.nudged", shortPos(pinnedAnchor));
+        return true;
+    }
+
+    private static boolean nudgePinnedAnchorRelative(int rightSteps, int forwardSteps, int upSteps,
+            ClientRtsController controller) {
+        Direction forward = pinnedNudgeForward == null ? currentHorizontalFacingDirection() : pinnedNudgeForward;
+        Direction right = rightOf(forward);
+        int dx = forward.getStepX() * forwardSteps + right.getStepX() * rightSteps;
+        int dz = forward.getStepZ() * forwardSteps + right.getStepZ() * rightSteps;
+        return nudgePinnedAnchor(dx, upSteps, dz, controller);
+    }
+
+    private static Direction currentHorizontalFacingDirection() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft != null && minecraft.gameRenderer != null) {
+            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().getYRot());
+        }
+        if (minecraft != null && minecraft.getCameraEntity() != null) {
+            return Direction.fromYRot(minecraft.getCameraEntity().getYRot());
+        }
+        if (minecraft != null && minecraft.player != null) {
+            return Direction.fromYRot(minecraft.player.getYRot());
+        }
+        return Direction.SOUTH;
+    }
+
+    private static Direction rightOf(Direction forward) {
+        return switch (forward) {
+            case NORTH -> Direction.EAST;
+            case EAST -> Direction.SOUTH;
+            case SOUTH -> Direction.WEST;
+            case WEST -> Direction.NORTH;
+            default -> Direction.WEST;
+        };
+    }
+
+    private static BlockPos clampAnchorToClientBuildLimits(BlockPos pos, ClientRtsController controller) {
+        int x = pos.getX();
+        int y = pos.getY();
+        int z = pos.getZ();
+        Level level = Minecraft.getInstance().level;
+        if (level != null) {
+            y = Mth.clamp(y, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
+        }
+        if (controller != null && controller.hasBounds()) {
+            double halfExtent = controller.getMaxRadius() + 8.0D;
+            int minX = Mth.ceil(controller.getAnchorX() - halfExtent - 0.5D);
+            int maxX = Mth.floor(controller.getAnchorX() + halfExtent - 0.5D);
+            int minZ = Mth.ceil(controller.getAnchorZ() - halfExtent - 0.5D);
+            int maxZ = Mth.floor(controller.getAnchorZ() + halfExtent - 0.5D);
+            if (minX <= maxX) {
+                x = Mth.clamp(x, minX, maxX);
+            }
+            if (minZ <= maxZ) {
+                z = Mth.clamp(z, minZ, maxZ);
+            }
+        }
+        return new BlockPos(x, y, z);
     }
 
     private static void saveRotatedCopy() {
