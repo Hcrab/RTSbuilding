@@ -30,7 +30,6 @@ import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedS
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
@@ -95,9 +94,7 @@ import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.LiquidBlockContainer;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -136,9 +133,6 @@ public final class RtsStorageManager {
     // limits without copying storage UI runtime rules.
     static final int QUICK_SLOT_COUNT = 27;
     static final int GUI_BINDING_SLOT_COUNT = 8;
-    private static final int QUICK_BUILD_BATCH_BLOCKS_PER_TICK = 64;
-    private static final int QUICK_BUILD_BATCH_MAX_QUEUED_JOBS = 4;
-    private static final int QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS = 3;
     static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
     private static final byte LINK_MODE_EXTRACT_ONLY = C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
 
@@ -215,8 +209,8 @@ public final class RtsStorageManager {
             session.remoteMenuContainerId = -1;
             session.remoteMenuPos = null;
         }
-        tickQuickBuildCompletionSound(player, session);
-        tickPlaceBatchJobs(player, session);
+        RtsStoragePlacement.tickQuickBuildCompletionSound(player, session);
+        RtsStoragePlacement.tickPlaceBatchJobs(player, session);
     }
 
     private static Session getOrCreateSession(ServerPlayer player) {
@@ -245,7 +239,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static void saveSessionToPlayerNbt(ServerPlayer player, Session session) {
+    static void saveSessionToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
         CompoundTag root = RtsStorageSessionCodec.serialize(session);
         player.getPersistentData().put(RtsStorageSessionCodec.ROOT_KEY, root.copy());
         RtsStorageSessionStore.saveSession(player, root);
@@ -391,7 +385,7 @@ public final class RtsStorageManager {
         if (session == null || !canAccessWorldTarget(player, pos)) {
             return;
         }
-        rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsStoragePlacement.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
     }
 
     public static void storeHotbarSlotToLinked(ServerPlayer player, byte slotId) {
@@ -546,7 +540,7 @@ public final class RtsStorageManager {
         if (session == null) {
             return;
         }
-        playRemotePlacedBlockSound(player, player.serverLevel(), session, pos, true);
+        RtsStoragePlacement.playRemotePlacedBlockSound(player, player.serverLevel(), session, pos, true);
         recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
     }
 
@@ -1233,8 +1227,9 @@ public final class RtsStorageManager {
             double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild) {
-        placeSelectedInternal(
+        RtsStoragePlacement.placeSelected(
                 player,
+                player == null ? null : SESSIONS.get(player.getUUID()),
                 clickedPos,
                 face,
                 hitX,
@@ -1250,44 +1245,17 @@ public final class RtsStorageManager {
                 rayDirX,
                 rayDirY,
                 rayDirZ,
-                quickBuild,
-                true,
-                true);
+                quickBuild);
     }
 
     public static void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
             byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return;
-        }
-        if (clickedPositions == null || clickedPositions.isEmpty() || face == null) {
-            return;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null) {
-            return;
-        }
-        sanitizeSessionDimension(player, session);
-        List<BlockPos> positions = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
-        for (BlockPos pos : clickedPositions) {
-            if (pos == null || !canAccessWorldTarget(player, pos)) {
-                continue;
-            }
-            positions.add(pos.immutable());
-            if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
-                break;
-            }
-        }
-        if (positions.isEmpty()) {
-            return;
-        }
-        while (session.placeBatchJobs.size() >= QUICK_BUILD_BATCH_MAX_QUEUED_JOBS) {
-            session.placeBatchJobs.removeFirst();
-        }
-        session.placeBatchJobs.addLast(new PlaceBatchJob(
-                positions,
+        RtsStoragePlacement.enqueuePlaceBatch(
+                player,
+                player == null ? null : SESSIONS.get(player.getUUID()),
+                clickedPositions,
                 face,
                 rotateSteps,
                 forcePlace,
@@ -1298,269 +1266,7 @@ public final class RtsStorageManager {
                 rayOriginZ,
                 rayDirX,
                 rayDirY,
-                rayDirZ));
-    }
-
-    private static void tickPlaceBatchJobs(ServerPlayer player, Session session) {
-        int remaining = QUICK_BUILD_BATCH_BLOCKS_PER_TICK;
-        boolean finishedJob = false;
-        while (remaining > 0 && !session.placeBatchJobs.isEmpty()) {
-            PlaceBatchJob job = session.placeBatchJobs.peekFirst();
-            while (remaining > 0 && job.hasNext()) {
-                BlockPos clickedPos = job.next();
-                Vec3 faceNormal = Vec3.atLowerCornerOf(job.face().getNormal());
-                Vec3 hitLocation = Vec3.atCenterOf(clickedPos).add(faceNormal.scale(0.5D));
-                boolean keepGoing = placeSelectedInternal(
-                        player,
-                        clickedPos,
-                        job.face(),
-                        hitLocation.x,
-                        hitLocation.y,
-                        hitLocation.z,
-                        job.rotateSteps(),
-                        job.forcePlace(),
-                        job.skipIfOccupied(),
-                        job.itemId(),
-                        job.rayOriginX(),
-                        job.rayOriginY(),
-                        job.rayOriginZ(),
-                        job.rayDirX(),
-                        job.rayDirY(),
-                        job.rayDirZ(),
-                        true,
-                        false,
-                        false);
-                remaining--;
-                if (!keepGoing) {
-                    session.placeBatchJobs.removeFirst();
-                    finishedJob = true;
-                    break;
-                }
-            }
-            if (!session.placeBatchJobs.isEmpty() && session.placeBatchJobs.peekFirst() == job && !job.hasNext()) {
-                session.placeBatchJobs.removeFirst();
-                finishedJob = true;
-            }
-        }
-        if (finishedJob) {
-            saveSessionToPlayerNbt(player, session);
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        }
-    }
-
-    private static boolean placeSelectedInternal(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
-            double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean refreshStoragePage,
-            boolean sendRemoteHint) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return false;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null || !canAccessWorldTarget(player, clickedPos) || face == null) {
-            return false;
-        }
-        sanitizeSessionDimension(player, session);
-        boolean useSelectedStorageItem = itemId != null && !itemId.isBlank();
-
-        ServerLevel level = player.serverLevel();
-        Vec3 hitLocation = new Vec3(hitX, hitY, hitZ);
-        BlockHitResult hit = new BlockHitResult(hitLocation, face, clickedPos, false);
-        Vec3 interactionPos = resolveInteractionPosition(null, hit, hitLocation);
-        RayContext rayContext = parseRayContext(
-                rayOriginX, rayOriginY, rayOriginZ,
-                rayDirX, rayDirY, rayDirZ);
-        if (sendRemoteHint) {
-            sendRemoteMenuOpenHint(player, clickedPos);
-        }
-
-        if (!useSelectedStorageItem) {
-            ItemStack sourceSnapshot = player.getMainHandItem().copy();
-            boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
-            if (skipIfOccupied && player.getMainHandItem().getItem() instanceof BlockItem) {
-                if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
-                    if (refreshStoragePage) {
-                        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                    }
-                    return true;
-                }
-            }
-
-            BlockState beforeClicked = level.getBlockState(clickedPos);
-            BlockPos adjacentPos = clickedPos.relative(face);
-            BlockState beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
-
-            AbstractContainerMenu menuBeforeMainHandUse = player.containerMenu;
-            InteractionResult mainHandUse = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    rayContext,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            hit)));
-            AbstractContainerMenu menuAfterMainHandUse = player.containerMenu;
-            if (menuAfterMainHandUse != menuBeforeMainHandUse) {
-                markRemoteMenuOpen(player, session, menuAfterMainHandUse, clickedPos);
-                return false;
-            }
-
-            if (mainHandUse.consumesAction()) {
-                BlockPos placedPos = detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
-                if (placedPos != null) {
-                    PlacedBlockTrackerData.get(level).mark(placedPos);
-                    if (sourcePlacesBlock) {
-                        playRemotePlacedBlockSound(player, level, session, placedPos, quickBuild);
-                    } else {
-                        playRemoteUseSound(player, level, null, placedPos, sourceSnapshot);
-                    }
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
-                    if (sourceId != null) {
-                        recordRecentItem(session, sourceId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
-                    }
-                } else if (!sourceSnapshot.isEmpty()) {
-                    playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
-                    if (sourceId != null) {
-                        recordRecentItem(session, sourceId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-                    }
-                }
-                saveSessionToPlayerNbt(player, session);
-                return true;
-            }
-
-            // Some items (e.g. bucket) work via "use in air" fallback instead of use-on-block.
-            AbstractContainerMenu menuBeforeUseFallback = player.containerMenu;
-            InteractionResult mainHandUseFallback = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    rayContext,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND)));
-            AbstractContainerMenu menuAfterUseFallback = player.containerMenu;
-            if (menuAfterUseFallback != menuBeforeUseFallback) {
-                markRemoteMenuOpen(player, session, menuAfterUseFallback, clickedPos);
-                return false;
-            }
-            if (mainHandUseFallback.consumesAction()) {
-                if (!sourceSnapshot.isEmpty()) {
-                    playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
-                    if (sourceId != null) {
-                        recordRecentItem(session, sourceId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-                    }
-                }
-                saveSessionToPlayerNbt(player, session);
-                return true;
-            }
-
-            return false;
-        }
-
-        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
-        if (activeLinked.isEmpty() && !includePlayerMainInventory) {
-            return false;
-        }
-
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
-
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return false;
-        }
-
-        Item item = BuiltInRegistries.ITEM.get(id);
-        if (skipIfOccupied && item instanceof BlockItem) {
-            if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
-                if (refreshStoragePage) {
-                    requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                }
-                return true;
-            }
-        }
-        ItemStack extracted = includePlayerMainInventory
-                ? extractOneFromNetwork(handlers, player, item)
-                : extractOneFromLinked(handlers, item);
-        if (extracted.isEmpty()) {
-            if (refreshStoragePage) {
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            }
-            return false;
-        }
-        ItemStack selectedSoundStack = extracted.copy();
-        boolean selectedPlacesBlock = item instanceof BlockItem;
-
-        BlockState beforeClicked = level.getBlockState(clickedPos);
-        BlockPos adjacentPos = clickedPos.relative(face);
-        BlockState beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
-
-        AbstractContainerMenu menuBeforeSelectedUse = player.containerMenu;
-        UseOnOutcome selectedOutcome = withTemporaryUseItemContext(
-                player,
-                interactionPos,
-                hitLocation,
-                rayContext,
-                REMOTE_POV_BLOCK_REACH,
-                () -> useItemOnWithMainHand(player, level, extracted, hit, forcePlace));
-        AbstractContainerMenu menuAfterSelectedUse = player.containerMenu;
-        if (menuAfterSelectedUse != menuBeforeSelectedUse) {
-            markRemoteMenuOpen(player, session, menuAfterSelectedUse, clickedPos);
-        }
-
-        UseOnOutcome finalOutcome = selectedOutcome;
-        if (!selectedOutcome.result().consumesAction()) {
-            ItemStack fallbackStack = selectedOutcome.remainder().isEmpty() ? extracted.copy() : selectedOutcome.remainder().copy();
-            finalOutcome = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    rayContext,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> useItemWithMainHand(player, level, fallbackStack, forcePlace));
-        }
-        if (!finalOutcome.remainder().isEmpty()) {
-            refundToLinked(handlers, player, finalOutcome.remainder());
-        }
-
-        if (!finalOutcome.result().consumesAction()) {
-            if (refreshStoragePage) {
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            }
-            return false;
-        }
-
-        BlockPos placedPos = detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
-        if (placedPos != null) {
-            rotatePlacedBlock(level, placedPos, rotateSteps);
-            PlacedBlockTrackerData.get(level).mark(placedPos);
-            if (selectedPlacesBlock) {
-                playRemotePlacedBlockSound(player, level, session, placedPos, quickBuild);
-            } else {
-                playRemoteUseSound(player, level, null, placedPos, selectedSoundStack);
-            }
-            recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
-        } else {
-            playRemoteUseSound(player, level, null, clickedPos, selectedSoundStack);
-            recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-        }
-
-        if (refreshStoragePage) {
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        }
-        return true;
+                rayDirZ);
     }
 
     private static BlockPos resolvePlacementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
@@ -1734,11 +1440,16 @@ public final class RtsStorageManager {
 
         boolean playedSpecificSound = false;
         if (result.consumesAction() && blockHit != null && beforeClicked != null) {
-            BlockPos placedPos = detectPlacedPos(level, effectiveBlockPos, beforeClicked, adjacentPos, beforeAdjacent);
+            BlockPos placedPos = RtsStoragePlacement.detectPlacedPos(
+                    level,
+                    effectiveBlockPos,
+                    beforeClicked,
+                    adjacentPos,
+                    beforeAdjacent);
             if (placedPos != null) {
                 PlacedBlockTrackerData.get(level).mark(placedPos);
                 if (!soundStack.isEmpty() && soundStack.getItem() instanceof BlockItem) {
-                    playRemotePlacedBlockSound(player, level, session, placedPos, false);
+                    RtsStoragePlacement.playRemotePlacedBlockSound(player, level, session, placedPos, false);
                 } else {
                     playRemoteUseSound(player, level, targetEntity, placedPos, soundStack);
                 }
@@ -3896,66 +3607,7 @@ public final class RtsStorageManager {
                         Math.max(0, completedTasks)));
     }
 
-    private static void playRemotePlacedBlockSound(ServerPlayer player, ServerLevel level, Session session, BlockPos pos,
-            boolean quickBuild) {
-        if (player == null || level == null || pos == null || !level.hasChunkAt(pos)) {
-            return;
-        }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
-            return;
-        }
-        long gameTime = level.getGameTime();
-        if (quickBuild && session != null) {
-            noteQuickBuildPlacement(session, pos, gameTime);
-            if (session.lastQuickBuildPlaceSoundTick == gameTime) {
-                return;
-            }
-            session.lastQuickBuildPlaceSoundTick = gameTime;
-        }
-        SoundType soundType = state.getSoundType(level, pos, player);
-        sendDirectSound(
-                player,
-                soundType.getPlaceSound(),
-                SoundSource.BLOCKS,
-                pos.getX() + 0.5D,
-                pos.getY() + 0.5D,
-                pos.getZ() + 0.5D,
-                (soundType.getVolume() + 1.0F) / 2.0F,
-                soundType.getPitch() * 0.8F);
-    }
-
-    private static void noteQuickBuildPlacement(Session session, BlockPos pos, long gameTime) {
-        session.quickBuildSoundPlacedCount++;
-        session.quickBuildCompletionSoundTick = gameTime + QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS;
-        session.quickBuildSoundX = pos.getX() + 0.5D;
-        session.quickBuildSoundY = pos.getY() + 0.5D;
-        session.quickBuildSoundZ = pos.getZ() + 0.5D;
-    }
-
-    private static void tickQuickBuildCompletionSound(ServerPlayer player, Session session) {
-        if (player == null || session == null || session.quickBuildSoundPlacedCount <= 0) {
-            return;
-        }
-        long gameTime = player.serverLevel().getGameTime();
-        if (gameTime < session.quickBuildCompletionSoundTick) {
-            return;
-        }
-        sendDirectSound(
-                player,
-                SoundEvents.NOTE_BLOCK_HARP.value(),
-                SoundSource.PLAYERS,
-                session.quickBuildSoundX,
-                session.quickBuildSoundY,
-                session.quickBuildSoundZ,
-                0.35F,
-                1.12F);
-        session.quickBuildSoundPlacedCount = 0;
-        session.quickBuildCompletionSoundTick = -1L;
-        session.lastQuickBuildPlaceSoundTick = Long.MIN_VALUE;
-    }
-
-    private static void playRemoteUseSound(ServerPlayer player, ServerLevel level, Entity targetEntity, BlockPos pos,
+    static void playRemoteUseSound(ServerPlayer player, ServerLevel level, Entity targetEntity, BlockPos pos,
             ItemStack stack) {
         if (player == null || level == null || stack == null || stack.isEmpty()) {
             return;
@@ -4005,7 +3657,7 @@ public final class RtsStorageManager {
         return new ItemStack(BuiltInRegistries.ITEM.get(id));
     }
 
-    private static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
+    static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
             double z, float volume, float pitch) {
         if (player == null || sound == null || sound == SoundEvents.EMPTY) {
             return;
@@ -4155,7 +3807,7 @@ public final class RtsStorageManager {
         return result;
     }
 
-    private static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {
+    static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {
         if (targetEntity != null) {
             Vec3 center = targetEntity.getBoundingBox().getCenter();
             Vec3 delta = center.subtract(hit);
@@ -4181,7 +3833,7 @@ public final class RtsStorageManager {
         return new float[] { yaw, pitch };
     }
 
-    private static RayContext parseRayContext(
+    static RayContext parseRayContext(
             double originX, double originY, double originZ,
             double dirX, double dirY, double dirZ) {
         if (!Double.isFinite(originX) || !Double.isFinite(originY) || !Double.isFinite(originZ)
@@ -4200,7 +3852,7 @@ public final class RtsStorageManager {
         return withTemporaryUseItemContext(player, fallbackPos, fallbackLookAt, null, reach, action);
     }
 
-    private static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+    static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
         if (rayContext == null) {
             return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
@@ -4259,7 +3911,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
+    static UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
             BlockHitResult hit, boolean forceSecondaryUse) {
         ItemStack previousMainHand = player.getMainHandItem().copy();
         player.setItemInHand(InteractionHand.MAIN_HAND, handStack);
@@ -4279,7 +3931,7 @@ public final class RtsStorageManager {
         return new UseOnOutcome(result, remainder);
     }
 
-    private static UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
+    static UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
             boolean forceSecondaryUse) {
         ItemStack previousMainHand = player.getMainHandItem().copy();
         player.setItemInHand(InteractionHand.MAIN_HAND, handStack);
@@ -4418,41 +4070,6 @@ public final class RtsStorageManager {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity != null) {
             player.connection.send(ClientboundBlockEntityDataPacket.create(blockEntity));
-        }
-    }
-
-    private static BlockPos detectPlacedPos(ServerLevel level, BlockPos clickedPos, BlockState beforeClicked, BlockPos adjacentPos,
-            BlockState beforeAdjacent) {
-        if (!level.hasChunkAt(clickedPos)) {
-            return null;
-        }
-        BlockState afterClicked = level.getBlockState(clickedPos);
-        if (!afterClicked.equals(beforeClicked) && !afterClicked.isAir()) {
-            return clickedPos;
-        }
-
-        if (beforeAdjacent == null || !level.hasChunkAt(adjacentPos)) {
-            return null;
-        }
-        BlockState afterAdjacent = level.getBlockState(adjacentPos);
-        if (!afterAdjacent.equals(beforeAdjacent) && !afterAdjacent.isAir()) {
-            return adjacentPos;
-        }
-        return null;
-    }
-
-    private static void rotatePlacedBlock(ServerLevel level, BlockPos pos, byte rotateSteps) {
-        int turns = rotateSteps & 3;
-        if (turns == 0 || !level.hasChunkAt(pos)) {
-            return;
-        }
-        BlockState state = level.getBlockState(pos);
-        BlockState rotated = state;
-        for (int i = 0; i < turns; i++) {
-            rotated = rotated.rotate(Rotation.CLOCKWISE_90);
-        }
-        if (rotated != state) {
-            level.setBlock(pos, rotated, 3);
         }
     }
 
@@ -4671,10 +4288,10 @@ public final class RtsStorageManager {
         }
     }
 
-    private record RayContext(Vec3 origin, Vec3 dir) {
+    record RayContext(Vec3 origin, Vec3 dir) {
     }
 
-    private record UseOnOutcome(InteractionResult result, ItemStack remainder) {
+    record UseOnOutcome(InteractionResult result, ItemStack remainder) {
     }
 
     private record ContainerDrainOutcome(FluidStack fluid, ItemStack remainder) {
@@ -4899,91 +4516,6 @@ public final class RtsStorageManager {
         @Override
         public void execute(BiConsumer<Level, BlockPos> consumer) {
             this.delegate.execute(consumer);
-        }
-    }
-
-    static final class PlaceBatchJob {
-        private final List<BlockPos> clickedPositions;
-        private final Direction face;
-        private final byte rotateSteps;
-        private final boolean forcePlace;
-        private final boolean skipIfOccupied;
-        private final String itemId;
-        private final double rayOriginX;
-        private final double rayOriginY;
-        private final double rayOriginZ;
-        private final double rayDirX;
-        private final double rayDirY;
-        private final double rayDirZ;
-        private int index;
-
-        private PlaceBatchJob(List<BlockPos> clickedPositions, Direction face, byte rotateSteps, boolean forcePlace,
-                boolean skipIfOccupied, String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
-                double rayDirX, double rayDirY, double rayDirZ) {
-            this.clickedPositions = clickedPositions;
-            this.face = face;
-            this.rotateSteps = rotateSteps;
-            this.forcePlace = forcePlace;
-            this.skipIfOccupied = skipIfOccupied;
-            this.itemId = itemId;
-            this.rayOriginX = rayOriginX;
-            this.rayOriginY = rayOriginY;
-            this.rayOriginZ = rayOriginZ;
-            this.rayDirX = rayDirX;
-            this.rayDirY = rayDirY;
-            this.rayDirZ = rayDirZ;
-        }
-
-        private boolean hasNext() {
-            return this.index < this.clickedPositions.size();
-        }
-
-        private BlockPos next() {
-            return this.clickedPositions.get(this.index++);
-        }
-
-        private Direction face() {
-            return this.face;
-        }
-
-        private byte rotateSteps() {
-            return this.rotateSteps;
-        }
-
-        private boolean forcePlace() {
-            return this.forcePlace;
-        }
-
-        private boolean skipIfOccupied() {
-            return this.skipIfOccupied;
-        }
-
-        private String itemId() {
-            return this.itemId;
-        }
-
-        private double rayOriginX() {
-            return this.rayOriginX;
-        }
-
-        private double rayOriginY() {
-            return this.rayOriginY;
-        }
-
-        private double rayOriginZ() {
-            return this.rayOriginZ;
-        }
-
-        private double rayDirX() {
-            return this.rayDirX;
-        }
-
-        private double rayDirY() {
-            return this.rayDirY;
-        }
-
-        private double rayDirZ() {
-            return this.rayDirZ;
         }
     }
 
