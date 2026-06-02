@@ -54,7 +54,6 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInsp
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.hasEnoughMaterials;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.isCreativePlayer;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.materialSummary;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.missingMaterialLines;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintFolder;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.createSchematicsFolder;
@@ -1571,28 +1570,6 @@ public final class BlueprintPanel {
             }
             g.fill(px, py, px + 18, py + 18, 0xAA1A2029);
             g.renderItem(entry.previewItems().get(i), px + 1, py + 1);
-        }
-    }
-
-    private static void renderMaterialDetails(GuiGraphics g, Font font, BlueprintEntry entry, ClientRtsController controller,
-            int x, int y, int w, int h) {
-        List<MaterialLine> lines = missingMaterialLines(entry, controller);
-        if (isCreativePlayer()) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.materials_creative"), w), x, y, 0xFF8EEA9B, false);
-            return;
-        }
-        if (lines.isEmpty()) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.materials_all_ready"), w), x, y, 0xFF8EEA9B, false);
-            return;
-        }
-        int rowH = 18;
-        int visible = Math.max(1, h / rowH);
-        for (int i = 0; i < lines.size() && i < visible; i++) {
-            MaterialLine line = lines.get(i);
-            int rowY = y + i * rowH;
-            g.renderItem(line.preview(), x, rowY);
-            g.drawString(font, trim(font, line.label(), w - 20), x + 20, rowY + 1, 0xFFEAF2FF, false);
-            g.drawString(font, line.available() + "/" + line.required(), x + 20, rowY + 10, 0xFFFFC06C, false);
         }
     }
 
