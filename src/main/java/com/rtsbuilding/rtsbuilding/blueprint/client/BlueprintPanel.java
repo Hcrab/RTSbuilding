@@ -50,9 +50,7 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeome
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.isInsideSelection;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.shortPos;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.buildStats;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.detailLines;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.hasEnoughMaterials;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.isCreativePlayer;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.materialSummary;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintFolder;
@@ -350,83 +348,8 @@ public final class BlueprintPanel {
             materialDialogOpen = false;
             return;
         }
-        int w = Math.min(560, Math.max(300, screenW - 48));
-        int h = Math.min(320, Math.max(188, screenH - 70));
-        int x = (screenW - w) / 2;
-        int y = Math.max(24, (screenH - h) / 2);
-        int closeSize = 18;
-
-        g.fill(0, 0, screenW, screenH, 0x66000000);
-        drawFrame(g, x, y, w, h, 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
-        g.fill(x + 1, y + 1, x + w - 1, y + 26, 0xD8293440);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.details_title"), w - 70), x + 10, y + 9,
-                0xFFEAF2FF, false);
-        drawButton(g, font, x + w - closeSize - 6, y + 4, closeSize, closeSize, "x",
-                inside(mouseX, mouseY, x + w - closeSize - 6, y + 4, closeSize, closeSize));
-
-        g.drawString(font, trim(font, entry.name(), w - 20), x + 10, y + 35, 0xFFEAF2FF, false);
-        BuildStats stats = buildStats(entry, controller);
-        List<DetailLine> lines = detailLines(entry, controller);
-        boolean creativeBypass = isCreativePlayer() && lines.isEmpty();
-        String summary = creativeBypass
-                ? text("screen.rtsbuilding.blueprints.materials_creative")
-                : lines.isEmpty()
-                        ? text("screen.rtsbuilding.blueprints.materials_all_ready")
-                        : text("screen.rtsbuilding.blueprints.details_summary",
-                                stats.percent(),
-                                stats.buildable(),
-                                stats.total(),
-                                stats.missingTypes(),
-                                stats.unsupportedTypes(),
-                                stats.missingBlockTypes());
-        int summaryColor = creativeBypass || lines.isEmpty() ? 0xFF8EEA9B : 0xFFFFC06C;
-        g.drawString(font, trim(font, summary, w - 20), x + 10, y + 48, summaryColor, false);
-
-        int listX = x + 10;
-        int listY = y + 64;
-        int listW = w - 20;
-        int listH = h - 76;
-        drawFrame(g, listX, listY, listW, listH, 0x99101620, 0xFF415266, 0xFF0B0E13);
-        if (creativeBypass || lines.isEmpty()) {
-            String message = creativeBypass
-                    ? text("screen.rtsbuilding.blueprints.materials_creative")
-                    : text("screen.rtsbuilding.blueprints.materials_all_ready");
-            g.drawString(font, trim(font, message, listW - 14), listX + 7, listY + 8, summaryColor, false);
-            return;
-        }
-
-        int rowH = 22;
-        int visible = Math.max(1, listH / rowH);
-        int maxScroll = Math.max(0, lines.size() - visible);
-        materialDialogScroll = Mth.clamp(materialDialogScroll, 0, maxScroll);
-        for (int row = 0; row < visible; row++) {
-            int index = materialDialogScroll + row;
-            if (index >= lines.size()) {
-                break;
-            }
-            DetailLine line = lines.get(index);
-            int rowY = listY + 3 + row * rowH;
-            if (inside(mouseX, mouseY, listX, rowY, listW, rowH)) {
-                g.fill(listX + 1, rowY, listX + listW - 1, rowY + rowH, 0x66324126);
-            }
-            if (!line.preview().isEmpty()) {
-                g.renderItem(line.preview(), listX + 5, rowY + 2);
-            } else {
-                g.fill(listX + 7, rowY + 4, listX + 21, rowY + 18, 0xAA36506A);
-                g.drawCenteredString(font, "?", listX + 14, rowY + 6, 0xFFFFD080);
-            }
-            g.drawString(font, trim(font, line.label(), listW - 132), listX + 27, rowY + 2, 0xFFEAF2FF, false);
-            g.drawString(font, trim(font, line.detail(), 102), listX + listW - 108, rowY + 7, line.color(), false);
-        }
-        if (maxScroll > 0) {
-            int barX = listX + listW - 5;
-            int barY = listY + 3;
-            int barH = listH - 6;
-            int thumbH = Math.max(12, barH * visible / Math.max(visible, lines.size()));
-            int thumbY = barY + (barH - thumbH) * materialDialogScroll / maxScroll;
-            g.fill(barX, barY, barX + 2, barY + barH, 0x66566A7C);
-            g.fill(barX - 1, thumbY, barX + 3, thumbY + thumbH, 0xFF8EA5B8);
-        }
+        materialDialogScroll = BlueprintMaterialDialog.render(g, font, entry, controller, screenW, screenH,
+                mouseX, mouseY, materialDialogScroll);
     }
 
     public static boolean mouseClickedMaterialDialog(double mouseX, double mouseY, int button, int screenW, int screenH) {
@@ -436,13 +359,7 @@ public final class BlueprintPanel {
         if (button != org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return true;
         }
-        int w = Math.min(560, Math.max(300, screenW - 48));
-        int h = Math.min(320, Math.max(188, screenH - 70));
-        int x = (screenW - w) / 2;
-        int y = Math.max(24, (screenH - h) / 2);
-        int closeSize = 18;
-        if (!inside(mouseX, mouseY, x, y, w, h)
-                || inside(mouseX, mouseY, x + w - closeSize - 6, y + 4, closeSize, closeSize)) {
+        if (BlueprintMaterialDialog.shouldClose(mouseX, mouseY, screenW, screenH)) {
             materialDialogOpen = false;
         }
         return true;
@@ -458,11 +375,7 @@ public final class BlueprintPanel {
             materialDialogOpen = false;
             return true;
         }
-        int h = Math.min(320, Math.max(188, screenH - 70));
-        int listH = h - 76;
-        int visible = Math.max(1, listH / 22);
-        int maxScroll = Math.max(0, detailLines(entry, controller).size() - visible);
-        materialDialogScroll = Mth.clamp(materialDialogScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
+        materialDialogScroll = BlueprintMaterialDialog.scrolled(materialDialogScroll, scrollY, entry, controller, screenH);
         return true;
     }
 
