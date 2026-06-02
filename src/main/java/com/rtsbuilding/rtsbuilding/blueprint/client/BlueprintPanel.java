@@ -15,14 +15,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
@@ -39,19 +37,34 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.loading.FMLPaths;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintExtension;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintFolder;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.createSchematicsFolder;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.defaultsPath;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.ensureExtension;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.isBlueprintFile;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.sanitizeFileBase;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripBlueprintExtension;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripNbtExtension;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueBlueprintPath;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueNbtFileName;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.buttonWidth;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawButton;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawFrame;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.inside;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.trim;
 
 public final class BlueprintPanel {
     private static final int ROW_H = 24;
@@ -59,10 +72,6 @@ public final class BlueprintPanel {
     private static final int SEARCH_H = 14;
     private static final int DETAIL_BUTTON_H = 14;
     private static final int LIST_COLUMN_GAP = 4;
-    private static final int CAPTURE_SCAN_BUDGET_PER_STEP = 64;
-    private static final long CAPTURE_SCAN_TIME_BUDGET_NANOS = 500_000L;
-    private static final long CAPTURE_SCAN_MIN_INTERVAL_MS = 15L;
-    private static final long CAPTURE_STATUS_INTERVAL_MS = 250L;
     private static final List<BlueprintEntry> ENTRIES = new ArrayList<>();
     private static boolean loaded = false;
     private static int selectedIndex = -1;
@@ -83,7 +92,7 @@ public final class BlueprintPanel {
     private static BlockPos capturePointA = null;
     private static BlockPos capturePointB = null;
     private static BlockPos captureHoverPoint = null;
-    private static CaptureSaveJob captureSaveJob = null;
+    private static BlueprintCaptureSaveJob captureSaveJob = null;
     private static final Set<BlockPos> captureExcludedBlocks = new HashSet<>();
     private static boolean defaultsLoaded = false;
     private static final Map<String, RotationPreset> DEFAULT_ROTATIONS = new HashMap<>();
@@ -110,6 +119,9 @@ public final class BlueprintPanel {
                 inside(mouseX, mouseY, top.folderX(), buttonY, top.folderW(), BUTTON_H));
         drawButton(g, font, top.importX(), buttonY, top.importW(), BUTTON_H, text("screen.rtsbuilding.blueprints.import_file_short"),
                 inside(mouseX, mouseY, top.importX(), buttonY, top.importW(), BUTTON_H));
+        drawButton(g, font, top.syncCreateX(), buttonY, top.syncCreateW(), BUTTON_H,
+                text("screen.rtsbuilding.blueprints.sync_create_short"),
+                inside(mouseX, mouseY, top.syncCreateX(), buttonY, top.syncCreateW(), BUTTON_H));
         drawButton(g, font, top.captureX(), buttonY, top.captureW(), BUTTON_H,
                 text(captureMode ? "screen.rtsbuilding.blueprints.capture_active_short" : "screen.rtsbuilding.blueprints.capture_short"),
                 inside(mouseX, mouseY, top.captureX(), buttonY, top.captureW(), BUTTON_H));
@@ -150,6 +162,10 @@ public final class BlueprintPanel {
         }
         if (inside(mouseX, mouseY, top.importX(), y, top.importW(), BUTTON_H)) {
             importBlueprintFile();
+            return true;
+        }
+        if (inside(mouseX, mouseY, top.syncCreateX(), y, top.syncCreateW(), BUTTON_H)) {
+            syncCreateSchematics();
             return true;
         }
         if (inside(mouseX, mouseY, top.captureX(), y, top.captureW(), BUTTON_H)) {
@@ -1316,11 +1332,11 @@ public final class BlueprintPanel {
     }
 
     private static void tickCaptureSaveJob() {
-        CaptureSaveJob job = captureSaveJob;
+        BlueprintCaptureSaveJob job = captureSaveJob;
         if (job == null) {
             return;
         }
-        CaptureSaveResult result = job.tick();
+        BlueprintCaptureSaveJob.Result result = job.tick();
         if (result == null) {
             return;
         }
@@ -1740,7 +1756,7 @@ public final class BlueprintPanel {
             Files.createDirectories(folder);
             try (var stream = Files.list(folder)) {
                 stream.filter(Files::isRegularFile)
-                        .filter(BlueprintPanel::isBlueprintFile)
+                        .filter(BlueprintPanelFiles::isBlueprintFile)
                         .sorted(Comparator.comparing(path -> path.getFileName().toString(), String.CASE_INSENSITIVE_ORDER))
                         .limit(512)
                         .forEach(BlueprintPanel::addEntry);
@@ -1877,6 +1893,64 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.imported", dest.getFileName().toString());
         } catch (Exception ex) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.import_failed", ex.getMessage());
+        }
+    }
+
+    private static void syncCreateSchematics() {
+        Path sourceFolder = createSchematicsFolder();
+        if (!Files.isDirectory(sourceFolder)) {
+            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.create_sync_missing", "");
+            return;
+        }
+        int copied = 0;
+        int skipped = 0;
+        int failed = 0;
+        String lastCopied = "";
+        try {
+            Files.createDirectories(blueprintFolder());
+            try (var stream = Files.list(sourceFolder)) {
+                List<Path> files = stream
+                        .filter(Files::isRegularFile)
+                        .filter(BlueprintPanelFiles::isBlueprintFile)
+                        .sorted(Comparator.comparing(path -> path.getFileName().toString(), String.CASE_INSENSITIVE_ORDER))
+                        .limit(512)
+                        .toList();
+                for (Path source : files) {
+                    Path fileName = source.getFileName();
+                    if (fileName == null) {
+                        continue;
+                    }
+                    Path dest = blueprintFolder().resolve(fileName.toString());
+                    if (Files.exists(dest)) {
+                        skipped++;
+                        continue;
+                    }
+                    try {
+                        Files.copy(source, dest);
+                        copied++;
+                        lastCopied = fileName.toString();
+                    } catch (IOException ex) {
+                        failed++;
+                    }
+                }
+            }
+            if (copied > 0) {
+                reload();
+                if (!lastCopied.isBlank()) {
+                    selectByFileName(lastCopied);
+                }
+            }
+            if (copied == 0 && skipped == 0 && failed == 0) {
+                setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.create_sync_empty", "");
+            } else if (failed > 0) {
+                setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.create_sync_partial",
+                        copied + "/" + skipped + "/" + failed);
+            } else {
+                setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.create_sync_done",
+                        copied + "/" + skipped);
+            }
+        } catch (Exception ex) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.create_sync_failed", ex.getMessage());
         }
     }
 
@@ -2058,8 +2132,8 @@ public final class BlueprintPanel {
                         "Selection volume " + volume + " > " + maxCaptureVolume);
                 return;
             }
-            captureSaveJob = new CaptureSaveJob(level, capturePointA, capturePointB, captureExcludedBlocks,
-                    stripNbtExtension(fileName), fileName, dest);
+            captureSaveJob = new BlueprintCaptureSaveJob(level, capturePointA, capturePointB, captureExcludedBlocks,
+                    stripNbtExtension(fileName), fileName, dest, BlueprintPanel::setStatus);
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_started", fileName);
         } catch (Throwable throwable) {
             handleSaveFailure(throwable);
@@ -2139,12 +2213,6 @@ public final class BlueprintPanel {
         }
     }
 
-    private static boolean isBlueprintFile(Path path) {
-        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return lower.endsWith(".nbt") || lower.endsWith(".schem") || lower.endsWith(".schematic")
-                || lower.endsWith(".litematic");
-    }
-
     private static void openBlueprintFolder() {
         Path folder = blueprintFolder();
         try {
@@ -2154,62 +2222,6 @@ public final class BlueprintPanel {
         } catch (Exception ex) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.folder_failed", ex.getMessage());
         }
-    }
-
-    private static Path blueprintFolder() {
-        return FMLPaths.GAMEDIR.get().resolve("rtsbuilding-blueprints");
-    }
-
-    private static Path defaultsPath() {
-        return blueprintFolder().resolve(".rtsbuilding-rotation-defaults.properties");
-    }
-
-    private static Path ensureExtension(Path path, String extension) {
-        if (path == null || extension == null || extension.isBlank()) {
-            return path;
-        }
-        String name = path.getFileName() == null ? "" : path.getFileName().toString();
-        if (name.toLowerCase(Locale.ROOT).endsWith("." + extension.toLowerCase(Locale.ROOT))) {
-            return path;
-        }
-        Path parent = path.getParent();
-        Path renamed = Path.of(name + "." + extension);
-        return parent == null ? renamed : parent.resolve(renamed);
-    }
-
-    private static String stripBlueprintExtension(String fileName) {
-        String clean = fileName == null || fileName.isBlank() ? "blueprint" : fileName;
-        String lower = clean.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".schematic")) {
-            return clean.substring(0, clean.length() - ".schematic".length());
-        }
-        if (lower.endsWith(".schem")) {
-            return clean.substring(0, clean.length() - ".schem".length());
-        }
-        if (lower.endsWith(".litematic")) {
-            return clean.substring(0, clean.length() - ".litematic".length());
-        }
-        if (lower.endsWith(".nbt")) {
-            return clean.substring(0, clean.length() - ".nbt".length());
-        }
-        return clean;
-    }
-
-    private static String blueprintExtension(String fileName, String fallback) {
-        String lower = fileName == null ? "" : fileName.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".schematic")) {
-            return "schematic";
-        }
-        if (lower.endsWith(".schem")) {
-            return "schem";
-        }
-        if (lower.endsWith(".litematic")) {
-            return "litematic";
-        }
-        if (lower.endsWith(".nbt")) {
-            return "nbt";
-        }
-        return fallback == null || fallback.isBlank() ? "nbt" : fallback;
     }
 
     private static List<BlueprintEntry> filteredEntries() {
@@ -2225,53 +2237,6 @@ public final class BlueprintPanel {
 
     private static BlueprintEntry selectedEntry() {
         return selectedIndex >= 0 && selectedIndex < ENTRIES.size() ? ENTRIES.get(selectedIndex) : null;
-    }
-
-    private static String uniqueNbtFileName(String base) {
-        String clean = sanitizeFileBase(base);
-        String candidate = clean + ".nbt";
-        int suffix = 2;
-        while (Files.exists(blueprintFolder().resolve(candidate))) {
-            candidate = clean + "_" + suffix + ".nbt";
-            suffix++;
-        }
-        return candidate;
-    }
-
-    private static Path uniqueBlueprintPath(String base, String extension, Path currentPath) {
-        String clean = sanitizeFileBase(base);
-        String safeExtension = extension == null || extension.isBlank() ? "nbt" : extension;
-        Path folder = blueprintFolder();
-        Path current = currentPath == null ? null : currentPath.toAbsolutePath().normalize();
-        Path candidate = folder.resolve(clean + "." + safeExtension);
-        int suffix = 2;
-        while (Files.exists(candidate)
-                && (current == null || !candidate.toAbsolutePath().normalize().equals(current))) {
-            candidate = folder.resolve(clean + "_" + suffix + "." + safeExtension);
-            suffix++;
-        }
-        return candidate;
-    }
-
-    private static String stripNbtExtension(String fileName) {
-        String name = fileName == null ? "blueprint" : fileName;
-        return name.toLowerCase(Locale.ROOT).endsWith(".nbt")
-                ? name.substring(0, name.length() - 4)
-                : name;
-    }
-
-    private static String sanitizeFileBase(String raw) {
-        String clean = raw == null ? "blueprint" : raw.trim();
-        if (clean.toLowerCase(Locale.ROOT).endsWith(".nbt")) {
-            clean = clean.substring(0, clean.length() - 4);
-        }
-        clean = clean.replaceAll("[\\\\/:*?\"<>|]+", "_").replaceAll("\\s+", "_");
-        clean = clean.replaceAll("[^A-Za-z0-9._\\-\\u4e00-\\u9fff]+", "_");
-        clean = clean.replaceAll("_+", "_");
-        if (clean.isBlank() || clean.equals(".") || clean.equals("..")) {
-            clean = "blueprint";
-        }
-        return clean.length() > 80 ? clean.substring(0, 80) : clean;
     }
 
     private static int parseInt(String raw, int fallback) {
@@ -2412,6 +2377,7 @@ public final class BlueprintPanel {
         materialDialogScroll = 0;
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_cleared", "");
     }
+
     private static int listColumns(int w) {
         return w >= 320 ? 2 : 1;
     }
@@ -2464,238 +2430,33 @@ public final class BlueprintPanel {
         int gap = 4;
         int folderW = buttonWidth(font, "screen.rtsbuilding.blueprints.open_folder_short", 64, 96);
         int importW = buttonWidth(font, "screen.rtsbuilding.blueprints.import_file_short", 44, 72);
+        int syncCreateW = buttonWidth(font, "screen.rtsbuilding.blueprints.sync_create_short", 58, 94);
         int captureW = buttonWidth(font,
                 captureMode ? "screen.rtsbuilding.blueprints.capture_active_short" : "screen.rtsbuilding.blueprints.capture_short",
                 74,
                 112);
-        int actionW = folderW + importW + captureW + gap * 2;
+        int actionW = folderW + importW + syncCreateW + captureW + gap * 3;
         int searchX = x + actionW + 8;
         int searchW = Math.max(60, x + w - searchX);
         if (searchW < 80) {
             folderW = 56;
             importW = 44;
+            syncCreateW = 58;
             captureW = 70;
-            actionW = folderW + importW + captureW + gap * 2;
+            actionW = folderW + importW + syncCreateW + captureW + gap * 3;
             searchX = x + actionW + 6;
             searchW = Math.max(50, x + w - searchX);
         }
         int folderX = x;
         int importX = folderX + folderW + gap;
-        int captureX = importX + importW + gap;
-        return new TopBarLayout(folderX, folderW, importX, importW, captureX, captureW, searchX, searchW);
+        int syncCreateX = importX + importW + gap;
+        int captureX = syncCreateX + syncCreateW + gap;
+        return new TopBarLayout(folderX, folderW, importX, importW, syncCreateX, syncCreateW, captureX, captureW,
+                searchX, searchW);
     }
 
     private static int rowSaveAsWidth(Font font) {
         return buttonWidth(font, "screen.rtsbuilding.blueprints.save_as_short", 42, 58);
-    }
-
-    private static int buttonWidth(Font font, String key, int min, int max) {
-        int labelWidth = font == null ? 0 : font.width(text(key));
-        return Mth.clamp(labelWidth + 10, min, max);
-    }
-
-    private static void drawButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover) {
-        drawButton(g, font, x, y, w, h, label, hover, false);
-    }
-
-    private static void drawButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover, boolean active) {
-        int fill = active ? 0xCC2E6A50 : (hover ? 0xCC334052 : 0xAA24303C);
-        drawFrame(g, x, y, w, h, fill, 0xFF64788E, 0xFF0D1015);
-        g.drawCenteredString(font, trim(font, label, w - 6), x + w / 2, y + 3, 0xFFEAF2FF);
-    }
-
-    private static void drawFrame(GuiGraphics g, int x, int y, int w, int h, int fill, int light, int dark) {
-        g.fill(x, y, x + w, y + h, fill);
-        g.hLine(x, x + w, y, light);
-        g.hLine(x, x + w, y + h, dark);
-        g.vLine(x, y, y + h, light);
-        g.vLine(x + w, y, y + h, dark);
-    }
-
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-    }
-
-    private static String text(String key) {
-        return Component.translatable(key).getString();
-    }
-
-    private static String text(String key, Object... args) {
-        return Component.translatable(key, args).getString();
-    }
-
-    private static String trim(Font font, String text, int maxWidth) {
-        if (font == null || text == null || font.width(text) <= maxWidth) {
-            return text == null ? "" : text;
-        }
-        String ellipsis = "...";
-        int limit = Math.max(0, maxWidth - font.width(ellipsis));
-        int cut = text.length();
-        while (cut > 0 && font.width(text.substring(0, cut)) > limit) {
-            cut--;
-        }
-        return text.substring(0, cut) + ellipsis;
-    }
-
-    private static final class CaptureSaveJob {
-        private final Level level;
-        private final int minX;
-        private final int minY;
-        private final int captureMinY;
-        private final int minZ;
-        private final int maxX;
-        private final int maxY;
-        private final int maxZ;
-        private final Vec3i size;
-        private final String name;
-        private final String fileName;
-        private final Path dest;
-        private final long volume;
-        private final Set<BlockPos> excludedBlocks;
-        private final List<RtsBlueprintBlock> blocks = new ArrayList<>();
-        private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        private int x;
-        private int y;
-        private int z;
-        private long scanned;
-        private long lastStatusMillis;
-        private long lastScanMillis;
-        private boolean scanComplete;
-        private CompletableFuture<CaptureSaveResult> writeFuture;
-
-        CaptureSaveJob(Level level, BlockPos first, BlockPos second, Set<BlockPos> excludedBlocks,
-                String name, String fileName, Path dest) {
-            this.level = level;
-            this.minX = Math.min(first.getX(), second.getX());
-            this.minY = Math.min(first.getY(), second.getY());
-            this.captureMinY = this.minY + 1;
-            this.minZ = Math.min(first.getZ(), second.getZ());
-            this.maxX = Math.max(first.getX(), second.getX());
-            this.maxY = Math.max(first.getY(), second.getY());
-            this.maxZ = Math.max(first.getZ(), second.getZ());
-            this.size = new Vec3i(this.maxX - this.minX + 1, Math.max(0, this.maxY - this.minY), this.maxZ - this.minZ + 1);
-            this.name = name;
-            this.fileName = fileName;
-            this.dest = dest;
-            this.volume = (long) this.size.getX() * this.size.getY() * this.size.getZ();
-            this.excludedBlocks = Set.copyOf(excludedBlocks);
-            this.x = this.minX;
-            this.y = this.captureMinY;
-            this.z = this.minZ;
-            this.scanComplete = this.captureMinY > this.maxY;
-        }
-
-        CaptureSaveResult tick() {
-            if (this.writeFuture != null) {
-                if (!this.writeFuture.isDone()) {
-                    updateStatus("screen.rtsbuilding.blueprints.status.save_writing", "");
-                    return null;
-                }
-                try {
-                    return this.writeFuture.join();
-                } catch (RuntimeException ex) {
-                    return CaptureSaveResult.failure("screen.rtsbuilding.blueprints.status.save_failed", failureDetail(ex));
-                }
-            }
-
-            long now = Util.getMillis();
-            if (!this.scanComplete && now - this.lastScanMillis < CAPTURE_SCAN_MIN_INTERVAL_MS) {
-                updateStatus("screen.rtsbuilding.blueprints.status.save_scanning", progressLine());
-                return null;
-            }
-            this.lastScanMillis = now;
-
-            int processed = 0;
-            long stepStarted = System.nanoTime();
-            while (!this.scanComplete
-                    && processed < CAPTURE_SCAN_BUDGET_PER_STEP
-                    && System.nanoTime() - stepStarted < CAPTURE_SCAN_TIME_BUDGET_NANOS) {
-                this.cursor.set(this.x, this.y, this.z);
-                if (!this.excludedBlocks.contains(this.cursor) && this.level.hasChunkAt(this.cursor)) {
-                    BlockState state = this.level.getBlockState(this.cursor);
-                    if (!state.isAir() && !state.is(Blocks.STRUCTURE_VOID)) {
-                        this.blocks.add(new RtsBlueprintBlock(
-                                new BlockPos(this.x - this.minX, this.y - this.captureMinY, this.z - this.minZ),
-                                state,
-                                new net.minecraft.nbt.CompoundTag()));
-                        int maxCaptureBlocks = BlueprintWriters.maxCaptureBlocks();
-                        if (this.blocks.size() > maxCaptureBlocks) {
-                            return CaptureSaveResult.failure("screen.rtsbuilding.blueprints.status.save_failed",
-                                    "Blueprint capture contains more than " + maxCaptureBlocks + " blocks");
-                        }
-                    }
-                }
-                advance();
-                processed++;
-                this.scanned++;
-            }
-
-            if (!this.scanComplete) {
-                updateStatus("screen.rtsbuilding.blueprints.status.save_scanning", progressLine());
-                return null;
-            }
-            if (this.blocks.isEmpty()) {
-                return CaptureSaveResult.failure("screen.rtsbuilding.blueprints.status.capture_empty", "");
-            }
-
-            RtsBlueprint blueprint = RtsBlueprint.create(
-                    this.name,
-                    this.fileName,
-                    BlueprintFormat.VANILLA_NBT,
-                    this.size,
-                    List.copyOf(this.blocks));
-            updateStatus("screen.rtsbuilding.blueprints.status.save_writing", "");
-            this.writeFuture = CompletableFuture.supplyAsync(() -> {
-                try {
-                    BlueprintWriters.writeVanillaStructure(blueprint, this.dest);
-                    return CaptureSaveResult.success(this.fileName, this.dest, blueprint);
-                } catch (Exception ex) {
-                    return CaptureSaveResult.failure("screen.rtsbuilding.blueprints.status.save_failed", failureDetail(ex));
-                }
-            });
-            return null;
-        }
-
-        String statusLine() {
-            return this.writeFuture == null
-                    ? text("screen.rtsbuilding.blueprints.status.save_scanning", progressLine())
-                    : text("screen.rtsbuilding.blueprints.status.save_writing");
-        }
-
-        String progressLine() {
-            return this.scanned + "/" + this.volume;
-        }
-
-        private void updateStatus(String key, String detail) {
-            long now = Util.getMillis();
-            if (now - this.lastStatusMillis < CAPTURE_STATUS_INTERVAL_MS) {
-                return;
-            }
-            this.lastStatusMillis = now;
-            setStatus(S2CBlueprintStatusPayload.INFO, key, detail);
-        }
-
-        private void advance() {
-            if (++this.x > this.maxX) {
-                this.x = this.minX;
-                if (++this.z > this.maxZ) {
-                    this.z = this.minZ;
-                    if (++this.y > this.maxY) {
-                        this.scanComplete = true;
-                    }
-                }
-            }
-        }
-    }
-
-    private record CaptureSaveResult(boolean success, String fileName, Path path, RtsBlueprint blueprint, String messageKey, String detail) {
-        static CaptureSaveResult success(String fileName, Path path, RtsBlueprint blueprint) {
-            return new CaptureSaveResult(true, fileName, path, blueprint, "", "");
-        }
-
-        static CaptureSaveResult failure(String messageKey, String detail) {
-            return new CaptureSaveResult(false, "", null, null, messageKey, detail == null ? "" : detail);
-        }
     }
 
     public record BlueprintGhostBlock(BlockPos pos, BlockState state, boolean missing) {
@@ -2753,85 +2514,7 @@ public final class BlueprintPanel {
     private record RowActionLayout(int saveX, int saveW, int renameX, int renameW, int deleteX, int deleteW, int buttonY) {
     }
 
-    private record TopBarLayout(int folderX, int folderW, int importX, int importW, int captureX, int captureW,
-            int searchX, int searchW) {
-    }
-
-    private record BlueprintEntry(
-            Path path,
-            String fileName,
-            String name,
-            BlueprintFormat format,
-            String sizeText,
-            int blockCount,
-            RtsBlueprint blueprint,
-            Map<ResourceLocation, Integer> requiredItems,
-            Map<String, Integer> unsupportedBlocks,
-            Map<String, Integer> missingBlueprintBlocks,
-            List<ItemStack> previewItems,
-            String error) {
-        static BlueprintEntry from(Path path, String fileName, RtsBlueprint blueprint, String error) {
-            Vec3i size = blueprint.size();
-            List<ItemStack> preview = new ArrayList<>();
-            for (ResourceLocation id : blueprint.requiredItems().keySet()) {
-                if (!BuiltInRegistries.ITEM.containsKey(id)) {
-                    continue;
-                }
-                Item item = BuiltInRegistries.ITEM.get(id);
-                ItemStack stack = new ItemStack(item);
-                if (!stack.isEmpty()) {
-                    preview.add(stack);
-                }
-                if (preview.size() >= 18) {
-                    break;
-                }
-            }
-            Map<String, Integer> unsupported = new java.util.LinkedHashMap<>();
-            Map<String, Integer> missingBlueprintBlocks = new java.util.LinkedHashMap<>();
-            for (RtsBlueprintBlock block : blueprint.blocks()) {
-                if (block.isMissingBlock()) {
-                    missingBlueprintBlocks.merge(block.missingBlockId(), 1, Integer::sum);
-                    continue;
-                }
-                if (block.state().getBlock().asItem() == Items.AIR) {
-                    unsupported.merge(block.state().getBlock().getName().getString(), 1, Integer::sum);
-                }
-            }
-            String sizeText = size.getX() + "x" + size.getY() + "x" + size.getZ();
-            return new BlueprintEntry(
-                    path,
-                    fileName,
-                    blueprint.name(),
-                    blueprint.format(),
-                    sizeText,
-                    blueprint.blockCount(),
-                    blueprint,
-                    blueprint.requiredItems(),
-                    Map.copyOf(unsupported),
-                    Map.copyOf(missingBlueprintBlocks),
-                    List.copyOf(preview),
-                    error == null ? "" : error);
-        }
-
-        static BlueprintEntry error(Path path, String fileName, String error) {
-            String name = fileName;
-            int dot = name.lastIndexOf('.');
-            if (dot > 0) {
-                name = name.substring(0, dot);
-            }
-            return new BlueprintEntry(
-                    path,
-                    fileName,
-                    name,
-                    BlueprintFormat.fromFileName(fileName),
-                    "-",
-                    0,
-                    RtsBlueprint.create(name, fileName, BlueprintFormat.fromFileName(fileName), Vec3i.ZERO, List.of()),
-                    Map.of(),
-                    Map.of(),
-                    Map.of(),
-                    List.of(),
-                    error == null ? "Parse failed" : error);
-        }
+    private record TopBarLayout(int folderX, int folderW, int importX, int importW, int syncCreateX, int syncCreateW,
+            int captureX, int captureW, int searchX, int searchW) {
     }
 }
