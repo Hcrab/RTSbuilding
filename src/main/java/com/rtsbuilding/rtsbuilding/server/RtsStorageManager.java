@@ -258,6 +258,18 @@ public final class RtsStorageManager {
         RtsStorageSessionStore.saveSession(player, root);
     }
 
+    private static void applyBindingUpdate(ServerPlayer player, Session session, RtsStorageBindings.UpdateResult update) {
+        if (player == null || session == null || update == null) {
+            return;
+        }
+        if (update.saveSession()) {
+            saveSessionToPlayerNbt(player, session);
+        }
+        if (update.refreshPage()) {
+            requestPage(player, update.page(), session.search, session.category, session.sort, session.ascending);
+        }
+    }
+
     public static void tickMining(MinecraftServer server) {
         for (var entry : SESSIONS.entrySet()) {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
@@ -271,10 +283,11 @@ public final class RtsStorageManager {
         }
     }
 
+    // Public binding wrappers stay in the manager so existing packet handlers
+    // do not churn while RtsStorageBindings owns the session binding details.
     public static void setMode(ServerPlayer player, BuilderMode mode) {
         Session session = getOrCreateSession(player);
-        session.mode = mode;
-        if (mode != BuilderMode.FUNNEL && session.funnelEnabled) {
+        if (RtsStorageBindings.setMode(session, mode)) {
             disableFunnelAndFlushBuffer(player, session);
             requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         }
@@ -344,34 +357,7 @@ public final class RtsStorageManager {
         }
 
         Session session = getOrCreateSession(player);
-        sanitizeSessionDimension(player, session);
-
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
-        IItemHandler itemHandler = findLinkedItemHandler(player, pos);
-        IFluidHandler fluidHandler = findFluidHandler(player, pos);
-        if (itemHandler == null && fluidHandler == null) {
-            requestPage(player, 0, session.search, session.category, session.sort, session.ascending);
-            return;
-        }
-
-        byte normalizedMode = sanitizeLinkMode(linkMode);
-        if (session.linkedStorages.contains(ref)) {
-            byte existingMode = session.linkedModes.getOrDefault(ref, LINK_MODE_BIDIRECTIONAL);
-            if (existingMode == normalizedMode) {
-                session.linkedStorages.remove(ref);
-                session.linkedNames.remove(ref);
-                session.linkedModes.remove(ref);
-            } else {
-                session.linkedModes.put(ref, normalizedMode);
-                session.linkedNames.put(ref, resolveDisplayName(player.serverLevel(), ref.pos()));
-            }
-        } else {
-            session.linkedStorages.add(ref);
-            session.linkedNames.put(ref, resolveDisplayName(player.serverLevel(), ref.pos()));
-            session.linkedModes.put(ref, normalizedMode);
-        }
-        saveSessionToPlayerNbt(player, session);
-        requestPage(player, 0, session.search, session.category, session.sort, session.ascending);
+        applyBindingUpdate(player, session, RtsStorageBindings.linkStorage(player, session, pos, linkMode));
     }
 
     public static void openCraftTerminal(ServerPlayer player) {
@@ -466,27 +452,7 @@ public final class RtsStorageManager {
 
     public static void setQuickSlot(ServerPlayer player, byte slotId, String itemId) {
         Session session = getOrCreateSession(player);
-        int slot = slotId;
-        if (!isValidQuickSlotIndex(slot)) {
-            return;
-        }
-
-        String normalized = "";
-        if (itemId != null && !itemId.isBlank()) {
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                return;
-            }
-            normalized = itemId;
-        }
-
-        if (normalized.equals(session.quickSlotItemIds[slot])) {
-            return;
-        }
-
-        session.quickSlotItemIds[slot] = normalized;
-        saveSessionToPlayerNbt(player, session);
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        applyBindingUpdate(player, session, RtsStorageBindings.setQuickSlot(session, slotId, itemId));
     }
 
     public static void setGuiBinding(ServerPlayer player, byte slotId, boolean clear, BlockPos pos, Direction face, String itemIdHint) {
@@ -494,144 +460,12 @@ public final class RtsStorageManager {
             return;
         }
         Session session = getOrCreateSession(player);
-        int slot = slotId;
-        if (!isValidGuiBindingSlot(slot)) {
-            return;
-        }
-
-        if (clear) {
-            if (session.guiBindings[slot] == null) {
-                return;
-            }
-            session.guiBindings[slot] = null;
-            saveSessionToPlayerNbt(player, session);
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            return;
-        }
-
-        if (pos == null || !canAccessWorldTarget(player, pos)) {
-            return;
-        }
-
-        ServerLevel level = player.serverLevel();
-        MenuProvider provider = resolveBindableMenuProvider(level, pos);
-        if (!canBindGuiTarget(level, pos)) {
-            player.displayClientMessage(Component.literal("Target has no bindable GUI."), true);
-            return;
-        }
-
-        String label = provider == null || provider.getDisplayName() == null ? "" : provider.getDisplayName().getString();
-        if (label.isBlank()) {
-            label = resolveDisplayName(level, pos);
-        }
-        String iconItemId = resolveGuiBindingIconItemId(level, pos, face, itemIdHint, label);
-
-        session.guiBindings[slot] = new GuiBinding(
-                pos.immutable(),
-                level.dimension(),
-                label,
-                iconItemId,
-                face);
-        saveSessionToPlayerNbt(player, session);
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        applyBindingUpdate(player, session, RtsStorageBindings.setGuiBinding(player, session, slotId, clear, pos, face, itemIdHint));
     }
 
     public static void openGuiBinding(ServerPlayer player, byte slotId) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)) {
-            return;
-        }
         Session session = SESSIONS.get(player.getUUID());
-        if (session == null || !RtsCameraManager.isActive(player)) {
-            return;
-        }
-
-        int slot = slotId;
-        if (!isValidGuiBindingSlot(slot)) {
-            return;
-        }
-
-        GuiBinding binding = session.guiBindings[slot];
-        if (binding == null || binding.pos() == null || binding.dimension() == null) {
-            return;
-        }
-        if (!player.serverLevel().dimension().equals(binding.dimension())) {
-            player.displayClientMessage(Component.literal("Bound GUI is in another dimension."), true);
-            return;
-        }
-        if (!canAccessWorldTarget(player, binding.pos())) {
-            return;
-        }
-
-        ServerLevel level = player.serverLevel();
-        BlockPos pos = binding.pos();
-        sendRemoteMenuOpenHint(player, pos);
-        SyntheticBlockInteraction interaction = createGuiBindingInteraction(player, pos, binding.face());
-        BlockHitResult hit = interaction.hit();
-        Vec3 hitLocation = hit.getLocation();
-        Vec3 interactionPos = interaction.interactionPos();
-
-        AbstractContainerMenu menuBeforeInteract = player.containerMenu;
-        InteractionResult interactResult = withTemporaryUseItemContext(
-                player,
-                interactionPos,
-                hitLocation,
-                null,
-                REMOTE_POV_BLOCK_REACH,
-                () -> withTemporaryMainHandItem(
-                        player,
-                        ItemStack.EMPTY,
-                        () -> withTemporaryShiftKey(player, false, () -> player.gameMode.useItemOn(
-                                player,
-                                level,
-                                ItemStack.EMPTY,
-                                InteractionHand.MAIN_HAND,
-                                hit))));
-        AbstractContainerMenu menuAfterInteract = player.containerMenu;
-        if (menuAfterInteract != menuBeforeInteract) {
-            markRemoteMenuOpen(player, session, menuAfterInteract, pos);
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            return;
-        }
-
-        if (!interactResult.consumesAction()) {
-            interactResult = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    null,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> withTemporaryMainHandItem(
-                            player,
-                            ItemStack.EMPTY,
-                            () -> withTemporaryShiftKey(player, true, () -> player.gameMode.useItemOn(
-                                    player,
-                                    level,
-                                    ItemStack.EMPTY,
-                                    InteractionHand.MAIN_HAND,
-                                    hit))));
-            AbstractContainerMenu menuAfterSecondaryInteract = player.containerMenu;
-            if (menuAfterSecondaryInteract != menuBeforeInteract) {
-                markRemoteMenuOpen(player, session, menuAfterSecondaryInteract, pos);
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                return;
-            }
-        }
-
-        if (!interactResult.consumesAction()) {
-            MenuProvider provider = resolveBindableMenuProvider(level, pos);
-            if (provider == null) {
-                player.displayClientMessage(Component.literal("Bound target did not open a GUI."), true);
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                return;
-            }
-            player.openMenu(provider);
-            if (player.containerMenu != null && player.containerMenu != menuBeforeInteract) {
-                markRemoteMenuOpen(player, session, player.containerMenu, pos);
-            } else {
-                player.displayClientMessage(Component.literal("Bound target did not open a GUI."), true);
-            }
-        }
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        applyBindingUpdate(player, session, RtsStorageBindings.openGuiBinding(player, session, slotId, REMOTE_POV_BLOCK_REACH));
     }
 
     public static long countLinkedItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate) {
@@ -3920,7 +3754,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
+    static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
         ItemStack previousMainHand = player.getMainHandItem();
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
         try {
@@ -3939,95 +3773,27 @@ public final class RtsStorageManager {
     }
 
     private static boolean isValidQuickSlotIndex(int slot) {
-        return slot >= 0 && slot < QUICK_SLOT_COUNT;
+        return RtsStorageBindings.isValidQuickSlotIndex(slot);
     }
 
     private static boolean isValidGuiBindingSlot(int slot) {
-        return slot >= 0 && slot < GUI_BINDING_SLOT_COUNT;
+        return RtsStorageBindings.isValidGuiBindingSlot(slot);
     }
 
     private static boolean canBindGuiTarget(ServerLevel level, BlockPos pos) {
-        if (resolveBindableMenuProvider(level, pos) != null) {
-            return true;
-        }
-        return level != null && pos != null && level.hasChunkAt(pos) && level.getBlockEntity(pos) != null;
+        return RtsStorageBindings.canBindGuiTarget(level, pos);
     }
 
     private static MenuProvider resolveBindableMenuProvider(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || !level.hasChunkAt(pos)) {
-            return null;
-        }
-        MenuProvider provider = level.getBlockState(pos).getMenuProvider(level, pos);
-        if (provider != null) {
-            return provider;
-        }
-        return level.getBlockEntity(pos) instanceof MenuProvider menuProvider ? menuProvider : null;
+        return RtsStorageBindings.resolveBindableMenuProvider(level, pos);
     }
 
     private static String resolveGuiBindingIconItemId(ServerLevel level, BlockPos pos, Direction face, String itemIdHint, String label) {
-        if (level == null || pos == null || !level.hasChunkAt(pos)) {
-            return "";
-        }
-        ResourceLocation hintKey = ResourceLocation.tryParse(itemIdHint);
-        if (hintKey != null && BuiltInRegistries.ITEM.containsKey(hintKey)) {
-            return hintKey.toString();
-        }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
-            return "";
-        }
-        ItemStack cloneStack = state.getBlock().getCloneItemStack(level, pos, state);
-        Item item = cloneStack.isEmpty() ? state.getBlock().asItem() : cloneStack.getItem();
-        if (item == null || item == Items.AIR) {
-            return RtsAe2Compat.resolveGuiBindingIconItemId(level, pos, face, label);
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-        if (id != null) {
-            return id.toString();
-        }
-        return RtsAe2Compat.resolveGuiBindingIconItemId(level, pos, face, label);
+        return RtsStorageBindings.resolveGuiBindingIconItemId(level, pos, face, itemIdHint, label);
     }
 
     private static void refreshMissingGuiBindingIcons(ServerPlayer player, Session session) {
-        if (player == null || session == null || player.server == null) {
-            return;
-        }
-
-        boolean changed = false;
-        for (int i = 0; i < session.guiBindings.length; i++) {
-            GuiBinding binding = session.guiBindings[i];
-            if (binding == null || binding.pos() == null || binding.dimension() == null) {
-                continue;
-            }
-            if (binding.itemId() != null && !binding.itemId().isBlank()) {
-                continue;
-            }
-
-            ServerLevel bindingLevel = player.server.getLevel(binding.dimension());
-            if (bindingLevel == null || !bindingLevel.hasChunkAt(binding.pos())) {
-                continue;
-            }
-
-            String resolvedItemId = resolveGuiBindingIconItemId(
-                    bindingLevel,
-                    binding.pos(),
-                    binding.face(),
-                    "",
-                    binding.label());
-            if (resolvedItemId.isBlank()) {
-                continue;
-            }
-
-            session.guiBindings[i] = new GuiBinding(
-                    binding.pos(),
-                    binding.dimension(),
-                    binding.label(),
-                    resolvedItemId,
-                    binding.face());
-            changed = true;
-        }
-
-        if (changed) {
+        if (RtsStorageBindings.refreshMissingGuiBindingIcons(player, session)) {
             saveSessionToPlayerNbt(player, session);
         }
     }
@@ -5949,6 +5715,11 @@ public final class RtsStorageManager {
         return new RayContext(new Vec3(originX, originY, originZ), dir.normalize());
     }
 
+    static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+            double reach, Supplier<T> action) {
+        return withTemporaryUseItemContext(player, fallbackPos, fallbackLookAt, null, reach, action);
+    }
+
     private static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
         if (rayContext == null) {
@@ -5995,7 +5766,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static <T> T withTemporaryShiftKey(ServerPlayer player, boolean active, Supplier<T> action) {
+    static <T> T withTemporaryShiftKey(ServerPlayer player, boolean active, Supplier<T> action) {
         boolean previous = player.isShiftKeyDown();
         if (previous == active) {
             return action.get();
@@ -6098,7 +5869,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static void markRemoteMenuOpen(ServerPlayer player, Session session, AbstractContainerMenu menu, BlockPos pos) {
+    static void markRemoteMenuOpen(ServerPlayer player, RtsStorageSession session, AbstractContainerMenu menu, BlockPos pos) {
         if (menu == null) {
             return;
         }
@@ -6155,7 +5926,7 @@ public final class RtsStorageManager {
         level.sendBlockUpdated(pos, state, state, 3);
     }
 
-    private static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {
+    static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null) {
             return;
         }
@@ -6168,32 +5939,6 @@ public final class RtsStorageManager {
         if (blockEntity != null) {
             player.connection.send(ClientboundBlockEntityDataPacket.create(blockEntity));
         }
-    }
-
-    private static SyntheticBlockInteraction createGuiBindingInteraction(ServerPlayer player, BlockPos pos, Direction preferredFace) {
-        Direction face = preferredFace == null ? resolveGuiBindingFace(player, pos) : preferredFace;
-        Vec3 faceCenter = Vec3.atCenterOf(pos).add(
-                face.getStepX() * 0.498D,
-                face.getStepY() * 0.498D,
-                face.getStepZ() * 0.498D);
-        Vec3 eyePos = faceCenter.add(
-                face.getStepX() * 2.2D,
-                face.getStepY() * 2.2D,
-                face.getStepZ() * 2.2D);
-        double eyeHeight = player == null ? 1.62D : player.getEyeHeight(player.getPose());
-        Vec3 interactionPos = new Vec3(eyePos.x, eyePos.y - eyeHeight, eyePos.z);
-        return new SyntheticBlockInteraction(new BlockHitResult(faceCenter, face, pos, false), interactionPos);
-    }
-
-    private static Direction resolveGuiBindingFace(ServerPlayer player, BlockPos pos) {
-        Vec3 center = Vec3.atCenterOf(pos);
-        Vec3 playerPos = player == null ? center : player.position();
-        double dx = playerPos.x - center.x;
-        double dz = playerPos.z - center.z;
-        if (Math.abs(dx) >= Math.abs(dz)) {
-            return dx >= 0.0D ? Direction.EAST : Direction.WEST;
-        }
-        return dz >= 0.0D ? Direction.SOUTH : Direction.NORTH;
     }
 
     private static BlockPos detectPlacedPos(ServerLevel level, BlockPos clickedPos, BlockState beforeClicked, BlockPos adjacentPos,
@@ -6508,9 +6253,6 @@ public final class RtsStorageManager {
     }
 
     private record RayContext(Vec3 origin, Vec3 dir) {
-    }
-
-    private record SyntheticBlockInteraction(BlockHitResult hit, Vec3 interactionPos) {
     }
 
     private record UseOnOutcome(InteractionResult result, ItemStack remainder) {
