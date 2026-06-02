@@ -28,6 +28,14 @@ public final class ShapeWheelPanel {
     private BuilderScreen screen;
     private ClientRtsController controller;
 
+    // ── Shape wheel slot record (internal data carrier) ──
+
+    /**
+     * A single slot in the shape wheel.
+     * Maps a {@link ClientRtsController.BuildShape} to its on-screen position.
+     */
+    private record Slot(ClientRtsController.BuildShape shape, int x, int y) {}
+
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
         this.controller = controller;
@@ -158,7 +166,7 @@ public final class ShapeWheelPanel {
                 0xAA0B1016);
 
         Font font = screen.font();
-        for (ShapeWheelSlot slot : collectSlots()) {
+        for (Slot slot : collectSlots()) {
             int x = slot.x();
             int y = slot.y();
             boolean hover = isInside(mouseX, mouseY, x, y, SHAPE_WHEEL_SLOT, SHAPE_WHEEL_SLOT);
@@ -184,8 +192,8 @@ public final class ShapeWheelPanel {
 
     // ── 内部方法 ──
 
-    private List<ShapeWheelSlot> collectSlots() {
-        List<ShapeWheelSlot> slots = new ArrayList<>(6);
+    private List<Slot> collectSlots() {
+        List<Slot> slots = new ArrayList<>(6);
         ClientRtsController.BuildShape[] shapes = new ClientRtsController.BuildShape[] {
                 ClientRtsController.BuildShape.BLOCK,
                 ClientRtsController.BuildShape.LINE,
@@ -198,7 +206,7 @@ public final class ShapeWheelPanel {
             double angle = (-Math.PI / 2.0D) + ((Math.PI * 2.0D) * (i / (double) shapes.length));
             int cx = this.centerX + (int) Math.round(Math.cos(angle) * SHAPE_WHEEL_RADIUS);
             int cy = this.centerY + (int) Math.round(Math.sin(angle) * SHAPE_WHEEL_RADIUS);
-            slots.add(new ShapeWheelSlot(
+            slots.add(new Slot(
                     shapes[i],
                     cx - (SHAPE_WHEEL_SLOT / 2),
                     cy - (SHAPE_WHEEL_SLOT / 2)));
@@ -207,7 +215,7 @@ public final class ShapeWheelPanel {
     }
 
     public ClientRtsController.BuildShape resolveOption(double mouseX, double mouseY) {
-        for (ShapeWheelSlot slot : collectSlots()) {
+        for (Slot slot : collectSlots()) {
             if (isInside(mouseX, mouseY, slot.x(), slot.y(), SHAPE_WHEEL_SLOT, SHAPE_WHEEL_SLOT)) {
                 return slot.shape();
             }

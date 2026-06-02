@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.ultimine;
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.QuickBuildPanelLayout;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -219,7 +219,7 @@ public final class UltiminePanel {
     }
 
     private int panelY() {
-        QuickBuildPanelLayout quickBuildLayout = screen.resolveQuickBuildPanelLayout();
+        PanelLayouts.QuickBuildPanelLayout quickBuildLayout = screen.resolveQuickBuildPanelLayout();
         return TOP_H + 10 + (quickBuildLayout == null ? 0 : quickBuildLayout.h() + 8);
     }
 

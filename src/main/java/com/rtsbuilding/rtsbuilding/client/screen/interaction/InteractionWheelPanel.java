@@ -24,8 +24,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
 public final class InteractionWheelPanel {
 
     private boolean open = false;
-    private final List<InteractionOption> options = new ArrayList<>();
-    private InteractionTarget target;
+    private final List<InteractionTypes.InteractionOption> options = new ArrayList<>();
+    private InteractionTypes.InteractionTarget target;
     private int page = 0;
     private int centerX = 0;
     private int centerY = 0;
@@ -45,11 +45,11 @@ public final class InteractionWheelPanel {
     }
 
     public boolean open(double mouseX, double mouseY) {
-        InteractionTarget t = screen.pickInteractionTarget(false);
+        InteractionTypes.InteractionTarget t = screen.pickInteractionTarget(false);
         if (t == null) {
             return false;
         }
-        List<InteractionOption> opts = buildInteractionOptions();
+        List<InteractionTypes.InteractionOption> opts = buildInteractionOptions();
         if (opts.isEmpty()) {
             return false;
         }
@@ -75,7 +75,7 @@ public final class InteractionWheelPanel {
         this.page = 0;
     }
 
-    public InteractionTarget getTarget() {
+    public InteractionTypes.InteractionTarget getTarget() {
         return this.target;
     }
 
@@ -86,7 +86,7 @@ public final class InteractionWheelPanel {
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            InteractionOption picked = resolveOption(mouseX, mouseY);
+            InteractionTypes.InteractionOption picked = resolveOption(mouseX, mouseY);
             if (picked != null) {
                 runOption(picked);
             }
@@ -157,9 +157,9 @@ public final class InteractionWheelPanel {
                 this.centerY + 24,
                 0xAA0C1118);
 
-        List<InteractionWheelSlot> slots = collectSlots();
+        List<InteractionTypes.InteractionWheelSlot> slots = collectSlots();
         Font font = screen.font();
-        for (InteractionWheelSlot slot : slots) {
+        for (InteractionTypes.InteractionWheelSlot slot : slots) {
             int x = slot.x();
             int y = slot.y();
             boolean hover = inside(mouseX, mouseY, x, y, INTERACT_WHEEL_SLOT, INTERACT_WHEEL_SLOT);
@@ -192,9 +192,9 @@ public final class InteractionWheelPanel {
                 this.centerY + 30,
                 0xB7CDE2);
 
-        InteractionOption hover = resolveOption(mouseX, mouseY);
+        InteractionTypes.InteractionOption hover = resolveOption(mouseX, mouseY);
         if (hover != null) {
-            String sourceLabel = hover.source() == InteractionSource.TOOL_SLOT
+            String sourceLabel = hover.source() == InteractionTypes.InteractionSource.TOOL_SLOT
                     ? "Tool " + (hover.toolSlot() + 1)
                     : "Pin " + (hover.pinIndex() + 1);
             g.drawCenteredString(
@@ -208,8 +208,8 @@ public final class InteractionWheelPanel {
 
     // ── 内部方法 ──
 
-    private List<InteractionOption> buildInteractionOptions() {
-        List<InteractionOption> result = new ArrayList<>();
+    private List<InteractionTypes.InteractionOption> buildInteractionOptions() {
+        List<InteractionTypes.InteractionOption> result = new ArrayList<>();
         if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
             return result;
         }
@@ -219,8 +219,8 @@ public final class InteractionWheelPanel {
             if (stack.isEmpty()) {
                 continue;
             }
-            result.add(new InteractionOption(
-                    InteractionSource.TOOL_SLOT,
+            result.add(new InteractionTypes.InteractionOption(
+                    InteractionTypes.InteractionSource.TOOL_SLOT,
                     slot,
                     -1,
                     "",
@@ -241,8 +241,8 @@ public final class InteractionWheelPanel {
                 }
                 preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
             }
-            result.add(new InteractionOption(
-                    InteractionSource.PIN_ITEM,
+            result.add(new InteractionTypes.InteractionOption(
+                    InteractionTypes.InteractionSource.PIN_ITEM,
                     -1,
                     pin,
                     itemId,
@@ -251,11 +251,11 @@ public final class InteractionWheelPanel {
         return result;
     }
 
-    private void runOption(InteractionOption option) {
+    private void runOption(InteractionTypes.InteractionOption option) {
         if (option == null || this.target == null) {
             return;
         }
-        if (option.source() == InteractionSource.TOOL_SLOT) {
+        if (option.source() == InteractionTypes.InteractionSource.TOOL_SLOT) {
             if (this.target.isEntityTarget()) {
                 this.controller.interactEntityWithToolSlot(
                         this.target.entityId(),
@@ -273,7 +273,7 @@ public final class InteractionWheelPanel {
             return;
         }
 
-        if (option.source() == InteractionSource.PIN_ITEM) {
+        if (option.source() == InteractionTypes.InteractionSource.PIN_ITEM) {
             if (this.target.isEntityTarget()) {
                 this.controller.interactEntityWithPinnedItem(
                         this.target.entityId(),
@@ -298,8 +298,8 @@ public final class InteractionWheelPanel {
         return Math.max(1, (int) Math.ceil(this.options.size() / (double) INTERACT_WHEEL_PAGE_SIZE));
     }
 
-    private List<InteractionWheelSlot> collectSlots() {
-        List<InteractionWheelSlot> slots = new ArrayList<>();
+    private List<InteractionTypes.InteractionWheelSlot> collectSlots() {
+        List<InteractionTypes.InteractionWheelSlot> slots = new ArrayList<>();
         if (!this.open || this.options.isEmpty()) {
             return slots;
         }
@@ -317,7 +317,7 @@ public final class InteractionWheelPanel {
             double angle = (-Math.PI / 2.0D) + ((Math.PI * 2.0D) * (i / (double) count));
             int cx = this.centerX + (int) Math.round(Math.cos(angle) * INTERACT_WHEEL_RADIUS);
             int cy = this.centerY + (int) Math.round(Math.sin(angle) * INTERACT_WHEEL_RADIUS);
-            slots.add(new InteractionWheelSlot(
+            slots.add(new InteractionTypes.InteractionWheelSlot(
                     this.options.get(from + i),
                     cx - INTERACT_WHEEL_SLOT_HALF,
                     cy - INTERACT_WHEEL_SLOT_HALF));
@@ -325,8 +325,8 @@ public final class InteractionWheelPanel {
         return slots;
     }
 
-    public InteractionOption resolveOption(double mouseX, double mouseY) {
-        for (InteractionWheelSlot slot : collectSlots()) {
+    public InteractionTypes.InteractionOption resolveOption(double mouseX, double mouseY) {
+        for (InteractionTypes.InteractionWheelSlot slot : collectSlots()) {
             if (inside(mouseX, mouseY, slot.x(), slot.y(), INTERACT_WHEEL_SLOT, INTERACT_WHEEL_SLOT)) {
                 return slot.option();
             }

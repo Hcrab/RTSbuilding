@@ -26,7 +26,7 @@ public final class BottomPanel {
     private BuilderScreen screen;
     private ClientRtsController controller;
 
-    public BottomPanelTab bottomPanelTab = BottomPanelTab.STORAGE;
+    public BottomPanelLayoutTypes.BottomPanelTab bottomPanelTab = BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
     public int pinPage = 0;
     public int categoryScroll = 0;
     public int craftScroll = 0;
@@ -54,7 +54,7 @@ public final class BottomPanel {
     // ── 渲染 ──
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        BottomPanelLayout layout = resolveBottomPanelLayout();
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         int bottomH = layout.panelH();
         int bottomY = layout.panelY();
         int sortX = layout.sortX();
@@ -79,7 +79,7 @@ public final class BottomPanel {
         g.fill(guideX, guideY, guideX + 12, guideY + 12, guideHover ? 0xCC41576F : 0xAA2B3542);
         g.drawCenteredString(screen.font(), "i", guideX + 6, guideY + 2, 0xEAF4FF);
 
-        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+        if (this.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
             int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
             int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
             int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
@@ -149,21 +149,21 @@ public final class BottomPanel {
 
     // ── 标签页渲染 ──
 
-    private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayout layout, int mouseX, int mouseY) {
+    private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
         int labelX = layout.panelX() + 8;
         int labelY = layout.panelY() + 5;
         g.drawString(screen.font(), "RTS", labelX, labelY, 0xF2F6FB);
         drawBottomPanelTab(
                 g,
                 layout,
-                BottomPanelTab.STORAGE,
+                BottomPanelLayoutTypes.BottomPanelTab.STORAGE,
                 Component.translatable("screen.rtsbuilding.storage.tab").getString(),
                 mouseX,
                 mouseY);
         drawBottomPanelTab(
                 g,
                 layout,
-                BottomPanelTab.BLUEPRINTS,
+                BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS,
                 Component.translatable("screen.rtsbuilding.blueprints.tab").getString(),
                 mouseX,
                 mouseY);
@@ -171,8 +171,8 @@ public final class BottomPanel {
 
     private void drawBottomPanelTab(
             GuiGraphics g,
-            BottomPanelLayout layout,
-            BottomPanelTab tab,
+            BottomPanelLayoutTypes.BottomPanelLayout layout,
+            BottomPanelLayoutTypes.BottomPanelTab tab,
             String label,
             int mouseX,
             int mouseY) {
@@ -188,16 +188,16 @@ public final class BottomPanel {
                 active ? 0xFFFFFFFF : 0xFFD8E2EE);
     }
 
-    private int bottomPanelTabX(BottomPanelLayout layout, BottomPanelTab tab) {
+    private int bottomPanelTabX(BottomPanelLayoutTypes.BottomPanelLayout layout, BottomPanelLayoutTypes.BottomPanelTab tab) {
         int storageX = layout.panelX() + 38;
-        if (tab == BottomPanelTab.STORAGE) {
+        if (tab == BottomPanelLayoutTypes.BottomPanelTab.STORAGE) {
             return storageX;
         }
-        return storageX + bottomPanelTabW(BottomPanelTab.STORAGE) + 4;
+        return storageX + bottomPanelTabW(BottomPanelLayoutTypes.BottomPanelTab.STORAGE) + 4;
     }
 
-    private int bottomPanelTabW(BottomPanelTab tab) {
-        return tab == BottomPanelTab.STORAGE ? 76 : 86;
+    private int bottomPanelTabW(BottomPanelLayoutTypes.BottomPanelTab tab) {
+        return tab == BottomPanelLayoutTypes.BottomPanelTab.STORAGE ? 76 : 86;
     }
 
     // ── 工具栏 ├── 热键栏/固定位 ──
@@ -375,7 +375,7 @@ public final class BottomPanel {
         int listY = y + 13;
         int listH = height - 15;
         int visible = Math.max(1, listH / CATEGORY_ROW_H);
-        List<CategoryRow> rows = buildCategoryRows();
+        List<CategoryTypes.CategoryRow> rows = buildCategoryRows();
         int maxScroll = Math.max(0, rows.size() - visible);
         this.categoryScroll = Mth.clamp(this.categoryScroll, 0, maxScroll);
 
@@ -384,7 +384,7 @@ public final class BottomPanel {
             if (index >= rows.size()) {
                 break;
             }
-            CategoryRow category = rows.get(index);
+            CategoryTypes.CategoryRow category = rows.get(index);
             int rowY = listY + row * CATEGORY_ROW_H;
             boolean selected = category.token().equals(this.controller.getStorageCategory());
             int bg = selected ? 0xFF335E4C : 0x66343A47;
@@ -677,7 +677,7 @@ public final class BottomPanel {
     // ── 合成底座 ──
 
     private void drawCraftDock(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
-        CraftDockLayout dock = resolveCraftDockLayout(x, y);
+        PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
         if (screen.hasProgressionNode(RtsProgressionNodes.CRAFT_TERMINAL)) {
             boolean craftHovered = inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE);
             int craftFill = craftHovered ? 0xCC385465 : 0xAA24303A;
@@ -713,12 +713,12 @@ public final class BottomPanel {
     // ── 点击处理 ──
 
     public boolean handleClick(double mouseX, double mouseY) {
-        BottomPanelLayout layout = resolveBottomPanelLayout();
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         if (!layout.contains(mouseX, mouseY)) {
             return false;
         }
 
-        BottomPanelTab clickedTab = resolveBottomPanelTabClick(layout, mouseX, mouseY);
+        BottomPanelLayoutTypes.BottomPanelTab clickedTab = resolveBottomPanelTabClick(layout, mouseX, mouseY);
         if (clickedTab != null) {
             this.bottomPanelTab = clickedTab;
             screen.blurSearchFocus();
@@ -726,7 +726,7 @@ public final class BottomPanel {
             return true;
         }
         if (inside(mouseX, mouseY, bottomRefreshButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
-            if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+            if (this.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
                 BlueprintPanel.reload();
             } else {
                 this.controller.refreshStoragePage();
@@ -742,7 +742,7 @@ public final class BottomPanel {
         if (layout.isInsideHeader(mouseX, mouseY)) {
             return true;
         }
-        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+        if (this.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
             int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
             int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
             int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
@@ -812,7 +812,7 @@ public final class BottomPanel {
             return true;
         }
 
-        CategoryClick categoryClick = resolveClickedCategoryAction(mouseX, mouseY);
+        CategoryTypes.CategoryClick categoryClick = resolveClickedCategoryAction(mouseX, mouseY);
         if (categoryClick != null) {
             if (categoryClick.toggleExpandOnly()) {
                 toggleCategoryExpansion(categoryClick.modNamespace());
@@ -866,14 +866,14 @@ public final class BottomPanel {
     }
 
     public boolean handleRightClick(double mouseX, double mouseY) {
-        BottomPanelLayout layout = resolveBottomPanelLayout();
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         if (!layout.contains(mouseX, mouseY)) {
             return false;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
             return true;
         }
-        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+        if (this.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
             return true;
         }
 
@@ -911,8 +911,8 @@ public final class BottomPanel {
     }
 
     public boolean handleMouseScrolled(double mouseX, double mouseY, double scrollY) {
-        BottomPanelLayout layout = resolveBottomPanelLayout();
-        if (this.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
+        if (this.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
             int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
             int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
             int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
@@ -940,7 +940,7 @@ public final class BottomPanel {
     // ── 内部点击处理 ──
 
     private boolean handleCraftDockClick(double mouseX, double mouseY, int button, int x, int y) {
-        CraftDockLayout dock = resolveCraftDockLayout(x, y);
+        PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
         if (screen.hasProgressionNode(RtsProgressionNodes.CRAFT_TERMINAL)
                 && inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE)) {
             this.controller.openCraftTerminal();
@@ -1224,7 +1224,7 @@ public final class BottomPanel {
 
     // ── 布局与解析 ──
 
-    public BottomPanelLayout resolveBottomPanelLayout() {
+    public BottomPanelLayoutTypes.BottomPanelLayout resolveBottomPanelLayout() {
         int dynamicMaxH = Math.max(MIN_BOTTOM_H, Math.min(MAX_BOTTOM_H, screen.height - TOP_H - 16));
         int minH = Math.min(dynamicMaxH, Math.max(MIN_BOTTOM_H, minimumBottomHeightForGridRows(MIN_STORAGE_GRID_ROWS)));
         int maxH = Math.max(minH, dynamicMaxH);
@@ -1257,7 +1257,7 @@ public final class BottomPanel {
         int craftPanelY = storageY;
         int craftPanelH = Math.max(CRAFT_PANEL_SEARCH_H + CRAFT_PANEL_SLOT + 27, panelY + panelH - BOTTOM_PANEL_PADDING - craftPanelY);
 
-        return new BottomPanelLayout(
+        return new BottomPanelLayoutTypes.BottomPanelLayout(
                 panelX, panelY, panelW, panelH,
                 sortX, sortY,
                 categoryX, categoryY, categoryH,
@@ -1286,7 +1286,7 @@ public final class BottomPanel {
     }
 
     public boolean isInsideCategoryList(double mouseX, double mouseY) {
-        BottomPanelLayout layout = resolveBottomPanelLayout();
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         int listY = layout.categoryY() + 13;
         int listH = layout.categoryH() - 15;
         return inside(mouseX, mouseY, layout.categoryX() + 2, listY, CATEGORY_W - 4, listH);
@@ -1313,14 +1313,14 @@ public final class BottomPanel {
         return gridTopOffset + BOTTOM_PANEL_PADDING + (Math.max(1, rows) * SLOT);
     }
 
-    private CraftDockLayout resolveCraftDockLayout(int x, int y) {
+    private PanelLayouts.CraftDockLayout resolveCraftDockLayout(int x, int y) {
         int cX = x + 14;
         int cY = y + CRAFT_DOCK_SLOT_SIZE + CRAFT_DOCK_GAP;
-        return new CraftDockLayout(cX, cY);
+        return new PanelLayouts.CraftDockLayout(cX, cY);
     }
 
-    private BottomPanelTab resolveBottomPanelTabClick(BottomPanelLayout layout, double mouseX, double mouseY) {
-        for (BottomPanelTab tab : BottomPanelTab.values()) {
+    private BottomPanelLayoutTypes.BottomPanelTab resolveBottomPanelTabClick(BottomPanelLayoutTypes.BottomPanelLayout layout, double mouseX, double mouseY) {
+        for (BottomPanelLayoutTypes.BottomPanelTab tab : BottomPanelLayoutTypes.BottomPanelTab.values()) {
             if (inside(mouseX, mouseY, bottomPanelTabX(layout, tab), layout.panelY() + 2, bottomPanelTabW(tab), BOTTOM_PANEL_HEADER_H - 3)) {
                 return tab;
             }
@@ -1328,23 +1328,23 @@ public final class BottomPanel {
         return null;
     }
 
-    private int bottomGuideButtonX(BottomPanelLayout layout) {
+    private int bottomGuideButtonX(BottomPanelLayoutTypes.BottomPanelLayout layout) {
         return layout.panelX() + layout.panelW() - 20;
     }
 
-    private int bottomRefreshButtonX(BottomPanelLayout layout) {
+    private int bottomRefreshButtonX(BottomPanelLayoutTypes.BottomPanelLayout layout) {
         return bottomGuideButtonX(layout) - 16;
     }
 
-    private int bottomGuideButtonY(BottomPanelLayout layout) {
+    private int bottomGuideButtonY(BottomPanelLayoutTypes.BottomPanelLayout layout) {
         return layout.panelY() + 3;
     }
 
     // ── 分类构建 ──
 
-    private List<CategoryRow> buildCategoryRows() {
-        List<CategoryRow> rows = new ArrayList<>();
-        rows.add(new CategoryRow(CATEGORY_ALL, "All", 0, false, false, ""));
+    private List<CategoryTypes.CategoryRow> buildCategoryRows() {
+        List<CategoryTypes.CategoryRow> rows = new ArrayList<>();
+        rows.add(new CategoryTypes.CategoryRow(CATEGORY_ALL, "All", 0, false, false, ""));
 
         Map<String, Set<String>> modToTabs = new HashMap<>();
         Set<String> mods = new HashSet<>();
@@ -1399,12 +1399,12 @@ public final class BottomPanel {
             tabs.sort(BottomPanel::compareTabKey);
             boolean expandable = !tabs.isEmpty();
             boolean expanded = expandable && this.expandedCategoryMods.contains(mod);
-            rows.add(new CategoryRow(encodeModCategory(mod), formatModLabel(mod), 0, expandable, expanded, mod));
+            rows.add(new CategoryTypes.CategoryRow(encodeModCategory(mod), formatModLabel(mod), 0, expandable, expanded, mod));
             if (!expanded) {
                 continue;
             }
             for (String tab : tabs) {
-                rows.add(new CategoryRow(encodeTabCategory(mod, tab), formatTabLabel(tab), 1, false, false, mod));
+                rows.add(new CategoryTypes.CategoryRow(encodeTabCategory(mod, tab), formatTabLabel(tab), 1, false, false, mod));
             }
         }
 
@@ -1534,8 +1534,8 @@ public final class BottomPanel {
         return index < this.controller.getFluidEntries().size() ? index : -1;
     }
 
-    private CategoryClick resolveClickedCategoryAction(double mouseX, double mouseY) {
-        BottomPanelLayout layout = resolveBottomPanelLayout();
+    private CategoryTypes.CategoryClick resolveClickedCategoryAction(double mouseX, double mouseY) {
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         int categoryX = layout.categoryX();
         int categoryY = layout.categoryY();
         int listY = categoryY + 13;
@@ -1551,21 +1551,21 @@ public final class BottomPanel {
             return null;
         }
 
-        List<CategoryRow> rows = buildCategoryRows();
+        List<CategoryTypes.CategoryRow> rows = buildCategoryRows();
         int index = this.categoryScroll + row;
         if (index < 0 || index >= rows.size()) {
             return null;
         }
 
-        CategoryRow clicked = rows.get(index);
+        CategoryTypes.CategoryRow clicked = rows.get(index);
         if (clicked.expandable()) {
             int rowY = listY + row * CATEGORY_ROW_H;
             int toggleX = categoryX + CATEGORY_W - 12;
             if (inside(mouseX, mouseY, toggleX, rowY + 1, 9, CATEGORY_ROW_H - 3)) {
-                return new CategoryClick(clicked.token(), clicked.modNamespace(), true);
+                return new CategoryTypes.CategoryClick(clicked.token(), clicked.modNamespace(), true);
             }
         }
-        return new CategoryClick(clicked.token(), clicked.modNamespace(), false);
+        return new CategoryTypes.CategoryClick(clicked.token(), clicked.modNamespace(), false);
     }
 
     // ── Pin / 工具栏辅助 ──

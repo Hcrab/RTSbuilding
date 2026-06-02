@@ -28,7 +28,7 @@ public final class ShapeGeometryUtil {
      * @param fillMode 填充模式（实心、空心、骨架）
      * @return 目标方块位置列表
      */
-    public static List<BlockPos> buildShapePositions(ShapeBuildInput input, ShapeFillMode fillMode) {
+    public static List<BlockPos> buildShapePositions(ShapeBuildTypes.Input input, ShapeBuildTypes.ShapeFillMode fillMode) {
         LinkedHashSet<BlockPos> targets = new LinkedHashSet<>();
         BlockPos start = input.pointA();
         BlockPos end = input.pointB();
@@ -74,7 +74,7 @@ public final class ShapeGeometryUtil {
     }
 
     /** 生成正方形方块 */
-    public static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+    public static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeBuildTypes.ShapeFillMode fillMode) {
         Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.SQUARE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
@@ -85,7 +85,7 @@ public final class ShapeGeometryUtil {
     }
 
     /** 生成墙壁方块 */
-    public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode) {
+    public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
         LinkedHashSet<BlockPos> baseLine = new LinkedHashSet<>();
         addLineTargets(baseLine, start, new BlockPos(end.getX(), start.getY(), end.getZ()));
         if (baseLine.isEmpty()) {
@@ -100,7 +100,7 @@ public final class ShapeGeometryUtil {
             BlockPos basePos = base.get(i);
             boolean endColumn = i == 0 || i == base.size() - 1;
             for (int iy = minY; iy <= maxY; iy++) {
-                if (fillMode != ShapeFillMode.FILL && !endColumn && iy != minY && iy != maxY) {
+                if (fillMode != ShapeBuildTypes.ShapeFillMode.FILL && !endColumn && iy != minY && iy != maxY) {
                     continue;
                 }
                 targets.add(basePos.above(iy));
@@ -109,7 +109,7 @@ public final class ShapeGeometryUtil {
     }
 
     /** 生成圆形方块 */
-    public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+    public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeBuildTypes.ShapeFillMode fillMode) {
         int degrees = 0; // 由调用方传入旋转角度
         Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.CIRCLE, face);
         int dx = end.getX() - start.getX();
@@ -128,7 +128,7 @@ public final class ShapeGeometryUtil {
                 int dist2 = (ia * ia) + (ib * ib);
                 boolean inOuter = dist2 <= outer2;
                 boolean inInner = dist2 < inner2;
-                if (!inOuter || ((fillMode != ShapeFillMode.FILL) && inInner)) {
+                if (!inOuter || ((fillMode != ShapeBuildTypes.ShapeFillMode.FILL) && inInner)) {
                     continue;
                 }
                 RotatedOffset rotated = rotatePlaneOffset(ia, ib, 0.0D, 0.0D, degrees);
@@ -136,7 +136,7 @@ public final class ShapeGeometryUtil {
             }
         }
 
-        if (fillMode == ShapeFillMode.FILL) {
+        if (fillMode == ShapeBuildTypes.ShapeFillMode.FILL) {
             rotatedCells = fillPlaneInteriorHoles(rotatedCells);
         }
 
@@ -146,7 +146,7 @@ public final class ShapeGeometryUtil {
     }
 
     /** 生成立方体方块 */
-    public static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode) {
+    public static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
         int degrees = 0; // 由调用方传入旋转角度
         int xOffset = clampShapeOffset(end.getX() - start.getX());
         int zOffset = clampShapeOffset(end.getZ() - start.getZ());
@@ -163,7 +163,7 @@ public final class ShapeGeometryUtil {
             return;
         }
 
-        if (fillMode == ShapeFillMode.FILL) {
+        if (fillMode == ShapeBuildTypes.ShapeFillMode.FILL) {
             for (PlaneCell cell : rotatedFootprint) {
                 for (int iy = minY; iy <= maxY; iy++) {
                     targets.add(start.offset(cell.a(), iy, cell.b()));
@@ -184,7 +184,7 @@ public final class ShapeGeometryUtil {
             boolean yBoundary = !fullVolume.contains(pos.above()) || !fullVolume.contains(pos.below());
             boolean zBoundary = !fullVolume.contains(pos.north()) || !fullVolume.contains(pos.south());
             int boundaryAxes = (xBoundary ? 1 : 0) + (yBoundary ? 1 : 0) + (zBoundary ? 1 : 0);
-            if (fillMode == ShapeFillMode.HOLLOW) {
+            if (fillMode == ShapeBuildTypes.ShapeFillMode.HOLLOW) {
                 if (boundaryAxes >= 1) {
                     targets.add(pos);
                 }
@@ -200,18 +200,18 @@ public final class ShapeGeometryUtil {
 
     /** 生成带旋转的平面矩形方块 */
     public static void addRotatedPlaneRectangleTargets(Set<BlockPos> targets, BlockPos start, Direction axisA, Direction axisB,
-            int aOffset, int bOffset, ShapeFillMode fillMode, int degrees) {
+            int aOffset, int bOffset, ShapeBuildTypes.ShapeFillMode fillMode, int degrees) {
         int minA = Math.min(0, aOffset);
         int maxA = Math.max(0, aOffset);
         int minB = Math.min(0, bOffset);
         int maxB = Math.max(0, bOffset);
         Set<PlaneCell> filledCells = buildRotatedRectangleFillCells(minA, maxA, minB, maxB, degrees);
         for (PlaneCell cell : filledCells) {
-            if (fillMode != ShapeFillMode.FILL && isPlaneBoundaryCell(filledCells, cell)) {
+            if (fillMode != ShapeBuildTypes.ShapeFillMode.FILL && isPlaneBoundaryCell(filledCells, cell)) {
                 targets.add(offsetPos(start, axisA, cell.a(), axisB, cell.b()));
                 continue;
             }
-            if (fillMode == ShapeFillMode.FILL) {
+            if (fillMode == ShapeBuildTypes.ShapeFillMode.FILL) {
                 targets.add(offsetPos(start, axisA, cell.a(), axisB, cell.b()));
             }
         }
@@ -442,13 +442,13 @@ public final class ShapeGeometryUtil {
     // ======================== 可用填充模式 ========================
 
     /** 获取形状的可用填充模式列表 */
-    public static List<ShapeFillMode> availableFillModes(ClientRtsController.BuildShape shape) {
-        if (shape == null) return List.of(ShapeFillMode.FILL);
+    public static List<ShapeBuildTypes.ShapeFillMode> availableFillModes(ClientRtsController.BuildShape shape) {
+        if (shape == null) return List.of(ShapeBuildTypes.ShapeFillMode.FILL);
         return switch (shape) {
-            case LINE -> List.of(ShapeFillMode.FILL);
-            case SQUARE, WALL, CIRCLE -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW);
-            case BOX -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW, ShapeFillMode.SKELETON);
-            default -> List.of(ShapeFillMode.FILL);
+            case LINE -> List.of(ShapeBuildTypes.ShapeFillMode.FILL);
+            case SQUARE, WALL, CIRCLE -> List.of(ShapeBuildTypes.ShapeFillMode.FILL, ShapeBuildTypes.ShapeFillMode.HOLLOW);
+            case BOX -> List.of(ShapeBuildTypes.ShapeFillMode.FILL, ShapeBuildTypes.ShapeFillMode.HOLLOW, ShapeBuildTypes.ShapeFillMode.SKELETON);
+            default -> List.of(ShapeBuildTypes.ShapeFillMode.FILL);
         };
     }
 

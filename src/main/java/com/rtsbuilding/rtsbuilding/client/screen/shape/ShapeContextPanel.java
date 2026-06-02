@@ -43,8 +43,8 @@ public final class ShapeContextPanel {
         g.drawString(screen.font(), "Fill Attribute", panelX + 8, panelY + 30, 0xA9C7E8);
 
         int rowY = panelY + 42;
-        List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
-        for (ShapeFillMode mode : modes) {
+        List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
+        for (ShapeBuildTypes.ShapeFillMode mode : modes) {
             boolean selected = mode == screen.getShapeFillMode();
             boolean hover = inside(mouseX, mouseY, panelX + 8, rowY, panelW - 16, SHAPE_CONTEXT_ROW_H);
             int bg = selected ? 0xAA2E6A50 : (hover ? 0x88334A5F : 0x66303A45);
@@ -90,8 +90,8 @@ public final class ShapeContextPanel {
         }
 
         int rowY = panelY + 42;
-        List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
-        for (ShapeFillMode mode : modes) {
+        List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
+        for (ShapeBuildTypes.ShapeFillMode mode : modes) {
             if (inside(mouseX, mouseY, panelX + 8, rowY, panelW - 16, SHAPE_CONTEXT_ROW_H)) {
                 screen.setShapeFillMode(mode);
                 return true;

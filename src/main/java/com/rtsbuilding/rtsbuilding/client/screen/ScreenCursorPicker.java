@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTarget;
+import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -26,7 +26,7 @@ public final class ScreenCursorPicker {
 
     // ===== Public API =====
 
-    public InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
+    public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -49,7 +49,7 @@ public final class ScreenCursorPicker {
         double entityDist = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
         if (entityHit != null && entityDist <= blockDist) {
             Entity entity = entityHit.getEntity();
-            return new InteractionTarget(
+            return new InteractionTypes.InteractionTarget(
                     entity.getId(),
                     entityHit.getLocation(),
                     null,
@@ -57,7 +57,7 @@ public final class ScreenCursorPicker {
                     dir);
         }
         if (blockHit != null) {
-            return new InteractionTarget(
+            return new InteractionTypes.InteractionTarget(
                     C2SRtsInteractPayload.NO_ENTITY,
                     blockHit.getLocation(),
                     blockHit,
@@ -66,7 +66,7 @@ public final class ScreenCursorPicker {
         }
         BlockHitResult airShapeHit = tryCreateAirShapeHit(camPos, dir);
         if (airShapeHit != null) {
-            return new InteractionTarget(
+            return new InteractionTypes.InteractionTarget(
                     C2SRtsInteractPayload.NO_ENTITY,
                     airShapeHit.getLocation(),
                     airShapeHit,
@@ -98,7 +98,7 @@ public final class ScreenCursorPicker {
     }
 
     public BlockHitResult pickBlueprintPlacementHit() {
-        InteractionTarget target = pickInteractionTarget(false);
+        InteractionTypes.InteractionTarget target = pickInteractionTarget(false);
         if (target != null && target.blockHit() != null) {
             return target.blockHit();
         }

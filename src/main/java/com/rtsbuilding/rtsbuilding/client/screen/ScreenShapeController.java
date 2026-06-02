@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen;
 
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.PlacementReplayKind;
+import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -26,15 +26,15 @@ public final class ScreenShapeController {
     private BuilderScreen screen;
     private ClientRtsController controller;
 
-    private ShapeBuildSession shapeBuildSession;
+    private ShapeBuildTypes.Session shapeBuildSession;
     private int shapeFootprintNudgeA = 0;
     private int shapeFootprintNudgeB = 0;
     private double shapeCursorY = 0.0D;
-    private ShapeFillMode shapeFillMode = ShapeFillMode.FILL;
+    private ShapeBuildTypes.ShapeFillMode shapeFillMode = ShapeBuildTypes.ShapeFillMode.FILL;
     private int shapeRotateDegrees = 0;
     private boolean altShapeMenuHeld = false;
-    private final List<ShapeHistoryBatch> shapeUndoStack = new ArrayList<>();
-    private final List<ShapeHistoryBatch> shapeRedoStack = new ArrayList<>();
+    private final List<ShapeDataRecords.HistoryBatch> shapeUndoStack = new ArrayList<>();
+    private final List<ShapeDataRecords.HistoryBatch> shapeRedoStack = new ArrayList<>();
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
@@ -43,11 +43,11 @@ public final class ScreenShapeController {
 
     // ===== Public state accessors =====
 
-    public ShapeFillMode getShapeFillMode() {
+    public ShapeBuildTypes.ShapeFillMode getShapeFillMode() {
         return this.shapeFillMode;
     }
 
-    public void setShapeFillMode(ShapeFillMode mode) {
+    public void setShapeFillMode(ShapeBuildTypes.ShapeFillMode mode) {
         this.shapeFillMode = mode;
     }
 
@@ -84,14 +84,14 @@ public final class ScreenShapeController {
         this.shapeCursorY = cursorY;
     }
 
-    public ShapeBuildSession getShapeBuildSession() {
+    public ShapeBuildTypes.Session getShapeBuildSession() {
         return this.shapeBuildSession;
     }
 
     public void ensureFillModeForShape(ClientRtsController.BuildShape shape) {
-        List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
+        List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
         if (modes.isEmpty()) {
-            this.shapeFillMode = ShapeFillMode.FILL;
+            this.shapeFillMode = ShapeBuildTypes.ShapeFillMode.FILL;
             this.screen.persistUiState();
             return;
         }
@@ -103,7 +103,7 @@ public final class ScreenShapeController {
 
     public boolean cycleShapeFillModeForCurrentShape(int step) {
         ClientRtsController.BuildShape shape = this.controller.getBuildShape();
-        List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
+        List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
         if (modes.isEmpty()) {
             return false;
         }
@@ -122,7 +122,7 @@ public final class ScreenShapeController {
     // ===== Shape building flow =====
 
     public void placeWithShape(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, double mouseY,
-            boolean fluidPlacement, PlacementReplayKind replayKind, String replayItemId, int replayToolSlot) {
+            boolean fluidPlacement, InteractionTypes.PlacementReplayKind replayKind, String replayItemId, int replayToolSlot) {
         if (hit == null) {
             return;
         }
@@ -140,39 +140,39 @@ public final class ScreenShapeController {
         if (this.shapeBuildSession == null || this.shapeBuildSession.shape() != shape) {
             this.shapeFootprintNudgeA = 0;
             this.shapeFootprintNudgeB = 0;
-            this.shapeBuildSession = new ShapeBuildSession(
+            this.shapeBuildSession = new ShapeBuildTypes.Session(
                     shape,
                     ShapeGeometryUtil.resolveShapeBuildFace(shape, hit.getDirection(), rayDir),
                     ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir),
                     hit.getBlockPos(),
                     null,
-                    ShapeBuildPhase.NEED_SECOND_POINT,
+                    ShapeBuildTypes.Phase.NEED_SECOND_POINT,
                     0,
                     mouseY);
             return;
         }
-        ShapeBuildSession session = this.shapeBuildSession;
-        if (session.phase() == ShapeBuildPhase.NEED_SECOND_POINT) {
+        ShapeBuildTypes.Session session = this.shapeBuildSession;
+        if (session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             BlockPos pointB = resolveShapePlanePoint(session, hit);
-            this.shapeBuildSession = new ShapeBuildSession(
+            this.shapeBuildSession = new ShapeBuildTypes.Session(
                     shape,
                     session.planeFace(),
                     session.placementFace(),
                     session.pointA(),
                     pointB,
-                    ShapeBuildPhase.READY_CONFIRM,
+                    ShapeBuildTypes.Phase.READY_CONFIRM,
                     0,
                     ShapeGeometryUtil.requiresThirdPoint(shape) ? mouseY : session.boxHeightMouseBaseY());
             return;
         }
-        if (session.phase() == ShapeBuildPhase.NEED_THIRD_POINT) {
-            this.shapeBuildSession = new ShapeBuildSession(
+        if (session.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
+            this.shapeBuildSession = new ShapeBuildTypes.Session(
                     shape,
                     session.planeFace(),
                     session.placementFace(),
                     session.pointA(),
                     session.pointB(),
-                    ShapeBuildPhase.READY_CONFIRM,
+                    ShapeBuildTypes.Phase.READY_CONFIRM,
                     session.boxHeightOffset(),
                     session.boxHeightMouseBaseY());
         }
@@ -187,7 +187,7 @@ public final class ScreenShapeController {
         if (!useFluid && !usePinnedItem && !this.screen.canUseToolSlotShapeSource()) {
             return false;
         }
-        ShapeBuildInput input = resolveCurrentShapeBuildInput(null, true);
+        ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(null, true);
         if (input == null) {
             return false;
         }
@@ -212,7 +212,7 @@ public final class ScreenShapeController {
                 positions.add(shapedHit.getBlockPos().immutable());
             }
             recordPlacementBatchForUndo(
-                    usePinnedItem ? PlacementReplayKind.PIN_ITEM : PlacementReplayKind.TOOL_SLOT,
+                    usePinnedItem ? InteractionTypes.PlacementReplayKind.PIN_ITEM : InteractionTypes.PlacementReplayKind.TOOL_SLOT,
                     usePinnedItem ? this.controller.getSelectedItemId() : "",
                     usePinnedItem ? -1 : this.screen.getSelectedToolSlot(),
                     input.placementFace(),
@@ -223,29 +223,29 @@ public final class ScreenShapeController {
 
     // ===== Ghost preview =====
 
-    public ShapeGhostPreview getShapeGhostPreview() {
+    public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
         if (this.screen.isUltimineOpen()) {
             List<BlockPos> preview = this.screen.collectUltiminePreviewBlocks();
             if (!preview.isEmpty()) {
-                return new ShapeGhostPreview(preview, true);
+                return new ShapeDataRecords.GhostPreview(preview, true);
             }
         }
         if (this.controller.getBuildShape() == ClientRtsController.BuildShape.BLOCK) {
-            return ShapeGhostPreview.EMPTY;
+            return ShapeDataRecords.GhostPreview.EMPTY;
         }
         if (!this.controller.hasSelectedItem() && !this.controller.hasSelectedFluid() && !this.screen.canUseToolSlotShapeSource()) {
-            return ShapeGhostPreview.EMPTY;
+            return ShapeDataRecords.GhostPreview.EMPTY;
         }
-        ShapeBuildInput input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
+        ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
         if (input == null) {
-            return ShapeGhostPreview.EMPTY;
+            return ShapeDataRecords.GhostPreview.EMPTY;
         }
         List<BlockPos> blocks = filterOccupiedReadyShapeTargets(input, ShapeGeometryUtil.buildShapePositions(input, this.shapeFillMode));
         if (blocks.isEmpty()) {
-            return ShapeGhostPreview.EMPTY;
+            return ShapeDataRecords.GhostPreview.EMPTY;
         }
-        boolean ready = this.shapeBuildSession != null && this.shapeBuildSession.phase() == ShapeBuildPhase.READY_CONFIRM;
-        return new ShapeGhostPreview(blocks, ready);
+        boolean ready = this.shapeBuildSession != null && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
+        return new ShapeDataRecords.GhostPreview(blocks, ready);
     }
 
     // ===== Input life cycle =====
@@ -271,7 +271,7 @@ public final class ScreenShapeController {
         if (this.shapeUndoStack.isEmpty()) {
             return false;
         }
-        ShapeHistoryBatch batch = this.shapeUndoStack.remove(this.shapeUndoStack.size() - 1);
+        ShapeDataRecords.HistoryBatch batch = this.shapeUndoStack.remove(this.shapeUndoStack.size() - 1);
         List<BlockPos> positions = batch.positions();
         for (int i = positions.size() - 1; i >= 0; i--) {
             this.controller.breakPlaced(positions.get(i), batch.face(), true);
@@ -292,8 +292,8 @@ public final class ScreenShapeController {
             return false;
         }
         int idx = this.shapeRedoStack.size() - 1;
-        ShapeHistoryBatch batch = this.shapeRedoStack.get(idx);
-        if (batch.replayKind() == PlacementReplayKind.PIN_ITEM) {
+        ShapeDataRecords.HistoryBatch batch = this.shapeRedoStack.get(idx);
+        if (batch.replayKind() == InteractionTypes.PlacementReplayKind.PIN_ITEM) {
             if (!this.controller.hasSelectedItem() || !batch.itemId().equals(this.controller.getSelectedItemId())) {
                 return false;
             }
@@ -338,9 +338,9 @@ public final class ScreenShapeController {
         if (this.shapeBuildSession.shape() == ClientRtsController.BuildShape.BLOCK) {
             return false;
         }
-        if (this.shapeBuildSession.phase() != ShapeBuildPhase.NEED_SECOND_POINT
-                && this.shapeBuildSession.phase() != ShapeBuildPhase.NEED_THIRD_POINT
-                && this.shapeBuildSession.phase() != ShapeBuildPhase.READY_CONFIRM) {
+        if (this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT
+                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT
+                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
             return false;
         }
         if (secondaryAxis) {
@@ -366,16 +366,16 @@ public final class ScreenShapeController {
             return false;
         }
         if (this.shapeBuildSession.shape() == ClientRtsController.BuildShape.BOX
-                && this.shapeBuildSession.phase() != ShapeBuildPhase.NEED_THIRD_POINT
-                && this.shapeBuildSession.phase() != ShapeBuildPhase.READY_CONFIRM) {
+                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT
+                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
             return false;
         }
         if (this.shapeBuildSession.shape() == ClientRtsController.BuildShape.WALL
-                && this.shapeBuildSession.phase() != ShapeBuildPhase.READY_CONFIRM) {
+                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
             return false;
         }
         int nextOffset = ShapeGeometryUtil.clampShapeOffset(this.shapeBuildSession.boxHeightOffset() + delta);
-        this.shapeBuildSession = new ShapeBuildSession(
+        this.shapeBuildSession = new ShapeBuildTypes.Session(
                 this.shapeBuildSession.shape(),
                 this.shapeBuildSession.planeFace(),
                 this.shapeBuildSession.placementFace(),
@@ -389,7 +389,7 @@ public final class ScreenShapeController {
 
     // ===== Label / status helpers =====
 
-    public String fillModeLabel(ShapeFillMode mode) {
+    public String fillModeLabel(ShapeBuildTypes.ShapeFillMode mode) {
         if (mode == null) {
             return this.screen.text("screen.rtsbuilding.fill.fill");
         }
@@ -416,7 +416,7 @@ public final class ScreenShapeController {
         if (shape == ClientRtsController.BuildShape.BLOCK) {
             return "1*1*1";
         }
-        ShapeBuildInput input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
+        ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
         if (input == null) {
             return "0*0*0";
         }
@@ -449,7 +449,7 @@ public final class ScreenShapeController {
         if (shape == ClientRtsController.BuildShape.BLOCK) {
             return "1";
         }
-        ShapeBuildInput input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
+        ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
         if (input == null) {
             return "0";
         }
@@ -493,54 +493,54 @@ public final class ScreenShapeController {
 
     // ===== Internal helpers =====
 
-    private ShapeBuildInput resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
-        ShapeBuildSession session = this.shapeBuildSession;
+    private ShapeBuildTypes.Input resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
+        ShapeBuildTypes.Session session = this.shapeBuildSession;
         if (session == null || session.shape() != this.controller.getBuildShape()) {
             return null;
         }
-        if (requireReady && session.phase() != ShapeBuildPhase.READY_CONFIRM) {
+        if (requireReady && session.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
             return null;
         }
         BlockPos pointA = session.pointA();
         if (pointA == null) {
             return null;
         }
-        if (session.phase() == ShapeBuildPhase.NEED_SECOND_POINT) {
+        if (session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             if (requireReady) {
                 return null;
             }
             BlockPos pointB = resolveShapePlanePoint(session, cursorHit);
             pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildInput(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0);
+            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0);
         }
         BlockPos pointB = session.pointB();
         if (pointB == null) {
             return null;
         }
-        if (session.phase() == ShapeBuildPhase.NEED_THIRD_POINT) {
+        if (session.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
             if (requireReady) {
                 return null;
             }
             pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildInput(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
+            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
         }
         pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-        return new ShapeBuildInput(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
+        return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
     }
 
-    private int resolveBoxHeightOffset(ShapeBuildSession session) {
+    private int resolveBoxHeightOffset(ShapeBuildTypes.Session session) {
         if (session == null) {
             return 0;
         }
         if (session.shape() != ClientRtsController.BuildShape.BOX
-                || (session.phase() != ShapeBuildPhase.READY_CONFIRM && session.phase() != ShapeBuildPhase.NEED_THIRD_POINT)) {
+                || (session.phase() != ShapeBuildTypes.Phase.READY_CONFIRM && session.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT)) {
             return session.boxHeightOffset();
         }
         int mouseOffset = (int) Math.round((session.boxHeightMouseBaseY() - this.shapeCursorY) / 10.0D);
         return ShapeGeometryUtil.clampShapeOffset(session.boxHeightOffset() + mouseOffset);
     }
 
-    private BlockPos resolveShapePlanePoint(ShapeBuildSession session, BlockHitResult cursorHit) {
+    private BlockPos resolveShapePlanePoint(ShapeBuildTypes.Session session, BlockHitResult cursorHit) {
         if (session == null) {
             return cursorHit != null ? cursorHit.getBlockPos() : null;
         }
@@ -650,7 +650,7 @@ public final class ScreenShapeController {
         return ShapeGeometryUtil.offsetPos(pointA, axisA, nextA, axisB, nextB);
     }
 
-    private List<BlockHitResult> buildShapePlacementHits(ShapeBuildInput input, ShapeFillMode fillMode) {
+    private List<BlockHitResult> buildShapePlacementHits(ShapeBuildTypes.Input input, ShapeBuildTypes.ShapeFillMode fillMode) {
         List<BlockPos> positions = filterOccupiedReadyShapeTargets(input, ShapeGeometryUtil.buildShapePositions(input, fillMode));
         List<BlockHitResult> hits = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
@@ -659,7 +659,7 @@ public final class ScreenShapeController {
         return hits;
     }
 
-    private List<BlockPos> filterOccupiedReadyShapeTargets(ShapeBuildInput input, List<BlockPos> targets) {
+    private List<BlockPos> filterOccupiedReadyShapeTargets(ShapeBuildTypes.Input input, List<BlockPos> targets) {
         if (targets == null || targets.isEmpty()) {
             return List.of();
         }
@@ -704,7 +704,7 @@ public final class ScreenShapeController {
         return new ArrayList<>(resolved);
     }
 
-    private boolean shouldUseUniformShapePlanePlacement(ShapeBuildInput input) {
+    private boolean shouldUseUniformShapePlanePlacement(ShapeBuildTypes.Input input) {
         if (input == null || input.placementFace() == null) {
             return false;
         }
@@ -725,7 +725,7 @@ public final class ScreenShapeController {
         return mc.level.getBlockState(clickedPos).canBeReplaced() ? clickedPos : clickedPos.relative(face);
     }
 
-    private BlockPos resolveUniformShapePlacementTargetPos(ShapeBuildInput input, BlockPos clickedPos) {
+    private BlockPos resolveUniformShapePlacementTargetPos(ShapeBuildTypes.Input input, BlockPos clickedPos) {
         if (input == null || clickedPos == null) {
             return null;
         }
@@ -744,11 +744,11 @@ public final class ScreenShapeController {
                 anchorPlaced.getZ() - anchor.getZ());
     }
 
-    private boolean shouldSkipOccupiedReadyShapeTargets(ShapeBuildInput input) {
+    private boolean shouldSkipOccupiedReadyShapeTargets(ShapeBuildTypes.Input input) {
         if (input == null || input.shape() == ClientRtsController.BuildShape.BLOCK) {
             return false;
         }
-        if (this.shapeBuildSession == null || this.shapeBuildSession.phase() != ShapeBuildPhase.READY_CONFIRM) {
+        if (this.shapeBuildSession == null || this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
             return false;
         }
         if (this.controller.hasSelectedFluid()) {
@@ -770,21 +770,21 @@ public final class ScreenShapeController {
 
     // ===== Undo record helpers =====
 
-    public void recordSinglePlacementForUndo(BlockHitResult hit, PlacementReplayKind replayKind, String itemId, int toolSlot) {
+    public void recordSinglePlacementForUndo(BlockHitResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
         if (hit == null) {
             return;
         }
         recordPlacementBatchForUndo(replayKind, itemId, toolSlot, hit.getDirection(), List.of(hit.getBlockPos().immutable()));
     }
 
-    private void recordPlacementBatchForUndo(PlacementReplayKind replayKind, String itemId, int toolSlot, Direction face, List<BlockPos> positions) {
+    private void recordPlacementBatchForUndo(InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot, Direction face, List<BlockPos> positions) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
-        if (replayKind == PlacementReplayKind.PIN_ITEM && (itemId == null || itemId.isBlank())) {
+        if (replayKind == InteractionTypes.PlacementReplayKind.PIN_ITEM && (itemId == null || itemId.isBlank())) {
             return;
         }
-        ShapeHistoryBatch batch = new ShapeHistoryBatch(
+        ShapeDataRecords.HistoryBatch batch = new ShapeDataRecords.HistoryBatch(
                 replayKind,
                 itemId == null ? "" : itemId,
                 Mth.clamp(toolSlot, 0, 8),

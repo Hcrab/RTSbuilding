@@ -8,21 +8,17 @@ import com.rtsbuilding.rtsbuilding.client.screen.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.GuideContext;
+import com.rtsbuilding.rtsbuilding.client.screen.guide.GuideTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionOption;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTarget;
+import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionWheelPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.PlacementReplayKind;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayout;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelTab;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.QuickBuildPanelLayout;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.*;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarButtonId;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarButtonLayout;
+import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltiminePanel;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
@@ -145,10 +141,10 @@ public final class BuilderScreen extends Screen {
     public boolean isDraggingInputSensitivity() {
         return this.draggingInputSensitivity;
     }
-    public ShapeFillMode getShapeFillMode() {
+    public ShapeBuildTypes.ShapeFillMode getShapeFillMode() {
         return this.shapeController.getShapeFillMode();
     }
-    public void setShapeFillMode(ShapeFillMode mode) {
+    public void setShapeFillMode(ShapeBuildTypes.ShapeFillMode mode) {
         this.shapeController.setShapeFillMode(mode);
     }
     public int getShapeRotateDegrees() {
@@ -160,7 +156,7 @@ public final class BuilderScreen extends Screen {
     public void rotateShapeByStep(int step) {
         this.shapeController.rotateShapeByStep(step);
     }
-    public ShapeGhostPreview getShapeGhostPreview() {
+    public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
         return this.shapeController.getShapeGhostPreview();
     }
     public void ensureFillModeForShape(ClientRtsController.BuildShape shape) {
@@ -368,7 +364,7 @@ public final class BuilderScreen extends Screen {
             if (this.gearMenuPanel.isOpen()) {
                 return this.gearMenuPanel.mouseClicked(mouseX, mouseY, button);
             }
-            if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS
+            if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
                     && BlueprintPanel.mouseClickedPlacementHud(mouseX, mouseY, this.width, this.height, TOP_H + 8, this.bottomPanel.getBottomY())) {
                 return true;
             }
@@ -585,7 +581,7 @@ public final class BuilderScreen extends Screen {
         if (this.pendingGuiBindSlot >= 0) {
             return true;
         }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
             if (!BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
                 BlockHitResult hit = this.cursorPicker.pickBlockHit();
                 if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
@@ -613,7 +609,7 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.controller.getMode() == BuilderMode.ROTATE) {
-            InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
+            InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
             if (target != null && target.blockHit() != null) {
                 this.shapeController.clearShapeBuildSession();
                 this.controller.rotateBlock(target.blockHit().getBlockPos());
@@ -628,7 +624,7 @@ public final class BuilderScreen extends Screen {
         if (this.shapeController.tryConfirmPendingShapeBuild(forcePlace)) {
             return true;
         }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.hasSelectedBlueprint()) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.hasSelectedBlueprint()) {
             if (BlueprintPanel.hasPinnedPreview()) {
                 BlueprintPanel.confirmPinnedPreview();
                 return true;
@@ -642,7 +638,7 @@ public final class BuilderScreen extends Screen {
             }
             return true;
         }
-        InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
+        InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
             return true;
         }
@@ -655,7 +651,7 @@ public final class BuilderScreen extends Screen {
                         target.rayDir(),
                         mouseY,
                         true,
-                        PlacementReplayKind.TOOL_SLOT,
+                        InteractionTypes.PlacementReplayKind.TOOL_SLOT,
                         "",
                         -1);
             }
@@ -678,7 +674,7 @@ public final class BuilderScreen extends Screen {
                         target.rayDir(),
                         mouseY,
                         false,
-                        PlacementReplayKind.PIN_ITEM,
+                        InteractionTypes.PlacementReplayKind.PIN_ITEM,
                         this.controller.getSelectedItemId(),
                         -1);
             }
@@ -694,7 +690,7 @@ public final class BuilderScreen extends Screen {
                     target.rayDir(),
                     mouseY,
                     false,
-                    PlacementReplayKind.TOOL_SLOT,
+                    InteractionTypes.PlacementReplayKind.TOOL_SLOT,
                     "",
                     getSelectedToolSlot());
             return true;
@@ -720,7 +716,7 @@ public final class BuilderScreen extends Screen {
                 this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
                 this.shapeController.recordSinglePlacementForUndo(
                         target.blockHit(),
-                        PlacementReplayKind.TOOL_SLOT,
+                        InteractionTypes.PlacementReplayKind.TOOL_SLOT,
                         "",
                         getSelectedToolSlot());
             } else {
@@ -797,7 +793,7 @@ public final class BuilderScreen extends Screen {
         if (BlueprintPanel.isCaptureModeActive() && BlueprintPanel.keyPressed(keyCode)) {
             return true;
         }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.keyPressed(keyCode)) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.keyPressed(keyCode)) {
             return true;
         }
         if (this.controller.isHomeSelectionMode()) {
@@ -994,7 +990,7 @@ public final class BuilderScreen extends Screen {
         if (BlueprintPanel.charTypedNameDialog(codePoint)) {
             return true;
         }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.charTyped(codePoint)) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.charTyped(codePoint)) {
             return true;
         }
         if (this.searchBox != null && this.searchBox.isFocused()) {
@@ -1045,12 +1041,12 @@ public final class BuilderScreen extends Screen {
         this.shapeContextPanel.render(guiGraphics, mouseX, mouseY);
         renderQuestDetectPopup(guiGraphics);
         renderStorageScanPopup(guiGraphics);
-        if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
             BlockHitResult hit = isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
             BlueprintPanel.updateCaptureHoverPoint(hit == null ? null : hit.getBlockPos());
         }
         BlueprintPanel.renderCaptureOverlay(guiGraphics, this.font, this.width, this.height, mouseX, mouseY, TOP_H + 8);
-        if (this.bottomPanel.bottomPanelTab == BottomPanelTab.BLUEPRINTS) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
             BlueprintPanel.renderPlacementHud(guiGraphics, this.font, this.controller,
                     this.width, this.height, mouseX, mouseY, TOP_H + 8, this.bottomPanel.getBottomY());
         }
@@ -1252,7 +1248,7 @@ public final class BuilderScreen extends Screen {
             g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()), this.width / 2, panelY + 68, 0xFFE7C46A);
         }
     }
-    public void renderTopGuideHint(GuiGraphics g, List<TopBarButtonLayout> topButtons) {
+    public void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         this.guidePanel.renderTopHint(g, topButtons);
     }
     private void drawGuiBindCursor(GuiGraphics g, int mouseX, int mouseY) {
@@ -1326,7 +1322,7 @@ public final class BuilderScreen extends Screen {
         if (!this.controller.isStorageScanPopupVisible()) {
             return;
         }
-        BottomPanelLayout layout = this.bottomPanel.resolveBottomPanelLayout();
+        BottomPanelLayoutTypes.BottomPanelLayout layout = this.bottomPanel.resolveBottomPanelLayout();
         int popupW = Math.min(STORAGE_SCAN_POPUP_W, Math.max(96, this.width - 16));
         int x = Mth.clamp(
                 layout.panelX() + (layout.panelW() - popupW) / 2,
@@ -1390,9 +1386,9 @@ public final class BuilderScreen extends Screen {
             this.controller.setBuildShape(ClientRtsController.BuildShape.BLOCK);
         }
         try {
-            this.shapeController.setShapeFillMode(ShapeFillMode.valueOf(state.fillMode));
+            this.shapeController.setShapeFillMode(ShapeBuildTypes.ShapeFillMode.valueOf(state.fillMode));
         } catch (IllegalArgumentException ignored) {
-            this.shapeController.setShapeFillMode(ShapeFillMode.FILL);
+            this.shapeController.setShapeFillMode(ShapeBuildTypes.ShapeFillMode.FILL);
         }
         this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360));
         this.shapeController.ensureFillModeForShape(this.controller.getBuildShape());
@@ -1436,7 +1432,7 @@ public final class BuilderScreen extends Screen {
         double snapped = Math.round(scale / RTS_GUI_SCALE_STEP) * RTS_GUI_SCALE_STEP;
         return Math.max(MIN_RTS_GUI_SCALE, Math.min(MAX_RTS_GUI_SCALE, snapped));
     }
-    public QuickBuildPanelLayout resolveQuickBuildPanelLayout() {
+    public PanelLayouts.QuickBuildPanelLayout resolveQuickBuildPanelLayout() {
         return this.quickBuildPanel.resolveLayout();
     }
 
@@ -1488,14 +1484,14 @@ public final class BuilderScreen extends Screen {
         }
     }
     public void toggleTopGuide(int x, int y) {
-        if (this.guidePanel.isOpen() && this.guidePanel.getContext() == GuideContext.TOP) {
+        if (this.guidePanel.isOpen() && this.guidePanel.getContext() == GuideTypes.GuideContext.TOP) {
             this.guidePanel.close();
         } else {
-            this.guidePanel.open(GuideContext.TOP, x, y);
+            this.guidePanel.open(GuideTypes.GuideContext.TOP, x, y);
         }
     }
     public void openBottomGuide(int x, int y) {
-        this.guidePanel.open(GuideContext.BOTTOM, x, y);
+        this.guidePanel.open(GuideTypes.GuideContext.BOTTOM, x, y);
     }
     public boolean isGuideOpen() {
         return this.guidePanel.isOpen();
@@ -1618,15 +1614,15 @@ public final class BuilderScreen extends Screen {
             g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.undo_redo_keys"), mouseX, mouseY);
             return;
         }
-        for (TopBarButtonLayout button : this.topBarPanel.buildTopBarButtonLayouts()) {
-            if (button.id() == TopBarButtonId.QUICK_BUILD
+        for (TopBarTypes.TopBarButtonLayout button : this.topBarPanel.buildTopBarButtonLayouts()) {
+            if (button.id() == TopBarTypes.TopBarButtonId.QUICK_BUILD
                     && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
                 g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
                 return;
             }
         }
         if (this.quickBuildPanel.isQuickBuildOpen() && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
-            QuickBuildPanelLayout layout = resolveQuickBuildPanelLayout();
+            PanelLayouts.QuickBuildPanelLayout layout = resolveQuickBuildPanelLayout();
             if (layout != null && layout.contains(mouseX, mouseY)) {
                 g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_cancel"), mouseX, mouseY);
             }
@@ -1772,7 +1768,7 @@ public final class BuilderScreen extends Screen {
     }
 
     public BlueprintGhostPreview getBlueprintGhostPreview() {
-        if (this.bottomPanel.bottomPanelTab != BottomPanelTab.BLUEPRINTS
+        if (this.bottomPanel.bottomPanelTab != BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
                 || BlueprintPanel.isCaptureModeActive()
                 || !BlueprintPanel.hasSelectedBlueprint()) {
             return BlueprintGhostPreview.EMPTY;
@@ -1836,7 +1832,7 @@ public final class BuilderScreen extends Screen {
         return renderScale > 0.0D && Double.isFinite(renderScale) ? renderScale : 1.0D;
     }
     private boolean tryDirectToolInteraction() {
-        InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
+        InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
             return false;
         }
@@ -1873,7 +1869,7 @@ public final class BuilderScreen extends Screen {
     private ClientRtsController.BuildShape resolveShapeWheelOption(double mouseX, double mouseY) {
         return this.shapeWheelPanel.resolveOption(mouseX, mouseY);
     }
-    private InteractionOption resolveInteractionWheelOption(double mouseX, double mouseY) {
+    private InteractionTypes.InteractionOption resolveInteractionWheelOption(double mouseX, double mouseY) {
         return this.interactionWheelPanel.resolveOption(mouseX, mouseY);
     }
     private void renderInteractionWheel(GuiGraphics g, int mouseX, int mouseY) {
@@ -1980,7 +1976,7 @@ public final class BuilderScreen extends Screen {
     public BlockHitResult pickBlockHit() {
         return this.cursorPicker.pickBlockHit();
     }
-    public InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
+    public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
         return this.cursorPicker.pickInteractionTarget(includeFluidSource);
     }
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
@@ -1993,7 +1989,7 @@ public final class BuilderScreen extends Screen {
             case NAME -> "Name";
         };
     }
-    public String fillModeLabel(ShapeFillMode mode) {
+    public String fillModeLabel(ShapeBuildTypes.ShapeFillMode mode) {
         return this.shapeController.fillModeLabel(mode);
     }
     public static String shapeDimensionLabel(ClientRtsController.BuildShape shape) {

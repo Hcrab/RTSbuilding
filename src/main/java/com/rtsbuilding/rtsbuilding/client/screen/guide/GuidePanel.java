@@ -4,8 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarButtonId;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarButtonLayout;
+import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarIconRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -28,7 +27,7 @@ public final class GuidePanel {
 
     // ── 状态 ──
     private boolean open = false;
-    private GuideContext context = GuideContext.TOP;
+    private GuideTypes.GuideContext context = GuideTypes.GuideContext.TOP;
     private int page = 0;
     private int topicScroll = 0;
     private int textScroll = 0;
@@ -78,11 +77,11 @@ public final class GuidePanel {
         if (!this.open || scrollY == 0.0D) {
             return false;
         }
-        GuidePanelRect rect = panelRect();
+        GuideTypes.GuidePanelRect rect = panelRect();
         if (!isInsidePanel(mouseX, mouseY)) {
             return true;
         }
-        GuideTopic[] topics = topics();
+        GuideTypes.GuideTopic[] topics = topics();
         int delta = scrollY > 0.0D ? -1 : 1;
         int tabX = rect.x() + 8;
         int tabY = rect.y() + 30;
@@ -95,7 +94,7 @@ public final class GuidePanel {
 
         int maxTextW = textMaxWidth(rect.w(), tabW);
         this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - 1));
-        GuideTopic topic = topics[this.page];
+        GuideTypes.GuideTopic topic = topics[this.page];
         int visible = visibleTextLines(rect.h());
         int maxScroll = Math.max(0, collectTextLines(topic, maxTextW).size() - visible);
         this.textScroll = Mth.clamp(this.textScroll + delta, 0, maxScroll);
@@ -118,7 +117,7 @@ public final class GuidePanel {
         if (!this.open) {
             return;
         }
-        GuidePanelRect rect = panelRect();
+        GuideTypes.GuidePanelRect rect = panelRect();
         int panelW = rect.w();
         int panelH = rect.h();
         int x = rect.x();
@@ -135,7 +134,7 @@ public final class GuidePanel {
         g.fill(closeX, y + 8, closeX + 12, y + 20, 0xAA2C3442);
         g.drawCenteredString(screen.font(), "X", closeX + 6, y + 11, 0xFFFFFF);
 
-        GuideTopic[] topics = topics();
+        GuideTypes.GuideTopic[] topics = topics();
         this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - 1));
         int tabX = x + 8;
         int tabY = y + 30;
@@ -154,7 +153,7 @@ public final class GuidePanel {
             boolean active = i == this.page;
             int bg = active ? 0xCC355A71 : 0x88303A45;
             RtsClientUiUtil.drawPanelFrame(g, tabX, ty, tabW, 18, bg, active ? 0xFF8FB4D0 : 0xFF4A5665, 0xFF0D1218);
-            if (this.context == GuideContext.BOTTOM) {
+            if (this.context == GuideTypes.GuideContext.BOTTOM) {
                 String label = RtsClientUiUtil.trimToWidth(screen.font(), Component.translatable(topics[i].titleKey()).getString(), tabW - 8);
                 g.drawString(screen.font(), label, tabX + 4, ty + 5, active ? 0xFFF4FBFF : 0xFFB9C7D5, false);
             } else {
@@ -166,7 +165,7 @@ public final class GuidePanel {
         int textX = x + tabW + 18;
         int lineY = y + 32;
         int maxTextW = textMaxWidth(panelW, tabW);
-        GuideTopic topic = topics[this.page];
+        GuideTypes.GuideTopic topic = topics[this.page];
         g.drawString(screen.font(), RtsClientUiUtil.trimToWidth(screen.font(), Component.translatable(topic.titleKey()).getString(), maxTextW), textX, lineY, 0xFFE7C46A);
         int bodyTop = lineY + 16;
         int bodyAreaH = textAreaHeight(panelH);
@@ -191,15 +190,15 @@ public final class GuidePanel {
         return this.open;
     }
 
-    public GuideContext getContext() {
+    public GuideTypes.GuideContext getContext() {
         return this.context;
     }
 
-    public void open(GuideContext context) {
+    public void open(GuideTypes.GuideContext context) {
         open(context, -1, -1);
     }
 
-    public void open(GuideContext context, int anchorX, int anchorY) {
+    public void open(GuideTypes.GuideContext context, int anchorX, int anchorY) {
         this.open = true;
         this.context = context;
         this.page = 0;
@@ -215,14 +214,14 @@ public final class GuidePanel {
 
     // ── 顶部栏指南提示（由 BuilderScreen 调用） ──
 
-    public void renderTopHint(GuiGraphics g, List<TopBarButtonLayout> topButtons) {
-        if (this.open && this.context == GuideContext.TOP) {
+    public void renderTopHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+        if (this.open && this.context == GuideTypes.GuideContext.TOP) {
             return;
         }
-        TopBarButtonLayout guide = null;
+        TopBarTypes.TopBarButtonLayout guide = null;
         int nextX = screen.width - 8;
-        for (TopBarButtonLayout button : topButtons) {
-            if (button.id() == TopBarButtonId.GUIDE) {
+        for (TopBarTypes.TopBarButtonLayout button : topButtons) {
+            if (button.id() == TopBarTypes.TopBarButtonId.GUIDE) {
                 guide = button;
                 continue;
             }
@@ -257,49 +256,49 @@ public final class GuidePanel {
         };
     }
 
-    private GuideTopic[] topics() {
+    private GuideTypes.GuideTopic[] topics() {
         return switch (this.context) {
-            case BOTTOM -> new GuideTopic[]{
-                    topic(GuideIcon.SORT, "screen.rtsbuilding.guide.bottom.sort.title", "screen.rtsbuilding.guide.bottom.sort.1", "screen.rtsbuilding.guide.bottom.sort.2", "screen.rtsbuilding.guide.bottom.sort.3", "screen.rtsbuilding.guide.bottom.sort.4"),
-                    topic(GuideIcon.CRAFT, "screen.rtsbuilding.guide.bottom.remote.title", "screen.rtsbuilding.guide.bottom.remote.1", "screen.rtsbuilding.guide.bottom.remote.2", "screen.rtsbuilding.guide.bottom.remote.3"),
-                    topic(GuideIcon.GRID, "screen.rtsbuilding.guide.bottom.main.title", "screen.rtsbuilding.guide.bottom.main.1", "screen.rtsbuilding.guide.bottom.main.2", "screen.rtsbuilding.guide.bottom.main.3", "screen.rtsbuilding.guide.bottom.main.4"),
-                    topic(GuideIcon.PIN, "screen.rtsbuilding.guide.bottom.recent_pins.title", "screen.rtsbuilding.guide.bottom.recent_pins.1", "screen.rtsbuilding.guide.bottom.recent_pins.2", "screen.rtsbuilding.guide.bottom.recent_pins.3"),
-                    topic(GuideIcon.SEARCH, "screen.rtsbuilding.guide.bottom.craft_panel.title", "screen.rtsbuilding.guide.bottom.craft_panel.1", "screen.rtsbuilding.guide.bottom.craft_panel.2")
+            case BOTTOM -> new GuideTypes.GuideTopic[]{
+                    topic(GuideTypes.GuideIcon.SORT, "screen.rtsbuilding.guide.bottom.sort.title", "screen.rtsbuilding.guide.bottom.sort.1", "screen.rtsbuilding.guide.bottom.sort.2", "screen.rtsbuilding.guide.bottom.sort.3", "screen.rtsbuilding.guide.bottom.sort.4"),
+                    topic(GuideTypes.GuideIcon.CRAFT, "screen.rtsbuilding.guide.bottom.remote.title", "screen.rtsbuilding.guide.bottom.remote.1", "screen.rtsbuilding.guide.bottom.remote.2", "screen.rtsbuilding.guide.bottom.remote.3"),
+                    topic(GuideTypes.GuideIcon.GRID, "screen.rtsbuilding.guide.bottom.main.title", "screen.rtsbuilding.guide.bottom.main.1", "screen.rtsbuilding.guide.bottom.main.2", "screen.rtsbuilding.guide.bottom.main.3", "screen.rtsbuilding.guide.bottom.main.4"),
+                    topic(GuideTypes.GuideIcon.PIN, "screen.rtsbuilding.guide.bottom.recent_pins.title", "screen.rtsbuilding.guide.bottom.recent_pins.1", "screen.rtsbuilding.guide.bottom.recent_pins.2", "screen.rtsbuilding.guide.bottom.recent_pins.3"),
+                    topic(GuideTypes.GuideIcon.SEARCH, "screen.rtsbuilding.guide.bottom.craft_panel.title", "screen.rtsbuilding.guide.bottom.craft_panel.1", "screen.rtsbuilding.guide.bottom.craft_panel.2")
             };
-            case SETTINGS -> new GuideTopic[]{
-                    topic(GuideIcon.SLIDER, "screen.rtsbuilding.guide.settings.sensitivity.title", "screen.rtsbuilding.guide.settings.sensitivity.1", "screen.rtsbuilding.guide.settings.sensitivity.2"),
-                    topic(GuideIcon.GRID, "screen.rtsbuilding.guide.settings.ui_scale.title", "screen.rtsbuilding.guide.settings.ui_scale.1", "screen.rtsbuilding.guide.settings.ui_scale.2"),
-                    topic(GuideIcon.TOGGLE, "screen.rtsbuilding.guide.settings.autostore.title", "screen.rtsbuilding.guide.settings.autostore.1", "screen.rtsbuilding.guide.settings.autostore.2"),
-                    topic(GuideIcon.TOGGLE, "screen.rtsbuilding.guide.settings.placed_recovery.title", "screen.rtsbuilding.guide.settings.placed_recovery.1", "screen.rtsbuilding.guide.settings.placed_recovery.2"),
-                    topic(GuideIcon.GEAR, "screen.rtsbuilding.guide.settings.config.title", "screen.rtsbuilding.guide.settings.config.1", "screen.rtsbuilding.guide.settings.config.2")
+            case SETTINGS -> new GuideTypes.GuideTopic[]{
+                    topic(GuideTypes.GuideIcon.SLIDER, "screen.rtsbuilding.guide.settings.sensitivity.title", "screen.rtsbuilding.guide.settings.sensitivity.1", "screen.rtsbuilding.guide.settings.sensitivity.2"),
+                    topic(GuideTypes.GuideIcon.GRID, "screen.rtsbuilding.guide.settings.ui_scale.title", "screen.rtsbuilding.guide.settings.ui_scale.1", "screen.rtsbuilding.guide.settings.ui_scale.2"),
+                    topic(GuideTypes.GuideIcon.TOGGLE, "screen.rtsbuilding.guide.settings.autostore.title", "screen.rtsbuilding.guide.settings.autostore.1", "screen.rtsbuilding.guide.settings.autostore.2"),
+                    topic(GuideTypes.GuideIcon.TOGGLE, "screen.rtsbuilding.guide.settings.placed_recovery.title", "screen.rtsbuilding.guide.settings.placed_recovery.1", "screen.rtsbuilding.guide.settings.placed_recovery.2"),
+                    topic(GuideTypes.GuideIcon.GEAR, "screen.rtsbuilding.guide.settings.config.title", "screen.rtsbuilding.guide.settings.config.1", "screen.rtsbuilding.guide.settings.config.2")
             };
-            default -> new GuideTopic[]{
-                    topic(GuideIcon.HAND, "screen.rtsbuilding.guide.top.interact.title", "screen.rtsbuilding.guide.top.interact.1", "screen.rtsbuilding.guide.top.interact.2", "screen.rtsbuilding.guide.top.interact.3", "screen.rtsbuilding.guide.top.interact.4"),
-                    topic(GuideIcon.GRID, "screen.rtsbuilding.guide.top.camera.title", "screen.rtsbuilding.guide.top.camera.1", "screen.rtsbuilding.guide.top.camera.2", "screen.rtsbuilding.guide.top.camera.3", "screen.rtsbuilding.guide.top.camera.4"),
-                    topic(GuideIcon.LINK, "screen.rtsbuilding.guide.top.link.title", "screen.rtsbuilding.guide.top.link.1", "screen.rtsbuilding.guide.top.link.2"),
-                    topic(GuideIcon.FUNNEL, "screen.rtsbuilding.guide.top.funnel.title", "screen.rtsbuilding.guide.top.funnel.1", "screen.rtsbuilding.guide.top.funnel.2"),
-                    topic(GuideIcon.ROTATE, "screen.rtsbuilding.guide.top.rotate.title", "screen.rtsbuilding.guide.top.rotate.1"),
-                    topic(GuideIcon.BUILD, "screen.rtsbuilding.guide.top.build.title", "screen.rtsbuilding.guide.top.build.1", "screen.rtsbuilding.guide.top.build.2", "screen.rtsbuilding.guide.top.build.3"),
-                    topic(GuideIcon.PICKAXE, "screen.rtsbuilding.guide.top.ultimine.title", "screen.rtsbuilding.guide.top.ultimine.1", "screen.rtsbuilding.guide.top.ultimine.2"),
-                    topic(GuideIcon.GRID, "screen.rtsbuilding.guide.top.chunk.title", "screen.rtsbuilding.guide.top.chunk.1")
+            default -> new GuideTypes.GuideTopic[]{
+                    topic(GuideTypes.GuideIcon.HAND, "screen.rtsbuilding.guide.top.interact.title", "screen.rtsbuilding.guide.top.interact.1", "screen.rtsbuilding.guide.top.interact.2", "screen.rtsbuilding.guide.top.interact.3", "screen.rtsbuilding.guide.top.interact.4"),
+                    topic(GuideTypes.GuideIcon.GRID, "screen.rtsbuilding.guide.top.camera.title", "screen.rtsbuilding.guide.top.camera.1", "screen.rtsbuilding.guide.top.camera.2", "screen.rtsbuilding.guide.top.camera.3", "screen.rtsbuilding.guide.top.camera.4"),
+                    topic(GuideTypes.GuideIcon.LINK, "screen.rtsbuilding.guide.top.link.title", "screen.rtsbuilding.guide.top.link.1", "screen.rtsbuilding.guide.top.link.2"),
+                    topic(GuideTypes.GuideIcon.FUNNEL, "screen.rtsbuilding.guide.top.funnel.title", "screen.rtsbuilding.guide.top.funnel.1", "screen.rtsbuilding.guide.top.funnel.2"),
+                    topic(GuideTypes.GuideIcon.ROTATE, "screen.rtsbuilding.guide.top.rotate.title", "screen.rtsbuilding.guide.top.rotate.1"),
+                    topic(GuideTypes.GuideIcon.BUILD, "screen.rtsbuilding.guide.top.build.title", "screen.rtsbuilding.guide.top.build.1", "screen.rtsbuilding.guide.top.build.2", "screen.rtsbuilding.guide.top.build.3"),
+                    topic(GuideTypes.GuideIcon.PICKAXE, "screen.rtsbuilding.guide.top.ultimine.title", "screen.rtsbuilding.guide.top.ultimine.1", "screen.rtsbuilding.guide.top.ultimine.2"),
+                    topic(GuideTypes.GuideIcon.GRID, "screen.rtsbuilding.guide.top.chunk.title", "screen.rtsbuilding.guide.top.chunk.1")
             };
         };
     }
 
-    private static GuideTopic topic(GuideIcon icon, String titleKey, String... lineKeys) {
-        return new GuideTopic(icon, titleKey, lineKeys);
+    private static GuideTypes.GuideTopic topic(GuideTypes.GuideIcon icon, String titleKey, String... lineKeys) {
+        return new GuideTypes.GuideTopic(icon, titleKey, lineKeys);
     }
 
     private int getPageCount() {
         return topics().length;
     }
 
-    private GuidePanelRect panelRect() {
+    private GuideTypes.GuidePanelRect panelRect() {
         int panelW = Math.min(330, Math.max(250, screen.width - 28));
         int panelH = Math.min(178, Math.max(138, screen.height - 90));
         int x;
         int y;
-        if (this.context == GuideContext.BOTTOM) {
+        if (this.context == GuideTypes.GuideContext.BOTTOM) {
             if (hasAnchor()) {
                 x = clampPanelX(this.anchorX - panelW + 20, panelW);
                 y = clampPanelY(this.anchorY - panelH - 8, panelH);
@@ -307,7 +306,7 @@ public final class GuidePanel {
                 x = Math.max(8, screen.width - panelW - 8);
                 y = Math.max(TOP_H + 6, getBottomY() - panelH - 6);
             }
-        } else if (this.context == GuideContext.SETTINGS) {
+        } else if (this.context == GuideTypes.GuideContext.SETTINGS) {
             int settingsW = Math.min(300, screen.width - 24);
             int settingsX = (screen.width - settingsW) / 2;
             int settingsY = (screen.height - GEAR_MENU_H) / 2;
@@ -336,7 +335,7 @@ public final class GuidePanel {
                 y = TOP_H + 6;
             }
         }
-        return new GuidePanelRect(x, y, panelW, panelH);
+        return new GuideTypes.GuidePanelRect(x, y, panelW, panelH);
     }
 
     private int getBottomY() {
@@ -357,8 +356,8 @@ public final class GuidePanel {
     }
 
     private int resolveTopicClick(double mouseX, double mouseY) {
-        GuidePanelRect rect = panelRect();
-        GuideTopic[] topics = topics();
+        GuideTypes.GuidePanelRect rect = panelRect();
+        GuideTypes.GuideTopic[] topics = topics();
         int tabX = rect.x() + 8;
         int tabY = rect.y() + 30;
         int tabW = topicTabWidth();
@@ -373,16 +372,16 @@ public final class GuidePanel {
     }
 
     private int topicTabWidth() {
-        return this.context == GuideContext.BOTTOM ? 92 : 20;
+        return this.context == GuideTypes.GuideContext.BOTTOM ? 92 : 20;
     }
 
     private boolean isInsidePanel(double mouseX, double mouseY) {
-        GuidePanelRect rect = panelRect();
+        GuideTypes.GuidePanelRect rect = panelRect();
         return inside(mouseX, mouseY, rect.x(), rect.y(), rect.w(), rect.h());
     }
 
     private boolean isInsideClose(double mouseX, double mouseY) {
-        GuidePanelRect rect = panelRect();
+        GuideTypes.GuidePanelRect rect = panelRect();
         int closeX = rect.x() + rect.w() - 20;
         return inside(mouseX, mouseY, closeX, rect.y() + 8, 12, 12);
     }
@@ -415,7 +414,7 @@ public final class GuidePanel {
         return Math.max(1, textAreaHeight(panelH) / 12);
     }
 
-    private List<FormattedCharSequence> collectTextLines(GuideTopic topic, int maxTextW) {
+    private List<FormattedCharSequence> collectTextLines(GuideTypes.GuideTopic topic, int maxTextW) {
         List<FormattedCharSequence> lines = new ArrayList<>();
         for (String key : topic.lineKeys()) {
             lines.addAll(screen.font().split(Component.translatable(key), maxTextW));
@@ -441,7 +440,7 @@ public final class GuidePanel {
         g.enableScissor(x1, y1, x2, y2);
     }
 
-    private void drawTopicIcon(GuiGraphics g, GuideIcon icon, int cx, int cy, int color) {
+    private void drawTopicIcon(GuiGraphics g, GuideTypes.GuideIcon icon, int cx, int cy, int color) {
         switch (icon) {
             case HAND -> drawGuideTextureIcon(g, TOPBAR_INTERACT_ACTIVE, cx, cy);
             case LINK -> drawGuideTextureIcon(g, TOPBAR_LINK_ACTIVE, cx, cy);
@@ -502,7 +501,7 @@ public final class GuidePanel {
                 g.fill(cx - 8, cy - 4, cx + 8, cy + 4, color);
                 g.fill(cx + 1, cy - 7, cx + 7, cy + 7, 0xFF1B222C);
             }
-            case GEAR -> TopBarIconRenderer.drawGearIcon(g, cx, cy, color);
+            case GEAR -> TopBarIconRenderer.renderIcon(TopBarTypes.TopBarButtonId.GEAR, g, cx, cy, color, false, null);
         }
     }
 

@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.QuickBuildPanelLayout;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,7 +27,7 @@ public final class QuickBuildPanel {
     }
 
     public void render(GuiGraphics g, int mouseX, int mouseY) {
-        QuickBuildPanelLayout layout = resolveLayout();
+        PanelLayouts.QuickBuildPanelLayout layout = resolveLayout();
         if (layout == null) {
             return;
         }
@@ -62,10 +62,10 @@ public final class QuickBuildPanel {
 
         int rightX = x + 88;
         g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.fill"), rightX, shapeTitleY, 0xD8E3EE);
-        List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
+        List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
         for (int i = 0; i < modes.size(); i++) {
             int rowY = y + 42 + (i * 20);
-            ShapeFillMode mode = modes.get(i);
+            ShapeBuildTypes.ShapeFillMode mode = modes.get(i);
             boolean selected = screen.getShapeFillMode() == mode;
             boolean hover = inside(mouseX, mouseY, rightX, rowY, 84, 16);
             int bg = selected ? 0xAA2D6B47 : (hover ? 0xAA243547 : 0xAA1C232D);
@@ -94,7 +94,7 @@ public final class QuickBuildPanel {
     }
 
     public boolean handleClick(double mouseX, double mouseY) {
-        QuickBuildPanelLayout layout = resolveLayout();
+        PanelLayouts.QuickBuildPanelLayout layout = resolveLayout();
         if (layout == null || !layout.contains(mouseX, mouseY)) {
             return false;
         }
@@ -123,7 +123,7 @@ public final class QuickBuildPanel {
         }
 
         int rightX = x + 88;
-        List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
+        List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
         for (int i = 0; i < modes.size(); i++) {
             int rowY = y + 42 + (i * 20);
             if (inside(mouseX, mouseY, rightX, rowY, 84, 16)) {
@@ -157,7 +157,7 @@ public final class QuickBuildPanel {
         this.quickBuildOpen = !this.quickBuildOpen;
     }
 
-    public QuickBuildPanelLayout resolveLayout() {
+    public PanelLayouts.QuickBuildPanelLayout resolveLayout() {
         if (!this.quickBuildOpen || !screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
             return null;
         }
@@ -169,7 +169,7 @@ public final class QuickBuildPanel {
         int panelH = Math.min(QUICK_BUILD_PANEL_H, availableH);
         int maxX = Math.max(4, screen.width - QUICK_BUILD_PANEL_W - 4);
         int x = Mth.clamp(screen.width - QUICK_BUILD_PANEL_W - 10, 4, maxX);
-        return new QuickBuildPanelLayout(x, y, QUICK_BUILD_PANEL_W, panelH);
+        return new PanelLayouts.QuickBuildPanelLayout(x, y, QUICK_BUILD_PANEL_W, panelH);
     }
 
     private void drawShapeTexture(GuiGraphics g, ClientRtsController.BuildShape shape, String state, int x, int y) {
