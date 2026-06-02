@@ -26,6 +26,9 @@ import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.NameDialogLayout;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.RowActionLayout;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.TopBarLayout;
 
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -62,7 +65,13 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.s
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripNbtExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueBlueprintPath;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueNbtFileName;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.buttonWidth;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.LIST_COLUMN_GAP;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.listCellWidth;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.listColumns;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.maxListScroll;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.nameDialogLayout;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.rowActionLayout;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.topBarLayout;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawButton;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawFrame;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.inside;
@@ -74,7 +83,6 @@ public final class BlueprintPanel {
     private static final int BUTTON_H = 14;
     private static final int SEARCH_H = 14;
     private static final int DETAIL_BUTTON_H = 14;
-    private static final int LIST_COLUMN_GAP = 4;
     private static final List<BlueprintEntry> ENTRIES = new ArrayList<>();
     private static boolean loaded = false;
     private static int selectedIndex = -1;
@@ -115,7 +123,7 @@ public final class BlueprintPanel {
         ensureLoaded();
 
         int buttonY = y;
-        TopBarLayout top = topBarLayout(font, x, w);
+        TopBarLayout top = topBarLayout(font, x, w, captureMode);
         drawButton(g, font, top.folderX(), buttonY, top.folderW(), BUTTON_H, text("screen.rtsbuilding.blueprints.open_folder_short"),
                 inside(mouseX, mouseY, top.folderX(), buttonY, top.folderW(), BUTTON_H));
         drawButton(g, font, top.importX(), buttonY, top.importW(), BUTTON_H, text("screen.rtsbuilding.blueprints.import_file_short"),
@@ -156,7 +164,7 @@ public final class BlueprintPanel {
             return true;
         }
         ensureLoaded();
-        TopBarLayout top = topBarLayout(Minecraft.getInstance().font, x, w);
+        TopBarLayout top = topBarLayout(Minecraft.getInstance().font, x, w, captureMode);
         if (inside(mouseX, mouseY, top.folderX(), y, top.folderW(), BUTTON_H)) {
             openBlueprintFolder();
             return true;
@@ -243,8 +251,8 @@ public final class BlueprintPanel {
         if (!isNameDialogOpen()) {
             return;
         }
-        NameDialogLayout layout = nameDialogLayout(screenW, screenH);
         boolean capture = nameDialogMode == NameDialogMode.CAPTURE_SAVE;
+        NameDialogLayout layout = nameDialogLayout(screenW, screenH, capture);
         g.fill(0, 0, screenW, screenH, 0x66000000);
         drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
         g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1, layout.y() + 26, 0xD8293440);
@@ -289,7 +297,7 @@ public final class BlueprintPanel {
         if (button != org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return true;
         }
-        NameDialogLayout layout = nameDialogLayout(screenW, screenH);
+        NameDialogLayout layout = nameDialogLayout(screenW, screenH, nameDialogMode == NameDialogMode.CAPTURE_SAVE);
         if (inside(mouseX, mouseY, layout.confirmX(), layout.buttonY(), layout.confirmW(), DETAIL_BUTTON_H)) {
             confirmNameDialog();
             return true;
@@ -2082,87 +2090,6 @@ public final class BlueprintPanel {
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_cleared", "");
     }
 
-    private static int listColumns(int w) {
-        return w >= 320 ? 2 : 1;
-    }
-
-    private static int listCellWidth(int w, int columns) {
-        return Math.max(80, (w - 2 - (columns - 1) * LIST_COLUMN_GAP) / columns);
-    }
-
-    private static int maxListScroll(int entryCount, int columns, int visibleRows) {
-        int rows = Math.max(0, (entryCount + Math.max(1, columns) - 1) / Math.max(1, columns));
-        return Math.max(0, rows - visibleRows);
-    }
-
-    private static RowActionLayout rowActionLayout(Font font, int cellX, int rowY, int cellW) {
-        int gap = 3;
-        int saveW = buttonWidth(font, "screen.rtsbuilding.blueprints.save_as_short", 38, 46);
-        int renameW = buttonWidth(font, "screen.rtsbuilding.blueprints.rename", 38, 48);
-        int deleteW = buttonWidth(font, "screen.rtsbuilding.blueprints.delete", 34, 42);
-        int totalW = saveW + renameW + deleteW + gap * 2;
-        int x = cellX + Math.max(4, cellW - totalW - 4);
-        int buttonY = rowY + 5;
-        return new RowActionLayout(
-                x,
-                saveW,
-                x + saveW + gap,
-                renameW,
-                x + saveW + gap + renameW + gap,
-                deleteW,
-                buttonY);
-    }
-
-    private static NameDialogLayout nameDialogLayout(int screenW, int screenH) {
-        boolean capture = nameDialogMode == NameDialogMode.CAPTURE_SAVE;
-        int w = Math.min(420, Math.max(300, screenW - 48));
-        int h = capture ? 136 : 118;
-        int x = (screenW - w) / 2;
-        int y = Math.max(24, (screenH - h) / 2);
-        int inputX = x + 10;
-        int inputY = y + (capture ? 76 : 62);
-        int inputW = w - 20;
-        int cancelW = 58;
-        int confirmW = 70;
-        int buttonY = y + h - 24;
-        int cancelX = x + w - cancelW - 10;
-        int confirmX = cancelX - confirmW - 6;
-        return new NameDialogLayout(x, y, w, h, inputX, inputY, inputW, confirmX, confirmW, cancelX, cancelW, buttonY);
-    }
-
-    private static TopBarLayout topBarLayout(Font font, int x, int w) {
-        int gap = 4;
-        int folderW = buttonWidth(font, "screen.rtsbuilding.blueprints.open_folder_short", 64, 96);
-        int importW = buttonWidth(font, "screen.rtsbuilding.blueprints.import_file_short", 44, 72);
-        int syncCreateW = buttonWidth(font, "screen.rtsbuilding.blueprints.sync_create_short", 58, 94);
-        int captureW = buttonWidth(font,
-                captureMode ? "screen.rtsbuilding.blueprints.capture_active_short" : "screen.rtsbuilding.blueprints.capture_short",
-                74,
-                112);
-        int actionW = folderW + importW + syncCreateW + captureW + gap * 3;
-        int searchX = x + actionW + 8;
-        int searchW = Math.max(60, x + w - searchX);
-        if (searchW < 80) {
-            folderW = 56;
-            importW = 44;
-            syncCreateW = 58;
-            captureW = 70;
-            actionW = folderW + importW + syncCreateW + captureW + gap * 3;
-            searchX = x + actionW + 6;
-            searchW = Math.max(50, x + w - searchX);
-        }
-        int folderX = x;
-        int importX = folderX + folderW + gap;
-        int syncCreateX = importX + importW + gap;
-        int captureX = syncCreateX + syncCreateW + gap;
-        return new TopBarLayout(folderX, folderW, importX, importW, syncCreateX, syncCreateW, captureX, captureW,
-                searchX, searchW);
-    }
-
-    private static int rowSaveAsWidth(Font font) {
-        return buttonWidth(font, "screen.rtsbuilding.blueprints.save_as_short", 42, 58);
-    }
-
     public record BlueprintGhostBlock(BlockPos pos, BlockState state, boolean missing) {
     }
 
@@ -2176,25 +2103,4 @@ public final class BlueprintPanel {
         RENAME_ENTRY
     }
 
-    private record NameDialogLayout(
-            int x,
-            int y,
-            int w,
-            int h,
-            int inputX,
-            int inputY,
-            int inputW,
-            int confirmX,
-            int confirmW,
-            int cancelX,
-            int cancelW,
-            int buttonY) {
-    }
-
-    private record RowActionLayout(int saveX, int saveW, int renameX, int renameW, int deleteX, int deleteW, int buttonY) {
-    }
-
-    private record TopBarLayout(int folderX, int folderW, int importX, int importW, int syncCreateX, int syncCreateW,
-            int captureX, int captureW, int searchX, int searchW) {
-    }
 }
