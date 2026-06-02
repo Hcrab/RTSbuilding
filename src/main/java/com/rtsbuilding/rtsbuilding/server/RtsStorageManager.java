@@ -130,15 +130,18 @@ public final class RtsStorageManager {
     private static final int FUNNEL_BUFFER_MAX_STACKS = 16;
     private static final int FUNNEL_TICK_INTERVAL = 2;
     private static final int SHIFT_IMPORT_MAX_CRAFT_ITERATIONS = 64;
-    private static final int CRAFTABLE_BATCH_SIZE = 12;
+    // Shared with RtsStorageSession so the extracted state object cannot drift
+    // from the packet/UI limits that RtsStorageManager still owns.
+    static final int CRAFTABLE_BATCH_SIZE = 12;
     private static final int ULTIMINE_MAX_BLOCKS = 256;
     private static final int ULTIMINE_BLOCKS_PER_TICK = 8;
     private static final int RECENT_ENTRY_LIMIT = 24;
     private static final long QUEST_DETECT_COOLDOWN_TICKS = 60L;
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
     private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
-    private static final int QUICK_SLOT_COUNT = 27;
-    private static final int GUI_BINDING_SLOT_COUNT = 8;
+    // Session arrays use these fixed slot counts; all validation remains here.
+    static final int QUICK_SLOT_COUNT = 27;
+    static final int GUI_BINDING_SLOT_COUNT = 8;
     private static final int QUICK_BUILD_BATCH_BLOCKS_PER_TICK = 64;
     private static final int QUICK_BUILD_BATCH_MAX_QUEUED_JOBS = 4;
     private static final int QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS = 3;
@@ -6981,9 +6984,6 @@ public final class RtsStorageManager {
         }
     }
 
-    private record LinkedStorageRef(ResourceKey<Level> dimension, BlockPos pos) {
-    }
-
     private record LinkedHandler(LinkedStorageRef ref, String name, IItemHandler handler, boolean allowStore) {
         private BlockPos pos() {
             return this.ref.pos();
@@ -6994,12 +6994,6 @@ public final class RtsStorageManager {
         private BlockPos pos() {
             return this.ref.pos();
         }
-    }
-
-    private record RecentEntry(String id, long amount, long capacity, byte kind) {
-    }
-
-    private record GuiBinding(BlockPos pos, ResourceKey<Level> dimension, String label, String itemId, Direction face) {
     }
 
     private static final class PreviewCraftingMenu extends AbstractContainerMenu {
@@ -7144,7 +7138,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static final class ToolLease {
+    static final class ToolLease {
         private static final ToolLease EMPTY = new ToolLease(
                 ItemStack.EMPTY,
                 ItemStack.EMPTY,
@@ -7170,7 +7164,7 @@ public final class RtsStorageManager {
             this.sourceDescription = sourceDescription == null ? "unknown" : sourceDescription;
         }
 
-        private static ToolLease empty() {
+        static ToolLease empty() {
             return EMPTY;
         }
 
@@ -7373,7 +7367,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static final class PlaceBatchJob {
+    static final class PlaceBatchJob {
         private final List<BlockPos> clickedPositions;
         private final Direction face;
         private final byte rotateSteps;
@@ -7458,56 +7452,13 @@ public final class RtsStorageManager {
         }
     }
 
-    private static final class Session {
-        private BuilderMode mode = BuilderMode.INTERACT;
-        private final List<LinkedStorageRef> linkedStorages = new ArrayList<>();
-        private final Map<LinkedStorageRef, String> linkedNames = new HashMap<>();
-        private final Map<LinkedStorageRef, Byte> linkedModes = new HashMap<>();
-        private int page;
-        private String search = "";
-        private String category = "all";
-        private RtsStorageSort sort = RtsStorageSort.QUANTITY;
-        private boolean ascending = false;
-        private boolean pinyinSearchEnabled;
-        private final Set<String> localizedSearchMatches = new HashSet<>();
-        private String craftSearch = "";
-        private boolean craftShowUnavailable;
-        private int craftRequestedCount = CRAFTABLE_BATCH_SIZE;
-        private boolean craftPinyinSearchEnabled;
-        private final Set<String> craftLocalizedSearchMatches = new HashSet<>();
-        private boolean autoStoreMinedDrops = true;
-        private final Map<String, Long> internalFluidMb = new HashMap<>();
-        private boolean funnelEnabled;
-        private BlockPos funnelTarget;
-        private int funnelTickCooldown;
-        private final List<ItemStack> funnelBuffer = new ArrayList<>();
-        private BlockPos miningPos;
-        private int remoteMenuContainerId = -1;
-        private BlockPos remoteMenuPos;
-        private final Deque<BlockPos> ultimineTargets = new ArrayDeque<>();
-        private BlockPos ultimineProgressPos;
-        private int ultimineTotalTargets;
-        private int ultimineProcessedTargets;
-        private boolean ultimineAbsorbedDrops;
-        private Direction miningFace = Direction.DOWN;
-        private int miningToolSlot;
-        private ToolLease miningToolLease = ToolLease.empty();
-        private float miningProgress;
-        private int miningStage = -1;
-        private long nextQuestDetectTick;
-        private int quickBuildSoundPlacedCount;
-        private long quickBuildCompletionSoundTick = -1L;
-        private long lastQuickBuildPlaceSoundTick = Long.MIN_VALUE;
-        private double quickBuildSoundX;
-        private double quickBuildSoundY;
-        private double quickBuildSoundZ;
-        private final Deque<PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
-        private final Deque<RecentEntry> recentEntries = new ArrayDeque<>();
-        private final String[] quickSlotItemIds = new String[QUICK_SLOT_COUNT];
-        private final GuiBinding[] guiBindings = new GuiBinding[GUI_BINDING_SLOT_COUNT];
-
+    // Keep the old nested name as the local owner handle while the state fields
+    // live in RtsStorageSession. This makes the first split behavior-neutral:
+    // call sites still ask RtsStorageManager for a Session, and later PRs can
+    // move persistence, linked-handler lookup, or mining state one boundary at a time.
+    private static final class Session extends RtsStorageSession {
         private Session() {
-            Arrays.fill(this.quickSlotItemIds, "");
+            super();
         }
     }
 }
