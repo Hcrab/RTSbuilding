@@ -14,10 +14,10 @@ $Repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $ForgeWork = Join-Path $Repo $ForgeWorktree
 
 function Invoke-Git {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-    & git -C $Repo @Args
+    param([Parameter(Mandatory = $true)][string[]]$GitArgs)
+    & git -C $Repo @GitArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "git $($Args -join ' ') failed with exit code $LASTEXITCODE"
+        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -53,7 +53,7 @@ function Sync-ForgeWorktree {
     New-Item -ItemType Directory -Force -Path $export | Out-Null
 
     try {
-        Invoke-Git archive --format=tar -o $archive $Branch
+        Invoke-Git -GitArgs @("archive", "--format=tar", "-o", $archive, $Branch)
         & tar -xf $archive -C $export
         if ($LASTEXITCODE -ne 0) {
             throw "tar extraction failed with exit code $LASTEXITCODE"
@@ -91,7 +91,7 @@ function Sync-ForgeWorktree {
 function Test-ForgeWorktreeMatches {
     param([string]$Branch)
 
-    $branchFiles = @(Invoke-Git ls-tree -r --name-only $Branch)
+    $branchFiles = @(Invoke-Git -GitArgs @("ls-tree", "-r", "--name-only", $Branch))
     $missing = 0
     $different = 0
     foreach ($file in $branchFiles) {
@@ -100,8 +100,8 @@ function Test-ForgeWorktreeMatches {
             $missing++
             continue
         }
-        $want = (Invoke-Git rev-parse "$Branch`:$file").Trim()
-        $have = (Invoke-Git hash-object -- $path).Trim()
+        $want = (Invoke-Git -GitArgs @("rev-parse", "$Branch`:$file")).Trim()
+        $have = (Invoke-Git -GitArgs @("hash-object", "--", $path)).Trim()
         if ($want -ne $have) {
             $different++
         }
@@ -130,7 +130,7 @@ function Test-ForgeWorktreeMatches {
 }
 
 Write-Host "Fetching $Remote/$MainBranch and $Remote/$ForgeBranch..."
-Invoke-Git fetch $Remote $MainBranch $ForgeBranch
+Invoke-Git -GitArgs @("fetch", $Remote, $MainBranch, $ForgeBranch)
 
 $dirty = (& git -C $Repo status --porcelain)
 if ($dirty) {
@@ -139,18 +139,18 @@ if ($dirty) {
     }
     $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Host "Stashing local working tree changes before sync..."
-    Invoke-Git stash push -u -m "pre-sync pull.ps1 $stamp"
+    Invoke-Git -GitArgs @("stash", "push", "-u", "-m", "pre-sync pull.ps1 $stamp")
 }
 
 Write-Host "Syncing root worktree to $Remote/$MainBranch..."
-Invoke-Git switch $MainBranch
-Invoke-Git reset --hard "$Remote/$MainBranch"
-Invoke-Git branch -f $ForgeBranch "$Remote/$ForgeBranch"
+Invoke-Git -GitArgs @("switch", $MainBranch)
+Invoke-Git -GitArgs @("reset", "--hard", "$Remote/$MainBranch")
+Invoke-Git -GitArgs @("branch", "-f", $ForgeBranch, "$Remote/$ForgeBranch")
 
 Write-Host "Mirroring $ForgeBranch into $ForgeWorktree..."
 Sync-ForgeWorktree -Branch $ForgeBranch
 Test-ForgeWorktreeMatches -Branch $ForgeBranch
 
 Write-Host "Done."
-Write-Host "main:  $(Invoke-Git rev-parse HEAD)"
-Write-Host "forge: $(Invoke-Git rev-parse $ForgeBranch)"
+Write-Host "main:  $(Invoke-Git -GitArgs @("rev-parse", "HEAD"))"
+Write-Host "forge: $(Invoke-Git -GitArgs @("rev-parse", $ForgeBranch))"

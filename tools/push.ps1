@@ -14,10 +14,10 @@ $Repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $ForgeWork = Join-Path $Repo $ForgeWorktree
 
 function Invoke-Git {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-    & git -C $Repo @Args
+    param([Parameter(Mandatory = $true)][string[]]$GitArgs)
+    & git -C $Repo @GitArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "git $($Args -join ' ') failed with exit code $LASTEXITCODE"
+        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -28,7 +28,7 @@ function Test-ForgeWorktreeMatches {
         throw "Forge worktree not found: $ForgeWork"
     }
 
-    $branchFiles = @(Invoke-Git ls-tree -r --name-only $Branch)
+    $branchFiles = @(Invoke-Git -GitArgs @("ls-tree", "-r", "--name-only", $Branch))
     $missing = 0
     $different = 0
     foreach ($file in $branchFiles) {
@@ -37,8 +37,8 @@ function Test-ForgeWorktreeMatches {
             $missing++
             continue
         }
-        $want = (Invoke-Git rev-parse "$Branch`:$file").Trim()
-        $have = (Invoke-Git hash-object -- $path).Trim()
+        $want = (Invoke-Git -GitArgs @("rev-parse", "$Branch`:$file")).Trim()
+        $have = (Invoke-Git -GitArgs @("hash-object", "--", $path)).Trim()
         if ($want -ne $have) {
             $different++
         }
@@ -72,16 +72,16 @@ if ($dirty) {
 }
 
 Write-Host "Fetching remote branch tips..."
-Invoke-Git fetch $Remote $MainBranch $ForgeBranch
+Invoke-Git -GitArgs @("fetch", $Remote, $MainBranch, $ForgeBranch)
 
 Write-Host "Verifying Forge sister worktree mirrors local $ForgeBranch..."
 Test-ForgeWorktreeMatches -Branch $ForgeBranch
 
 Write-Host "Pushing long-lived branches..."
-Invoke-Git push $Remote "$MainBranch`:$MainBranch" "$ForgeBranch`:$ForgeBranch"
+Invoke-Git -GitArgs @("push", $Remote, "$MainBranch`:$MainBranch", "$ForgeBranch`:$ForgeBranch")
 
 if ($DeleteCodexBranches) {
-    $refs = @(Invoke-Git ls-remote --heads $Remote "codex/*")
+    $refs = @(Invoke-Git -GitArgs @("ls-remote", "--heads", $Remote, "codex/*"))
     $branches = @()
     foreach ($line in $refs) {
         if ($line -match "refs/heads/(codex/.+)$") {
@@ -90,10 +90,10 @@ if ($DeleteCodexBranches) {
     }
     if ($branches.Count -gt 0) {
         Write-Host "Deleting remote codex branches: $($branches -join ', ')"
-        Invoke-Git push $Remote --delete @branches
+        Invoke-Git -GitArgs (@("push", $Remote, "--delete") + $branches)
     }
 }
 
 Write-Host "Done."
-Write-Host "main:  $(Invoke-Git rev-parse $MainBranch)"
-Write-Host "forge: $(Invoke-Git rev-parse $ForgeBranch)"
+Write-Host "main:  $(Invoke-Git -GitArgs @("rev-parse", $MainBranch))"
+Write-Host "forge: $(Invoke-Git -GitArgs @("rev-parse", $ForgeBranch))"
