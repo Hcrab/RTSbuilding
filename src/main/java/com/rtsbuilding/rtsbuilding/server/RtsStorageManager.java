@@ -6414,46 +6414,18 @@ public final class RtsStorageManager {
                 && sanitizeLinkMode(session.linkedModes.getOrDefault(ref, LINK_MODE_BIDIRECTIONAL)) == LINK_MODE_EXTRACT_ONLY;
     }
 
+    // Thin wrappers keep existing manager call sites stable for this small
+    // extraction; the later page-builder split can remove them.
     private static List<String> buildQuickSlotPayload(Session session) {
-        List<String> quickSlotItemIds = new ArrayList<>(QUICK_SLOT_COUNT);
-        if (session == null) {
-            for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-                quickSlotItemIds.add("");
-            }
-            return quickSlotItemIds;
-        }
-        for (String quickSlotItemId : session.quickSlotItemIds) {
-            quickSlotItemIds.add(quickSlotItemId == null ? "" : quickSlotItemId);
-        }
-        return quickSlotItemIds;
+        return RtsStorageUiPayloads.buildQuickSlotPayload(session, QUICK_SLOT_COUNT);
     }
 
     private static List<String> buildGuiBindingLabelPayload(Session session) {
-        List<String> guiBindingLabels = new ArrayList<>(GUI_BINDING_SLOT_COUNT);
-        if (session == null) {
-            for (int i = 0; i < GUI_BINDING_SLOT_COUNT; i++) {
-                guiBindingLabels.add("");
-            }
-            return guiBindingLabels;
-        }
-        for (GuiBinding guiBinding : session.guiBindings) {
-            guiBindingLabels.add(guiBinding == null || guiBinding.label() == null ? "" : guiBinding.label());
-        }
-        return guiBindingLabels;
+        return RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, GUI_BINDING_SLOT_COUNT);
     }
 
     private static List<String> buildGuiBindingItemIdPayload(Session session) {
-        List<String> guiBindingItemIds = new ArrayList<>(GUI_BINDING_SLOT_COUNT);
-        if (session == null) {
-            for (int i = 0; i < GUI_BINDING_SLOT_COUNT; i++) {
-                guiBindingItemIds.add("");
-            }
-            return guiBindingItemIds;
-        }
-        for (GuiBinding guiBinding : session.guiBindings) {
-            guiBindingItemIds.add(guiBinding == null || guiBinding.itemId() == null ? "" : guiBinding.itemId());
-        }
-        return guiBindingItemIds;
+        return RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, GUI_BINDING_SLOT_COUNT);
     }
 
     private static List<Long> toPackedPositions(ServerPlayer player, List<LinkedStorageRef> refs) {
