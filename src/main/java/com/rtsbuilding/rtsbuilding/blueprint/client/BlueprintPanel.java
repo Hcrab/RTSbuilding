@@ -1,19 +1,15 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
 import org.lwjgl.PointerBuffer;
@@ -54,7 +50,6 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInsp
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintFolder;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.createSchematicsFolder;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.defaultsPath;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.ensureExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.isBlueprintFile;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.sanitizeFileBase;
@@ -97,8 +92,6 @@ public final class BlueprintPanel {
     private static BlockPos captureHoverPoint = null;
     private static BlueprintCaptureSaveJob captureSaveJob = null;
     private static final Set<BlockPos> captureExcludedBlocks = new HashSet<>();
-    private static boolean defaultsLoaded = false;
-    private static final Map<String, RotationPreset> DEFAULT_ROTATIONS = new HashMap<>();
     private static String search = "";
     private static Component statusText = Component.translatable("screen.rtsbuilding.blueprints.status.ready");
     private static int statusColor = 0xFFB8C7D6;
@@ -1201,17 +1194,22 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
         }
-        rememberCurrentRotationAsDefault();
-        setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
+        if (rememberCurrentRotationAsDefault()) {
+            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
+        }
     }
 
-    private static void rememberCurrentRotationAsDefault() {
+    private static boolean rememberCurrentRotationAsDefault() {
         BlueprintEntry entry = selectedEntry();
         if (entry == null || !entry.error().isBlank()) {
-            return;
+            return false;
         }
-        DEFAULT_ROTATIONS.put(entry.fileName(), new RotationPreset(yRotationSteps, xRotationSteps, zRotationSteps));
-        saveDefaultRotations();
+        IOException ex = BlueprintRotationDefaults.remember(entry.fileName(), yRotationSteps, xRotationSteps, zRotationSteps);
+        if (ex != null) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.save_failed", ex.getMessage());
+            return false;
+        }
+        return true;
     }
 
     private static boolean nudgePinnedAnchor(int dx, int dy, int dz, ClientRtsController controller) {
@@ -1583,12 +1581,12 @@ public final class BlueprintPanel {
         if (!loaded) {
             reload();
         }
-        ensureDefaultRotationsLoaded();
+        BlueprintRotationDefaults.ensureLoaded();
     }
 
     public static void reload() {
         loaded = true;
-        ensureDefaultRotationsLoaded();
+        BlueprintRotationDefaults.ensureLoaded();
         ENTRIES.clear();
         selectedIndex = -1;
         scroll = 0;
@@ -1610,52 +1608,6 @@ public final class BlueprintPanel {
         }
     }
 
-    private static void ensureDefaultRotationsLoaded() {
-        if (defaultsLoaded) {
-            return;
-        }
-        defaultsLoaded = true;
-        DEFAULT_ROTATIONS.clear();
-        Path path = defaultsPath();
-        if (!Files.isRegularFile(path)) {
-            return;
-        }
-        Properties properties = new Properties();
-        try (InputStream stream = Files.newInputStream(path)) {
-            properties.load(stream);
-            for (String key : properties.stringPropertyNames()) {
-                if (!key.endsWith(".y")) {
-                    continue;
-                }
-                String fileName = key.substring(0, key.length() - 2);
-                int y = parseInt(properties.getProperty(fileName + ".y"), 0);
-                int x = parseInt(properties.getProperty(fileName + ".x"), 0);
-                int z = parseInt(properties.getProperty(fileName + ".z"), 0);
-                DEFAULT_ROTATIONS.put(fileName, new RotationPreset(y, x, z));
-            }
-        } catch (IOException ignored) {
-            // Rotation presets are a convenience cache; bad local metadata should not break the panel.
-        }
-    }
-
-    private static void saveDefaultRotations() {
-        Properties properties = new Properties();
-        for (Map.Entry<String, RotationPreset> entry : DEFAULT_ROTATIONS.entrySet()) {
-            RotationPreset rotation = entry.getValue();
-            properties.setProperty(entry.getKey() + ".y", Integer.toString(BlueprintTransform.normalizeSteps(rotation.y())));
-            properties.setProperty(entry.getKey() + ".x", Integer.toString(BlueprintTransform.normalizeSteps(rotation.x())));
-            properties.setProperty(entry.getKey() + ".z", Integer.toString(BlueprintTransform.normalizeSteps(rotation.z())));
-        }
-        try {
-            Files.createDirectories(blueprintFolder());
-            try (OutputStream stream = Files.newOutputStream(defaultsPath())) {
-                properties.store(stream, "RTSBuilding blueprint rotation defaults");
-            }
-        } catch (IOException ex) {
-            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.save_failed", ex.getMessage());
-        }
-    }
-
     private static void applyDefaultRotation(BlueprintEntry entry) {
         if (entry == null) {
             yRotationSteps = 0;
@@ -1663,8 +1615,7 @@ public final class BlueprintPanel {
             zRotationSteps = 0;
             return;
         }
-        ensureDefaultRotationsLoaded();
-        RotationPreset preset = DEFAULT_ROTATIONS.get(entry.fileName());
+        RotationPreset preset = BlueprintRotationDefaults.rotationFor(entry.fileName());
         yRotationSteps = preset == null ? 0 : BlueprintTransform.normalizeSteps(preset.y());
         xRotationSteps = preset == null ? 0 : BlueprintTransform.normalizeSteps(preset.x());
         zRotationSteps = preset == null ? 0 : BlueprintTransform.normalizeSteps(preset.z());
@@ -1862,15 +1813,16 @@ public final class BlueprintPanel {
                 return;
             }
             Files.move(source, dest);
-            RotationPreset preset = DEFAULT_ROTATIONS.remove(entry.fileName());
-            if (preset != null) {
-                DEFAULT_ROTATIONS.put(dest.getFileName().toString(), preset);
-                saveDefaultRotations();
-            }
+            IOException rotationError = BlueprintRotationDefaults.rename(entry.fileName(), dest.getFileName().toString());
             reload();
             selectByFileName(dest.getFileName().toString());
-            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.renamed",
-                    dest.getFileName().toString());
+            if (rotationError == null) {
+                setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.renamed",
+                        dest.getFileName().toString());
+            } else {
+                setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.save_failed",
+                        rotationError.getMessage());
+            }
         } catch (Exception ex) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.rename_failed", ex.getMessage());
         }
@@ -1896,15 +1848,19 @@ public final class BlueprintPanel {
             if (source != null) {
                 Files.deleteIfExists(source);
             }
-            DEFAULT_ROTATIONS.remove(entry.fileName());
-            saveDefaultRotations();
+            IOException rotationError = BlueprintRotationDefaults.remove(entry.fileName());
             if (selectedEntry() == entry) {
                 selectedIndex = -1;
                 pinnedAnchor = null;
                 materialDialogOpen = false;
             }
             reload();
-            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.deleted", entry.name());
+            if (rotationError == null) {
+                setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.deleted", entry.name());
+            } else {
+                setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.save_failed",
+                        rotationError.getMessage());
+            }
         } catch (Exception ex) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.delete_failed", ex.getMessage());
         }
@@ -2081,14 +2037,6 @@ public final class BlueprintPanel {
 
     private static BlueprintEntry selectedEntry() {
         return selectedIndex >= 0 && selectedIndex < ENTRIES.size() ? ENTRIES.get(selectedIndex) : null;
-    }
-
-    private static int parseInt(String raw, int fallback) {
-        try {
-            return BlueprintTransform.normalizeSteps(Integer.parseInt(raw));
-        } catch (Exception ignored) {
-            return fallback;
-        }
     }
 
     private static String shortPos(BlockPos pos) {
@@ -2304,9 +2252,6 @@ public final class BlueprintPanel {
             int cancelX,
             int cancelW,
             int buttonY) {
-    }
-
-    private record RotationPreset(int y, int x, int z) {
     }
 
     private record RowActionLayout(int saveX, int saveW, int renameX, int renameW, int deleteX, int deleteW, int buttonY) {
