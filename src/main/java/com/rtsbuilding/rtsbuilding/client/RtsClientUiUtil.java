@@ -5,7 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 
 final class RtsClientUiUtil {
     private static final float SLOT_COUNT_SCALE = 0.65F;
-    private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE / 2L;
+    private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE;
 
     private RtsClientUiUtil() {
     }

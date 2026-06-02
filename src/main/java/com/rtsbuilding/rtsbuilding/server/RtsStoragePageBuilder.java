@@ -47,12 +47,13 @@ import net.minecraftforge.items.IItemHandler;
  * before this extraction.
  */
 final class RtsStoragePageBuilder {
-    private static final int PAGE_SIZE = 90;
+    static final int DEFAULT_PAGE_SIZE = 90;
+    private static final int MAX_PAGE_SIZE = 180;
     private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
     private static final String CATEGORY_TAB_PREFIX = "tab|";
-    private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE / 2L;
+    private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE;
 
     private static final Map<String, Set<String>> ITEM_CREATIVE_TAB_CACHE = new ConcurrentHashMap<>();
     private static final Set<String> BROKEN_CREATIVE_TAB_CACHE = ConcurrentHashMap.newKeySet();
@@ -66,6 +67,7 @@ final class RtsStoragePageBuilder {
             ServerPlayer player,
             RtsStorageSession session,
             int requestedPage,
+            int requestedPageSize,
             List<LinkedHandler> activeHandlers,
             List<LinkedFluidHandler> activeFluidHandlers) {
         List<LinkedHandler> itemHandlers = activeHandlers == null ? List.of() : activeHandlers;
@@ -249,11 +251,12 @@ final class RtsStoragePageBuilder {
         }
         fluidEntries.sort(fluidComparator);
 
+        int pageSize = sanitizePageSize(requestedPageSize);
         int totalEntries = entries.size();
-        int totalPages = Math.max(1, (int) Math.ceil(totalEntries / (double) PAGE_SIZE));
+        int totalPages = Math.max(1, (totalEntries + pageSize - 1) / pageSize);
         int safePage = Math.max(0, Math.min(requestedPage, totalPages - 1));
-        int from = safePage * PAGE_SIZE;
-        int to = Math.min(from + PAGE_SIZE, totalEntries);
+        int from = safePage * pageSize;
+        int to = Math.min(from + pageSize, totalEntries);
 
         List<ItemStack> itemStacks = new ArrayList<>();
         List<Long> itemCounts = new ArrayList<>();
@@ -328,6 +331,10 @@ final class RtsStoragePageBuilder {
                 session.funnelEnabled,
                 funnelBufferItemIds,
                 funnelBufferCounts), safePage);
+    }
+
+    static int sanitizePageSize(int pageSize) {
+        return Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
     }
 
     private static S2CRtsStoragePagePayload buildEmptyPayload(ServerPlayer player, RtsStorageSession session) {

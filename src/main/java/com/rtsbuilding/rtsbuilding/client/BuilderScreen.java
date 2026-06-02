@@ -1976,7 +1976,7 @@ public final class BuilderScreen extends Screen {
             g.fill(slotX, slotY, slotX + 18, slotY + 18, 0xAA1E222A);
             g.renderItem(entry.stack(), slotX + 1, slotY + 1);
             g.drawString(this.font, trimToWidth(entry.stack().getHoverName().getString(), rowW - 30), rowX + 24, rowY + 3, 0xFFFFFF);
-            g.drawString(this.font, "x" + compactCount(entry.count()), rowX + 24, rowY + 12, 0xFFDFAE);
+            g.drawString(this.font, "x" + RtsClientUiUtil.compactCount(entry.count()), rowX + 24, rowY + 12, 0xFFDFAE);
 
             if (inside(mouseX, mouseY, rowX, rowY, rowW, FUNNEL_BUFFER_ROW_H - 2)) {
                 this.hoveredFunnelBufferEntry = entryIndex;
@@ -3441,7 +3441,7 @@ public final class BuilderScreen extends Screen {
                             cx,
                             cy,
                             HOTBAR_SLOT,
-                            compactCount(count),
+                            RtsClientUiUtil.compactCount(count),
                             count > 0 ? 0xFFF7E6A8 : 0xFFB4B9C3);
                 } else {
                     g.drawCenteredString(this.font, Integer.toString(pinIndex + 1), cx + HOTBAR_SLOT / 2, cy + 5, 0x88D0D8E4);
@@ -3558,6 +3558,7 @@ public final class BuilderScreen extends Screen {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
+        this.controller.updateStoragePageSize(maxSlots);
         List<ClientRtsController.StorageEntry> entries = this.controller.getStorageEntries();
 
         for (int i = 0; i < maxSlots; i++) {
@@ -3578,7 +3579,7 @@ public final class BuilderScreen extends Screen {
                     g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3326C56D);
                 }
                 g.renderItem(entry.stack(), cx + 2, cy + 2);
-                drawSlotCountOverlay(g, cx, cy, box, compactCount(entry.count()), 0xFFF7E6A8);
+                drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
 
                 if (mouseX >= cx && mouseX <= cx + box && mouseY >= cy && mouseY <= cy + box) {
                     this.hoveredEntry = i;
@@ -3694,7 +3695,7 @@ public final class BuilderScreen extends Screen {
                 ClientRtsController.CraftableEntry entry = entries.get(index);
                 g.renderItem(entry.stack(), slotX + 1, slotY + 1);
                 if (entry.resultCount() > 1) {
-                    drawSlotCountOverlay(g, slotX, slotY, CRAFT_PANEL_SLOT, compactCount(entry.resultCount()), 0xFFE8F4FF);
+                    drawSlotCountOverlay(g, slotX, slotY, CRAFT_PANEL_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
                 }
                 if (!entry.craftable()) {
                     g.fill(slotX + 1, slotY + 1, slotX + CRAFT_PANEL_SLOT - 1, slotY + CRAFT_PANEL_SLOT - 1, 0x44220000);
@@ -3766,7 +3767,7 @@ public final class BuilderScreen extends Screen {
                 if (!entry.preview().isEmpty()) {
                     g.renderItem(entry.preview(), cx + 2, cy + 2);
                 }
-                drawSlotCountOverlay(g, cx, cy, box, compactFluidAmount(entry.amount()), 0xFFFCCB8A);
+                drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactFluidAmount(entry.amount()), 0xFFFCCB8A);
 
                 if (mouseX >= cx && mouseX <= cx + box && mouseY >= cy && mouseY <= cy + box) {
                     this.hoveredFluidEntry = i;
@@ -6912,7 +6913,7 @@ public final class BuilderScreen extends Screen {
                 this.controller.isStorageLinked()
                         ? "screen.rtsbuilding.tooltip.count_storage"
                         : "screen.rtsbuilding.tooltip.count_inventory",
-                compactCount(count));
+                RtsClientUiUtil.compactCount(count));
     }
 
     private void renderLeftDockedTooltip(GuiGraphics g, ItemStack stack) {
@@ -7307,20 +7308,12 @@ public final class BuilderScreen extends Screen {
         return sb.toString();
     }
 
-    private static String compactCount(long value) {
-        return RtsClientUiUtil.compactCount(value);
-    }
-
-    private static String compactFluidAmount(long milliBuckets) {
-        return RtsClientUiUtil.compactFluidAmount(milliBuckets);
-    }
-
     private String formatRecentAmount(ClientRtsController.RecentEntry entry) {
         if (entry == null) {
             return "";
         }
         long amount = this.controller.getRecentDisplayAmount(entry);
-        return entry.fluid() ? compactFluidAmount(amount) : compactCount(amount);
+        return entry.fluid() ? RtsClientUiUtil.compactFluidAmount(amount) : RtsClientUiUtil.compactCount(amount);
     }
 
     private void drawSlotCountOverlay(GuiGraphics g, int slotX, int slotY, int box, String countText, int color) {

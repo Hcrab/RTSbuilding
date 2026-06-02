@@ -52,6 +52,7 @@ class RtsStorageSession {
      * the storage contents; they are not authoritative item counts.
      */
     int page;
+    int pageSize = RtsStoragePageBuilder.DEFAULT_PAGE_SIZE;
     String search = "";
     String category = "all";
     RtsStorageSort sort = RtsStorageSort.QUANTITY;

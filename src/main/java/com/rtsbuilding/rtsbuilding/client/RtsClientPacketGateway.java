@@ -118,7 +118,7 @@ final class RtsClientPacketGateway {
                 allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
     }
 
-    static void sendRequestStoragePage(int page, String search, String category, RtsStorageSort sort, boolean ascending) {
+    static void sendRequestStoragePage(int page, String search, String category, RtsStorageSort sort, boolean ascending, int pageSize) {
         boolean pinyinSearchEnabled = isChineseLanguageSelected();
         PacketDistributor.sendToServer(new C2SRtsRequestStoragePagePayload(
                 page,
@@ -126,6 +126,7 @@ final class RtsClientPacketGateway {
                 category,
                 (byte) sort.ordinal(),
                 ascending,
+                pageSize,
                 pinyinSearchEnabled,
                 buildLocalizedSearchMatches(search, pinyinSearchEnabled)));
     }

@@ -16,6 +16,7 @@ public record C2SRtsRequestStoragePagePayload(
         String category,
         byte sort,
         boolean ascending,
+        int pageSize,
         boolean pinyinSearchEnabled,
         List<String> localizedSearchMatches) implements CustomPacketPayload {
     public static final Type<C2SRtsRequestStoragePagePayload> TYPE = new Type<>(
@@ -28,6 +29,7 @@ public record C2SRtsRequestStoragePagePayload(
                 buf.writeUtf(payload.category(), 128);
                 buf.writeByte(payload.sort());
                 buf.writeBoolean(payload.ascending());
+                buf.writeVarInt(payload.pageSize());
                 buf.writeBoolean(payload.pinyinSearchEnabled());
                 writeStringList(buf, payload.localizedSearchMatches());
             },
@@ -37,6 +39,7 @@ public record C2SRtsRequestStoragePagePayload(
                     buf.readUtf(128),
                     buf.readByte(),
                     buf.readBoolean(),
+                    buf.readVarInt(),
                     buf.readBoolean(),
                     readStringList(buf)));
 

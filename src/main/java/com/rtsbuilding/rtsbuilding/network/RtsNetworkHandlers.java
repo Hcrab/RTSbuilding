@@ -135,6 +135,7 @@ public final class RtsNetworkHandlers {
                         payload.category(),
                         RtsStorageSort.byId(payload.sort()),
                         payload.ascending(),
+                        payload.pageSize(),
                         payload.pinyinSearchEnabled(),
                         payload.localizedSearchMatches());
             }

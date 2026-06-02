@@ -78,6 +78,8 @@ import org.lwjgl.glfw.GLFW;
 
 public final class ClientRtsController {
     private static final ClientRtsController INSTANCE = new ClientRtsController();
+    private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
+    private static final int MAX_STORAGE_PAGE_SIZE = 180;
 
     private static final float ROT_INPUT_CLAMP = 20.0F;
     private static final float ROTATE_GAIN_X = 0.24F;
@@ -172,6 +174,7 @@ public final class ClientRtsController {
     private String linkedStorageName = "No Storage";
     private final List<BlockPos> linkedStoragePositions = new ArrayList<>();
     private int storagePage;
+    private int storagePageSize = DEFAULT_STORAGE_PAGE_SIZE;
     private int storageTotalPages = 1;
     private int storageTotalEntries;
     private int storageRevision;
@@ -1359,7 +1362,19 @@ public final class ClientRtsController {
                 this.storageSearch,
                 this.storageCategory,
                 this.storageSort,
-                this.storageSortAscending);
+                this.storageSortAscending,
+                this.storagePageSize);
+    }
+
+    public void updateStoragePageSize(int pageSize) {
+        int safePageSize = Mth.clamp(pageSize, 1, MAX_STORAGE_PAGE_SIZE);
+        if (this.storagePageSize == safePageSize) {
+            return;
+        }
+        this.storagePageSize = safePageSize;
+        if (hasStoragePageSnapshot() && !this.storageScanRunning) {
+            requestStoragePage(this.storagePage);
+        }
     }
 
     public void requestStoragePageIfNoSnapshot(int page) {

@@ -538,6 +538,11 @@ public final class RtsStorageManager {
         return RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches);
     }
 
+    private static int sessionPageSize(ServerPlayer player) {
+        Session session = player == null ? null : SESSIONS.get(player.getUUID());
+        return session == null ? RtsStoragePageBuilder.DEFAULT_PAGE_SIZE : session.pageSize;
+    }
+
     public static void requestPage(ServerPlayer player, int page, String search, String category, RtsStorageSort sort,
             boolean ascending) {
         requestPage(player, page, search, category, sort, ascending, currentPinyinSearchEnabled(player));
@@ -558,6 +563,11 @@ public final class RtsStorageManager {
 
     public static void requestPage(ServerPlayer player, int page, String search, String category, RtsStorageSort sort,
             boolean ascending, boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
+        requestPage(player, page, search, category, sort, ascending, sessionPageSize(player), pinyinSearchEnabled, localizedSearchMatches);
+    }
+
+    public static void requestPage(ServerPlayer player, int page, String search, String category, RtsStorageSort sort,
+            boolean ascending, int pageSize, boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -567,6 +577,7 @@ public final class RtsStorageManager {
         session.category = normalizeCategory(category);
         session.sort = sort == null ? RtsStorageSort.QUANTITY : sort;
         session.ascending = ascending;
+        session.pageSize = RtsStoragePageBuilder.sanitizePageSize(pageSize);
         session.pinyinSearchEnabled = pinyinSearchEnabled;
         session.localizedSearchMatches.clear();
         session.localizedSearchMatches.addAll(sanitizeLocalizedSearchMatches(localizedSearchMatches));
@@ -579,6 +590,7 @@ public final class RtsStorageManager {
                 player,
                 session,
                 page,
+                session.pageSize,
                 activeHandlers,
                 activeFluidHandlers);
         PacketDistributor.sendToPlayer(player, result.payload());
