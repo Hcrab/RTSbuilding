@@ -139,6 +139,9 @@ public final class BuilderScreen extends Screen {
     private static final float RTS_MODAL_LAYER_Z = 400.0F;
     private static final long DAMAGE_FLASH_DURATION_MS = 300L;
     private static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(Items.HOPPER);
+    private static final int LEFT_TOOLTIP_X_OFFSET = 8;
+    private static final int LEFT_TOOLTIP_Y_OFFSET = 24;
+    private static final int LEFT_TOOLTIP_DETAIL_Y_OFFSET = 18;
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
     private static final String CATEGORY_TAB_PREFIX = "tab|";
@@ -1550,7 +1553,7 @@ public final class BuilderScreen extends Screen {
                     && this.hoveredEntry >= 0
                     && this.hoveredEntry < this.controller.getStorageEntries().size()) {
                 var entry = this.controller.getStorageEntries().get(this.hoveredEntry);
-                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
+                renderLeftDockedTooltip(guiGraphics, entry.stack());
             }
 
             if (!placementSelectionActive
@@ -1558,9 +1561,9 @@ public final class BuilderScreen extends Screen {
                     && this.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
                 var entry = this.controller.getRecentEntries().get(this.hoveredRecentEntry);
                 if (!entry.preview().isEmpty()) {
-                    guiGraphics.renderTooltip(this.font, entry.preview(), mouseX, mouseY);
+                    renderLeftDockedTooltip(guiGraphics, entry.preview());
                 } else {
-                    guiGraphics.renderTooltip(this.font, Component.literal(entry.label()), mouseX, mouseY);
+                    renderLeftDockedTooltip(guiGraphics, Component.literal(entry.label()));
                 }
             }
 
@@ -1569,43 +1572,41 @@ public final class BuilderScreen extends Screen {
                     && this.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
                 var fluid = this.controller.getFluidEntries().get(this.hoveredFluidEntry);
                 if (!fluid.preview().isEmpty()) {
-                    guiGraphics.renderTooltip(this.font, fluid.preview(), mouseX, mouseY);
+                    renderLeftDockedTooltip(guiGraphics, fluid.preview());
                 } else {
-                    guiGraphics.renderTooltip(this.font, Component.literal(fluid.label()), mouseX, mouseY);
+                    renderLeftDockedTooltip(guiGraphics, Component.literal(fluid.label()));
                 }
             }
 
             if (this.hoveredCraftableEntry >= 0 && this.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
                 var entry = this.controller.getCraftableEntries().get(this.hoveredCraftableEntry);
-                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
+                renderLeftDockedTooltip(guiGraphics, entry.stack());
                 String detail = entry.craftable()
                         ? text("screen.rtsbuilding.tooltip.craft_choose")
                         : entry.missingSummary();
                 if (detail != null && !detail.isBlank()) {
-                    guiGraphics.drawString(this.font, detail, mouseX + 10, mouseY + 18, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
+                    renderLeftDockedTooltipDetail(guiGraphics, detail, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
                 }
             }
 
             if (this.hoveredFunnelBufferEntry >= 0 && this.hoveredFunnelBufferEntry < this.controller.getFunnelBufferEntries().size()) {
                 var entry = this.controller.getFunnelBufferEntries().get(this.hoveredFunnelBufferEntry);
-                guiGraphics.renderTooltip(this.font, entry.stack(), mouseX, mouseY);
-                guiGraphics.drawString(this.font, text("screen.rtsbuilding.tooltip.buffered", entry.count()), mouseX + 10, mouseY + 18, 0xFFD8B8);
+                renderLeftDockedTooltip(guiGraphics, entry.stack());
+                renderLeftDockedTooltipDetail(guiGraphics, text("screen.rtsbuilding.tooltip.buffered", entry.count()), 0xFFD8B8);
             }
 
             if (this.hoveredGuiBindingSlot >= 0 && this.hoveredGuiBindingSlot < this.controller.getGuiBindingCount()) {
                 String detail = this.controller.hasGuiBinding(this.hoveredGuiBindingSlot)
                         ? this.controller.getGuiBindingLabel(this.hoveredGuiBindingSlot)
                         : text("screen.rtsbuilding.tooltip.gui_empty");
-                guiGraphics.renderTooltip(this.font, Component.literal(detail), mouseX, mouseY);
-                guiGraphics.drawString(
-                        this.font,
+                renderLeftDockedTooltip(guiGraphics, Component.literal(detail));
+                renderLeftDockedTooltipDetail(
+                        guiGraphics,
                         this.pendingGuiBindSlot == this.hoveredGuiBindingSlot
                                 ? text("screen.rtsbuilding.tooltip.gui_cancel_bind")
                                 : (this.controller.hasGuiBinding(this.hoveredGuiBindingSlot)
                                         ? text("screen.rtsbuilding.tooltip.gui_bound")
                                         : text("screen.rtsbuilding.tooltip.gui_unbound")),
-                        mouseX + 10,
-                        mouseY + 18,
                         0xFFCFE3F7);
             }
 
@@ -6900,6 +6901,34 @@ public final class BuilderScreen extends Screen {
                         ? "screen.rtsbuilding.tooltip.count_storage"
                         : "screen.rtsbuilding.tooltip.count_inventory",
                 compactCount(count));
+    }
+
+    private void renderLeftDockedTooltip(GuiGraphics g, ItemStack stack) {
+        int x = leftTooltipAnchorX();
+        int y = leftTooltipAnchorY();
+        g.renderTooltip(this.font, stack, x, y);
+    }
+
+    private void renderLeftDockedTooltip(GuiGraphics g, Component text) {
+        int x = leftTooltipAnchorX();
+        int y = leftTooltipAnchorY();
+        g.renderTooltip(this.font, text, x, y);
+    }
+
+    private void renderLeftDockedTooltipDetail(GuiGraphics g, String detail, int color) {
+        if (detail == null || detail.isBlank()) {
+            return;
+        }
+        g.drawString(this.font, detail, leftTooltipAnchorX() + 10,
+                leftTooltipAnchorY() + LEFT_TOOLTIP_DETAIL_Y_OFFSET, color);
+    }
+
+    private int leftTooltipAnchorX() {
+        return resolveBottomPanelLayout().panelX() + LEFT_TOOLTIP_X_OFFSET;
+    }
+
+    private int leftTooltipAnchorY() {
+        return Math.max(TOP_H + 8, getBottomY() - LEFT_TOOLTIP_Y_OFFSET);
     }
 
     private String selectedItemStatusLabel() {
