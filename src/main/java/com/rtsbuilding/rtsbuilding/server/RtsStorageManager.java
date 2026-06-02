@@ -5582,6 +5582,11 @@ public final class RtsStorageManager {
         player.displayClientMessage(Component.literal(message), true);
     }
 
+    /*
+     * Thin recent-entry wrappers keep the existing crafting, transfer, mining,
+     * and placement call sites stable. Later page-builder or transfer splits
+     * can route callers directly to RtsStorageRecentEntries.
+     */
     public static void recordCraftedOutput(ServerPlayer player, ItemStack crafted) {
         if (player == null || crafted == null || crafted.isEmpty()) {
             return;
@@ -5590,70 +5595,15 @@ public final class RtsStorageManager {
         if (session == null) {
             return;
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(crafted.getItem());
-        if (id == null) {
-            return;
-        }
-        pushRecentEntry(
-                session,
-                new RecentEntry(
-                        id.toString(),
-                        Math.max(1L, crafted.getCount()),
-                        0L,
-                        S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED));
+        RtsStorageRecentEntries.recordCraftedOutput(session, crafted);
     }
 
     private static void recordRecentItem(Session session, String itemId, byte kind, long amount) {
-        if (session == null || itemId == null || itemId.isBlank()) {
-            return;
-        }
-        pushRecentEntry(session, new RecentEntry(itemId, Math.max(1L, amount), 0L, kind));
+        RtsStorageRecentEntries.recordRecentItem(session, itemId, kind, amount);
     }
 
     private static void recordRecentFluid(Session session, String fluidId, byte kind, long amount, long capacity) {
-        if (session == null || fluidId == null || fluidId.isBlank()) {
-            return;
-        }
-        pushRecentEntry(session, new RecentEntry(
-                fluidId,
-                Math.max(1L, amount),
-                Math.max(0L, capacity),
-                kind));
-    }
-
-    private static void pushRecentEntry(Session session, RecentEntry entry) {
-        if (session == null || entry == null || entry.id() == null || entry.id().isBlank()) {
-            return;
-        }
-        RecentEntry merged = entry;
-        for (RecentEntry existing : session.recentEntries) {
-            if (!sameRecentKey(existing, entry)) {
-                continue;
-            }
-            long mergedAmount = Math.max(1L, saturatedAdd(existing.amount(), entry.amount()));
-            long mergedCapacity = Math.max(Math.max(existing.capacity(), entry.capacity()), mergedAmount);
-            merged = new RecentEntry(entry.id(), mergedAmount, mergedCapacity, entry.kind());
-            break;
-        }
-        final RecentEntry mergedEntry = merged;
-        session.recentEntries.removeIf(existing -> sameRecentKey(existing, mergedEntry));
-        session.recentEntries.addFirst(mergedEntry);
-        while (session.recentEntries.size() > RECENT_ENTRY_LIMIT) {
-            session.recentEntries.removeLast();
-        }
-    }
-
-    private static boolean sameRecentKey(RecentEntry a, RecentEntry b) {
-        if (a == null || b == null) {
-            return false;
-        }
-        return a.id().equals(b.id()) && isRecentFluidKind(a.kind()) == isRecentFluidKind(b.kind());
-    }
-
-    private static boolean isRecentFluidKind(byte kind) {
-        return kind == S2CRtsStoragePagePayload.RECENT_FLUID_PLACED
-                || kind == S2CRtsStoragePagePayload.RECENT_FLUID_USED
-                || kind == S2CRtsStoragePagePayload.RECENT_FLUID_CRAFTED;
+        RtsStorageRecentEntries.recordRecentFluid(session, fluidId, kind, amount, capacity);
     }
 
     private static void runQuestDetect(ServerPlayer player, Session session, boolean force) {
