@@ -452,6 +452,7 @@ final class RtsStorageCrafting {
     private static void refreshCraftables(ServerPlayer player, RtsStorageSession session) {
         requestCraftables(
                 player,
+                session,
                 session.craftSearch,
                 session.craftShowUnavailable,
                 0,

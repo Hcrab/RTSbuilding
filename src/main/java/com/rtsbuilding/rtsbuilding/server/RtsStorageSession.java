@@ -119,8 +119,9 @@ class RtsStorageSession {
     long deferredStorageRefreshTick = -1L;
 
     /*
-     * Quick-build audio and queued placement state. PlaceBatchJob still lives in
-     * RtsStorageManager until the placement execution loop is extracted.
+     * Quick-build audio and queued placement state. The job type lives in
+     * RtsStoragePlacement because that service owns world block placement and
+     * the batch cursor, while this session only stores the pending queue.
      */
     int quickBuildSoundPlacedCount;
     long quickBuildCompletionSoundTick = -1L;
@@ -128,7 +129,7 @@ class RtsStorageSession {
     double quickBuildSoundX;
     double quickBuildSoundY;
     double quickBuildSoundZ;
-    final Deque<RtsStorageManager.PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
+    final Deque<RtsStoragePlacement.PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
 
     /*
      * UI memory: recent entries, quick slots, and external GUI bindings. These
