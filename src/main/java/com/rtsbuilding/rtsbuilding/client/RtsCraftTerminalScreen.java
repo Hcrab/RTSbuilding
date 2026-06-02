@@ -241,7 +241,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             }
             ClientRtsController.StorageEntry entry = entries.get(i);
             guiGraphics.renderItem(entry.stack(), slotX + 1, slotY + 1);
-            drawCountOverlay(guiGraphics, slotX, slotY, compactCount(entry.count()));
+            drawCountOverlay(guiGraphics, slotX, slotY, RtsClientUiUtil.compactCount(entry.count()));
         }
 
         int hovered = resolveLinkedSlotIndex(mouseX, mouseY);
@@ -556,10 +556,6 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             case MOD -> "M";
             case NAME -> "N";
         };
-    }
-
-    private static String compactCount(long value) {
-        return RtsClientUiUtil.compactCount(value);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

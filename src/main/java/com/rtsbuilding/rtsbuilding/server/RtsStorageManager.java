@@ -25,6 +25,7 @@ import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
@@ -429,7 +430,7 @@ public final class RtsStorageManager {
                 if (!predicate.test(stack)) {
                     continue;
                 }
-                total = saturatedAdd(total, getHandlerReportedCount(handler, slot, stack));
+                total = RtsCountUtil.saturatedAdd(total, getHandlerReportedCount(handler, slot, stack));
             }
         }
         return total;
@@ -454,7 +455,7 @@ public final class RtsStorageManager {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
                 if (!stack.isEmpty() && stack.getItem() == item) {
-                    total = saturatedAdd(total, getHandlerReportedCount(handler, slot, stack));
+                    total = RtsCountUtil.saturatedAdd(total, getHandlerReportedCount(handler, slot, stack));
                 }
             }
         }
@@ -464,7 +465,7 @@ public final class RtsStorageManager {
         for (int slot = start; slot < end; slot++) {
             ItemStack stack = player.getInventory().getItem(slot);
             if (!stack.isEmpty() && stack.getItem() == item) {
-                total = saturatedAdd(total, stack.getCount());
+                total = RtsCountUtil.saturatedAdd(total, stack.getCount());
             }
         }
         return total;
@@ -2112,18 +2113,6 @@ public final class RtsStorageManager {
 
     private static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
         return RtsStoragePageBuilder.getHandlerReportedCount(handler, slot, stack);
-    }
-
-    private static void mergeCount(Map<String, Long> counts, String key, long amount) {
-        RtsStoragePageBuilder.mergeCount(counts, key, amount);
-    }
-
-    private static long saturatedAdd(long a, long b) {
-        return RtsStoragePageBuilder.saturatedAdd(a, b);
-    }
-
-    private static long sanitizeCount(long value) {
-        return RtsStoragePageBuilder.sanitizeCount(value);
     }
 
     private static long internalFluidCapacityMb(ServerPlayer player) {

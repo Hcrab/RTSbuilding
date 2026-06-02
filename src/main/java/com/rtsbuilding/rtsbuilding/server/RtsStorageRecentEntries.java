@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server;
 
 import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -23,8 +24,6 @@ import net.minecraftforge.fluids.FluidStack;
  * entry appears first, and the history is trimmed to the storage UI limit.
  */
 final class RtsStorageRecentEntries {
-    private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE / 2L;
-
     private RtsStorageRecentEntries() {
     }
 
@@ -121,7 +120,7 @@ final class RtsStorageRecentEntries {
             if (!sameRecentKey(existing, normalized)) {
                 continue;
             }
-            long mergedAmount = Math.max(1L, saturatedAdd(existing.amount(), normalized.amount()));
+            long mergedAmount = Math.max(1L, RtsCountUtil.saturatedAdd(existing.amount(), normalized.amount()));
             long mergedCapacity = Math.max(Math.max(existing.capacity(), normalized.capacity()), mergedAmount);
             merged = new RecentEntry(normalized.id(), mergedAmount, mergedCapacity, normalized.kind());
             break;
@@ -147,22 +146,4 @@ final class RtsStorageRecentEntries {
                 || kind == S2CRtsStoragePagePayload.RECENT_FLUID_CRAFTED;
     }
 
-    private static long saturatedAdd(long a, long b) {
-        long left = sanitizeCount(a);
-        long right = sanitizeCount(b);
-        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
-        }
-        if (Long.MAX_VALUE - left < right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
-    }
-
-    private static long sanitizeCount(long value) {
-        if (value <= 0L) {
-            return 0L;
-        }
-        return value >= EFFECTIVELY_INFINITE_COUNT ? Long.MAX_VALUE : value;
-    }
 }

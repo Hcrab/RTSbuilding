@@ -289,7 +289,7 @@ public final class RtsClientInputGate {
             if (i < maxSlots) {
                 var entry = entries.get(i);
                 g.renderItem(entry.stack(), cx + 1, cy + 1);
-                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, compactCount(entry.count()), 0xFFF7E6A8);
+                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
             }
         }
 
@@ -307,7 +307,7 @@ public final class RtsClientInputGate {
                 ItemStack preview = RETURN_QUEUE[i];
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, cx + 1, cy + 1);
-                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, compactCount(preview.getCount()), 0xFFE8F6FF);
+                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(preview.getCount()), 0xFFE8F6FF);
                 } else {
                     g.drawString(minecraft.font, "+", cx + 6, cy + 5, 0xAACEE1FF);
                 }
@@ -1503,7 +1503,7 @@ public final class RtsClientInputGate {
                 ClientRtsController.CraftableEntry entry = entries.get(index);
                 g.renderItem(entry.stack(), slotX + 1, slotY + 1);
                 if (entry.resultCount() > 1) {
-                    drawSlotCountOverlay(g, font, slotX, slotY, CRAFT_SLOT, compactCount(entry.resultCount()), 0xFFE8F4FF);
+                    drawSlotCountOverlay(g, font, slotX, slotY, CRAFT_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
                 }
                 if (!entry.craftable()) {
                     g.fill(slotX + 1, slotY + 1, slotX + CRAFT_SLOT - 1, slotY + CRAFT_SLOT - 1, 0x44220000);
@@ -1945,10 +1945,6 @@ public final class RtsClientInputGate {
     private record ButtonLayout(int x, int y, int w, int h) {
     }
 
-    private static String compactCount(long value) {
-        return RtsClientUiUtil.compactCount(value);
-    }
-
     private static void drawSlotCountOverlay(GuiGraphics g, net.minecraft.client.gui.Font font, int slotX, int slotY,
             int slotSize, String countText, int color) {
         RtsClientUiUtil.drawSlotCountOverlay(g, font, slotX, slotY, slotSize, countText, color);
@@ -2000,7 +1996,7 @@ public final class RtsClientInputGate {
                 if (itemId.equals(controller.getSelectedItemId())) {
                     g.fill(cx + 1, cy + 1, cx + SLOT_SIZE - 1, cy + SLOT_SIZE - 1, 0x3340FF80);
                 }
-                drawSlotCountOverlay(g, font, cx, cy, SLOT_SIZE, compactCount(resolvePinnedItemCount(itemId)), 0xFFF7E6A8);
+                drawSlotCountOverlay(g, font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(resolvePinnedItemCount(itemId)), 0xFFF7E6A8);
             } else {
                 g.drawCenteredString(font, Integer.toString(i + 1), cx + SLOT_SIZE / 2, cy + 5, 0x88D0D8E4);
             }
@@ -2016,7 +2012,7 @@ public final class RtsClientInputGate {
                 controller.isStorageLinked()
                         ? "screen.rtsbuilding.tooltip.count_storage"
                         : "screen.rtsbuilding.tooltip.count_inventory",
-                compactCount(count)).getString();
+                RtsClientUiUtil.compactCount(count)).getString();
     }
 
     private static void selectOverlayQuickbarSlot(int index) {
