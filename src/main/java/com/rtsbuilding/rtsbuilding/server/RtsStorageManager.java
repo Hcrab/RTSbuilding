@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.server;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -48,8 +47,6 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -135,7 +132,7 @@ public final class RtsStorageManager {
     static final int CRAFTABLE_BATCH_SIZE = 12;
     private static final int ULTIMINE_MAX_BLOCKS = 256;
     private static final int ULTIMINE_BLOCKS_PER_TICK = 8;
-    private static final int RECENT_ENTRY_LIMIT = 24;
+    static final int RECENT_ENTRY_LIMIT = 24;
     private static final long QUEST_DETECT_COOLDOWN_TICKS = 60L;
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
     private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
@@ -145,48 +142,12 @@ public final class RtsStorageManager {
     private static final int QUICK_BUILD_BATCH_BLOCKS_PER_TICK = 64;
     private static final int QUICK_BUILD_BATCH_MAX_QUEUED_JOBS = 4;
     private static final int QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS = 3;
-    private static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
+    static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
     private static final byte LINK_MODE_EXTRACT_ONLY = C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
     private static final String CATEGORY_TAB_PREFIX = "tab|";
     private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE / 2L;
-
-    private static final String NBT_ROOT = "rtsbuilding_storage_session";
-    private static final String NBT_LINKED_ENTRIES = "linked_entries";
-    private static final String NBT_LINKED_ENTRY_POS = "pos";
-    private static final String NBT_LINKED_ENTRY_DIMENSION = "dimension";
-    private static final String NBT_LINKED_ENTRY_MODE = "mode";
-    private static final String NBT_LINKED_POSITIONS = "linked_positions";
-    private static final String NBT_LINKED_MODES = "linked_modes";
-    private static final String NBT_LINKED_DIMENSION = "linked_dimension";
-    private static final String NBT_INTERNAL_FLUIDS = "internal_fluids";
-    private static final String NBT_FLUID_ID = "id";
-    private static final String NBT_FLUID_AMOUNT = "amount";
-    private static final String NBT_RECENT_ENTRIES = "recent_entries";
-    private static final String NBT_RECENT_ENTRY_ID = "id";
-    private static final String NBT_RECENT_ENTRY_AMOUNT = "amount";
-    private static final String NBT_RECENT_ENTRY_CAPACITY = "capacity";
-    private static final String NBT_RECENT_ENTRY_KIND = "kind";
-    private static final String NBT_QUICK_SLOTS = "quick_slots";
-    private static final String NBT_QUICK_SLOT_INDEX = "slot";
-    private static final String NBT_QUICK_SLOT_ITEM_ID = "item_id";
-    private static final String NBT_GUI_BINDINGS = "gui_bindings";
-    private static final String NBT_GUI_BINDING_SLOT = "slot";
-    private static final String NBT_GUI_BINDING_POS = "pos";
-    private static final String NBT_GUI_BINDING_DIMENSION = "dimension";
-    private static final String NBT_GUI_BINDING_FACE = "face";
-    private static final String NBT_GUI_BINDING_LABEL = "label";
-    private static final String NBT_GUI_BINDING_ITEM_ID = "item_id";
-    private static final String NBT_PAGE = "page";
-    private static final String NBT_SEARCH = "search";
-    private static final String NBT_CATEGORY = "category";
-    private static final String NBT_SORT = "sort";
-    private static final String NBT_ASCENDING = "ascending";
-    private static final String NBT_AUTO_STORE_MINED_DROPS = "auto_store_mined_drops";
-    private static final String NBT_CRAFT_SEARCH = "craft_search";
-    private static final String NBT_CRAFT_SHOW_UNAVAILABLE = "craft_show_unavailable";
-    private static final String NBT_CRAFT_REQUESTED_COUNT = "craft_requested_count";
 
     private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> ITEM_CREATIVE_TAB_CACHE = new ConcurrentHashMap<>();
@@ -284,270 +245,21 @@ public final class RtsStorageManager {
         CompoundTag root = RtsStorageSessionStore.loadSession(player);
         boolean loadedFromWorldStore = !root.isEmpty();
         if (!loadedFromWorldStore) {
-            root = player.getPersistentData().getCompound(NBT_ROOT);
+            root = player.getPersistentData().getCompound(RtsStorageSessionCodec.ROOT_KEY);
         }
         if (root.isEmpty()) {
             return;
         }
-        loadSessionFromTag(player, session, root);
+        RtsStorageSessionCodec.load(player, session, root);
         if (!loadedFromWorldStore) {
             saveSessionToPlayerNbt(player, session);
         }
     }
 
-    private static void loadSessionFromTag(ServerPlayer player, Session session, CompoundTag root) {
-        session.linkedStorages.clear();
-        session.linkedNames.clear();
-        session.linkedModes.clear();
-
-        session.page = root.contains(NBT_PAGE, Tag.TAG_INT) ? Math.max(0, root.getInt(NBT_PAGE)) : 0;
-        session.search = sanitizeSavedText(root.getString(NBT_SEARCH), 128);
-        session.category = normalizeCategory(root.getString(NBT_CATEGORY));
-        session.sort = parseSavedSort(root.getInt(NBT_SORT));
-        session.ascending = root.contains(NBT_ASCENDING, Tag.TAG_BYTE) && root.getBoolean(NBT_ASCENDING);
-        session.autoStoreMinedDrops = !root.contains(NBT_AUTO_STORE_MINED_DROPS, Tag.TAG_BYTE)
-                || root.getBoolean(NBT_AUTO_STORE_MINED_DROPS);
-        session.craftSearch = sanitizeSavedText(root.getString(NBT_CRAFT_SEARCH), 128);
-        session.craftShowUnavailable = root.contains(NBT_CRAFT_SHOW_UNAVAILABLE, Tag.TAG_BYTE)
-                && root.getBoolean(NBT_CRAFT_SHOW_UNAVAILABLE);
-        session.craftRequestedCount = root.contains(NBT_CRAFT_REQUESTED_COUNT, Tag.TAG_INT)
-                ? Math.max(CRAFTABLE_BATCH_SIZE, Math.min(999, root.getInt(NBT_CRAFT_REQUESTED_COUNT)))
-                : CRAFTABLE_BATCH_SIZE;
-
-        byte[] linkedModes = root.getByteArray(NBT_LINKED_MODES);
-
-        ResourceKey<Level> legacyDimension = null;
-        String legacyDimensionId = root.getString(NBT_LINKED_DIMENSION);
-        if (!legacyDimensionId.isBlank()) {
-            legacyDimension = parseDimensionKey(legacyDimensionId);
-        }
-
-        ListTag linkedEntries = root.getList(NBT_LINKED_ENTRIES, Tag.TAG_COMPOUND);
-        if (!linkedEntries.isEmpty()) {
-            for (int i = 0; i < linkedEntries.size(); i++) {
-                CompoundTag linkedTag = linkedEntries.getCompound(i);
-                if (!linkedTag.contains(NBT_LINKED_ENTRY_POS, Tag.TAG_LONG)) {
-                    continue;
-                }
-                ResourceKey<Level> dimension = parseDimensionKey(linkedTag.getString(NBT_LINKED_ENTRY_DIMENSION));
-                if (dimension == null) {
-                    continue;
-                }
-                LinkedStorageRef ref = new LinkedStorageRef(
-                        dimension,
-                        BlockPos.of(linkedTag.getLong(NBT_LINKED_ENTRY_POS)).immutable());
-                if (!session.linkedStorages.contains(ref)) {
-                    session.linkedStorages.add(ref);
-                    session.linkedModes.put(ref, sanitizeLinkMode(linkedTag.getByte(NBT_LINKED_ENTRY_MODE)));
-                }
-            }
-        } else {
-            ResourceKey<Level> dimension = legacyDimension == null ? player.serverLevel().dimension() : legacyDimension;
-            long[] linkedPackedPositions = root.getLongArray(NBT_LINKED_POSITIONS);
-            for (int i = 0; i < linkedPackedPositions.length; i++) {
-                LinkedStorageRef ref = new LinkedStorageRef(
-                        dimension,
-                        BlockPos.of(linkedPackedPositions[i]).immutable());
-                if (!session.linkedStorages.contains(ref)) {
-                    session.linkedStorages.add(ref);
-                    byte linkMode = i < linkedModes.length ? linkedModes[i] : LINK_MODE_BIDIRECTIONAL;
-                    session.linkedModes.put(ref, sanitizeLinkMode(linkMode));
-                }
-            }
-        }
-
-        session.internalFluidMb.clear();
-        ListTag fluidEntries = root.getList(NBT_INTERNAL_FLUIDS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < fluidEntries.size(); i++) {
-            CompoundTag fluidTag = fluidEntries.getCompound(i);
-            String fluidId = fluidTag.getString(NBT_FLUID_ID);
-            long amount = fluidTag.getLong(NBT_FLUID_AMOUNT);
-            if (fluidId == null || fluidId.isBlank() || amount <= 0L) {
-                continue;
-            }
-            ResourceLocation key = ResourceLocation.tryParse(fluidId);
-            if (key == null || !BuiltInRegistries.FLUID.containsKey(key)) {
-                continue;
-            }
-            session.internalFluidMb.put(fluidId, amount);
-        }
-
-        session.recentEntries.clear();
-        ListTag recentEntries = root.getList(NBT_RECENT_ENTRIES, Tag.TAG_COMPOUND);
-        for (int i = 0; i < recentEntries.size(); i++) {
-            CompoundTag recentTag = recentEntries.getCompound(i);
-            String entryId = recentTag.getString(NBT_RECENT_ENTRY_ID);
-            long amount = recentTag.getLong(NBT_RECENT_ENTRY_AMOUNT);
-            long capacity = recentTag.getLong(NBT_RECENT_ENTRY_CAPACITY);
-            byte kind = recentTag.getByte(NBT_RECENT_ENTRY_KIND);
-            if (entryId == null || entryId.isBlank() || amount <= 0L) {
-                continue;
-            }
-            session.recentEntries.addLast(new RecentEntry(entryId, amount, Math.max(0L, capacity), kind));
-            if (session.recentEntries.size() >= RECENT_ENTRY_LIMIT) {
-                break;
-            }
-        }
-
-        Arrays.fill(session.quickSlotItemIds, "");
-        ListTag quickSlots = root.getList(NBT_QUICK_SLOTS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < quickSlots.size(); i++) {
-            CompoundTag quickSlotTag = quickSlots.getCompound(i);
-            int slot = quickSlotTag.getInt(NBT_QUICK_SLOT_INDEX);
-            String itemId = quickSlotTag.getString(NBT_QUICK_SLOT_ITEM_ID);
-            if (slot < 0 || slot >= QUICK_SLOT_COUNT || itemId == null || itemId.isBlank()) {
-                continue;
-            }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                continue;
-            }
-            session.quickSlotItemIds[slot] = itemId;
-        }
-
-        Arrays.fill(session.guiBindings, null);
-        ListTag guiBindings = root.getList(NBT_GUI_BINDINGS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < guiBindings.size(); i++) {
-            CompoundTag bindingTag = guiBindings.getCompound(i);
-            int slot = bindingTag.getInt(NBT_GUI_BINDING_SLOT);
-            if (slot < 0 || slot >= GUI_BINDING_SLOT_COUNT || !bindingTag.contains(NBT_GUI_BINDING_POS, Tag.TAG_LONG)) {
-                continue;
-            }
-            String bindingDimensionId = bindingTag.getString(NBT_GUI_BINDING_DIMENSION);
-            ResourceLocation key = ResourceLocation.tryParse(bindingDimensionId);
-            if (key == null) {
-                continue;
-            }
-            String label = bindingTag.getString(NBT_GUI_BINDING_LABEL);
-            String itemId = bindingTag.getString(NBT_GUI_BINDING_ITEM_ID);
-            ResourceLocation itemKey = ResourceLocation.tryParse(itemId);
-            String normalizedItemId = itemKey != null && BuiltInRegistries.ITEM.containsKey(itemKey) ? itemId : "";
-            Direction face = null;
-            if (bindingTag.contains(NBT_GUI_BINDING_FACE, Tag.TAG_BYTE)) {
-                int faceId = bindingTag.getByte(NBT_GUI_BINDING_FACE);
-                if (faceId >= 0 && faceId < Direction.values().length) {
-                    face = Direction.from3DDataValue(faceId);
-                }
-            }
-            session.guiBindings[slot] = new GuiBinding(
-                    BlockPos.of(bindingTag.getLong(NBT_GUI_BINDING_POS)).immutable(),
-                    ResourceKey.create(Registries.DIMENSION, key),
-                    label == null ? "" : label,
-                    normalizedItemId,
-                    face);
-        }
-    }
-
     private static void saveSessionToPlayerNbt(ServerPlayer player, Session session) {
-        CompoundTag root = serializeSession(session);
-        player.getPersistentData().put(NBT_ROOT, root.copy());
+        CompoundTag root = RtsStorageSessionCodec.serialize(session);
+        player.getPersistentData().put(RtsStorageSessionCodec.ROOT_KEY, root.copy());
         RtsStorageSessionStore.saveSession(player, root);
-    }
-
-    private static CompoundTag serializeSession(Session session) {
-        CompoundTag root = new CompoundTag();
-
-        root.putInt(NBT_PAGE, Math.max(0, session.page));
-        root.putString(NBT_SEARCH, sanitizeSavedText(session.search, 128));
-        root.putString(NBT_CATEGORY, normalizeCategory(session.category));
-        root.putInt(NBT_SORT, (session.sort == null ? RtsStorageSort.QUANTITY : session.sort).ordinal());
-        root.putBoolean(NBT_ASCENDING, session.ascending);
-        root.putBoolean(NBT_AUTO_STORE_MINED_DROPS, session.autoStoreMinedDrops);
-        root.putString(NBT_CRAFT_SEARCH, sanitizeSavedText(session.craftSearch, 128));
-        root.putBoolean(NBT_CRAFT_SHOW_UNAVAILABLE, session.craftShowUnavailable);
-        root.putInt(NBT_CRAFT_REQUESTED_COUNT,
-                Math.max(CRAFTABLE_BATCH_SIZE, Math.min(999, session.craftRequestedCount)));
-
-        ListTag linkedEntries = new ListTag();
-        long[] linkedPacked = new long[session.linkedStorages.size()];
-        byte[] linkedModes = new byte[session.linkedStorages.size()];
-        for (int i = 0; i < session.linkedStorages.size(); i++) {
-            LinkedStorageRef ref = session.linkedStorages.get(i);
-            if (ref == null || ref.pos() == null || ref.dimension() == null) {
-                continue;
-            }
-            byte linkMode = sanitizeLinkMode(session.linkedModes.getOrDefault(ref, LINK_MODE_BIDIRECTIONAL));
-            linkedPacked[i] = ref.pos().asLong();
-            linkedModes[i] = linkMode;
-
-            CompoundTag linkedTag = new CompoundTag();
-            linkedTag.putLong(NBT_LINKED_ENTRY_POS, ref.pos().asLong());
-            linkedTag.putString(NBT_LINKED_ENTRY_DIMENSION, ref.dimension().location().toString());
-            linkedTag.putByte(NBT_LINKED_ENTRY_MODE, linkMode);
-            linkedEntries.add(linkedTag);
-        }
-        root.put(NBT_LINKED_ENTRIES, linkedEntries);
-        root.putLongArray(NBT_LINKED_POSITIONS, linkedPacked);
-        root.putByteArray(NBT_LINKED_MODES, linkedModes);
-
-        if (!session.linkedStorages.isEmpty()) {
-            LinkedStorageRef first = session.linkedStorages.get(0);
-            if (first != null && first.dimension() != null) {
-                root.putString(NBT_LINKED_DIMENSION, first.dimension().location().toString());
-            }
-        }
-
-        ListTag fluidEntries = new ListTag();
-        for (var entry : session.internalFluidMb.entrySet()) {
-            String fluidId = entry.getKey();
-            long amount = entry.getValue() == null ? 0L : entry.getValue();
-            if (fluidId == null || fluidId.isBlank() || amount <= 0L) {
-                continue;
-            }
-            CompoundTag fluidTag = new CompoundTag();
-            fluidTag.putString(NBT_FLUID_ID, fluidId);
-            fluidTag.putLong(NBT_FLUID_AMOUNT, amount);
-            fluidEntries.add(fluidTag);
-        }
-        root.put(NBT_INTERNAL_FLUIDS, fluidEntries);
-
-        ListTag recentEntries = new ListTag();
-        for (RecentEntry recentEntry : session.recentEntries) {
-            if (recentEntry == null || recentEntry.id() == null || recentEntry.id().isBlank()) {
-                continue;
-            }
-            CompoundTag recentTag = new CompoundTag();
-            recentTag.putString(NBT_RECENT_ENTRY_ID, recentEntry.id());
-            recentTag.putLong(NBT_RECENT_ENTRY_AMOUNT, Math.max(0L, recentEntry.amount()));
-            recentTag.putLong(NBT_RECENT_ENTRY_CAPACITY, Math.max(0L, recentEntry.capacity()));
-            recentTag.putByte(NBT_RECENT_ENTRY_KIND, recentEntry.kind());
-            recentEntries.add(recentTag);
-        }
-        root.put(NBT_RECENT_ENTRIES, recentEntries);
-
-        ListTag quickSlots = new ListTag();
-        for (int i = 0; i < session.quickSlotItemIds.length; i++) {
-            String itemId = session.quickSlotItemIds[i];
-            if (itemId == null || itemId.isBlank()) {
-                continue;
-            }
-            CompoundTag quickSlotTag = new CompoundTag();
-            quickSlotTag.putInt(NBT_QUICK_SLOT_INDEX, i);
-            quickSlotTag.putString(NBT_QUICK_SLOT_ITEM_ID, itemId);
-            quickSlots.add(quickSlotTag);
-        }
-        root.put(NBT_QUICK_SLOTS, quickSlots);
-
-        ListTag guiBindings = new ListTag();
-        for (int i = 0; i < session.guiBindings.length; i++) {
-            GuiBinding binding = session.guiBindings[i];
-            if (binding == null || binding.pos() == null || binding.dimension() == null) {
-                continue;
-            }
-            CompoundTag bindingTag = new CompoundTag();
-            bindingTag.putInt(NBT_GUI_BINDING_SLOT, i);
-            bindingTag.putLong(NBT_GUI_BINDING_POS, binding.pos().asLong());
-            bindingTag.putString(NBT_GUI_BINDING_DIMENSION, binding.dimension().location().toString());
-            if (binding.face() != null) {
-                bindingTag.putByte(NBT_GUI_BINDING_FACE, (byte) binding.face().get3DDataValue());
-            }
-            bindingTag.putString(NBT_GUI_BINDING_LABEL, binding.label() == null ? "" : binding.label());
-            bindingTag.putString(NBT_GUI_BINDING_ITEM_ID, binding.itemId() == null ? "" : binding.itemId());
-            guiBindings.add(bindingTag);
-        }
-        root.put(NBT_GUI_BINDINGS, guiBindings);
-
-        return root;
     }
 
     public static void tickMining(MinecraftServer server) {
@@ -1999,7 +1711,7 @@ public final class RtsStorageManager {
         return consumed;
     }
 
-    private static String normalizeCategory(String category) {
+    static String normalizeCategory(String category) {
         if (category == null) {
             return CATEGORY_ALL;
         }
@@ -2012,23 +1724,6 @@ public final class RtsStorageManager {
         }
         // Backward compatibility for legacy category payloads that only sent namespace.
         return encodeModCategory(value);
-    }
-
-    private static String sanitizeSavedText(String value, int maxLength) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        String clean = value.trim();
-        int limit = Math.max(0, maxLength);
-        return clean.length() <= limit ? clean : clean.substring(0, limit);
-    }
-
-    private static RtsStorageSort parseSavedSort(int ordinal) {
-        RtsStorageSort[] values = RtsStorageSort.values();
-        if (ordinal < 0 || ordinal >= values.length) {
-            return RtsStorageSort.QUANTITY;
-        }
-        return values[ordinal];
     }
 
     private static boolean matchesSearchQuery(ResourceLocation id, String rawId, String label, String query,
@@ -6759,7 +6454,7 @@ public final class RtsStorageManager {
         return count + " linked storages (" + extractOnly + " extract-only)";
     }
 
-    private static byte sanitizeLinkMode(byte linkMode) {
+    static byte sanitizeLinkMode(byte linkMode) {
         return linkMode == LINK_MODE_EXTRACT_ONLY ? LINK_MODE_EXTRACT_ONLY : LINK_MODE_BIDIRECTIONAL;
     }
 
@@ -6823,7 +6518,7 @@ public final class RtsStorageManager {
         return packed;
     }
 
-    private static ResourceKey<Level> parseDimensionKey(String dimensionId) {
+    static ResourceKey<Level> parseDimensionKey(String dimensionId) {
         if (dimensionId == null || dimensionId.isBlank()) {
             return null;
         }
