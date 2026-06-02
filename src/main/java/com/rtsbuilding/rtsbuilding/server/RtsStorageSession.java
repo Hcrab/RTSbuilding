@@ -88,9 +88,9 @@ class RtsStorageSession {
     final List<ItemStack> funnelBuffer = new ArrayList<>();
 
     /*
-     * Remote mining and ultimine state. ToolLease remains nested in
-     * RtsStorageManager because returning NBT-heavy tools safely is gameplay
-     * behavior, not passive session storage.
+     * Remote mining and ultimine state. ToolLease lives with
+     * RtsStorageMining because returning NBT-heavy tools safely is part of the
+     * mining state machine, not passive session storage.
      */
     BlockPos miningPos;
     int remoteMenuContainerId = -1;
@@ -102,7 +102,7 @@ class RtsStorageSession {
     boolean ultimineAbsorbedDrops;
     Direction miningFace = Direction.DOWN;
     int miningToolSlot;
-    RtsStorageManager.ToolLease miningToolLease = RtsStorageManager.ToolLease.empty();
+    RtsStorageMining.ToolLease miningToolLease = RtsStorageMining.ToolLease.empty();
     float miningProgress;
     int miningStage = -1;
     long nextQuestDetectTick;
