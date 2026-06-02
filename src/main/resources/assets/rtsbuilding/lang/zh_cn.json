@@ -79,6 +79,8 @@
   "screen.rtsbuilding.settings.debug_button.hint": "显示一个可复制 RTS 状态的顶部按钮。",
   "screen.rtsbuilding.settings.container_overlay": "容器 RTS overlay",
   "screen.rtsbuilding.settings.container_overlay.hint": "在箱子、工作台和机器界面显示 RTS overlay。",
+  "screen.rtsbuilding.settings.shift_import": "Shift 存入储存",
+  "screen.rtsbuilding.settings.shift_import.hint": "允许 Shift 操作把物品存入绑定的 RTS 储存。",
   "screen.rtsbuilding.settings.pan_drag_x_invert": "水平拖屏反向",
   "screen.rtsbuilding.settings.pan_drag_x_invert.hint": "切换左右拖动时镜头平移方向。",
   "screen.rtsbuilding.settings.pan_drag_y_invert": "垂直拖屏反向",

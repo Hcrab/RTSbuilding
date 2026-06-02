@@ -79,6 +79,8 @@
   "screen.rtsbuilding.settings.debug_button.hint": "Shows a top button that copies RTS state.",
   "screen.rtsbuilding.settings.container_overlay": "Container overlay",
   "screen.rtsbuilding.settings.container_overlay.hint": "Show RTS overlay on chests, worktables, and machines.",
+  "screen.rtsbuilding.settings.shift_import": "Shift import to storage",
+  "screen.rtsbuilding.settings.shift_import.hint": "Allow Shift actions to move items into linked RTS storage.",
   "screen.rtsbuilding.settings.pan_drag_x_invert": "Invert horizontal pan drag",
   "screen.rtsbuilding.settings.pan_drag_x_invert.hint": "Flip left/right movement while dragging the pan key.",
   "screen.rtsbuilding.settings.pan_drag_y_invert": "Invert vertical pan drag",

@@ -93,7 +93,7 @@ final class RtsClientUiStateStore {
         boolean damageSoundEnabled = true;
         boolean damageAutoReturnEnabled = true;
         boolean debugButtonVisible = false;
-        boolean containerOverlayEnabled = true;
+        boolean containerOverlayEnabled = false;
         boolean overlayShiftImportEnabled = false;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
