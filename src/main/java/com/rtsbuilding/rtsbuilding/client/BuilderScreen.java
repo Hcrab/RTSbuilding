@@ -51,61 +51,102 @@ import java.util.Locale;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 /**
- * RTS 寤洪€犳ā寮忎富灞忓箷锛圲I 鍏ュ彛锛夈€?
+ * The main RTS Builder screen — the primary UI entry point for the RTS building mode.
  * <p>
- * 璇ュ睆骞曟槸 RTS 寤洪€犳ā缁勭殑鏍稿績鐣岄潰锛岃鐩栧湪 Minecraft 娓告垙鐢婚潰涓婃柟锛?
- * 鎻愪緵蹇€熷缓閫犮€佽繛閿佹寲鎺樸€佺墿鍝佸瓨鍌ㄦ祻瑙堛€佷氦浜掕疆鐩樸€佸舰鐘跺缓閫犮€?
- * 钃濆浘鏀剧疆銆佹寚鍗楅潰鏉裤€佽缃彍鍗曠瓑鍏ㄩ儴 RTS 鍔熻兘鐨?UI 浜や簰銆?
+ * This screen overlays the Minecraft game view and provides all RTS functionality
+ * including quick building, vein-mining (ultimine), item storage browsing, the
+ * interaction wheel, shape-based building, blueprint placement, guide panels,
+ * the gear/settings menu, and associated UI interactions.
  * <p>
- * 灞忓箷甯冨眬鍒嗕负涓変釜鍖哄煙锛?
+ * The screen layout is divided into three main regions:
  * <ul>
- *   <li><b>椤堕儴鏍?/b>锛圱op Bar锛夛細妯″紡鍒囨崲銆佸姛鑳芥寜閽€佸舰鐘堕€夋嫨銆佹寚鍗楀叆鍙?/li>
- *   <li><b>搴曢儴闈㈡澘</b>锛圔ottom Panel锛夛細鐗╁搧瀛樺偍缃戞牸銆佸悎鎴愰潰鏉裤€佽摑鍥鹃潰鏉?/li>
- *   <li><b>瑕嗙洊灞?/b>锛圤verlays锛夛細浜や簰杞洏銆佸舰鐘惰疆鐩樸€侀娇杞彍鍗曘€佹寚鍗楅潰鏉裤€佸脊绐楃瓑</li>
+ *   <li><b>Top Bar:</b> Mode switching, action buttons, shape selection, guide entry.</li>
+ *   <li><b>Bottom Panel:</b> Item storage grid, crafting panel, blueprint panel.</li>
+ *   <li><b>Overlays:</b> Interaction wheel, shape wheel, gear/settings menu, guide
+ *       panel, dialogs (name entry, material list, craft quantity).</li>
  * </ul>
  * <p>
- * 璇ョ被閫氳繃 {@link ClientRtsController} 涓庢父鎴忛€昏緫浜や簰锛屾墍鏈夊疄闄呭缓閫犳搷浣?
- * 濮旀墭缁欐湇鍔＄澶勭悊銆俇I 鐘舵€侀€氳繃 {@link RtsClientUiStateStore} 鎸佷箙鍖栥€?
+ * This class interacts with game logic through {@link ClientRtsController}.
+ * All actual building operations are delegated to the server. UI state is
+ * persisted via {@link RtsClientUiStateStore}.
  * <p>
- * <b>璁捐璇存槑锛?/b>姝ょ被涓哄睆骞曚富绫伙紝闆嗕腑绠＄悊鎵€鏈?UI 浜や簰銆備负淇濇寔浠ｇ爜鍙淮鎶ゆ€э紝
- * 甯冨眬甯搁噺宸叉彁鍙栬嚦 {@link BuilderScreenConstants}锛屽嚑浣曡绠楀凡鎻愬彇鑷?
- * {@link ShapeGeometryUtil}锛?
- * 褰㈢姸/钃濆浘棰勮妯″瀷宸叉彁鍙栦负鐙珛 records銆?
+ * <b>Design notes:</b> This is the central screen class that manages all UI
+ * interaction. To keep the code maintainable, layout constants are extracted
+ * into {@link BuilderScreenConstants}, geometry calculations are delegated to
+ * {@link ShapeGeometryUtil}, and shape/blueprint preview models are extracted
+ * as standalone records.
  *
  * @see ClientRtsController
  * @see BuilderScreenConstants
  * @see ShapeGeometryUtil
  */
 public final class BuilderScreen extends Screen {
+    /** The central controller that bridges the screen with game logic and server communication. */
     private final ClientRtsController controller;
+    /** Search box for filtering storage items. */
     private EditBox searchBox;
+    /** Search box for filtering craftable entries in the crafting panel. */
     private EditBox craftSearchBox;
+    /** Panel showing items queued in the funnel buffer (item collection mode). */
     private final FunnelBufferPanel funnelBufferPanel = new FunnelBufferPanel();
+    /** Panel for quick-build remote placement (place items from storage at a distance). */
     private final QuickBuildPanel quickBuildPanel = new QuickBuildPanel();
+    /** Panel showing context information for the current shape build (size, cost, etc.). */
     private final ShapeContextPanel shapeContextPanel = new ShapeContextPanel();
+    /** Panel for configuring and triggering vein-mining (ultimine) operations. */
     private final UltiminePanel ultiminePanel = new UltiminePanel();
+    /** Top bar panel with mode buttons, shape selection, and action controls. */
     private final TopBarPanel topBarPanel = new TopBarPanel();
+    /** Bottom panel containing storage grid, crafting, blueprints, and pin slots. */
     private final BottomPanel bottomPanel = new BottomPanel();
+    /** Controller managing shape-building sessions (geometry, fill mode, rotation, undo/redo). */
     private final ScreenShapeController shapeController = new ScreenShapeController();
+    /** Picker for raycasting blocks, entities, and blueprint placement targets from the cursor. */
     private final ScreenCursorPicker cursorPicker = new ScreenCursorPicker();
+    /** Handler for camera movement, drag rotation, panning, and mining actions. */
     private final CameraInputHandler cameraInput = new CameraInputHandler();
+    /** Guide/onboarding panel that explains UI elements and controls. */
     private final GuidePanel guidePanel = new GuidePanel();
+    /** Gear (settings) menu panel with configuration toggles and sliders. */
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
+    /** Radial interaction wheel for advanced block/entity interactions. */
     private final InteractionWheelPanel interactionWheelPanel = new InteractionWheelPanel();
+    /** Radial shape-selection wheel for choosing build shapes. */
     private final ShapeWheelPanel shapeWheelPanel = new ShapeWheelPanel();
+    /** Whether the debug button is visible in the top bar (for dev/diagnostic use). */
     private boolean debugButtonVisible = false;
+    /** Whether the user is currently dragging the input sensitivity slider. */
     private boolean draggingInputSensitivity = false;
+    /** Timestamp (System.currentTimeMillis) when the last damage flash was triggered, or -1 if none. */
     private long damageFlashStartMs = -1L;
+    /** Whether the funnel hotkey (quick-activate funnel mode) is currently held down. */
     private boolean funnelHotkeyHeld = false;
+    /** The builder mode that was active before the funnel hotkey was pressed, for restoration on release. */
     private BuilderMode modeBeforeFunnelHotkey = BuilderMode.INTERACT;
+    /** Tracks whether the native GLFW cursor has been hidden (e.g. for funnel cursor display). */
     private boolean nativeCursorHidden = false;
+    /** Whether we are currently inside a fixed-RTS-scale render pass (for UI scaling). */
     private boolean fixedRtsScaleRenderPass = false;
+    /** Whether we are currently inside a fixed-RTS-scale input pass (for UI scaling). */
     private boolean fixedRtsScaleInputPass = false;
+    /** The actual render scale factor active during the current fixed-scale render pass. */
     private double activeRtsGuiRenderScale = 1.0D;
+    /** The user-configured fixed RTS GUI scale (independent of Minecraft's native GUI scale). */
     private double fixedRtsGuiScale = DEFAULT_RTS_GUI_SCALE;
+    /** Last recorded mouse X position, updated each render frame for input consistency. */
     private int lastMouseX = 0;
+    /** Last recorded mouse Y position, updated each render frame for input consistency. */
     private int lastMouseY = 0;
+    /**
+     * When >= 0, the player is in "GUI binding" mode and must click a block in the world
+     * to bind it to the specified slot. Reset to -1 after binding or on cancel.
+     */
     private int pendingGuiBindSlot = -1;
+    /**
+     * Constructs the main RTS Builder screen.
+     *
+     * @param controller the central client-side RTS controller for bridging screen and game logic
+     */
     public BuilderScreen(ClientRtsController controller) {
         super(Component.literal("RTS Builder"));
         this.controller = controller;
@@ -123,76 +164,100 @@ public final class BuilderScreen extends Screen {
         this.cursorPicker.init(this, this.controller, this.shapeController);
         this.cameraInput.init(this, this.controller);
     }
+    /** Returns the Minecraft font renderer for use by sub-panels and utilities. */
     public Font font() {
         return this.font;
     }
+    /** Triggers a red flash overlay on the screen to indicate the player took damage while in RTS mode. */
     public void triggerDamageFlash() {
         this.damageFlashStartMs = System.currentTimeMillis();
     }
+    /** Sets which funnel buffer entry is currently hovered, for tooltip rendering. */
     public void setHoveredFunnelBufferEntry(int index) {
         this.funnelBufferPanel.setHoveredEntry(index);
     }
+    /** Toggles the visibility of the debug button in the top bar. */
     public void toggleDebugButton() {
         this.debugButtonVisible = !this.debugButtonVisible;
     }
+    /** Returns whether the debug button is currently visible in the top bar. */
     public boolean isDebugButtonVisible() {
         return this.debugButtonVisible;
     }
+    /** Returns whether the user is currently dragging the input sensitivity slider. */
     public boolean isDraggingInputSensitivity() {
         return this.draggingInputSensitivity;
     }
+    /** Returns the current shape fill mode (e.g. FILL, HOLLOW, WIREFRAME). Delegates to the shape controller. */
     public ShapeBuildTypes.ShapeFillMode getShapeFillMode() {
         return this.shapeController.getShapeFillMode();
     }
+    /** Sets the shape fill mode via the shape controller. */
     public void setShapeFillMode(ShapeBuildTypes.ShapeFillMode mode) {
         this.shapeController.setShapeFillMode(mode);
     }
+    /** Returns the current shape rotation in degrees. Delegates to the shape controller. */
     public int getShapeRotateDegrees() {
         return this.shapeController.getShapeRotateDegrees();
     }
+    /** Clears the current shape build session (pending preview, undo/redo history). */
     public void clearShapeBuildSession() {
         this.shapeController.clearShapeBuildSession();
     }
+    /** Rotates the current shape by a fixed number of steps (positive = clockwise, negative = counter-clockwise). */
     public void rotateShapeByStep(int step) {
         this.shapeController.rotateShapeByStep(step);
     }
+    /** Returns the ghost preview data for the current shape build (used for world overlay rendering). */
     public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
         return this.shapeController.getShapeGhostPreview();
     }
+    /** Ensures the current fill mode is compatible with the given shape type, adjusting if necessary. */
     public void ensureFillModeForShape(ClientRtsController.BuildShape shape) {
         this.shapeController.ensureFillModeForShape(shape);
     }
+    /** Returns whether the quick-build panel is currently open. */
     public boolean isQuickBuildOpen() {
         return this.quickBuildPanel.isQuickBuildOpen();
     }
+    /** Opens or closes the quick-build panel. */
     public void setQuickBuildOpen(boolean open) {
         this.quickBuildPanel.setQuickBuildOpen(open);
     }
+    /** Returns the Minecraft client instance for access by sub-panels and utilities. */
     public net.minecraft.client.Minecraft getMinecraft() {
         return this.minecraft;
     }
+    /** Returns the last recorded mouse X position (updated each render frame). */
     public double getCurrentMouseX() {
         return this.lastMouseX;
     }
+    /** Returns the last recorded mouse Y position (updated each render frame). */
     public double getCurrentMouseY() {
         return this.lastMouseY;
     }
+    /** Returns whether the shape-selection wheel overlay is currently open. */
     public boolean isShapeWheelOpen() {
         return this.shapeWheelPanel.isOpen();
     }
+    /** Returns whether the interaction wheel overlay is currently open. */
     public boolean isInteractionWheelOpen() {
         return this.interactionWheelPanel.isOpen();
     }
+    /** Delegates Alt-release handling on the shape wheel to determine if a shape was selected. */
     public void handleShapeWheelAltRelease(double mouseX, double mouseY) {
         this.shapeWheelPanel.handleAltRelease(mouseX, mouseY);
     }
+    /** Returns the storage search box (for filtering items in the storage grid). */
     public EditBox getSearchBox() {
         return this.searchBox;
     }
+    /** Returns the craftable-items search box (for filtering in the crafting panel). */
     public EditBox getCraftSearchBox() {
         return this.craftSearchBox;
     }
     @Override
+    /** Initialises the screen: creates search boxes, applies persisted UI state, and requests craftables. */
     protected void init() {
         super.init();
         applyStoredUiState();
@@ -215,14 +280,20 @@ public final class BuilderScreen extends Screen {
         this.controller.requestCraftables();
     }
     @Override
+    /** Prevents the game from pausing when the RTS screen is open (since it is an overlay, not a menu). */
     public boolean isPauseScreen() {
         return false;
     }
     @Override
+    /** Pressing Escape closes this screen and returns to normal gameplay. */
     public boolean shouldCloseOnEsc() {
         return true;
     }
     @Override
+    /**
+     * Called when the screen is closed. Cleans up UI state: closes wheels, persists state,
+     * resets input handlers, disables funnel mode, toggles camera if needed, and restores cursor.
+     */
     public void onClose() {
         closeInteractionWheel();
         closeShapeWheel();
@@ -242,12 +313,18 @@ public final class BuilderScreen extends Screen {
         updateNativeCursorVisibility(false);
     }
     @Override
+    /* Called when the screen is fully removed from the display stack. Resets camera vertical input and cursor. */
     public void removed() {
         super.removed();
         this.cameraInput.resetCameraVerticalHeld();
         updateNativeCursorVisibility(false);
     }
     @Override
+    /*
+      Called every client tick. Updates the shape wheel lifecycle (Alt-hold toggling),
+      updates funnel target position, syncs craftables panel state, and checks if
+      active mining input is still held (stopping if released).
+     */
     public void tick() {
         super.tick();
         this.shapeController.updateAltShapeWheelLifecycle();
@@ -276,6 +353,14 @@ public final class BuilderScreen extends Screen {
         }
     }
     @Override
+    /*
+      Handles mouse click input with RTS GUI scale remapping. Routes clicks through
+      the various UI components in priority order: quantity dialog, blueprint dialogs,
+      capture mode, ultimine editing, home selection, shape wheel, interaction wheel,
+      guide panel, gear menu, and world interaction (building, linking, rotating, etc.).
+
+      @return true if the click was consumed by this screen, false otherwise
+     */
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
@@ -453,6 +538,10 @@ public final class BuilderScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
     @Override
+    /**
+     * Handles mouse release with RTS GUI scale remapping. Routes release events to
+     * open dialogs, dragging state, wheel panels, and camera input handlers.
+     */
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
@@ -500,6 +589,11 @@ public final class BuilderScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
     @Override
+    /**
+     * Handles mouse drag with RTS GUI scale remapping. Routes drag events to
+     * open dialogs, sensitivity slider dragging, wheel panels, camera drag handlers,
+     * and search box focus logic.
+     */
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
@@ -547,6 +641,7 @@ public final class BuilderScreen extends Screen {
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
     @Override
+    /** Handles mouse movement with RTS GUI scale remapping. Updates keyboard-pan drag state. */
     public void mouseMoved(double mouseX, double mouseY) {
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
@@ -568,15 +663,37 @@ public final class BuilderScreen extends Screen {
         super.mouseMoved(mouseX, mouseY);
     }
 
+   /** Returns whether the camera "move up" action is currently held (e.g. via keybind). */
     public boolean isCameraUpActionHeld() {
         return this.cameraInput.isCameraUpActionHeld();
     }
+   /** Returns whether the camera "move down" action is currently held (e.g. via keybind). */
     public boolean isCameraDownActionHeld() {
         return this.cameraInput.isCameraDownActionHeld();
     }
+    /**
+     * Executes the primary build/interact action at the given screen coordinates.
+     * This is the main action route for left-click / primary-keybind:
+     * handles GUI binding, blueprint capture, storage linking, funnel, rotation,
+     * interaction wheel opening, shape placement confirmation, blueprint placement,
+     * and regular block/entity interactions.
+     *
+     * @param mouseX screen X coordinate
+     * @param mouseY screen Y coordinate
+     * @return true if the action was consumed
+     */
     private boolean runPrimaryActionAt(double mouseX, double mouseY) {
         return runPrimaryActionAt(mouseX, mouseY, -1);
     }
+    /**
+     * Executes the primary build/interact action at the given screen coordinates.
+     * Overload that accepts a specific mouse button for storage linking distinction.
+     *
+     * @param mouseX     screen X coordinate
+     * @param mouseY     screen Y coordinate
+     * @param mouseButton the GLFW mouse button that triggered the action, or -1 if keyboard-triggered
+     * @return true if the action was consumed
+     */
     private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton) {
         if (this.pendingGuiBindSlot >= 0) {
             return true;
@@ -726,6 +843,11 @@ public final class BuilderScreen extends Screen {
         return true;
     }
     @Override
+    /**
+     * Handles mouse scroll with RTS GUI scale remapping. Routes scroll to open
+     * dialogs, gear menu, wheel panels, guide panel, bottom panel, rotation mode,
+     * and item slot scrolling.
+     */
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (!this.fixedRtsScaleInputPass) {
             RtsUiScaleFrame frame = enterFixedRtsGuiScale();
@@ -778,6 +900,14 @@ public final class BuilderScreen extends Screen {
         return true;
     }
     @Override
+    /**
+     * Handles key press events. Processes input for: quantity dialog, blueprint dialogs,
+     * blueprint capture, home selection, ultimine editing, wheel panels, guide panel,
+     * gear menu, undo/redo (Ctrl+Z/Y), shape height adjustments (Page Up/Down),
+     * camera vertical movement, break action, pick block, primary action, mode switching,
+     * funnel hotkey, quick drop, shape rotation, craft terminal, search focus management,
+     * tool slot selection (1-9), quick-slot pinning, and input sensitivity adjustment.
+     */
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.bottomPanel.craftQuantityDialog.isOpen()) {
             boolean handled = this.bottomPanel.craftQuantityDialog.keyPressed(keyCode, scanCode, modifiers);
@@ -943,6 +1073,7 @@ public final class BuilderScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
     @Override
+    /** Handles key release for funnel hotkey and camera vertical movement states. */
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
         if (ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode) && this.funnelHotkeyHeld) {
             this.funnelHotkeyHeld = false;
@@ -954,6 +1085,11 @@ public final class BuilderScreen extends Screen {
         }
         return super.keyReleased(keyCode, scanCode, modifiers);
     }
+    /**
+     * Routes a key press to the appropriate builder mode switch based on keybind matching.
+     *
+     * @return true if a mode switch was performed
+     */
     private boolean handleModeKeyPressed(int keyCode, int scanCode) {
         if (ClientKeyMappings.MODE_INTERACT.matches(keyCode, scanCode)) {
             return switchToModeFromKey(BuilderMode.INTERACT, false);
@@ -969,6 +1105,13 @@ public final class BuilderScreen extends Screen {
         }
         return false;
     }
+    /**
+     * Switches the builder mode from a keybind, cleaning up active input state.
+     *
+     * @param mode          the target builder mode
+     * @param funnelEnabled whether funnel mode should be enabled on switch
+     * @return true if the mode was actually changed
+     */
     private boolean switchToModeFromKey(BuilderMode mode, boolean funnelEnabled) {
         if (mode == null || (this.controller.getMode() == mode && this.controller.isFunnelEnabled() == funnelEnabled)) {
             return false;
@@ -983,6 +1126,7 @@ public final class BuilderScreen extends Screen {
         return true;
     }
     @Override
+    /** Handles character-typed input, routing to quantity dialog, blueprint name dialog, search boxes, and ultimine limit input. */
     public boolean charTyped(char codePoint, int modifiers) {
         if (this.bottomPanel.craftQuantityDialog.isOpen()) {
             return this.bottomPanel.craftQuantityDialog.charTyped(codePoint, modifiers);
@@ -1008,8 +1152,15 @@ public final class BuilderScreen extends Screen {
         }
         return super.charTyped(codePoint, modifiers);
     }
-    // ======================== 娓叉煋鏂规硶 ========================
+    // ======================== Rendering Methods ========================
     @Override
+    /**
+     * Main render entry point. Uses fixed RTS GUI scaling when enabled.
+     * Resets hover states, draws the top bar background, renders all panels and overlays
+     * in priority order: top bar, bottom panel, quick-build, ultimine, funnel buffer,
+     * shape context, quest/storage scan popups, blueprint capture/placement HUD,
+     * tooltips, cursor preview, damage flash, and modal layers (wheel, gear, guide, dialogs).
+     */
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
             return;
@@ -1165,6 +1316,10 @@ public final class BuilderScreen extends Screen {
         }
         renderDamageFlash(guiGraphics);
     }
+    /**
+     * Renders a red flash overlay over the entire screen that fades out over time,
+     * indicating the player took damage while the RTS screen was open.
+     */
     private void renderDamageFlash(GuiGraphics guiGraphics) {
         if (this.damageFlashStartMs < 0L) {
             return;
@@ -1178,6 +1333,14 @@ public final class BuilderScreen extends Screen {
         int argb = ((int) (alpha * 128.0F) << 24) | 0x00FF0000;
         guiGraphics.fill(0, 0, this.width, this.height, argb);
     }
+    /**
+     * Renders a sub-component at an elevated Z-layer to ensure it appears above other
+     * game/screen elements.
+     *
+     * @param g        the GuiGraphics context
+     * @param z        the Z-layer offset
+     * @param renderer the rendering action to execute at the elevated layer
+     */
     private void renderAtGuiLayer(GuiGraphics g, float z, Runnable renderer) {
         g.pose().pushPose();
         g.pose().translate(0.0F, 0.0F, z);
@@ -1187,6 +1350,12 @@ public final class BuilderScreen extends Screen {
             g.pose().popPose();
         }
     }
+    /**
+     * Scales the rendering to the user-configured fixed RTS GUI scale, then recursively
+     * calls {@link #render(GuiGraphics, int, int, float)} with adjusted coordinates.
+     *
+     * @return true if the render was handled at a non-unit scale (calling code should return)
+     */
     private boolean renderWithFixedRtsGuiScale(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         RtsUiScaleFrame frame = enterFixedRtsGuiScale();
         if (frame == null || Math.abs(frame.scale() - 1.0D) < 0.001D) {
@@ -1210,6 +1379,11 @@ public final class BuilderScreen extends Screen {
         }
         return true;
     }
+    /**
+     * Enters a fixed RTS GUI scale frame by temporarily adjusting the screen width/height
+     * to virtual dimensions that produce the desired render scale. Returns an
+     * {@link RtsUiScaleFrame} that restores the original dimensions when closed.
+     */
     private RtsUiScaleFrame enterFixedRtsGuiScale() {
         if (this.minecraft == null || this.minecraft.getWindow() == null || this.width <= 0 || this.height <= 0) {
             return null;
@@ -1233,6 +1407,10 @@ public final class BuilderScreen extends Screen {
             this.height = oldH;
         });
     }
+    /**
+     * Renders the home-selection overlay, allowing the player to pick a block position
+     * in the world to set as the RTS camera home / spawn point.
+     */
     private void renderHomeSelectionOverlay(GuiGraphics g, int mouseX, int mouseY) {
         updateNativeCursorVisibility(false);
         int panelW = Math.min(360, this.width - 24);
@@ -1248,15 +1426,27 @@ public final class BuilderScreen extends Screen {
             g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()), this.width / 2, panelY + 68, 0xFFE7C46A);
         }
     }
+    /**
+     * Renders a hint message at the top of the screen related to the guide panel when
+     * the top bar buttons are visible.
+     */
     public void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         this.guidePanel.renderTopHint(g, topButtons);
     }
+    /**
+     * Draws a small "+" icon inside a green-bordered slot at the cursor position,
+     * indicating the player is in GUI binding mode and should click a block to bind it.
+     */
     private void drawGuiBindCursor(GuiGraphics g, int mouseX, int mouseY) {
         int x = mouseX + 8;
         int y = mouseY + 8;
         RtsClientUiUtil.drawPanelFrame(g, x, y, CRAFT_DOCK_SLOT_SIZE, CRAFT_DOCK_SLOT_SIZE, 0xCC2D6B47, 0xFF78B28C, 0xFF0F151C);
         g.drawCenteredString(this.font, "+", x + CRAFT_DOCK_SLOT_SIZE / 2, y + 1, 0xFFFFFF);
     }
+    /**
+     * Renders the quest detection popup, showing scan progress and results
+     * (detecting quest items across linked storage).
+     */
     private void renderQuestDetectPopup(GuiGraphics g) {
         if (!this.controller.isQuestDetectPopupVisible()) {
             return;
@@ -1293,6 +1483,10 @@ public final class BuilderScreen extends Screen {
         g.vLine(barX, barY, barY + barH, 0xFF405064);
         g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
     }
+    /**
+     * Builds the status text component for the quest detection popup based on the
+     * current detection phase (started, complete, unavailable, error, or ready).
+     */
     private Component questDetectStatusText(byte phase) {
         int scanned = this.controller.getQuestDetectScannedTasks();
         int total = Math.max(scanned, this.controller.getQuestDetectTotalTasks());
@@ -1318,6 +1512,10 @@ public final class BuilderScreen extends Screen {
         }
         return Component.translatable("screen.rtsbuilding.quest_scan.ready");
     }
+    /**
+     * Renders the storage scan popup, showing a progress bar for the ongoing or
+     * completed storage rescan operation.
+     */
     private void renderStorageScanPopup(GuiGraphics g) {
         if (!this.controller.isStorageScanPopupVisible()) {
             return;
@@ -1349,17 +1547,26 @@ public final class BuilderScreen extends Screen {
         g.vLine(barX, barY, barY + barH, 0xFF405064);
         g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
     }
+    /**
+     * Checks whether the given progression node has been unlocked by the player.
+     * If progression is disabled, all nodes are considered unlocked.
+     */
     public boolean hasProgressionNode(ResourceLocation nodeId) {
         return !this.controller.isProgressionEnabled()
                 || nodeId == null
                 || this.controller.getUnlockedProgressionNodes().contains(nodeId.toString());
     }
+    /** Returns true if any recipe viewer mod (JEI, EMI, REI) is loaded. */
     private static boolean hasRecipeViewerLoaded() {
         return ModList.get().isLoaded("jei")
                 || ModList.get().isLoaded("emi")
                 || ModList.get().isLoaded("roughlyenoughitems");
     }
 
+    /**
+     * Applies persisted UI state from {@link RtsClientUiStateStore} to all panels,
+     * the shape controller, camera settings, and debug toggle.
+     */
     private void applyStoredUiState() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         this.quickBuildPanel.setQuickBuildOpen(state.quickBuildOpen);
@@ -1393,6 +1600,10 @@ public final class BuilderScreen extends Screen {
         this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360));
         this.shapeController.ensureFillModeForShape(this.controller.getBuildShape());
     }
+    /**
+     * Persists the current UI state (shape, fill mode, rotation, panel toggles,
+     * camera preferences, debug visibility) to {@link RtsClientUiStateStore}.
+     */
     public void persistUiState() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         state.buildShape = this.controller.getBuildShape().name();
@@ -1414,10 +1625,12 @@ public final class BuilderScreen extends Screen {
         state.debugButtonVisible = this.debugButtonVisible;
         RtsClientUiStateStore.save(state);
     }
+    /** Adjusts the fixed RTS GUI scale by a delta and persists the change. */
     public void adjustRtsGuiScale(double delta) {
         this.fixedRtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale + delta);
         persistUiState();
     }
+    /** Returns the current RTS GUI scale as a human-readable label (e.g. "1.0x", "1.5x"). */
     public String rtsGuiScaleLabel() {
         double scale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
         if (Math.abs(scale - Math.rint(scale)) < 0.001D) {
@@ -1425,6 +1638,11 @@ public final class BuilderScreen extends Screen {
         }
         return String.format(Locale.ROOT, "%.1fx", scale);
     }
+    /**
+     * Clamps and snaps the given GUI scale to the allowed range and step intervals.
+     *
+     * @return the sanitized scale value, or {@link BuilderScreenConstants#DEFAULT_RTS_GUI_SCALE} if invalid
+     */
     private static double sanitizeRtsGuiScale(double scale) {
         if (!Double.isFinite(scale)) {
             return DEFAULT_RTS_GUI_SCALE;
@@ -1432,50 +1650,65 @@ public final class BuilderScreen extends Screen {
         double snapped = Math.round(scale / RTS_GUI_SCALE_STEP) * RTS_GUI_SCALE_STEP;
         return Math.max(MIN_RTS_GUI_SCALE, Math.min(MAX_RTS_GUI_SCALE, snapped));
     }
+    /** Resolves the layout metadata for the quick-build panel (used for positioning and hit-testing). */
     public PanelLayouts.QuickBuildPanelLayout resolveQuickBuildPanelLayout() {
         return this.quickBuildPanel.resolveLayout();
     }
 
+    /** Adjusts the ultimine (vein-mining) block limit by a delta. */
     private void adjustUltimineLimit(int delta) {
         this.ultiminePanel.adjustLimit(delta);
     }
+    /** Returns whether the mouse is inside the ultimine limit text input field. */
     private boolean isInsideUltimineLimitInput(double mouseX, double mouseY) {
         return this.ultiminePanel.isInsideLimitInput(mouseX, mouseY);
     }
 
+    /** Returns whether the ultimine panel is currently open. */
     public boolean isUltimineOpen() {
         return this.ultiminePanel.isOpen();
     }
+    /** Returns the current ultimine block limit. */
     public int getUltimineLimit() {
         return this.ultiminePanel.getLimit();
     }
+    /** Sets the last sent ultimine limit value (to avoid redundant network packets). */
     public void setUltimineLastSentLimit(int limit) {
         this.ultiminePanel.setLastSentLimit(limit);
     }
+    /** Returns the number of available undo steps for shape placement. */
     public int getShapeUndoSize() {
         return this.shapeController.getShapeUndoSize();
     }
+    /** Returns the number of available redo steps for shape placement. */
     public int getShapeRedoSize() {
         return this.shapeController.getShapeRedoSize();
     }
+    /** Returns the pending GUI bind slot index, or -1 if not binding. */
     public int getPendingGuiBindSlot() {
         return this.pendingGuiBindSlot;
     }
+    /** Sets the pending GUI bind slot (entering or exiting bind mode). */
     public void setPendingGuiBindSlot(int slot) {
         this.pendingGuiBindSlot = slot;
     }
+    /** Cancels the current GUI bind operation. */
     public void clearPendingGuiBind() {
         this.pendingGuiBindSlot = -1;
     }
+    /** Toggles the quick-build panel open/closed. */
     public void toggleQuickBuild() {
         this.quickBuildPanel.toggleOpen();
     }
+    /** Toggles the ultimine panel open/closed. */
     public void toggleUltimine() {
         this.ultiminePanel.setOpen(!this.ultiminePanel.isOpen());
     }
+    /** Closes the gear (settings) menu. */
     public void closeGearMenu() {
         this.gearMenuPanel.close();
     }
+    /** Toggles the gear (settings) menu open/closed. */
     public void toggleGearMenu() {
         if (this.gearMenuPanel.isOpen()) {
             this.gearMenuPanel.close();
@@ -1483,6 +1716,10 @@ public final class BuilderScreen extends Screen {
             this.gearMenuPanel.open();
         }
     }
+    /**
+     * Toggles the top guide panel on or off. If the guide is already open in TOP context,
+     * closes it; otherwise opens it at the given position.
+     */
     public void toggleTopGuide(int x, int y) {
         if (this.guidePanel.isOpen() && this.guidePanel.getContext() == GuideTypes.GuideContext.TOP) {
             this.guidePanel.close();
@@ -1490,18 +1727,26 @@ public final class BuilderScreen extends Screen {
             this.guidePanel.open(GuideTypes.GuideContext.TOP, x, y);
         }
     }
+    /** Opens the bottom guide panel at the given position. */
     public void openBottomGuide(int x, int y) {
         this.guidePanel.open(GuideTypes.GuideContext.BOTTOM, x, y);
     }
+    /** Returns whether the guide panel is currently open. */
     public boolean isGuideOpen() {
         return this.guidePanel.isOpen();
     }
+    /** Returns whether the gear menu is currently open. */
     public boolean isGearMenuOpen() {
         return this.gearMenuPanel.isOpen();
     }
+    /** Returns whether the craft quantity dialog is currently open. */
     public boolean isCraftQuantityDialogOpen() {
         return this.bottomPanel.craftQuantityDialog.isOpen();
     }
+    /**
+     * Activates the funnel hotkey: stops mining, clears shape preview, closes wheels,
+     * saves the current mode, and switches to funnel mode with funnel enabled.
+     */
     private void activateFunnelHotkey() {
         this.cameraInput.stopActiveMining();
         this.shapeController.clearShapeBuildSession();
@@ -1513,6 +1758,10 @@ public final class BuilderScreen extends Screen {
         this.controller.setMode(BuilderMode.FUNNEL);
         this.controller.setFunnelEnabled(true);
     }
+    /**
+     * Deactivates the funnel hotkey: disables funnel and restores the mode that was
+     * active before the hotkey was pressed.
+     */
     private void deactivateFunnelHotkey() {
         if (this.controller.getMode() == BuilderMode.FUNNEL || this.controller.isFunnelEnabled()) {
             this.controller.setFunnelEnabled(false);
@@ -1521,8 +1770,12 @@ public final class BuilderScreen extends Screen {
                     : this.modeBeforeFunnelHotkey);
         }
     }
+    /**
+     * Drops one item of the currently selected item (or the tool slot item) at the
+     * cursor's target position in the world. Used by the quick-drop keybind.
+     */
     private void quickDropSelectedAtCursor() {
-        if (this.minecraft == null || this.minecraft.gameRenderer == null || this.minecraft.getCameraEntity() == null) {
+        if (this.minecraft == null || this.minecraft.getCameraEntity() == null) {
             return;
         }
         String dropItemId = "";
@@ -1548,6 +1801,7 @@ public final class BuilderScreen extends Screen {
         }
         this.controller.quickDropSelectedItem(dropItemId, 1, dropPos);
     }
+    /** Copies a debug snapshot string to the system clipboard and shows a confirmation message. */
     public void copyDebugSnapshotToClipboard() {
         if (this.minecraft == null) {
             return;
@@ -1557,6 +1811,10 @@ public final class BuilderScreen extends Screen {
             this.minecraft.player.displayClientMessage(Component.translatable("screen.rtsbuilding.debug.copied"), true);
         }
     }
+    /**
+     * Builds a multi-line debug snapshot string containing the current screen state,
+     * controller mode, storage info, shape settings, camera preferences, and player data.
+     */
     private String buildDebugSnapshot() {
         StringBuilder out = new StringBuilder(512);
         out.append("RTSBuilding debug snapshot\n");
@@ -1606,6 +1864,10 @@ public final class BuilderScreen extends Screen {
         }
         return out.toString();
     }
+    /**
+     * Renders discoverability tooltips for various UI elements when hovered:
+     * undo/redo key hint, quick-build toggle, quick-build cancel area.
+     */
     private void renderDiscoverabilityTooltips(GuiGraphics g, int mouseX, int mouseY) {
         if (this.guidePanel.isOpen() || this.interactionWheelPanel.isOpen() || this.shapeWheelPanel.isOpen()) {
             return;
@@ -1629,6 +1891,9 @@ public final class BuilderScreen extends Screen {
         }
     }
 
+    /**
+     * Removes focus from any focused search box (storage or craft search).
+     */
     public void blurSearchFocus() {
         boolean blurred = false;
         if (this.searchBox != null && this.searchBox.isFocused()) {
@@ -1643,6 +1908,7 @@ public final class BuilderScreen extends Screen {
             this.setFocused(null);
         }
     }
+    /** Moves focus to the storage search box, removing focus from the craft search box if needed. */
     public void focusStorageSearchBox() {
         if (this.craftSearchBox != null && this.craftSearchBox.isFocused()) {
             this.craftSearchBox.setFocused(false);
@@ -1652,6 +1918,7 @@ public final class BuilderScreen extends Screen {
             this.setFocused(this.searchBox);
         }
     }
+    /** Moves focus to the craft search box, removing focus from the storage search box if needed. */
     public void focusCraftSearchBox() {
         if (this.searchBox != null && this.searchBox.isFocused()) {
             this.searchBox.setFocused(false);
@@ -1662,38 +1929,56 @@ public final class BuilderScreen extends Screen {
         }
     }
 
+    /**
+     * Returns whether the given screen coordinates are within the "world area" —
+     * below the top bar and outside the bottom panel. Clicks in this area interact
+     * with the Minecraft world.
+     */
     public boolean isWorldArea(double mouseX, double mouseY) {
         return mouseY > TOP_H && !this.bottomPanel.isInsideBottomPanel(mouseX, mouseY);
     }
 
+    /** Returns the top edge (Y coordinate) of the bottom panel. */
     public int getBottomY() {
         return this.bottomPanel.getBottomY();
     }
+    /**
+     * Returns the available height for floating panels between a given panelY and
+     * the bottom panel, with a 6-pixel margin.
+     */
     public int getFloatingPanelAvailableHeight(int panelY) {
         return Math.max(0, getBottomY() - panelY - 6);
     }
 
+    /** Returns whether the given coordinates are inside the bottom panel region. */
     private boolean isInsideBottomPanel(double mouseX, double mouseY) {
         return this.bottomPanel.isInsideBottomPanel(mouseX, mouseY);
     }
 
 
+    /** Returns whether either search box is currently focused. */
     public boolean isSearchFocused() {
         return (this.searchBox != null && this.searchBox.isFocused())
                 || (this.craftSearchBox != null && this.craftSearchBox.isFocused());
     }
+    /** Returns the player's currently selected hotbar slot index (0-8). */
     public int getSelectedToolSlot() {
         if (this.minecraft == null || this.minecraft.player == null) {
             return 0;
         }
         return Mth.clamp(this.minecraft.player.getInventory().selected, 0, 8);
     }
+    /** Returns the ItemStack in the player's currently selected hotbar slot. */
     private ItemStack getSelectedToolStack() {
         if (this.minecraft == null || this.minecraft.player == null) {
             return ItemStack.EMPTY;
         }
         return this.minecraft.player.getInventory().getItem(getSelectedToolSlot());
     }
+    /**
+     * Resolves the item ID string for GUI binding at the given block hit.
+     * Tries the block's pick item first, then falls back to AE2 compat resolution.
+     */
     private String resolveGuiBindingItemId(BlockHitResult hit) {
         if (hit == null || this.minecraft == null || this.minecraft.level == null) {
             return "";
@@ -1713,6 +1998,11 @@ public final class BuilderScreen extends Screen {
         var id = BuiltInRegistries.ITEM.getKey(preview.getItem());
         return id == null ? "" : id.toString();
     }
+    /**
+     * Returns whether the tool slot can be used as a shape build source:
+     * the player must NOT have a selected item/fluid/empty hand, and the tool
+     * slot must contain a BlockItem.
+     */
     public boolean canUseToolSlotShapeSource() {
         if (this.controller.hasSelectedItem() || this.controller.hasSelectedFluid() || this.controller.isEmptyHandSelected()) {
             return false;
@@ -1720,6 +2010,12 @@ public final class BuilderScreen extends Screen {
         ItemStack stack = getSelectedToolStack();
         return !stack.isEmpty() && stack.getItem() instanceof BlockItem;
     }
+    /**
+     * Attempts to assign a quick-slot (pin) from the currently hovered tool slot
+     * or the selected hotbar slot. Used by the pin quick-slot keybind.
+     *
+     * @return true if the slot was assigned
+     */
     private boolean tryAssignQuickSlotFromToolSelection(int pinIndex) {
         if (this.minecraft == null || this.minecraft.player == null) {
             return false;
@@ -1736,6 +2032,7 @@ public final class BuilderScreen extends Screen {
         this.controller.assignQuickSlotFromToolItem(pinIndex, stack);
         return true;
     }
+    /** Sets the player's selected hotbar slot (clamped to 0-8). */
     public void setSelectedToolSlot(int slot) {
         if (this.minecraft == null || this.minecraft.player == null) {
             return;
@@ -1743,6 +2040,10 @@ public final class BuilderScreen extends Screen {
         this.minecraft.player.getInventory().selected = Mth.clamp(slot, 0, 8);
     }
 
+    /**
+     * Computes how many pin (quick-slot) cells are visible within the available
+     * horizontal space, given a starting X and right bound.
+     */
     private int computeVisiblePinCells(int pinStartX, int rightBoundExclusive) {
         int visible = 0;
         for (int i = 0; i < this.controller.getQuickSlotCount(); i++) {
@@ -1754,9 +2055,14 @@ public final class BuilderScreen extends Screen {
         }
         return visible;
     }
+    /** Returns whether a pin pager (left/right arrows) should be shown for quick-slots. */
     private boolean shouldUsePinPager(int visibleCells, int totalPins) {
         return visibleCells >= 2 && totalPins > visibleCells;
     }
+    /**
+     * Computes how many pin slots fit on a single page. If a pager is needed,
+     * one cell is reserved for the pager button.
+     */
     private int computePinSlotsPerPage(int visibleCells, int totalPins) {
         if (visibleCells <= 0) {
             return 1;
@@ -1767,6 +2073,10 @@ public final class BuilderScreen extends Screen {
         return visibleCells;
     }
 
+    /**
+     * Returns the ghost preview data for the currently selected blueprint, or
+     * {@link BlueprintGhostPreview#EMPTY} if no blueprint is active.
+     */
     public BlueprintGhostPreview getBlueprintGhostPreview() {
         if (this.bottomPanel.bottomPanelTab != BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
                 || BlueprintPanel.isCaptureModeActive()
@@ -1793,6 +2103,11 @@ public final class BuilderScreen extends Screen {
         }
         return new BlueprintGhostPreview(preview.blocks(), preview.materialsReady(), preview.truncated());
     }
+    /**
+     * Collects the list of block positions that would be affected by an ultimine
+     * (vein-mining) operation starting from the current mining seed position
+     * or the block under the cursor.
+     */
     public List<BlockPos> collectUltiminePreviewBlocks() {
         if (this.minecraft == null || this.minecraft.level == null) {
             return List.of();
@@ -1820,6 +2135,10 @@ public final class BuilderScreen extends Screen {
                         && (creative || state.getDestroySpeed(this.minecraft.level, pos) >= 0.0F));
     }
 
+    /**
+     * Returns the effective RTS GUI render scale for the current frame,
+     * factoring in the fixed RTS scale and the Minecraft window's actual scale.
+     */
     private double currentRtsGuiRenderScale() {
         if (this.minecraft == null || this.minecraft.getWindow() == null || this.width <= 0) {
             return 1.0D;
@@ -1831,6 +2150,12 @@ public final class BuilderScreen extends Screen {
         double renderScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale) / currentScale;
         return renderScale > 0.0D && Double.isFinite(renderScale) ? renderScale : 1.0D;
     }
+    /**
+     * Performs a direct tool interaction (interact entity or block) using the
+     * currently selected tool slot, without shape building.
+     *
+     * @return true if the interaction was performed
+     */
     private boolean tryDirectToolInteraction() {
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
@@ -1852,32 +2177,44 @@ public final class BuilderScreen extends Screen {
         }
         return false;
     }
+    /** Opens the interaction wheel at the given screen position. */
     private boolean openInteractionWheel(double mouseX, double mouseY) {
         return this.interactionWheelPanel.open(mouseX, mouseY);
     }
+    /** Closes the interaction wheel overlay. */
     public void closeInteractionWheel() {
         this.interactionWheelPanel.close();
     }
+    /** Opens the shape-selection wheel at the given screen position. */
     public void openShapeWheel(double mouseX, double mouseY) {
         this.shapeWheelPanel.open(mouseX, mouseY, false);
         closeInteractionWheel();
     }
+    /** Closes the shape-selection wheel overlay. */
     private void closeShapeWheel() {
         this.shapeWheelPanel.close();
     }
 
+    /** Resolves which shape option is under the mouse cursor on the shape wheel. */
     private ClientRtsController.BuildShape resolveShapeWheelOption(double mouseX, double mouseY) {
         return this.shapeWheelPanel.resolveOption(mouseX, mouseY);
     }
+    /** Resolves which interaction option is under the mouse cursor on the interaction wheel. */
     private InteractionTypes.InteractionOption resolveInteractionWheelOption(double mouseX, double mouseY) {
         return this.interactionWheelPanel.resolveOption(mouseX, mouseY);
     }
+    /** Delegates rendering of the interaction wheel overlay. */
     private void renderInteractionWheel(GuiGraphics g, int mouseX, int mouseY) {
         this.interactionWheelPanel.render(g, mouseX, mouseY);
     }
+    /** Delegates rendering of the shape wheel overlay. */
     private void renderShapeWheel(GuiGraphics g, int mouseX, int mouseY) {
         this.shapeWheelPanel.render(g, mouseX, mouseY);
     }
+    /**
+     * Enables a scissor region for clipping, adjusting coordinates for the
+     * active RTS GUI render scale if a fixed-scale pass is in progress.
+     */
     private void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) {
         double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
         if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
@@ -1891,13 +2228,19 @@ public final class BuilderScreen extends Screen {
         g.enableScissor(x1, y1, x2, y2);
     }
 
+    /** Truncates the given text to fit within the specified pixel width. */
     public String trimToWidth(String text, int maxWidth) {
         return RtsClientUiUtil.trimToWidth(this.font, text, maxWidth);
     }
+    /** Translates the given i18n key and formats with the provided arguments. */
     public String text(String key, Object... args) {
         return Component.translatable(key, args).getString();
     }
 
+    /**
+     * Returns a status label for the currently selected item, including durability
+     * information if the item is damageable (e.g. "Stone Pickaxe 123/250").
+     */
     public String selectedItemStatusLabel() {
         ItemStack preview = this.controller.getSelectedItemPreview();
         String label = this.controller.getSelectedItemLabel();
@@ -1908,6 +2251,10 @@ public final class BuilderScreen extends Screen {
         }
         return label;
     }
+    /**
+     * Draws text at a scaled size, useful for rendering labels that need to be
+     * smaller or larger than the default font size.
+     */
     private void drawScaledText(GuiGraphics g, String text, int x, int y, int color, float scale) {
         if (text == null || text.isEmpty()) {
             return;
@@ -1918,11 +2265,16 @@ public final class BuilderScreen extends Screen {
         g.drawString(this.font, text, 0, 0, color, false);
         g.pose().popPose();
     }
+    /** Returns whether the player has a non-empty main hand item. */
     private boolean hasMainHandItem() {
         return this.minecraft != null
                 && this.minecraft.player != null
                 && !this.minecraft.player.getMainHandItem().isEmpty();
     }
+    /**
+     * Resolves the ItemStack to render as a cursor preview, based on the current
+     * selection state: selected item, selected fluid, empty hand, or main hand item.
+     */
     private ItemStack resolveCursorPreview() {
         if (this.controller.hasSelectedItem()) {
             return this.controller.getSelectedItemPreview();
@@ -1939,6 +2291,10 @@ public final class BuilderScreen extends Screen {
         ItemStack hand = this.minecraft.player.getMainHandItem();
         return hand.isEmpty() ? ItemStack.EMPTY : hand;
     }
+    /**
+     * Returns whether the interaction-wheel modifier (Alt + Ctrl) is currently held.
+     * This modifier opens the interaction wheel when the primary action is triggered.
+     */
     private boolean isWheelModifierDown() {
         if (this.minecraft == null) {
             return false;
@@ -1949,6 +2305,10 @@ public final class BuilderScreen extends Screen {
                 && (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                         || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS);
     }
+    /**
+     * Returns whether the funnel cursor (a hopper/funnel icon) should be rendered
+     * at the mouse position instead of the normal cursor preview.
+     */
     private boolean shouldRenderFunnelCursor() {
         return this.controller.isEnabled()
                 && this.controller.getMode() == BuilderMode.FUNNEL
@@ -1958,6 +2318,10 @@ public final class BuilderScreen extends Screen {
                 && !this.interactionWheelPanel.isOpen()
                 && !this.shapeWheelPanel.isOpen();
     }
+    /**
+     * Toggles the native GLFW cursor visibility. Hides the OS cursor when the RTS
+     * funnel cursor (custom texture) is being rendered, and restores it otherwise.
+     */
     private void updateNativeCursorVisibility(boolean hide) {
         if (this.minecraft == null) {
             this.nativeCursorHidden = false;
@@ -1970,18 +2334,23 @@ public final class BuilderScreen extends Screen {
         GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, hide ? GLFW.GLFW_CURSOR_HIDDEN : GLFW.GLFW_CURSOR_NORMAL);
         this.nativeCursorHidden = hide;
     }
+    /** Delegates to the cursor picker to compute the ray direction from the current cursor position. */
     public Vec3 computeCursorRayDirection() {
         return this.cursorPicker.computeCursorRayDirection();
     }
+    /** Delegates to the cursor picker to perform a block raycast from the current cursor position. */
     public BlockHitResult pickBlockHit() {
         return this.cursorPicker.pickBlockHit();
     }
+    /** Delegates to the cursor picker to perform an interaction target pick (block or entity). */
     public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
         return this.cursorPicker.pickInteractionTarget(includeFluidSource);
     }
+    /** Returns true if (mouseX, mouseY) is inside the rectangle (x, y, w, h). */
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
         return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
+    /** Returns a short label string for the given storage sort mode. */
     private static String sortLabel(RtsStorageSort sort) {
         return switch (sort) {
             case QUANTITY -> "Qty";
@@ -1989,25 +2358,32 @@ public final class BuilderScreen extends Screen {
             case NAME -> "Name";
         };
     }
+    /** Returns the localized label for the given shape fill mode. */
     public String fillModeLabel(ShapeBuildTypes.ShapeFillMode mode) {
         return this.shapeController.fillModeLabel(mode);
     }
+    /** Returns the localized dimension label (e.g. "3x3x3") for the given build shape. */
     public static String shapeDimensionLabel(ClientRtsController.BuildShape shape) {
         return ScreenShapeController.shapeDimensionLabel(shape);
     }
+    /** Returns a text description of the current shape's dimensions (e.g. "5x3x5"). */
     public String currentShapeSizeText() {
         return this.shapeController.currentShapeSizeText();
     }
+    /** Returns a text description of the current shape's material cost (e.g. "40 blocks"). */
     public String currentShapeCostText() {
         return this.shapeController.currentShapeCostText();
     }
+    /** Returns a text description of the pending shape build status (e.g. "Click to confirm"). */
     public String pendingShapeStatusText() {
         return this.shapeController.pendingShapeStatusText();
     }
+    /** Returns the localized display label for the given build shape. */
     public String shapeLabel(ClientRtsController.BuildShape shape) {
         return this.shapeController.shapeLabel(shape);
     }
 
+    /** Returns whether the Alt key is currently held down. */
     private boolean isAltDown() {
         if (this.minecraft == null) return false;
         long window = this.minecraft.getWindow().getWindow();
@@ -2015,10 +2391,12 @@ public final class BuilderScreen extends Screen {
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
     }
 
+    /** Returns the last recorded mouse X coordinate. */
     private double currentMouseX() {
         return this.lastMouseX;
     }
 
+    /** Returns the last recorded mouse Y coordinate. */
     private double currentMouseY() {
         return this.lastMouseY;
     }
