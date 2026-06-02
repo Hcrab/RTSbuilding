@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Set;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCraftRefillPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkedQuickMovePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkedPickupPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsImportMenuSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsReturnCarriedPayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedQuickMovePayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

@@ -2,10 +2,10 @@ package com.rtsbuilding.rtsbuilding.client;
 
 import java.util.List;
 
-import com.rtsbuilding.rtsbuilding.network.C2SRtsImportMenuSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkedPickupPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsReturnCarriedPayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 
 import org.lwjgl.glfw.GLFW;
 

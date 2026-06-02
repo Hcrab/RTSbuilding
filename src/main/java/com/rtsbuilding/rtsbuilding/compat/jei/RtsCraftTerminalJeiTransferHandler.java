@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.compat.jei;
 
 import java.util.Optional;
 
-import com.rtsbuilding.rtsbuilding.network.C2SRtsJeiTransferPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
 
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;

@@ -2,6 +2,11 @@ package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.network.builder.*;
+import com.rtsbuilding.rtsbuilding.network.camera.*;
+import com.rtsbuilding.rtsbuilding.network.craft.*;
+import com.rtsbuilding.rtsbuilding.network.progression.*;
+import com.rtsbuilding.rtsbuilding.network.storage.*;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -67,8 +67,8 @@ public final class RtsCameraManager {
         cleanupOrphanCameras(player.getServer());
         discardOwnedCameras(player, null);
         ServerLevel level = player.serverLevel();
-        // 将锚点对齐到方块中心（整数坐标 + 0.5），使相机移动范围与放置限制红线完全一致
         Vec3 playerPos = player.position();
+        // Align the anchor to block center so camera bounds match the placement boundary.
         Vec3 anchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
         double maxRadius = RtsProgressionManager.getActionRadius(player);
 

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
+import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.progression.*;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import net.minecraft.core.BlockPos;
@@ -133,7 +133,7 @@ public final class RtsProgressionManager {
         double radius = getActionRadius(player);
         double dx = (pos.getX() + 0.5D) - (home.pos().getX() + 0.5D);
         double dz = (pos.getZ() + 0.5D) - (home.pos().getZ() + 0.5D);
-        // 移除 +8 缓冲，使放置范围与红线边界完全一致
+        // Keep placement access aligned with the visible home boundary.
         double halfExtent = radius;
         return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
     }

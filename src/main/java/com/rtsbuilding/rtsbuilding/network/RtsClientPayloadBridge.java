@@ -1,5 +1,15 @@
 package com.rtsbuilding.rtsbuilding.network;
 
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
+import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
