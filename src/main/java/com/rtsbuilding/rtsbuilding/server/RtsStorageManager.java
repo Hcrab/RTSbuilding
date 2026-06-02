@@ -27,7 +27,6 @@ import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedS
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
@@ -90,9 +89,7 @@ import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.LiquidBlockContainer;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -127,14 +124,10 @@ public final class RtsStorageManager {
     // limits without copying storage UI runtime rules.
     static final int QUICK_SLOT_COUNT = 27;
     static final int GUI_BINDING_SLOT_COUNT = 8;
-    private static final int QUICK_BUILD_BATCH_BLOCKS_PER_TICK = 64;
-    private static final int QUICK_BUILD_BATCH_MAX_QUEUED_JOBS = 4;
-    private static final int QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS = 3;
     static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
     private static final byte LINK_MODE_EXTRACT_ONLY = C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
 
     private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
-    private static final PreviewCraftingMenu PREVIEW_CRAFTING_MENU = new PreviewCraftingMenu();
 
     private RtsStorageManager() {
     }
@@ -206,8 +199,8 @@ public final class RtsStorageManager {
             session.remoteMenuContainerId = -1;
             session.remoteMenuPos = null;
         }
-        tickQuickBuildCompletionSound(player, session);
-        tickPlaceBatchJobs(player, session);
+        RtsStoragePlacement.tickQuickBuildCompletionSound(player, session);
+        RtsStoragePlacement.tickPlaceBatchJobs(player, session);
     }
 
     private static Session getOrCreateSession(ServerPlayer player) {
@@ -236,7 +229,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static void saveSessionToPlayerNbt(ServerPlayer player, Session session) {
+    static void saveSessionToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
         CompoundTag root = RtsStorageSessionCodec.serialize(session);
         player.getPersistentData().put(RtsStorageSessionCodec.ROOT_KEY, root.copy());
         RtsStorageSessionStore.saveSession(player, root);
@@ -332,37 +325,7 @@ public final class RtsStorageManager {
     }
 
     public static void openCraftTerminal(ServerPlayer player) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null) {
-            return;
-        }
-        sanitizeSessionDimension(player, session);
-        if (!hasAnyStorage(player, session)) {
-            player.displayClientMessage(Component.literal("Link at least one storage first."), true);
-            return;
-        }
-
-        player.openMenu(new SimpleMenuProvider(
-                (containerId, inventory, ignored) -> new RtsCraftTerminalMenu(
-                        containerId,
-                        inventory,
-                        new ContainerLevelAccess() {
-                            @Override
-                            public <T> Optional<T> evaluate(BiFunction<Level, BlockPos, T> evaluator) {
-                                return Optional.ofNullable(evaluator.apply(player.serverLevel(), player.blockPosition()));
-                            }
-
-                            @Override
-                            public void execute(BiConsumer<Level, BlockPos> consumer) {
-                                consumer.accept(player.serverLevel(), player.blockPosition());
-                            }
-                        }),
-                Component.literal("RTS Craft Terminal")));
-        relaxOpenedMenuValidation(player.containerMenu);
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        RtsStorageCrafting.openCraftTerminal(player, SESSIONS.get(player.getUUID()));
     }
 
     public static void detectQuests(ServerPlayer player, byte mode) {
@@ -382,7 +345,7 @@ public final class RtsStorageManager {
         if (session == null || !canAccessWorldTarget(player, pos)) {
             return;
         }
-        rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsStoragePlacement.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
     }
 
     public static void storeHotbarSlotToLinked(ServerPlayer player, byte slotId) {
@@ -537,7 +500,7 @@ public final class RtsStorageManager {
         if (session == null) {
             return;
         }
-        playRemotePlacedBlockSound(player, player.serverLevel(), session, pos, true);
+        RtsStoragePlacement.playRemotePlacedBlockSound(player, player.serverLevel(), session, pos, true);
         recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
     }
 
@@ -642,78 +605,15 @@ public final class RtsStorageManager {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
             return;
         }
-        Session session = getOrCreateSession(player);
-        session.craftSearch = search == null ? "" : search.trim();
-        session.craftShowUnavailable = showUnavailable;
-        session.craftPinyinSearchEnabled = pinyinSearchEnabled;
-        session.craftLocalizedSearchMatches.clear();
-        session.craftLocalizedSearchMatches.addAll(sanitizeLocalizedSearchMatches(localizedSearchMatches));
-        int batchOffset = Math.max(0, offset);
-        int batchLimit = Math.max(1, limit);
-        session.craftRequestedCount = Math.max(CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
-        saveSessionToPlayerNbt(player, session);
-
-        if (session.craftSearch.isBlank()) {
-            sendCraftables(player, session, List.of(), 0, false, false);
-            return;
-        }
-
-        sanitizeSessionDimension(player, session);
-        if (!hasAnyStorage(player, session)) {
-            sendCraftables(player, session, List.of(), 0, false, false);
-            return;
-        }
-
-        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
-            sendCraftables(player, session, List.of(), 0, false, false);
-            return;
-        }
-
-        Map<String, Long> availableCounts = summarizeAvailableCraftItems(player, session, activeLinked);
-        Map<String, List<CraftableCandidate>> byResultItem = new LinkedHashMap<>();
-        var recipeManager = player.serverLevel().getRecipeManager();
-        for (ResourceLocation id : recipeManager.getRecipeIds().toList()) {
-            Recipe<?> raw = recipeManager.byKey(id).orElse(null);
-            if (!(raw instanceof CraftingRecipe craftingRecipe)) {
-                continue;
-            }
-            if (!supportsWorkbenchCraftPanelRecipe(craftingRecipe)) {
-                continue;
-            }
-            CraftableCandidate candidate = buildCraftableCandidate(
-                    player,
-                    id,
-                    craftingRecipe,
-                    availableCounts,
-                    session.craftSearch,
-                    session.craftPinyinSearchEnabled,
-                    session.craftLocalizedSearchMatches);
-            if (candidate == null) {
-                continue;
-            }
-            byResultItem.computeIfAbsent(candidate.resultItemId(), ignored -> new ArrayList<>()).add(candidate);
-        }
-
-        List<CraftableGroupEntry> groupedEntries = new ArrayList<>(byResultItem.size());
-        for (List<CraftableCandidate> options : byResultItem.values()) {
-            if (options == null || options.isEmpty()) {
-                continue;
-            }
-            options.sort(CraftableCandidate::compareForRecipeSelection);
-            boolean anyCraftable = options.stream().anyMatch(CraftableCandidate::craftable);
-            if (!session.craftShowUnavailable && !anyCraftable) {
-                continue;
-            }
-            groupedEntries.add(new CraftableGroupEntry(options.get(0), List.copyOf(options)));
-        }
-
-        groupedEntries.sort(CraftableGroupEntry::compareForPanel);
-        int safeOffset = Math.min(groupedEntries.size(), batchOffset);
-        int endExclusive = Math.min(groupedEntries.size(), safeOffset + batchLimit);
-        boolean append = safeOffset > 0;
-        boolean hasMore = endExclusive < groupedEntries.size();
-        sendCraftables(player, session, new ArrayList<>(groupedEntries.subList(safeOffset, endExclusive)), safeOffset, append, hasMore);
+        RtsStorageCrafting.requestCraftables(
+                player,
+                getOrCreateSession(player),
+                search,
+                showUnavailable,
+                offset,
+                limit,
+                pinyinSearchEnabled,
+                localizedSearchMatches);
     }
 
     public static void craftRecipeToLinked(ServerPlayer player, String recipeId) {
@@ -724,488 +624,7 @@ public final class RtsStorageManager {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
             return;
         }
-        Session session = getOrCreateSession(player);
-        sanitizeSessionDimension(player, session);
-        if (!hasAnyStorage(player, session)) {
-            refreshCraftables(player, session);
-            return;
-        }
-        if (recipeId == null || recipeId.isBlank()) {
-            refreshCraftables(player, session);
-            return;
-        }
-
-        ResourceLocation key = ResourceLocation.tryParse(recipeId);
-        if (key == null) {
-            refreshCraftables(player, session);
-            return;
-        }
-
-        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
-        if (!(raw instanceof CraftingRecipe craftingRecipe)) {
-            refreshCraftables(player, session);
-            return;
-        }
-        if (!supportsWorkbenchCraftPanelRecipe(craftingRecipe)) {
-            refreshCraftables(player, session);
-            return;
-        }
-
-        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
-            refreshCraftables(player, session);
-            return;
-        }
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
-
-        boolean includePlayerFallback = hasAnyStorage(player, session)
-                && !(player.containerMenu instanceof RtsCraftTerminalMenu);
-        ItemStack previewResult = resolveCraftablePreviewResult(craftingRecipe, player);
-        String resultLabel = previewResult.isEmpty() ? "item" : previewResult.getHoverName().getString();
-        ResourceLocation previewResultId = previewResult.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(previewResult.getItem());
-        int requestedCrafts = Math.max(1, Math.min(999, craftCount));
-        int completedCrafts = 0;
-        int totalCraftedCount = 0;
-        boolean storageFull = false;
-        String craftedItemId = previewResultId == null ? "" : previewResultId.toString();
-        Map<String, Integer> consumedCounts = new LinkedHashMap<>();
-
-        for (int i = 0; i < requestedCrafts; i++) {
-            CraftExecutionResult result = craftSingleRecipeToLinked(player, handlers, craftingRecipe, includePlayerFallback);
-            if (!result.success()) {
-                storageFull = result.storageFull();
-                break;
-            }
-            completedCrafts++;
-            totalCraftedCount += result.resultCount();
-            if (!result.resultItemId().isBlank()) {
-                craftedItemId = result.resultItemId();
-            }
-            mergeConsumedCounts(consumedCounts, result.consumedCounts());
-        }
-
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        refreshCraftables(player, session);
-        if (completedCrafts <= 0) {
-            if (storageFull) {
-                player.displayClientMessage(Component.literal("Craft: linked storage is full."), true);
-            } else {
-                player.displayClientMessage(Component.literal("Craft: missing ingredients."), true);
-            }
-            return;
-        }
-
-        recordRecentItem(session, craftedItemId, S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, totalCraftedCount);
-        saveSessionToPlayerNbt(player, session);
-        PacketDistributor.sendToPlayer(player, new S2CRtsCraftFeedbackPayload(
-                craftedItemId,
-                totalCraftedCount,
-                new ArrayList<>(consumedCounts.keySet()),
-                new ArrayList<>(consumedCounts.values())));
-        StringBuilder summary = new StringBuilder("Crafted ")
-                .append(totalCraftedCount)
-                .append(" ")
-                .append(resultLabel);
-        if (completedCrafts < requestedCrafts) {
-            summary.append(" (").append(completedCrafts).append("/").append(requestedCrafts).append(" crafts)");
-            summary.append(storageFull ? ", linked storage full." : ", missing ingredients for the rest.");
-        } else {
-            summary.append(".");
-        }
-        player.displayClientMessage(Component.literal(summary.toString()), true);
-        runQuestDetect(player, session, false);
-    }
-
-    private static void sendCraftables(
-            ServerPlayer player,
-            Session session,
-            List<CraftableGroupEntry> candidates,
-            int offset,
-            boolean append,
-            boolean hasMore) {
-        List<String> recipeIds = new ArrayList<>(candidates.size());
-        List<String> resultItemIds = new ArrayList<>(candidates.size());
-        List<Integer> resultCounts = new ArrayList<>(candidates.size());
-        List<Boolean> craftable = new ArrayList<>(candidates.size());
-        List<String> missingSummaries = new ArrayList<>(candidates.size());
-        List<Integer> recipeOptionCounts = new ArrayList<>(candidates.size());
-        List<String> optionRecipeIds = new ArrayList<>();
-        List<Integer> optionResultCounts = new ArrayList<>();
-        List<Boolean> optionCraftable = new ArrayList<>();
-        List<String> optionSummaries = new ArrayList<>();
-        List<String> optionMissingSummaries = new ArrayList<>();
-        for (CraftableGroupEntry group : candidates) {
-            CraftableCandidate candidate = group.primary();
-            recipeIds.add(candidate.recipeId());
-            resultItemIds.add(candidate.resultItemId());
-            resultCounts.add(candidate.resultCount());
-            craftable.add(candidate.craftable());
-            missingSummaries.add(candidate.missingSummary());
-            recipeOptionCounts.add(group.options().size());
-            for (CraftableCandidate option : group.options()) {
-                optionRecipeIds.add(option.recipeId());
-                optionResultCounts.add(option.resultCount());
-                optionCraftable.add(option.craftable());
-                optionSummaries.add(option.recipeSummary());
-                optionMissingSummaries.add(option.missingSummary());
-            }
-        }
-
-        PacketDistributor.sendToPlayer(player, new S2CRtsCraftablesPayload(
-                session.craftSearch,
-                session.craftShowUnavailable,
-                Math.max(0, offset),
-                append,
-                hasMore,
-                recipeIds,
-                resultItemIds,
-                resultCounts,
-                craftable,
-                missingSummaries,
-                recipeOptionCounts,
-                optionRecipeIds,
-                optionResultCounts,
-                optionCraftable,
-                optionSummaries,
-                optionMissingSummaries));
-    }
-
-    private static void refreshCraftables(ServerPlayer player, Session session) {
-        requestCraftables(
-                player,
-                session.craftSearch,
-                session.craftShowUnavailable,
-                0,
-                Math.max(CRAFTABLE_BATCH_SIZE, session.craftRequestedCount),
-                session.craftPinyinSearchEnabled,
-                List.copyOf(session.craftLocalizedSearchMatches));
-    }
-
-    private static Map<String, Long> summarizeAvailableCraftItems(ServerPlayer player, Session session, List<LinkedHandler> activeLinked) {
-        Map<String, Long> counts = new HashMap<>();
-        for (LinkedHandler linked : activeLinked) {
-            IItemHandler handler = linked.handler();
-            for (int i = 0; i < handler.getSlots(); i++) {
-                ItemStack stack = handler.getStackInSlot(i);
-                if (stack.isEmpty()) {
-                    continue;
-                }
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-                if (id == null) {
-                    continue;
-                }
-                mergeCount(counts, id.toString(), getHandlerReportedCount(handler, i, stack));
-            }
-        }
-
-        boolean includePlayerMainInventory = hasAnyStorage(player, session)
-                && !(player.containerMenu instanceof RtsCraftTerminalMenu);
-        if (includePlayerMainInventory) {
-            accumulatePlayerMainInventoryCounts(player, counts, new HashMap<>());
-        }
-        return counts;
-    }
-
-    private static CraftableCandidate buildCraftableCandidate(ServerPlayer player, ResourceLocation recipeId, CraftingRecipe recipe,
-            Map<String, Long> availableCounts, String search, boolean pinyinSearchEnabled,
-            Set<String> localizedSearchMatches) {
-        if (player == null || recipeId == null || recipe == null) {
-            return null;
-        }
-
-        ItemStack result = resolveCraftablePreviewResult(recipe, player);
-        if (result.isEmpty()) {
-            return null;
-        }
-
-        ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
-        if (resultId == null) {
-            return null;
-        }
-        String resultLabel = result.getHoverName().getString();
-        if (!matchesCraftablesSearch(resultId, resultLabel, search, pinyinSearchEnabled, localizedSearchMatches)) {
-            return null;
-        }
-
-        RecipeAvailability availability = evaluateRecipeAvailability(recipe, availableCounts);
-        return new CraftableCandidate(
-                recipeId.toString(),
-                resultId.toString(),
-                Math.max(1, result.getCount()),
-                resultLabel,
-                availability.craftable(),
-                availability.missingSummary(),
-                availability.missingTotal(),
-                buildRecipeSummary(recipe));
-    }
-
-    private static boolean supportsWorkbenchCraftPanelRecipe(CraftingRecipe recipe) {
-        if (recipe == null) {
-            return false;
-        }
-        List<Ingredient> ingredients = recipe.getIngredients();
-        if (ingredients == null || ingredients.isEmpty()) {
-            return false;
-        }
-
-        if (recipe instanceof ShapedRecipe shaped) {
-            if (shaped.getWidth() < 1 || shaped.getWidth() > 3 || shaped.getHeight() < 1 || shaped.getHeight() > 3) {
-                return false;
-            }
-        } else if (recipe instanceof ShapelessRecipe shapeless) {
-            if (shapeless.getIngredients().isEmpty() || shapeless.getIngredients().size() > 9) {
-                return false;
-            }
-        } else {
-            return false;
-        }
-
-        boolean anyNonEmpty = false;
-        for (Ingredient ingredient : mapCraftingIngredients(recipe)) {
-            if (ingredient == null || ingredient.isEmpty()) {
-                continue;
-            }
-            anyNonEmpty = true;
-        }
-        return anyNonEmpty;
-    }
-
-    private static ItemStack resolveCraftablePreviewResult(CraftingRecipe recipe, ServerPlayer player) {
-        if (recipe == null || player == null) {
-            return ItemStack.EMPTY;
-        }
-
-        ItemStack result = recipe.getResultItem(player.serverLevel().registryAccess());
-        if (!result.isEmpty()) {
-            return result.copy();
-        }
-
-        Ingredient[] mapped = mapCraftingIngredients(recipe);
-        List<ItemStack> previewStacks = new ArrayList<>(9);
-        for (Ingredient ingredient : mapped) {
-            if (ingredient == null || ingredient.isEmpty()) {
-                previewStacks.add(ItemStack.EMPTY);
-                continue;
-            }
-            ItemStack[] options = ingredient.getItems();
-            if (options.length <= 0 || options[0].isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            previewStacks.add(options[0].copyWithCount(1));
-        }
-
-        TransientCraftingContainer input = createCraftingGrid(previewStacks);
-        ItemStack assembled = recipe.assemble(input, player.serverLevel().registryAccess());
-        return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
-    }
-
-    private static TransientCraftingContainer createCraftingGrid(List<ItemStack> stacks) {
-        TransientCraftingContainer container = new TransientCraftingContainer(PREVIEW_CRAFTING_MENU, 3, 3);
-        if (stacks == null) {
-            return container;
-        }
-        for (int i = 0; i < Math.min(9, stacks.size()); i++) {
-            ItemStack stack = stacks.get(i);
-            container.setItem(i, stack == null ? ItemStack.EMPTY : stack.copy());
-        }
-        return container;
-    }
-
-    private static RecipeAvailability evaluateRecipeAvailability(CraftingRecipe recipe, Map<String, Long> availableCounts) {
-        Ingredient[] required = mapCraftingIngredients(recipe);
-        Map<String, Long> remaining = new HashMap<>(availableCounts);
-        Map<String, ItemStack> testStackCache = new HashMap<>();
-        Map<String, Integer> missing = new LinkedHashMap<>();
-        int missingTotal = 0;
-        for (Ingredient ingredient : required) {
-            if (ingredient == null || ingredient.isEmpty()) {
-                continue;
-            }
-            String matchedId = selectBestIngredientMatch(ingredient, remaining, testStackCache);
-            if (matchedId != null) {
-                remaining.computeIfPresent(matchedId, (id, count) -> count > 1L ? count - 1L : null);
-                continue;
-            }
-            missing.merge(resolveIngredientLabel(ingredient), 1, Integer::sum);
-            missingTotal++;
-        }
-
-        if (missingTotal <= 0) {
-            return new RecipeAvailability(true, "", 0);
-        }
-        return new RecipeAvailability(false, buildMissingSummary(missing), missingTotal);
-    }
-
-    private static boolean matchesCraftablesSearch(ResourceLocation resultId, String resultLabel, String search,
-            boolean pinyinSearchEnabled, Set<String> localizedSearchMatches) {
-        String query = search == null ? "" : search.toLowerCase(Locale.ROOT).trim();
-        if (query.isEmpty()) {
-            return true;
-        }
-        String rawId = resultId.toString().toLowerCase(Locale.ROOT);
-        if (localizedSearchMatches != null && localizedSearchMatches.contains(rawId)) {
-            return true;
-        }
-        String label = resultLabel == null ? "" : resultLabel.toLowerCase(Locale.ROOT);
-        String namespace = resultId.getNamespace().toLowerCase(Locale.ROOT);
-        for (String token : query.split("\\s+")) {
-            if (token == null || token.isBlank()) {
-                continue;
-            }
-            if (token.startsWith("@")) {
-                String modQuery = token.substring(1).trim();
-                if (!modQuery.isEmpty() && !namespace.contains(modQuery)) {
-                    return false;
-                }
-                continue;
-            }
-            if (!rawId.contains(token) && !label.contains(token)
-                    && !(pinyinSearchEnabled && RtsPinyinSearch.contains(resultLabel, token))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static String selectBestIngredientMatch(Ingredient ingredient, Map<String, Long> remaining, Map<String, ItemStack> testStackCache) {
-        String bestId = null;
-        long bestCount = 0L;
-        for (var entry : remaining.entrySet()) {
-            long available = entry.getValue() == null ? 0L : entry.getValue();
-            if (available <= 0L) {
-                continue;
-            }
-            ItemStack probe = resolveIngredientProbeStack(entry.getKey(), testStackCache);
-            if (probe.isEmpty() || !ingredient.test(probe)) {
-                continue;
-            }
-            if (bestId == null || available > bestCount) {
-                bestId = entry.getKey();
-                bestCount = available;
-            }
-        }
-        return bestId;
-    }
-
-    private static ItemStack resolveIngredientProbeStack(String itemId, Map<String, ItemStack> testStackCache) {
-        if (itemId == null || itemId.isBlank()) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack cached = testStackCache.get(itemId);
-        if (cached != null) {
-            return cached;
-        }
-
-        ResourceLocation key = ResourceLocation.tryParse(itemId);
-        if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-            testStackCache.put(itemId, ItemStack.EMPTY);
-            return ItemStack.EMPTY;
-        }
-
-        ItemStack resolved = new ItemStack(BuiltInRegistries.ITEM.get(key));
-        testStackCache.put(itemId, resolved);
-        return resolved;
-    }
-
-    private static String resolveIngredientLabel(Ingredient ingredient) {
-        for (ItemStack option : ingredient.getItems()) {
-            if (!option.isEmpty()) {
-                return option.getHoverName().getString();
-            }
-        }
-        return "Ingredient";
-    }
-
-    private static String buildMissingSummary(Map<String, Integer> missing) {
-        if (missing.isEmpty()) {
-            return "";
-        }
-        StringBuilder summary = new StringBuilder("Missing: ");
-        int index = 0;
-        int total = missing.size();
-        for (var entry : missing.entrySet()) {
-            if (index > 0) {
-                summary.append(", ");
-            }
-            summary.append(entry.getKey()).append(" x").append(entry.getValue());
-            index++;
-            if (index >= 3 && total > index) {
-                summary.append("...");
-                break;
-            }
-        }
-        return summary.toString();
-    }
-
-    private static String buildRecipeSummary(CraftingRecipe recipe) {
-        if (recipe == null) {
-            return "Recipe";
-        }
-        Map<String, Integer> ingredients = new LinkedHashMap<>();
-        for (Ingredient ingredient : mapCraftingIngredients(recipe)) {
-            if (ingredient == null || ingredient.isEmpty()) {
-                continue;
-            }
-            ingredients.merge(resolveIngredientLabel(ingredient), 1, Integer::sum);
-        }
-        if (ingredients.isEmpty()) {
-            return "Recipe";
-        }
-        StringBuilder summary = new StringBuilder();
-        int index = 0;
-        int total = ingredients.size();
-        for (var entry : ingredients.entrySet()) {
-            if (index > 0) {
-                summary.append(", ");
-            }
-            summary.append(entry.getKey());
-            if (entry.getValue() > 1) {
-                summary.append(" x").append(entry.getValue());
-            }
-            index++;
-            if (index >= 3 && total > index) {
-                summary.append("...");
-                break;
-            }
-        }
-        return summary.isEmpty() ? "Recipe" : summary.toString();
-    }
-
-    private static void mergeConsumedCounts(Map<String, Integer> into, Map<String, Integer> added) {
-        if (into == null || added == null || added.isEmpty()) {
-            return;
-        }
-        for (var entry : added.entrySet()) {
-            if (entry.getKey() == null || entry.getKey().isBlank()) {
-                continue;
-            }
-            int delta = entry.getValue() == null ? 0 : Math.max(0, entry.getValue());
-            if (delta <= 0) {
-                continue;
-            }
-            into.merge(entry.getKey(), delta, Integer::sum);
-        }
-    }
-
-    private static Map<String, Integer> collectConsumedCounts(ExtractedIngredient[] extracted) {
-        Map<String, Integer> consumed = new LinkedHashMap<>();
-        if (extracted == null) {
-            return consumed;
-        }
-        for (ExtractedIngredient ingredient : extracted) {
-            if (ingredient == null || ingredient.stack().isEmpty()) {
-                continue;
-            }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(ingredient.stack().getItem());
-            if (itemId == null) {
-                continue;
-            }
-            consumed.merge(itemId.toString(), Math.max(1, ingredient.stack().getCount()), Integer::sum);
-        }
-        return consumed;
+        RtsStorageCrafting.craftRecipeToLinked(player, getOrCreateSession(player), recipeId, craftCount);
     }
 
     static String normalizeCategory(String category) {
@@ -1224,8 +643,9 @@ public final class RtsStorageManager {
             double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild) {
-        placeSelectedInternal(
+        RtsStoragePlacement.placeSelected(
                 player,
+                player == null ? null : SESSIONS.get(player.getUUID()),
                 clickedPos,
                 face,
                 hitX,
@@ -1241,44 +661,17 @@ public final class RtsStorageManager {
                 rayDirX,
                 rayDirY,
                 rayDirZ,
-                quickBuild,
-                true,
-                true);
+                quickBuild);
     }
 
     public static void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
             byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return;
-        }
-        if (clickedPositions == null || clickedPositions.isEmpty() || face == null) {
-            return;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null) {
-            return;
-        }
-        sanitizeSessionDimension(player, session);
-        List<BlockPos> positions = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
-        for (BlockPos pos : clickedPositions) {
-            if (pos == null || !canAccessWorldTarget(player, pos)) {
-                continue;
-            }
-            positions.add(pos.immutable());
-            if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
-                break;
-            }
-        }
-        if (positions.isEmpty()) {
-            return;
-        }
-        while (session.placeBatchJobs.size() >= QUICK_BUILD_BATCH_MAX_QUEUED_JOBS) {
-            session.placeBatchJobs.removeFirst();
-        }
-        session.placeBatchJobs.addLast(new PlaceBatchJob(
-                positions,
+        RtsStoragePlacement.enqueuePlaceBatch(
+                player,
+                player == null ? null : SESSIONS.get(player.getUUID()),
+                clickedPositions,
                 face,
                 rotateSteps,
                 forcePlace,
@@ -1289,269 +682,7 @@ public final class RtsStorageManager {
                 rayOriginZ,
                 rayDirX,
                 rayDirY,
-                rayDirZ));
-    }
-
-    private static void tickPlaceBatchJobs(ServerPlayer player, Session session) {
-        int remaining = QUICK_BUILD_BATCH_BLOCKS_PER_TICK;
-        boolean finishedJob = false;
-        while (remaining > 0 && !session.placeBatchJobs.isEmpty()) {
-            PlaceBatchJob job = session.placeBatchJobs.peekFirst();
-            while (remaining > 0 && job.hasNext()) {
-                BlockPos clickedPos = job.next();
-                Vec3 faceNormal = Vec3.atLowerCornerOf(job.face().getNormal());
-                Vec3 hitLocation = Vec3.atCenterOf(clickedPos).add(faceNormal.scale(0.5D));
-                boolean keepGoing = placeSelectedInternal(
-                        player,
-                        clickedPos,
-                        job.face(),
-                        hitLocation.x,
-                        hitLocation.y,
-                        hitLocation.z,
-                        job.rotateSteps(),
-                        job.forcePlace(),
-                        job.skipIfOccupied(),
-                        job.itemId(),
-                        job.rayOriginX(),
-                        job.rayOriginY(),
-                        job.rayOriginZ(),
-                        job.rayDirX(),
-                        job.rayDirY(),
-                        job.rayDirZ(),
-                        true,
-                        false,
-                        false);
-                remaining--;
-                if (!keepGoing) {
-                    session.placeBatchJobs.removeFirst();
-                    finishedJob = true;
-                    break;
-                }
-            }
-            if (!session.placeBatchJobs.isEmpty() && session.placeBatchJobs.peekFirst() == job && !job.hasNext()) {
-                session.placeBatchJobs.removeFirst();
-                finishedJob = true;
-            }
-        }
-        if (finishedJob) {
-            saveSessionToPlayerNbt(player, session);
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        }
-    }
-
-    private static boolean placeSelectedInternal(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
-            double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean refreshStoragePage,
-            boolean sendRemoteHint) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return false;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null || !canAccessWorldTarget(player, clickedPos) || face == null) {
-            return false;
-        }
-        sanitizeSessionDimension(player, session);
-        boolean useSelectedStorageItem = itemId != null && !itemId.isBlank();
-
-        ServerLevel level = player.serverLevel();
-        Vec3 hitLocation = new Vec3(hitX, hitY, hitZ);
-        BlockHitResult hit = new BlockHitResult(hitLocation, face, clickedPos, false);
-        Vec3 interactionPos = resolveInteractionPosition(null, hit, hitLocation);
-        RayContext rayContext = parseRayContext(
-                rayOriginX, rayOriginY, rayOriginZ,
-                rayDirX, rayDirY, rayDirZ);
-        if (sendRemoteHint) {
-            sendRemoteMenuOpenHint(player, clickedPos);
-        }
-
-        if (!useSelectedStorageItem) {
-            ItemStack sourceSnapshot = player.getMainHandItem().copy();
-            boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
-            if (skipIfOccupied && player.getMainHandItem().getItem() instanceof BlockItem) {
-                if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
-                    if (refreshStoragePage) {
-                        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                    }
-                    return true;
-                }
-            }
-
-            BlockState beforeClicked = level.getBlockState(clickedPos);
-            BlockPos adjacentPos = clickedPos.relative(face);
-            BlockState beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
-
-            AbstractContainerMenu menuBeforeMainHandUse = player.containerMenu;
-            InteractionResult mainHandUse = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    rayContext,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            hit)));
-            AbstractContainerMenu menuAfterMainHandUse = player.containerMenu;
-            if (menuAfterMainHandUse != menuBeforeMainHandUse) {
-                markRemoteMenuOpen(player, session, menuAfterMainHandUse, clickedPos);
-                return false;
-            }
-
-            if (mainHandUse.consumesAction()) {
-                BlockPos placedPos = detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
-                if (placedPos != null) {
-                    PlacedBlockTrackerData.get(level).mark(placedPos);
-                    if (sourcePlacesBlock) {
-                        playRemotePlacedBlockSound(player, level, session, placedPos, quickBuild);
-                    } else {
-                        playRemoteUseSound(player, level, null, placedPos, sourceSnapshot);
-                    }
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
-                    if (sourceId != null) {
-                        recordRecentItem(session, sourceId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
-                    }
-                } else if (!sourceSnapshot.isEmpty()) {
-                    playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
-                    if (sourceId != null) {
-                        recordRecentItem(session, sourceId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-                    }
-                }
-                saveSessionToPlayerNbt(player, session);
-                return true;
-            }
-
-            // Some items (e.g. bucket) work via "use in air" fallback instead of use-on-block.
-            AbstractContainerMenu menuBeforeUseFallback = player.containerMenu;
-            InteractionResult mainHandUseFallback = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    rayContext,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND)));
-            AbstractContainerMenu menuAfterUseFallback = player.containerMenu;
-            if (menuAfterUseFallback != menuBeforeUseFallback) {
-                markRemoteMenuOpen(player, session, menuAfterUseFallback, clickedPos);
-                return false;
-            }
-            if (mainHandUseFallback.consumesAction()) {
-                if (!sourceSnapshot.isEmpty()) {
-                    playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
-                    if (sourceId != null) {
-                        recordRecentItem(session, sourceId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-                    }
-                }
-                saveSessionToPlayerNbt(player, session);
-                return true;
-            }
-
-            return false;
-        }
-
-        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
-        if (activeLinked.isEmpty() && !includePlayerMainInventory) {
-            return false;
-        }
-
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
-
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return false;
-        }
-
-        Item item = BuiltInRegistries.ITEM.get(id);
-        if (skipIfOccupied && item instanceof BlockItem) {
-            if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
-                if (refreshStoragePage) {
-                    requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-                }
-                return true;
-            }
-        }
-        ItemStack extracted = includePlayerMainInventory
-                ? extractOneFromNetwork(handlers, player, item)
-                : extractOneFromLinked(handlers, item);
-        if (extracted.isEmpty()) {
-            if (refreshStoragePage) {
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            }
-            return false;
-        }
-        ItemStack selectedSoundStack = extracted.copy();
-        boolean selectedPlacesBlock = item instanceof BlockItem;
-
-        BlockState beforeClicked = level.getBlockState(clickedPos);
-        BlockPos adjacentPos = clickedPos.relative(face);
-        BlockState beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
-
-        AbstractContainerMenu menuBeforeSelectedUse = player.containerMenu;
-        UseOnOutcome selectedOutcome = withTemporaryUseItemContext(
-                player,
-                interactionPos,
-                hitLocation,
-                rayContext,
-                REMOTE_POV_BLOCK_REACH,
-                () -> useItemOnWithMainHand(player, level, extracted, hit, forcePlace));
-        AbstractContainerMenu menuAfterSelectedUse = player.containerMenu;
-        if (menuAfterSelectedUse != menuBeforeSelectedUse) {
-            markRemoteMenuOpen(player, session, menuAfterSelectedUse, clickedPos);
-        }
-
-        UseOnOutcome finalOutcome = selectedOutcome;
-        if (!selectedOutcome.result().consumesAction()) {
-            ItemStack fallbackStack = selectedOutcome.remainder().isEmpty() ? extracted.copy() : selectedOutcome.remainder().copy();
-            finalOutcome = withTemporaryUseItemContext(
-                    player,
-                    interactionPos,
-                    hitLocation,
-                    rayContext,
-                    REMOTE_POV_BLOCK_REACH,
-                    () -> useItemWithMainHand(player, level, fallbackStack, forcePlace));
-        }
-        if (!finalOutcome.remainder().isEmpty()) {
-            refundToLinked(handlers, player, finalOutcome.remainder());
-        }
-
-        if (!finalOutcome.result().consumesAction()) {
-            if (refreshStoragePage) {
-                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-            }
-            return false;
-        }
-
-        BlockPos placedPos = detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
-        if (placedPos != null) {
-            rotatePlacedBlock(level, placedPos, rotateSteps);
-            PlacedBlockTrackerData.get(level).mark(placedPos);
-            if (selectedPlacesBlock) {
-                playRemotePlacedBlockSound(player, level, session, placedPos, quickBuild);
-            } else {
-                playRemoteUseSound(player, level, null, placedPos, selectedSoundStack);
-            }
-            recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
-        } else {
-            playRemoteUseSound(player, level, null, clickedPos, selectedSoundStack);
-            recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-        }
-
-        if (refreshStoragePage) {
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        }
-        return true;
+                rayDirZ);
     }
 
     private static BlockPos resolvePlacementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
@@ -1725,11 +856,16 @@ public final class RtsStorageManager {
 
         boolean playedSpecificSound = false;
         if (result.consumesAction() && blockHit != null && beforeClicked != null) {
-            BlockPos placedPos = detectPlacedPos(level, effectiveBlockPos, beforeClicked, adjacentPos, beforeAdjacent);
+            BlockPos placedPos = RtsStoragePlacement.detectPlacedPos(
+                    level,
+                    effectiveBlockPos,
+                    beforeClicked,
+                    adjacentPos,
+                    beforeAdjacent);
             if (placedPos != null) {
                 PlacedBlockTrackerData.get(level).mark(placedPos);
                 if (!soundStack.isEmpty() && soundStack.getItem() instanceof BlockItem) {
-                    playRemotePlacedBlockSound(player, level, session, placedPos, false);
+                    RtsStoragePlacement.playRemotePlacedBlockSound(player, level, session, placedPos, false);
                 } else {
                     playRemoteUseSound(player, level, targetEntity, placedPos, soundStack);
                 }
@@ -1767,27 +903,7 @@ public final class RtsStorageManager {
     }
 
     public static void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu, ItemStack[] blueprint) {
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null || craftingMenu == null || blueprint == null || blueprint.length != 9) {
-            return;
-        }
-        sanitizeSessionDimension(player, session);
-        if (!hasAnyStorage(player, session)) {
-            return;
-        }
-
-        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
-            return;
-        }
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
-
-        refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, false, true);
-        craftingMenu.broadcastChanges();
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        RtsStorageCrafting.refillCraftGridFromLinked(player, SESSIONS.get(player.getUUID()), craftingMenu, blueprint);
     }
 
     public static void refillCurrentCraftGridFromBlueprintIds(
@@ -1795,340 +911,19 @@ public final class RtsStorageManager {
             List<String> blueprintIds,
             String craftedItemId,
             int craftedCount) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
-        if (player == null || blueprintIds == null || blueprintIds.size() != 9) {
-            return;
-        }
-        if (!(player.containerMenu instanceof CraftingMenu craftingMenu)) {
-            return;
-        }
-
-        Session session = SESSIONS.get(player.getUUID());
-        if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
-            recordRecentItem(session, craftedItemId, S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            saveSessionToPlayerNbt(player, session);
-        }
-
-        ItemStack[] blueprint = new ItemStack[9];
-        for (int i = 0; i < blueprint.length; i++) {
-            String itemId = blueprintIds.get(i);
-            if (itemId == null || itemId.isBlank()) {
-                blueprint[i] = ItemStack.EMPTY;
-                continue;
-            }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                blueprint[i] = ItemStack.EMPTY;
-                continue;
-            }
-            blueprint[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
-        }
-        refillCraftGridFromLinked(player, craftingMenu, blueprint);
+        RtsStorageCrafting.refillCurrentCraftGridFromBlueprintIds(
+                player,
+                SESSIONS.get(player.getUUID()),
+                blueprintIds,
+                craftedItemId,
+                craftedCount);
     }
 
     public static void applyJeiTransfer(ServerPlayer player, String recipeId, boolean maxTransfer, boolean clearGridFirst) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
             return;
         }
-        Session session = getOrCreateSession(player);
-        sanitizeSessionDimension(player, session);
-        if (!(player.containerMenu instanceof CraftingMenu craftingMenu)) {
-            return;
-        }
-        if (recipeId == null || recipeId.isBlank()) {
-            return;
-        }
-
-        ResourceLocation key = ResourceLocation.tryParse(recipeId);
-        if (key == null) {
-            return;
-        }
-        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
-        if (!(raw instanceof CraftingRecipe craftingRecipe)) {
-            return;
-        }
-
-        List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
-
-        Ingredient[] required = mapCraftingIngredients(craftingRecipe);
-        if (required.length != 9) {
-            return;
-        }
-
-        List<ItemStack> cleared = new ArrayList<>(9);
-        if (clearGridFirst) {
-            for (int i = 0; i < 9; i++) {
-                Slot grid = craftingMenu.getSlot(1 + i);
-                ItemStack existing = grid.getItem();
-                if (existing.isEmpty()) {
-                    cleared.add(ItemStack.EMPTY);
-                    continue;
-                }
-                ItemStack copy = existing.copy();
-                grid.set(ItemStack.EMPTY);
-                grid.setChanged();
-                cleared.add(copy);
-            }
-        } else {
-            for (int i = 0; i < 9; i++) {
-                cleared.add(ItemStack.EMPTY);
-            }
-        }
-
-        boolean anyInserted = false;
-        int maxPasses = maxTransfer ? 64 : 1;
-        for (int pass = 0; pass < maxPasses; pass++) {
-            boolean passInsertedAny = false;
-            for (int i = 0; i < 9; i++) {
-                Ingredient ingredient = required[i];
-                if (ingredient == null || ingredient.isEmpty()) {
-                    continue;
-                }
-                Slot grid = craftingMenu.getSlot(1 + i);
-                ItemStack existing = grid.getItem();
-                if (!existing.isEmpty()) {
-                    if (!ingredient.test(existing)) {
-                        continue;
-                    }
-                    if (existing.getCount() >= existing.getMaxStackSize()) {
-                        continue;
-                    }
-                    ItemStack extracted = extractOneMatchingIngredientCombined(handlers, player, ingredient, existing);
-                    if (extracted.isEmpty()) {
-                        continue;
-                    }
-                    existing.grow(1);
-                    grid.setChanged();
-                    passInsertedAny = true;
-                    anyInserted = true;
-                    continue;
-                }
-
-                ItemStack extracted = extractOneMatchingIngredientCombined(handlers, player, ingredient, ItemStack.EMPTY);
-                if (extracted.isEmpty()) {
-                    continue;
-                }
-                extracted.setCount(1);
-                grid.set(extracted);
-                grid.setChanged();
-                passInsertedAny = true;
-                anyInserted = true;
-            }
-
-            if (!passInsertedAny) {
-                break;
-            }
-            if (!maxTransfer) {
-                break;
-            }
-        }
-
-        for (ItemStack stack : cleared) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-            storeToLinkedWithFallbackPreferExisting(handlers, player, stack);
-        }
-        refreshCraftingResult(craftingMenu);
-        craftingMenu.broadcastChanges();
-        requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-        if (anyInserted) {
-            runQuestDetect(player, session, false);
-        }
-    }
-
-    private static CraftExecutionResult craftSingleRecipeToLinked(ServerPlayer player, List<IItemHandler> handlers,
-            CraftingRecipe recipe, boolean includePlayerFallback) {
-        Ingredient[] required = mapCraftingIngredients(recipe);
-        if (required.length != 9) {
-            return CraftExecutionResult.failure(false);
-        }
-
-        ExtractedIngredient[] extracted = new ExtractedIngredient[9];
-        List<ItemStack> inputStacks = new ArrayList<>(9);
-        for (int i = 0; i < 9; i++) {
-            Ingredient ingredient = required[i];
-            if (ingredient == null || ingredient.isEmpty()) {
-                inputStacks.add(ItemStack.EMPTY);
-                continue;
-            }
-
-            ExtractedIngredient taken = takeIngredientForCraft(handlers, player, ingredient, includePlayerFallback);
-            if (taken == null || taken.stack().isEmpty()) {
-                rollbackCraftIngredients(handlers, player, extracted);
-                return CraftExecutionResult.failure(false);
-            }
-            extracted[i] = taken;
-            inputStacks.add(taken.stack().copyWithCount(1));
-        }
-
-        TransientCraftingContainer input = createCraftingGrid(inputStacks);
-        if (!recipe.matches(input, player.serverLevel())) {
-            rollbackCraftIngredients(handlers, player, extracted);
-            return CraftExecutionResult.failure(false);
-        }
-
-        ItemStack result = recipe.assemble(input, player.serverLevel().registryAccess());
-        if (result.isEmpty()) {
-            rollbackCraftIngredients(handlers, player, extracted);
-            return CraftExecutionResult.failure(false);
-        }
-
-        List<ItemStack> outputs = new ArrayList<>();
-        outputs.add(result.copy());
-        NonNullList<ItemStack> remaining = recipe.getRemainingItems(input);
-        for (ItemStack remain : remaining) {
-            if (!remain.isEmpty()) {
-                outputs.add(remain.copy());
-            }
-        }
-
-        List<ItemStack> storedOutputs = new ArrayList<>(outputs.size());
-        for (ItemStack stack : outputs) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-            ItemStack remain = storeToLinkedOnlyPreferExisting(handlers, stack);
-            int storedCount = Math.max(0, stack.getCount() - remain.getCount());
-            if (storedCount > 0) {
-                storedOutputs.add(stack.copyWithCount(storedCount));
-            }
-            if (!remain.isEmpty()) {
-                rollbackStoredCraftOutputs(handlers, storedOutputs);
-                rollbackCraftIngredients(handlers, player, extracted);
-                return CraftExecutionResult.failure(true);
-            }
-        }
-
-        ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
-        return new CraftExecutionResult(
-                true,
-                false,
-                resultId == null ? "" : resultId.toString(),
-                Math.max(1, result.getCount()),
-                collectConsumedCounts(extracted));
-    }
-
-    private static ExtractedIngredient takeIngredientForCraft(List<IItemHandler> handlers, ServerPlayer player,
-            Ingredient ingredient, boolean includePlayerFallback) {
-        ItemStack fromLinked = extractOneMatchingIngredient(handlers, ingredient, ItemStack.EMPTY);
-        if (!fromLinked.isEmpty()) {
-            return new ExtractedIngredient(fromLinked, false);
-        }
-        if (!includePlayerFallback) {
-            return null;
-        }
-        ItemStack fromPlayer = extractOneMatchingIngredientFromPlayer(player, ingredient, ItemStack.EMPTY);
-        if (!fromPlayer.isEmpty()) {
-            return new ExtractedIngredient(fromPlayer, true);
-        }
-        return null;
-    }
-
-    private static void rollbackCraftIngredients(List<IItemHandler> handlers, ServerPlayer player, ExtractedIngredient[] extracted) {
-        for (int i = extracted.length - 1; i >= 0; i--) {
-            ExtractedIngredient ingredient = extracted[i];
-            if (ingredient == null || ingredient.stack().isEmpty()) {
-                continue;
-            }
-            if (ingredient.fromPlayer()) {
-                moveToPlayerInventoryOnly(player, ingredient.stack());
-                continue;
-            }
-            ItemStack remain = storeToLinkedOnlyPreferExisting(handlers, ingredient.stack());
-            if (!remain.isEmpty()) {
-                moveToPlayerInventoryOnly(player, remain);
-            }
-        }
-    }
-
-    private static void rollbackStoredCraftOutputs(List<IItemHandler> handlers, List<ItemStack> storedOutputs) {
-        for (int i = storedOutputs.size() - 1; i >= 0; i--) {
-            ItemStack stored = storedOutputs.get(i);
-            int remaining = stored.getCount();
-            while (remaining > 0) {
-                ItemStack extracted = extractOneMatchingPrototypeFromLinked(handlers, stored);
-                if (extracted.isEmpty()) {
-                    break;
-                }
-                remaining -= extracted.getCount();
-            }
-        }
-    }
-
-    private static boolean canStoreStacksToLinkedOnly(List<IItemHandler> handlers, List<ItemStack> stacks) {
-        List<List<ItemStack>> virtual = new ArrayList<>(handlers.size());
-        for (IItemHandler handler : handlers) {
-            List<ItemStack> slots = new ArrayList<>(handler.getSlots());
-            for (int slot = 0; slot < handler.getSlots(); slot++) {
-                slots.add(handler.getStackInSlot(slot).copy());
-            }
-            virtual.add(slots);
-        }
-
-        for (ItemStack original : stacks) {
-            if (original == null || original.isEmpty()) {
-                continue;
-            }
-            ItemStack remain = original.copy();
-
-            for (int h = 0; h < handlers.size() && !remain.isEmpty(); h++) {
-                IItemHandler handler = handlers.get(h);
-                List<ItemStack> slots = virtual.get(h);
-                for (int slot = 0; slot < slots.size() && !remain.isEmpty(); slot++) {
-                    ItemStack current = slots.get(slot);
-                    if (current.isEmpty() || !ItemStack.isSameItemSameTags(current, remain)) {
-                        continue;
-                    }
-                    int slotLimit = Math.min(handler.getSlotLimit(slot), current.getMaxStackSize());
-                    int free = Math.max(0, slotLimit - current.getCount());
-                    if (free <= 0) {
-                        continue;
-                    }
-                    int move = Math.min(free, remain.getCount());
-                    current.grow(move);
-                    remain.shrink(move);
-                }
-            }
-
-            for (int h = 0; h < handlers.size() && !remain.isEmpty(); h++) {
-                IItemHandler handler = handlers.get(h);
-                List<ItemStack> slots = virtual.get(h);
-                for (int slot = 0; slot < slots.size() && !remain.isEmpty(); slot++) {
-                    ItemStack current = slots.get(slot);
-                    if (!current.isEmpty()) {
-                        continue;
-                    }
-                    int slotLimit = Math.min(handler.getSlotLimit(slot), remain.getMaxStackSize());
-                    if (slotLimit <= 0) {
-                        continue;
-                    }
-                    ItemStack probe = remain.copy();
-                    probe.setCount(slotLimit);
-                    ItemStack rejected = handler.insertItem(slot, probe, true);
-                    int accepted = slotLimit - rejected.getCount();
-                    if (accepted <= 0) {
-                        continue;
-                    }
-                    int move = Math.min(accepted, remain.getCount());
-                    ItemStack filled = remain.copy();
-                    filled.setCount(move);
-                    slots.set(slot, filled);
-                    remain.shrink(move);
-                }
-            }
-
-            if (!remain.isEmpty()) {
-                return false;
-            }
-        }
-        return true;
+        RtsStorageCrafting.applyJeiTransfer(player, getOrCreateSession(player), recipeId, maxTransfer, clearGridFirst);
     }
 
     public static void breakPlaced(ServerPlayer player, BlockPos pos, Direction face, boolean allowAdjacentFallback) {
@@ -2775,143 +1570,6 @@ public final class RtsStorageManager {
         return RtsStorageTransfers.extractOneFromNetwork(handlers, player, targetItem);
     }
 
-    private static ItemStack extractOneMatchingIngredient(List<IItemHandler> handlers, Ingredient ingredient) {
-        return extractOneMatchingIngredient(handlers, ingredient, ItemStack.EMPTY);
-    }
-
-    private static ItemStack extractOneMatchingIngredient(List<IItemHandler> handlers, Ingredient ingredient, ItemStack preferred) {
-        if (ingredient == null || ingredient.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
-        if (!preferred.isEmpty() && ingredient.test(preferred)) {
-            ItemStack preferredMatch = extractOneMatchingIngredientFromHandlers(handlers, ingredient, preferred);
-            if (!preferredMatch.isEmpty()) {
-                return preferredMatch;
-            }
-        }
-        return extractOneMatchingIngredientFromHandlers(handlers, ingredient, ItemStack.EMPTY);
-    }
-
-    private static ItemStack extractOneMatchingIngredientFromHandlers(List<IItemHandler> handlers, Ingredient ingredient,
-            ItemStack preferred) {
-        for (IItemHandler handler : handlers) {
-            for (int slot = 0; slot < handler.getSlots(); slot++) {
-                ItemStack stack = handler.getStackInSlot(slot);
-                if (stack.isEmpty() || !ingredient.test(stack)) {
-                    continue;
-                }
-                if (!preferred.isEmpty() && !ItemStack.isSameItemSameTags(stack, preferred)) {
-                    continue;
-                }
-                ItemStack extracted = handler.extractItem(slot, 1, false);
-                if (extracted.isEmpty()) {
-                    continue;
-                }
-                if (ingredient.test(extracted)) {
-                    return extracted;
-                }
-                ItemStack remainder = insertToHandlerPreferExisting(handler, extracted);
-                if (!remainder.isEmpty()) {
-                    return ItemStack.EMPTY;
-                }
-            }
-        }
-        return ItemStack.EMPTY;
-    }
-
-    private static ItemStack extractOneMatchingIngredientCombined(List<IItemHandler> handlers, ServerPlayer player,
-            Ingredient ingredient, ItemStack preferred) {
-        ItemStack fromLinked = extractOneMatchingIngredient(handlers, ingredient, preferred);
-        if (!fromLinked.isEmpty()) {
-            return fromLinked;
-        }
-        return extractOneMatchingIngredientFromPlayer(player, ingredient, preferred);
-    }
-
-    private static ItemStack extractOneMatchingIngredientFromPlayer(ServerPlayer player, Ingredient ingredient, ItemStack preferred) {
-        if (player == null || ingredient == null || ingredient.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
-        if (!preferred.isEmpty() && ingredient.test(preferred)) {
-            ItemStack preferredMatch = extractOneMatchingIngredientFromPlayer(player, ingredient, preferred, true);
-            if (!preferredMatch.isEmpty()) {
-                return preferredMatch;
-            }
-        }
-        return extractOneMatchingIngredientFromPlayer(player, ingredient, ItemStack.EMPTY, false);
-    }
-
-    private static ItemStack extractOneMatchingIngredientFromPlayer(ServerPlayer player, Ingredient ingredient, ItemStack preferred,
-            boolean requirePreferredMatch) {
-        int start = getPlayerMainInventoryStart(player);
-        int end = getPlayerMainInventoryEndExclusive(player);
-        for (int i = start; i < end; i++) {
-            ItemStack current = player.getInventory().getItem(i);
-            if (current.isEmpty() || !ingredient.test(current)) {
-                continue;
-            }
-            if (requirePreferredMatch && !ItemStack.isSameItemSameTags(current, preferred)) {
-                continue;
-            }
-            ItemStack extracted = current.split(1);
-            if (current.isEmpty()) {
-                player.getInventory().setItem(i, ItemStack.EMPTY);
-            } else {
-                player.getInventory().setItem(i, current);
-            }
-            if (!extracted.isEmpty() && ingredient.test(extracted)) {
-                return extracted;
-            }
-        }
-        return ItemStack.EMPTY;
-    }
-
-    private static void rollbackGridInserts(CraftingMenu craftingMenu, List<IItemHandler> handlers, ServerPlayer player,
-            List<GridInsert> insertedThisPass) {
-        for (int i = insertedThisPass.size() - 1; i >= 0; i--) {
-            GridInsert insert = insertedThisPass.get(i);
-            Slot grid = craftingMenu.getSlot(1 + insert.slotIndex());
-            ItemStack current = grid.getItem();
-            if (!current.isEmpty() && ItemStack.isSameItemSameTags(current, insert.stack()) && current.getCount() > 0) {
-                current.shrink(1);
-                if (current.isEmpty()) {
-                    grid.set(ItemStack.EMPTY);
-                } else {
-                    grid.set(current);
-                }
-                grid.setChanged();
-            }
-            storeToLinkedWithFallbackPreferExisting(handlers, player, insert.stack());
-        }
-    }
-
-    private static Ingredient[] mapCraftingIngredients(CraftingRecipe recipe) {
-        Ingredient[] mapped = new Ingredient[9];
-        for (int i = 0; i < mapped.length; i++) {
-            mapped[i] = Ingredient.EMPTY;
-        }
-        List<Ingredient> ingredients = recipe.getIngredients();
-        if (recipe instanceof ShapedRecipe shaped) {
-            int width = Math.max(1, Math.min(3, shaped.getWidth()));
-            int height = Math.max(1, Math.min(3, shaped.getHeight()));
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int src = y * width + x;
-                    if (src < 0 || src >= ingredients.size()) {
-                        continue;
-                    }
-                    mapped[y * 3 + x] = ingredients.get(src);
-                }
-            }
-        } else {
-            int count = Math.min(9, ingredients.size());
-            for (int i = 0; i < count; i++) {
-                mapped[i] = ingredients.get(i);
-            }
-        }
-        return mapped;
-    }
-
     private static ItemStack extractMatchingFromLinked(List<IItemHandler> handlers, Item targetItem, int limit) {
         return RtsStorageTransfers.extractMatchingFromLinked(handlers, targetItem, limit);
     }
@@ -2996,106 +1654,12 @@ public final class RtsStorageManager {
     }
 
     static ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
-        ItemStack[] blueprint = new ItemStack[9];
-        for (int i = 0; i < 9; i++) {
-            Slot grid = menu.getSlot(1 + i);
-            ItemStack stack = grid.getItem();
-            blueprint[i] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
-        }
-        return blueprint;
+        return RtsStorageCrafting.snapshotCraftGridBlueprint(menu);
     }
 
     static void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
-        if (blueprint == null || blueprint.length != 9) {
-            return;
-        }
-
-        int maxPasses = fillAll ? 64 : 1;
-        boolean changed = false;
-        for (int pass = 0; pass < maxPasses; pass++) {
-            boolean inserted = false;
-            for (int i = 0; i < 9; i++) {
-                ItemStack blueprintStack = blueprint[i];
-                if (blueprintStack == null || blueprintStack.isEmpty()) {
-                    continue;
-                }
-                Slot grid = menu.getSlot(1 + i);
-                ItemStack current = grid.getItem();
-                if (!current.isEmpty()) {
-                    if (!ItemStack.isSameItemSameTags(current, blueprintStack)) {
-                        continue;
-                    }
-                    if (current.getCount() >= current.getMaxStackSize()) {
-                        continue;
-                    }
-                    ItemStack extracted = includePlayerFallback
-                            ? extractOneMatchingPrototypeCombined(handlers, player, blueprintStack)
-                            : extractOneMatchingPrototypeFromLinked(handlers, blueprintStack);
-                    if (extracted.isEmpty()) {
-                        continue;
-                    }
-                    current.grow(1);
-                    grid.setChanged();
-                    inserted = true;
-                    changed = true;
-                    continue;
-                }
-
-                ItemStack extracted = includePlayerFallback
-                        ? extractOneMatchingPrototypeCombined(handlers, player, blueprintStack)
-                        : extractOneMatchingPrototypeFromLinked(handlers, blueprintStack);
-                if (extracted.isEmpty()) {
-                    continue;
-                }
-                extracted.setCount(1);
-                grid.set(extracted);
-                grid.setChanged();
-                inserted = true;
-                changed = true;
-            }
-            if (!inserted) {
-                break;
-            }
-            if (!fillAll) {
-                break;
-            }
-        }
-        if (changed) {
-            refreshCraftingResult(menu);
-        }
-    }
-
-    private static void refreshCraftingResult(CraftingMenu menu) {
-        if (menu == null) {
-            return;
-        }
-        CraftingContainer craftSlots = resolveCraftingContainer(menu);
-        if (craftSlots != null) {
-            menu.slotsChanged(craftSlots);
-        }
-    }
-
-    private static CraftingContainer resolveCraftingContainer(CraftingMenu menu) {
-        Class<?> type = menu.getClass();
-        while (type != null && type != Object.class) {
-            for (Field field : type.getDeclaredFields()) {
-                if (!CraftingContainer.class.isAssignableFrom(field.getType())) {
-                    continue;
-                }
-                try {
-                    field.setAccessible(true);
-                    Object current = field.get(menu);
-                    if (current instanceof CraftingContainer craftSlots) {
-                        return craftSlots;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    // Fall back to the menu's default sync path if reflective access is blocked.
-                }
-            }
-            type = type.getSuperclass();
-        }
-        return null;
+        RtsStorageCrafting.refillCraftGridFromBlueprint(menu, handlers, player, blueprint, fillAll, includePlayerFallback);
     }
 
     private static ItemStack extractOneMatchingPrototypeCombined(List<IItemHandler> handlers, ServerPlayer player, ItemStack prototype) {
@@ -3342,14 +1906,7 @@ public final class RtsStorageManager {
      * can route callers directly to RtsStorageRecentEntries.
      */
     public static void recordCraftedOutput(ServerPlayer player, ItemStack crafted) {
-        if (player == null || crafted == null || crafted.isEmpty()) {
-            return;
-        }
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null) {
-            return;
-        }
-        RtsStorageRecentEntries.recordCraftedOutput(session, crafted);
+        RtsStorageCrafting.recordCraftedOutput(player, SESSIONS.get(player.getUUID()), crafted);
     }
 
     static void recordRecentItem(RtsStorageSession session, String itemId, byte kind, long amount) {
@@ -3404,66 +1961,7 @@ public final class RtsStorageManager {
                         Math.max(0, completedTasks)));
     }
 
-    private static void playRemotePlacedBlockSound(ServerPlayer player, ServerLevel level, Session session, BlockPos pos,
-            boolean quickBuild) {
-        if (player == null || level == null || pos == null || !level.hasChunkAt(pos)) {
-            return;
-        }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
-            return;
-        }
-        long gameTime = level.getGameTime();
-        if (quickBuild && session != null) {
-            noteQuickBuildPlacement(session, pos, gameTime);
-            if (session.lastQuickBuildPlaceSoundTick == gameTime) {
-                return;
-            }
-            session.lastQuickBuildPlaceSoundTick = gameTime;
-        }
-        SoundType soundType = state.getSoundType(level, pos, player);
-        sendDirectSound(
-                player,
-                soundType.getPlaceSound(),
-                SoundSource.BLOCKS,
-                pos.getX() + 0.5D,
-                pos.getY() + 0.5D,
-                pos.getZ() + 0.5D,
-                (soundType.getVolume() + 1.0F) / 2.0F,
-                soundType.getPitch() * 0.8F);
-    }
-
-    private static void noteQuickBuildPlacement(Session session, BlockPos pos, long gameTime) {
-        session.quickBuildSoundPlacedCount++;
-        session.quickBuildCompletionSoundTick = gameTime + QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS;
-        session.quickBuildSoundX = pos.getX() + 0.5D;
-        session.quickBuildSoundY = pos.getY() + 0.5D;
-        session.quickBuildSoundZ = pos.getZ() + 0.5D;
-    }
-
-    private static void tickQuickBuildCompletionSound(ServerPlayer player, Session session) {
-        if (player == null || session == null || session.quickBuildSoundPlacedCount <= 0) {
-            return;
-        }
-        long gameTime = player.serverLevel().getGameTime();
-        if (gameTime < session.quickBuildCompletionSoundTick) {
-            return;
-        }
-        sendDirectSound(
-                player,
-                SoundEvents.NOTE_BLOCK_HARP.value(),
-                SoundSource.PLAYERS,
-                session.quickBuildSoundX,
-                session.quickBuildSoundY,
-                session.quickBuildSoundZ,
-                0.35F,
-                1.12F);
-        session.quickBuildSoundPlacedCount = 0;
-        session.quickBuildCompletionSoundTick = -1L;
-        session.lastQuickBuildPlaceSoundTick = Long.MIN_VALUE;
-    }
-
-    private static void playRemoteUseSound(ServerPlayer player, ServerLevel level, Entity targetEntity, BlockPos pos,
+    static void playRemoteUseSound(ServerPlayer player, ServerLevel level, Entity targetEntity, BlockPos pos,
             ItemStack stack) {
         if (player == null || level == null || stack == null || stack.isEmpty()) {
             return;
@@ -3513,7 +2011,7 @@ public final class RtsStorageManager {
         return new ItemStack(BuiltInRegistries.ITEM.get(id));
     }
 
-    private static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
+    static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
             double z, float volume, float pitch) {
         if (player == null || sound == null || sound == SoundEvents.EMPTY) {
             return;
@@ -3663,7 +2161,7 @@ public final class RtsStorageManager {
         return result;
     }
 
-    private static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {
+    static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {
         if (targetEntity != null) {
             Vec3 center = targetEntity.getBoundingBox().getCenter();
             Vec3 delta = center.subtract(hit);
@@ -3689,7 +2187,7 @@ public final class RtsStorageManager {
         return new float[] { yaw, pitch };
     }
 
-    private static RayContext parseRayContext(
+    static RayContext parseRayContext(
             double originX, double originY, double originZ,
             double dirX, double dirY, double dirZ) {
         if (!Double.isFinite(originX) || !Double.isFinite(originY) || !Double.isFinite(originZ)
@@ -3708,7 +2206,7 @@ public final class RtsStorageManager {
         return withTemporaryUseItemContext(player, fallbackPos, fallbackLookAt, null, reach, action);
     }
 
-    private static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+    static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
         if (rayContext == null) {
             return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
@@ -3767,7 +2265,7 @@ public final class RtsStorageManager {
         }
     }
 
-    private static UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
+    static UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
             BlockHitResult hit, boolean forceSecondaryUse) {
         ItemStack previousMainHand = player.getMainHandItem().copy();
         player.setItemInHand(InteractionHand.MAIN_HAND, handStack);
@@ -3787,7 +2285,7 @@ public final class RtsStorageManager {
         return new UseOnOutcome(result, remainder);
     }
 
-    private static UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
+    static UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
             boolean forceSecondaryUse) {
         ItemStack previousMainHand = player.getMainHandItem().copy();
         player.setItemInHand(InteractionHand.MAIN_HAND, handStack);
@@ -3821,7 +2319,7 @@ public final class RtsStorageManager {
         return new UseOnOutcome(result, remainder);
     }
 
-    private static void relaxOpenedMenuValidation(AbstractContainerMenu menu) {
+    static void relaxOpenedMenuValidation(AbstractContainerMenu menu) {
         if (menu == null) {
             return;
         }
@@ -3926,41 +2424,6 @@ public final class RtsStorageManager {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity != null) {
             player.connection.send(ClientboundBlockEntityDataPacket.create(blockEntity));
-        }
-    }
-
-    private static BlockPos detectPlacedPos(ServerLevel level, BlockPos clickedPos, BlockState beforeClicked, BlockPos adjacentPos,
-            BlockState beforeAdjacent) {
-        if (!level.hasChunkAt(clickedPos)) {
-            return null;
-        }
-        BlockState afterClicked = level.getBlockState(clickedPos);
-        if (!afterClicked.equals(beforeClicked) && !afterClicked.isAir()) {
-            return clickedPos;
-        }
-
-        if (beforeAdjacent == null || !level.hasChunkAt(adjacentPos)) {
-            return null;
-        }
-        BlockState afterAdjacent = level.getBlockState(adjacentPos);
-        if (!afterAdjacent.equals(beforeAdjacent) && !afterAdjacent.isAir()) {
-            return adjacentPos;
-        }
-        return null;
-    }
-
-    private static void rotatePlacedBlock(ServerLevel level, BlockPos pos, byte rotateSteps) {
-        int turns = rotateSteps & 3;
-        if (turns == 0 || !level.hasChunkAt(pos)) {
-            return;
-        }
-        BlockState state = level.getBlockState(pos);
-        BlockState rotated = state;
-        for (int i = 0; i < turns; i++) {
-            rotated = rotated.rotate(Rotation.CLOCKWISE_90);
-        }
-        if (rotated != state) {
-            level.setBlock(pos, rotated, 3);
         }
     }
 
@@ -4089,100 +2552,12 @@ public final class RtsStorageManager {
         return RtsStoragePageBuilder.internalFluidCapacityMb(player);
     }
 
-    private record RecipeAvailability(boolean craftable, String missingSummary, int missingTotal) {
+    // Package-visible because extracted placement code needs the validated ray
+    // origin/direction, while parsing and reach checks remain manager-owned.
+    record RayContext(Vec3 origin, Vec3 dir) {
     }
 
-    private record CraftableGroupEntry(CraftableCandidate primary, List<CraftableCandidate> options) {
-        private static int compareForPanel(CraftableGroupEntry a, CraftableGroupEntry b) {
-            if (a == null && b == null) {
-                return 0;
-            }
-            if (a == null) {
-                return 1;
-            }
-            if (b == null) {
-                return -1;
-            }
-            return CraftableCandidate.compareForPanel(a.primary(), b.primary());
-        }
-    }
-
-    private record CraftableCandidate(
-            String recipeId,
-            String resultItemId,
-            int resultCount,
-            String resultLabel,
-            boolean craftable,
-            String missingSummary,
-            int missingTotal,
-            String recipeSummary) {
-        private boolean isPreferredOver(CraftableCandidate other) {
-            if (other == null) {
-                return true;
-            }
-            if (this.craftable != other.craftable) {
-                return this.craftable;
-            }
-            if (this.missingTotal != other.missingTotal) {
-                return this.missingTotal < other.missingTotal;
-            }
-            if (this.resultCount != other.resultCount) {
-                return this.resultCount > other.resultCount;
-            }
-            return this.recipeId.compareToIgnoreCase(other.recipeId) < 0;
-        }
-
-        private static int compareForPanel(CraftableCandidate a, CraftableCandidate b) {
-            if (a.craftable != b.craftable) {
-                return a.craftable ? -1 : 1;
-            }
-            int byLabel = a.resultLabel.compareToIgnoreCase(b.resultLabel);
-            if (byLabel != 0) {
-                return byLabel;
-            }
-            return a.recipeId.compareToIgnoreCase(b.recipeId);
-        }
-
-        private static int compareForRecipeSelection(CraftableCandidate a, CraftableCandidate b) {
-            if (a == null && b == null) {
-                return 0;
-            }
-            if (a == null) {
-                return 1;
-            }
-            if (b == null) {
-                return -1;
-            }
-            if (a.isPreferredOver(b)) {
-                return b.isPreferredOver(a) ? 0 : -1;
-            }
-            if (b.isPreferredOver(a)) {
-                return 1;
-            }
-            return a.recipeId.compareToIgnoreCase(b.recipeId);
-        }
-    }
-
-    private static final class PreviewCraftingMenu extends AbstractContainerMenu {
-        private PreviewCraftingMenu() {
-            super(null, -1);
-        }
-
-        @Override
-        public ItemStack quickMoveStack(net.minecraft.world.entity.player.Player player, int index) {
-            return ItemStack.EMPTY;
-        }
-
-        @Override
-        public boolean stillValid(net.minecraft.world.entity.player.Player player) {
-            return false;
-        }
-    }
-
-    private record RayContext(Vec3 origin, Vec3 dir) {
-    }
-
-    private record UseOnOutcome(InteractionResult result, ItemStack remainder) {
+    record UseOnOutcome(InteractionResult result, ItemStack remainder) {
     }
 
     private record ContainerDrainOutcome(FluidStack fluid, ItemStack remainder) {
@@ -4190,23 +2565,6 @@ public final class RtsStorageManager {
 
         private boolean isEmpty() {
             return this.fluid.isEmpty();
-        }
-    }
-
-    private record GridInsert(int slotIndex, ItemStack stack) {
-    }
-
-    private record ExtractedIngredient(ItemStack stack, boolean fromPlayer) {
-    }
-
-    private record CraftExecutionResult(
-            boolean success,
-            boolean storageFull,
-            String resultItemId,
-            int resultCount,
-            Map<String, Integer> consumedCounts) {
-        private static CraftExecutionResult failure(boolean storageFull) {
-            return new CraftExecutionResult(false, storageFull, "", 0, Map.of());
         }
     }
 
@@ -4304,91 +2662,6 @@ public final class RtsStorageManager {
         @Override
         public void execute(BiConsumer<Level, BlockPos> consumer) {
             this.delegate.execute(consumer);
-        }
-    }
-
-    static final class PlaceBatchJob {
-        private final List<BlockPos> clickedPositions;
-        private final Direction face;
-        private final byte rotateSteps;
-        private final boolean forcePlace;
-        private final boolean skipIfOccupied;
-        private final String itemId;
-        private final double rayOriginX;
-        private final double rayOriginY;
-        private final double rayOriginZ;
-        private final double rayDirX;
-        private final double rayDirY;
-        private final double rayDirZ;
-        private int index;
-
-        private PlaceBatchJob(List<BlockPos> clickedPositions, Direction face, byte rotateSteps, boolean forcePlace,
-                boolean skipIfOccupied, String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
-                double rayDirX, double rayDirY, double rayDirZ) {
-            this.clickedPositions = clickedPositions;
-            this.face = face;
-            this.rotateSteps = rotateSteps;
-            this.forcePlace = forcePlace;
-            this.skipIfOccupied = skipIfOccupied;
-            this.itemId = itemId;
-            this.rayOriginX = rayOriginX;
-            this.rayOriginY = rayOriginY;
-            this.rayOriginZ = rayOriginZ;
-            this.rayDirX = rayDirX;
-            this.rayDirY = rayDirY;
-            this.rayDirZ = rayDirZ;
-        }
-
-        private boolean hasNext() {
-            return this.index < this.clickedPositions.size();
-        }
-
-        private BlockPos next() {
-            return this.clickedPositions.get(this.index++);
-        }
-
-        private Direction face() {
-            return this.face;
-        }
-
-        private byte rotateSteps() {
-            return this.rotateSteps;
-        }
-
-        private boolean forcePlace() {
-            return this.forcePlace;
-        }
-
-        private boolean skipIfOccupied() {
-            return this.skipIfOccupied;
-        }
-
-        private String itemId() {
-            return this.itemId;
-        }
-
-        private double rayOriginX() {
-            return this.rayOriginX;
-        }
-
-        private double rayOriginY() {
-            return this.rayOriginY;
-        }
-
-        private double rayOriginZ() {
-            return this.rayOriginZ;
-        }
-
-        private double rayDirX() {
-            return this.rayDirX;
-        }
-
-        private double rayDirY() {
-            return this.rayDirY;
-        }
-
-        private double rayDirZ() {
-            return this.rayDirZ;
         }
     }
 
