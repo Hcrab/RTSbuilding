@@ -15,7 +15,7 @@ import com.google.gson.GsonBuilder;
 
 import net.neoforged.fml.loading.FMLPaths;
 
-final class RtsClientUiStateStore {
+public final class RtsClientUiStateStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("rtsbuilding-client-ui.json");
 
@@ -55,11 +55,11 @@ final class RtsClientUiStateStore {
         save(state);
     }
 
-    static synchronized boolean isContainerOverlayEnabled() {
+    public static synchronized boolean isContainerOverlayEnabled() {
         return load().containerOverlayEnabled;
     }
 
-    static synchronized void setContainerOverlayEnabled(boolean enabled) {
+    public static synchronized void setContainerOverlayEnabled(boolean enabled) {
         UiState state = load();
         state.containerOverlayEnabled = enabled;
         save(state);

@@ -1,10 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-final class RtsCraftablesUiHelper {
+/**
+ * UI-only helper for the extracted craftables panel. It prepares dialog state
+ * and forwards confirmed requests back to {@link ClientRtsController}, but does
+ * not own recipe execution or server synchronization.
+ */
+public final class RtsCraftablesUiHelper {
     private RtsCraftablesUiHelper() {
     }
 
-    static void openCraftQuantityDialog(RtsCraftQuantityDialog dialog, ClientRtsController.CraftableEntry entry) {
+    public static void openCraftQuantityDialog(RtsCraftQuantityDialog dialog, ClientRtsController.CraftableEntry entry) {
         if (dialog == null || entry == null || !entry.craftable()) {
             return;
         }
@@ -15,7 +20,7 @@ final class RtsCraftablesUiHelper {
                 1);
     }
 
-    static void submitPendingCraftRequest(RtsCraftQuantityDialog dialog, ClientRtsController controller) {
+    public static void submitPendingCraftRequest(RtsCraftQuantityDialog dialog, ClientRtsController controller) {
         if (dialog == null || controller == null) {
             return;
         }
@@ -26,7 +31,7 @@ final class RtsCraftablesUiHelper {
         controller.craftRecipeToLinked(request.recipeId(), request.craftCount());
     }
 
-    static String normalizeSearchDraft(String value) {
+    public static String normalizeSearchDraft(String value) {
         return value == null ? "" : value.trim();
     }
 }

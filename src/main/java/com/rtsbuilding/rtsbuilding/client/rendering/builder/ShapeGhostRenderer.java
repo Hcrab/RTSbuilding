@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
@@ -34,7 +35,7 @@ public final class ShapeGhostRenderer {
             return;
         }
 
-        BuilderScreen.ShapeGhostPreview preview = builderScreen.getShapeGhostPreview();
+        ShapeDataRecords.GhostPreview preview = builderScreen.getShapeGhostPreview();
         if (preview.blocks().isEmpty()) {
             return;
         }
