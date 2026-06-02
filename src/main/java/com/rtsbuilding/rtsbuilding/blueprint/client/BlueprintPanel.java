@@ -21,7 +21,6 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
@@ -38,14 +37,12 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -2520,83 +2517,5 @@ public final class BlueprintPanel {
 
     private record TopBarLayout(int folderX, int folderW, int importX, int importW, int syncCreateX, int syncCreateW,
             int captureX, int captureW, int searchX, int searchW) {
-    }
-
-    private record BlueprintEntry(
-            Path path,
-            String fileName,
-            String name,
-            BlueprintFormat format,
-            String sizeText,
-            int blockCount,
-            RtsBlueprint blueprint,
-            Map<ResourceLocation, Integer> requiredItems,
-            Map<String, Integer> unsupportedBlocks,
-            Map<String, Integer> missingBlueprintBlocks,
-            List<ItemStack> previewItems,
-            String error) {
-        static BlueprintEntry from(Path path, String fileName, RtsBlueprint blueprint, String error) {
-            Vec3i size = blueprint.size();
-            List<ItemStack> preview = new ArrayList<>();
-            for (ResourceLocation id : blueprint.requiredItems().keySet()) {
-                if (!BuiltInRegistries.ITEM.containsKey(id)) {
-                    continue;
-                }
-                Item item = BuiltInRegistries.ITEM.get(id);
-                ItemStack stack = new ItemStack(item);
-                if (!stack.isEmpty()) {
-                    preview.add(stack);
-                }
-                if (preview.size() >= 18) {
-                    break;
-                }
-            }
-            Map<String, Integer> unsupported = new java.util.LinkedHashMap<>();
-            Map<String, Integer> missingBlueprintBlocks = new java.util.LinkedHashMap<>();
-            for (RtsBlueprintBlock block : blueprint.blocks()) {
-                if (block.isMissingBlock()) {
-                    missingBlueprintBlocks.merge(block.missingBlockId(), 1, Integer::sum);
-                    continue;
-                }
-                if (block.state().getBlock().asItem() == Items.AIR) {
-                    unsupported.merge(block.state().getBlock().getName().getString(), 1, Integer::sum);
-                }
-            }
-            String sizeText = size.getX() + "x" + size.getY() + "x" + size.getZ();
-            return new BlueprintEntry(
-                    path,
-                    fileName,
-                    blueprint.name(),
-                    blueprint.format(),
-                    sizeText,
-                    blueprint.blockCount(),
-                    blueprint,
-                    blueprint.requiredItems(),
-                    Map.copyOf(unsupported),
-                    Map.copyOf(missingBlueprintBlocks),
-                    List.copyOf(preview),
-                    error == null ? "" : error);
-        }
-
-        static BlueprintEntry error(Path path, String fileName, String error) {
-            String name = fileName;
-            int dot = name.lastIndexOf('.');
-            if (dot > 0) {
-                name = name.substring(0, dot);
-            }
-            return new BlueprintEntry(
-                    path,
-                    fileName,
-                    name,
-                    BlueprintFormat.fromFileName(fileName),
-                    "-",
-                    0,
-                    RtsBlueprint.create(name, fileName, BlueprintFormat.fromFileName(fileName), Vec3i.ZERO, List.of()),
-                    Map.of(),
-                    Map.of(),
-                    Map.of(),
-                    List.of(),
-                    error == null ? "Parse failed" : error);
-        }
     }
 }
