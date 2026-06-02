@@ -68,11 +68,19 @@ public final class RtsBdCompat {
         if (net == null) {
             return "Beyond Dimensions Network";
         }
-        String customName = net.getCustomName();
+        String customName = getCustomNameOrDefault(net);
         if (customName != null && !customName.isEmpty()) {
             return customName;
         }
         return "Beyond Dimensions Network";
+    }
+
+    private static String getCustomNameOrDefault(DimensionsNet net) {
+        try {
+            return net.getCustomName();
+        } catch (NoSuchMethodError ignored) {
+            return null;
+        }
     }
 
     private static final class BdDirectItemHandler implements IItemHandler, RtsAe2Compat.ReportedCountItemHandler, DirectExtractHandler {
