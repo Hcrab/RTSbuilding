@@ -115,9 +115,7 @@ import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.data.RtsStorageSessionStore;
 
 public final class RtsStorageManager {
-    private static final int PAGE_SIZE = 90;
     private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
-    private static final long INTERNAL_FLUID_CAPACITY_MB = 100L * FluidType.BUCKET_VOLUME;
     private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
     private static final double REMOTE_POV_EPSILON = 0.1D;
     private static final double FUNNEL_RADIUS = 2.0D;
@@ -134,8 +132,8 @@ public final class RtsStorageManager {
     static final int RECENT_ENTRY_LIMIT = 24;
     private static final long QUEST_DETECT_COOLDOWN_TICKS = 60L;
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
-    private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
-    // Session arrays use these fixed slot counts; all validation remains here.
+    // Package-private for the page builder to reuse the same payload padding
+    // limits without copying storage UI runtime rules.
     static final int QUICK_SLOT_COUNT = 27;
     static final int GUI_BINDING_SLOT_COUNT = 8;
     private static final int QUICK_BUILD_BATCH_BLOCKS_PER_TICK = 64;
@@ -143,16 +141,8 @@ public final class RtsStorageManager {
     private static final int QUICK_BUILD_COMPLETION_SOUND_DELAY_TICKS = 3;
     static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
     private static final byte LINK_MODE_EXTRACT_ONLY = C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
-    private static final String CATEGORY_ALL = "all";
-    private static final String CATEGORY_MOD_PREFIX = "mod|";
-    private static final String CATEGORY_TAB_PREFIX = "tab|";
-    private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE / 2L;
 
     private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
-    private static final Map<String, Set<String>> ITEM_CREATIVE_TAB_CACHE = new ConcurrentHashMap<>();
-    private static final Set<String> BROKEN_CREATIVE_TAB_CACHE = ConcurrentHashMap.newKeySet();
-    private static volatile boolean creativeTabCacheWarmNormal;
-    private static volatile boolean creativeTabCacheWarmOperator;
     private static final PreviewCraftingMenu PREVIEW_CRAFTING_MENU = new PreviewCraftingMenu();
 
     private RtsStorageManager() {
@@ -589,24 +579,7 @@ public final class RtsStorageManager {
     }
 
     private static Set<String> sanitizeLocalizedSearchMatches(List<String> localizedSearchMatches) {
-        if (localizedSearchMatches == null || localizedSearchMatches.isEmpty()) {
-            return Set.of();
-        }
-        Set<String> sanitized = new HashSet<>();
-        for (String itemId : localizedSearchMatches) {
-            if (itemId == null || itemId.isBlank()) {
-                continue;
-            }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                continue;
-            }
-            sanitized.add(key.toString());
-            if (sanitized.size() >= 8192) {
-                break;
-            }
-        }
-        return sanitized;
+        return RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches);
     }
 
     public static void requestPage(ServerPlayer player, int page, String search, String category, RtsStorageSort sort,
@@ -646,315 +619,15 @@ public final class RtsStorageManager {
 
         List<LinkedHandler> activeHandlers = resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> activeFluidHandlers = resolveLinkedFluidHandlers(player, session);
-        boolean includePlayerMainInventory = shouldIncludePlayerMainInventoryInStorageView(player, session);
-        List<Long> linkedPackedPositions = toPackedPositions(player, session.linkedStorages);
-        if (!hasAnyStorage(player, session)
-                && activeHandlers.isEmpty()
-                && activeFluidHandlers.isEmpty()
-                && !hasPositiveInternalFluid(session)
-                && !includePlayerMainInventory) {
-            sendEmptyPage(player, session);
-            session.page = 0;
-            saveSessionToPlayerNbt(player, session);
-            return;
-        }
-
-        Map<String, Long> counts = new HashMap<>();
-        List<Entry> exactEntries = new ArrayList<>();
-        Map<String, Long> namespaceTotals = new HashMap<>();
-        for (LinkedHandler linked : activeHandlers) {
-            IItemHandler handler = linked.handler();
-            for (int i = 0; i < handler.getSlots(); i++) {
-                ItemStack stack = handler.getStackInSlot(i);
-                if (stack.isEmpty()) {
-                    continue;
-                }
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-                if (id == null) {
-                    continue;
-                }
-                long reportedCount = getHandlerReportedCount(handler, i, stack);
-                mergeCount(counts, id.toString(), reportedCount);
-                mergeExactEntry(exactEntries, stack, reportedCount);
-                mergeCount(namespaceTotals, id.getNamespace(), reportedCount);
-            }
-        }
-        if (includePlayerMainInventory) {
-            accumulatePlayerMainInventoryCounts(player, counts, namespaceTotals);
-            accumulatePlayerMainInventoryEntries(player, exactEntries);
-        }
-
-        Map<String, Long> fluidAmounts = new HashMap<>();
-        Map<String, Long> fluidCapacities = new HashMap<>();
-
-        for (var entry : session.internalFluidMb.entrySet()) {
-            if (entry.getValue() == null || entry.getValue() <= 0L) {
-                continue;
-            }
-            mergeCount(fluidAmounts, entry.getKey(), entry.getValue());
-        }
-
-        for (LinkedFluidHandler linked : activeFluidHandlers) {
-            IFluidHandler handler = linked.handler();
-            for (int tank = 0; tank < handler.getTanks(); tank++) {
-                FluidStack fluid = handler.getFluidInTank(tank);
-                if (fluid.isEmpty()) {
-                    continue;
-                }
-                ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
-                if (id == null) {
-                    continue;
-                }
-                String fluidId = id.toString();
-                mergeCount(fluidAmounts, fluidId, fluid.getAmount());
-                mergeCount(fluidCapacities, fluidId, Math.max(0, handler.getTankCapacity(tank)));
-            }
-        }
-
-        long internalFluidCapacityMb = internalFluidCapacityMb(player);
-        for (String fluidId : fluidAmounts.keySet()) {
-            mergeCount(fluidCapacities, fluidId, internalFluidCapacityMb);
-            ResourceLocation rl = ResourceLocation.tryParse(fluidId);
-            if (rl != null) {
-                mergeCount(namespaceTotals, rl.getNamespace(), fluidAmounts.getOrDefault(fluidId, 0L));
-            }
-        }
-
-        Map<String, Set<String>> itemTabKeys = new HashMap<>();
-        Map<String, Set<String>> modTabKeys = new HashMap<>();
-        if (!counts.isEmpty()) {
-            boolean operatorTabs = player.canUseGameMasterBlocks();
-            if (ensureCreativeTabContents(player)) {
-                for (String itemId : counts.keySet()) {
-                    ResourceLocation rl = ResourceLocation.tryParse(itemId);
-                    if (rl == null || !BuiltInRegistries.ITEM.containsKey(rl)) {
-                        continue;
-                    }
-                    Item item = BuiltInRegistries.ITEM.get(rl);
-                    Set<String> tabs = resolveCreativeTabKeys(itemId, item, operatorTabs);
-                    if (tabs.isEmpty()) {
-                        continue;
-                    }
-                    Set<String> copied = new HashSet<>(tabs);
-                    itemTabKeys.put(itemId, copied);
-                    modTabKeys.computeIfAbsent(rl.getNamespace(), ignored -> new HashSet<>()).addAll(copied);
-                }
-            }
-        }
-
-        List<String> namespaces = new ArrayList<>(namespaceTotals.keySet());
-        namespaces.sort(RtsStorageManager::compareNamespace);
-
-        List<String> categories = new ArrayList<>();
-        categories.add(CATEGORY_ALL);
-        for (String namespace : namespaces) {
-            categories.add(encodeModCategory(namespace));
-            List<String> tabs = new ArrayList<>(modTabKeys.getOrDefault(namespace, Set.of()));
-            tabs.sort(RtsStorageManager::compareTabKey);
-            for (String tabKey : tabs) {
-                categories.add(encodeTabCategory(namespace, tabKey));
-            }
-        }
-
-        CategorySelection selectedCategory = parseCategorySelection(session.category);
-        if (!isValidCategorySelection(selectedCategory, categories)) {
-            session.category = CATEGORY_ALL;
-            selectedCategory = CategorySelection.all();
-        }
-
-        String query = session.search.toLowerCase(Locale.ROOT).trim();
-        List<Entry> entries = new ArrayList<>();
-        for (Entry exactEntry : exactEntries) {
-            String id = exactEntry.itemId();
-            ResourceLocation rl = ResourceLocation.tryParse(id);
-            if (!matchesSearchQuery(
-                    rl,
-                    id,
-                    exactEntry.label(),
-                    query,
-                    session.pinyinSearchEnabled,
-                    session.localizedSearchMatches)) {
-                continue;
-            }
-            Set<String> tabs = itemTabKeys.getOrDefault(id, Set.of());
-            if (!selectedCategory.matches(exactEntry.namespace(), tabs)) {
-                continue;
-            }
-            entries.add(exactEntry);
-        }
-
-        List<FluidEntry> fluidEntries = new ArrayList<>();
-        for (var e : fluidAmounts.entrySet()) {
-            String id = e.getKey();
-            ResourceLocation rl = ResourceLocation.tryParse(id);
-            if (!matchesSearchQuery(rl, id, null, query, session.pinyinSearchEnabled, session.localizedSearchMatches)) {
-                continue;
-            }
-            String namespace = rl == null ? "unknown" : rl.getNamespace();
-            String path = rl == null ? id : rl.getPath();
-            if (selectedCategory.isCreativeTab() || !selectedCategory.matches(namespace, Set.of())) {
-                continue;
-            }
-            long amount = Math.max(0L, e.getValue());
-            long capacity = Math.max(amount, fluidCapacities.getOrDefault(id, internalFluidCapacityMb));
-            fluidEntries.add(new FluidEntry(id, namespace, path, amount, capacity));
-        }
-
-        Comparator<Entry> comparator = switch (sort) {
-            case MOD -> Comparator.comparing(Entry::namespace, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(Entry::label, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(Entry::path, String.CASE_INSENSITIVE_ORDER);
-            case NAME -> Comparator.comparing(Entry::label, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(Entry::namespace, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(Entry::path, String.CASE_INSENSITIVE_ORDER);
-            case QUANTITY -> Comparator.comparingLong(Entry::count)
-                    .thenComparing(Entry::label, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(Entry::path, String.CASE_INSENSITIVE_ORDER);
-        };
-        if (sort == RtsStorageSort.QUANTITY && !ascending) {
-            comparator = comparator.reversed();
-        } else if (sort != RtsStorageSort.QUANTITY && !ascending) {
-            comparator = comparator.reversed();
-        }
-        entries.sort(comparator);
-
-        Comparator<FluidEntry> fluidComparator = switch (sort) {
-            case MOD -> Comparator.comparing(FluidEntry::namespace).thenComparing(FluidEntry::path);
-            case NAME -> Comparator.comparing(FluidEntry::path).thenComparing(FluidEntry::namespace);
-            case QUANTITY -> Comparator.comparingLong(FluidEntry::amount).thenComparing(FluidEntry::path);
-        };
-        if (!ascending) {
-            fluidComparator = fluidComparator.reversed();
-        }
-        fluidEntries.sort(fluidComparator);
-
-        int totalEntries = entries.size();
-        int totalPages = Math.max(1, (int) Math.ceil(totalEntries / (double) PAGE_SIZE));
-        int safePage = Math.max(0, Math.min(page, totalPages - 1));
-        int from = safePage * PAGE_SIZE;
-        int to = Math.min(from + PAGE_SIZE, totalEntries);
-
-        List<ItemStack> itemStacks = new ArrayList<>();
-        List<Long> itemCounts = new ArrayList<>();
-        for (int i = from; i < to; i++) {
-            Entry e = entries.get(i);
-            itemStacks.add(e.stack().copy());
-            itemCounts.add(e.count());
-        }
-
-        List<String> totalItemIds = new ArrayList<>(counts.size());
-        List<Long> totalItemCounts = new ArrayList<>(counts.size());
-        for (var entry : counts.entrySet()) {
-            totalItemIds.add(entry.getKey());
-            totalItemCounts.add(entry.getValue());
-        }
-
-        List<String> fluidIds = new ArrayList<>(fluidEntries.size());
-        List<Long> fluidAmountList = new ArrayList<>(fluidEntries.size());
-        List<Long> fluidCapacityList = new ArrayList<>(fluidEntries.size());
-        for (FluidEntry entry : fluidEntries) {
-            fluidIds.add(entry.fluidId());
-            fluidAmountList.add(entry.amount());
-            fluidCapacityList.add(entry.capacity());
-        }
-
-        List<String> recentIds = new ArrayList<>(session.recentEntries.size());
-        List<Long> recentAmounts = new ArrayList<>(session.recentEntries.size());
-        List<Long> recentCapacities = new ArrayList<>(session.recentEntries.size());
-        List<Byte> recentKinds = new ArrayList<>(session.recentEntries.size());
-        for (RecentEntry recent : session.recentEntries) {
-            recentIds.add(recent.id());
-            recentAmounts.add(recent.amount());
-            recentCapacities.add(recent.capacity());
-            recentKinds.add(recent.kind());
-        }
-
-        List<String> quickSlotItemIds = new ArrayList<>(QUICK_SLOT_COUNT);
-        for (String quickSlotItemId : session.quickSlotItemIds) {
-            quickSlotItemIds.add(quickSlotItemId == null ? "" : quickSlotItemId);
-        }
-
-        List<String> guiBindingLabels = new ArrayList<>(GUI_BINDING_SLOT_COUNT);
-        List<String> guiBindingItemIds = new ArrayList<>(GUI_BINDING_SLOT_COUNT);
-        for (GuiBinding guiBinding : session.guiBindings) {
-            guiBindingLabels.add(guiBinding == null || guiBinding.label() == null ? "" : guiBinding.label());
-            guiBindingItemIds.add(guiBinding == null || guiBinding.itemId() == null ? "" : guiBinding.itemId());
-        }
-
-        Map<String, Long> funnelBufferSummary = summarizeFunnelBuffer(session);
-        List<String> funnelBufferItemIds = new ArrayList<>(funnelBufferSummary.size());
-        List<Long> funnelBufferCounts = new ArrayList<>(funnelBufferSummary.size());
-        for (var entry : funnelBufferSummary.entrySet()) {
-            funnelBufferItemIds.add(entry.getKey());
-            funnelBufferCounts.add(entry.getValue());
-        }
-
-        PacketDistributor.sendToPlayer(player, new S2CRtsStoragePagePayload(
-                hasAnyStorage(player, session),
-                buildAnyStorageSummary(player, session),
-                linkedPackedPositions,
-                safePage,
-                totalPages,
-                totalEntries,
-                session.search,
-                session.category,
-                (byte) session.sort.ordinal(),
-                session.ascending,
-                session.autoStoreMinedDrops,
-                categories,
-                itemStacks,
-                itemCounts,
-                totalItemIds,
-                totalItemCounts,
-                fluidIds,
-                fluidAmountList,
-                fluidCapacityList,
-                recentIds,
-                recentAmounts,
-                recentCapacities,
-                recentKinds,
-                quickSlotItemIds,
-                guiBindingLabels,
-                guiBindingItemIds,
-                session.funnelEnabled,
-                funnelBufferItemIds,
-                funnelBufferCounts));
-
-        session.page = safePage;
+        RtsStoragePageBuilder.PageResult result = RtsStoragePageBuilder.build(
+                player,
+                session,
+                page,
+                activeHandlers,
+                activeFluidHandlers);
+        PacketDistributor.sendToPlayer(player, result.payload());
+        session.page = result.safePage();
         saveSessionToPlayerNbt(player, session);
-    }
-
-    private static void sendEmptyPage(ServerPlayer player, Session session) {
-        PacketDistributor.sendToPlayer(player, new S2CRtsStoragePagePayload(
-                hasAnyStorage(player, session),
-                buildAnyStorageSummary(player, session),
-                toPackedPositions(player, session.linkedStorages),
-                0,
-                1,
-                0,
-                session.search,
-                session.category,
-                (byte) session.sort.ordinal(),
-                session.ascending,
-                session.autoStoreMinedDrops,
-                List.of(CATEGORY_ALL),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                buildQuickSlotPayload(session),
-                buildGuiBindingLabelPayload(session),
-                buildGuiBindingItemIdPayload(session),
-                session.funnelEnabled,
-                List.of(),
-                List.of()));
     }
 
     public static void requestCraftables(ServerPlayer player, String search, boolean showUnavailable, int offset, int limit) {
@@ -1545,262 +1218,15 @@ public final class RtsStorageManager {
     }
 
     static String normalizeCategory(String category) {
-        if (category == null) {
-            return CATEGORY_ALL;
-        }
-        String value = category.toLowerCase(Locale.ROOT).trim();
-        if (value.isEmpty() || CATEGORY_ALL.equals(value)) {
-            return CATEGORY_ALL;
-        }
-        if (value.startsWith(CATEGORY_MOD_PREFIX) || value.startsWith(CATEGORY_TAB_PREFIX)) {
-            return value;
-        }
-        // Backward compatibility for legacy category payloads that only sent namespace.
-        return encodeModCategory(value);
-    }
-
-    private static boolean matchesSearchQuery(ResourceLocation id, String rawId, String label, String query,
-            boolean pinyinSearchEnabled, Set<String> localizedSearchMatches) {
-        if (query == null || query.isEmpty()) {
-            return true;
-        }
-        String normalizedId = rawId == null ? "" : rawId.toLowerCase(Locale.ROOT);
-        if (localizedSearchMatches != null && localizedSearchMatches.contains(normalizedId)) {
-            return true;
-        }
-        if (query.startsWith("@")) {
-            String modQuery = query.substring(1).trim();
-            if (modQuery.isEmpty()) {
-                return true;
-            }
-            String namespace = id == null ? "" : id.getNamespace().toLowerCase(Locale.ROOT);
-            return namespace.contains(modQuery);
-        }
-        if (normalizedId.contains(query)) {
-            return true;
-        }
-        String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
-        return normalizedLabel.contains(query) || (pinyinSearchEnabled && RtsPinyinSearch.contains(label, query));
-    }
-
-    private static int compareNamespace(String a, String b) {
-        if ("minecraft".equals(a)) {
-            return "minecraft".equals(b) ? 0 : -1;
-        }
-        if ("minecraft".equals(b)) {
-            return 1;
-        }
-        return a.compareToIgnoreCase(b);
-    }
-
-    private static int compareTabKey(String a, String b) {
-        ResourceLocation aId = ResourceLocation.tryParse(a);
-        ResourceLocation bId = ResourceLocation.tryParse(b);
-        String aName = aId == null ? a : aId.getPath();
-        String bName = bId == null ? b : bId.getPath();
-        int byName = aName.compareToIgnoreCase(bName);
-        return byName != 0 ? byName : a.compareToIgnoreCase(b);
-    }
-
-    private static String encodeModCategory(String namespace) {
-        return CATEGORY_MOD_PREFIX + namespace;
-    }
-
-    private static String encodeTabCategory(String namespace, String tabKey) {
-        return CATEGORY_TAB_PREFIX + namespace + "|" + tabKey;
-    }
-
-    private static Set<String> resolveCreativeTabKeys(String itemId, Item item, boolean operatorTabs) {
-        Set<String> tabKeys = ITEM_CREATIVE_TAB_CACHE.get(creativeTabItemCacheKey(itemId, operatorTabs));
-        return tabKeys == null ? Set.of() : tabKeys;
-    }
-
-    private static boolean ensureCreativeTabContents(ServerPlayer player) {
-        boolean operatorTabs = player.canUseGameMasterBlocks();
-        if (isCreativeTabCacheWarm(operatorTabs)) {
-            return true;
-        }
-        synchronized (RtsStorageManager.class) {
-            if (isCreativeTabCacheWarm(operatorTabs)) {
-                return true;
-            }
-            warmCreativeTabCacheMode(player.serverLevel(), operatorTabs);
-            return true;
-        }
+        return RtsStoragePageBuilder.normalizeCategory(category);
     }
 
     private static void warmCreativeTabCacheMode(ServerLevel level, boolean operatorTabs) {
-        if (isCreativeTabCacheWarm(operatorTabs)) {
-            return;
-        }
-        rebuildCreativeTabContentsSafely(level, operatorTabs);
-        setCreativeTabCacheWarm(operatorTabs);
+        RtsStoragePageBuilder.warmCreativeTabCacheMode(level, operatorTabs);
     }
 
     private static void clearCreativeTabCacheState() {
-        ITEM_CREATIVE_TAB_CACHE.clear();
-        BROKEN_CREATIVE_TAB_CACHE.clear();
-        creativeTabCacheWarmNormal = false;
-        creativeTabCacheWarmOperator = false;
-    }
-
-    private static void rebuildCreativeTabContentsSafely(ServerLevel level, boolean operatorTabs) {
-        CreativeModeTab.ItemDisplayParameters parameters = new CreativeModeTab.ItemDisplayParameters(
-                level.enabledFeatures(),
-                operatorTabs,
-                level.registryAccess());
-        rebuildCreativeTabContentsSafely(parameters, operatorTabs, true);
-        rebuildCreativeTabContentsSafely(parameters, operatorTabs, false);
-    }
-
-    private static void rebuildCreativeTabContentsSafely(
-            CreativeModeTab.ItemDisplayParameters parameters,
-            boolean operatorTabs,
-            boolean categoryTabs) {
-        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null) {
-                continue;
-            }
-            boolean category = tab.getType() == CreativeModeTab.Type.CATEGORY;
-            if (category != categoryTabs) {
-                continue;
-            }
-            ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
-            if (isBrokenCreativeTab(key, operatorTabs)) {
-                continue;
-            }
-            try {
-                tab.buildContents(parameters);
-                if (category) {
-                    indexCreativeTabContents(tab, key, operatorTabs);
-                }
-            } catch (RuntimeException | LinkageError ex) {
-                markBrokenCreativeTab(key, operatorTabs, ex);
-            }
-        }
-    }
-
-    private static void indexCreativeTabContents(CreativeModeTab tab, ResourceLocation key, boolean operatorTabs) {
-        if (key == null || !tab.shouldDisplay()) {
-            return;
-        }
-        String tabKey = key.toString();
-        for (ItemStack stack : tab.getDisplayItems()) {
-            if (stack == null || stack.isEmpty()) {
-                continue;
-            }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (itemId == null) {
-                continue;
-            }
-            ITEM_CREATIVE_TAB_CACHE.compute(creativeTabItemCacheKey(itemId.toString(), operatorTabs), (ignored, existing) -> {
-                Set<String> tabs = existing == null ? ConcurrentHashMap.newKeySet() : existing;
-                tabs.add(tabKey);
-                return tabs;
-            });
-        }
-    }
-
-    private static boolean isBrokenCreativeTab(ResourceLocation key, boolean operatorTabs) {
-        return BROKEN_CREATIVE_TAB_CACHE.contains(creativeTabModeKey(key, operatorTabs));
-    }
-
-    private static void markBrokenCreativeTab(ResourceLocation key, boolean operatorTabs, Throwable ex) {
-        String tabKey = key == null ? "unknown" : key.toString();
-        if (!BROKEN_CREATIVE_TAB_CACHE.add(creativeTabModeKey(tabKey, operatorTabs))) {
-            return;
-        }
-        RtsbuildingMod.LOGGER.warn(
-                "Skipping RTS creative tab {} for {} cache because it failed to build. "
-                        + "The RTS storage browser will continue without this tab.",
-                tabKey,
-                operatorTabs ? "operator" : "normal",
-                ex);
-    }
-
-    private static String creativeTabModeKey(ResourceLocation key, boolean operatorTabs) {
-        return creativeTabModeKey(key == null ? "unknown" : key.toString(), operatorTabs);
-    }
-
-    private static String creativeTabModeKey(String key, boolean operatorTabs) {
-        return (operatorTabs ? "op|" : "normal|") + key;
-    }
-
-    private static String creativeTabItemCacheKey(String itemId, boolean operatorTabs) {
-        return (operatorTabs ? "op|" : "normal|") + itemId;
-    }
-
-    private static boolean isCreativeTabCacheWarm(boolean operatorTabs) {
-        return operatorTabs ? creativeTabCacheWarmOperator : creativeTabCacheWarmNormal;
-    }
-
-    private static void setCreativeTabCacheWarm(boolean operatorTabs) {
-        if (operatorTabs) {
-            creativeTabCacheWarmOperator = true;
-        } else {
-            creativeTabCacheWarmNormal = true;
-        }
-    }
-
-    private static boolean hasPositiveInternalFluid(Session session) {
-        if (session == null) {
-            return false;
-        }
-        for (Long amount : session.internalFluidMb.values()) {
-            if (amount != null && amount > 0L) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, Session session) {
-        if (player == null || player.containerMenu instanceof RtsCraftTerminalMenu) {
-            return false;
-        }
-        if (session != null && !hasAnyStorage(player, session)) {
-            return true;
-        }
-        return player.containerMenu == player.inventoryMenu;
-    }
-
-    private static CategorySelection parseCategorySelection(String normalizedCategory) {
-        if (normalizedCategory == null || CATEGORY_ALL.equals(normalizedCategory)) {
-            return CategorySelection.all();
-        }
-        if (normalizedCategory.startsWith(CATEGORY_MOD_PREFIX)) {
-            String namespace = normalizedCategory.substring(CATEGORY_MOD_PREFIX.length());
-            if (namespace.isBlank()) {
-                return CategorySelection.all();
-            }
-            return CategorySelection.mod(namespace);
-        }
-        if (normalizedCategory.startsWith(CATEGORY_TAB_PREFIX)) {
-            String payload = normalizedCategory.substring(CATEGORY_TAB_PREFIX.length());
-            int split = payload.indexOf('|');
-            if (split <= 0 || split >= payload.length() - 1) {
-                return CategorySelection.all();
-            }
-            String namespace = payload.substring(0, split);
-            String tabKey = payload.substring(split + 1);
-            if (namespace.isBlank() || tabKey.isBlank()) {
-                return CategorySelection.all();
-            }
-            return CategorySelection.tab(namespace, tabKey);
-        }
-        return CategorySelection.all();
-    }
-
-    private static boolean isValidCategorySelection(CategorySelection selection, List<String> categories) {
-        if (selection == null || selection.type() == CategorySelection.Type.ALL) {
-            return true;
-        }
-        String token = switch (selection.type()) {
-            case MOD -> encodeModCategory(selection.namespace());
-            case TAB -> encodeTabCategory(selection.namespace(), selection.tabKey());
-            case ALL -> CATEGORY_ALL;
-        };
-        return categories.contains(token);
+        RtsStoragePageBuilder.clearCreativeTabCacheState();
     }
 
     public static void placeSelected(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
@@ -3800,87 +3226,21 @@ public final class RtsStorageManager {
         return new BlockHitResult(Vec3.atCenterOf(targetPos), face, targetPos, false);
     }
 
+    private static void accumulatePlayerMainInventoryCounts(ServerPlayer player, Map<String, Long> counts,
+            Map<String, Long> namespaceTotals) {
+        RtsStoragePageBuilder.accumulatePlayerMainInventoryCounts(player, counts, namespaceTotals);
+    }
+
     private static int getPlayerMainInventoryStart(ServerPlayer player) {
-        if (player == null) {
-            return 0;
-        }
-        return 0;
+        return RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
     }
 
     private static int getPlayerMainInventoryEndExclusive(ServerPlayer player) {
-        if (player == null) {
-            return 0;
-        }
-        return Math.min(PLAYER_MAIN_INVENTORY_END_EXCLUSIVE, player.getInventory().getContainerSize());
+        return RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
     }
 
-    private static void accumulatePlayerMainInventoryCounts(ServerPlayer player, Map<String, Long> counts,
-            Map<String, Long> namespaceTotals) {
-        if (player == null || counts == null || namespaceTotals == null) {
-            return;
-        }
-        int start = getPlayerMainInventoryStart(player);
-        int end = getPlayerMainInventoryEndExclusive(player);
-        for (int slot = start; slot < end; slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (id == null) {
-                continue;
-            }
-            mergeCount(counts, id.toString(), stack.getCount());
-            mergeCount(namespaceTotals, id.getNamespace(), stack.getCount());
-        }
-    }
-
-    private static void accumulatePlayerMainInventoryEntries(ServerPlayer player, List<Entry> exactEntries) {
-        if (player == null || exactEntries == null) {
-            return;
-        }
-        int start = getPlayerMainInventoryStart(player);
-        int end = getPlayerMainInventoryEndExclusive(player);
-        for (int slot = start; slot < end; slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            mergeExactEntry(exactEntries, stack, stack.getCount());
-        }
-    }
-
-    private static void mergeExactEntry(List<Entry> entries, ItemStack stack, long count) {
-        if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
-            return;
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (id == null) {
-            return;
-        }
-        ItemStack prototype = stack.copy();
-        prototype.setCount(1);
-        for (int i = 0; i < entries.size(); i++) {
-            Entry existing = entries.get(i);
-            if (!ItemStack.isSameItemSameTags(existing.stack(), prototype)) {
-                continue;
-            }
-            entries.set(i, new Entry(
-                    existing.stack(),
-                    existing.itemId(),
-                    existing.namespace(),
-                    existing.path(),
-                    existing.label(),
-                    saturatedAdd(existing.count(), count)));
-            return;
-        }
-        entries.add(new Entry(
-                prototype,
-                id.toString(),
-                id.getNamespace(),
-                id.getPath(),
-                prototype.getHoverName().getString(),
-                count));
+    private static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, Session session) {
+        return RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
     }
 
     private static ItemStack extractOne(IItemHandler handler, Item targetItem) {
@@ -4425,27 +3785,6 @@ public final class RtsStorageManager {
             requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
             runQuestDetect(player, session, false);
         }
-    }
-
-    private static Map<String, Long> summarizeFunnelBuffer(Session session) {
-        Map<String, Long> counts = new HashMap<>();
-        for (ItemStack stack : session.funnelBuffer) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (id == null) {
-                continue;
-            }
-            mergeCount(counts, id.toString(), stack.getCount());
-        }
-        List<Map.Entry<String, Long>> sorted = new ArrayList<>(counts.entrySet());
-        sorted.sort(Map.Entry.comparingByKey());
-        Map<String, Long> ordered = new LinkedHashMap<>();
-        for (Map.Entry<String, Long> entry : sorted) {
-            ordered.put(entry.getKey(), entry.getValue());
-        }
-        return ordered;
     }
 
     private static boolean absorbNearbyDropsIntoLinked(ServerPlayer player, BlockPos pos, Session session) {
@@ -5214,32 +4553,6 @@ public final class RtsStorageManager {
         return RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
     }
 
-    // Thin wrappers keep existing manager call sites stable for this small
-    // extraction; the later page-builder split can remove them.
-    private static List<String> buildQuickSlotPayload(Session session) {
-        return RtsStorageUiPayloads.buildQuickSlotPayload(session, QUICK_SLOT_COUNT);
-    }
-
-    private static List<String> buildGuiBindingLabelPayload(Session session) {
-        return RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, GUI_BINDING_SLOT_COUNT);
-    }
-
-    private static List<String> buildGuiBindingItemIdPayload(Session session) {
-        return RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, GUI_BINDING_SLOT_COUNT);
-    }
-
-    private static List<Long> toPackedPositions(ServerPlayer player, List<LinkedStorageRef> refs) {
-        ResourceKey<Level> currentDimension = player.serverLevel().dimension();
-        List<Long> packed = new ArrayList<>(refs.size());
-        for (LinkedStorageRef ref : refs) {
-            if (ref == null || ref.pos() == null || !currentDimension.equals(ref.dimension())) {
-                continue;
-            }
-            packed.add(ref.pos().asLong());
-        }
-        return packed;
-    }
-
     static ResourceKey<Level> parseDimensionKey(String dimensionId) {
         if (dimensionId == null || dimensionId.isBlank()) {
             return null;
@@ -5249,50 +4562,23 @@ public final class RtsStorageManager {
     }
 
     private static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
-        return sanitizeCount(RtsAe2Compat.getReportedCount(handler, slot, stack));
+        return RtsStoragePageBuilder.getHandlerReportedCount(handler, slot, stack);
     }
 
     private static void mergeCount(Map<String, Long> counts, String key, long amount) {
-        if (counts == null || key == null || key.isBlank()) {
-            return;
-        }
-        long sanitized = sanitizeCount(amount);
-        if (sanitized <= 0L) {
-            return;
-        }
-        counts.merge(key, sanitized, RtsStorageManager::saturatedAdd);
+        RtsStoragePageBuilder.mergeCount(counts, key, amount);
     }
 
     private static long saturatedAdd(long a, long b) {
-        long left = sanitizeCount(a);
-        long right = sanitizeCount(b);
-        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
-        }
-        if (Long.MAX_VALUE - left < right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return RtsStoragePageBuilder.saturatedAdd(a, b);
     }
 
     private static long sanitizeCount(long value) {
-        if (value <= 0L) {
-            return 0L;
-        }
-        return value >= EFFECTIVELY_INFINITE_COUNT ? Long.MAX_VALUE : value;
+        return RtsStoragePageBuilder.sanitizeCount(value);
     }
 
     private static long internalFluidCapacityMb(ServerPlayer player) {
-        if (player == null) {
-            return INTERNAL_FLUID_CAPACITY_MB;
-        }
-        return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * FluidType.BUCKET_VOLUME);
-    }
-
-    private record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count) {
-    }
-
-    private record FluidEntry(String fluidId, String namespace, String path, long amount, long capacity) {
+        return RtsStoragePageBuilder.internalFluidCapacityMb(player);
     }
 
     private record RecipeAvailability(boolean craftable, String missingSummary, int missingTotal) {
@@ -5366,38 +4652,6 @@ public final class RtsStorageManager {
                 return 1;
             }
             return a.recipeId.compareToIgnoreCase(b.recipeId);
-        }
-    }
-
-    private record CategorySelection(Type type, String namespace, String tabKey) {
-        private static CategorySelection all() {
-            return new CategorySelection(Type.ALL, "", "");
-        }
-
-        private static CategorySelection mod(String namespace) {
-            return new CategorySelection(Type.MOD, namespace, "");
-        }
-
-        private static CategorySelection tab(String namespace, String tabKey) {
-            return new CategorySelection(Type.TAB, namespace, tabKey);
-        }
-
-        private boolean isCreativeTab() {
-            return this.type == Type.TAB;
-        }
-
-        private boolean matches(String namespace, Set<String> tabs) {
-            return switch (this.type) {
-                case ALL -> true;
-                case MOD -> this.namespace.equals(namespace);
-                case TAB -> this.namespace.equals(namespace) && tabs.contains(this.tabKey);
-            };
-        }
-
-        private enum Type {
-            ALL,
-            MOD,
-            TAB
         }
     }
 
