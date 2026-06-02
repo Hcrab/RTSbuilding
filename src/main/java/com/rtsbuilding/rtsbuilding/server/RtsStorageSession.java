@@ -88,9 +88,9 @@ class RtsStorageSession {
     final List<ItemStack> funnelBuffer = new ArrayList<>();
 
     /*
-     * Remote mining and ultimine state. ToolLease remains nested in
-     * RtsStorageManager because returning NBT-heavy tools safely is gameplay
-     * behavior, not passive session storage.
+     * Remote mining and ultimine state. ToolLease lives with
+     * RtsStorageMining because returning NBT-heavy tools safely is part of the
+     * mining state machine, not passive session storage.
      */
     BlockPos miningPos;
     int remoteMenuContainerId = -1;
@@ -102,14 +102,15 @@ class RtsStorageSession {
     boolean ultimineAbsorbedDrops;
     Direction miningFace = Direction.DOWN;
     int miningToolSlot;
-    RtsStorageManager.ToolLease miningToolLease = RtsStorageManager.ToolLease.empty();
+    RtsStorageMining.ToolLease miningToolLease = RtsStorageMining.ToolLease.empty();
     float miningProgress;
     int miningStage = -1;
     long nextQuestDetectTick;
 
     /*
-     * Quick-build audio and queued placement state. PlaceBatchJob still lives in
-     * RtsStorageManager until the placement execution loop is extracted.
+     * Quick-build audio and queued placement state. The job type lives in
+     * RtsStoragePlacement because that service owns world block placement and
+     * the batch cursor, while this session only stores the pending queue.
      */
     int quickBuildSoundPlacedCount;
     long quickBuildCompletionSoundTick = -1L;
@@ -117,7 +118,7 @@ class RtsStorageSession {
     double quickBuildSoundX;
     double quickBuildSoundY;
     double quickBuildSoundZ;
-    final Deque<RtsStorageManager.PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
+    final Deque<RtsStoragePlacement.PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
 
     /*
      * UI memory: recent entries, quick slots, and external GUI bindings. These
