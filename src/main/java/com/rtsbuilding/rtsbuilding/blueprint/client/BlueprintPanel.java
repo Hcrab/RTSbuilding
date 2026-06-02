@@ -41,6 +41,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.capturePreviewSummaryLine;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureSizeText;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureVolume;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.isInsideSelection;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.shortPos;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.buildStats;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.detailLines;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.hasEnoughMaterials;
@@ -253,7 +258,7 @@ public final class BlueprintPanel {
             g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), layout.w() - 20),
                     layout.x() + 10, textY, 0xFFCDEBFF, false);
             textY += 12;
-            g.drawString(font, trim(font, capturePreviewSummaryLine(), layout.w() - 20),
+            g.drawString(font, trim(font, capturePreviewSummaryLine(capturePointA, getCapturePreviewPointB()), layout.w() - 20),
                     layout.x() + 10, textY, 0xFFB8FFB8, false);
             textY += 14;
         } else if (nameDialogEntry != null) {
@@ -851,7 +856,7 @@ public final class BlueprintPanel {
         if (!shouldRenderCaptureBlockHighlights(limit)) {
             return List.of();
         }
-        long volume = captureVolume();
+        long volume = captureVolume(capturePointA, capturePointB);
         List<BlockPos> blocks = new ArrayList<>((int) volume);
         int minX = Math.min(capturePointA.getX(), capturePointB.getX());
         int minY = Math.min(capturePointA.getY(), capturePointB.getY()) + 1;
@@ -879,7 +884,7 @@ public final class BlueprintPanel {
         if (!shouldRenderCapturePreviewFill() || limit <= 0 || capturePointA == null || capturePointB == null) {
             return false;
         }
-        long volume = captureVolume();
+        long volume = captureVolume(capturePointA, capturePointB);
         return volume > 0L && volume <= limit;
     }
 
@@ -892,7 +897,7 @@ public final class BlueprintPanel {
             if (blocks.size() >= limit) {
                 break;
             }
-            if (isInsideCaptureSelection(pos)) {
+            if (isInsideSelection(capturePointA, capturePointB, pos)) {
                 blocks.add(pos);
             }
         }
@@ -908,7 +913,8 @@ public final class BlueprintPanel {
             return true;
         }
         if (capturePointB != null) {
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_adjust_hint", captureSizeText());
+            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_adjust_hint",
+                    captureSizeText(capturePointA, capturePointB));
             return false;
         }
         if (capturePointA == null) {
@@ -921,7 +927,8 @@ public final class BlueprintPanel {
             capturePointB = pos.immutable();
             captureHoverPoint = capturePointB;
             captureExcludedBlocks.clear();
-            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.capture_b", captureSizeText());
+            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.capture_b",
+                    captureSizeText(capturePointA, capturePointB));
         }
         return true;
     }
@@ -934,7 +941,7 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
             return true;
         }
-        if (!isInsideCaptureSelection(pos)) {
+        if (!isInsideSelection(capturePointA, capturePointB, pos)) {
             return false;
         }
         BlockPos key = pos.immutable();
@@ -982,7 +989,8 @@ public final class BlueprintPanel {
         }
         String sizeLine = capturePointA == null
                 ? state
-                : text("screen.rtsbuilding.blueprints.capture_live_size", capturePreviewSizeText());
+                : text("screen.rtsbuilding.blueprints.capture_live_size",
+                        captureSizeText(capturePointA, getCapturePreviewPointB()));
         g.drawString(font, trim(font, sizeLine + "  " + state, infoW - 112), infoX + 6, infoY + 20,
                 capturePointA != null && capturePointB != null ? 0xFF8EEA9B : 0xFFFFC06C, false);
         if (capturePointB == null && captureSaveJob == null) {
@@ -1042,13 +1050,14 @@ public final class BlueprintPanel {
         drawFrame(g, x, y, w, h, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
         g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - 14),
                 x + 7, y + 6, 0xFFEAF2FF, false);
-        g.drawString(font, trim(font, capturePreviewSummaryLine(), w - 14), x + 7, y + 18, 0xFFB8FFB8, false);
+        g.drawString(font, trim(font, capturePreviewSummaryLine(capturePointA, getCapturePreviewPointB()), w - 14),
+                x + 7, y + 18, 0xFFB8FFB8, false);
         int miniX = x + 8;
         int miniY = y + 34;
         int miniW = w - 16;
         int miniH = 8;
         g.fill(miniX, miniY, miniX + miniW, miniY + miniH, 0xAA0C1118);
-        long volume = Math.max(1L, captureVolume());
+        long volume = Math.max(1L, captureVolume(capturePointA, capturePointB));
         int fillW = (int) Math.max(1L, Math.min(miniW, volume * miniW / Math.max(1L, BlueprintWriters.maxCaptureBlocks())));
         g.fill(miniX, miniY, miniX + fillW, miniY + miniH, 0x8857D9FF);
         drawFrame(g, miniX, miniY, miniW, miniH, 0x00000000, 0xFF5B7894, 0xFF0B0F14);
@@ -1464,7 +1473,8 @@ public final class BlueprintPanel {
         g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_point_b", shortPos(capturePointB)), w - 16),
                 textX, textY, 0xFFCDEBFF, false);
         textY += 12;
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_size", captureSizeText()), w - 16),
+        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_size",
+                        captureSizeText(capturePointA, capturePointB)), w - 16),
                 textX, textY, 0xFFB8FFB8, false);
     }
 
@@ -1925,7 +1935,7 @@ public final class BlueprintPanel {
         String fileName = uniqueNbtFileName(requestedName);
         try {
             Path dest = blueprintFolder().resolve(fileName);
-            long volume = captureVolume();
+            long volume = captureVolume(capturePointA, capturePointB);
             long maxCaptureVolume = BlueprintWriters.maxCaptureVolume();
             if (volume > maxCaptureVolume) {
                 setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.save_failed",
@@ -1977,7 +1987,8 @@ public final class BlueprintPanel {
             captureExcludedBlocks.clear();
             captureExcludedBlocks.addAll(moved);
         }
-        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_moved", captureSizeText());
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_moved",
+                captureSizeText(capturePointA, capturePointB));
     }
 
     private static void expandCaptureVertical(int deltaY) {
@@ -2000,7 +2011,8 @@ public final class BlueprintPanel {
         maxY = Math.max(minY, maxY + deltaY);
         capturePointA = new BlockPos(minX, minY, minZ);
         capturePointB = new BlockPos(maxX, maxY, maxZ);
-        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_resized", captureSizeText());
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_resized",
+                captureSizeText(capturePointA, capturePointB));
     }
 
     private static void selectByFileName(String fileName) {
@@ -2041,82 +2053,6 @@ public final class BlueprintPanel {
 
     private static String shortPos(BlockPos pos) {
         return pos == null ? "-" : pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
-    }
-
-    private static String captureSizeText() {
-        if (capturePointA == null || capturePointB == null) {
-            return "";
-        }
-        return captureSizeText(capturePointB);
-    }
-
-    private static String capturePreviewSizeText() {
-        if (capturePointA == null) {
-            return "";
-        }
-        BlockPos second = getCapturePreviewPointB();
-        if (second == null) {
-            return "";
-        }
-        return captureSizeText(second);
-    }
-
-    private static String captureSizeText(BlockPos second) {
-        if (capturePointA == null || second == null) {
-            return "";
-        }
-        int x = Math.abs(capturePointA.getX() - second.getX()) + 1;
-        int y = Math.abs(capturePointA.getY() - second.getY());
-        int z = Math.abs(capturePointA.getZ() - second.getZ()) + 1;
-        return x + "x" + y + "x" + z;
-    }
-
-    private static String captureVolumeText() {
-        return Long.toString(captureVolume());
-    }
-
-    private static String capturePreviewSummaryLine() {
-        return text("screen.rtsbuilding.blueprints.capture_preview_summary", capturePreviewSizeText(), capturePreviewVolumeText());
-    }
-
-    private static String capturePreviewVolumeText() {
-        BlockPos second = getCapturePreviewPointB();
-        return second == null ? "0" : Long.toString(captureVolume(second));
-    }
-
-    private static long captureVolume() {
-        if (capturePointA == null || capturePointB == null) {
-            return 0L;
-        }
-        return captureVolume(capturePointB);
-    }
-
-    private static long captureVolume(BlockPos second) {
-        if (capturePointA == null || second == null) {
-            return 0L;
-        }
-        long x = Math.abs(capturePointA.getX() - second.getX()) + 1L;
-        long y = Math.abs(capturePointA.getY() - second.getY());
-        long z = Math.abs(capturePointA.getZ() - second.getZ()) + 1L;
-        return x * y * z;
-    }
-
-    private static boolean isInsideCaptureSelection(BlockPos pos) {
-        if (capturePointA == null || capturePointB == null || pos == null) {
-            return false;
-        }
-        int minX = Math.min(capturePointA.getX(), capturePointB.getX());
-        int minY = Math.min(capturePointA.getY(), capturePointB.getY()) + 1;
-        int minZ = Math.min(capturePointA.getZ(), capturePointB.getZ());
-        int maxX = Math.max(capturePointA.getX(), capturePointB.getX());
-        int maxY = Math.max(capturePointA.getY(), capturePointB.getY());
-        int maxZ = Math.max(capturePointA.getZ(), capturePointB.getZ());
-        if (minY > maxY) {
-            return false;
-        }
-        return pos.getX() >= minX && pos.getX() <= maxX
-                && pos.getY() >= minY && pos.getY() <= maxY
-                && pos.getZ() >= minZ && pos.getZ() <= maxZ;
     }
 
     private static void selectEntry(BlueprintEntry entry) {
