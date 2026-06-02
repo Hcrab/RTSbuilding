@@ -287,6 +287,37 @@ final class RtsLinkedStorageResolver {
     }
 
     /**
+     * Insert-anywhere is a linked-handler capability detail. Transfer code asks
+     * this boundary first so it does not need to know whether the endpoint is an
+     * extract-only view, an AE2 virtual handler, or a normal slotted inventory.
+     */
+    static ItemStack insertItemAnywhereIfSupported(IItemHandler handler, ItemStack stack, boolean simulate) {
+        if (handler == null || stack == null || stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        if (handler instanceof LinkedItemHandlerView linkedView && linkedView.supportsAnySlotInsert()) {
+            return linkedView.insertItemAnywhere(stack, simulate);
+        }
+        if (handler instanceof RtsAe2Compat.AnySlotInsertItemHandler anySlot) {
+            return anySlot.insertItemAnywhere(stack, simulate);
+        }
+        return null;
+    }
+
+    static ItemStack insertItemAnywhere(IItemHandler handler, ItemStack stack, boolean simulate) {
+        ItemStack supported = insertItemAnywhereIfSupported(handler, stack, simulate);
+        if (supported != null) {
+            return supported;
+        }
+        ItemStack remain = stack == null ? ItemStack.EMPTY : stack.copy();
+        for (int slot = 0; handler != null && slot < handler.getSlots() && !remain.isEmpty(); slot++) {
+            remain = handler.insertItem(slot, remain, simulate);
+        }
+        return remain;
+    }
+
+
+    /**
      * Extract-only is a linked-ref permission that directly controls the
      * resolver's handler views.
      */
