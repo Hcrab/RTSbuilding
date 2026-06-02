@@ -27,7 +27,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidType;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 
@@ -49,7 +48,6 @@ import net.minecraftforge.items.IItemHandler;
  */
 final class RtsStoragePageBuilder {
     private static final int PAGE_SIZE = 90;
-    private static final long INTERNAL_FLUID_CAPACITY_MB = 100L * FluidType.BUCKET_VOLUME;
     private static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
@@ -464,10 +462,7 @@ final class RtsStoragePageBuilder {
     }
 
     static long internalFluidCapacityMb(ServerPlayer player) {
-        if (player == null) {
-            return INTERNAL_FLUID_CAPACITY_MB;
-        }
-        return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * FluidType.BUCKET_VOLUME);
+        return RtsStorageFluids.internalFluidCapacityMb(player);
     }
 
     private static boolean matchesSearchQuery(ResourceLocation id, String rawId, String label, String query,
