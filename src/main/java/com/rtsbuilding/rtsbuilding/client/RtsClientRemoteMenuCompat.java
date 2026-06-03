@@ -13,6 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.level.Level;
 
@@ -49,6 +50,7 @@ final class RtsClientRemoteMenuCompat {
         if (menu == null) {
             return;
         }
+        boolean preserveContainerIdentity = menu instanceof ChestMenu;
         Class<?> type = menu.getClass();
         while (type != null && type != Object.class) {
             for (Field field : type.getDeclaredFields()) {
@@ -67,7 +69,7 @@ final class RtsClientRemoteMenuCompat {
                         continue;
                     }
 
-                    if (fieldType == Container.class) {
+                    if (fieldType == Container.class && !preserveContainerIdentity) {
                         Object current = field.get(menu);
                         if (current instanceof Container delegate && !(delegate instanceof AlwaysValidContainer)) {
                             field.set(menu, new AlwaysValidContainer(delegate));

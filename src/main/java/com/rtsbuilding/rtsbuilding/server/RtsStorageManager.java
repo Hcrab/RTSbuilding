@@ -81,6 +81,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -198,9 +199,7 @@ public final class RtsStorageManager {
         }
         if (session.remoteMenuContainerId >= 0
                 && (player.containerMenu == null || player.containerMenu.containerId != session.remoteMenuContainerId)) {
-            forceRemoteMenuClosedVisual(player, session.remoteMenuPos);
-            session.remoteMenuContainerId = -1;
-            session.remoteMenuPos = null;
+            clearRemoteMenuValidation(player, session);
         }
         RtsStoragePlacement.tickQuickBuildCompletionSound(player, session);
         RtsStoragePlacement.tickPlaceBatchJobs(player, session);
@@ -1919,6 +1918,7 @@ public final class RtsStorageManager {
         if (menu == null) {
             return;
         }
+        boolean preserveContainerIdentity = menu instanceof ChestMenu;
         Class<?> type = menu.getClass();
         while (type != null && type != Object.class) {
             for (Field field : type.getDeclaredFields()) {
@@ -1937,7 +1937,7 @@ public final class RtsStorageManager {
                         continue;
                     }
 
-                    if (fieldType == Container.class) {
+                    if (fieldType == Container.class && !preserveContainerIdentity) {
                         Object current = field.get(menu);
                         if (current instanceof Container delegate && !(delegate instanceof AlwaysValidContainer)) {
                             field.set(menu, new AlwaysValidContainer(delegate));
@@ -1994,18 +1994,8 @@ public final class RtsStorageManager {
                 && !(player.containerMenu instanceof InventoryMenu)) {
             player.closeContainer();
         }
-        forceRemoteMenuClosedVisual(player, session.remoteMenuPos);
         session.remoteMenuContainerId = -1;
         session.remoteMenuPos = null;
-    }
-
-    private static void forceRemoteMenuClosedVisual(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null || !(player.level() instanceof ServerLevel level) || !level.hasChunkAt(pos)) {
-            return;
-        }
-        BlockState state = level.getBlockState(pos);
-        level.blockEvent(pos, state.getBlock(), 1, 0);
-        level.sendBlockUpdated(pos, state, state, 3);
     }
 
     static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {

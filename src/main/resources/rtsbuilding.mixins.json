@@ -4,6 +4,7 @@
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "ChestMenuMixin",
     "compat.sophisticatedstorage.StorageContainerMenuMixin"
   ],
   "injectors": {
