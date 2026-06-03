@@ -206,6 +206,15 @@ public final class RtsStorageManager {
         RtsStoragePlacement.tickPlaceBatchJobs(player, session);
     }
 
+    public static void closeRemoteMenuFromClient(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null || session.remoteMenuContainerId < 0) {
+            return;
+        }
+        closeTrackedRemoteMenu(player, session);
+        clearRemoteMenuValidation(player, session);
+    }
+
     private static Session getOrCreateSession(ServerPlayer player) {
         Session existing = SESSIONS.get(player.getUUID());
         if (existing != null) {

@@ -1057,6 +1057,7 @@ public final class ClientRtsController {
                 && this.pendingRemoteMenuOpenTicks <= 0) {
             this.screenlessRemoteMenuTicks++;
             if (this.screenlessRemoteMenuTicks >= SCREENLESS_REMOTE_MENU_RECOVERY_TICKS) {
+                RtsClientPacketGateway.sendCloseRemoteMenu();
                 minecraft.player.closeContainer();
                 clearRemoteMenuValidationState();
                 this.relaxedRemoteMenu = null;
@@ -2473,6 +2474,7 @@ public final class ClientRtsController {
         clearRemoteMenuValidationState();
         this.pendingRemoteMenuOpenTicks = 0;
         if (minecraft.player != null) {
+            RtsClientPacketGateway.sendCloseRemoteMenu();
             minecraft.player.closeContainer();
             minecraft.player.displayClientMessage(Component.literal("Open failed."), true);
         }

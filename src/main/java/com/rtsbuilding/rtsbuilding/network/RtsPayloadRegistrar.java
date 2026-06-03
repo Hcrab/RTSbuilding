@@ -68,6 +68,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, C2SRtsReturnCarriedPayload.class, C2SRtsReturnCarriedPayload.STREAM_CODEC, RtsNetworkHandlers::handleReturnCarried);
         registerMessage(id++, C2SRtsOpenCraftTerminalPayload.class, C2SRtsOpenCraftTerminalPayload.STREAM_CODEC, RtsNetworkHandlers::handleOpenCraftTerminal);
         registerMessage(id++, C2SRtsImportMenuSlotPayload.class, C2SRtsImportMenuSlotPayload.STREAM_CODEC, RtsNetworkHandlers::handleImportMenuSlot);
+        registerMessage(id++, C2SRtsCloseRemoteMenuPayload.class, C2SRtsCloseRemoteMenuPayload.STREAM_CODEC, RtsNetworkHandlers::handleCloseRemoteMenu);
         registerMessage(id++, C2SRtsCraftRefillPayload.class, C2SRtsCraftRefillPayload.STREAM_CODEC, RtsNetworkHandlers::handleCraftRefill);
         registerMessage(id++, C2SRtsCraftRecipePayload.class, C2SRtsCraftRecipePayload.STREAM_CODEC, RtsNetworkHandlers::handleCraftRecipe);
         registerMessage(id++, C2SRtsJeiTransferPayload.class, C2SRtsJeiTransferPayload.STREAM_CODEC, RtsNetworkHandlers::handleJeiTransfer);
