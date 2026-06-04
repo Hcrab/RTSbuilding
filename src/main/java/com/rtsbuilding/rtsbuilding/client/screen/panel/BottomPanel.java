@@ -6,10 +6,12 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.*;
 import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraftforge.fml.ModList;
 
 import java.util.*;
@@ -1575,7 +1577,13 @@ public final class BottomPanel {
         }
 
         List<CategoryTypes.CategoryRow> rows = new ArrayList<>();
-        rows.add(new CategoryTypes.CategoryRow(CATEGORY_ALL, "All", 0, false, false, ""));
+        rows.add(new CategoryTypes.CategoryRow(
+                CATEGORY_ALL,
+                Component.translatable("screen.rtsbuilding.creative.all").getString(),
+                0,
+                false,
+                false,
+                ""));
 
         Map<String, Set<String>> modToTabs = new HashMap<>();
         Set<String> mods = new HashSet<>();
@@ -1728,6 +1736,19 @@ public final class BottomPanel {
 
     private static String formatTabLabel(String tabKey) {
         ResourceLocation key = ResourceLocation.tryParse(tabKey);
+        if (key != null) {
+            try {
+                CreativeModeTab tab = BuiltInRegistries.CREATIVE_MODE_TAB.get(key);
+                if (tab != null) {
+                    String label = tab.getDisplayName().getString();
+                    if (label != null && !label.isBlank()) {
+                        return label;
+                    }
+                }
+            } catch (RuntimeException | LinkageError ignored) {
+                // Fall through to a readable token when a modded creative tab misbehaves.
+            }
+        }
         String path = key == null ? tabKey : key.getPath();
         return humanizeToken(path);
     }
