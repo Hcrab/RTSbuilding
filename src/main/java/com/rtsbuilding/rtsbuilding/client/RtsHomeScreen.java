@@ -9,10 +9,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 public final class RtsHomeScreen extends Screen {
-    private static final int PANEL_MAX_W = 390;
-    private static final int PANEL_H = 224;
-    private static final int HOME_BUTTON_Y_OFFSET = 108;
-    private static final int WARNING_Y_OFFSET = 136;
+    private static final int CONTENT_MAX_W = 460;
+    private static final int ROW_H = 28;
+    private static final int FOOTER_H = 36;
 
     private final Screen parent;
     private final ClientRtsController controller = ClientRtsController.get();
@@ -26,45 +25,67 @@ public final class RtsHomeScreen extends Screen {
     @Override
     protected void init() {
         this.controller.requestProgressionState();
-        int panelW = panelWidth();
-        int x = (this.width - panelW) / 2;
-        int y = panelY();
+        int actionW = footerActionWidth();
+        int footerX = footerX(actionW);
+        int footerY = this.height - 28;
         this.homeButton = Button.builder(homeButtonLabel(), btn -> {
             this.minecraft.setScreen(null);
             this.controller.beginHomeSelection();
-        }).bounds(x + 10, y + HOME_BUTTON_Y_OFFSET, panelW - 20, 20).build();
+        }).bounds(footerX, footerY, actionW, 20).build();
         this.homeButton.active = canUseHomeButton();
         addRenderableWidget(this.homeButton);
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> this.minecraft.setScreen(this.parent))
-                .bounds(x + panelW - 60, y + PANEL_H - 26, 50, 18)
-                .build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"),
+                btn -> this.minecraft.setScreen(this.parent)).bounds(footerX + actionW + 8, footerY, 80, 20).build());
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        renderBackground(g);
-        int panelW = panelWidth();
-        int x = (this.width - panelW) / 2;
-        int y = panelY();
+        renderPageBackground(g);
         if (this.homeButton != null) {
             this.homeButton.setMessage(homeButtonLabel());
             this.homeButton.active = canUseHomeButton();
         }
-        g.fill(x, y, x + panelW, y + PANEL_H, 0xEE101820);
-        g.hLine(x, x + panelW, y, 0xFF6E8799);
-        g.hLine(x, x + panelW, y + PANEL_H, 0xFF0D1218);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.home"), x + 10, y + 10, 0xFFFFFF);
-        g.drawString(this.font, Component.translatable(this.controller.isProgressionEnabled() ? "screen.rtsbuilding.progression.survival_on" : "screen.rtsbuilding.progression.survival_off"), x + 10, y + 26, 0xCFE3F7);
+        int contentW = contentWidth();
+        int x = (this.width - contentW) / 2;
+        int y = 42;
+
+        g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home"), this.width / 2, 12, 0xFFFFFFFF);
+        drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.progression.title"),
+                Component.translatable(this.controller.isProgressionEnabled()
+                        ? "screen.rtsbuilding.progression.survival_on"
+                        : "screen.rtsbuilding.progression.survival_off"),
+                this.controller.isProgressionEnabled() ? 0xFFB7E8C2 : 0xFFFFC4A8);
+        y += ROW_H + 4;
         if (this.controller.isProgressionHomeSet()) {
             BlockPos pos = this.controller.getProgressionHomePos();
-            g.drawString(this.font, Component.translatable("screen.rtsbuilding.home.current", pos.getX(), pos.getY(), pos.getZ()), x + 10, y + 44, 0xEAF2FF);
-            g.drawString(this.font, Component.translatable("screen.rtsbuilding.home.dimension", this.controller.getProgressionHomeDimension()), x + 10, y + 58, 0xBFD2E6);
+            drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home"),
+                    Component.translatable("screen.rtsbuilding.home.current", pos.getX(), pos.getY(), pos.getZ()), 0xFFEAF2FF);
+            y += ROW_H + 4;
+            drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home.dimension_label"),
+                    Component.translatable("screen.rtsbuilding.home.dimension", this.controller.getProgressionHomeDimension()), 0xFFD7E6F7);
         } else {
-            g.drawString(this.font, Component.translatable("screen.rtsbuilding.home.not_set"), x + 10, y + 44, 0xFFE7C46A);
+            drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home"),
+                    Component.translatable("screen.rtsbuilding.home.not_set"), 0xFFFFD980);
+            y += ROW_H + 4;
+            drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home.dimension_label"),
+                    Component.literal("-"), 0xFFB8C7D6);
         }
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.home.radius", this.controller.getProgressionRadiusBlocks()), x + 10, y + 76, 0xD8E6F5);
-        g.drawString(this.font, Component.translatable(canRelocateHome() ? "screen.rtsbuilding.home.relocation_unlocked" : "screen.rtsbuilding.home.relocation_locked"), x + 10, y + 90, canRelocateHome() ? 0xAEE8AE : 0xFFB0B0);
-        drawWrapped(g, Component.translatable("screen.rtsbuilding.home.warning").getString(), x + 10, y + WARNING_Y_OFFSET, panelW - 20, 0xFFE7C46A);
+        y += ROW_H + 4;
+        drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home.radius_label"),
+                Component.translatable("screen.rtsbuilding.home.radius", this.controller.getProgressionRadiusBlocks()), 0xFFD8E6F5);
+        y += ROW_H + 4;
+        drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home.relocation_label"),
+                Component.translatable(canRelocateHome()
+                        ? "screen.rtsbuilding.home.relocation_unlocked"
+                        : "screen.rtsbuilding.home.relocation_locked"),
+                canRelocateHome() ? 0xFFAEE8AE : 0xFFFFB0B0);
+        y += ROW_H + 10;
+
+        int warningBottom = Math.max(y + 24, Math.min(this.height - FOOTER_H - 8, y + 42));
+        g.fill(x, y, x + contentW, warningBottom, 0xFF1B1F24);
+        g.hLine(x, x + contentW, y, 0xFF6E8799);
+        drawWrapped(g, Component.translatable("screen.rtsbuilding.home.warning").getString(), x + 10, y + 9,
+                contentW - 20, 0xFFFFD980);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -89,12 +110,8 @@ public final class RtsHomeScreen extends Screen {
         return Component.translatable(labelKey);
     }
 
-    private int panelWidth() {
-        return Math.min(PANEL_MAX_W, this.width - 32);
-    }
-
-    private int panelY() {
-        return Math.max(18, (this.height - PANEL_H) / 2);
+    private int contentWidth() {
+        return Math.min(CONTENT_MAX_W, this.width - 32);
     }
 
     private void drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
@@ -102,5 +119,30 @@ public final class RtsHomeScreen extends Screen {
             g.drawString(this.font, line, x, y, color);
             y += 10;
         }
+    }
+
+    private void drawInfoRow(GuiGraphics g, int x, int y, int width, Component label, Component value, int valueColor) {
+        int labelW = Math.min(132, Math.max(92, width / 3));
+        g.fill(x, y, x + width, y + ROW_H, 0xFF17202A);
+        g.hLine(x, x + width, y, 0xFF263545);
+        g.drawString(this.font, label, x + 10, y + 9, 0xFFAFC2D4);
+        String valueText = this.font.plainSubstrByWidth(value.getString(), width - labelW - 24);
+        g.drawString(this.font, Component.literal(valueText), x + labelW, y + 9, valueColor);
+    }
+
+    private void renderPageBackground(GuiGraphics g) {
+        g.fill(0, 0, this.width, this.height, 0xFF101820);
+        g.fill(0, 0, this.width, 32, 0xFF151B23);
+        g.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF151B23);
+        g.hLine(0, this.width, 32, 0xFF273747);
+        g.hLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
+    }
+
+    private int footerActionWidth() {
+        return Math.min(170, Math.max(118, this.width / 2 - 28));
+    }
+
+    private int footerX(int actionW) {
+        return (this.width - actionW - 8 - 80) / 2;
     }
 }
