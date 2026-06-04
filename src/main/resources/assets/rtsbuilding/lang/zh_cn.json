@@ -105,6 +105,8 @@
   "chat.rtsbuilding.intro.dismissed": "RTSBuilding 提醒已在这个存档/服务器关闭。",
   "chat.rtsbuilding.intro.copy_qq": "点击复制 QQ 群号。",
   "message.rtsbuilding.home.cooldown": "切换 RTS 家园还需要等待 %s 个游戏日。",
+  "config.rtsbuilding.tab.general": "玩法与蓝图",
+  "config.rtsbuilding.tab.skills": "技能树",
   "config.rtsbuilding.community": "社区反馈",
   "config.rtsbuilding.open_discord": "打开 Discord",
   "config.rtsbuilding.copy_qq": "复制 QQ 群号",

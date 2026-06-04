@@ -19,16 +19,33 @@ import net.minecraft.util.Mth;
 
 public final class RtsModConfigScreen extends Screen {
     private static final int CONTENT_MAX_W = 720;
-    private static final int HEADER_H = 32;
-    private static final int FOOTER_H = 36;
-    private static final int OPTION_ROW_H = 34;
+    private static final int HEADER_H = 40;
+    private static final int FOOTER_H = 40;
+    private static final int TAB_H = 20;
+    private static final int TAB_GAP = 6;
+    private static final int OPTION_ROW_H = 38;
     private static final int COST_ROW_H = 30;
-    private static final int SECTION_H = 16;
+    private static final int SECTION_H = 18;
+    private static final int SCROLL_STEP = 24;
+
+    private enum Page {
+        GENERAL("config.rtsbuilding.tab.general"),
+        SKILLS("config.rtsbuilding.tab.skills");
+
+        private final String titleKey;
+
+        Page(String titleKey) {
+            this.titleKey = titleKey;
+        }
+    }
 
     private final Screen parent;
     private final List<RtsProgressionNode> nodes = new ArrayList<>(RtsProgressionNodes.all());
     private final List<EditBox> costBoxes = new ArrayList<>();
+    private final List<ResourceLocation> costBoxNodeIds = new ArrayList<>();
     private final Map<ResourceLocation, String> draftCosts = new LinkedHashMap<>();
+
+    private Page page = Page.GENERAL;
     private boolean survivalEnabled = Config.ENABLE_SURVIVAL_PROGRESSION.get();
     private boolean shareWithTeams = Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.get();
     private boolean blueprintsEnabled = Config.ENABLE_BLUEPRINTS.get();
@@ -36,7 +53,8 @@ public final class RtsModConfigScreen extends Screen {
     private String draftMaxBlueprintBlocks = Integer.toString(Config.maxBlueprintBlocks());
     private EditBox maxRadiusBox;
     private EditBox maxBlueprintBlocksBox;
-    private int scroll;
+    private int generalScroll;
+    private int skillScroll;
 
     public RtsModConfigScreen(Screen parent) {
         super(Component.translatable("config.rtsbuilding.title"));
@@ -56,53 +74,29 @@ public final class RtsModConfigScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFFFF);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
 
-        int x = contentX();
-        int y = contentTop();
-        int width = contentWidth();
-        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.gameplay"));
-        y += SECTION_H;
-        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.survival"),
-                Component.translatable("config.rtsbuilding.option.survival.hint"));
-        y += OPTION_ROW_H;
-        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.teams"),
-                Component.translatable("config.rtsbuilding.option.teams.hint"));
-        y += OPTION_ROW_H;
-        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.max_radius"),
-                Component.translatable("config.rtsbuilding.max_radius.hint"));
-        y += OPTION_ROW_H + 6;
-
-        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.blueprints"));
-        y += SECTION_H;
-        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.blueprints"),
-                Component.translatable("config.rtsbuilding.option.blueprints.hint"));
-        y += OPTION_ROW_H;
-        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.max_blueprint_blocks"),
-                Component.translatable("config.rtsbuilding.max_blueprint_blocks.hint"));
-
-        int listY = costListTop();
-        drawSection(g, x, listY - SECTION_H, Component.translatable("config.rtsbuilding.skill_costs"));
-        drawCostHeader(g, x, listY, width);
-        drawCostRows(g, x, listY + COST_ROW_H, width);
-        if (maxScroll() > 0) {
-            String page = (this.scroll + 1) + "/" + (maxScroll() + 1);
-            g.drawString(this.font, page, x + width - this.font.width(page) - 10, listY - SECTION_H + 5, 0xFFAFC2D4);
+        if (this.page == Page.GENERAL) {
+            drawGeneralPage(g);
+        } else {
+            drawSkillsPage(g);
         }
-
+        drawScrollbar(g);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
-        int next = this.scroll - (int) Math.signum(scrollY);
-        next = Mth.clamp(next, 0, maxScroll());
-        if (next != this.scroll) {
-            captureVisibleDrafts();
-            setFocused(null);
-            this.scroll = next;
-            rebuildConfigWidgets(false);
-            return true;
+        if (insideViewport(mouseX, mouseY)) {
+            int current = currentScroll();
+            int next = Mth.clamp(current - (int) Math.signum(scrollY) * SCROLL_STEP, 0, maxScroll(this.page));
+            if (next != current) {
+                captureVisibleDrafts();
+                setFocused(null);
+                setCurrentScroll(next);
+                rebuildConfigWidgets(false);
+                return true;
+            }
         }
         return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
@@ -122,67 +116,122 @@ public final class RtsModConfigScreen extends Screen {
         }
         clearWidgets();
         this.costBoxes.clear();
+        this.costBoxNodeIds.clear();
         this.maxRadiusBox = null;
         this.maxBlueprintBlocksBox = null;
+        clampScrolls();
 
+        addPageTabs();
+        if (this.page == Page.GENERAL) {
+            addGeneralWidgets();
+        } else {
+            addSkillWidgets();
+        }
+        addFooterButtons();
+    }
+
+    private void addPageTabs() {
         int x = contentX();
-        int y = contentTop() + SECTION_H;
+        int y = tabY();
+        int tabW = Math.max(60, (contentWidth() - TAB_GAP) / 2);
+        Button general = Button.builder(Component.translatable(Page.GENERAL.titleKey), btn -> switchPage(Page.GENERAL))
+                .bounds(x, y, tabW, TAB_H)
+                .build();
+        general.active = this.page != Page.GENERAL;
+        addRenderableWidget(general);
+
+        Button skills = Button.builder(Component.translatable(Page.SKILLS.titleKey), btn -> switchPage(Page.SKILLS))
+                .bounds(x + tabW + TAB_GAP, y, tabW, TAB_H)
+                .build();
+        skills.active = this.page != Page.SKILLS;
+        addRenderableWidget(skills);
+    }
+
+    private void switchPage(Page target) {
+        if (this.page == target) {
+            return;
+        }
+        captureVisibleDrafts();
+        this.page = target;
+        setFocused(null);
+        rebuildConfigWidgets(false);
+    }
+
+    private void addGeneralWidgets() {
+        int x = contentX();
         int width = contentWidth();
-        int buttonX = x + width - 132;
-        int fieldX = x + width - 126;
+        int controlW = controlWidth(width);
+        int controlX = x + width - controlW - 10;
+        int y = viewportTop() - this.generalScroll + SECTION_H;
 
-        addRenderableWidget(Button.builder(Component.translatable(this.survivalEnabled
-                ? "config.rtsbuilding.enabled"
-                : "config.rtsbuilding.disabled"), btn -> {
-            this.survivalEnabled = !this.survivalEnabled;
-            rebuildConfigWidgets();
-        }).bounds(buttonX, y + 7, 122, 20).build());
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.survivalEnabled
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.survivalEnabled = !this.survivalEnabled;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
         y += OPTION_ROW_H;
 
-        addRenderableWidget(Button.builder(Component.translatable(this.shareWithTeams
-                ? "config.rtsbuilding.enabled"
-                : "config.rtsbuilding.disabled"), btn -> {
-            this.shareWithTeams = !this.shareWithTeams;
-            rebuildConfigWidgets();
-        }).bounds(buttonX, y + 7, 122, 20).build());
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.shareWithTeams
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.shareWithTeams = !this.shareWithTeams;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
         y += OPTION_ROW_H;
 
-        this.maxRadiusBox = new EditBox(this.font, fieldX, y + 8, 116, 18, Component.translatable("config.rtsbuilding.max_radius"));
-        this.maxRadiusBox.setMaxLength(4);
-        this.maxRadiusBox.setValue(this.draftMaxRadius);
-        this.maxRadiusBox.setTextColor(0xFFFFFFFF);
-        this.maxRadiusBox.setTextColorUneditable(0xFFB8C7D6);
-        addRenderableWidget(this.maxRadiusBox);
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            this.maxRadiusBox = new EditBox(this.font, controlX, y + 10, controlW, 18,
+                    Component.translatable("config.rtsbuilding.max_radius"));
+            this.maxRadiusBox.setMaxLength(4);
+            this.maxRadiusBox.setValue(this.draftMaxRadius);
+            this.maxRadiusBox.setTextColor(0xFFFFFFFF);
+            this.maxRadiusBox.setTextColorUneditable(0xFFB8C7D6);
+            addRenderableWidget(this.maxRadiusBox);
+        }
         y += OPTION_ROW_H + 6 + SECTION_H;
 
-        addRenderableWidget(Button.builder(Component.translatable(this.blueprintsEnabled
-                ? "config.rtsbuilding.enabled"
-                : "config.rtsbuilding.disabled"), btn -> {
-            this.blueprintsEnabled = !this.blueprintsEnabled;
-            rebuildConfigWidgets();
-        }).bounds(buttonX, y + 7, 122, 20).build());
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.blueprintsEnabled
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.blueprintsEnabled = !this.blueprintsEnabled;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
         y += OPTION_ROW_H;
 
-        this.maxBlueprintBlocksBox = new EditBox(this.font, fieldX, y + 8, 116, 18,
-                Component.translatable("config.rtsbuilding.max_blueprint_blocks"));
-        this.maxBlueprintBlocksBox.setMaxLength(6);
-        this.maxBlueprintBlocksBox.setValue(this.draftMaxBlueprintBlocks);
-        this.maxBlueprintBlocksBox.setTextColor(0xFFFFFFFF);
-        this.maxBlueprintBlocksBox.setTextColorUneditable(0xFFB8C7D6);
-        addRenderableWidget(this.maxBlueprintBlocksBox);
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            this.maxBlueprintBlocksBox = new EditBox(this.font, controlX, y + 10, controlW, 18,
+                    Component.translatable("config.rtsbuilding.max_blueprint_blocks"));
+            this.maxBlueprintBlocksBox.setMaxLength(6);
+            this.maxBlueprintBlocksBox.setValue(this.draftMaxBlueprintBlocks);
+            this.maxBlueprintBlocksBox.setTextColor(0xFFFFFFFF);
+            this.maxBlueprintBlocksBox.setTextColorUneditable(0xFFB8C7D6);
+            addRenderableWidget(this.maxBlueprintBlocksBox);
+        }
+    }
 
-        int rows = visibleCostRows();
-        this.scroll = Mth.clamp(this.scroll, 0, maxScroll());
-        int listY = costListTop() + COST_ROW_H;
+    private void addSkillWidgets() {
+        int x = contentX();
+        int width = contentWidth();
         int labelW = costLabelWidth(width);
-        for (int row = 0; row < rows; row++) {
-            int nodeIndex = row + this.scroll;
-            if (nodeIndex >= this.nodes.size()) {
+        int rowsTop = viewportTop() - this.skillScroll + SECTION_H + COST_ROW_H;
+        int resetW = 52;
+
+        for (int i = 0; i < this.nodes.size(); i++) {
+            int rowY = rowsTop + i * COST_ROW_H;
+            if (rowY + COST_ROW_H <= viewportTop()) {
+                continue;
+            }
+            if (rowY + COST_ROW_H > viewportBottom()) {
                 break;
             }
-            RtsProgressionNode node = this.nodes.get(nodeIndex);
-            int rowY = listY + row * COST_ROW_H;
-            int resetW = 52;
+            RtsProgressionNode node = this.nodes.get(i);
             int boxX = x + 14 + labelW + 8;
             int boxW = Math.max(72, x + width - 12 - resetW - 6 - boxX);
             EditBox box = new EditBox(this.font, boxX, rowY + 5, boxW, 18, Component.translatable(node.titleKey()));
@@ -192,21 +241,28 @@ public final class RtsModConfigScreen extends Screen {
             box.setTextColorUneditable(0xFFB8C7D6);
             addRenderableWidget(box);
             this.costBoxes.add(box);
+            this.costBoxNodeIds.add(node.id());
 
-            final int capturedIndex = nodeIndex;
+            final ResourceLocation nodeId = node.id();
             addRenderableWidget(Button.builder(Component.translatable("config.rtsbuilding.reset"), btn -> {
-                RtsProgressionNode resetNode = this.nodes.get(capturedIndex);
-                this.draftCosts.put(resetNode.id(), resetNode.costs().isEmpty() ? "" : RtsProgressionNodes.formatCostText(resetNode.costs()));
-                rebuildConfigWidgets();
+                RtsProgressionNode resetNode = RtsProgressionNodes.get(nodeId);
+                if (resetNode != null) {
+                    this.draftCosts.put(resetNode.id(), resetNode.costs().isEmpty() ? "" : RtsProgressionNodes.formatCostText(resetNode.costs()));
+                    rebuildConfigWidgets();
+                }
             }).bounds(x + width - 64, rowY + 5, resetW, 18).build());
         }
+    }
 
+    private void addFooterButtons() {
+        int buttonW = Math.min(96, Math.max(72, this.width / 4));
         int footerY = this.height - 28;
+        int startX = (this.width - buttonW * 2 - 8) / 2;
         addRenderableWidget(Button.builder(Component.translatable("config.rtsbuilding.save"), btn -> saveAndClose())
-                .bounds(this.width / 2 - 84, footerY, 80, 20)
+                .bounds(startX, footerY, buttonW, 20)
                 .build());
         addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> this.minecraft.setScreen(this.parent))
-                .bounds(this.width / 2 + 4, footerY, 80, 20)
+                .bounds(startX + buttonW + 8, footerY, buttonW, 20)
                 .build());
     }
 
@@ -240,10 +296,7 @@ public final class RtsModConfigScreen extends Screen {
             this.draftMaxBlueprintBlocks = this.maxBlueprintBlocksBox.getValue();
         }
         for (int i = 0; i < this.costBoxes.size(); i++) {
-            int nodeIndex = this.scroll + i;
-            if (nodeIndex < this.nodes.size()) {
-                this.draftCosts.put(this.nodes.get(nodeIndex).id(), this.costBoxes.get(i).getValue());
-            }
+            this.draftCosts.put(this.costBoxNodeIds.get(i), this.costBoxes.get(i).getValue());
         }
     }
 
@@ -263,32 +316,113 @@ public final class RtsModConfigScreen extends Screen {
         }
     }
 
-    private int visibleCostRows() {
-        return Math.max(0, (this.height - costListTop() - COST_ROW_H - FOOTER_H - 8) / COST_ROW_H);
+    private void drawGeneralPage(GuiGraphics g) {
+        int x = contentX();
+        int y = viewportTop() - this.generalScroll;
+        int width = contentWidth();
+        g.enableScissor(x, viewportTop(), x + width, viewportBottom());
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.gameplay"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.survival"),
+                Component.translatable("config.rtsbuilding.option.survival.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.teams"),
+                Component.translatable("config.rtsbuilding.option.teams.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.max_radius"),
+                Component.translatable("config.rtsbuilding.max_radius.hint"));
+        y += OPTION_ROW_H + 6;
+
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.blueprints"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.blueprints"),
+                Component.translatable("config.rtsbuilding.option.blueprints.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.max_blueprint_blocks"),
+                Component.translatable("config.rtsbuilding.max_blueprint_blocks.hint"));
+        g.disableScissor();
     }
 
-    private int maxScroll() {
-        return Math.max(0, this.nodes.size() - visibleCostRows());
+    private void drawSkillsPage(GuiGraphics g) {
+        int x = contentX();
+        int y = viewportTop() - this.skillScroll;
+        int width = contentWidth();
+        g.enableScissor(x, viewportTop(), x + width, viewportBottom());
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.skill_costs"));
+        y += SECTION_H;
+        drawCostHeader(g, x, y, width);
+        y += COST_ROW_H;
+        drawCostRows(g, x, y, width);
+        g.disableScissor();
+    }
+
+    private int contentHeight(Page target) {
+        if (target == Page.GENERAL) {
+            return SECTION_H + OPTION_ROW_H * 3 + 6 + SECTION_H + OPTION_ROW_H * 2;
+        }
+        return SECTION_H + COST_ROW_H + this.nodes.size() * COST_ROW_H;
+    }
+
+    private int maxScroll(Page target) {
+        return Math.max(0, contentHeight(target) - viewportHeight());
+    }
+
+    private int currentScroll() {
+        return this.page == Page.GENERAL ? this.generalScroll : this.skillScroll;
+    }
+
+    private void setCurrentScroll(int value) {
+        if (this.page == Page.GENERAL) {
+            this.generalScroll = value;
+        } else {
+            this.skillScroll = value;
+        }
+    }
+
+    private void clampScrolls() {
+        this.generalScroll = Mth.clamp(this.generalScroll, 0, maxScroll(Page.GENERAL));
+        this.skillScroll = Mth.clamp(this.skillScroll, 0, maxScroll(Page.SKILLS));
     }
 
     private int contentWidth() {
-        return Math.min(CONTENT_MAX_W, this.width - 32);
+        return Math.max(0, Math.min(CONTENT_MAX_W, this.width - 32));
     }
 
     private int contentX() {
         return (this.width - contentWidth()) / 2;
     }
 
-    private int contentTop() {
-        return HEADER_H + 10;
+    private int tabY() {
+        return HEADER_H + 6;
     }
 
-    private int costListTop() {
-        return contentTop() + SECTION_H + OPTION_ROW_H * 3 + 6 + SECTION_H + OPTION_ROW_H * 2 + 22;
+    private int viewportTop() {
+        return tabY() + TAB_H + 8;
+    }
+
+    private int viewportBottom() {
+        return Math.max(viewportTop(), this.height - FOOTER_H - 8);
+    }
+
+    private int viewportHeight() {
+        return Math.max(0, viewportBottom() - viewportTop());
+    }
+
+    private int controlWidth(int width) {
+        return Math.min(150, Math.max(92, width / 3));
     }
 
     private int costLabelWidth(int width) {
-        return Math.min(210, Math.max(130, width / 3));
+        return Math.min(210, Math.max(110, width / 3));
+    }
+
+    private boolean fullyVisible(int y, int height) {
+        return y >= viewportTop() && y + height <= viewportBottom();
+    }
+
+    private boolean insideViewport(double mouseX, double mouseY) {
+        return mouseX >= contentX() && mouseX <= contentX() + contentWidth()
+                && mouseY >= viewportTop() && mouseY <= viewportBottom();
     }
 
     private void renderPageBackground(GuiGraphics g) {
@@ -300,15 +434,18 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private void drawSection(GuiGraphics g, int x, int y, Component label) {
-        g.drawString(this.font, label, x + 2, y + 4, 0xFFF4F7FF);
+        g.drawString(this.font, label, x + 2, y + 5, 0xFFF4F7FF);
+        g.hLine(x, x + contentWidth(), y + SECTION_H - 1, 0xFF263545);
     }
 
     private void drawOptionRow(GuiGraphics g, int x, int y, int width, Component label, Component hint) {
+        int controlW = controlWidth(width);
+        int hintW = Math.max(24, width - controlW - 34);
         g.fill(x, y, x + width, y + OPTION_ROW_H - 2, 0xFF17202A);
         g.hLine(x, x + width, y, 0xFF263545);
-        g.drawString(this.font, label, x + 10, y + 6, 0xFFEAF2FF);
-        String hintText = this.font.plainSubstrByWidth(hint.getString(), Math.max(24, width - 160));
-        g.drawString(this.font, Component.literal(hintText), x + 10, y + 18, 0xFFAFC2D4);
+        g.drawString(this.font, label, x + 10, y + 7, 0xFFEAF2FF);
+        String hintText = this.font.plainSubstrByWidth(hint.getString(), hintW);
+        g.drawString(this.font, Component.literal(hintText), x + 10, y + 20, 0xFFAFC2D4);
     }
 
     private void drawCostHeader(GuiGraphics g, int x, int y, int width) {
@@ -319,18 +456,34 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private void drawCostRows(GuiGraphics g, int x, int y, int width) {
-        int rows = visibleCostRows();
         int labelW = costLabelWidth(width);
-        for (int row = 0; row < rows; row++) {
-            int nodeIndex = row + this.scroll;
-            if (nodeIndex >= this.nodes.size()) {
+        for (int i = 0; i < this.nodes.size(); i++) {
+            int rowY = y + i * COST_ROW_H;
+            if (rowY + COST_ROW_H <= viewportTop()) {
+                continue;
+            }
+            if (rowY >= viewportBottom()) {
                 break;
             }
-            int rowY = y + row * COST_ROW_H;
-            RtsProgressionNode node = this.nodes.get(nodeIndex);
-            g.fill(x, rowY, x + width, rowY + COST_ROW_H - 2, row % 2 == 0 ? 0xFF17202A : 0xFF1B2530);
+            RtsProgressionNode node = this.nodes.get(i);
+            g.fill(x, rowY, x + width, rowY + COST_ROW_H - 2, i % 2 == 0 ? 0xFF17202A : 0xFF1B2530);
             String label = Component.translatable(node.titleKey()).getString();
             g.drawString(this.font, this.font.plainSubstrByWidth(label, labelW), x + 10, rowY + 9, 0xFFD9E6F2);
         }
+    }
+
+    private void drawScrollbar(GuiGraphics g) {
+        int max = maxScroll(this.page);
+        int viewportH = viewportHeight();
+        int contentH = contentHeight(this.page);
+        if (max <= 0 || viewportH <= 0 || contentH <= 0) {
+            return;
+        }
+        int x = contentX() + contentWidth() - 4;
+        int y = viewportTop();
+        int thumbH = Math.max(18, viewportH * viewportH / contentH);
+        int thumbY = y + (viewportH - thumbH) * currentScroll() / max;
+        g.fill(x, y, x + 3, y + viewportH, 0x66263545);
+        g.fill(x, thumbY, x + 3, thumbY + thumbH, 0xFFAFC2D4);
     }
 }

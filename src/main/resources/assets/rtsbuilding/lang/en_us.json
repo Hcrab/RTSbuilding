@@ -105,6 +105,8 @@
   "chat.rtsbuilding.intro.dismissed": "RTSBuilding reminder disabled for this world/server.",
   "chat.rtsbuilding.intro.copy_qq": "Click to copy QQ group number.",
   "message.rtsbuilding.home.cooldown": "RTS Home can be changed again in %s in-game day(s).",
+  "config.rtsbuilding.tab.general": "Gameplay & Blueprints",
+  "config.rtsbuilding.tab.skills": "Skill Tree",
   "config.rtsbuilding.community": "Community feedback",
   "config.rtsbuilding.open_discord": "Open Discord",
   "config.rtsbuilding.copy_qq": "Copy QQ group",
