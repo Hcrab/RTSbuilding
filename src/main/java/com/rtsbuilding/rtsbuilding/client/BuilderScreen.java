@@ -2070,7 +2070,7 @@ public final class BuilderScreen extends Screen {
             return BlueprintGhostPreview.EMPTY;
         }
         BlockPos anchor = BlueprintPanel.getPinnedAnchor();
-        if (anchor == null && isWorldArea(this.lastMouseX, this.lastMouseY)) {
+        if (anchor == null) {
             anchor = this.cursorPicker.resolveBlueprintAnchor(this.cursorPicker.pickBlueprintPlacementHit());
         }
         if (anchor == null) {

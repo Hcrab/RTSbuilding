@@ -170,10 +170,10 @@ public final class BottomPanel {
         int labelX = layout.panelX() + 8;
         int labelY = layout.panelY() + 5;
         g.drawString(screen.font(), "RTS", labelX, labelY, 0xF2F6FB);
-        drawSelectedPlacementStatus(g, layout);
         for (BottomPanelLayoutTypes.BottomPanelTab tab : visibleBottomPanelTabs()) {
             drawBottomPanelTab(g, layout, tab, bottomPanelTabLabel(tab), mouseX, mouseY);
         }
+        drawSelectedPlacementStatus(g, layout);
     }
 
     private void drawBottomPanelTab(
@@ -198,9 +198,6 @@ public final class BottomPanel {
     private int bottomPanelTabX(BottomPanelLayoutTypes.BottomPanelLayout layout, BottomPanelLayoutTypes.BottomPanelTab tab) {
         int x = layout.panelX() + 38;
         for (BottomPanelLayoutTypes.BottomPanelTab visible : visibleBottomPanelTabs()) {
-            if (visible == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
-                x += selectedPlacementStatusW(layout) + 4;
-            }
             if (visible == tab) {
                 return x;
             }
@@ -220,22 +217,14 @@ public final class BottomPanel {
     }
 
     private int selectedPlacementStatusX(BottomPanelLayoutTypes.BottomPanelLayout layout) {
-        int x = layout.panelX() + 38;
-        for (BottomPanelLayoutTypes.BottomPanelTab visible : visibleBottomPanelTabs()) {
-            if (visible == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
-                return x;
-            }
-            x += bottomPanelTabW(visible) + 4;
-        }
-        return -1;
+        return bottomPanelTabX(layout, BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS)
+                + bottomPanelTabW(BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS)
+                + 10;
     }
 
     private int selectedPlacementStatusW(BottomPanelLayoutTypes.BottomPanelLayout layout) {
         int x = selectedPlacementStatusX(layout);
-        if (x < 0) {
-            return 0;
-        }
-        int reservedRight = bottomPanelTabW(BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) + 50;
+        int reservedRight = 44;
         int available = Math.max(0, layout.panelX() + layout.panelW() - x - reservedRight);
         if (available <= 0) {
             return 0;
