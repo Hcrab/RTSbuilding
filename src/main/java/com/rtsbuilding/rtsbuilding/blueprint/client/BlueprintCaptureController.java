@@ -12,6 +12,8 @@ import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureSizeText;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureVolume;
@@ -270,6 +272,39 @@ final class BlueprintCaptureController {
 
     String saveProgressLine() {
         return saveJob == null ? "" : saveJob.progressLine();
+    }
+
+    long countCapturableBlocks(Level level) {
+        if (level == null || pointA == null || pointB == null) {
+            return 0L;
+        }
+        int minX = Math.min(pointA.getX(), pointB.getX());
+        int minY = Math.min(pointA.getY(), pointB.getY()) + 1;
+        int minZ = Math.min(pointA.getZ(), pointB.getZ());
+        int maxX = Math.max(pointA.getX(), pointB.getX());
+        int maxY = Math.max(pointA.getY(), pointB.getY());
+        int maxZ = Math.max(pointA.getZ(), pointB.getZ());
+        if (minY > maxY) {
+            return 0L;
+        }
+
+        long count = 0L;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int y = minY; y <= maxY; y++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                for (int x = minX; x <= maxX; x++) {
+                    cursor.set(x, y, z);
+                    if (excludedBlocks.contains(cursor) || !level.hasChunkAt(cursor)) {
+                        continue;
+                    }
+                    BlockState state = level.getBlockState(cursor);
+                    if (!state.isAir() && !state.is(Blocks.STRUCTURE_VOID)) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
     }
 
     void startSave(Level level, String fileName, Path dest, StatusSink status) {

@@ -25,10 +25,10 @@ final class BlueprintCaptureGeometry {
         return x + "x" + y + "x" + z;
     }
 
-    static String capturePreviewSummaryLine(BlockPos first, BlockPos second) {
+    static String capturePreviewSummaryLine(BlockPos first, BlockPos second, long blockCount) {
         return text("screen.rtsbuilding.blueprints.capture_preview_summary",
                 captureSizeText(first, second),
-                Long.toString(captureVolume(first, second)));
+                Long.toString(Math.max(0L, blockCount)));
     }
 
     static long captureVolume(BlockPos first, BlockPos second) {

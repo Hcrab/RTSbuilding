@@ -84,6 +84,7 @@ public final class BlueprintPanel {
     private static String nameDialogValue = "";
     private static BlueprintEntry nameDialogEntry = null;
     private static boolean nameDialogReplaceOnType = false;
+    private static long nameDialogCaptureBlockCount = 0L;
     private static int yRotationSteps = 0;
     private static int xRotationSteps = 0;
     private static int zRotationSteps = 0;
@@ -237,7 +238,7 @@ public final class BlueprintPanel {
         }
         boolean capture = nameDialogMode == NameDialogMode.CAPTURE_SAVE;
         BlueprintNameDialog.render(g, font, screenW, screenH, mouseX, mouseY, capture, nameDialogValue, nameDialogEntry,
-                CAPTURE.pointA(), CAPTURE.previewPointB());
+                CAPTURE.pointA(), CAPTURE.previewPointB(), nameDialogCaptureBlockCount);
     }
 
     public static boolean mouseClickedNameDialog(double mouseX, double mouseY, int button, int screenW, int screenH) {
@@ -354,6 +355,7 @@ public final class BlueprintPanel {
         nameDialogValue = sanitizeFileBase("captured_" + System.currentTimeMillis());
         nameDialogEntry = null;
         nameDialogReplaceOnType = false;
+        nameDialogCaptureBlockCount = CAPTURE.countCapturableBlocks(Minecraft.getInstance().level);
         materialDialogOpen = false;
         searchFocused = false;
     }
@@ -369,6 +371,7 @@ public final class BlueprintPanel {
         // Renaming should behave like a selected text field: the first typed
         // character replaces the old file name instead of appending to it.
         nameDialogReplaceOnType = true;
+        nameDialogCaptureBlockCount = 0L;
         materialDialogOpen = false;
         searchFocused = false;
     }
@@ -379,6 +382,7 @@ public final class BlueprintPanel {
         nameDialogValue = "";
         nameDialogEntry = null;
         nameDialogReplaceOnType = false;
+        nameDialogCaptureBlockCount = 0L;
         setStatus(S2CBlueprintStatusPayload.INFO,
                 previous == NameDialogMode.RENAME_ENTRY
                         ? "screen.rtsbuilding.blueprints.status.rename_cancelled"
@@ -401,6 +405,7 @@ public final class BlueprintPanel {
         nameDialogValue = "";
         nameDialogEntry = null;
         nameDialogReplaceOnType = false;
+        nameDialogCaptureBlockCount = 0L;
         if (mode == NameDialogMode.CAPTURE_SAVE) {
             startCaptureSave(cleanName);
         } else if (mode == NameDialogMode.RENAME_ENTRY) {
@@ -1525,6 +1530,7 @@ public final class BlueprintPanel {
             nameDialogValue = "";
             nameDialogEntry = null;
             nameDialogReplaceOnType = false;
+            nameDialogCaptureBlockCount = 0L;
         }
     }
 
@@ -1576,6 +1582,7 @@ public final class BlueprintPanel {
         nameDialogValue = "";
         nameDialogEntry = null;
         nameDialogReplaceOnType = false;
+        nameDialogCaptureBlockCount = 0L;
     }
 
     private static void selectByFileName(String fileName) {

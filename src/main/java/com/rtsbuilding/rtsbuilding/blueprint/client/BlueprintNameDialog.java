@@ -23,7 +23,8 @@ final class BlueprintNameDialog {
     }
 
     static void render(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY,
-            boolean capture, String value, BlueprintEntry currentEntry, BlockPos capturePointA, BlockPos capturePointB) {
+            boolean capture, String value, BlueprintEntry currentEntry, BlockPos capturePointA, BlockPos capturePointB,
+            long captureBlockCount) {
         BlueprintPanelLayout.NameDialogLayout layout = nameDialogLayout(screenW, screenH, capture);
         g.fill(0, 0, screenW, screenH, 0x66000000);
         drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
@@ -38,7 +39,8 @@ final class BlueprintNameDialog {
             g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), layout.w() - 20),
                     layout.x() + 10, textY, 0xFFCDEBFF, false);
             textY += 12;
-            g.drawString(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB), layout.w() - 20),
+            g.drawString(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
+                    layout.w() - 20),
                     layout.x() + 10, textY, 0xFFB8FFB8, false);
         } else if (currentEntry != null) {
             g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
