@@ -92,6 +92,11 @@ public final class BlueprintPlacementService {
         int skippedMissingBlocks = job.skippedMissingBlocks();
         int skippedBlocked = job.skippedBlocked();
         int index = job.nextIndex();
+        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(
+                job.blueprint().size(),
+                job.yRotationSteps(),
+                job.xRotationSteps(),
+                job.zRotationSteps());
         while (index < job.blueprint().blocks().size() && processed < BLOCKS_PER_TICK) {
             RtsBlueprintBlock block = job.blueprint().blocks().get(index);
             index++;
@@ -100,11 +105,12 @@ public final class BlueprintPlacementService {
                 skippedMissingBlocks++;
                 continue;
             }
-            BlockPos target = job.anchor().offset(BlueprintTransform.rotate(
+            BlockPos target = job.anchor().offset(BlueprintTransform.rotateAroundCenter(
                     block.relativePos(),
                     job.yRotationSteps(),
                     job.xRotationSteps(),
-                    job.zRotationSteps()));
+                    job.zRotationSteps(),
+                    centerOffset));
             if (!canStillPlace(player, level, target)) {
                 skippedBlocked++;
                 continue;
