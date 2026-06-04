@@ -44,6 +44,10 @@ public final class RtsProgressionManager {
     public static final int DEFAULT_FLUID_CAPACITY_BUCKETS = 100;
     public static final int DEFAULT_ULTIMINE_LIMIT = 256;
     public static final int HOME_SELECTION_RADIUS_BLOCKS = 34;
+    public static final int HOME_RELOCATION_COOLDOWN_DAYS = 20;
+    public static final long TICKS_PER_GAME_DAY = 24000L;
+    public static final long HOME_RELOCATION_COOLDOWN_TICKS =
+            HOME_RELOCATION_COOLDOWN_DAYS * TICKS_PER_GAME_DAY;
 
     private static final String NBT_ROOT = "rtsbuilding_progression";
     private static final String NBT_VERSION = "version";
@@ -194,11 +198,28 @@ public final class RtsProgressionManager {
         if (home == null) {
             return true;
         }
-        return unlockedNodes(player).contains(RtsProgressionNodes.FIELD_DEPLOYMENT);
+        return unlockedNodes(player).contains(RtsProgressionNodes.FIELD_DEPLOYMENT)
+                || remainingHomeCooldownTicks(player) <= 0L;
     }
 
     public static long remainingHomeCooldownTicks(ServerPlayer player) {
-        return 0L;
+        if (!isEnabled() || player == null) {
+            return 0L;
+        }
+        if (unlockedNodes(player).contains(RtsProgressionNodes.FIELD_DEPLOYMENT)) {
+            return 0L;
+        }
+        HomeAnchor home = getHome(player);
+        if (home == null) {
+            return 0L;
+        }
+        long elapsed = Math.max(0L, player.serverLevel().getGameTime() - home.setGameTime());
+        return Math.max(0L, HOME_RELOCATION_COOLDOWN_TICKS - elapsed);
+    }
+
+    public static long remainingHomeCooldownDays(ServerPlayer player) {
+        long ticks = remainingHomeCooldownTicks(player);
+        return ticks <= 0L ? 0L : (ticks + TICKS_PER_GAME_DAY - 1L) / TICKS_PER_GAME_DAY;
     }
 
     public static boolean commitHome(ServerPlayer player, BlockPos pos) {

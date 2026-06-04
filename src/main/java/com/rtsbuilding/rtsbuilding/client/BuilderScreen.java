@@ -1402,14 +1402,22 @@ public final class BuilderScreen extends Screen {
         int panelW = Math.min(360, this.width - 24);
         int panelX = (this.width - panelW) / 2;
         int panelY = 12;
-        RtsClientUiUtil.drawPanelFrame(g, panelX, panelY, panelW, 54, 0xCC101820, 0xFF6E8799, 0xFF0D1218);
+        Component cooldown = Component.translatable("screen.rtsbuilding.home_select.cooldown");
+        var cooldownLines = this.font.split(cooldown, panelW - 20);
+        int panelH = 58 + Math.max(1, cooldownLines.size()) * 10;
+        RtsClientUiUtil.drawPanelFrame(g, panelX, panelY, panelW, panelH, 0xCC101820, 0xFF6E8799, 0xFF0D1218);
         g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.title"), panelX + panelW / 2, panelY + 8, 0xFFFFFF);
         g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.area"), panelX + panelW / 2, panelY + 22, 0xD8E6F5);
         g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.confirm"), panelX + panelW / 2, panelY + 34, 0xBFD2E6);
+        int cooldownY = panelY + 46;
+        for (var line : cooldownLines) {
+            g.drawString(this.font, line, panelX + (panelW - this.font.width(line)) / 2, cooldownY, 0xFFE7C46A);
+            cooldownY += 10;
+        }
         BlockHitResult hit = isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
         if (hit != null) {
             BlockPos pos = hit.getBlockPos();
-            g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()), this.width / 2, panelY + 68, 0xFFE7C46A);
+            g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()), this.width / 2, panelY + panelH + 14, 0xFFE7C46A);
         }
     }
     /**

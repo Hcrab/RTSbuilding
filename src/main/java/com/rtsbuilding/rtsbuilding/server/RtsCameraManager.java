@@ -113,7 +113,9 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canChangeHome(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS home relocation requires Field Deployment."), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.rtsbuilding.home.cooldown",
+                    RtsProgressionManager.remainingHomeCooldownDays(player)), true);
             return;
         }
         stopIfActive(player);
