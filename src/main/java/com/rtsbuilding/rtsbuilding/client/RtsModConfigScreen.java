@@ -18,11 +18,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 public final class RtsModConfigScreen extends Screen {
-    private static final int CONTENT_MAX_W = 620;
+    private static final int CONTENT_MAX_W = 720;
     private static final int HEADER_H = 32;
     private static final int FOOTER_H = 36;
     private static final int OPTION_ROW_H = 34;
-    private static final int COST_ROW_H = 24;
+    private static final int COST_ROW_H = 30;
     private static final int SECTION_H = 16;
 
     private final Screen parent;
@@ -83,7 +83,8 @@ public final class RtsModConfigScreen extends Screen {
 
         int listY = costListTop();
         drawSection(g, x, listY - SECTION_H, Component.translatable("config.rtsbuilding.skill_costs"));
-        drawCostRows(g, x, listY, width);
+        drawCostHeader(g, x, listY, width);
+        drawCostRows(g, x, listY + COST_ROW_H, width);
         if (maxScroll() > 0) {
             String page = (this.scroll + 1) + "/" + (maxScroll() + 1);
             g.drawString(this.font, page, x + width - this.font.width(page) - 10, listY - SECTION_H + 5, 0xFFAFC2D4);
@@ -172,8 +173,8 @@ public final class RtsModConfigScreen extends Screen {
 
         int rows = visibleCostRows();
         this.scroll = Mth.clamp(this.scroll, 0, maxScroll());
-        int listY = costListTop();
-        int labelW = Math.min(160, Math.max(110, width / 3));
+        int listY = costListTop() + COST_ROW_H;
+        int labelW = costLabelWidth(width);
         for (int row = 0; row < rows; row++) {
             int nodeIndex = row + this.scroll;
             if (nodeIndex >= this.nodes.size()) {
@@ -184,7 +185,7 @@ public final class RtsModConfigScreen extends Screen {
             int resetW = 52;
             int boxX = x + 14 + labelW + 8;
             int boxW = Math.max(72, x + width - 12 - resetW - 6 - boxX);
-            EditBox box = new EditBox(this.font, boxX, rowY + 3, boxW, 16, Component.literal(node.id().getPath()));
+            EditBox box = new EditBox(this.font, boxX, rowY + 5, boxW, 18, Component.translatable(node.titleKey()));
             box.setMaxLength(512);
             box.setValue(this.draftCosts.getOrDefault(node.id(), RtsProgressionNodes.costTextFor(node)));
             box.setTextColor(0xFFFFFFFF);
@@ -197,7 +198,7 @@ public final class RtsModConfigScreen extends Screen {
                 RtsProgressionNode resetNode = this.nodes.get(capturedIndex);
                 this.draftCosts.put(resetNode.id(), resetNode.costs().isEmpty() ? "" : RtsProgressionNodes.formatCostText(resetNode.costs()));
                 rebuildConfigWidgets();
-            }).bounds(x + width - 64, rowY + 2, resetW, 18).build());
+            }).bounds(x + width - 64, rowY + 5, resetW, 18).build());
         }
 
         int footerY = this.height - 28;
@@ -263,7 +264,7 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private int visibleCostRows() {
-        return Math.max(0, (this.height - costListTop() - FOOTER_H - 8) / COST_ROW_H);
+        return Math.max(0, (this.height - costListTop() - COST_ROW_H - FOOTER_H - 8) / COST_ROW_H);
     }
 
     private int maxScroll() {
@@ -286,6 +287,10 @@ public final class RtsModConfigScreen extends Screen {
         return contentTop() + SECTION_H + OPTION_ROW_H * 3 + 6 + SECTION_H + OPTION_ROW_H * 2 + 22;
     }
 
+    private int costLabelWidth(int width) {
+        return Math.min(210, Math.max(130, width / 3));
+    }
+
     private void renderPageBackground(GuiGraphics g) {
         g.fill(0, 0, this.width, this.height, 0xFF101820);
         g.fill(0, 0, this.width, HEADER_H, 0xFF151B23);
@@ -306,9 +311,16 @@ public final class RtsModConfigScreen extends Screen {
         g.drawString(this.font, Component.literal(hintText), x + 10, y + 18, 0xFFAFC2D4);
     }
 
+    private void drawCostHeader(GuiGraphics g, int x, int y, int width) {
+        int labelW = costLabelWidth(width);
+        g.fill(x, y, x + width, y + COST_ROW_H - 2, 0xFF202A36);
+        g.drawString(this.font, Component.translatable("config.rtsbuilding.skill_name"), x + 10, y + 9, 0xFFAFC2D4);
+        g.drawString(this.font, Component.translatable("config.rtsbuilding.materials"), x + labelW + 22, y + 9, 0xFFAFC2D4);
+    }
+
     private void drawCostRows(GuiGraphics g, int x, int y, int width) {
         int rows = visibleCostRows();
-        int labelW = Math.min(160, Math.max(110, width / 3));
+        int labelW = costLabelWidth(width);
         for (int row = 0; row < rows; row++) {
             int nodeIndex = row + this.scroll;
             if (nodeIndex >= this.nodes.size()) {
@@ -317,8 +329,8 @@ public final class RtsModConfigScreen extends Screen {
             int rowY = y + row * COST_ROW_H;
             RtsProgressionNode node = this.nodes.get(nodeIndex);
             g.fill(x, rowY, x + width, rowY + COST_ROW_H - 2, row % 2 == 0 ? 0xFF17202A : 0xFF1B2530);
-            String label = node.id().getPath().replace('_', ' ');
-            g.drawString(this.font, this.font.plainSubstrByWidth(label, labelW), x + 10, rowY + 7, 0xFFD9E6F2);
+            String label = Component.translatable(node.titleKey()).getString();
+            g.drawString(this.font, this.font.plainSubstrByWidth(label, labelW), x + 10, rowY + 9, 0xFFD9E6F2);
         }
     }
 }

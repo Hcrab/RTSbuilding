@@ -113,6 +113,8 @@
   "config.rtsbuilding.disabled": "關閉",
   "config.rtsbuilding.save": "儲存",
   "config.rtsbuilding.reset": "重設",
+  "config.rtsbuilding.skill_name": "技能",
+  "config.rtsbuilding.materials": "材料",
   "config.rtsbuilding.section.gameplay": "玩法",
   "config.rtsbuilding.section.blueprints": "藍圖",
   "config.rtsbuilding.option.survival": "生存平衡",

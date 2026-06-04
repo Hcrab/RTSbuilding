@@ -113,6 +113,8 @@
   "config.rtsbuilding.disabled": "Disabled",
   "config.rtsbuilding.save": "Save",
   "config.rtsbuilding.reset": "Reset",
+  "config.rtsbuilding.skill_name": "Skill",
+  "config.rtsbuilding.materials": "Materials",
   "config.rtsbuilding.section.gameplay": "Gameplay",
   "config.rtsbuilding.section.blueprints": "Blueprints",
   "config.rtsbuilding.option.survival": "Survival balance",
