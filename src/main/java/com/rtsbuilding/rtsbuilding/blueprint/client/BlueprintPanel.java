@@ -23,6 +23,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.client.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.RowActionLayout;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.TopBarLayout;
@@ -41,9 +42,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.capturePreviewSummaryLine;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureSizeText;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureVolume;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.shortPos;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.buildStats;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.hasEnoughMaterials;
@@ -55,7 +54,6 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.e
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.isBlueprintFile;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.sanitizeFileBase;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripBlueprintExtension;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripNbtExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueBlueprintPath;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueNbtFileName;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.LIST_COLUMN_GAP;
@@ -85,6 +83,7 @@ public final class BlueprintPanel {
     private static NameDialogMode nameDialogMode = NameDialogMode.NONE;
     private static String nameDialogValue = "";
     private static BlueprintEntry nameDialogEntry = null;
+    private static boolean nameDialogReplaceOnType = false;
     private static int yRotationSteps = 0;
     private static int xRotationSteps = 0;
     private static int zRotationSteps = 0;
@@ -133,7 +132,6 @@ public final class BlueprintPanel {
         int listH = Math.max(24, statusY - listY - 4);
         if (CAPTURE.isActive()) {
             renderCaptureLockedBottom(g, font, x, listY, w, listH);
-            g.drawString(font, trim(font, statusText.getString(), w - 8), x + 2, statusY, statusColor, false);
             return;
         }
         int detailsW = Math.min(210, Math.max(148, w / 4));
@@ -275,7 +273,10 @@ public final class BlueprintPanel {
             return true;
         }
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
-            if (!nameDialogValue.isEmpty()) {
+            if (nameDialogReplaceOnType) {
+                nameDialogValue = "";
+                nameDialogReplaceOnType = false;
+            } else if (!nameDialogValue.isEmpty()) {
                 nameDialogValue = nameDialogValue.substring(0, nameDialogValue.length() - 1);
             }
             return true;
@@ -288,6 +289,10 @@ public final class BlueprintPanel {
             return false;
         }
         if (!Character.isISOControl(codePoint) && nameDialogValue.length() < 80) {
+            if (nameDialogReplaceOnType) {
+                nameDialogValue = "";
+                nameDialogReplaceOnType = false;
+            }
             nameDialogValue += codePoint;
         }
         return true;
@@ -348,6 +353,7 @@ public final class BlueprintPanel {
         nameDialogMode = NameDialogMode.CAPTURE_SAVE;
         nameDialogValue = sanitizeFileBase("captured_" + System.currentTimeMillis());
         nameDialogEntry = null;
+        nameDialogReplaceOnType = false;
         materialDialogOpen = false;
         searchFocused = false;
     }
@@ -360,6 +366,9 @@ public final class BlueprintPanel {
         nameDialogMode = NameDialogMode.RENAME_ENTRY;
         nameDialogValue = sanitizeFileBase(stripBlueprintExtension(entry.fileName()));
         nameDialogEntry = entry;
+        // Renaming should behave like a selected text field: the first typed
+        // character replaces the old file name instead of appending to it.
+        nameDialogReplaceOnType = true;
         materialDialogOpen = false;
         searchFocused = false;
     }
@@ -369,6 +378,7 @@ public final class BlueprintPanel {
         nameDialogMode = NameDialogMode.NONE;
         nameDialogValue = "";
         nameDialogEntry = null;
+        nameDialogReplaceOnType = false;
         setStatus(S2CBlueprintStatusPayload.INFO,
                 previous == NameDialogMode.RENAME_ENTRY
                         ? "screen.rtsbuilding.blueprints.status.rename_cancelled"
@@ -390,6 +400,7 @@ public final class BlueprintPanel {
         nameDialogMode = NameDialogMode.NONE;
         nameDialogValue = "";
         nameDialogEntry = null;
+        nameDialogReplaceOnType = false;
         if (mode == NameDialogMode.CAPTURE_SAVE) {
             startCaptureSave(cleanName);
         } else if (mode == NameDialogMode.RENAME_ENTRY) {
@@ -407,33 +418,11 @@ public final class BlueprintPanel {
             return;
         }
 
-        BuildStats stats = buildStats(entry, controller);
-        int topW = Math.min(500, Math.max(290, screenW - 32));
-        int topH = 34;
-        int topX = (screenW - topW) / 2;
         int topY = topSafeY;
-        drawFrame(g, topX, topY, topW, topH, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
-        g.drawString(font, trim(font, entry.name(), topW - 184), topX + 8, topY + 6, 0xFFEAF2FF, false);
-        g.drawString(font, trim(font, materialSummary(entry, controller, stats), topW - 184), topX + 8, topY + 18,
-                stats.percent() >= 100 ? 0xFF8EEA9B : 0xFFFFC06C, false);
-        int buttonY = topY + 8;
-        int detailsX = topX + topW - 158;
-        int defaultX = detailsX + 52;
-        int saveX = defaultX + 52;
-        drawButton(g, font, detailsX, buttonY, 48, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.details"),
-                inside(mouseX, mouseY, detailsX, buttonY, 48, DETAIL_BUTTON_H));
-        drawButton(g, font, defaultX, buttonY, 48, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.default_rotation_short"),
-                inside(mouseX, mouseY, defaultX, buttonY, 48, DETAIL_BUTTON_H));
-        drawButton(g, font, saveX, buttonY, 48, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.save_rotated_short"),
-                inside(mouseX, mouseY, saveX, buttonY, 48, DETAIL_BUTTON_H));
-
         int barW = Math.max(286, Math.min(560, screenW - 32));
         int barH = 24;
         int barX = (screenW - barW) / 2;
-        int barY = Math.max(topY + topH + 6, bottomSafeY - barH - 8);
+        int barY = Math.max(topY, bottomSafeY - barH - 8);
         drawFrame(g, barX, barY, barW, barH, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
 
         int xPos = barX + 6;
@@ -463,8 +452,13 @@ public final class BlueprintPanel {
 
         int buildW = 54;
         int cancelW = 46;
-        int buildX = barX + barW - buildW - cancelW - gap - 6;
+        int detailsW = 48;
+        int detailsX = barX + barW - detailsW - buildW - cancelW - gap * 2 - 6;
+        int buildX = detailsX + detailsW + gap;
         int cancelX = buildX + buildW + gap;
+        drawButton(g, font, detailsX, barY + 5, detailsW, DETAIL_BUTTON_H,
+                text("screen.rtsbuilding.blueprints.details"),
+                inside(mouseX, mouseY, detailsX, barY + 5, detailsW, DETAIL_BUTTON_H));
         drawButton(g, font, buildX, barY + 5, buildW, DETAIL_BUTTON_H,
                 text("screen.rtsbuilding.blueprints.build_preview"),
                 inside(mouseX, mouseY, buildX, barY + 5, buildW, DETAIL_BUTTON_H), pinnedAnchor != null);
@@ -479,35 +473,11 @@ public final class BlueprintPanel {
             return false;
         }
 
-        int topW = Math.min(500, Math.max(290, screenW - 32));
-        int topH = 34;
-        int topX = (screenW - topW) / 2;
         int topY = topSafeY;
-        int buttonY = topY + 8;
-        int detailsX = topX + topW - 158;
-        int defaultX = detailsX + 52;
-        int saveX = defaultX + 52;
-        if (inside(mouseX, mouseY, detailsX, buttonY, 48, DETAIL_BUTTON_H)) {
-            materialDialogOpen = true;
-            materialDialogScroll = 0;
-            return true;
-        }
-        if (inside(mouseX, mouseY, defaultX, buttonY, 48, DETAIL_BUTTON_H)) {
-            saveCurrentRotationAsDefault();
-            return true;
-        }
-        if (inside(mouseX, mouseY, saveX, buttonY, 48, DETAIL_BUTTON_H)) {
-            saveRotatedCopy();
-            return true;
-        }
-        if (inside(mouseX, mouseY, topX, topY, topW, topH)) {
-            return true;
-        }
-
         int barW = Math.max(286, Math.min(560, screenW - 32));
         int barH = 24;
         int barX = (screenW - barW) / 2;
-        int barY = Math.max(topY + topH + 6, bottomSafeY - barH - 8);
+        int barY = Math.max(topY, bottomSafeY - barH - 8);
         int xPos = barX + 6;
         int rotateW = 42;
         int resetW = 40;
@@ -547,8 +517,14 @@ public final class BlueprintPanel {
 
         int buildW = 54;
         int cancelW = 46;
-        int buildX = barX + barW - buildW - cancelW - gap - 6;
+        int detailsW = 48;
+        int detailsX = barX + barW - detailsW - buildW - cancelW - gap * 2 - 6;
+        int buildX = detailsX + detailsW + gap;
         int cancelX = buildX + buildW + gap;
+        if (inside(mouseX, mouseY, detailsX, barY + 5, detailsW, DETAIL_BUTTON_H)) {
+            openMaterialDialog();
+            return true;
+        }
         if (inside(mouseX, mouseY, buildX, barY + 5, buildW, DETAIL_BUTTON_H)) {
             return buildPinnedPreview();
         }
@@ -579,11 +555,12 @@ public final class BlueprintPanel {
         return true;
     }
 
-    public static boolean keyPressed(int keyCode, ClientRtsController controller) {
+    public static boolean keyPressed(int keyCode, int scanCode, ClientRtsController controller) {
         if (!Config.areBlueprintsEnabled()) {
             searchFocused = false;
             return false;
         }
+        boolean cancelKey = ClientKeyMappings.BLUEPRINT_CANCEL.matches(keyCode, scanCode);
         if (CAPTURE.isActive()) {
             searchFocused = false;
             if (CAPTURE.isSaving()) {
@@ -595,7 +572,7 @@ public final class BlueprintPanel {
                     || org.lwjgl.glfw.GLFW.glfwGetKey(Minecraft.getInstance().getWindow().getWindow(),
                             org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS
                     ? 4 : 1;
-            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            if (cancelKey || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
                 cancelCaptureMode();
                 return true;
             }
@@ -636,6 +613,13 @@ public final class BlueprintPanel {
             if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN) {
                 return nudgePinnedAnchor(0, -1, 0, controller);
             }
+        }
+        if (!searchFocused && cancelKey) {
+            if (hasSelectedBlueprint() || hasPinnedPreview()) {
+                clearSelectedBlueprint();
+                return true;
+            }
+            return false;
         }
         if (!searchFocused) {
             return false;
@@ -826,31 +810,6 @@ public final class BlueprintPanel {
                 CAPTURE.previewVisible());
         g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_page_hint"), leftW - 12),
                 leftX + 6, leftY + leftH - 15, 0xFFB7CDE2, false);
-        renderCapturePreviewCard(g, font, screenW, screenH);
-    }
-
-    private static void renderCapturePreviewCard(GuiGraphics g, Font font, int screenW, int screenH) {
-        if (CAPTURE.pointA() == null || CAPTURE.pointB() == null) {
-            return;
-        }
-        int w = Math.min(230, Math.max(170, screenW / 5));
-        int h = 52;
-        int x = Math.max(10, (screenW - w) / 2);
-        int y = Math.max(72, screenH - h - 132);
-        drawFrame(g, x, y, w, h, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - 14),
-                x + 7, y + 6, 0xFFEAF2FF, false);
-        g.drawString(font, trim(font, capturePreviewSummaryLine(CAPTURE.pointA(), CAPTURE.previewPointB()), w - 14),
-                x + 7, y + 18, 0xFFB8FFB8, false);
-        int miniX = x + 8;
-        int miniY = y + 34;
-        int miniW = w - 16;
-        int miniH = 8;
-        g.fill(miniX, miniY, miniX + miniW, miniY + miniH, 0xAA0C1118);
-        long volume = Math.max(1L, captureVolume(CAPTURE.pointA(), CAPTURE.pointB()));
-        int fillW = (int) Math.max(1L, Math.min(miniW, volume * miniW / Math.max(1L, BlueprintWriters.maxCaptureBlocks())));
-        g.fill(miniX, miniY, miniX + fillW, miniY + miniH, 0x8857D9FF);
-        drawFrame(g, miniX, miniY, miniW, miniH, 0x00000000, 0xFF5B7894, 0xFF0B0F14);
     }
 
     public static boolean mouseClickedCaptureOverlay(double mouseX, double mouseY, int screenW, int screenH, int topSafeY) {
@@ -988,17 +947,6 @@ public final class BlueprintPanel {
         return buildPinnedPreview();
     }
 
-    private static void saveCurrentRotationAsDefault() {
-        BlueprintEntry entry = selectedEntry();
-        if (entry == null || !entry.error().isBlank()) {
-            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
-            return;
-        }
-        if (rememberCurrentRotationAsDefault()) {
-            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.default_rotation_saved", entry.name());
-        }
-    }
-
     private static boolean rememberCurrentRotationAsDefault() {
         BlueprintEntry entry = selectedEntry();
         if (entry == null || !entry.error().isBlank()) {
@@ -1082,42 +1030,6 @@ public final class BlueprintPanel {
             }
         }
         return new BlockPos(x, y, z);
-    }
-
-    private static void saveRotatedCopy() {
-        BlueprintEntry entry = selectedEntry();
-        if (entry == null || !entry.error().isBlank()) {
-            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
-            return;
-        }
-        String defaultName = sanitizeFileBase(entry.name()) + "_rot_y" + (yRotationSteps * 90)
-                + "_x" + (xRotationSteps * 90)
-                + "_z" + (zRotationSteps * 90);
-        String requested = TinyFileDialogs.tinyfd_inputBox(
-                text("screen.rtsbuilding.blueprints.save_rotated"),
-                text("screen.rtsbuilding.blueprints.save_name_prompt"),
-                defaultName);
-        if (requested == null || requested.isBlank()) {
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_cancelled", "");
-            return;
-        }
-        String fileName = uniqueNbtFileName(sanitizeFileBase(requested));
-        try {
-            RtsBlueprint rotated = BlueprintWriters.rotatedCopy(
-                    entry.blueprint(),
-                    yRotationSteps,
-                    xRotationSteps,
-                    zRotationSteps,
-                    stripNbtExtension(fileName),
-                    fileName);
-            Path dest = blueprintFolder().resolve(fileName);
-            BlueprintWriters.writeVanillaStructure(rotated, dest);
-            reload();
-            selectByFileName(fileName);
-            setStatus(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.saved_blueprint", fileName);
-        } catch (Throwable throwable) {
-            handleSaveFailure(throwable);
-        }
     }
 
     public static void setStatus(byte status, String messageKey, String detail) {
@@ -1247,16 +1159,6 @@ public final class BlueprintPanel {
         textY += 14;
         g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.status.capture_locked"), w - 16),
                 textX, textY, 0xFFFFC06C, false);
-        textY += 14;
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_point_a", shortPos(CAPTURE.pointA())), w - 16),
-                textX, textY, 0xFFCDEBFF, false);
-        textY += 12;
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_point_b", shortPos(CAPTURE.pointB())), w - 16),
-                textX, textY, 0xFFCDEBFF, false);
-        textY += 12;
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_size",
-                        captureSizeText(CAPTURE.pointA(), CAPTURE.pointB())), w - 16),
-                textX, textY, 0xFFB8FFB8, false);
     }
 
     private static void renderDetails(GuiGraphics g, Font font, ClientRtsController controller,
@@ -1283,28 +1185,7 @@ public final class BlueprintPanel {
         g.fill(progressX, progressY, progressX + Mth.clamp(stats.percent(), 0, 100) * progressW / 100, progressY + 4,
                 enough ? 0xFF62D77A : 0xFFE4B04D);
 
-        int controlsY = y + 54;
-        int gap = 4;
-        int leftX = x + 6;
-        int halfW = Math.max(42, (w - 16) / 2);
-        int detailsX = leftX + halfW + gap;
-        drawButton(g, font, leftX, controlsY, halfW, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.details"),
-                inside(mouseX, mouseY, leftX, controlsY, halfW, DETAIL_BUTTON_H));
-        drawButton(g, font, detailsX, controlsY, Math.max(42, w - (detailsX - x) - 6), DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.clear_preview"),
-                inside(mouseX, mouseY, detailsX, controlsY, w - (detailsX - x) - 6, DETAIL_BUTTON_H));
-
-        String anchor = pinnedAnchor == null
-                ? text("screen.rtsbuilding.blueprints.bottom_place_hint")
-                : text("screen.rtsbuilding.blueprints.preview_pinned", shortPos(pinnedAnchor));
-        g.drawString(font, trim(font, anchor, w - 12), x + 6, controlsY + 19, 0xFF9EACB9, false);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.rotation_state",
-                yRotationSteps * 90,
-                xRotationSteps * 90,
-                zRotationSteps * 90), w - 12), x + 6, controlsY + 31, 0xFF9EACB9, false);
-
-        int contentY = controlsY + 45;
+        int contentY = y + 56;
         renderPreviewItems(g, entry, x + 6, contentY, y + h - 4);
         if (!entry.error().isBlank()) {
             g.drawString(font, trim(font, entry.error(), w - 12), x + 6, y + h - 16, 0xFFFFA0A0, false);
@@ -1316,22 +1197,16 @@ public final class BlueprintPanel {
         if (entry == null) {
             return true;
         }
-        int controlsY = y + 54;
-        int gap = 4;
-        int leftX = x + 6;
-        int halfW = Math.max(42, (w - 16) / 2);
-        int detailsX = leftX + halfW + gap;
-        if (inside(mouseX, mouseY, leftX, controlsY, halfW, DETAIL_BUTTON_H)) {
-            materialDialogOpen = true;
-            materialDialogScroll = 0;
-            return true;
-        }
-        if (inside(mouseX, mouseY, detailsX, controlsY, w - (detailsX - x) - 6, DETAIL_BUTTON_H)) {
-            clearSelectedBlueprint();
-            return true;
-        }
-
         return true;
+    }
+
+    private static void openMaterialDialog() {
+        if (selectedEntry() == null) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
+            return;
+        }
+        materialDialogOpen = true;
+        materialDialogScroll = 0;
     }
 
     private static void renderPreviewItems(GuiGraphics g, BlueprintEntry entry, int x, int y, int bottomY) {
@@ -1649,6 +1524,7 @@ public final class BlueprintPanel {
             nameDialogMode = NameDialogMode.NONE;
             nameDialogValue = "";
             nameDialogEntry = null;
+            nameDialogReplaceOnType = false;
         }
     }
 
@@ -1699,6 +1575,7 @@ public final class BlueprintPanel {
         nameDialogMode = NameDialogMode.NONE;
         nameDialogValue = "";
         nameDialogEntry = null;
+        nameDialogReplaceOnType = false;
     }
 
     private static void selectByFileName(String fileName) {

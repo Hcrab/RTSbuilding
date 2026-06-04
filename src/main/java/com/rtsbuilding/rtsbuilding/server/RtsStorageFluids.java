@@ -303,7 +303,31 @@ final class RtsStorageFluids {
         return fluidStack.getAmount() - remaining;
     }
 
-    private static int extractFluidFromNetwork(RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers,
+    static long countFluidInNetwork(RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers, Fluid fluid) {
+        if (session == null || fluidHandlers == null || fluid == null) {
+            return 0L;
+        }
+        long total = 0L;
+        for (LinkedFluidHandler linked : fluidHandlers) {
+            IFluidHandler handler = linked == null ? null : linked.handler();
+            if (handler == null) {
+                continue;
+            }
+            for (int tank = 0; tank < handler.getTanks(); tank++) {
+                FluidStack stack = handler.getFluidInTank(tank);
+                if (!stack.isEmpty() && stack.getFluid() == fluid) {
+                    total = saturatedAdd(total, stack.getAmount());
+                }
+            }
+        }
+        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        if (id != null) {
+            total = saturatedAdd(total, Math.max(0L, session.internalFluidMb.getOrDefault(id.toString(), 0L)));
+        }
+        return total;
+    }
+
+    static int extractFluidFromNetwork(RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers,
             Fluid fluid, int amount, boolean execute) {
         if (fluid == null || amount <= 0) {
             return 0;
@@ -341,6 +365,13 @@ final class RtsStorageFluids {
         }
 
         return amount - remaining;
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (Long.MAX_VALUE - left < right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
     }
 
     private static FluidStack drainMatchingFluid(IFluidHandler handler, Fluid fluid, int amount, boolean execute) {

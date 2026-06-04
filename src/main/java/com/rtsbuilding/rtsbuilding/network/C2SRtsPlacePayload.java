@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 public record C2SRtsPlacePayload(
         BlockPos clickedPos,
@@ -18,6 +19,7 @@ public record C2SRtsPlacePayload(
         boolean forcePlace,
         boolean skipIfOccupied,
         String itemId,
+        ItemStack itemPrototype,
         double rayOriginX,
         double rayOriginY,
         double rayOriginZ,
@@ -39,6 +41,11 @@ public record C2SRtsPlacePayload(
                 buf.writeBoolean(payload.forcePlace());
                 buf.writeBoolean(payload.skipIfOccupied());
                 buf.writeUtf(payload.itemId(), 128);
+                ItemStack itemPrototype = payload.itemPrototype() == null ? ItemStack.EMPTY : payload.itemPrototype();
+                buf.writeBoolean(!itemPrototype.isEmpty());
+                if (!itemPrototype.isEmpty()) {
+                    buf.writeItem(itemPrototype);
+                }
                 buf.writeDouble(payload.rayOriginX());
                 buf.writeDouble(payload.rayOriginY());
                 buf.writeDouble(payload.rayOriginZ());
@@ -57,6 +64,7 @@ public record C2SRtsPlacePayload(
                     buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readUtf(128),
+                    buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
                     buf.readDouble(),
                     buf.readDouble(),
                     buf.readDouble(),

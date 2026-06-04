@@ -19,10 +19,14 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.fluids.FluidType;
 
 public final class BlueprintPlacementService {
     private static final int BLOCKS_PER_TICK = 64;
@@ -113,15 +117,29 @@ public final class BlueprintPlacementService {
                     job.zRotationSteps());
             Item item = state.getBlock().asItem();
             ItemStack extracted = ItemStack.EMPTY;
+            Fluid fluidCost = fluidCostFor(item, state);
             if (!player.isCreative()) {
                 if (item == Items.AIR) {
-                    skippedUnsupported++;
-                    continue;
-                }
-                extracted = RtsStorageManager.extractBlueprintMaterial(player, item, 1);
-                if (extracted.isEmpty()) {
-                    skippedMissing++;
-                    continue;
+                    if (fluidCost == Fluids.WATER) {
+                        if (!hasReusableWater(player)) {
+                            skippedMissing++;
+                            continue;
+                        }
+                    } else if (fluidCost == Fluids.LAVA) {
+                        if (RtsStorageManager.countBlueprintFluidMb(player, Fluids.LAVA) < FluidType.BUCKET_VOLUME) {
+                            skippedMissing++;
+                            continue;
+                        }
+                    } else {
+                        skippedUnsupported++;
+                        continue;
+                    }
+                } else {
+                    extracted = RtsStorageManager.extractBlueprintMaterial(player, item, 1);
+                    if (extracted.isEmpty()) {
+                        skippedMissing++;
+                        continue;
+                    }
                 }
             }
 
@@ -131,6 +149,12 @@ public final class BlueprintPlacementService {
                     RtsStorageManager.refundBlueprintMaterial(player, extracted);
                 }
                 skippedBlocked++;
+                continue;
+            }
+            if (!player.isCreative() && fluidCost == Fluids.LAVA
+                    && !RtsStorageManager.extractBlueprintFluid(player, Fluids.LAVA, FluidType.BUCKET_VOLUME)) {
+                level.removeBlock(target, false);
+                skippedMissing++;
                 continue;
             }
 
@@ -166,6 +190,25 @@ public final class BlueprintPlacementService {
             return false;
         }
         return BlueprintReplaceRules.canBlueprintReplace(level.getBlockState(target));
+    }
+
+    private static Fluid fluidCostFor(Item item, BlockState state) {
+        if (item != Items.AIR || state == null) {
+            return Fluids.EMPTY;
+        }
+        if (state.getFluidState().is(FluidTags.WATER)) {
+            return Fluids.WATER;
+        }
+        if (state.getFluidState().is(FluidTags.LAVA)) {
+            return Fluids.LAVA;
+        }
+        return Fluids.EMPTY;
+    }
+
+    private static boolean hasReusableWater(ServerPlayer player) {
+        long waterBuckets = RtsStorageManager.countBlueprintMaterial(player, Items.WATER_BUCKET);
+        long storedWaterBuckets = RtsStorageManager.countBlueprintFluidMb(player, Fluids.WATER) / FluidType.BUCKET_VOLUME;
+        return waterBuckets + storedWaterBuckets >= 2L;
     }
 
     private static void abort(ServerPlayer player, String messageKey, String detail) {

@@ -53,8 +53,8 @@ final class RtsStoragePlacement {
 
     static void placeSelected(ServerPlayer player, RtsStorageSession session, BlockPos clickedPos, Direction face,
             double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied,
-            String itemId, double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX, double rayDirY,
-            double rayDirZ, boolean quickBuild) {
+            String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
+            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild) {
         placeSelectedInternal(
                 player,
                 session,
@@ -67,6 +67,7 @@ final class RtsStoragePlacement {
                 forcePlace,
                 skipIfOccupied,
                 itemId,
+                itemPrototype,
                 rayOriginX,
                 rayOriginY,
                 rayOriginZ,
@@ -80,7 +81,7 @@ final class RtsStoragePlacement {
 
     static void enqueuePlaceBatch(ServerPlayer player, RtsStorageSession session, List<BlockPos> clickedPositions,
             Direction face, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX, double rayDirY,
+            ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX, double rayDirY,
             double rayDirZ) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return;
@@ -112,6 +113,7 @@ final class RtsStoragePlacement {
                 forcePlace,
                 skipIfOccupied,
                 itemId == null ? "" : itemId,
+                sanitizePrototype(itemId, itemPrototype),
                 rayOriginX,
                 rayOriginY,
                 rayOriginZ,
@@ -144,6 +146,7 @@ final class RtsStoragePlacement {
                         job.forcePlace(),
                         job.skipIfOccupied(),
                         job.itemId(),
+                        job.itemPrototype(),
                         job.rayOriginX(),
                         job.rayOriginY(),
                         job.rayOriginZ(),
@@ -173,9 +176,9 @@ final class RtsStoragePlacement {
 
     private static boolean placeSelectedInternal(ServerPlayer player, RtsStorageSession session, BlockPos clickedPos,
             Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace,
-            boolean skipIfOccupied, String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean refreshStoragePage,
-            boolean sendRemoteHint) {
+            boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
+            double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild,
+            boolean refreshStoragePage, boolean sendRemoteHint) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return false;
         }
@@ -300,7 +303,10 @@ final class RtsStoragePlacement {
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
-        if (activeLinked.isEmpty() && !includePlayerMainInventory) {
+        // Creative RTS picking uses the item id as a creative source, while survival still extracts
+        // the real stack from linked storage/player inventory so storage balance remains unchanged.
+        boolean creativeSource = player.isCreative();
+        if (activeLinked.isEmpty() && !includePlayerMainInventory && !creativeSource) {
             return false;
         }
 
@@ -315,15 +321,18 @@ final class RtsStoragePlacement {
         }
 
         Item item = BuiltInRegistries.ITEM.get(id);
+        ItemStack preferredStack = sanitizePrototype(itemId, itemPrototype);
         if (skipIfOccupied && item instanceof BlockItem) {
             if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
                 requestSessionPage(player, session, refreshStoragePage);
                 return true;
             }
         }
-        ItemStack extracted = includePlayerMainInventory
-                ? RtsStorageTransfers.extractOneFromNetwork(handlers, player, item)
-                : RtsStorageTransfers.extractOneFromLinked(handlers, item);
+        ItemStack extracted = creativeSource
+                ? creativeStack(item, preferredStack)
+                : includePlayerMainInventory
+                        ? extractSelectedFromNetwork(handlers, player, item, preferredStack)
+                        : extractSelectedFromLinked(handlers, item, preferredStack);
         if (extracted.isEmpty()) {
             requestSessionPage(player, session, refreshStoragePage);
             return false;
@@ -359,7 +368,7 @@ final class RtsStoragePlacement {
                     REMOTE_POV_BLOCK_REACH,
                     () -> RtsStorageManager.useItemWithMainHand(player, level, fallbackStack, forcePlace));
         }
-        if (!finalOutcome.remainder().isEmpty()) {
+        if (!creativeSource && !finalOutcome.remainder().isEmpty()) {
             RtsStorageTransfers.refundToLinked(handlers, player, finalOutcome.remainder());
         }
 
@@ -385,6 +394,44 @@ final class RtsStoragePlacement {
 
         requestSessionPage(player, session, refreshStoragePage);
         return true;
+    }
+
+    private static ItemStack sanitizePrototype(String itemId, ItemStack itemPrototype) {
+        if (itemId == null || itemId.isBlank() || itemPrototype == null || itemPrototype.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ResourceLocation expectedId = ResourceLocation.tryParse(itemId);
+        ResourceLocation actualId = BuiltInRegistries.ITEM.getKey(itemPrototype.getItem());
+        if (expectedId == null || actualId == null || !expectedId.equals(actualId)) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack copy = itemPrototype.copy();
+        copy.setCount(1);
+        return copy;
+    }
+
+    private static ItemStack creativeStack(Item item, ItemStack preferredStack) {
+        if (preferredStack != null && !preferredStack.isEmpty()) {
+            ItemStack copy = preferredStack.copy();
+            copy.setCount(1);
+            return copy;
+        }
+        return new ItemStack(item);
+    }
+
+    private static ItemStack extractSelectedFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item item,
+            ItemStack preferredStack) {
+        if (preferredStack != null && !preferredStack.isEmpty()) {
+            return RtsStorageTransfers.extractMatchingFromNetwork(handlers, player, item, preferredStack, 1);
+        }
+        return RtsStorageTransfers.extractOneFromNetwork(handlers, player, item);
+    }
+
+    private static ItemStack extractSelectedFromLinked(List<IItemHandler> handlers, Item item, ItemStack preferredStack) {
+        if (preferredStack != null && !preferredStack.isEmpty()) {
+            return RtsStorageTransfers.extractMatchingFromLinked(handlers, item, preferredStack, 1);
+        }
+        return RtsStorageTransfers.extractOneFromLinked(handlers, item);
     }
 
     private static void requestSessionPage(ServerPlayer player, RtsStorageSession session, boolean refreshStoragePage) {
@@ -494,6 +541,7 @@ final class RtsStoragePlacement {
         private final boolean forcePlace;
         private final boolean skipIfOccupied;
         private final String itemId;
+        private final ItemStack itemPrototype;
         private final double rayOriginX;
         private final double rayOriginY;
         private final double rayOriginZ;
@@ -503,14 +551,15 @@ final class RtsStoragePlacement {
         private int index;
 
         private PlaceBatchJob(List<BlockPos> clickedPositions, Direction face, byte rotateSteps, boolean forcePlace,
-                boolean skipIfOccupied, String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
-                double rayDirX, double rayDirY, double rayDirZ) {
+                boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
+                double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ) {
             this.clickedPositions = clickedPositions;
             this.face = face;
             this.rotateSteps = rotateSteps;
             this.forcePlace = forcePlace;
             this.skipIfOccupied = skipIfOccupied;
             this.itemId = itemId;
+            this.itemPrototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
             this.rayOriginX = rayOriginX;
             this.rayOriginY = rayOriginY;
             this.rayOriginZ = rayOriginZ;
@@ -545,6 +594,10 @@ final class RtsStoragePlacement {
 
         private String itemId() {
             return this.itemId;
+        }
+
+        private ItemStack itemPrototype() {
+            return this.itemPrototype.copy();
         }
 
         private double rayOriginX() {

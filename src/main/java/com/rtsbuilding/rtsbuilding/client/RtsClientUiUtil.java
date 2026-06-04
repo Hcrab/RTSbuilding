@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.client;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
-final class RtsClientUiUtil {
+public final class RtsClientUiUtil {
     private static final float SLOT_COUNT_SCALE = 0.65F;
     private static final long EFFECTIVELY_INFINITE_COUNT = Long.MAX_VALUE;
 
     private RtsClientUiUtil() {
     }
 
-    static void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
+    public static void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
         guiGraphics.fill(x, y, x + w, y + h, fillColor);
         guiGraphics.hLine(x, x + w, y, light);
         guiGraphics.hLine(x, x + w, y + h, dark);
@@ -18,7 +18,7 @@ final class RtsClientUiUtil {
         guiGraphics.vLine(x + w, y, y + h, dark);
     }
 
-    static String trimToWidth(Font font, String text, int maxWidth) {
+    public static String trimToWidth(Font font, String text, int maxWidth) {
         if (text == null || text.isEmpty() || font == null || font.width(text) <= maxWidth) {
             return text == null ? "" : text;
         }
@@ -31,7 +31,7 @@ final class RtsClientUiUtil {
         return text.substring(0, cut) + ellipsis;
     }
 
-    static String compactCount(long value) {
+    public static String compactCount(long value) {
         long positive = Math.max(0L, value);
         if (positive >= EFFECTIVELY_INFINITE_COUNT) {
             return "INF";
@@ -66,7 +66,7 @@ final class RtsClientUiUtil {
         return (positive / 1_000_000_000L) + "B";
     }
 
-    static String compactFluidAmount(long milliBuckets) {
+    public static String compactFluidAmount(long milliBuckets) {
         long buckets = Math.max(0L, milliBuckets / 1000L);
         if (buckets >= 1_000_000L) {
             return String.format("%.1fM B", buckets / 1_000_000.0);
@@ -77,7 +77,7 @@ final class RtsClientUiUtil {
         return buckets + " B";
     }
 
-    static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
+    public static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
         if (font == null || countText == null || countText.isEmpty()) {
             return;
         }

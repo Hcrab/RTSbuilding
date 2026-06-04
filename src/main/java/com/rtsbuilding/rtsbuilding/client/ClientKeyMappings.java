@@ -35,6 +35,10 @@ public final class ClientKeyMappings {
             "key.rtsbuilding.pin_quick_slot",
             GLFW.GLFW_KEY_P,
             "key.categories.rtsbuilding");
+    public static final KeyMapping BLUEPRINT_CANCEL = new KeyMapping(
+            "key.rtsbuilding.blueprint_cancel",
+            GLFW.GLFW_KEY_X,
+            "key.categories.rtsbuilding");
     public static final KeyMapping DECREASE_SENSITIVITY = new KeyMapping(
             "key.rtsbuilding.decrease_sensitivity",
             GLFW.GLFW_KEY_LEFT_BRACKET,
@@ -108,6 +112,7 @@ public final class ClientKeyMappings {
         event.register(ROTATE_SHAPE);
         event.register(OPEN_CRAFT_TERMINAL);
         event.register(PIN_QUICK_SLOT);
+        event.register(BLUEPRINT_CANCEL);
         event.register(DECREASE_SENSITIVITY);
         event.register(INCREASE_SENSITIVITY);
         event.register(MODE_INTERACT);

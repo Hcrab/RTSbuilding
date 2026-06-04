@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -63,6 +64,10 @@ record BlueprintEntry(
                 missingBlueprintBlocks.merge(block.missingBlockId(), 1, Integer::sum);
                 continue;
             }
+            if (block.state().getFluidState().is(FluidTags.WATER)
+                    || block.state().getFluidState().is(FluidTags.LAVA)) {
+                continue;
+            }
             if (block.state().getBlock().asItem() == Items.AIR) {
                 unsupported.merge(block.state().getBlock().getName().getString(), 1, Integer::sum);
             }
@@ -72,7 +77,7 @@ record BlueprintEntry(
         return new BlueprintEntry(
                 path,
                 fileName,
-                blueprint.name(),
+                displayName(fileName, blueprint.name()),
                 blueprint.format(),
                 sizeText,
                 blueprint.blockCount(),
@@ -106,5 +111,13 @@ record BlueprintEntry(
                 Map.of(),
                 List.of(),
                 error == null ? "Parse failed" : error);
+    }
+
+    private static String displayName(String fileName, String fallback) {
+        String name = BlueprintPanelFiles.stripBlueprintExtension(fileName);
+        if (name == null || name.isBlank()) {
+            name = fallback == null || fallback.isBlank() ? "blueprint" : fallback;
+        }
+        return name;
     }
 }

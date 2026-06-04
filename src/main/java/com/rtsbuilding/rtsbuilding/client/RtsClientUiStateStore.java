@@ -15,7 +15,7 @@ import com.google.gson.GsonBuilder;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.FMLPaths;
 
-final class RtsClientUiStateStore {
+public final class RtsClientUiStateStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("rtsbuilding-client-ui.json");
 
@@ -55,21 +55,21 @@ final class RtsClientUiStateStore {
         save(state);
     }
 
-    static synchronized boolean isContainerOverlayEnabled() {
+    public static synchronized boolean isContainerOverlayEnabled() {
         return load().containerOverlayEnabled;
     }
 
-    static synchronized void setContainerOverlayEnabled(boolean enabled) {
+    public static synchronized void setContainerOverlayEnabled(boolean enabled) {
         UiState state = load();
         state.containerOverlayEnabled = enabled;
         save(state);
     }
 
-    static synchronized boolean isOverlayShiftImportEnabled() {
+    public static synchronized boolean isOverlayShiftImportEnabled() {
         return load().overlayShiftImportEnabled;
     }
 
-    static synchronized void setOverlayShiftImportEnabled(boolean enabled) {
+    public static synchronized void setOverlayShiftImportEnabled(boolean enabled) {
         UiState state = load();
         state.overlayShiftImportEnabled = enabled;
         save(state);

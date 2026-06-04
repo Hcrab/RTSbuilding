@@ -10,7 +10,6 @@ import net.minecraft.util.Mth;
 
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.buildStats;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.detailLines;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.isCreativePlayer;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawButton;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawFrame;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.inside;
@@ -23,6 +22,7 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.trim
 final class BlueprintMaterialDialog {
     private static final int CLOSE_SIZE = 18;
     private static final int ROW_H = 22;
+    private static final int COLUMN_GAP = 6;
 
     private BlueprintMaterialDialog() {
     }
@@ -32,7 +32,8 @@ final class BlueprintMaterialDialog {
         Layout layout = layout(screenW, screenH);
         List<DetailLine> lines = detailLines(entry, controller);
         int visible = visibleRows(layout.listH());
-        int clampedScroll = Mth.clamp(scroll, 0, maxScroll(lines.size(), visible));
+        int columns = columns(layout);
+        int clampedScroll = Mth.clamp(scroll, 0, maxScroll(lines.size(), visible, columns));
 
         g.fill(0, 0, screenW, screenH, 0x66000000);
         drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
@@ -44,33 +45,28 @@ final class BlueprintMaterialDialog {
 
         g.drawString(font, trim(font, entry.name(), layout.w() - 20), layout.x() + 10, layout.y() + 35, 0xFFEAF2FF, false);
         BuildStats stats = buildStats(entry, controller);
-        boolean creativeBypass = isCreativePlayer() && lines.isEmpty();
-        String summary = creativeBypass
-                ? text("screen.rtsbuilding.blueprints.materials_creative")
-                : lines.isEmpty()
-                        ? text("screen.rtsbuilding.blueprints.materials_all_ready")
-                        : text("screen.rtsbuilding.blueprints.details_summary",
-                                stats.percent(),
-                                stats.buildable(),
-                                stats.total(),
-                                stats.missingTypes(),
-                                stats.unsupportedTypes(),
-                                stats.missingBlockTypes());
-        int summaryColor = creativeBypass || lines.isEmpty() ? 0xFF8EEA9B : 0xFFFFC06C;
+        String summary = lines.isEmpty()
+                ? text("screen.rtsbuilding.blueprints.materials_all_ready")
+                : text("screen.rtsbuilding.blueprints.details_summary",
+                        stats.percent(),
+                        stats.buildable(),
+                        stats.total(),
+                        stats.missingTypes(),
+                        stats.unsupportedTypes(),
+                        stats.missingBlockTypes());
+        int summaryColor = lines.isEmpty() || stats.percent() >= 100 ? 0xFF8EEA9B : 0xFFFFC06C;
         g.drawString(font, trim(font, summary, layout.w() - 20), layout.x() + 10, layout.y() + 48, summaryColor, false);
 
         drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(), 0x99101620, 0xFF415266, 0xFF0B0E13);
-        if (creativeBypass || lines.isEmpty()) {
-            String message = creativeBypass
-                    ? text("screen.rtsbuilding.blueprints.materials_creative")
-                    : text("screen.rtsbuilding.blueprints.materials_all_ready");
+        if (lines.isEmpty()) {
+            String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
             g.drawString(font, trim(font, message, layout.listW() - 14), layout.listX() + 7, layout.listY() + 8,
                     summaryColor, false);
             return clampedScroll;
         }
 
-        renderRows(g, font, lines, layout, mouseX, mouseY, clampedScroll, visible);
-        renderScrollbar(g, lines.size(), layout, clampedScroll, visible);
+        renderRows(g, font, lines, layout, mouseX, mouseY, clampedScroll, visible, columns);
+        renderScrollbar(g, lines.size(), layout, clampedScroll, visible, columns);
         return clampedScroll;
     }
 
@@ -83,44 +79,51 @@ final class BlueprintMaterialDialog {
     static int scrolled(int currentScroll, double scrollY, BlueprintEntry entry, ClientRtsController controller, int screenH) {
         Layout layout = layout(0, screenH);
         int visible = visibleRows(layout.listH());
-        int maxScroll = maxScroll(detailLines(entry, controller).size(), visible);
+        int maxScroll = maxScroll(detailLines(entry, controller).size(), visible, columns(layout));
         return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
     }
 
     private static void renderRows(GuiGraphics g, Font font, List<DetailLine> lines, Layout layout,
-            int mouseX, int mouseY, int scroll, int visible) {
+            int mouseX, int mouseY, int scroll, int visible, int columns) {
+        int cellW = (layout.listW() - 8 - (columns - 1) * COLUMN_GAP) / columns;
         for (int row = 0; row < visible; row++) {
-            int index = scroll + row;
-            if (index >= lines.size()) {
-                break;
+            for (int column = 0; column < columns; column++) {
+                int index = (scroll + row) * columns + column;
+                if (index >= lines.size()) {
+                    return;
+                }
+                DetailLine line = lines.get(index);
+                int rowX = layout.listX() + 4 + column * (cellW + COLUMN_GAP);
+                int rowY = layout.listY() + 3 + row * ROW_H;
+                if (inside(mouseX, mouseY, rowX, rowY, cellW, ROW_H)) {
+                    g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H, 0x66324126);
+                }
+                if (!line.preview().isEmpty()) {
+                    g.renderItem(line.preview(), rowX + 4, rowY + 2);
+                } else {
+                    g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18, 0xAA36506A);
+                    g.drawCenteredString(font, "?", rowX + 13, rowY + 6, 0xFFFFD080);
+                }
+                int detailW = Math.min(86, Math.max(54, cellW / 3));
+                int detailX = rowX + cellW - detailW - 4;
+                g.drawString(font, trim(font, line.label(), Math.max(24, detailX - rowX - 28)), rowX + 26, rowY + 2,
+                        0xFFEAF2FF, false);
+                g.drawString(font, trim(font, line.detail(), detailW), detailX, rowY + 7,
+                        line.color(), false);
             }
-            DetailLine line = lines.get(index);
-            int rowY = layout.listY() + 3 + row * ROW_H;
-            if (inside(mouseX, mouseY, layout.listX(), rowY, layout.listW(), ROW_H)) {
-                g.fill(layout.listX() + 1, rowY, layout.listX() + layout.listW() - 1, rowY + ROW_H, 0x66324126);
-            }
-            if (!line.preview().isEmpty()) {
-                g.renderItem(line.preview(), layout.listX() + 5, rowY + 2);
-            } else {
-                g.fill(layout.listX() + 7, rowY + 4, layout.listX() + 21, rowY + 18, 0xAA36506A);
-                g.drawCenteredString(font, "?", layout.listX() + 14, rowY + 6, 0xFFFFD080);
-            }
-            g.drawString(font, trim(font, line.label(), layout.listW() - 132), layout.listX() + 27, rowY + 2,
-                    0xFFEAF2FF, false);
-            g.drawString(font, trim(font, line.detail(), 102), layout.listX() + layout.listW() - 108, rowY + 7,
-                    line.color(), false);
         }
     }
 
-    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll, int visible) {
-        int maxScroll = maxScroll(lineCount, visible);
+    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll, int visible, int columns) {
+        int maxScroll = maxScroll(lineCount, visible, columns);
         if (maxScroll <= 0) {
             return;
         }
         int barX = layout.listX() + layout.listW() - 5;
         int barY = layout.listY() + 3;
         int barH = layout.listH() - 6;
-        int thumbH = Math.max(12, barH * visible / Math.max(visible, lineCount));
+        int rowCount = rowCount(lineCount, columns);
+        int thumbH = Math.max(12, barH * visible / Math.max(visible, rowCount));
         int thumbY = barY + (barH - thumbH) * scroll / maxScroll;
         g.fill(barX, barY, barX + 2, barY + barH, 0x66566A7C);
         g.fill(barX - 1, thumbY, barX + 3, thumbY + thumbH, 0xFF8EA5B8);
@@ -130,8 +133,16 @@ final class BlueprintMaterialDialog {
         return Math.max(1, listH / ROW_H);
     }
 
-    private static int maxScroll(int lineCount, int visible) {
-        return Math.max(0, lineCount - visible);
+    private static int maxScroll(int lineCount, int visible, int columns) {
+        return Math.max(0, rowCount(lineCount, columns) - visible);
+    }
+
+    private static int rowCount(int lineCount, int columns) {
+        return (lineCount + Math.max(1, columns) - 1) / Math.max(1, columns);
+    }
+
+    private static int columns(Layout layout) {
+        return layout.listW() >= 390 ? 2 : 1;
     }
 
     private static Layout layout(int screenW, int screenH) {

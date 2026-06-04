@@ -9,9 +9,14 @@ import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.fluids.FluidType;
 
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text;
 
@@ -20,6 +25,8 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text
  * the blueprint panel.
  */
 final class BlueprintMaterialInspector {
+    private static final int WATER_BUCKET_THRESHOLD = 2;
+
     private BlueprintMaterialInspector() {
     }
 
@@ -36,25 +43,23 @@ final class BlueprintMaterialInspector {
         return text("screen.rtsbuilding.blueprints.materials_progress", stats.percent(), stats.buildable(), stats.total());
     }
 
-    static List<MaterialLine> missingMaterialLines(BlueprintEntry entry, ClientRtsController controller) {
+    static List<MaterialLine> materialLines(BlueprintEntry entry, ClientRtsController controller) {
         List<MaterialLine> out = new ArrayList<>();
-        if (entry == null || controller == null) {
+        if (entry == null) {
             return out;
         }
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
             String itemId = material.getKey().toString();
-            long available = controller.getStorageTotalCount(itemId);
             int required = Math.max(0, material.getValue());
-            if (available >= required) {
-                continue;
-            }
             if (!BuiltInRegistries.ITEM.containsKey(material.getKey())) {
                 continue;
             }
             Item item = BuiltInRegistries.ITEM.get(material.getKey());
+            long available = availableItemCount(controller, itemId, item);
             ItemStack stack = new ItemStack(item);
-            out.add(new MaterialLine(stack, stack.getHoverName().getString(), available, required));
+            out.add(new MaterialLine(stack, stack.getHoverName().getString(), displayAvailable(available, required), required));
         }
+        addFluidLines(out, entry, controller);
         return out;
     }
 
@@ -88,14 +93,7 @@ final class BlueprintMaterialInspector {
             out.add(new DetailLine(
                     ItemStack.EMPTY,
                     text("screen.rtsbuilding.blueprints.details_missing_mod", mod.getKey()),
-                    text("screen.rtsbuilding.blueprints.details_missing_mod_count", mod.getValue()),
-                    0xFFFF9E88));
-        }
-        for (MissingBlueprintBlockLine line : missingBlueprintBlockLines(entry)) {
-            out.add(new DetailLine(
-                    ItemStack.EMPTY,
-                    line.blockId(),
-                    text("screen.rtsbuilding.blueprints.details_missing_block_count", line.count()),
+                    text("screen.rtsbuilding.blueprints.details_missing_mod_count"),
                     0xFFFF9E88));
         }
         if (!isCreativePlayer()) {
@@ -106,14 +104,14 @@ final class BlueprintMaterialInspector {
                         text("screen.rtsbuilding.blueprints.details_unsupported_count", line.count()),
                         0xFFFF9E88));
             }
-            for (MaterialLine line : missingMaterialLines(entry, controller)) {
-                long missingCount = Math.max(0L, line.required() - line.available());
-                out.add(new DetailLine(
-                        line.preview(),
-                        line.label(),
-                        text("screen.rtsbuilding.blueprints.details_count", missingCount, line.available(), line.required()),
-                        0xFFFFC06C));
-            }
+        }
+        for (MaterialLine line : materialLines(entry, controller)) {
+            boolean enough = line.available() >= line.required();
+            out.add(new DetailLine(
+                    line.preview(),
+                    line.label(),
+                    text("screen.rtsbuilding.blueprints.details_count", line.available(), line.required()),
+                    enough ? 0xFF8EEA9B : 0xFFFFC06C));
         }
         return out;
     }
@@ -137,9 +135,24 @@ final class BlueprintMaterialInspector {
         int missingTypes = 0;
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
             int required = Math.max(0, material.getValue());
-            long available = controller == null ? 0L : controller.getStorageTotalCount(material.getKey().toString());
+            long available = availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()));
             buildable += Math.min((long) required, Math.max(0L, available));
             if (available < required) {
+                missingTypes++;
+            }
+        }
+        FluidRequirement fluids = fluidRequirement(entry);
+        if (fluids.waterBlocks() > 0) {
+            boolean ready = availableWaterBuckets(controller) >= WATER_BUCKET_THRESHOLD;
+            buildable += ready ? fluids.waterBlocks() : 0L;
+            if (!ready) {
+                missingTypes++;
+            }
+        }
+        if (fluids.lavaBlocks() > 0) {
+            long availableLava = availableFluidBuckets(controller, Fluids.LAVA);
+            buildable += Math.min((long) fluids.lavaBlocks(), availableLava);
+            if (availableLava < fluids.lavaBlocks()) {
                 missingTypes++;
             }
         }
@@ -162,9 +175,17 @@ final class BlueprintMaterialInspector {
             return false;
         }
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
-            if (controller.getStorageTotalCount(material.getKey().toString()) < material.getValue()) {
+            if (availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()))
+                    < material.getValue()) {
                 return false;
             }
+        }
+        FluidRequirement fluids = fluidRequirement(entry);
+        if (fluids.waterBlocks() > 0 && availableWaterBuckets(controller) < WATER_BUCKET_THRESHOLD) {
+            return false;
+        }
+        if (fluids.lavaBlocks() > 0 && availableFluidBuckets(controller, Fluids.LAVA) < fluids.lavaBlocks()) {
+            return false;
         }
         return true;
     }
@@ -199,6 +220,101 @@ final class BlueprintMaterialInspector {
         return out;
     }
 
+    private static void addFluidLines(List<MaterialLine> out, BlueprintEntry entry, ClientRtsController controller) {
+        FluidRequirement fluids = fluidRequirement(entry);
+        if (fluids.waterBlocks() > 0) {
+            long available = displayAvailable(availableWaterBuckets(controller), WATER_BUCKET_THRESHOLD);
+            out.add(new MaterialLine(
+                    new ItemStack(Items.WATER_BUCKET),
+                    new ItemStack(Items.WATER_BUCKET).getHoverName().getString(),
+                    available,
+                    WATER_BUCKET_THRESHOLD));
+        }
+        if (fluids.lavaBlocks() > 0) {
+            long available = availableFluidBuckets(controller, Fluids.LAVA);
+            out.add(new MaterialLine(
+                    new ItemStack(Items.LAVA_BUCKET),
+                    new ItemStack(Items.LAVA_BUCKET).getHoverName().getString(),
+                    displayAvailable(available, fluids.lavaBlocks()),
+                    fluids.lavaBlocks()));
+        }
+    }
+
+    private static long availableItemCount(ClientRtsController controller, String itemId, Item item) {
+        if (isCreativePlayer()) {
+            return Long.MAX_VALUE;
+        }
+        long total = controller == null ? 0L : controller.getStorageTotalCount(itemId);
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && item != null && item != Items.AIR) {
+            for (ItemStack stack : minecraft.player.getInventory().items) {
+                if (!stack.isEmpty() && stack.getItem() == item) {
+                    total = saturatedAdd(total, stack.getCount());
+                }
+            }
+        }
+        return total;
+    }
+
+    private static long availableWaterBuckets(ClientRtsController controller) {
+        if (isCreativePlayer()) {
+            return WATER_BUCKET_THRESHOLD;
+        }
+        long bucketItems = availableItemCount(controller, BuiltInRegistries.ITEM.getKey(Items.WATER_BUCKET).toString(), Items.WATER_BUCKET);
+        long storedFluidBuckets = availableFluidBuckets(controller, Fluids.WATER);
+        return saturatedAdd(bucketItems, storedFluidBuckets);
+    }
+
+    private static long availableFluidBuckets(ClientRtsController controller, Fluid fluid) {
+        if (isCreativePlayer()) {
+            return Long.MAX_VALUE;
+        }
+        if (controller == null || fluid == null) {
+            return 0L;
+        }
+        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        if (id == null) {
+            return 0L;
+        }
+        long amount = 0L;
+        for (ClientRtsController.FluidEntry entry : controller.getFluidEntries()) {
+            if (id.toString().equals(entry.fluidId())) {
+                amount = saturatedAdd(amount, entry.amount());
+            }
+        }
+        return amount / FluidType.BUCKET_VOLUME;
+    }
+
+    private static FluidRequirement fluidRequirement(BlueprintEntry entry) {
+        if (entry == null || entry.blueprint() == null) {
+            return FluidRequirement.EMPTY;
+        }
+        int water = 0;
+        int lava = 0;
+        for (var block : entry.blueprint().blocks()) {
+            if (block == null || block.isMissingBlock() || block.state() == null) {
+                continue;
+            }
+            if (block.state().getFluidState().is(FluidTags.WATER)) {
+                water++;
+            } else if (block.state().getFluidState().is(FluidTags.LAVA)) {
+                lava++;
+            }
+        }
+        return new FluidRequirement(water, lava);
+    }
+
+    private static long displayAvailable(long available, long required) {
+        return isCreativePlayer() ? required : Math.min(Math.max(0L, available), required);
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (Long.MAX_VALUE - left < right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
+    }
+
     private static String namespaceOf(String blockId) {
         if (blockId == null) {
             return "";
@@ -206,6 +322,10 @@ final class BlueprintMaterialInspector {
         int colon = blockId.indexOf(':');
         return colon > 0 ? blockId.substring(0, colon) : "";
     }
+}
+
+record FluidRequirement(int waterBlocks, int lavaBlocks) {
+    static final FluidRequirement EMPTY = new FluidRequirement(0, 0);
 }
 
 record MaterialLine(ItemStack preview, String label, long available, int required) {

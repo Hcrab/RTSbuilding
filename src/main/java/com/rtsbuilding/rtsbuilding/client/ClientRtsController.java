@@ -1,57 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsBreakPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsFunnelTargetPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCraftRecipePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsFillInventoryPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsMinePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsOpenCraftTerminalPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlacePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsQuestDetectPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsQuickDropPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRotateBlockPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsOpenGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreHotbarSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetQuickSlotPayload;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsCameraMovePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsRequestStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetAutoStorePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetFunnelPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsSetModePayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsMineProgressPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsRemoteMenuHintPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.network.*;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
@@ -64,17 +20,18 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidType;
 import net.minecraftforge.fluids.FluidUtil;
-
 import org.lwjgl.glfw.GLFW;
+
+import java.util.*;
 
 public final class ClientRtsController {
     private static final ClientRtsController INSTANCE = new ClientRtsController();
@@ -107,9 +64,9 @@ public final class ClientRtsController {
     private static final long QUEST_DETECT_MIN_PROGRESS_MS = 700L;
     private static final long QUEST_DETECT_RESULT_VISIBLE_MS = 3500L;
     private static final long STORAGE_SCAN_RESULT_VISIBLE_MS = 450L;
-    private static final double MIN_CAMERA_HEIGHT_OFFSET = -5.0D;
-    private static final double MAX_CAMERA_HEIGHT_OFFSET = 80.0D;
-    private static final double MAX_CAMERA_DISTANCE = 72.0D;
+    private static final double MIN_CAMERA_HEIGHT_OFFSET = -35.0D;
+    private static final double MAX_CAMERA_HEIGHT_OFFSET = 110.0D;
+    private static final double MAX_HORIZONTAL_CAMERA_DISTANCE = 72.0D;
     private static final float MIN_CAMERA_PITCH = -90.0F;
     private static final float MAX_CAMERA_PITCH = 90.0F;
     private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
@@ -138,6 +95,7 @@ public final class ClientRtsController {
     private boolean closeRangeAllowed;
     private boolean suppressBuilderScreenRestoreUntilRtsRestart;
     private boolean startCameraAtPlayerHead;
+    private boolean allowPlacedBlockRecovery;
     private boolean invertPanDragX;
     private boolean invertPanDragY;
     private boolean smoothCamera;
@@ -171,6 +129,7 @@ public final class ClientRtsController {
     private BuilderMode mode = BuilderMode.INTERACT;
     private boolean storageCollapsed;
     private boolean storageLinked;
+    private boolean bdNetworkEnabled = true;
     private String linkedStorageName = "No Storage";
     private final List<BlockPos> linkedStoragePositions = new ArrayList<>();
     private int storagePage;
@@ -214,6 +173,7 @@ public final class ClientRtsController {
     private String selectedFluidId = "";
     private String selectedFluidLabel = "";
     private ItemStack selectedFluidPreview = ItemStack.EMPTY;
+    private boolean emptyHandSelected = false;
     private int placeRotateSteps;
     private BlockPos activeMinePos;
     private int activeMineFace = -1;
@@ -227,7 +187,6 @@ public final class ClientRtsController {
     private int screenlessRemoteMenuTicks;
     private AbstractContainerMenu relaxedRemoteMenu;
     private boolean autoStoreMinedDrops = true;
-    private boolean allowPlacedBlockRecovery;
     private final String[] quickSlotItemIds = new String[QUICK_SLOT_COUNT];
     private final String[] quickSlotLabels = new String[QUICK_SLOT_COUNT];
     private final ItemStack[] quickSlotPreviews = new ItemStack[QUICK_SLOT_COUNT];
@@ -502,6 +461,10 @@ public final class ClientRtsController {
         return !this.selectedFluidId.isBlank();
     }
 
+    public boolean isEmptyHandSelected() {
+        return this.emptyHandSelected;
+    }
+
     public ItemStack getSelectedItemPreview() {
         return this.selectedItemPreview;
     }
@@ -609,7 +572,7 @@ public final class ClientRtsController {
     }
 
     public boolean isStorageScanPopupVisible() {
-        return this.storageScanRunning || System.currentTimeMillis() < this.storageScanVisibleUntilMs;
+        return false;
     }
 
     public boolean isStorageScanRunning() {
@@ -649,6 +612,18 @@ public final class ClientRtsController {
 
     public boolean isAutoStoreMinedDrops() {
         return this.autoStoreMinedDrops;
+    }
+
+    public boolean isBdNetworkEnabled() {
+        return this.bdNetworkEnabled;
+    }
+
+    public void setBdNetworkEnabled(boolean enabled) {
+        this.bdNetworkEnabled = enabled;
+    }
+
+    public void toggleBdNetworkEnabled() {
+        setBdNetworkEnabled(!this.bdNetworkEnabled);
     }
 
     public BuildShape getBuildShape() {
@@ -799,6 +774,18 @@ public final class ClientRtsController {
         this.startCameraAtPlayerHead = !this.startCameraAtPlayerHead;
     }
 
+    public boolean isAllowPlacedBlockRecovery() {
+        return this.allowPlacedBlockRecovery;
+    }
+
+    public void setAllowPlacedBlockRecovery(boolean allowPlacedBlockRecovery) {
+        this.allowPlacedBlockRecovery = allowPlacedBlockRecovery;
+    }
+
+    public void toggleAllowPlacedBlockRecovery() {
+        this.allowPlacedBlockRecovery = !this.allowPlacedBlockRecovery;
+    }
+
     public boolean isInvertPanDragX() {
         return this.invertPanDragX;
     }
@@ -935,6 +922,7 @@ public final class ClientRtsController {
             this.selectedFluidId = "";
             this.selectedFluidLabel = "";
             this.selectedFluidPreview = ItemStack.EMPTY;
+            this.emptyHandSelected = false;
             this.placeRotateSteps = 0;
             this.activeMinePos = null;
             this.activeMineFace = -1;
@@ -996,6 +984,7 @@ public final class ClientRtsController {
         this.selectedFluidId = "";
         this.selectedFluidLabel = "";
         this.selectedFluidPreview = ItemStack.EMPTY;
+        this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
         this.activeMinePos = null;
         this.activeMineFace = -1;
@@ -1413,18 +1402,6 @@ public final class ClientRtsController {
         setAutoStoreMinedDrops(!this.autoStoreMinedDrops);
     }
 
-    public boolean isAllowPlacedBlockRecovery() {
-        return this.allowPlacedBlockRecovery;
-    }
-
-    public void setAllowPlacedBlockRecovery(boolean allowPlacedBlockRecovery) {
-        this.allowPlacedBlockRecovery = allowPlacedBlockRecovery;
-    }
-
-    public void toggleAllowPlacedBlockRecovery() {
-        this.allowPlacedBlockRecovery = !this.allowPlacedBlockRecovery;
-    }
-
     public void setStorageSearch(String search) {
         this.storageSearch = search == null ? "" : search;
         requestStoragePage(0);
@@ -1549,6 +1526,7 @@ public final class ClientRtsController {
         this.storageLinked = payload.linked();
         this.linkedStorageName = payload.linkedName();
         this.autoStoreMinedDrops = payload.autoStoreMinedDrops();
+        this.bdNetworkEnabled = true;
         this.linkedStoragePositions.clear();
         for (Long packed : payload.linkedPositions()) {
             if (packed == null) {
@@ -1701,9 +1679,20 @@ public final class ClientRtsController {
                 return;
             }
         }
-        if (hasStoragePageSnapshot() && getStorageTotalCount(this.selectedItemId) <= 0L) {
-            clearSelectedItemOnly();
+        if (shouldAutoClearSelectedItemWhenUnavailable()
+                && hasStoragePageSnapshot()
+                && getStorageTotalCount(this.selectedItemId) <= 0L) {
+            selectEmptyHandPreserveMode();
         }
+    }
+
+    private boolean shouldAutoClearSelectedItemWhenUnavailable() {
+        if (isLocalPlayerCreative()) {
+            return false;
+        }
+        return this.selectedItemPreview != null
+                && !this.selectedItemPreview.isEmpty()
+                && this.selectedItemPreview.getItem() instanceof BlockItem;
     }
 
     public void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
@@ -2080,7 +2069,16 @@ public final class ClientRtsController {
     public void clearPlacementSelectionPreserveMode() {
         clearSelectedItemOnly();
         clearSelectedFluid();
+        this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
+    }
+
+    public void selectEmptyHand() {
+        clearSelectedItemOnly();
+        clearSelectedFluid();
+        this.emptyHandSelected = true;
+        this.placeRotateSteps = 0;
+        setMode(BuilderMode.INTERACT);
     }
 
     public void selectRecentEntry(int index) {
@@ -2202,37 +2200,57 @@ public final class ClientRtsController {
             boolean quickBuild) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
-            clearSelectedItemOnly();
+        long selectedCount = getSelectedItemCountForPlacement(itemId);
+        boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable();
+        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
+            selectEmptyHandPreserveMode();
             itemId = "";
         }
+        boolean clearAfterPlace = !itemId.isBlank() && autoClearUnavailable && selectedCount <= 1L;
+        ItemStack itemPrototype = itemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview;
         RtsClientPacketGateway.sendPlace(
                 hit,
                 forcePlace,
                 skipIfOccupied,
                 itemId,
+                itemPrototype,
                 itemId.isBlank() ? 0 : this.placeRotateSteps,
                 rayOrigin,
                 rayDir,
                 quickBuild);
+        if (clearAfterPlace) {
+            selectEmptyHandPreserveMode();
+            requestStoragePage(this.storagePage);
+        }
     }
 
     public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
             boolean skipIfOccupied) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        if (!itemId.isBlank() && hasStoragePageSnapshot() && getStorageTotalCount(itemId) <= 0L) {
-            clearSelectedItemOnly();
+        long selectedCount = getSelectedItemCountForPlacement(itemId);
+        boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable();
+        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
+            selectEmptyHandPreserveMode();
             itemId = "";
         }
+        int attemptedPlacements = hits == null ? 0 : hits.size();
+        boolean clearAfterPlace = !itemId.isBlank()
+                && autoClearUnavailable
+                && selectedCount <= Math.max(1, attemptedPlacements);
         RtsClientPacketGateway.sendPlaceBatch(
                 hits,
                 forcePlace,
                 skipIfOccupied,
                 itemId,
+                itemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
                 itemId.isBlank() ? 0 : this.placeRotateSteps,
                 rayOrigin,
                 rayDir);
+        if (clearAfterPlace) {
+            selectEmptyHandPreserveMode();
+            requestStoragePage(this.storagePage);
+        }
     }
 
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
@@ -2333,7 +2351,7 @@ public final class ClientRtsController {
 
     public void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
         beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendPlace(hit, false, false, "", 0, rayOrigin, rayDir);
+        RtsClientPacketGateway.sendPlace(hit, false, false, "", ItemStack.EMPTY, 0, rayOrigin, rayDir);
     }
 
     public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
@@ -2495,16 +2513,44 @@ public final class ClientRtsController {
         setSelectedFluid("", "", ItemStack.EMPTY);
     }
 
+    private void selectEmptyHandPreserveMode() {
+        clearSelectedItemOnly();
+        clearSelectedFluid();
+        this.emptyHandSelected = true;
+        this.placeRotateSteps = 0;
+    }
+
+    private long getSelectedItemCountForPlacement(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return Long.MAX_VALUE;
+        }
+        if (isLocalPlayerCreative()) {
+            return Long.MAX_VALUE;
+        }
+        return hasStoragePageSnapshot() ? getStorageTotalCount(itemId) : Long.MAX_VALUE;
+    }
+
+    private boolean isLocalPlayerCreative() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null && minecraft.player != null && minecraft.player.isCreative();
+    }
+
     private void setSelectedItem(String itemId, String label, ItemStack preview) {
         this.selectedItemId = itemId == null ? "" : itemId;
         this.selectedItemLabel = label == null ? "" : label;
         this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
+        if (!this.selectedItemId.isBlank()) {
+            this.emptyHandSelected = false;
+        }
     }
 
     private void setSelectedFluid(String fluidId, String label, ItemStack preview) {
         this.selectedFluidId = fluidId == null ? "" : fluidId;
         this.selectedFluidLabel = label == null ? "" : label;
         this.selectedFluidPreview = preview == null ? ItemStack.EMPTY : preview;
+        if (!this.selectedFluidId.isBlank()) {
+            this.emptyHandSelected = false;
+        }
     }
 
     public void rotatePlacementClockwise() {
@@ -2657,27 +2703,14 @@ public final class ClientRtsController {
 
         double adx = targetX - this.anchorX;
         double adz = targetZ - this.anchorZ;
-        double distSqr = adx * adx + adz * adz;
-        double maxSqr = this.maxRadius * this.maxRadius;
-        if (distSqr > maxSqr) {
-            double dist = Math.sqrt(distSqr);
-            double scale = this.maxRadius / dist;
-            targetX = this.anchorX + (adx * scale);
-            targetZ = this.anchorZ + (adz * scale);
-        }
+        // 使用正方体边界限制代替圆形边界，与放置限制红线保持一致
+        double halfExtent = this.maxRadius;
+        targetX = Mth.clamp(targetX, this.anchorX - halfExtent, this.anchorX + halfExtent);
+        targetZ = Mth.clamp(targetZ, this.anchorZ - halfExtent, this.anchorZ + halfExtent);
 
         targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
 
-        Vec3 toCam = new Vec3(targetX - this.anchorX, targetY - this.anchorY, targetZ - this.anchorZ);
-        double dist = toCam.length();
-        if (dist > MAX_CAMERA_DISTANCE) {
-            Vec3 n = toCam.scale(MAX_CAMERA_DISTANCE / dist);
-            targetX = this.anchorX + n.x;
-            targetY = this.anchorY + n.y;
-            targetZ = this.anchorZ + n.z;
-        }
-
-        targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
+        // Keep movement bounds square so they match the visible build boundary.
 
         this.localX = targetX;
         this.localY = targetY;

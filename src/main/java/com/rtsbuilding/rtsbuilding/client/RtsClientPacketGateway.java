@@ -275,13 +275,17 @@ final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsOpenGuiBindingPayload((byte) index));
     }
 
-    static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId, int rotateSteps,
-            Vec3 rayOrigin, Vec3 rayDir) {
-        sendPlace(hit, forcePlace, skipIfOccupied, itemId, rotateSteps, rayOrigin, rayDir, false);
+    static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
+            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
+        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, rayOrigin, rayDir, false);
     }
 
-    static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId, int rotateSteps,
-            Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild) {
+    static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
+            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild) {
+        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
+        if (!prototype.isEmpty()) {
+            prototype.setCount(1);
+        }
         PacketDistributor.sendToServer(new C2SRtsPlacePayload(
                 hit.getBlockPos(),
                 (byte) hit.getDirection().get3DDataValue(),
@@ -292,6 +296,7 @@ final class RtsClientPacketGateway {
                 forcePlace,
                 skipIfOccupied,
                 itemId,
+                prototype,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -302,7 +307,7 @@ final class RtsClientPacketGateway {
     }
 
     static void sendPlaceBatch(List<BlockHitResult> hits, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
+            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
         if (hits == null || hits.isEmpty()) {
             return;
         }
@@ -320,6 +325,10 @@ final class RtsClientPacketGateway {
         if (positions.isEmpty()) {
             return;
         }
+        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
+        if (!prototype.isEmpty()) {
+            prototype.setCount(1);
+        }
         PacketDistributor.sendToServer(new C2SRtsPlaceBatchPayload(
                 positions,
                 (byte) face.get3DDataValue(),
@@ -327,6 +336,7 @@ final class RtsClientPacketGateway {
                 forcePlace,
                 skipIfOccupied,
                 itemId == null ? "" : itemId,
+                prototype,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
