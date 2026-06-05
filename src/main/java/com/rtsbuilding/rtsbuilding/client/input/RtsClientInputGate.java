@@ -1,5 +1,16 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.input;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
+import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsHomeScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
+import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

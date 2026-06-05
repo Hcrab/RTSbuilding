@@ -4,7 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import com.rtsbuilding.rtsbuilding.client.RtsClientInputGate;
+import com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate;
 
 import mezz.jei.api.gui.handlers.IGlobalGuiHandler;
 import mezz.jei.api.runtime.IClickableIngredient;

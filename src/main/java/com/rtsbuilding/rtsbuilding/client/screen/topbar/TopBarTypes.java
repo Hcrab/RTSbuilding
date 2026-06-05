@@ -1,11 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 /**
  * Container for top-bar data types.
  * <p>
  * Groups the button identifier enum and the layout parameter record that are
  * always used together by {@link TopBarPanel}, {@link TopBarIconRenderer},
- * {@link com.rtsbuilding.rtsbuilding.client.BuilderScreen},
+ * {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen},
  * and the {@link com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel guide system}.
  * <p>
  * <b>Why combined:</b> {@link TopBarButtonLayout} references {@link TopBarButtonId}

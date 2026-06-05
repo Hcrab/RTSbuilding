@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;

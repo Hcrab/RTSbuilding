@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.network;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;

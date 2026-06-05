@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen;
 
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.*;
 import net.minecraft.client.Minecraft;

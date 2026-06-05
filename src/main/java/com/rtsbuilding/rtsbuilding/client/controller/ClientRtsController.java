@@ -1,5 +1,15 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.controller;
 
+
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsHomeScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
+import com.rtsbuilding.rtsbuilding.client.state.RtsClientLayoutStore;
+import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;

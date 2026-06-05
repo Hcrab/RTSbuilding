@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

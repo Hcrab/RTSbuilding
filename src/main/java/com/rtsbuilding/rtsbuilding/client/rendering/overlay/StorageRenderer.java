@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;

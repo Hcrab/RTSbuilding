@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
+
+import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import net.minecraft.client.Minecraft;

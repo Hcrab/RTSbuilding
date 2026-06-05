@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.compat.jei;
 import java.util.List;
 import java.util.Optional;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
 
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.runtime.IClickableIngredient;

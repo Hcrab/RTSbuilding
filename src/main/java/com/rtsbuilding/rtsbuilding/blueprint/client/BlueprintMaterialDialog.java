@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.blueprint.client;
 
 import java.util.List;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

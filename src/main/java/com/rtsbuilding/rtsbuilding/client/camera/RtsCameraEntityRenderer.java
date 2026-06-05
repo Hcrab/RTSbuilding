@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.camera;
 
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 

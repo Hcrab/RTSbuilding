@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.util;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -23,8 +23,8 @@ import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
-import com.rtsbuilding.rtsbuilding.client.ClientKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.RowActionLayout;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.TopBarLayout;
 

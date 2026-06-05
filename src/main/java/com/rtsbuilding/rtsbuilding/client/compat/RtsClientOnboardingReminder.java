@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.compat;
 
+
+import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import java.util.Locale;
 
 import com.mojang.brigadier.Command;

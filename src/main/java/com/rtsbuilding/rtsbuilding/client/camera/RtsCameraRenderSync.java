@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.camera;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import net.neoforged.api.distmarker.Dist;

@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.state;
 
 import java.io.IOException;
 import java.io.Reader;

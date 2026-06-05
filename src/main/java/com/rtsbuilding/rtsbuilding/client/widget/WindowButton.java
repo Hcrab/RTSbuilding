@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
-import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

@@ -1,5 +1,8 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.util;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
 /**
  * UI-only helper for the extracted craftables panel. It prepares dialog state
  * and forwards confirmed requests back to {@link ClientRtsController}, but does

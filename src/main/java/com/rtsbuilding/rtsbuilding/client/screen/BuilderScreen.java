@@ -1,5 +1,12 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.screen;
 
+
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsUiScaleFrame;

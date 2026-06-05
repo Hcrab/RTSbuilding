@@ -1,5 +1,8 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.popup;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import java.util.List;
 
 import net.minecraft.client.gui.Font;

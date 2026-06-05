@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;

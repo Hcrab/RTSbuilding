@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 

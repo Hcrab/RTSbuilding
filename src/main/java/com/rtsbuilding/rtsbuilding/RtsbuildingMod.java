@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding;
 
+
+import com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -58,7 +60,7 @@ public class RtsbuildingMod {
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            com.rtsbuilding.rtsbuilding.client.RtsClientBootstrap.registerConfigUi(modContainer);
+            com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
         }
     }
 

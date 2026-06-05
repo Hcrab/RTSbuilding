@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.screen;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintCaptureRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;

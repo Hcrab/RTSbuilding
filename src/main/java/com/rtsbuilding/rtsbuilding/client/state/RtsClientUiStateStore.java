@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.state;
 
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -22,7 +24,7 @@ public final class RtsClientUiStateStore {
     private RtsClientUiStateStore() {
     }
 
-    static synchronized UiState load() {
+    public static synchronized UiState load() {
         if (!Files.isRegularFile(CONFIG_PATH)) {
             return UiState.defaults();
         }
@@ -34,7 +36,7 @@ public final class RtsClientUiStateStore {
         }
     }
 
-    static synchronized void save(UiState state) {
+    public static synchronized void save(UiState state) {
         UiState safe = state == null ? UiState.defaults() : state.sanitized();
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
@@ -45,11 +47,11 @@ public final class RtsClientUiStateStore {
         }
     }
 
-    static synchronized boolean isIntroReminderDismissed(String key) {
+    public static synchronized boolean isIntroReminderDismissed(String key) {
         return load().isIntroReminderDismissed(key);
     }
 
-    static synchronized void dismissIntroReminder(String key) {
+    public static synchronized void dismissIntroReminder(String key) {
         UiState state = load();
         state.addDismissedIntroReminderKey(key);
         save(state);
@@ -75,31 +77,31 @@ public final class RtsClientUiStateStore {
         save(state);
     }
 
-    static final class UiState {
-        String buildShape = ClientRtsController.BuildShape.BLOCK.name();
-        String fillMode = "FILL";
-        int rotationDegrees = 0;
-        boolean quickBuildOpen = true;
-        int quickBuildX = -1;
-        int quickBuildY = -1;
-        boolean ultimineOpen = false;
-        int ultimineX = -1;
-        int ultimineY = -1;
-        int ultimineLimit = 64;
-        boolean chunkCurtainVisible = false;
-        double rtsGuiScale = 2.0D;
-        int inputSensitivityIndex = 2;
-        boolean startCameraAtPlayerHead = false;
-        boolean allowPlacedBlockRecovery = false;
-        boolean invertPanDragX = false;
-        boolean invertPanDragY = false;
-        boolean smoothCamera = true;
-        boolean damageSoundEnabled = true;
-        boolean damageAutoReturnEnabled = true;
-        boolean debugButtonVisible = false;
-        boolean containerOverlayEnabled = false;
-        boolean overlayShiftImportEnabled = false;
-        List<String> dismissedIntroReminderKeys = new ArrayList<>();
+    public static final class UiState {
+        public String buildShape = ClientRtsController.BuildShape.BLOCK.name();
+        public String fillMode = "FILL";
+        public int rotationDegrees = 0;
+        public boolean quickBuildOpen = true;
+        public int quickBuildX = -1;
+        public int quickBuildY = -1;
+        public boolean ultimineOpen = false;
+        public int ultimineX = -1;
+        public int ultimineY = -1;
+        public int ultimineLimit = 64;
+        public boolean chunkCurtainVisible = false;
+        public double rtsGuiScale = 2.0D;
+        public int inputSensitivityIndex = 2;
+        public boolean startCameraAtPlayerHead = false;
+        public boolean allowPlacedBlockRecovery = false;
+        public boolean invertPanDragX = false;
+        public boolean invertPanDragY = false;
+        public boolean smoothCamera = true;
+        public boolean damageSoundEnabled = true;
+        public boolean damageAutoReturnEnabled = true;
+        public boolean debugButtonVisible = false;
+        public boolean containerOverlayEnabled = false;
+        public boolean overlayShiftImportEnabled = false;
+        public List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
         static UiState defaults() {
             return new UiState();
@@ -134,7 +136,7 @@ public final class RtsClientUiStateStore {
             return clean;
         }
 
-        boolean isIntroReminderDismissed(String key) {
+        public boolean isIntroReminderDismissed(String key) {
             String normalized = normalizeKey(key);
             if (normalized.isBlank()) {
                 return false;

@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client;
+package com.rtsbuilding.rtsbuilding.client.compat;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -17,13 +17,13 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.level.Level;
 
-final class RtsClientRemoteMenuCompat {
+public final class RtsClientRemoteMenuCompat {
     private static final String STORAGE_SCREEN_BASE_CLASS = "net.p3pp3rf1y.sophisticatedcore.client.gui.StorageScreenBase";
 
     private RtsClientRemoteMenuCompat() {
     }
 
-    static AbstractContainerMenu install(Minecraft minecraft, AbstractContainerMenu menu) {
+    public static AbstractContainerMenu install(Minecraft minecraft, AbstractContainerMenu menu) {
         if (minecraft == null || minecraft.player == null || menu == null) {
             return menu;
         }
@@ -46,7 +46,7 @@ final class RtsClientRemoteMenuCompat {
         return wrapped;
     }
 
-    static void relaxValidation(AbstractContainerMenu menu) {
+    public static void relaxValidation(AbstractContainerMenu menu) {
         if (menu == null) {
             return;
         }
