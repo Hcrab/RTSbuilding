@@ -11,10 +11,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
 import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+
+import java.util.*;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
@@ -50,14 +48,13 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientInputGate {
     private static final int OVERLAY_MARGIN = 6;
     private static final int CRAFT_PANEL_W = 104;
     private static final int CRAFT_PANEL_COLLAPSED_W = 44;
     private static final int PANEL_GAP = 5;
     private static final int STORAGE_PANEL_W = 142;
-    private static final int OVERLAY_W = CRAFT_PANEL_W + PANEL_GAP + STORAGE_PANEL_W;
     private static final int SLOT_PITCH = 18;
     private static final int SLOT_SIZE = 16;
     private static final int STORAGE_COLS = 5;
@@ -126,9 +123,7 @@ public final class RtsClientInputGate {
     private static final long[] RETURN_QUEUE_EXPIRY = new long[RETURN_SLOTS];
 
     static {
-        for (int i = 0; i < RETURN_SLOTS; i++) {
-            RETURN_QUEUE[i] = ItemStack.EMPTY;
-        }
+        Arrays.fill(RETURN_QUEUE, ItemStack.EMPTY);
     }
 
     private RtsClientInputGate() {

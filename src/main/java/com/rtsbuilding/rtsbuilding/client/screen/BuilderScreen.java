@@ -574,11 +574,11 @@ public final class BuilderScreen extends Screen {
         if (this.guidePanel.isOpen()) {
             return true;
         }
-        if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
-            this.cameraInput.stopActiveMining();
+        if (handleFloatingWindowRelease(mouseX, mouseY, button)) {
             return true;
         }
-        if (handleFloatingWindowRelease(mouseX, mouseY, button)) {
+        if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
+            this.cameraInput.stopActiveMining();
             return true;
         }
         if (this.cameraInput.isRightDragActive(button)) {
@@ -626,9 +626,11 @@ public final class BuilderScreen extends Screen {
         if (this.guidePanel.isOpen()) {
             return true;
         }
+
         if (handleFloatingWindowDrag(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
+
         if (this.cameraInput.handleRightDrag(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
@@ -1444,6 +1446,11 @@ public final class BuilderScreen extends Screen {
         return this.quickBuildPanel.resolveLayout();
     }
 
+    /** Returns the floating window layer (for snap/positioning). */
+    public RtsFloatingWindowLayer getFloatingWindowLayer() {
+        return this.floatingWindowLayer;
+    }
+
     /** Adjusts the ultimine (vein-mining) block limit by a delta. */
     private void adjustUltimineLimit(int delta) {
         this.ultiminePanel.adjustLimit(delta);
@@ -1498,12 +1505,12 @@ public final class BuilderScreen extends Screen {
         return this.floatingWindowLayer.mouseClicked(mouseX, mouseY, button);
     }
 
-    private boolean handleFloatingWindowRelease(double mouseX, double mouseY, int button) {
-        return this.floatingWindowLayer.mouseReleased(mouseX, mouseY, button);
-    }
-
     private boolean handleFloatingWindowDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
         return this.floatingWindowLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    private boolean handleFloatingWindowRelease(double mouseX, double mouseY, int button) {
+        return this.floatingWindowLayer.mouseReleased(mouseX, mouseY, button);
     }
 
     private boolean handleFloatingWindowScroll(double mouseX, double mouseY, double scrollX, double scrollY) {

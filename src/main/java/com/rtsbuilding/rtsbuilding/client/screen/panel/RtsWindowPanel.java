@@ -5,6 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 
+import java.util.List;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -33,6 +35,7 @@ public abstract class RtsWindowPanel implements RtsPanel {
     private static final int CLOSE_STATE_H = 450;
     private static final ResourceLocation CLOSE_BUTTON_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/general/close_button.png");
+    private static final int SNAP_THRESHOLD = 6;
 
     protected BuilderScreen screen;
     protected ClientRtsController controller;
@@ -62,6 +65,14 @@ public abstract class RtsWindowPanel implements RtsPanel {
     private int resizeStartWindowX;
     private int resizeStartWindowY;
     private WindowButton closeButton;
+
+    /**
+     * Hysteresis flag: when true, a wider threshold (SNAP_THRESHOLD * 2) is used
+     * to break free from the current snap. Set on mouse click (drag start) and
+     * cleared on mouse release. This prevents small mouse movements from
+     * constantly re-snapping the panel, making separation feel smoother.
+     */
+    private boolean snapEngaged;
 
     /**
      * When set, the render() method skips hover detection so the
@@ -284,6 +295,7 @@ public abstract class RtsWindowPanel implements RtsPanel {
                 this.dragging = true;
                 this.dragOffsetX = mouseX - this.windowX;
                 this.dragOffsetY = mouseY - this.windowY;
+                this.snapEngaged = false;
                 return true;
             }
             if (isInsideWindow(mouseX, mouseY)) {
@@ -304,9 +316,10 @@ public abstract class RtsWindowPanel implements RtsPanel {
             return true;
         }
         if (this.dragging) {
-            this.windowX = (int) Math.round(mouseX - this.dragOffsetX);
-            this.windowY = (int) Math.round(mouseY - this.dragOffsetY);
+            this.windowX = (int) (mouseX - this.dragOffsetX);
+            this.windowY = (int) (mouseY - this.dragOffsetY);
             clampWindowToScreen();
+            snapToNearbyPanel();
             return true;
         }
         return false;
@@ -325,14 +338,10 @@ public abstract class RtsWindowPanel implements RtsPanel {
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            boolean changed = this.dragging || this.resizing;
             this.dragging = false;
+            this.snapEngaged = false;
             this.resizing = false;
             this.resizeEdge = ResizeEdge.NONE;
-            if (changed) {
-                onBoundsChanged();
-            }
-            return changed || isInsideWindow(mouseX, mouseY);
         }
         return isInsideWindow(mouseX, mouseY);
     }
@@ -631,6 +640,92 @@ public abstract class RtsWindowPanel implements RtsPanel {
         int maxY = Math.max(SCREEN_MARGIN, this.screen.height - getTitleBarHeight() - SCREEN_MARGIN);
         this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, maxX);
         this.windowY = Mth.clamp(this.windowY, SCREEN_MARGIN, maxY);
+    }
+
+    /**
+     * Snaps this panel to any nearby open panel's opposite edges if within threshold,
+     * with actual overlapping range (not just infinite extension lines).
+     *
+     * <p>This is a transient drag-time alignment — no permanent relationship is created.
+     * Each drag operation is independent; panels do not follow each other after
+     * the drag ends. This matches real-world window snapping behavior.
+     *
+     * <p>Rules:
+     * <ul>
+     *   <li>Horizontal snap (left↔right, right↔left) requires vertical overlap</li>
+     *   <li>Vertical snap (top↔bottom, bottom↔top) requires horizontal overlap</li>
+     *   <li>This panel's LEFT edge snaps to another panel's RIGHT edge</li>
+     *   <li>This panel's RIGHT edge snaps to another panel's LEFT edge</li>
+     *   <li>This panel's TOP edge snaps to another panel's BOTTOM edge</li>
+     *   <li>This panel's BOTTOM edge snaps to another panel's TOP edge</li>
+     * </ul>
+     */
+    private void snapToNearbyPanel() {
+        if (this.screen == null) return;
+        RtsFloatingWindowLayer layer = this.screen.getFloatingWindowLayer();
+        List<RtsWindowPanel> panels = layer.frontToBackWindows();
+
+        int preSnapX = this.windowX;
+        int preSnapY = this.windowY;
+
+        for (RtsWindowPanel other : panels) {
+            if (other == this || !other.isOpen()) continue;
+
+            // Hysteresis: once snapped, use a wider threshold to break free.
+            // This prevents small slow mouse movements from constantly re-snapping.
+            int threshold = SNAP_THRESHOLD;
+
+            boolean verticalOverlap = overlapY(this, other) > 0;
+            boolean horizontalOverlap = overlapX(this, other) > 0;
+
+            int oL = other.windowX;
+            int oR = other.windowX + other.windowWidth;
+            int oT = other.windowY;
+            int oB = other.windowY + other.windowHeight;
+
+            // Horizontal: snap opposite edges
+            if (verticalOverlap) {
+                int mL = this.windowX;
+                int mR = this.windowX + this.windowWidth;
+                if (Math.abs(mL - oR) < threshold) {
+                    this.windowX = oR + 1;
+                } else if (Math.abs(mR - oL) < threshold) {
+                    this.windowX = oL - this.windowWidth - 1;
+                }
+            }
+
+            // Vertical: snap opposite edges
+            if (horizontalOverlap) {
+                int mT = this.windowY;
+                int mB = this.windowY + this.windowHeight;
+                if (Math.abs(mT - oB) < threshold) {
+                    this.windowY = oB + 1;
+                } else if (Math.abs(mB - oT) < threshold) {
+                    this.windowY = oT - this.windowHeight - 1;
+                }
+            }
+        }
+        // Update snap engagement: if any snap alignment occurred, enable hysteresis
+        // so the next frame uses a wider threshold before releasing.
+        this.snapEngaged = this.windowX != preSnapX || this.windowY != preSnapY;
+    }
+
+    /** Returns the overlapping pixel count in the Y axis between two panels, or 0 if none. */
+    private static int overlapY(RtsWindowPanel a, RtsWindowPanel b) {
+        int aTop = a.windowY;
+        int aBot = a.windowY + a.windowHeight;
+        int bTop = b.windowY;
+        int bBot = b.windowY + b.windowHeight;
+        return Math.max(0, Math.min(aBot, bBot) - Math.max(aTop, bTop));
+    }
+
+    /** Returns the overlapping pixel count in the X axis between two panels, or 0 if none. */
+    private static int overlapX(RtsWindowPanel a, RtsWindowPanel b) {
+        int aL = a.windowX;
+        int aR = a.windowX + a.windowWidth;
+        int bL = b.windowX;
+        int bR = b.windowX + b.windowWidth;
+        return Math.max(0, Math.min(aR, bR) - Math.max(aL, bL));
     }
 
     private int closeButtonX() {

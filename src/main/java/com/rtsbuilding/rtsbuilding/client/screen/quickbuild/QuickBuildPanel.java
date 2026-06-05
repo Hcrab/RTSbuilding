@@ -32,8 +32,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     /** 右侧列（填充/旋转）相对于窗口左边缘的偏移 */
     private static final int RIGHT_COL_X = 88;
 
+    /** 形状按钮行间距 */
+    private static final int SHAPE_ROW_PITCH = QUICK_BUILD_SHAPE_SLOT + 6;
+
     // ======================== 面板尺寸 ========================
-    private static final int QUICK_BUILD_PANEL_W = 180;
+    private static final int QUICK_BUILD_PANEL_W = 178;
     private static final int QUICK_BUILD_PANEL_H = 156;
     private static final int QUICK_BUILD_PANEL_MIN_H = 156;
 
@@ -180,14 +183,18 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int x = this.windowX;
         int y = this.windowY;
         int bodyY = contentY();
-        int shapeTitleY = bodyY + 10;
+        int shapeTitleY = bodyY + 5;
+
+        // --- 形状模式 ---
+        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.shape"),
+                x + 10, shapeTitleY, 0xD8E3EE, false);
 
         // --- 形状按钮 ---
         for (int i = 0; i < shapeButtons.length; i++) {
             int col = i % 2;
             int row = i / 2;
             int slotX = x + 8 + (col * (QUICK_BUILD_SHAPE_SLOT + QUICK_BUILD_SHAPE_GAP));
-            int slotY = bodyY + 20 + (row * (QUICK_BUILD_SHAPE_SLOT + 6));
+            int slotY = bodyY + 20 + (row * SHAPE_ROW_PITCH);
             shapeButtons[i].setX(slotX);
             shapeButtons[i].setY(slotY);
             shapeButtons[i].render(g, mouseX, mouseY, partialTick);
@@ -204,7 +211,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         List<ShapeBuildTypes.ShapeFillMode> modes =
                 ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
         for (int i = 0; i < fillModeButtons.length; i++) {
-            int rowY = bodyY + 22 + (i * 20);
+            int rowY = bodyY + 28 + (i * SHAPE_ROW_PITCH); // 垂直居中对齐对应行的形状按钮
             fillModeButtons[i].setX(rightX);
             fillModeButtons[i].setY(rowY);
             fillModeButtons[i].render(g, mouseX, mouseY, partialTick);
@@ -369,7 +376,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * 仅在玩家选中了可放置的方块物品时扩展面板并显示。
      */
     private boolean shouldShowBottomInfo() {
-        if (!controller.hasSelectedItem()) return false;
         ItemStack preview = resolveShapeBuildItem();
         return !preview.isEmpty() && preview.getItem() instanceof BlockItem;
     }

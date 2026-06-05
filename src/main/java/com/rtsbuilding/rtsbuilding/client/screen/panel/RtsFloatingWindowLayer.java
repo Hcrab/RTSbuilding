@@ -19,11 +19,10 @@ import java.util.List;
  * order — the most recently clicked window appears on top. Clicking any window
  * brings it to the front automatically.
  */
-public final class RtsFloatingWindowLayer {
-    private final List<RtsWindowPanel> frontToBackWindows;
+public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
-        this.frontToBackWindows = new ArrayList<>(List.of(frontToBackWindows));
+        this(new ArrayList<>(List.of(frontToBackWindows)));
         // 初始 z 排序修正：从后往前调用 markBroughtToFront，
         // 使得前部窗口（索引 0，前端）获得较大的 lastClickTime，
         // 在升序排序中后渲染（出现在顶层）。
