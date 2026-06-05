@@ -117,7 +117,6 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         guiGraphics.drawString(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY, 0xEAF2FF, false);
-        guiGraphics.drawString(this.font, "Inventory", this.inventoryLabelX, this.inventoryLabelY, 0xD7E2EE, false);
     }
 
     @Override

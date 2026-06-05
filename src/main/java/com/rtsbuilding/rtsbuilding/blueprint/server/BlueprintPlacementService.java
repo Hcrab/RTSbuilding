@@ -11,6 +11,8 @@ import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 
@@ -42,6 +44,10 @@ public final class BlueprintPlacementService {
         }
         if (!Config.areBlueprintsEnabled()) {
             send(player, S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.disabled", "");
+            return;
+        }
+        if (!RtsProgressionManager.canUse(player, RtsFeature.BLUEPRINTS)) {
+            send(player, S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.locked", "");
             return;
         }
         if (blueprint.blocks().isEmpty()) {

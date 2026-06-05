@@ -14,5 +14,6 @@ public enum RtsFeature {
     CRAFT_TERMINAL,
     JEI_TRANSFER,
     FLUID_HANDLING,
-    ULTIMINE
+    ULTIMINE,
+    BLUEPRINTS
 }

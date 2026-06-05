@@ -7,6 +7,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
+credits="${mod_credits}"
 description='''${mod_description}'''
 
 [[dependencies.${mod_id}]]

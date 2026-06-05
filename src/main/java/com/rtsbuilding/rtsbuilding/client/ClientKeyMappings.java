@@ -49,11 +49,11 @@ public final class ClientKeyMappings {
             "key.categories.rtsbuilding");
     public static final KeyMapping MODE_INTERACT = new KeyMapping(
             "key.rtsbuilding.mode_interact",
-            GLFW.GLFW_KEY_Q,
+            GLFW.GLFW_KEY_I,
             "key.categories.rtsbuilding");
     public static final KeyMapping MODE_LINK_STORAGE = new KeyMapping(
             "key.rtsbuilding.mode_link_storage",
-            GLFW.GLFW_KEY_E,
+            GLFW.GLFW_KEY_L,
             "key.categories.rtsbuilding");
     public static final KeyMapping MODE_ROTATE = new KeyMapping(
             "key.rtsbuilding.mode_rotate",

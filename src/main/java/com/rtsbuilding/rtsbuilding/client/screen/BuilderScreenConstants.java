@@ -49,9 +49,9 @@ public final class BuilderScreenConstants {
     /** 快捷栏格子间距 */
     public static final int HOTBAR_PITCH = 20;
     /** 工具快捷栏物品槽位数 */
-    public static final int TOOL_HOTBAR_ITEM_SLOTS = 8;
+    public static final int TOOL_HOTBAR_ITEM_SLOTS = 9;
     /** 空手按钮索引（第9格） */
-    public static final int EMPTY_HAND_BUTTON_INDEX = 8;
+    public static final int EMPTY_HAND_BUTTON_INDEX = TOOL_HOTBAR_ITEM_SLOTS;
     /** 工具区域高度 */
     public static final int TOOL_AREA_H = HOTBAR_SLOT;
 

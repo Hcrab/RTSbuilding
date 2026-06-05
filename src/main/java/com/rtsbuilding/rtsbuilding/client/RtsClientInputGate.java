@@ -981,8 +981,6 @@ public final class RtsClientInputGate {
             return;
         }
 
-        RtsClientPacketGateway.sendCloseRemoteMenu();
-
         if (pendingOverlayCarriedItemId.isBlank()) {
             return;
         }

@@ -28,6 +28,7 @@ public final class RtsProgressionNodes {
     public static final ResourceLocation CRAFT_TERMINAL = id("craft_terminal");
     public static final ResourceLocation JEI_TRANSFER = id("jei_transfer");
     public static final ResourceLocation ULTIMINE = id("ultimine");
+    public static final ResourceLocation BLUEPRINTS = id("blueprints");
     public static final ResourceLocation FIELD_DEPLOYMENT = id("field_deployment");
 
     private static final Map<ResourceLocation, RtsProgressionNode> NODES = buildNodes();
@@ -130,6 +131,8 @@ public final class RtsProgressionNodes {
                 List.of(RtsUnlockEffect.unlock(RtsFeature.REMOTE_BREAK)), 3, 1);
         add(nodes, ROTATE_BLOCK, List.of(CAMERA_CORE), cost("minecraft:stick", 4, "minecraft:copper_ingot", 8),
                 List.of(RtsUnlockEffect.unlock(RtsFeature.ROTATE_BLOCK)), 1, -1);
+        add(nodes, BLUEPRINTS, List.of(CAMERA_CORE), cost("minecraft:paper", 1, "minecraft:lapis_lazuli", 1),
+                List.of(RtsUnlockEffect.unlock(RtsFeature.BLUEPRINTS)), 1, 3);
 
         add(nodes, AUTO_STORE_MINED, List.of(STORAGE_LINK), cost("minecraft:hopper", 1),
                 List.of(RtsUnlockEffect.unlock(RtsFeature.AUTO_STORE_MINED_DROPS)), 2, 2);
