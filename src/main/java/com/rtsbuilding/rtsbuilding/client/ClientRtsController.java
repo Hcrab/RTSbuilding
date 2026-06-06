@@ -2416,7 +2416,7 @@ public final class ClientRtsController {
                 this.allowPlacedBlockRecovery);
     }
 
-    public void startUltimine(BlockPos pos, int face, int toolSlot, int limit) {
+    public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) {
         if (pos == null) {
             return;
         }
@@ -2431,7 +2431,8 @@ public final class ClientRtsController {
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(),
                 selectedMiningToolPrototype(),
-                limit);
+                limit,
+                mode);
     }
 
     public void continueMining(int toolSlot) {

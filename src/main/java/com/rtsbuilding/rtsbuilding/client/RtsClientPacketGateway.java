@@ -465,14 +465,15 @@ final class RtsClientPacketGateway {
     }
 
     static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            int limit) {
+            int limit, byte mode) {
         PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
                 pos,
                 (byte) face,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                (short) Mth.clamp(limit, 1, 256)));
+                (short) Mth.clamp(limit, 1, 256),
+                mode));
     }
 
     static void sendMineAbort(BlockPos pos, int face, int toolSlot) {

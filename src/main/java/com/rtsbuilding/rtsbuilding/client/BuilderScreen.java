@@ -16,10 +16,12 @@ import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionWheelPan
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.*;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineMode;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltiminePanel;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
@@ -109,6 +111,8 @@ public final class BuilderScreen extends Screen {
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
     /** Radial interaction wheel for advanced block/entity interactions. */
     private final InteractionWheelPanel interactionWheelPanel = new InteractionWheelPanel();
+    /** Front-to-back input routing for movable RTS windows. */
+    private final RtsFloatingWindowLayer floatingWindowLayer;
     /** Whether the debug button is visible in the top bar (for dev/diagnostic use). */
     private boolean debugButtonVisible = false;
     /** Whether the user is currently dragging the input sensitivity slider. */
@@ -150,6 +154,11 @@ public final class BuilderScreen extends Screen {
     public BuilderScreen(ClientRtsController controller) {
         super(Component.literal("RTS Builder"));
         this.controller = controller;
+        this.floatingWindowLayer = new RtsFloatingWindowLayer(
+                this.gearMenuPanel,
+                this.guidePanel,
+                this.ultiminePanel,
+                this.quickBuildPanel);
         this.guidePanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
         this.interactionWheelPanel.init(this, this.controller);
@@ -436,23 +445,17 @@ public final class BuilderScreen extends Screen {
         if (this.interactionWheelPanel.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        if (this.guidePanel.isOpen()) {
-            return this.guidePanel.mouseClicked(mouseX, mouseY, button);
+        if (this.floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (this.gearMenuPanel.isOpen()) {
-                return this.gearMenuPanel.mouseClicked(mouseX, mouseY, button);
-            }
             boolean insideBottomPanel = isInsideBottomPanel(mouseX, mouseY);
             if (!insideBottomPanel
                     && this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
                     && BlueprintPanel.mouseClickedPlacementHud(mouseX, mouseY, this.width, this.height, TOP_H + 8, this.bottomPanel.getBottomY(), this.controller)) {
-                return true;
-            }
-            if (this.quickBuildPanel.handleClick(mouseX, mouseY)) {
-                return true;
-            }
-            if (this.ultiminePanel.handleClick(mouseX, mouseY)) {
                 return true;
             }
             if (this.topBarPanel.handleClick(mouseX, mouseY)) {
@@ -561,7 +564,10 @@ public final class BuilderScreen extends Screen {
         if (this.interactionWheelPanel.isOpen()) {
             return true;
         }
-        if (this.guidePanel.isOpen()) {
+        if (this.floatingWindowLayer.mouseReleased(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
             return true;
         }
         if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
@@ -610,7 +616,10 @@ public final class BuilderScreen extends Screen {
         if (this.interactionWheelPanel.isOpen()) {
             return true;
         }
-        if (this.guidePanel.isOpen()) {
+        if (this.floatingWindowLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+            return true;
+        }
+        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
             return true;
         }
         if (this.cameraInput.handleRightDrag(mouseX, mouseY, button, dragX, dragY)) {
@@ -864,14 +873,14 @@ public final class BuilderScreen extends Screen {
         if (BlueprintPanel.isMaterialDialogOpen()) {
             return BlueprintPanel.mouseScrolledMaterialDialog(scrollY, this.controller, this.width, this.height);
         }
-        if (this.gearMenuPanel.mouseScrolled(mouseX, mouseY, scrollY)) {
-            return true;
-        }
         if (this.interactionWheelPanel.mouseScrolled(scrollY)) {
             return true;
         }
-        if (this.guidePanel.isOpen()) {
-            return this.guidePanel.mouseScrolled(mouseX, mouseY, scrollY);
+        if (this.floatingWindowLayer.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
+        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
         }
         if (isInsideBottomPanel(mouseX, mouseY)) {
             return this.bottomPanel.handleMouseScrolled(mouseX, mouseY, scrollY);
@@ -927,11 +936,11 @@ public final class BuilderScreen extends Screen {
         if (this.interactionWheelPanel.keyPressed(keyCode)) {
             return true;
         }
-        if (this.guidePanel.isOpen()) {
-            return this.guidePanel.keyPressed(keyCode);
+        if (this.floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
+            return true;
         }
-        if (this.gearMenuPanel.isOpen()) {
-            return this.gearMenuPanel.keyPressed(keyCode);
+        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
         }
         if (this.pendingGuiBindSlot >= 0 && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             this.pendingGuiBindSlot = -1;
@@ -1136,6 +1145,9 @@ public final class BuilderScreen extends Screen {
         if (this.ultiminePanel.isLimitEditing()) {
             return this.ultiminePanel.handleCharTyped(codePoint);
         }
+        if (this.floatingWindowLayer.charTyped(codePoint, modifiers)) {
+            return true;
+        }
         return super.charTyped(codePoint, modifiers);
     }
     // ======================== Rendering Methods ========================
@@ -1173,9 +1185,9 @@ public final class BuilderScreen extends Screen {
         }
         this.topBarPanel.render(guiGraphics, mouseX, mouseY);
         this.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-        this.quickBuildPanel.render(guiGraphics, mouseX, mouseY);
-        this.ultiminePanel.render(guiGraphics, mouseX, mouseY);
         this.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
+        this.floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
+        this.floatingWindowLayer.renderFloatingWindowOverlays(guiGraphics, mouseX, mouseY);
         renderQuestDetectPopup(guiGraphics);
         renderStorageScanPopup(guiGraphics);
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
@@ -1280,12 +1292,6 @@ public final class BuilderScreen extends Screen {
         this.bottomPanel.renderCraftFeedback(guiGraphics);
         if (this.interactionWheelPanel.isOpen()) {
             renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z, () -> renderInteractionWheel(guiGraphics, mouseX, mouseY));
-        }
-        if (this.gearMenuPanel.isOpen()) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 20.0F, () -> this.gearMenuPanel.render(guiGraphics, mouseX, mouseY));
-        }
-        if (this.guidePanel.isOpen()) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 40.0F, () -> this.guidePanel.render(guiGraphics));
         }
         if (BlueprintPanel.isMaterialDialogOpen()) {
             renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 50.0F,
@@ -1566,6 +1572,11 @@ public final class BuilderScreen extends Screen {
         this.quickBuildPanel.setQuickBuildOpen(state.quickBuildOpen);
         this.ultiminePanel.setOpen(state.ultimineOpen);
         this.ultiminePanel.setLimit(state.ultimineLimit);
+        try {
+            this.ultiminePanel.setMode(UltimineMode.valueOf(state.ultimineMode));
+        } catch (IllegalArgumentException ignored) {
+            this.ultiminePanel.setMode(UltimineMode.CHAIN);
+        }
         this.fixedRtsGuiScale = sanitizeRtsGuiScale(state.rtsGuiScale);
         this.controller.setStartCameraAtPlayerHead(state.startCameraAtPlayerHead);
         this.controller.setAllowPlacedBlockRecovery(state.allowPlacedBlockRecovery);
@@ -1606,6 +1617,7 @@ public final class BuilderScreen extends Screen {
         state.quickBuildOpen = this.quickBuildPanel.isQuickBuildOpen();
         state.ultimineOpen = this.ultiminePanel.isOpen();
         state.ultimineLimit = this.ultiminePanel.getLimit();
+        state.ultimineMode = this.ultiminePanel.getMode().name();
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
         state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
@@ -1665,6 +1677,10 @@ public final class BuilderScreen extends Screen {
     /** Returns the current ultimine block limit. */
     public int getUltimineLimit() {
         return this.ultiminePanel.getLimit();
+    }
+    /** Returns the current ultimine mode selected in the floating panel. */
+    public UltimineMode getUltimineMode() {
+        return this.ultiminePanel.getMode();
     }
     /** Sets the last sent ultimine limit value (to avoid redundant network packets). */
     public void setUltimineLastSentLimit(int limit) {

@@ -82,6 +82,7 @@ public final class RtsClientUiStateStore {
         boolean quickBuildOpen = true;
         boolean ultimineOpen = false;
         int ultimineLimit = 64;
+        String ultimineMode = "CHAIN";
         boolean chunkCurtainVisible = false;
         double rtsGuiScale = 2.0D;
         int inputSensitivityIndex = 2;
@@ -109,6 +110,7 @@ public final class RtsClientUiStateStore {
             clean.quickBuildOpen = this.quickBuildOpen;
             clean.ultimineOpen = this.ultimineOpen;
             clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
+            clean.ultimineMode = sanitizeEnum(this.ultimineMode, "CHAIN");
             clean.chunkCurtainVisible = this.chunkCurtainVisible;
             clean.rtsGuiScale = sanitizeScale(this.rtsGuiScale);
             clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));

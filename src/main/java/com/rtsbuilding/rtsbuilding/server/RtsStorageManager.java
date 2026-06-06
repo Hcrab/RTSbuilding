@@ -1097,7 +1097,7 @@ public final class RtsStorageManager {
     }
 
     public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
-            ItemStack toolPrototype, int requestedLimit) {
+            ItemStack toolPrototype, int requestedLimit, byte mode) {
         RtsStorageMining.startUltimine(
                 player,
                 SESSIONS.get(player.getUUID()),
@@ -1106,7 +1106,8 @@ public final class RtsStorageManager {
                 toolSlot,
                 toolItemId,
                 toolPrototype,
-                requestedLimit);
+                requestedLimit,
+                mode);
     }
 
     private static void tickActiveMining(ServerPlayer player, RtsStorageSession session) {

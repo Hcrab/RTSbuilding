@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -16,98 +17,104 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
  * 独立的齿轮菜单面板组件，处理设置面板的渲染、输入和状态管理。
  * 由 {@link BuilderScreen} 统一调度生命周期。
  */
-public final class GearMenuPanel {
+public final class GearMenuPanel extends RtsWindowPanel {
 
     // ── 状态 ──
-    private boolean open = false;
     private int scroll = 0;
 
-    private BuilderScreen screen;
-    private ClientRtsController controller;
-
+    @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
-        this.screen = screen;
-        this.controller = controller;
+        super.init(screen, controller);
     }
 
     // ── 输入方法 ──
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (!this.open) {
-            return false;
-        }
-        if (button == 0) {
-            if (handleClick(mouseX, mouseY)) {
-                return true;
-            }
-            this.open = false;
-        }
-        return true;
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
-        if (!this.open || !isInside(mouseX, mouseY)) {
-            return false;
-        }
-        int maxScroll = maxScroll(menuHeight());
-        if (maxScroll <= 0) {
-            return true;
-        }
-        int delta = scrollY > 0.0D ? -18 : 18;
-        this.scroll = Mth.clamp(this.scroll + delta, 0, maxScroll);
-        return true;
+        return super.mouseScrolled(mouseX, mouseY, 0.0D, scrollY);
     }
 
     public boolean keyPressed(int keyCode) {
-        if (!this.open) {
-            return false;
-        }
-        if (keyCode == 256) { // GLFW_KEY_ESCAPE
-            this.open = false;
-        }
-        return true;
+        return super.keyPressed(keyCode, 0, 0);
     }
 
     // ── 公开查询方法 ──
 
-    public boolean isOpen() {
-        return this.open;
-    }
-
     public void open() {
-        this.open = true;
         this.scroll = 0;
-    }
-
-    public void close() {
-        this.open = false;
+        setOpen(true);
     }
 
     // ── 渲染 ──
 
     public void render(GuiGraphics g, int mouseX, int mouseY) {
-        if (!this.open) {
-            return;
-        }
-        int w = Math.min(300, screen.width - 24);
-        int h = menuHeight();
-        int x = (screen.width - w) / 2;
-        int y = (screen.height - h) / 2;
-        this.scroll = Mth.clamp(this.scroll, 0, maxScroll(h));
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, 0xF0181D25, 0xFF6D7C90, 0xFF0A0D12);
-        g.fill(x + 3, y + 3, x + w - 3, y + 24, 0xFF2A303A);
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.settings.title"), x + 12, y + 10, 0xF4F7FF);
-        RtsClientUiUtil.drawPanelFrame(g, x + w - 44, y + 6, 16, 16, 0xCC3D516D, 0xFF8FA4BF, 0xFF0D1218);
-        g.drawCenteredString(screen.font(), "i", x + w - 36, y + 10, 0xDDE8F4);
-        RtsClientUiUtil.drawPanelFrame(g, x + w - 24, y + 6, 16, 16, 0xCC3D516D, 0xFF8FA4BF, 0xFF0D1218);
-        g.drawCenteredString(screen.font(), "x", x + w - 16, y + 10, 0xDDE8F4);
+        super.render(g, mouseX, mouseY, 0.0F);
+    }
 
-        int viewportTop = viewportTop(y);
-        int viewportBottom = viewportBottom(y, h);
-        screen.enableRtsScissor(g, x + 8, viewportTop, x + w - 8, viewportBottom);
+    @Override
+    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        int x = this.windowX;
+        int y = this.windowY;
+        int w = this.windowWidth;
+        int h = this.windowHeight;
+        this.scroll = Mth.clamp(this.scroll, 0, maxScroll(h));
         renderControls(g, mouseX, mouseY, x, y, w);
-        g.disableScissor();
         renderScrollbar(g, x, y, w, h);
+    }
+
+    @Override
+    protected void handleContentClick(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            handleClick(mouseX, mouseY);
+        }
+    }
+
+    @Override
+    protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int maxScroll = maxScroll(this.windowHeight);
+        if (maxScroll > 0) {
+            int delta = scrollY > 0.0D ? -18 : 18;
+            this.scroll = Mth.clamp(this.scroll + delta, 0, maxScroll);
+        }
+        return true;
+    }
+
+    @Override
+    protected Component getTitle() {
+        return Component.translatable("screen.rtsbuilding.settings.title");
+    }
+
+    @Override
+    protected int getDefaultWidth() {
+        return 300;
+    }
+
+    @Override
+    protected int getDefaultHeight() {
+        return GEAR_MENU_H;
+    }
+
+    @Override
+    protected int getMinWindowWidth() {
+        return 240;
+    }
+
+    @Override
+    protected int getMinWindowHeight() {
+        return GEAR_MENU_MIN_H;
+    }
+
+    @Override
+    protected void computeDefaultPosition() {
+        this.windowWidth = Math.min(300, screen.width - 24);
+        this.windowHeight = menuHeight();
+        this.windowX = Math.max(8, (screen.width - this.windowWidth) / 2);
+        this.windowY = Mth.clamp((screen.height - this.windowHeight) / 2,
+                TOP_H + 6,
+                Math.max(TOP_H + 6, screen.height - this.windowHeight - 8));
     }
 
     private void renderControls(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w) {
@@ -218,23 +225,10 @@ public final class GearMenuPanel {
     // ── 辅助方法 ──
 
     private boolean handleClick(double mouseX, double mouseY) {
-        int w = Math.min(300, screen.width - 24);
-        int h = menuHeight();
-        int x = (screen.width - w) / 2;
-        int y = (screen.height - h) / 2;
-        if (!inside(mouseX, mouseY, x, y, w, h)) {
-            return false;
-        }
-
-        if (inside(mouseX, mouseY, x + w - 24, y + 6, 16, 16)) {
-            this.open = false;
-            return true;
-        }
-        if (inside(mouseX, mouseY, x + w - 44, y + 6, 16, 16)) {
-            this.open = false;
-            // Open guide for settings
-            return true;
-        }
+        int w = this.windowWidth;
+        int h = this.windowHeight;
+        int x = this.windowX;
+        int y = this.windowY;
         int viewportTop = viewportTop(y);
         int viewportBottom = viewportBottom(y, h);
         if (!inside(mouseX, mouseY, x + 8, viewportTop, w - 16, viewportBottom - viewportTop)) {
@@ -317,10 +311,8 @@ public final class GearMenuPanel {
     }
 
     private double calcSensitivityFraction(double mouseX, int menuX, int menuW) {
-        int w = Math.min(300, screen.width - 24);
-        int x = (screen.width - w) / 2;
-        int trackX = x + 16;
-        int trackW = w - 32;
+        int trackX = menuX + 16;
+        int trackW = menuW - 32;
         return (mouseX - trackX) / Math.max(1.0D, trackW);
     }
 
@@ -366,11 +358,7 @@ public final class GearMenuPanel {
     }
 
     private boolean isInside(double mouseX, double mouseY) {
-        int w = Math.min(300, screen.width - 24);
-        int h = menuHeight();
-        int x = (screen.width - w) / 2;
-        int y = (screen.height - h) / 2;
-        return inside(mouseX, mouseY, x, y, w, h);
+        return inside(mouseX, mouseY, this.windowX, this.windowY, this.windowWidth, this.windowHeight);
     }
 
     // ── 渲染辅助方法 ──
@@ -401,14 +389,14 @@ public final class GearMenuPanel {
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
         int switchX = active ? x + w - 26 : x + 6;
         g.fill(switchX, y + 4, switchX + 18, y + h - 4, active ? 0xFF72F07A : 0xFF788696);
-        g.drawCenteredString(screen.font(), label, x + w / 2, y + 7, 0xF7FBFF);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label, x + w / 2, y + 7, 0xF7FBFF);
     }
 
     private void drawGearMenuRow(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h, String label, boolean active) {
         boolean hover = inside(mouseX, mouseY, x, y, w, h);
         int bg = active ? 0xCC2D7C4B : (hover ? 0xCC334054 : 0xCC26303D);
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, 0xFF6A8299, 0xFF0E1116);
-        g.drawCenteredString(screen.font(), trimToWidth(label, w - 10), x + w / 2, y + 7, 0xF2F6FB);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), trimToWidth(label, w - 10), x + w / 2, y + 7, 0xF2F6FB);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

@@ -151,6 +151,8 @@
   "screen.rtsbuilding.ultimine.blocks": "方塊數",
   "screen.rtsbuilding.ultimine.breaking": "正在挖掘 %s",
   "screen.rtsbuilding.ultimine.ready": "就緒",
+  "screen.rtsbuilding.ultimine.mode_chain": "連鎖",
+  "screen.rtsbuilding.ultimine.mode_area": "區域",
   "screen.rtsbuilding.storage.title": "RTS 儲存",
   "screen.rtsbuilding.storage.tab": "儲存",
   "screen.rtsbuilding.creative.tab": "創造",

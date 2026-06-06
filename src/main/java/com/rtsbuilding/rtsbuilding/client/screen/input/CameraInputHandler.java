@@ -337,7 +337,8 @@ public final class CameraInputHandler {
             return false;
         }
         if (screen.isUltimineOpen()) {
-            this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot(), screen.getUltimineLimit());
+            this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot(),
+                    screen.getUltimineLimit(), (byte) screen.getUltimineMode().ordinal());
             screen.setUltimineLastSentLimit(screen.getUltimineLimit());
         } else {
             this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());

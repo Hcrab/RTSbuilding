@@ -318,7 +318,8 @@ public final class RtsNetworkHandlers {
                         payload.toolSlot(),
                         payload.toolItemId(),
                         payload.toolPrototype(),
-                        payload.limit());
+                        payload.limit(),
+                        payload.mode());
             }
         });
     }

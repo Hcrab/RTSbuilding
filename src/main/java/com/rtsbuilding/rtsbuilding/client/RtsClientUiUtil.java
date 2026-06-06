@@ -77,6 +77,14 @@ public final class RtsClientUiUtil {
         return buckets + " B";
     }
 
+    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, String text, int centerX, int y, int color) {
+        if (font == null) {
+            return;
+        }
+        String safeText = text == null ? "" : text;
+        guiGraphics.drawString(font, safeText, centerX - font.width(safeText) / 2, y, color, false);
+    }
+
     public static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
         if (font == null || countText == null || countText.isEmpty()) {
             return;

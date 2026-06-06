@@ -151,6 +151,8 @@
   "screen.rtsbuilding.ultimine.blocks": "Blocks",
   "screen.rtsbuilding.ultimine.breaking": "Breaking %s",
   "screen.rtsbuilding.ultimine.ready": "Ready",
+  "screen.rtsbuilding.ultimine.mode_chain": "Chain",
+  "screen.rtsbuilding.ultimine.mode_area": "Area",
   "screen.rtsbuilding.storage.title": "RTS Storage",
   "screen.rtsbuilding.storage.tab": "Storage",
   "screen.rtsbuilding.creative.tab": "Creative",

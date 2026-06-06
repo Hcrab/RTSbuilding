@@ -15,7 +15,8 @@ public record C2SRtsUltiminePayload(
         byte toolSlot,
         String toolItemId,
         ItemStack toolPrototype,
-        short limit) implements CustomPacketPayload {
+        short limit,
+        byte mode) implements CustomPacketPayload {
     public static final Type<C2SRtsUltiminePayload> TYPE = new Type<>(
             new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_ultimine"));
 
@@ -31,6 +32,7 @@ public record C2SRtsUltiminePayload(
                     buf.writeItem(toolPrototype);
                 }
                 buf.writeShort(payload.limit());
+                buf.writeByte(payload.mode());
             },
             (buf) -> new C2SRtsUltiminePayload(
                     buf.readBlockPos(),
@@ -38,7 +40,8 @@ public record C2SRtsUltiminePayload(
                     buf.readByte(),
                     buf.readUtf(256),
                     buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
-                    buf.readShort()));
+                    buf.readShort(),
+                    buf.readByte()));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
