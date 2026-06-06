@@ -55,6 +55,18 @@ public final class RtsStorageNetworkHandlers {
         });
     }
 
+    public static void handleUpdateLinkedStorage(C2SRtsUpdateLinkedStoragePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsStorageManager.updateLinkedStorageSettings(
+                        serverPlayer,
+                        payload.pos(),
+                        payload.linkMode(),
+                        payload.priority());
+            }
+        });
+    }
+
     public static void handleStoreHotbarSlot(C2SRtsStoreHotbarSlotPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {

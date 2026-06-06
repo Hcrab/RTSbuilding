@@ -8,7 +8,6 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.function.Supplier;
@@ -725,7 +724,8 @@ public final class RtsStorageMining {
             return playerLease;
         }
 
-        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.orderHandlersForExtract(
+                RtsLinkedStorageResolver.resolveLinkedHandlers(player, session));
         if (activeLinked.isEmpty()) {
             return RtsToolLease.empty();
         }
@@ -828,10 +828,7 @@ public final class RtsStorageMining {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         RtsStorageTransfers.storeToLinkedWithFallback(handlers, player, remain);
     }
 
@@ -946,10 +943,7 @@ public final class RtsStorageMining {
      */
     private static boolean absorbNearbyMinedDrops(ServerPlayer player, BlockPos pos, RtsStorageSession session) {
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(linked.size());
-        for (LinkedHandler handler : linked) {
-            handlers.add(handler.handler());
-        }
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
 
         AABB box = new AABB(pos).inflate(1.25D);
         List<ItemEntity> drops = player.serverLevel().getEntitiesOfClass(

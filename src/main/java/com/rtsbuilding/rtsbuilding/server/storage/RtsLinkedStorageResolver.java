@@ -1,9 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import java.util.ArrayList;
-import java.util.List;
-
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
@@ -78,7 +76,8 @@ public final class RtsLinkedStorageResolver {
                 }
                 String name = session.linkedNames.computeIfAbsent(ref, ignored -> resolveDisplayName(player.serverLevel(), pos));
                 boolean allowStore = !isExtractOnlyLink(session, ref);
-                out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, allowStore), allowStore));
+                out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, allowStore), allowStore,
+                        linkedPriority(session, ref)));
             }
         }
 
@@ -90,7 +89,7 @@ public final class RtsLinkedStorageResolver {
             LinkedStorageRef bdRef = new LinkedStorageRef(
                     player.serverLevel().dimension(),
                     BlockPos.ZERO);
-            out.add(new LinkedHandler(bdRef, session.cachedBdName, session.cachedBdHandler, true));
+            out.add(new LinkedHandler(bdRef, session.cachedBdName, session.cachedBdHandler, true, 0));
         }
 
         return out;
@@ -123,7 +122,8 @@ public final class RtsLinkedStorageResolver {
                 }
                 String name = session.linkedNames.computeIfAbsent(ref, ignored -> resolveDisplayName(player.serverLevel(), pos));
                 boolean allowStore = !isExtractOnlyLink(session, ref);
-                out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, allowStore), allowStore));
+                out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, allowStore), allowStore,
+                        linkedPriority(session, ref)));
             }
         }
 
@@ -135,7 +135,7 @@ public final class RtsLinkedStorageResolver {
             LinkedStorageRef bdRef = new LinkedStorageRef(
                     player.serverLevel().dimension(),
                     BlockPos.ZERO);
-            out.add(new LinkedFluidHandler(bdRef, bdName, session.cachedBdFluidHandler, true));
+            out.add(new LinkedFluidHandler(bdRef, bdName, session.cachedBdFluidHandler, true, 0));
         }
 
         return out;
@@ -205,6 +205,31 @@ public final class RtsLinkedStorageResolver {
         session.linkedStorages.removeIf(ref -> ref == null || ref.dimension() == null || ref.pos() == null);
         session.linkedNames.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
         session.linkedModes.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+        session.linkedPriorities.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+    }
+
+    public static List<LinkedHandler> orderHandlersForInsert(List<LinkedHandler> handlers) {
+        return orderedHandlers(handlers, Comparator.comparingInt(LinkedHandler::priority).reversed());
+    }
+
+    public static List<LinkedHandler> orderHandlersForExtract(List<LinkedHandler> handlers) {
+        return orderedHandlers(handlers, Comparator.comparingInt(LinkedHandler::priority));
+    }
+
+    public static List<IItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
+        return toItemHandlers(orderHandlersForInsert(handlers));
+    }
+
+    public static List<IItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
+        return toItemHandlers(orderHandlersForExtract(handlers));
+    }
+
+    public static List<LinkedFluidHandler> orderFluidHandlersForInsert(List<LinkedFluidHandler> handlers) {
+        return orderedFluidHandlers(handlers, Comparator.comparingInt(LinkedFluidHandler::priority).reversed());
+    }
+
+    public static List<LinkedFluidHandler> orderFluidHandlersForExtract(List<LinkedFluidHandler> handlers) {
+        return orderedFluidHandlers(handlers, Comparator.comparingInt(LinkedFluidHandler::priority));
     }
 
     /**
@@ -249,5 +274,41 @@ public final class RtsLinkedStorageResolver {
         return session != null
                 && ref != null
                 && sanitizeLinkMode(session.linkedModes.getOrDefault(ref, LINK_MODE_BIDIRECTIONAL)) == LINK_MODE_EXTRACT_ONLY;
+    }
+
+    private static int linkedPriority(RtsStorageSession session, LinkedStorageRef ref) {
+        return session == null || ref == null
+                ? 0
+                : RtsStorageManager.sanitizeLinkedStoragePriority(session.linkedPriorities.getOrDefault(ref, 0));
+    }
+
+    private static List<LinkedHandler> orderedHandlers(List<LinkedHandler> handlers, Comparator<LinkedHandler> comparator) {
+        if (handlers == null || handlers.size() <= 1) {
+            return handlers == null ? List.of() : handlers;
+        }
+        List<LinkedHandler> ordered = new ArrayList<>(handlers);
+        ordered.sort(comparator);
+        return ordered;
+    }
+
+    private static List<IItemHandler> toItemHandlers(List<LinkedHandler> handlers) {
+        if (handlers == null || handlers.isEmpty()) {
+            return List.of();
+        }
+        List<IItemHandler> out = new ArrayList<>(handlers.size());
+        for (LinkedHandler linked : handlers) {
+            out.add(linked.handler());
+        }
+        return out;
+    }
+
+    private static List<LinkedFluidHandler> orderedFluidHandlers(List<LinkedFluidHandler> handlers,
+            Comparator<LinkedFluidHandler> comparator) {
+        if (handlers == null || handlers.size() <= 1) {
+            return handlers == null ? List.of() : handlers;
+        }
+        List<LinkedFluidHandler> ordered = new ArrayList<>(handlers);
+        ordered.sort(comparator);
+        return ordered;
     }
 }

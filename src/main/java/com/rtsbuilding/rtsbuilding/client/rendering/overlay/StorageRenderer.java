@@ -3,51 +3,43 @@ package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * 储存方块高亮渲染器
- * 负责渲染已链接的储存容器方块的蓝色边框，帮助玩家识别RTS系统的储存网络
+ * Renders linked storage outlines in the world. Normal storage links keep the
+ * blue outline; extract-only links use pink so players can identify source-only
+ * containers without opening the detail window.
  */
 public final class StorageRenderer {
-
-    /**
-     * 私有构造函数，防止实例化
-     */
     private StorageRenderer() {
     }
 
-    /**
-     * 渲染所有已链接的储存方块高亮
-     *
-     * @param minecraft Minecraft客户端实例
-     * @param controller RTS控制器，提供储存位置列表
-     * @param poseStack 姿势栈，用于坐标变换
-     * @param lineBuffer 线条缓冲区
-     */
     public static void renderLinkedStorages(Minecraft minecraft, ClientRtsController controller, PoseStack poseStack,
-                                            VertexConsumer lineBuffer) {
-        if (minecraft.level == null || controller.getLinkedStoragePositions().isEmpty()) {
+            VertexConsumer lineBuffer) {
+        if (minecraft.level == null || controller.getLinkedStorageEntries().isEmpty()) {
             return;
         }
 
-        // 遍历所有已链接的储存位置
-        for (BlockPos pos : controller.getLinkedStoragePositions()) {
-            // 检查区块是否已加载
-            if (!minecraft.level.hasChunkAt(pos)) {
+        for (ClientRtsController.LinkedStorageEntry entry : controller.getLinkedStorageEntries()) {
+            BlockPos pos = entry.pos();
+            if (pos == null || !minecraft.level.hasChunkAt(pos)) {
                 continue;
             }
 
-            // 检查方块是否存在（非空气）
             BlockState state = minecraft.level.getBlockState(pos);
             if (state.isAir()) {
                 continue;
             }
 
-            // 绘制蓝色边框，向外扩展0.002单位以避免Z-fighting
+            boolean extractOnly = entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
+            float red = extractOnly ? 1.00F : 0.24F;
+            float green = extractOnly ? 0.30F : 0.55F;
+            float blue = extractOnly ? 0.82F : 1.00F;
             LevelRenderer.renderLineBox(
                     poseStack,
                     lineBuffer,
@@ -57,7 +49,7 @@ public final class StorageRenderer {
                     pos.getX() + 1.002D,
                     pos.getY() + 1.002D,
                     pos.getZ() + 1.002D,
-                    0.24F, 0.55F, 1.00F, 1.0F);  // 天蓝色
+                    red, green, blue, 1.0F);
         }
     }
 }

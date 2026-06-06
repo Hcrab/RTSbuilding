@@ -313,6 +313,7 @@ public final class RtsStoragePageBuilder {
                 linkedPackedPositions,
                 linkedRefs.names(),
                 linkedRefs.modes(),
+                linkedRefs.priorities(),
                 linkedRefs.iconItemIds(),
                 safePage,
                 totalPages,
@@ -355,6 +356,7 @@ public final class RtsStoragePageBuilder {
                 linkedRefs.positions(),
                 linkedRefs.names(),
                 linkedRefs.modes(),
+                linkedRefs.priorities(),
                 linkedRefs.iconItemIds(),
                 0,
                 1,
@@ -826,13 +828,14 @@ public final class RtsStoragePageBuilder {
      */
     private static LinkedRefPayload buildLinkedRefPayload(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null || session.linkedStorages.isEmpty()) {
-            return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of());
+            return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of());
         }
         ResourceKey<Level> currentDimension = player.serverLevel().dimension();
         ServerLevel level = player.serverLevel();
         List<Long> positions = new ArrayList<>(session.linkedStorages.size());
         List<String> names = new ArrayList<>(session.linkedStorages.size());
         List<Byte> modes = new ArrayList<>(session.linkedStorages.size());
+        List<Integer> priorities = new ArrayList<>(session.linkedStorages.size());
         List<String> iconItemIds = new ArrayList<>(session.linkedStorages.size());
         for (LinkedStorageRef ref : session.linkedStorages) {
             if (ref == null || ref.pos() == null || !currentDimension.equals(ref.dimension())) {
@@ -842,9 +845,11 @@ public final class RtsStoragePageBuilder {
             positions.add(pos.asLong());
             names.add(resolveLinkedRefName(level, session, ref));
             modes.add(session.linkedModes.getOrDefault(ref, C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL));
+            priorities.add(RtsStorageManager.sanitizeLinkedStoragePriority(
+                    session.linkedPriorities.getOrDefault(ref, 0)));
             iconItemIds.add(resolveLinkedRefIconItemId(level, pos));
         }
-        return new LinkedRefPayload(positions, names, modes, iconItemIds);
+        return new LinkedRefPayload(positions, names, modes, priorities, iconItemIds);
     }
 
     private static String resolveLinkedRefName(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref) {
@@ -888,7 +893,8 @@ public final class RtsStoragePageBuilder {
     public record PageResult(S2CRtsStoragePagePayload payload, int safePage) {
     }
 
-    private record LinkedRefPayload(List<Long> positions, List<String> names, List<Byte> modes, List<String> iconItemIds) {
+    private record LinkedRefPayload(List<Long> positions, List<String> names, List<Byte> modes,
+            List<Integer> priorities, List<String> iconItemIds) {
     }
 
     private record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count) {

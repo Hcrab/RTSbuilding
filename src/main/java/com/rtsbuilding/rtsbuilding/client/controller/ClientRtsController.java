@@ -1538,6 +1538,10 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendUnlinkStorage(pos);
     }
 
+    public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
+        RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
+    }
+
     private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
         if (this.pendingCraftTerminalOpen) {
             return true;
@@ -1692,6 +1696,9 @@ public final class ClientRtsController {
         byte mode = index >= 0 && index < payload.linkedModes().size()
                 ? payload.linkedModes().get(index)
                 : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
+        int priority = index >= 0 && index < payload.linkedPriorities().size()
+                ? payload.linkedPriorities().get(index)
+                : 0;
         ItemStack preview = ItemStack.EMPTY;
         String iconItemId = index >= 0 && index < payload.linkedIconItemIds().size()
                 ? payload.linkedIconItemIds().get(index)
@@ -1700,7 +1707,7 @@ public final class ClientRtsController {
         if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
             preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
         }
-        return new LinkedStorageEntry(pos, label, mode, preview);
+        return new LinkedStorageEntry(pos, label, mode, priority, preview);
     }
 
     private void markStorageScanStarted() {
@@ -2817,7 +2824,7 @@ public final class ClientRtsController {
      * still valid storage or whether unlink is allowed; those rules stay on the
      * server.
      */
-    public record LinkedStorageEntry(BlockPos pos, String label, byte mode, ItemStack preview) {
+    public record LinkedStorageEntry(BlockPos pos, String label, byte mode, int priority, ItemStack preview) {
     }
 
     public record FluidEntry(

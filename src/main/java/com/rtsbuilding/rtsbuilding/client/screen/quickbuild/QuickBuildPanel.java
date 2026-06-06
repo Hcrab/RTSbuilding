@@ -249,7 +249,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
             String costText = "x " + screen.currentShapeCostText();
             int textWidth = screen.font().width(costText);
-            g.drawString(screen.font(), costText, x + 8, textY, 0xB8FFB8);
+            g.drawString(screen.font(), costText, x + 8, textY, 0xB8FFB8, false);
 
             // 渲染所选方块的物品图标，同时记录右侧边界
             ItemStack preview = resolveShapeBuildItem();
@@ -272,7 +272,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                         if (missing > 0) {
                             String missText = screen.text("screen.rtsbuilding.quick_build.missing_blocks", missing);
                             int missTextX = rightEdge + 8;
-                            g.drawString(screen.font(), missText, missTextX, textY, 0xFFB8B8);
+                            g.drawString(screen.font(), missText, missTextX, textY, 0xFFB8B8, false);
 
                             if (!preview.isEmpty()) {
                                 int missIconX = missTextX + screen.font().width(missText) + 4;

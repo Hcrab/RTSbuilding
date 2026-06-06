@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
@@ -64,7 +63,7 @@ public final class RtsStorageTransfers {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = toItemHandlers(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
@@ -88,7 +87,7 @@ public final class RtsStorageTransfers {
 
         ItemStack toStore = carried.split(returned);
         player.containerMenu.setCarried(carried);
-        OverflowOutcome overflow = storeToLinkedWithFallbackPreferExisting(handlers, player, toStore);
+        OverflowOutcome overflow = storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toStore);
         if (overflow.hasOverflow()) {
             sendStorageOverflowHint(player, "Import", overflow);
         }
@@ -114,7 +113,8 @@ public final class RtsStorageTransfers {
         }
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = toItemHandlers(activeLinked);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
@@ -122,7 +122,7 @@ public final class RtsStorageTransfers {
         }
         Item item = BuiltInRegistries.ITEM.get(id);
         int wanted = Math.max(1, Math.min(64, amount));
-        ItemStack extracted = extractMatchingFromQuickDropSources(handlers, player, item, wanted);
+        ItemStack extracted = extractMatchingFromQuickDropSources(extractHandlers, player, item, wanted);
         if (extracted.isEmpty()) {
             return;
         }
@@ -132,7 +132,7 @@ public final class RtsStorageTransfers {
         if (!player.serverLevel().hasChunkAt(dropBlock)
                 || !RtsCameraManager.isWithinActionRadius(player, dropBlock)
                 || !RtsProgressionManager.canAccessHomeRadius(player, dropBlock)) {
-            refundToLinked(handlers, player, extracted);
+            refundToLinked(insertHandlers, player, extracted);
             RtsStorageManager.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
             return;
         }
@@ -165,7 +165,8 @@ public final class RtsStorageTransfers {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = toItemHandlers(activeLinked);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         Slot slot = menu.slots.get(menuSlot);
         if (slot == null || !slot.hasItem() || !slot.mayPickup(player)) {
@@ -186,7 +187,7 @@ public final class RtsStorageTransfers {
                 ItemStack currentResult = resultSlot.getItem();
                 if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
                     // Try one refill step so shift-craft can continue seamlessly in the same click.
-                    RtsStorageManager.refillCraftGridFromBlueprint(craftingMenu, handlers, player, craftBlueprint, false, true);
+                    RtsStorageManager.refillCraftGridFromBlueprint(craftingMenu, extractHandlers, player, craftBlueprint, false, true);
                     currentResult = resultSlot.getItem();
                     if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
                         break;
@@ -212,17 +213,17 @@ public final class RtsStorageTransfers {
                             S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED,
                             gained.getCount());
                 }
-                overflow = overflow.merge(storeToLinkedWithFallbackPreferExisting(handlers, player, gained));
+                overflow = overflow.merge(storeToLinkedWithFallbackPreferExisting(insertHandlers, player, gained));
                 craftedAny = true;
 
                 // Refill from linked storage first, then player main inventory, without touching the hotbar.
-                RtsStorageManager.refillCraftGridFromBlueprint(craftingMenu, handlers, player, craftBlueprint, false, true);
+                RtsStorageManager.refillCraftGridFromBlueprint(craftingMenu, extractHandlers, player, craftBlueprint, false, true);
             }
 
             if (!craftedAny) {
                 return;
             }
-            RtsStorageManager.refillCraftGridFromBlueprint(craftingMenu, handlers, player, craftBlueprint, true, true);
+            RtsStorageManager.refillCraftGridFromBlueprint(craftingMenu, extractHandlers, player, craftBlueprint, true, true);
         } else {
             ItemStack inSlot = slot.getItem();
             ItemStack moved = slot.safeTake(inSlot.getCount(), inSlot.getCount(), player);
@@ -239,7 +240,7 @@ public final class RtsStorageTransfers {
                             moved.getCount());
                 }
             }
-            overflow = storeToLinkedWithFallbackPreferExisting(handlers, player, moved);
+            overflow = storeToLinkedWithFallbackPreferExisting(insertHandlers, player, moved);
         }
 
         if (overflow.hasOverflow()) {
@@ -270,7 +271,7 @@ public final class RtsStorageTransfers {
         if (activeLinked.isEmpty() && !includePlayerMainInventory) {
             return;
         }
-        List<IItemHandler> handlers = toItemHandlers(activeLinked);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
 
         ItemStack carried = player.containerMenu.getCarried();
         int maxStack = prototype.getMaxStackSize();
@@ -285,7 +286,7 @@ public final class RtsStorageTransfers {
             }
         }
 
-        ItemStack extracted = extractMatchingFromNetwork(handlers, player, prototype.getItem(), prototype, wanted);
+        ItemStack extracted = extractMatchingFromNetwork(extractHandlers, player, prototype.getItem(), prototype, wanted);
         if (extracted.isEmpty()) {
             return;
         }
@@ -316,10 +317,11 @@ public final class RtsStorageTransfers {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = toItemHandlers(activeLinked);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         int maxStack = Math.max(1, prototype.getMaxStackSize());
-        ItemStack extracted = extractMatchingFromLinked(handlers, prototype.getItem(), prototype, maxStack);
+        ItemStack extracted = extractMatchingFromLinked(extractHandlers, prototype.getItem(), prototype, maxStack);
         if (extracted.isEmpty()) {
             return;
         }
@@ -335,7 +337,7 @@ public final class RtsStorageTransfers {
         }
 
         if (!remain.isEmpty()) {
-            refundToLinked(handlers, player, remain);
+            refundToLinked(insertHandlers, player, remain);
         }
 
         player.containerMenu.broadcastChanges();
@@ -359,11 +361,12 @@ public final class RtsStorageTransfers {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = toItemHandlers(activeLinked);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         int movedCount = 0;
         boolean inventoryFull = false;
-        outer: for (IItemHandler handler : handlers) {
+        outer: for (IItemHandler handler : extractHandlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 while (true) {
                     ItemStack preview = handler.getStackInSlot(slot);
@@ -381,7 +384,7 @@ public final class RtsStorageTransfers {
                     ItemStack remain = moveToPlayerInventoryOnly(player, extracted);
                     movedCount += Math.max(0, extractedCount - remain.getCount());
                     if (!remain.isEmpty()) {
-                        refundToLinked(handlers, player, remain);
+                        refundToLinked(insertHandlers, player, remain);
                         inventoryFull = true;
                         break outer;
                     }
@@ -1013,14 +1016,6 @@ public final class RtsStorageTransfers {
 
     private static boolean movesLinkedQuickMoveToPlayerInventory(AbstractContainerMenu menu) {
         return menu instanceof InventoryMenu || (menu instanceof CraftingMenu && !(menu instanceof RtsCraftTerminalMenu));
-    }
-
-    private static List<IItemHandler> toItemHandlers(List<LinkedHandler> activeLinked) {
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
-        return handlers;
     }
 
     private static int clampHotbarSlot(int slot) {

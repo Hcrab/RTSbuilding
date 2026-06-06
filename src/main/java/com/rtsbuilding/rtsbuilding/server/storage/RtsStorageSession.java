@@ -75,6 +75,9 @@ public class RtsStorageSession {
     /** 缓存：{@code ref -> 操作权限位掩码}，由管理器按需扫描更新 */
     public final Map<LinkedStorageRef, Byte> linkedModes = new HashMap<>();
 
+    /** AE-style linked storage priority. Default 0 keeps old saves and old links neutral. */
+    public final Map<LinkedStorageRef, Integer> linkedPriorities = new HashMap<>();
+
     // ======================================================================
     // §3  存储浏览器状态
     //      翻页、搜索、分类、排序和本地化匹配缓存。

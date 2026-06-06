@@ -915,7 +915,7 @@ public final class BuilderScreen extends Screen {
     /**
      * Handles key press events. Processes input for: quantity dialog, blueprint dialogs,
      * blueprint capture, home selection, ultimine editing, wheel panels, guide panel,
-     * gear menu, undo/redo (Ctrl+Z/Y), shape height adjustments (Page Up/Down),
+     * gear menu, undo/redo (Ctrl+Z/Y), mouse-wheel shape height adjustment,
      * camera vertical movement, break action, pick block, primary action, mode switching,
      * funnel hotkey, quick drop, shape rotation, craft terminal, search focus management,
      * tool slot selection (1-9), quick-slot pinning, and input sensitivity adjustment.
@@ -966,17 +966,6 @@ public final class BuilderScreen extends Screen {
         }
         if (hasControlDown() && keyCode == GLFW.GLFW_KEY_Y) {
             return this.shapeController.redoLastPlacementBatch();
-        }
-        if (!isSearchFocused()
-                && this.shapeController.canAdjustCurrentShapeHeight()
-                && (keyCode == GLFW.GLFW_KEY_PAGE_UP || keyCode == GLFW.GLFW_KEY_PAGE_DOWN)) {
-            int delta = keyCode == GLFW.GLFW_KEY_PAGE_UP ? 1 : -1;
-            if (isAltDown()) {
-                delta *= 4;
-            }
-            if (this.shapeController.adjustShapeHeightNudge(delta)) {
-                return true;
-            }
         }
         if (!isSearchFocused() && this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, true)) {
             return true;
@@ -1718,11 +1707,11 @@ public final class BuilderScreen extends Screen {
         int y = storageLinkDetailActionY();
         boolean hovered = inside(mouseX, mouseY, x, y, w, STORAGE_LINK_DETAIL_ACTION_H);
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, STORAGE_LINK_DETAIL_ACTION_H,
-                hovered ? 0xEE26394A : 0xCC17212D,
+                hovered ? 0xFF26394A : 0xF817212D,
                 hovered ? 0xFFB7D2EC : 0xFF6C839A,
                 0xFF0D1117);
-        g.drawCenteredString(this.font, trimToWidth(label, Math.max(8, w - 8)),
-                x + w / 2, y + 4, 0xFFF4FAFF);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, this.font,
+                trimToWidth(label, Math.max(8, w - 8)), x + w / 2, y + 4, 0xFFF4FAFF);
     }
 
     private boolean handleStorageLinkDetailActionClick(double mouseX, double mouseY) {
@@ -1747,8 +1736,13 @@ public final class BuilderScreen extends Screen {
         int w = storageLinkDetailActionW(linkButton, label);
         int x = storageLinkDetailActionX(linkButton, label);
         int y = storageLinkDetailActionY();
+        int bridgeX = Math.min(linkButton.x(), x);
+        int bridgeRight = Math.max(linkButton.x() + linkButton.width(), x + w);
+        int bridgeY = 4 + TOP_BUTTON_H;
+        int bridgeH = Math.max(0, y - bridgeY);
         return inside(mouseX, mouseY, linkButton.x(), 4, linkButton.width(), TOP_BUTTON_H)
-                || inside(mouseX, mouseY, x, y, w, STORAGE_LINK_DETAIL_ACTION_H);
+                || inside(mouseX, mouseY, x, y, w, STORAGE_LINK_DETAIL_ACTION_H)
+                || inside(mouseX, mouseY, bridgeX, bridgeY, bridgeRight - bridgeX, bridgeH);
     }
 
     private TopBarTypes.TopBarButtonLayout findTopBarButton(TopBarTypes.TopBarButtonId id) {
@@ -1767,7 +1761,7 @@ public final class BuilderScreen extends Screen {
     }
 
     private int storageLinkDetailActionY() {
-        return 4 + TOP_BUTTON_H + 3;
+        return TOP_H + 2;
     }
 
     private int storageLinkDetailActionW(TopBarTypes.TopBarButtonLayout linkButton, String label) {

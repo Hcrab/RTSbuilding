@@ -37,8 +37,10 @@ public final class RtsStorageSessionCodec {
     private static final String NBT_LINKED_ENTRY_POS = "pos";
     private static final String NBT_LINKED_ENTRY_DIMENSION = "dimension";
     private static final String NBT_LINKED_ENTRY_MODE = "mode";
+    private static final String NBT_LINKED_ENTRY_PRIORITY = "priority";
     private static final String NBT_LINKED_POSITIONS = "linked_positions";
     private static final String NBT_LINKED_MODES = "linked_modes";
+    private static final String NBT_LINKED_PRIORITIES = "linked_priorities";
     private static final String NBT_LINKED_DIMENSION = "linked_dimension";
     private static final String NBT_INTERNAL_FLUIDS = "internal_fluids";
     private static final String NBT_FLUID_ID = "id";
@@ -76,6 +78,7 @@ public final class RtsStorageSessionCodec {
         session.linkedStorages.clear();
         session.linkedNames.clear();
         session.linkedModes.clear();
+        session.linkedPriorities.clear();
 
         session.page = root.contains(NBT_PAGE, Tag.TAG_INT) ? Math.max(0, root.getInt(NBT_PAGE)) : 0;
         session.search = sanitizeSavedText(root.getString(NBT_SEARCH), 128);
@@ -127,6 +130,7 @@ public final class RtsStorageSessionCodec {
 
     private static void loadLinkedStorages(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         byte[] linkedModes = root.getByteArray(NBT_LINKED_MODES);
+        int[] linkedPriorities = root.getIntArray(NBT_LINKED_PRIORITIES);
 
         ResourceKey<Level> legacyDimension = null;
         String legacyDimensionId = root.getString(NBT_LINKED_DIMENSION);
@@ -153,6 +157,10 @@ public final class RtsStorageSessionCodec {
                     session.linkedStorages.add(ref);
                     session.linkedModes.put(ref, RtsStorageManager.sanitizeLinkMode(
                             linkedTag.getByte(NBT_LINKED_ENTRY_MODE)));
+                    int priority = linkedTag.contains(NBT_LINKED_ENTRY_PRIORITY, Tag.TAG_INT)
+                            ? linkedTag.getInt(NBT_LINKED_ENTRY_PRIORITY)
+                            : 0;
+                    session.linkedPriorities.put(ref, RtsStorageManager.sanitizeLinkedStoragePriority(priority));
                 }
             }
             return;
@@ -168,6 +176,8 @@ public final class RtsStorageSessionCodec {
                 session.linkedStorages.add(ref);
                 byte linkMode = i < linkedModes.length ? linkedModes[i] : RtsStorageManager.LINK_MODE_BIDIRECTIONAL;
                 session.linkedModes.put(ref, RtsStorageManager.sanitizeLinkMode(linkMode));
+                int priority = i < linkedPriorities.length ? linkedPriorities[i] : 0;
+                session.linkedPriorities.put(ref, RtsStorageManager.sanitizeLinkedStoragePriority(priority));
             }
         }
     }
@@ -266,6 +276,7 @@ public final class RtsStorageSessionCodec {
         ListTag linkedEntries = new ListTag();
         long[] linkedPacked = new long[session.linkedStorages.size()];
         byte[] linkedModes = new byte[session.linkedStorages.size()];
+        int[] linkedPriorities = new int[session.linkedStorages.size()];
         for (int i = 0; i < session.linkedStorages.size(); i++) {
             LinkedStorageRef ref = session.linkedStorages.get(i);
             if (ref == null || ref.pos() == null || ref.dimension() == null) {
@@ -273,18 +284,23 @@ public final class RtsStorageSessionCodec {
             }
             byte linkMode = RtsStorageManager.sanitizeLinkMode(
                     session.linkedModes.getOrDefault(ref, RtsStorageManager.LINK_MODE_BIDIRECTIONAL));
+            int priority = RtsStorageManager.sanitizeLinkedStoragePriority(
+                    session.linkedPriorities.getOrDefault(ref, 0));
             linkedPacked[i] = ref.pos().asLong();
             linkedModes[i] = linkMode;
+            linkedPriorities[i] = priority;
 
             CompoundTag linkedTag = new CompoundTag();
             linkedTag.putLong(NBT_LINKED_ENTRY_POS, ref.pos().asLong());
             linkedTag.putString(NBT_LINKED_ENTRY_DIMENSION, ref.dimension().location().toString());
             linkedTag.putByte(NBT_LINKED_ENTRY_MODE, linkMode);
+            linkedTag.putInt(NBT_LINKED_ENTRY_PRIORITY, priority);
             linkedEntries.add(linkedTag);
         }
         root.put(NBT_LINKED_ENTRIES, linkedEntries);
         root.putLongArray(NBT_LINKED_POSITIONS, linkedPacked);
         root.putByteArray(NBT_LINKED_MODES, linkedModes);
+        root.putIntArray(NBT_LINKED_PRIORITIES, linkedPriorities);
 
         if (!session.linkedStorages.isEmpty()) {
             LinkedStorageRef first = session.linkedStorages.get(0);

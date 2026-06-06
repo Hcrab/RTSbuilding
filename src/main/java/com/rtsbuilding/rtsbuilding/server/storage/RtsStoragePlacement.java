@@ -312,10 +312,8 @@ public final class RtsStoragePlacement {
             return false;
         }
 
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
@@ -333,8 +331,8 @@ public final class RtsStoragePlacement {
         ItemStack extracted = creativeSource
                 ? creativeStack(item, preferredStack)
                 : includePlayerMainInventory
-                        ? extractSelectedFromNetwork(handlers, player, item, preferredStack)
-                        : extractSelectedFromLinked(handlers, item, preferredStack);
+                        ? extractSelectedFromNetwork(extractHandlers, player, item, preferredStack)
+                        : extractSelectedFromLinked(extractHandlers, item, preferredStack);
         if (extracted.isEmpty()) {
             requestSessionPage(player, session, refreshStoragePage);
             return false;
@@ -371,7 +369,7 @@ public final class RtsStoragePlacement {
                     () -> RtsStorageManager.useItemWithMainHand(player, level, fallbackStack, forcePlace));
         }
         if (!creativeSource && !finalOutcome.remainder().isEmpty()) {
-            RtsStorageTransfers.refundToLinked(handlers, player, finalOutcome.remainder());
+            RtsStorageTransfers.refundToLinked(insertHandlers, player, finalOutcome.remainder());
         }
 
         if (!finalOutcome.result().consumesAction()) {

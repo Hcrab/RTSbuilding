@@ -38,6 +38,7 @@ import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetSurvivalProgress
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUnlinkStoragePayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUpdateLinkedStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsUnlockProgressionNodePayload;
@@ -145,6 +146,15 @@ public final class RtsClientPacketGateway {
     public static void sendUnlinkStorage(BlockPos pos) {
         if (pos != null) {
             PacketDistributor.sendToServer(new C2SRtsUnlinkStoragePayload(pos));
+        }
+    }
+
+    public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
+        if (pos != null) {
+            PacketDistributor.sendToServer(new C2SRtsUpdateLinkedStoragePayload(
+                    pos,
+                    extractOnly ? C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL,
+                    Mth.clamp(priority, -9999, 9999)));
         }
     }
 

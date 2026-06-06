@@ -98,6 +98,7 @@ public final class TopBarPanel {
         String row1 = modeText;
 
         // ---- Status bar row 2: storage, auto-store, fill, rotation, undo/redo ----
+        String shapeStatus = screen.isQuickBuildOpen() ? screen.pendingShapeStatusText() : "";
         String row2 = linked + (this.controller.isAutoStoreMinedDrops()
                 ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
                 : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
@@ -107,14 +108,14 @@ public final class TopBarPanel {
                 + "    " + screen.text("screen.rtsbuilding.status.fill", screen.fillModeLabel(screen.getShapeFillMode()))
                 + "    " + screen.text("screen.rtsbuilding.status.rotation", screen.getShapeRotateDegrees())
                 + "    " + screen.text("screen.rtsbuilding.status.undo_redo", screen.getShapeUndoSize(), screen.getShapeRedoSize())
-                + "    " + screen.pendingShapeStatusText()
+                + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         int statusX = 8;
         int statusW = Math.max(40, screen.width - 16);
-        g.drawString(screen.font(), screen.trimToWidth(row1, statusW), statusX, 33, 0xF0F0F0);
+        g.drawString(screen.font(), screen.trimToWidth(row1, statusW), statusX, 33, 0xF0F0F0, false);
         g.drawString(screen.font(), screen.trimToWidth(row2, statusW), statusX, 44,
-                this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE);
+                this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
     }
 
     // ======================== Click Handling ========================
@@ -290,7 +291,8 @@ public final class TopBarPanel {
         g.hLine(x, x + w, y + h, 0xFF0D0E10);
         g.vLine(x, y, y + h, 0xFF5B6673);
         g.vLine(x + w, y, y + h, 0xFF0D0E10);
-        g.drawCenteredString(screen.font(), screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
+                screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
     }
 
     /**
@@ -345,7 +347,7 @@ public final class TopBarPanel {
         int cx = x + (w / 2);
         int cy = y + (h / 2);
         if (button.id() == TopBarTypes.TopBarButtonId.GUIDE) {
-            g.drawCenteredString(screen.font(), "i", cx, y + 7, icon);
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), "i", cx, y + 7, icon);
         } else {
             TopBarIconRenderer.renderIcon(button.id(), g, cx, cy, icon, button.active(), screen.font());
         }

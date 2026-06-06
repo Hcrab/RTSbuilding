@@ -260,10 +260,8 @@ public final class RtsStorageCrafting {
             refreshCraftables(player, session);
             return;
         }
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         boolean includePlayerFallback = RtsLinkedStorageResolver.hasAnyStorage(player, session)
                 && !(player.containerMenu instanceof RtsCraftTerminalMenu);
@@ -278,7 +276,8 @@ public final class RtsStorageCrafting {
         Map<String, Integer> consumedCounts = new LinkedHashMap<>();
 
         for (int i = 0; i < requestedCrafts; i++) {
-            CraftExecutionResult result = craftSingleRecipeToLinked(player, handlers, craftingRecipe, includePlayerFallback);
+            CraftExecutionResult result = craftSingleRecipeToLinked(
+                    player, extractHandlers, insertHandlers, craftingRecipe, includePlayerFallback);
             if (!result.success()) {
                 storageFull = result.storageFull();
                 break;
@@ -722,10 +721,7 @@ public final class RtsStorageCrafting {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
 
         refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, false, true);
         craftingMenu.broadcastChanges();
@@ -812,10 +808,8 @@ public final class RtsStorageCrafting {
         }
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         Ingredient[] required = mapCraftingIngredients(craftingRecipe);
         if (required.length != 9) {
@@ -860,7 +854,7 @@ public final class RtsStorageCrafting {
                     if (existing.getCount() >= existing.getMaxStackSize()) {
                         continue;
                     }
-                    ItemStack extracted = extractOneMatchingIngredientCombined(handlers, player, ingredient, existing);
+                    ItemStack extracted = extractOneMatchingIngredientCombined(extractHandlers, player, ingredient, existing);
                     if (extracted.isEmpty()) {
                         continue;
                     }
@@ -871,7 +865,7 @@ public final class RtsStorageCrafting {
                     continue;
                 }
 
-                ItemStack extracted = extractOneMatchingIngredientCombined(handlers, player, ingredient, ItemStack.EMPTY);
+                ItemStack extracted = extractOneMatchingIngredientCombined(extractHandlers, player, ingredient, ItemStack.EMPTY);
                 if (extracted.isEmpty()) {
                     continue;
                 }
@@ -894,7 +888,7 @@ public final class RtsStorageCrafting {
             if (stack.isEmpty()) {
                 continue;
             }
-            RtsStorageTransfers.storeToLinkedWithFallbackPreferExisting(handlers, player, stack);
+            RtsStorageTransfers.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, stack);
         }
         refreshCraftingResult(craftingMenu);
         craftingMenu.broadcastChanges();
@@ -904,7 +898,8 @@ public final class RtsStorageCrafting {
         }
     }
 
-    private static CraftExecutionResult craftSingleRecipeToLinked(ServerPlayer player, List<IItemHandler> handlers,
+    private static CraftExecutionResult craftSingleRecipeToLinked(ServerPlayer player,
+            List<IItemHandler> extractHandlers, List<IItemHandler> insertHandlers,
             CraftingRecipe recipe, boolean includePlayerFallback) {
         Ingredient[] required = mapCraftingIngredients(recipe);
         if (required.length != 9) {
@@ -920,9 +915,9 @@ public final class RtsStorageCrafting {
                 continue;
             }
 
-            ExtractedIngredient taken = takeIngredientForCraft(handlers, player, ingredient, includePlayerFallback);
+            ExtractedIngredient taken = takeIngredientForCraft(extractHandlers, player, ingredient, includePlayerFallback);
             if (taken == null || taken.stack().isEmpty()) {
-                rollbackCraftIngredients(handlers, player, extracted);
+                rollbackCraftIngredients(insertHandlers, player, extracted);
                 return CraftExecutionResult.failure(false);
             }
             extracted[i] = taken;
@@ -931,13 +926,13 @@ public final class RtsStorageCrafting {
 
         CraftingInput input = CraftingInput.of(3, 3, inputStacks);
         if (!recipe.matches(input, player.serverLevel())) {
-            rollbackCraftIngredients(handlers, player, extracted);
+            rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
 
         ItemStack result = recipe.assemble(input, player.registryAccess());
         if (result.isEmpty()) {
-            rollbackCraftIngredients(handlers, player, extracted);
+            rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
 
@@ -955,14 +950,14 @@ public final class RtsStorageCrafting {
             if (stack.isEmpty()) {
                 continue;
             }
-            ItemStack remain = RtsStorageTransfers.storeToLinkedOnlyPreferExisting(handlers, stack);
+            ItemStack remain = RtsStorageTransfers.storeToLinkedOnlyPreferExisting(insertHandlers, stack);
             int storedCount = Math.max(0, stack.getCount() - remain.getCount());
             if (storedCount > 0) {
                 storedOutputs.add(stack.copyWithCount(storedCount));
             }
             if (!remain.isEmpty()) {
-                rollbackStoredCraftOutputs(handlers, storedOutputs);
-                rollbackCraftIngredients(handlers, player, extracted);
+                rollbackStoredCraftOutputs(insertHandlers, storedOutputs);
+                rollbackCraftIngredients(insertHandlers, player, extracted);
                 return CraftExecutionResult.failure(true);
             }
         }

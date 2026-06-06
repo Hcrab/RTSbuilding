@@ -461,6 +461,9 @@ public final class ScreenShapeController {
     }
 
     public String pendingShapeStatusText() {
+        if (!this.screen.isQuickBuildOpen()) {
+            return "";
+        }
         ClientRtsController.BuildShape currentShape = this.controller.getBuildShape();
         if (currentShape == ClientRtsController.BuildShape.BLOCK) {
             return this.screen.text("screen.rtsbuilding.shape_status.place");
@@ -535,12 +538,7 @@ public final class ScreenShapeController {
         if (session == null) {
             return 0;
         }
-        if (session.shape() != ClientRtsController.BuildShape.BOX
-                || (session.phase() != ShapeBuildTypes.Phase.READY_CONFIRM && session.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT)) {
-            return session.boxHeightOffset();
-        }
-        int mouseOffset = (int) Math.round((session.boxHeightMouseBaseY() - this.shapeCursorY) / 10.0D);
-        return ShapeGeometryUtil.clampShapeOffset(session.boxHeightOffset() + mouseOffset);
+        return session.boxHeightOffset();
     }
 
     private BlockPos resolveShapePlanePoint(ShapeBuildTypes.Session session, BlockHitResult cursorHit) {

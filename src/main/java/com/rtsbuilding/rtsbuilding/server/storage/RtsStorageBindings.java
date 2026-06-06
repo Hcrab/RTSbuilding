@@ -83,6 +83,7 @@ public final class RtsStorageBindings {
                 session.linkedStorages.remove(ref);
                 session.linkedNames.remove(ref);
                 session.linkedModes.remove(ref);
+                session.linkedPriorities.remove(ref);
             } else {
                 session.linkedModes.put(ref, normalizedMode);
                 session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
@@ -91,8 +92,38 @@ public final class RtsStorageBindings {
             session.linkedStorages.add(ref);
             session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
             session.linkedModes.put(ref, normalizedMode);
+            session.linkedPriorities.put(ref, 0);
         }
         return UpdateResult.refreshFirst(true);
+    }
+
+    /**
+     * Updates settings for an existing linked storage row. This is intentionally
+     * not a link/create operation: the detail panel can edit mode and AE-style
+     * priority, but the server still requires the ref to already belong to the
+     * player's session.
+     */
+    public static UpdateResult updateLinkedStorageSettings(ServerPlayer player, RtsStorageSession session,
+            BlockPos pos, byte linkMode, int priority) {
+        if (player == null || session == null || pos == null) {
+            return UpdateResult.none();
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        if (!session.linkedStorages.contains(ref)) {
+            return UpdateResult.none();
+        }
+        byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
+        int normalizedPriority = RtsStorageManager.sanitizeLinkedStoragePriority(priority);
+        byte oldMode = session.linkedModes.getOrDefault(ref, RtsStorageManager.LINK_MODE_BIDIRECTIONAL);
+        int oldPriority = session.linkedPriorities.getOrDefault(ref, 0);
+        if (oldMode == normalizedMode && oldPriority == normalizedPriority) {
+            return UpdateResult.none();
+        }
+        session.linkedModes.put(ref, normalizedMode);
+        session.linkedPriorities.put(ref, normalizedPriority);
+        session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        return UpdateResult.refreshCurrent(session, true);
     }
 
     /**

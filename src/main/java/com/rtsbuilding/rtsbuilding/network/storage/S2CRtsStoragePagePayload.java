@@ -17,6 +17,7 @@ public record S2CRtsStoragePagePayload(
         List<Long> linkedPositions,
         List<String> linkedNames,
         List<Byte> linkedModes,
+        List<Integer> linkedPriorities,
         List<String> linkedIconItemIds,
         int page,
         int totalPages,
@@ -66,11 +67,13 @@ public record S2CRtsStoragePagePayload(
                 int linkedDetailSize = Math.min(
                         payload.linkedPositions().size(),
                         Math.min(payload.linkedNames().size(),
-                                Math.min(payload.linkedModes().size(), payload.linkedIconItemIds().size())));
+                                Math.min(payload.linkedModes().size(),
+                                        Math.min(payload.linkedPriorities().size(), payload.linkedIconItemIds().size()))));
                 buf.writeVarInt(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
                     buf.writeUtf(payload.linkedNames().get(i) == null ? "" : payload.linkedNames().get(i), 128);
                     buf.writeByte(payload.linkedModes().get(i) == null ? 0 : payload.linkedModes().get(i));
+                    buf.writeVarInt(payload.linkedPriorities().get(i) == null ? 0 : payload.linkedPriorities().get(i));
                     buf.writeUtf(payload.linkedIconItemIds().get(i) == null ? "" : payload.linkedIconItemIds().get(i), 128);
                 }
                 buf.writeVarInt(payload.page());
@@ -158,10 +161,12 @@ public record S2CRtsStoragePagePayload(
                 int linkedDetailSize = buf.readVarInt();
                 List<String> linkedNames = new ArrayList<>(linkedDetailSize);
                 List<Byte> linkedModes = new ArrayList<>(linkedDetailSize);
+                List<Integer> linkedPriorities = new ArrayList<>(linkedDetailSize);
                 List<String> linkedIconItemIds = new ArrayList<>(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
                     linkedNames.add(buf.readUtf(128));
                     linkedModes.add(buf.readByte());
+                    linkedPriorities.add(buf.readVarInt());
                     linkedIconItemIds.add(buf.readUtf(128));
                 }
                 int page = buf.readVarInt();
@@ -241,6 +246,7 @@ public record S2CRtsStoragePagePayload(
                         linkedPositions,
                         linkedNames,
                         linkedModes,
+                        linkedPriorities,
                         linkedIconItemIds,
                         page,
                         totalPages,

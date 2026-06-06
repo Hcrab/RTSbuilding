@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -37,14 +38,28 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.T
  * Quick Build and Ultimine.
  */
 public final class LinkedStoragePanel extends RtsWindowPanel {
-    private static final int PANEL_W = 300;
-    private static final int PANEL_H = 178;
-    private static final int ROW_H = 28;
-    private static final int HEADER_H = 18;
+    private static final int PANEL_W = 390;
+    private static final int PANEL_H = 210;
+    private static final int ROW_H = 32;
+    private static final int HEADER_H = 26;
+    private static final int PRIORITY_W = 46;
+    private static final int EXTRACT_W = 62;
     private static final int UNLINK_W = 48;
     private static final int UNLINK_H = 16;
+    private static final int CONTROL_H = 16;
+    private static final int PRIORITY_MIN = -9999;
+    private static final int PRIORITY_MAX = 9999;
 
     private int scroll;
+    private WindowTextBox priorityInput;
+    private BlockPos editingPriorityPos;
+    private int editingPriorityFallback;
+
+    @Override
+    public void init(BuilderScreen screen, ClientRtsController controller) {
+        super.init(screen, controller);
+        this.priorityInput = createPriorityInput();
+    }
 
     public void openNear(int anchorX, int anchorY) {
         setOpen(true);
@@ -76,6 +91,11 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             return;
         }
 
+        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.priority"),
+                priorityBoxX(x, w), y + 12, 0xFF9FB3C8, false);
+        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.mode_extract"),
+                extractButtonX(x, w), y + 12, 0xFF9FB3C8, false);
+
         int firstY = y + HEADER_H;
         int visibleRows = visibleRows();
         int end = Math.min(entries.size(), this.scroll + visibleRows);
@@ -101,26 +121,62 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             g.vLine(x + 5, y + 5, y + 21, 0xFF566D83);
         }
 
-        String name = RtsClientUiUtil.trimToWidth(this.screen.font(), entry.label(), Math.max(30, w - 152));
+        int priorityX = priorityBoxX(x, w);
+        int priorityY = controlY(y);
+        int extractX = extractButtonX(x, w);
+        int unlinkX = unlinkButtonX(x, w);
+        String name = RtsClientUiUtil.trimToWidth(this.screen.font(), entry.label(),
+                Math.max(30, priorityX - (x + 26) - 6));
         g.drawString(this.screen.font(), name, x + 26, y + 4, 0xFFEAF2FF, false);
         g.drawString(this.screen.font(), formatPos(entry.pos()), x + 26, y + 15, 0xFF9FB3C8, false);
 
-        String mode = Component.translatable(entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY
-                ? "screen.rtsbuilding.storage_links.mode_extract"
-                : "screen.rtsbuilding.storage_links.mode_both").getString();
-        int modeX = x + w - UNLINK_W - 60;
-        g.drawString(this.screen.font(), RtsClientUiUtil.trimToWidth(this.screen.font(), mode, 54),
-                modeX, y + 10, 0xFFCDE7D2, false);
+        renderPriorityControl(g, mouseX, mouseY, entry, priorityX, priorityY);
+        renderExtractToggle(g, mouseX, mouseY, entry, extractX, priorityY);
 
-        int buttonX = unlinkButtonX(x, w);
-        int buttonY = unlinkButtonY(y);
-        boolean buttonHover = inside(mouseX, mouseY, buttonX, buttonY, UNLINK_W, UNLINK_H);
-        RtsClientUiUtil.drawPanelFrame(g, buttonX, buttonY, UNLINK_W, UNLINK_H,
+        int buttonY = controlY(y);
+        boolean buttonHover = inside(mouseX, mouseY, unlinkX, buttonY, UNLINK_W, UNLINK_H);
+        RtsClientUiUtil.drawPanelFrame(g, unlinkX, buttonY, UNLINK_W, UNLINK_H,
                 buttonHover ? 0xCC5A2B34 : 0xAA2A2228,
                 buttonHover ? 0xFFE28A96 : 0xFF7B5660,
                 0xFF180B0E);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.unlink"),
-                buttonX + UNLINK_W / 2, buttonY + 4, 0xFFFFF0F0);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, this.screen.font(),
+                Component.translatable("screen.rtsbuilding.storage_links.unlink"),
+                unlinkX + UNLINK_W / 2, buttonY + 4, 0xFFFFF0F0);
+    }
+
+    private void renderPriorityControl(GuiGraphics g, int mouseX, int mouseY,
+            ClientRtsController.LinkedStorageEntry entry, int x, int y) {
+        if (isEditingPriority(entry.pos())) {
+            this.priorityInput.setX(x);
+            this.priorityInput.setY(y);
+            this.priorityInput.renderWidget(g, mouseX, mouseY, 0.0F);
+            return;
+        }
+        boolean hovered = inside(mouseX, mouseY, x, y, PRIORITY_W, CONTROL_H);
+        RtsClientUiUtil.drawPanelFrame(g, x, y, PRIORITY_W, CONTROL_H,
+                hovered ? 0xCC26394A : 0xAA101820,
+                hovered ? 0xFF8EA9C4 : 0xFF566D83,
+                0xFF0D1117);
+        String text = RtsClientUiUtil.trimToWidth(this.screen.font(), Integer.toString(entry.priority()), PRIORITY_W - 6);
+        g.drawString(this.screen.font(), text, x + 4, y + 4, 0xFFEAF2FF, false);
+    }
+
+    private void renderExtractToggle(GuiGraphics g, int mouseX, int mouseY,
+            ClientRtsController.LinkedStorageEntry entry, int x, int y) {
+        boolean extractOnly = entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
+        boolean hovered = inside(mouseX, mouseY, x, y, EXTRACT_W, CONTROL_H);
+        int fill = extractOnly
+                ? (hovered ? 0xFF5A2D50 : 0xFF4A253F)
+                : (hovered ? 0xCC26394A : 0xAA1A222D);
+        int light = extractOnly
+                ? (hovered ? 0xFFFF9DDE : 0xFFFF74C9)
+                : (hovered ? 0xFF8EA9C4 : 0xFF566D83);
+        RtsClientUiUtil.drawPanelFrame(g, x, y, EXTRACT_W, CONTROL_H, fill, light, 0xFF0D1117);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, this.screen.font(),
+                RtsClientUiUtil.trimToWidth(this.screen.font(),
+                        Component.translatable("screen.rtsbuilding.storage_links.mode_extract").getString(),
+                        EXTRACT_W - 6),
+                x + EXTRACT_W / 2, y + 4, extractOnly ? 0xFFFFECFA : 0xFFCDE7D2);
     }
 
     @Override
@@ -130,6 +186,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         }
         List<ClientRtsController.LinkedStorageEntry> entries = this.controller.getLinkedStorageEntries();
         if (entries.isEmpty()) {
+            commitPriorityEdit();
             return;
         }
         int x = contentX() + 8;
@@ -141,13 +198,57 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         }
         int index = this.scroll + row;
         if (index < 0 || index >= entries.size()) {
+            commitPriorityEdit();
             return;
         }
         int rowY = firstY + row * ROW_H;
-        if (inside(mouseX, mouseY, unlinkButtonX(x, w), unlinkButtonY(rowY), UNLINK_W, UNLINK_H)) {
-            BlockPos pos = entries.get(index).pos();
+        ClientRtsController.LinkedStorageEntry entry = entries.get(index);
+        int controlY = controlY(rowY);
+        if (inside(mouseX, mouseY, priorityBoxX(x, w), controlY, PRIORITY_W, CONTROL_H)) {
+            beginPriorityEdit(entry, priorityBoxX(x, w), controlY);
+            return;
+        }
+        int priorityForUpdate = isEditingPriority(entry.pos())
+                ? parsePriorityDraft(this.priorityInput.getValue(), this.editingPriorityFallback)
+                : entry.priority();
+        commitPriorityEdit();
+        if (inside(mouseX, mouseY, extractButtonX(x, w), controlY, EXTRACT_W, CONTROL_H)) {
+            boolean nextExtractOnly = entry.mode() != C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
+            this.controller.updateLinkedStorageSettings(entry.pos(), nextExtractOnly, priorityForUpdate);
+            return;
+        }
+        if (inside(mouseX, mouseY, unlinkButtonX(x, w), controlY, UNLINK_W, UNLINK_H)) {
+            BlockPos pos = entry.pos();
             this.controller.unlinkLinkedStorage(pos);
         }
+    }
+
+    @Override
+    protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
+        if (this.priorityInput == null || !this.priorityInput.isFocused()) {
+            return false;
+        }
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            commitPriorityEdit();
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            cancelPriorityEdit();
+            return true;
+        }
+        return this.priorityInput.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
+        return this.priorityInput != null
+                && this.priorityInput.isFocused()
+                && this.priorityInput.charTyped(codePoint, modifiers);
+    }
+
+    @Override
+    protected void onClose() {
+        commitPriorityEdit();
     }
 
     @Override
@@ -196,12 +297,96 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         return Math.max(0, entries.size() - visibleRows());
     }
 
+    private WindowTextBox createPriorityInput() {
+        WindowTextBox input = new WindowTextBox(this.screen.font(), 0, 0, PRIORITY_W, CONTROL_H);
+        input.setMaxLength(6);
+        input.setInputFilter(value -> value != null && value.matches("-?\\d*"));
+        return input;
+    }
+
+    private void beginPriorityEdit(ClientRtsController.LinkedStorageEntry entry, int x, int y) {
+        if (entry == null || entry.pos() == null) {
+            return;
+        }
+        if (!entry.pos().equals(this.editingPriorityPos)) {
+            commitPriorityEdit();
+        }
+        if (this.priorityInput == null) {
+            this.priorityInput = createPriorityInput();
+        }
+        this.editingPriorityPos = entry.pos();
+        this.editingPriorityFallback = entry.priority();
+        this.priorityInput.setX(x);
+        this.priorityInput.setY(y);
+        this.priorityInput.setValue(Integer.toString(entry.priority()));
+        this.priorityInput.setFocused(true);
+    }
+
+    private void commitPriorityEdit() {
+        if (this.editingPriorityPos == null || this.priorityInput == null) {
+            return;
+        }
+        BlockPos pos = this.editingPriorityPos;
+        int priority = parsePriorityDraft(this.priorityInput.getValue(), this.editingPriorityFallback);
+        ClientRtsController.LinkedStorageEntry entry = findEntry(pos);
+        boolean extractOnly = entry != null
+                && entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
+        if (entry == null || entry.priority() != priority) {
+            this.controller.updateLinkedStorageSettings(pos, extractOnly, priority);
+        }
+        cancelPriorityEdit();
+    }
+
+    private void cancelPriorityEdit() {
+        this.editingPriorityPos = null;
+        this.editingPriorityFallback = 0;
+        if (this.priorityInput != null) {
+            this.priorityInput.setFocused(false);
+        }
+    }
+
+    private ClientRtsController.LinkedStorageEntry findEntry(BlockPos pos) {
+        if (pos == null) {
+            return null;
+        }
+        for (ClientRtsController.LinkedStorageEntry entry : this.controller.getLinkedStorageEntries()) {
+            if (entry != null && pos.equals(entry.pos())) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private boolean isEditingPriority(BlockPos pos) {
+        return pos != null && pos.equals(this.editingPriorityPos)
+                && this.priorityInput != null && this.priorityInput.isFocused();
+    }
+
+    private static int parsePriorityDraft(String value, int fallback) {
+        if (value == null || value.isBlank() || "-".equals(value)) {
+            return Mth.clamp(fallback, PRIORITY_MIN, PRIORITY_MAX);
+        }
+        try {
+            return Mth.clamp(Integer.parseInt(value), PRIORITY_MIN, PRIORITY_MAX);
+        } catch (NumberFormatException ignored) {
+            return Mth.clamp(fallback, PRIORITY_MIN, PRIORITY_MAX);
+        }
+    }
+
+    private static int priorityBoxX(int rowX, int rowW) {
+        return extractButtonX(rowX, rowW) - PRIORITY_W - 6;
+    }
+
+    private static int extractButtonX(int rowX, int rowW) {
+        return unlinkButtonX(rowX, rowW) - EXTRACT_W - 6;
+    }
+
     private static int unlinkButtonX(int rowX, int rowW) {
         return rowX + rowW - UNLINK_W - 6;
     }
 
-    private static int unlinkButtonY(int rowY) {
-        return rowY + 5;
+    private static int controlY(int rowY) {
+        return rowY + 7;
     }
 
     private static String formatPos(BlockPos pos) {

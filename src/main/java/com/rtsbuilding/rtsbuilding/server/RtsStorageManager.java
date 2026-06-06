@@ -47,6 +47,7 @@ import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -324,6 +325,7 @@ public final class RtsStorageManager {
         if (removed) {
             session.linkedNames.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
             session.linkedModes.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+            session.linkedPriorities.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
         }
         return removed;
     }
@@ -366,6 +368,15 @@ public final class RtsStorageManager {
         }
     }
 
+    public static void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority) {
+        if (player == null || pos == null) {
+            return;
+        }
+        Session session = getOrCreateSession(player);
+        applyBindingUpdate(player, session,
+                RtsStorageBindings.updateLinkedStorageSettings(player, session, pos, linkMode, priority));
+    }
+
     public static void openCraftTerminal(ServerPlayer player) {
         RtsStorageCrafting.openCraftTerminal(player, SESSIONS.get(player.getUUID()));
     }
@@ -404,10 +415,7 @@ public final class RtsStorageManager {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         int slot = clampHotbarSlot(slotId);
         ItemStack inSlot = player.getInventory().getItem(slot);
@@ -519,7 +527,7 @@ public final class RtsStorageManager {
             return ItemStack.EMPTY;
         }
         List<LinkedHandler> activeLinked = resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = activeLinked.stream().map(LinkedHandler::handler).toList();
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         return extractMatchingFromNetwork(handlers, player, item, count);
     }
 
@@ -792,15 +800,14 @@ public final class RtsStorageManager {
 
         List<LinkedHandler> activeItemHandlers = resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> activeFluidHandlers = resolveLinkedFluidHandlers(player, session);
-        List<IItemHandler> itemHandlers = new ArrayList<>(activeItemHandlers.size());
-        for (LinkedHandler linked : activeItemHandlers) {
-            itemHandlers.add(linked.handler());
-        }
+        List<IItemHandler> extractItemHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeItemHandlers);
+        List<IItemHandler> insertItemHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeItemHandlers);
 
         boolean changed = RtsStorageFluids.storeFluidFromContainer(
                 player,
                 session,
-                itemHandlers,
+                extractItemHandlers,
+                insertItemHandlers,
                 activeFluidHandlers,
                 sourceType,
                 toolSlot,
@@ -1004,7 +1011,7 @@ public final class RtsStorageManager {
             return;
         }
         List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
+        for (LinkedHandler linked : RtsLinkedStorageResolver.orderHandlersForInsert(activeLinked)) {
             // Never route recovered items into the container being broken.
             if (linked.pos().equals(targetPos)) {
                 continue;
@@ -1057,6 +1064,7 @@ public final class RtsStorageManager {
         if (session.linkedStorages.remove(targetRef)) {
             session.linkedNames.remove(targetRef);
             session.linkedModes.remove(targetRef);
+            session.linkedPriorities.remove(targetRef);
             saveSessionToPlayerNbt(player, session);
         }
 
@@ -1758,17 +1766,15 @@ public final class RtsStorageManager {
             return InteractionResult.PASS;
         }
 
-        List<IItemHandler> handlers = new ArrayList<>(activeLinked.size());
-        for (LinkedHandler linked : activeLinked) {
-            handlers.add(linked.handler());
-        }
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return InteractionResult.PASS;
         }
 
-        ItemStack extracted = extractOneFromNetwork(handlers, player, BuiltInRegistries.ITEM.get(id));
+        ItemStack extracted = extractOneFromNetwork(extractHandlers, player, BuiltInRegistries.ITEM.get(id));
         if (extracted.isEmpty()) {
             return InteractionResult.PASS;
         }
@@ -1805,7 +1811,7 @@ public final class RtsStorageManager {
             return useItemWithMainHand(player, level, afterSecondaryOn, true);
                 });
         if (!outcome.remainder().isEmpty()) {
-            refundToLinked(handlers, player, outcome.remainder());
+            refundToLinked(insertHandlers, player, outcome.remainder());
         }
         return outcome.result();
     }
@@ -2156,6 +2162,10 @@ public final class RtsStorageManager {
 
     public static byte sanitizeLinkMode(byte linkMode) {
         return RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
+    }
+
+    public static int sanitizeLinkedStoragePriority(int priority) {
+        return Mth.clamp(priority, -9999, 9999);
     }
 
     private static boolean isExtractOnlyLink(Session session, LinkedStorageRef ref) {
