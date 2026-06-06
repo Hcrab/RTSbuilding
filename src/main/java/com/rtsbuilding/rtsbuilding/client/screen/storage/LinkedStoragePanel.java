@@ -58,7 +58,8 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
-        this.priorityInput = createPriorityInput();
+        this.priorityInput = null;
+        this.editingPriorityPos = null;
     }
 
     public void openNear(int anchorX, int anchorY) {

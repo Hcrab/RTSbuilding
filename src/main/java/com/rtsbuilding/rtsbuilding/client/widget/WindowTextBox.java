@@ -40,11 +40,15 @@ public class WindowTextBox extends EditBox {
     }
 
     public WindowTextBox(Font font, int x, int y, int width, int height) {
-        super(font, x, y, width, height, Component.empty());
+        super(resolveFont(font), x, y, width, height, Component.empty());
         setBordered(false);
         setTextColor(TEXT_COLOR);
         setTextColorUneditable(TEXT_COLOR_UNEDITABLE);
         setCanLoseFocus(true);
+    }
+
+    private static Font resolveFont(Font font) {
+        return font != null ? font : Minecraft.getInstance().font;
     }
 
     public void setPlaceholder(String placeholder) {
