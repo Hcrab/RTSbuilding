@@ -163,7 +163,7 @@ public final class BuilderScreenConstants {
     /** 齿轮菜单最小高度 */
     public static final int GEAR_MENU_MIN_H = 168;
     /** 齿轮菜单内容高度 */
-    public static final int GEAR_MENU_CONTENT_H = 544;
+    public static final int GEAR_MENU_CONTENT_H = 580;
 
     // ======================== 任务检测弹窗 ========================
     /** 任务检测弹窗宽度 */

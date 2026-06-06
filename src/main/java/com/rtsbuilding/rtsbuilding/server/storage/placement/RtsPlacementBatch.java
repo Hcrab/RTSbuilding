@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage.placement;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
@@ -27,7 +26,7 @@ import net.minecraft.world.phys.Vec3;
  * or extract items — those responsibilities live in their dedicated helpers.
  */
 public final class RtsPlacementBatch {
-    private static final int BUILD_BATCH_BLOCKS_PER_TICK = 64;
+    private static final int BUILD_BATCH_MAX_BLOCKS_PER_TICK = 64;
     private static final int BUILD_BATCH_MAX_QUEUED_JOBS = 4;
 
     private RtsPlacementBatch() {
@@ -70,8 +69,12 @@ public final class RtsPlacementBatch {
     /**
      * Queues a batch of positions for remote placement. Sanitises input,
      * validates progression access, and caps the batch at
-     * {@link C2SRtsPlaceBatchPayload#MAX_POSITIONS} positions and
-     * {@link #BUILD_BATCH_MAX_QUEUED_JOBS} queued jobs.
+     * {@link C2SRtsPlaceBatchPayload#MAX_POSITIONS} positions.
+     * <p>
+     * Quick-build jobs (shape builds) are limited to
+     * {@link #BUILD_BATCH_MAX_QUEUED_JOBS} queued jobs; when the queue is full,
+     * new quick-build jobs are rejected. Single-block placements
+     * ({@code quickBuild = false}) bypass this limit.
      */
     public static void enqueuePlaceBatch(ServerPlayer player, RtsStorageSession session, List<BlockPos> clickedPositions,
             Direction face, double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps,
@@ -99,12 +102,10 @@ public final class RtsPlacementBatch {
         if (positions.isEmpty()) {
             return;
         }
-        // 按 Y 层升序排序，实现从底层到顶层逐层建造
-        positions.sort(Comparator.<BlockPos>comparingInt(pos -> pos.getY())
-                .thenComparingInt(pos -> pos.getX())
-                .thenComparingInt(pos -> pos.getZ()));
-        while (session.placeBatchJobs.size() >= BUILD_BATCH_MAX_QUEUED_JOBS) {
-            session.placeBatchJobs.removeFirst();
+        // Quick-build jobs (shape builds) are limited to BUILD_BATCH_MAX_QUEUED_JOBS;
+        // reject when full. Single-block placements bypass this limit.
+        if (quickBuild && session.placeBatchJobs.size() >= BUILD_BATCH_MAX_QUEUED_JOBS) {
+            return;
         }
         session.placeBatchJobs.addLast(new PlaceBatchJob(
                 positions,
@@ -128,7 +129,7 @@ public final class RtsPlacementBatch {
     }
 
     /**
-     * Tick handler that processes up to {@link #BUILD_BATCH_BLOCKS_PER_TICK}
+     * Tick handler that processes up to {@link #BUILD_BATCH_MAX_BLOCKS_PER_TICK}
      * blocks from queued batch jobs. Quick-build jobs use the pre-resolved
      * state plan fast path; all others fall through to the interactive single
      * placement path. Saves and refreshes the session when a full job
@@ -138,7 +139,11 @@ public final class RtsPlacementBatch {
         if (player == null || session == null) {
             return;
         }
-        int remaining = BUILD_BATCH_BLOCKS_PER_TICK;
+        int totalBlocks = 0;
+        for (PlaceBatchJob j : session.placeBatchJobs) {
+            totalBlocks += j.totalCount();
+        }
+        int remaining = Math.min(BUILD_BATCH_MAX_BLOCKS_PER_TICK, Math.max(1, totalBlocks / 10));
         boolean finishedJob = false;
         while (remaining > 0 && !session.placeBatchJobs.isEmpty()) {
             PlaceBatchJob job = session.placeBatchJobs.peekFirst();
@@ -198,8 +203,8 @@ public final class RtsPlacementBatch {
     /**
      * A single batch placement job that holds the shared placement parameters
      * and an ordered list of target positions. Each job is processed by
-     * {@link #tickPlaceBatchJobs} at a rate of
-     * {@link #BUILD_BATCH_BLOCKS_PER_TICK} blocks per tick.
+     * {@link #tickPlaceBatchJobs} at a rate of up to
+     * {@link #BUILD_BATCH_MAX_BLOCKS_PER_TICK} blocks per tick.
      */
     public static final class PlaceBatchJob {
         private final List<BlockPos> clickedPositions;
@@ -250,6 +255,14 @@ public final class RtsPlacementBatch {
 
         private boolean hasNext() {
             return this.index < this.clickedPositions.size();
+        }
+
+        int remainingCount() {
+            return this.clickedPositions.size() - this.index;
+        }
+
+        int totalCount() {
+            return this.clickedPositions.size();
         }
 
         private BlockPos next() {

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.builder.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
@@ -13,6 +14,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.BlockState;
@@ -139,6 +141,10 @@ public final class ScreenShapeController {
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
                 recordSinglePlacementForUndo(hit, replayKind, replayItemId, replayToolSlot);
+                // Single block pending ghost
+                BlockState pendingState = resolvePendingGhostBlockState();
+                PlacementAnimationRenderer.addPendingBatch(
+                        List.of(hit.getBlockPos().immutable()), pendingState);
             }
             return;
         }
@@ -259,6 +265,10 @@ public final class ScreenShapeController {
                     usePinnedItem ? -1 : this.screen.getSelectedToolSlot(),
                     input.placementFace(),
                     positions);
+        
+            // Register pending ghosts for visual feedback while waiting for server confirmation
+            BlockState pendingState = resolvePendingGhostBlockState();
+            PlacementAnimationRenderer.addPendingBatch(positions, pendingState);
         }
         return true;
     }
@@ -578,6 +588,26 @@ public final class ScreenShapeController {
     }
 
     // ===== Internal helpers =====
+
+    /**
+     * Resolves the block state to use for pending ghost rendering at placement confirmation time.
+     */
+    private BlockState resolvePendingGhostBlockState() {
+        Minecraft mc = this.screen.getMinecraft();
+        if (this.controller.hasSelectedItem()) {
+            ItemStack preview = this.controller.getSelectedItemPreview();
+            if (preview.getItem() instanceof BlockItem blockItem) {
+                return blockItem.getBlock().defaultBlockState();
+            }
+        }
+        if (mc != null && mc.player != null) {
+            ItemStack mainHand = mc.player.getMainHandItem();
+            if (mainHand.getItem() instanceof BlockItem blockItem) {
+                return blockItem.getBlock().defaultBlockState();
+            }
+        }
+        return null;
+    }
 
     private ShapeBuildTypes.Input resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
         ShapeBuildTypes.Session session = this.shapeBuildSession;

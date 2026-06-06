@@ -40,6 +40,13 @@ public class Config {
             .translation("rtsbuilding.configuration.progressionCostOverrides")
             .defineListAllowEmpty("progressionCostOverrides", List.of(), () -> "", obj -> obj instanceof String);
 
+    // ---- Rendering options ----
+
+    public static final ModConfigSpec.BooleanValue USE_WIREFRAME_PREVIEW = BUILDER
+            .comment("Use wireframe outlines instead of translucent block models for placement previews and ghost animations.")
+            .translation("rtsbuilding.configuration.useWireframePreview")
+            .define("useWireframePreview", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static void setSurvivalProgressionEnabled(boolean enabled) {
@@ -92,6 +99,15 @@ public class Config {
             }
         }
         return out;
+    }
+
+    public static boolean isWireframePreviewEnabled() {
+        return USE_WIREFRAME_PREVIEW.getAsBoolean();
+    }
+
+    public static void setWireframePreviewEnabled(boolean enabled) {
+        USE_WIREFRAME_PREVIEW.set(enabled);
+        SPEC.save();
     }
 
     public static void setProgressionCostOverride(String nodePath, String costsText) {

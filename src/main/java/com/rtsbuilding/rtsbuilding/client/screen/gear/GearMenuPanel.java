@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.gear;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
@@ -184,6 +185,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.bd_network",
                 "screen.rtsbuilding.settings.bd_network.hint",
                 this.controller.isBdNetworkEnabled());
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, controlsY + 528,
+                "screen.rtsbuilding.settings.wireframe_preview",
+                "screen.rtsbuilding.settings.wireframe_preview.hint",
+                Config.isWireframePreviewEnabled());
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -270,6 +275,9 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         if (inside(mouseX, contentMouseY, x + 12, controlsY + 488, w - 24, 34)) {
             this.controller.toggleBdNetworkEnabled();
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 524, w - 24, 34)) {
+            Config.setWireframePreviewEnabled(!Config.isWireframePreviewEnabled());
         }
     }
 

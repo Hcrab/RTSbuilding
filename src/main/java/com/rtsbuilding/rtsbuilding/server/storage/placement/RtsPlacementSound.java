@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.storage.placement;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -22,6 +26,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
  */
 public final class RtsPlacementSound {
 
+    private static final int MAX_SOUNDS_PER_TICK = 1;
+    private static final Map<UUID, Integer> PER_PLAYER_SOUNDS_THIS_TICK = new HashMap<>();
+    private static long SOUND_RESET_TICK = -1L;
+
     private RtsPlacementSound() {
     }
 
@@ -38,6 +46,9 @@ public final class RtsPlacementSound {
 
     /**
      * Plays the block-place sound for a remotely placed block.
+     * <p>
+     * Sound is throttled to at most 2 plays per game tick per player to avoid
+     * cacophony during large batch placements.
      */
     public static void playRemotePlacedBlockSound(ServerPlayer player, ServerLevel level,
                                                    BlockPos pos) {
@@ -48,6 +59,17 @@ public final class RtsPlacementSound {
         if (state.isAir()) {
             return;
         }
+        // Per-player per-tick throttle: max 2 sounds/tick
+        long currentTick = level.getGameTime();
+        if (currentTick != SOUND_RESET_TICK) {
+            SOUND_RESET_TICK = currentTick;
+            PER_PLAYER_SOUNDS_THIS_TICK.clear();
+        }
+        int count = PER_PLAYER_SOUNDS_THIS_TICK.getOrDefault(player.getUUID(), 0);
+        if (count >= MAX_SOUNDS_PER_TICK) {
+            return;
+        }
+        PER_PLAYER_SOUNDS_THIS_TICK.put(player.getUUID(), count + 1);
         SoundType soundType = state.getSoundType(level, pos, player);
         Vec3 soundPos = cameraOrEyePos(player);
         RtsStorageManager.sendDirectSound(

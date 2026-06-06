@@ -220,6 +220,7 @@ public final class RtsModConfigScreen extends Screen {
             this.maxBlueprintBlocksBox.setTextColorUneditable(0xFFB8C7D6);
             addRenderableWidget(this.maxBlueprintBlocksBox);
         }
+
     }
 
     private void addSkillWidgets() {
