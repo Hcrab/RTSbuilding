@@ -40,6 +40,7 @@ import java.util.Set;
  *   <li>Ray-cast both blocks and entities, pick the nearest hit</li>
  *   <li>Compute the world-space bounding box (respecting multi-block structures)</li>
  *   <li>Draw thickened corner brackets with a breathing colour animation</li>
+ *   <li>Render a translucent coloured fog layer on the selected block face</li>
  * </ol>
  *
  * <p>All methods are static; this class is never instantiated.
@@ -55,6 +56,12 @@ public final class InteractionTargetRenderer {
 
     /** Small outward offset applied to block brackets to prevent z-fighting. */
     private static final double LINE_OFFSET = 0.01D;
+
+    /** Alpha (opacity) of the translucent fog layer on the hit block face. */
+    private static final float FACE_FOG_ALPHA = 0.15F;
+
+    /** Small outward offset applied to the hit-face quad to prevent z-fighting. */
+    private static final double FACE_FOG_OFFSET = 0.005D;
 
     // ──────────────────────────────────────────────
     //  Constants – Animation
@@ -148,7 +155,7 @@ public final class InteractionTargetRenderer {
         // Block is the nearest target – render block highlight
         BlockPos pos = blockHit.getBlockPos();
         double distance = camPos.distanceTo(Vec3.atCenterOf(pos));
-        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, pos, distance, breathFactor);
+        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, pos, blockHit.getDirection(), distance, breathFactor);
     }
 
     // ══════════════════════════════════════════════
@@ -237,7 +244,7 @@ public final class InteractionTargetRenderer {
      * @param breathFactor current breathing animation multiplier
      */
     private static void renderBlockCornerHighlight(Minecraft minecraft, PoseStack poseStack,
-            VertexConsumer lineBuffer, BlockPos pos, double distance, float breathFactor) {
+            VertexConsumer lineBuffer, BlockPos pos, Direction hitFace, double distance, float breathFactor) {
         if (minecraft.level == null) {
             return;
         }
@@ -256,6 +263,12 @@ public final class InteractionTargetRenderer {
                 BLOCK_COLOR_G * breathFactor,
                 BLOCK_COLOR_B * breathFactor,
                 distance);
+
+        // Render a translucent fog layer on the hit face
+        renderHitFaceFog(lineBuffer, poseStack, bounds, hitFace,
+                BLOCK_COLOR_R * breathFactor,
+                BLOCK_COLOR_G * breathFactor,
+                BLOCK_COLOR_B * breathFactor);
     }
 
     // ══════════════════════════════════════════════
@@ -275,6 +288,63 @@ public final class InteractionTargetRenderer {
         double sin = Math.sin(phase);
         // Map sin ∈ [-1, 1] → factor ∈ [BREATH_MIN_FACTOR, 1.0]
         return (float) ((sin + 1.0D) * 0.5D * (1.0F - BREATH_MIN_FACTOR) + BREATH_MIN_FACTOR);
+    }
+
+    // ══════════════════════════════════════════════
+    //  Hit-Face Fog Rendering
+    // ══════════════════════════════════════════════
+
+    /**
+     * Renders a translucent coloured fog quad on the single face of the bounding box
+     * that the player's crosshair is currently targeting. A small outward offset is
+     * applied along the face normal to prevent z-fighting with the block geometry.
+     *
+     * @param consumer  vertex consumer
+     * @param poseStack current transformation stack
+     * @param bounds    the world-space bounding box of the target block/structure
+     * @param face      the direction of the hit face
+     * @param r         red   colour component [0, 1] (already modulated by breath factor)
+     * @param g         green colour component [0, 1]
+     * @param b         blue  colour component [0, 1]
+     */
+    private static void renderHitFaceFog(VertexConsumer consumer, PoseStack poseStack,
+            AABB bounds, Direction face, float r, float g, float b) {
+        float alpha = FACE_FOG_ALPHA;
+        double off = FACE_FOG_OFFSET;
+
+        double x1 = bounds.minX, x2 = bounds.maxX;
+        double y1 = bounds.minY, y2 = bounds.maxY;
+        double z1 = bounds.minZ, z2 = bounds.maxZ;
+
+        switch (face) {
+            case DOWN -> quad(consumer, poseStack,
+                    x1, y1 - off, z1, x2, y1 - off, z1, x2, y1 - off, z2, x1, y1 - off, z2, r, g, b, alpha);
+            case UP -> quad(consumer, poseStack,
+                    x1, y2 + off, z1, x1, y2 + off, z2, x2, y2 + off, z2, x2, y2 + off, z1, r, g, b, alpha);
+            case NORTH -> quad(consumer, poseStack,
+                    x1, y1, z1 - off, x2, y1, z1 - off, x2, y2, z1 - off, x1, y2, z1 - off, r, g, b, alpha);
+            case SOUTH -> quad(consumer, poseStack,
+                    x1, y1, z2 + off, x1, y2, z2 + off, x2, y2, z2 + off, x2, y1, z2 + off, r, g, b, alpha);
+            case WEST -> quad(consumer, poseStack,
+                    x1 - off, y1, z1, x1 - off, y2, z1, x1 - off, y2, z2, x1 - off, y1, z2, r, g, b, alpha);
+            case EAST -> quad(consumer, poseStack,
+                    x2 + off, y1, z1, x2 + off, y1, z2, x2 + off, y2, z2, x2 + off, y2, z1, r, g, b, alpha);
+        }
+    }
+
+    /**
+     * Emits a single translucent coloured quad to the vertex consumer.
+     */
+    private static void quad(VertexConsumer consumer, PoseStack poseStack,
+            double x1, double y1, double z1,
+            double x2, double y2, double z2,
+            double x3, double y3, double z3,
+            double x4, double y4, double z4,
+            float r, float g, float b, float a) {
+        consumer.addVertex(poseStack.last(), (float) x1, (float) y1, (float) z1).setColor(r, g, b, a);
+        consumer.addVertex(poseStack.last(), (float) x2, (float) y2, (float) z2).setColor(r, g, b, a);
+        consumer.addVertex(poseStack.last(), (float) x3, (float) y3, (float) z3).setColor(r, g, b, a);
+        consumer.addVertex(poseStack.last(), (float) x4, (float) y4, (float) z4).setColor(r, g, b, a);
     }
 
     // ══════════════════════════════════════════════
