@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.SHAPE_HISTORY_LIMIT;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.SHAPE_ROTATE_STEP_DEGREES;
 
 public final class ScreenShapeController {
@@ -43,12 +42,12 @@ public final class ScreenShapeController {
     private long confirmedRangeDestroyPreviewUntilMs;
     private ShapeDataRecords.GhostPreview confirmedChainDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
     private long confirmedChainDestroyPreviewUntilMs;
-    private final List<ShapeDataRecords.HistoryBatch> shapeUndoStack = new ArrayList<>();
-    private final List<ShapeDataRecords.HistoryBatch> shapeRedoStack = new ArrayList<>();
+    private final PlacementHistoryManager placementHistory = new PlacementHistoryManager();
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
         this.controller = controller;
+        this.placementHistory.init(screen, controller);
     }
 
     // ===== Public state accessors =====
@@ -66,11 +65,11 @@ public final class ScreenShapeController {
     }
 
     public int getShapeUndoSize() {
-        return this.shapeUndoStack.size();
+        return this.placementHistory.getUndoSize();
     }
 
     public int getShapeRedoSize() {
-        return this.shapeRedoStack.size();
+        return this.placementHistory.getRedoSize();
     }
 
     // ===== Shape session management =====
@@ -144,7 +143,7 @@ public final class ScreenShapeController {
                 this.controller.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
-                recordSinglePlacementForUndo(hit, replayKind, replayItemId, replayToolSlot);
+                this.placementHistory.recordSinglePlacement(hit, replayKind, replayItemId, replayToolSlot);
                 // Single block pending ghost
                 BlockState pendingState = resolvePendingGhostBlockState();
                 PlacementAnimationRenderer.addPendingBatch(
@@ -362,7 +361,7 @@ public final class ScreenShapeController {
             for (BlockHitResult shapedHit : hits) {
                 positions.add(shapedHit.getBlockPos().immutable());
             }
-            recordPlacementBatchForUndo(
+            this.placementHistory.recordBatch(
                     usePinnedItem ? InteractionTypes.PlacementReplayKind.PIN_ITEM : InteractionTypes.PlacementReplayKind.TOOL_SLOT,
                     usePinnedItem ? this.controller.getSelectedItemId() : "",
                     usePinnedItem ? -1 : this.screen.getSelectedToolSlot(),
@@ -514,55 +513,18 @@ public final class ScreenShapeController {
     // ===== Undo / Redo =====
 
     public boolean undoLastPlacementBatch() {
-        if (this.shapeUndoStack.isEmpty()) {
-            return false;
-        }
-        ShapeDataRecords.HistoryBatch batch = this.shapeUndoStack.remove(this.shapeUndoStack.size() - 1);
-        List<BlockPos> positions = batch.positions();
-        for (int i = positions.size() - 1; i >= 0; i--) {
-            this.controller.breakPlaced(positions.get(i), batch.face(), true);
-        }
-        this.shapeRedoStack.add(batch);
-        if (this.shapeRedoStack.size() > SHAPE_HISTORY_LIMIT) {
-            this.shapeRedoStack.remove(0);
-        }
-        return true;
+        return this.placementHistory.undo();
     }
 
     public boolean redoLastPlacementBatch() {
-        if (this.shapeRedoStack.isEmpty()) {
-            return false;
-        }
-        Minecraft mc = this.screen.getMinecraft();
-        if (mc == null) {
-            return false;
-        }
-        int idx = this.shapeRedoStack.size() - 1;
-        ShapeDataRecords.HistoryBatch batch = this.shapeRedoStack.get(idx);
-        if (batch.replayKind() == InteractionTypes.PlacementReplayKind.PIN_ITEM) {
-            if (!this.controller.hasSelectedItem() || !batch.itemId().equals(this.controller.getSelectedItemId())) {
-                return false;
-            }
-        } else {
-            if (mc.player == null) {
-                return false;
-            }
-            this.controller.clearPlacementSelectionPreserveMode();
-            this.screen.setSelectedToolSlot(batch.toolSlot());
-        }
-        this.shapeRedoStack.remove(idx);
-        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 rayDir = this.screen.computeCursorRayDirection();
-        List<BlockHitResult> hits = new ArrayList<>(batch.positions().size());
-        for (BlockPos pos : batch.positions()) {
-            hits.add(ShapeGeometryUtil.createShapePlacementHit(pos, batch.face()));
-        }
-        this.controller.placeSelectedBatch(hits, false, rayOrigin, rayDir, false);
-        this.shapeUndoStack.add(batch);
-        if (this.shapeUndoStack.size() > SHAPE_HISTORY_LIMIT) {
-            this.shapeUndoStack.remove(0);
-        }
-        return true;
+        return this.placementHistory.redo();
+    }
+
+    /**
+     * 记录单次方块放置到撤回栈。
+     */
+    public void recordSinglePlacementForUndo(BlockHitResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
+        this.placementHistory.recordSinglePlacement(hit, replayKind, itemId, toolSlot);
     }
 
     // ===== Dimension / Nudge adjustments =====
@@ -1306,34 +1268,7 @@ public final class ScreenShapeController {
         return this.screen.canUseToolSlotShapeSource();
     }
 
-    // ===== Undo record helpers =====
 
-    public void recordSinglePlacementForUndo(BlockHitResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
-        if (hit == null) {
-            return;
-        }
-        recordPlacementBatchForUndo(replayKind, itemId, toolSlot, hit.getDirection(), List.of(hit.getBlockPos().immutable()));
-    }
-
-    private void recordPlacementBatchForUndo(InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot, Direction face, List<BlockPos> positions) {
-        if (positions == null || positions.isEmpty()) {
-            return;
-        }
-        if (replayKind == InteractionTypes.PlacementReplayKind.PIN_ITEM && (itemId == null || itemId.isBlank())) {
-            return;
-        }
-        ShapeDataRecords.HistoryBatch batch = new ShapeDataRecords.HistoryBatch(
-                replayKind,
-                itemId == null ? "" : itemId,
-                Mth.clamp(toolSlot, 0, 8),
-                face,
-                List.copyOf(positions));
-        this.shapeUndoStack.add(batch);
-        if (this.shapeUndoStack.size() > SHAPE_HISTORY_LIMIT) {
-            this.shapeUndoStack.remove(0);
-        }
-        this.shapeRedoStack.clear();
-    }
 
     // ===== Alt shape wheel =====
 
