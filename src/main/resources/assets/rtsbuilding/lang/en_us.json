@@ -571,6 +571,7 @@
   "screen.rtsbuilding.blueprints.window_position": "Position",
   "screen.rtsbuilding.blueprints.capture_window_hint": "Right-click two world corners, then adjust or save.",
   "screen.rtsbuilding.blueprints.placement_window_hint": "Right-click the world to pin this blueprint preview.",
+  "screen.rtsbuilding.blueprints.status.ready_to_build": "Ready to build.",
   "screen.rtsbuilding.blueprints.capture_blocks": "%s blocks will be saved.",
   "screen.rtsbuilding.blueprints.previous_short": "Prev",
   "screen.rtsbuilding.blueprints.next_short": "Next",

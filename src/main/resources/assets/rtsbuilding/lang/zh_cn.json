@@ -571,6 +571,7 @@
   "screen.rtsbuilding.blueprints.window_position": "位置",
   "screen.rtsbuilding.blueprints.capture_window_hint": "右键选择两个角，然后调整或保存。",
   "screen.rtsbuilding.blueprints.placement_window_hint": "右键世界固定蓝图预览。",
+  "screen.rtsbuilding.blueprints.status.ready_to_build": "已准备好建造。",
   "screen.rtsbuilding.blueprints.capture_blocks": "将保存 %s 个方块。",
   "screen.rtsbuilding.blueprints.previous_short": "上一个",
   "screen.rtsbuilding.blueprints.next_short": "下一个",
