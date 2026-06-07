@@ -190,7 +190,7 @@ public final class RtsScreenUiStateManager {
         try {
             this.controller.setAreaMineShape(AreaMineShape.valueOf(state.areaMineShape));
         } catch (IllegalArgumentException ignored) {
-            this.controller.setAreaMineShape(AreaMineShape.BOX);
+            this.controller.setAreaMineShape(AreaMineShape.CHAIN);
         }
     }
 

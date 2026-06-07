@@ -755,6 +755,20 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         setOpen(open);
     }
 
+    @Override
+    public void setOpen(boolean open) {
+        boolean wasOpen = isOpen();
+        super.setOpen(open);
+        if (open && !wasOpen) {
+            applyActiveShapeToController();
+            rebuildFillModeButtons();
+            rebuildAllShapeButtons();
+            if (screen != null) {
+                screen.persistUiState();
+            }
+        }
+    }
+
     /** @deprecated 改用 {@link #toggleOpen()} */
     @Deprecated
     public void toggleOpen() {

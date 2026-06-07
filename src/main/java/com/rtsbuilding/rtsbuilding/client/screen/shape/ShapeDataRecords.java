@@ -36,21 +36,27 @@ public final class ShapeDataRecords {
             boolean readyConfirm,
             boolean destructive,
             List<BlockPos> emptyBlocks,
-            boolean chainDestroyPreview) {
+            boolean chainDestroyPreview,
+            boolean confirmedWorkArea) {
 
         /** Empty preview sentinel — no blocks, not ready. */
-        public static final GhostPreview EMPTY = new GhostPreview(List.of(), false, false, List.of(), false);
+        public static final GhostPreview EMPTY = new GhostPreview(List.of(), false, false, List.of(), false, false);
 
         public GhostPreview(List<BlockPos> blocks, boolean readyConfirm) {
-            this(blocks, readyConfirm, false, List.of(), false);
+            this(blocks, readyConfirm, false, List.of(), false, false);
         }
 
         public GhostPreview(List<BlockPos> blocks, boolean readyConfirm, boolean destructive) {
-            this(blocks, readyConfirm, destructive, List.of(), false);
+            this(blocks, readyConfirm, destructive, List.of(), false, false);
         }
 
         public GhostPreview(List<BlockPos> blocks, boolean readyConfirm, boolean destructive, List<BlockPos> emptyBlocks) {
-            this(blocks, readyConfirm, destructive, emptyBlocks, false);
+            this(blocks, readyConfirm, destructive, emptyBlocks, false, false);
+        }
+
+        public GhostPreview(List<BlockPos> blocks, boolean readyConfirm, boolean destructive, List<BlockPos> emptyBlocks,
+                boolean chainDestroyPreview) {
+            this(blocks, readyConfirm, destructive, emptyBlocks, chainDestroyPreview, false);
         }
     }
 

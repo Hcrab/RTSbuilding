@@ -233,7 +233,7 @@ public final class ClientRtsController {
     public record AreaMineBounds(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
     }
     private BuildShape buildShape = BuildShape.BLOCK;
-    private AreaMineShape areaMineShape = AreaMineShape.BOX;
+    private AreaMineShape areaMineShape = AreaMineShape.CHAIN;
     private boolean pendingCraftTerminalOpen;
     private int pendingCraftTerminalOpenTicks;
     private int pendingRemoteMenuOpenTicks;
@@ -687,7 +687,7 @@ public final class ClientRtsController {
     }
 
     public void setAreaMineShape(AreaMineShape shape) {
-        this.areaMineShape = shape == null ? AreaMineShape.BOX : shape;
+        this.areaMineShape = shape == null ? AreaMineShape.CHAIN : shape;
     }
 
     public BuildShape getBuildShape() {

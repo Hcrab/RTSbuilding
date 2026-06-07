@@ -225,6 +225,10 @@ public final class BuilderScreen extends Screen {
     public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
         return this.shapeController.getShapeGhostPreview();
     }
+    /** Returns in-flight Range Destroy work areas that should stay visible beside the current cursor preview. */
+    public List<ShapeDataRecords.GhostPreview> getConfirmedRangeDestroyPreviews() {
+        return this.shapeController.getConfirmedRangeDestroyPreviews();
+    }
     /** Ensures the current fill mode is compatible with the given shape type, adjusting if necessary. */
     public void ensureFillModeForShape(BuildShape shape) {
         this.shapeController.ensureFillModeForShape(shape);
@@ -2053,7 +2057,9 @@ public final class BuilderScreen extends Screen {
                 seed,
                 getUltimineLimit(),
                 (pos, state, originalState) -> {
-                    if (state.isAir() || (!creative && state.getDestroySpeed(this.minecraft.level, pos) < 0.0F)) {
+                    if (state.isAir()
+                            || !state.getFluidState().isEmpty()
+                            || (!creative && state.getDestroySpeed(this.minecraft.level, pos) < 0.0F)) {
                         return false;
                     }
                     return state.getBlock() == originalState.getBlock();

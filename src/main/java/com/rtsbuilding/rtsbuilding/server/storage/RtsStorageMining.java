@@ -468,7 +468,7 @@ public final class RtsStorageMining {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            if (state.isAir() || state.getDestroySpeed(level, pos) < 0.0F) {
+            if (state.isAir() || !state.getFluidState().isEmpty() || state.getDestroySpeed(level, pos) < 0.0F) {
                 continue;
             }
             if (!creative && computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool) <= 0.0F) {
@@ -541,7 +541,7 @@ public final class RtsStorageMining {
         ServerLevel level = player.serverLevel();
         BlockPos pos = session.miningPos;
         BlockState state = level.getBlockState(pos);
-        if (state.isAir() || state.getDestroySpeed(level, pos) < 0.0F) {
+        if (state.isAir() || !state.getFluidState().isEmpty() || state.getDestroySpeed(level, pos) < 0.0F) {
             stopActiveMining(player, session);
             return;
         }
@@ -796,7 +796,8 @@ public final class RtsStorageMining {
                 continue;
             }
             BlockState targetState = level.getBlockState(target);
-            if (targetState.isAir() || targetState.getDestroySpeed(level, target) < 0.0F) {
+            if (targetState.isAir() || !targetState.getFluidState().isEmpty()
+                    || targetState.getDestroySpeed(level, target) < 0.0F) {
                 continue;
             }
             if (computeRemoteDestroyStep(player, targetState, target, session.miningToolSlot, session.miningToolLease.stack()) <= 0.0F) {
@@ -908,7 +909,7 @@ public final class RtsStorageMining {
             ItemStack linkedTool,
             boolean creative,
             byte mode) {
-        if (state.isAir()) {
+        if (state.isAir() || !state.getFluidState().isEmpty()) {
             return false;
         }
         if (mode == 0 && state.getBlock() != seedState.getBlock()) {

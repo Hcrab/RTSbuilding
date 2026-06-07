@@ -96,15 +96,7 @@ public final class PlacementAnimationRenderer {
     /** Called when server confirms a block was destroyed — shows shrink-out animation. */
     public static void addDestroy(BlockPos pos) {
         if (pos == null) return;
-        BlockState state = null;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc != null && mc.level != null) {
-            state = mc.level.getBlockState(pos);
-            if (state.isAir()) {
-                state = null; // block already gone, use fallback
-            }
-        }
-        DESTROY_GHOSTS.put(pos.asLong(), new DestroyGhostEntry(pos.immutable(), state, System.currentTimeMillis()));
+        DESTROY_GHOSTS.put(pos.asLong(), new DestroyGhostEntry(pos.immutable(), System.currentTimeMillis()));
     }
 
     // ===== Render =====
@@ -115,13 +107,13 @@ public final class PlacementAnimationRenderer {
         }
         if (com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled()) {
             renderPendingWireframes(poseStack, lineBuffer);
-            renderDestroyWireframes(poseStack, lineBuffer);
+            renderDestroySkeletons(poseStack, lineBuffer);
         } else {
             if (!PENDING_GHOSTS.isEmpty()) {
                 renderPendingGhosts(minecraft, poseStack, fillBuffer);
             }
             if (!DESTROY_GHOSTS.isEmpty()) {
-                renderDestroyGhosts(minecraft, poseStack, fillBuffer);
+                renderDestroySkeletons(poseStack, lineBuffer);
             }
         }
     }
@@ -219,13 +211,9 @@ public final class PlacementAnimationRenderer {
 
     // ===== Destroy ghost rendering =====
 
-    private static void renderDestroyGhosts(Minecraft minecraft, PoseStack poseStack, VertexConsumer fillBuffer) {
+    private static void renderDestroySkeletons(PoseStack poseStack, VertexConsumer lineBuffer) {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<Long, DestroyGhostEntry>> iterator = DESTROY_GHOSTS.entrySet().iterator();
-
-        // Separate model-renderable entries from fallback entries
-        Map<BlockState, java.util.ArrayList<BlockPos>> modelGroups = new HashMap<>();
-        java.util.ArrayList<BlockPos> fallbackPositions = new java.util.ArrayList<>();
 
         while (iterator.hasNext()) {
             Map.Entry<Long, DestroyGhostEntry> entry = iterator.next();
@@ -238,81 +226,19 @@ public final class PlacementAnimationRenderer {
                 continue;
             }
 
-            BlockState state = ghost.blockState;
-            if (state != null && !state.isAir() && state.getRenderShape() == RenderShape.MODEL) {
-                modelGroups.computeIfAbsent(state, k -> new java.util.ArrayList<>()).add(ghost.pos);
-            } else {
-                fallbackPositions.add(ghost.pos);
-            }
-        }
-
-        // Render model groups
-        if (!modelGroups.isEmpty()) {
-            MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-            MultiBufferSource translucentBuffer = new ShapeGhostRenderer.GhostAlphaBufferSource(blockBuffer, PENDING_GHOST_ALPHA);
-
-            for (Map.Entry<BlockState, java.util.ArrayList<BlockPos>> group : modelGroups.entrySet()) {
-                BlockState state = group.getKey();
-                for (BlockPos pos : group.getValue()) {
-                    int light = 0xF000F0; // fullbright, no lighting
-                    DestroyGhostEntry ghost = DESTROY_GHOSTS.get(pos.asLong());
-                    float scale = GHOST_BASE_SCALE;
-                    if (ghost != null) {
-                        long elapsed = now - ghost.addedAtMs;
-                        scale = computeGhostShrinkScale(elapsed);
-                    }
-                    poseStack.pushPose();
-                    poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-                    // Animated scale around block centre (shrink out)
-                    poseStack.translate(0.5, 0.5, 0.5);
-                    poseStack.scale(scale, scale, scale);
-                    poseStack.translate(-0.5, -0.5, -0.5);
-                    minecraft.getBlockRenderer().renderSingleBlock(
-                            state,
-                            poseStack,
-                            translucentBuffer,
-                            light,
-                            OverlayTexture.NO_OVERLAY);
-                    poseStack.popPose();
-                }
-            }
-            blockBuffer.endBatch();
-        }
-
-        // Render fallback (coloured boxes for unresolvable states)
-        if (!fallbackPositions.isEmpty()) {
-            renderDestroyGhostFallback(poseStack, fillBuffer, fallbackPositions);
-        }
-    }
-
-    private static void renderDestroyGhostFallback(PoseStack poseStack, VertexConsumer fillBuffer,
-            java.util.List<BlockPos> positions) {
-        long now = System.currentTimeMillis();
-        float fillR = 1.00F;
-        float fillG = 0.40F;
-        float fillB = 0.35F;
-        float fillA = 0.15F;
-
-        for (BlockPos pos : positions) {
-            DestroyGhostEntry ghost = DESTROY_GHOSTS.get(pos.asLong());
-            float scale = GHOST_BASE_SCALE;
-            if (ghost != null) {
-                long elapsed = now - ghost.addedAtMs;
-                scale = computeGhostShrinkScale(elapsed);
-            }
-            // Inset interpolates from 0.06 (full size) to 0.5 (center point)
-            double inset = 0.5D - scale * 0.44D;
-            double minX = pos.getX() + inset;
-            double minY = pos.getY() + inset;
-            double minZ = pos.getZ() + inset;
-            double maxX = pos.getX() + 1.0D - inset;
-            double maxY = pos.getY() + 1.0D - inset;
-            double maxZ = pos.getZ() + 1.0D - inset;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
+            float scale = computeGhostShrinkScale(elapsed);
+            double half = (scale * 0.5D) + (0.02D * scale);
+            double minX = ghost.pos.getX() + 0.5D - half;
+            double minY = ghost.pos.getY() + 0.5D - half;
+            double minZ = ghost.pos.getZ() + 0.5D - half;
+            double maxX = ghost.pos.getX() + 0.5D + half;
+            double maxY = ghost.pos.getY() + 0.5D + half;
+            double maxZ = ghost.pos.getZ() + 0.5D + half;
+            float alpha = Math.max(0.0F, Math.min(0.95F, scale * 0.95F));
+            LevelRenderer.renderLineBox(poseStack, lineBuffer,
                     minX, minY, minZ,
                     maxX, maxY, maxZ,
-                    fillR, fillG, fillB, fillA);
+                    0.38F, 1.00F, 0.42F, alpha);
         }
     }
 
@@ -331,29 +257,6 @@ public final class PlacementAnimationRenderer {
             double maxX = pos.getX() + 1.0D - inset;
             double maxY = pos.getY() + 1.0D - inset;
             double maxZ = pos.getZ() + 1.0D - inset;
-            LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, lineR, lineG, lineB, lineA);
-        }
-    }
-
-    private static void renderDestroyWireframes(PoseStack poseStack, VertexConsumer lineBuffer) {
-        long now = System.currentTimeMillis();
-        float lineR = 1.00F, lineG = 0.46F, lineB = 0.46F, lineA = 0.75F;
-        Iterator<Map.Entry<Long, DestroyGhostEntry>> iterator = DESTROY_GHOSTS.entrySet().iterator();
-        while (iterator.hasNext()) {
-            DestroyGhostEntry ghost = iterator.next().getValue();
-            long elapsed = now - ghost.addedAtMs;
-            if (elapsed > DESTROY_DURATION_MS) {
-                iterator.remove();
-                continue;
-            }
-            float scale = computeGhostShrinkScale(elapsed);
-            double inset = 0.5D - scale * 0.44D;
-            double minX = ghost.pos.getX() + inset;
-            double minY = ghost.pos.getY() + inset;
-            double minZ = ghost.pos.getZ() + inset;
-            double maxX = ghost.pos.getX() + 1.0D - inset;
-            double maxY = ghost.pos.getY() + 1.0D - inset;
-            double maxZ = ghost.pos.getZ() + 1.0D - inset;
             LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, lineR, lineG, lineB, lineA);
         }
     }
@@ -387,8 +290,8 @@ public final class PlacementAnimationRenderer {
     /**
      * Computes the animated shrink scale for destroy ghosts (reverse of grow-in).
      * <p>
-     * Starts at GHOST_BASE_SCALE and eases out to 0 over DESTROY_DURATION_MS,
-     * producing a satisfying "shrink away" effect that mirrors the placement grow-in.
+     * Starts as a full 12-edge block skeleton and eases out to 0 over
+     * DESTROY_DURATION_MS, producing a clean "shrink away" break confirmation.
      *
      * @param elapsedMs elapsed time since the destroy ghost entry was added (ms)
      * @return the animated scale to apply (centred on the block position)
@@ -398,7 +301,7 @@ public final class PlacementAnimationRenderer {
         float progress = Math.min(1.0F, elapsedMs / (float) DESTROY_DURATION_MS);
         // Quadratic ease-out on the reverse: starts shrinking fast, slows near the end
         float eased = 1.0F - (1.0F - progress) * (1.0F - progress);
-        return Math.max(0.0F, GHOST_BASE_SCALE * (1.0F - eased));
+        return Math.max(0.0F, 1.0F - eased);
     }
 
     // ===== Internal records =====
@@ -407,7 +310,7 @@ public final class PlacementAnimationRenderer {
     private record PendingGhostEntry(BlockPos pos, BlockState blockState, long addedAtMs) {
     }
 
-    /** Tracks a destroy ghost position with its captured block state and addition time. */
-    private record DestroyGhostEntry(BlockPos pos, BlockState blockState, long addedAtMs) {
+    /** Tracks a server-confirmed destroy skeleton and its animation start time. */
+    private record DestroyGhostEntry(BlockPos pos, long addedAtMs) {
     }
 }

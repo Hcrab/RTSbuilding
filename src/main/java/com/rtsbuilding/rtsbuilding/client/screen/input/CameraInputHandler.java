@@ -20,6 +20,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.List;
+
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
 
 /**
@@ -337,6 +339,9 @@ public final class CameraInputHandler {
         if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
             return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
         }
+        if (!screen.isQuickBuildRangeDestroyMode() && screen.getShapeController().hasConfirmedDestroyWorkArea()) {
+            return false;
+        }
         if (screen.isQuickBuildRangeDestroyMode()
                 && this.controller.getAreaMinePhase() == ClientRtsController.AREA_MINE_PHASE_NEED_HEIGHT) {
             // 第三次点击：确认范围挖掘，直接发包执行，不需要再求 BlockHit
@@ -365,6 +370,9 @@ public final class CameraInputHandler {
                     this.controller.setAreaMinePointB(hit.getBlockPos().immutable());
                 }
             } else if (screen.isQuickBuildRangeDestroyChainMode()) {
+                List<BlockPos> preview = screen.collectUltiminePreviewBlocks();
+                screen.getShapeController().rememberConfirmedChainDestroyPreview(
+                        preview.isEmpty() ? List.of(hit.getBlockPos().immutable()) : preview);
                 this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
                         screen.getSelectedToolSlot(), screen.getUltimineLimit(), (byte) 0);
             } else {
