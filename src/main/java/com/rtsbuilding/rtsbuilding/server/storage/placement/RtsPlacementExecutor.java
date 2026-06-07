@@ -97,18 +97,18 @@ public final class RtsPlacementExecutor {
         }
 
         if (!useSelectedStorageItem) {
-            return placeWithMainHand(player, session, level, clickedPos, face, hit, hitLocation, interactionPos, rayContext,
-                    rotateSteps, skipIfOccupied, forcePlace, quickBuild, refreshStoragePage, sendRemoteHint);
+            return placeWithMainHand(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
+                    rotateSteps, skipIfOccupied, forcePlace, refreshStoragePage);
         }
 
-        return placeWithStorageItem(player, session, level, clickedPos, face, hit, hitLocation, interactionPos, rayContext,
-                rotateSteps, skipIfOccupied, forcePlace, itemId, itemPrototype, quickBuild, refreshStoragePage);
+        return placeWithStorageItem(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
+                rotateSteps, skipIfOccupied, forcePlace, itemId, itemPrototype, refreshStoragePage);
     }
 
     private static boolean placeWithMainHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
-            BlockPos clickedPos, Direction face, BlockHitResult hit, Vec3 hitLocation,
+            BlockPos clickedPos, Direction face, BlockHitResult hit,
             Vec3 interactionPos, RtsStorageManager.RayContext rayContext, byte rotateSteps, boolean skipIfOccupied,
-            boolean forcePlace, boolean quickBuild, boolean refreshStoragePage, boolean sendRemoteHint) {
+            boolean forcePlace, boolean refreshStoragePage) {
         ItemStack sourceSnapshot = player.getMainHandItem().copy();
         boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
         if (skipIfOccupied && player.getMainHandItem().getItem() instanceof BlockItem) {
@@ -126,7 +126,7 @@ public final class RtsPlacementExecutor {
         InteractionResult mainHandUse = RtsStorageManager.withTemporaryUseItemContext(
                 player,
                 interactionPos,
-                hitLocation,
+                hit.getLocation(),
                 rayContext,
                 REMOTE_POV_BLOCK_REACH,
                 () -> RtsStorageManager.withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItemOn(
@@ -143,7 +143,7 @@ public final class RtsPlacementExecutor {
 
         if (mainHandUse.consumesAction()) {
             recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
-                    sourceSnapshot, sourcePlacesBlock, quickBuild);
+                    sourceSnapshot, sourcePlacesBlock);
             RtsStorageManager.saveSessionToPlayerNbt(player, session);
             return true;
         }
@@ -153,7 +153,7 @@ public final class RtsPlacementExecutor {
         InteractionResult mainHandUseFallback = RtsStorageManager.withTemporaryUseItemContext(
                 player,
                 interactionPos,
-                hitLocation,
+                hit.getLocation(),
                 rayContext,
                 REMOTE_POV_BLOCK_REACH,
                 () -> RtsStorageManager.withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItem(
@@ -186,9 +186,9 @@ public final class RtsPlacementExecutor {
     }
 
     private static boolean placeWithStorageItem(ServerPlayer player, RtsStorageSession session, ServerLevel level,
-            BlockPos clickedPos, Direction face, BlockHitResult hit, Vec3 hitLocation,
+            BlockPos clickedPos, Direction face, BlockHitResult hit,
             Vec3 interactionPos, RtsStorageManager.RayContext rayContext, byte rotateSteps, boolean skipIfOccupied,
-            boolean forcePlace, String itemId, ItemStack itemPrototype, boolean quickBuild, boolean refreshStoragePage) {
+            boolean forcePlace, String itemId, ItemStack itemPrototype, boolean refreshStoragePage) {
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
         boolean creativeSource = player.isCreative();
@@ -232,7 +232,7 @@ public final class RtsPlacementExecutor {
         RtsStorageManager.UseOnOutcome selectedOutcome = RtsStorageManager.withTemporaryUseItemContext(
                 player,
                 interactionPos,
-                hitLocation,
+                hit.getLocation(),
                 rayContext,
                 REMOTE_POV_BLOCK_REACH,
                 () -> RtsStorageManager.useItemOnWithMainHand(player, level, extracted, hit, forcePlace));
@@ -247,7 +247,7 @@ public final class RtsPlacementExecutor {
             finalOutcome = RtsStorageManager.withTemporaryUseItemContext(
                     player,
                     interactionPos,
-                    hitLocation,
+                    hit.getLocation(),
                     rayContext,
                     REMOTE_POV_BLOCK_REACH,
                     () -> RtsStorageManager.useItemWithMainHand(player, level, fallbackStack, forcePlace));
@@ -283,7 +283,7 @@ public final class RtsPlacementExecutor {
 
     private static void recordMainHandResult(ServerPlayer player, RtsStorageSession session, ServerLevel level,
             BlockPos clickedPos, BlockState beforeClicked, BlockPos adjacentPos, BlockState beforeAdjacent,
-            ItemStack sourceSnapshot, boolean sourcePlacesBlock, boolean quickBuild) {
+            ItemStack sourceSnapshot, boolean sourcePlacesBlock) {
         BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
         if (placedPos != null) {
             PlacedBlockTrackerData.get(level).mark(placedPos);

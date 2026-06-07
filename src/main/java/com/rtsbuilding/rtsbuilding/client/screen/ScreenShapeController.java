@@ -171,48 +171,133 @@ public final class ScreenShapeController {
         advanceShapeSession(hit, rayDir, mouseY, shape);
     }
 
+    /**
+     * Starts a new shape build session or advances an existing one.
+     * <p>
+     * First interaction creates a session and sets the first anchor point.
+     * Subsequent interactions dispatch to per-shape handler methods so that
+     * each shape's click flow and height logic stays colocated.
+     */
     private void advanceShapeSession(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
         if (this.shapeBuildSession == null || this.shapeBuildSession.shape() != shape) {
-            clearConfirmedChainDestroyPreview();
-            this.shapeFootprintNudgeA = 0;
-            this.shapeFootprintNudgeB = 0;
-            Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
-            this.shapeTemplateHit = new BlockHitResult(hit.getLocation(), placementFace, hit.getBlockPos(), hit.isInside());
-            this.shapeBuildSession = new ShapeBuildTypes.Session(
-                    shape,
-                    ShapeGeometryUtil.resolveShapeBuildFace(shape, hit.getDirection(), rayDir),
-                    placementFace,
-                    hit.getBlockPos(),
-                    null,
-                    ShapeBuildTypes.Phase.NEED_SECOND_POINT,
-                    0,
-                    mouseY);
+            startNewSession(hit, rayDir, mouseY, shape);
             return;
         }
+        advanceSessionByShape(hit, mouseY);
+    }
+
+    private void startNewSession(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
+        clearConfirmedChainDestroyPreview();
+        this.shapeFootprintNudgeA = 0;
+        this.shapeFootprintNudgeB = 0;
+        Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
+        this.shapeTemplateHit = new BlockHitResult(hit.getLocation(), placementFace, hit.getBlockPos(), hit.isInside());
+        this.shapeBuildSession = new ShapeBuildTypes.Session(
+                shape,
+                ShapeGeometryUtil.resolveShapeBuildFace(shape, hit.getDirection(), rayDir),
+                placementFace,
+                hit.getBlockPos(),
+                null,
+                ShapeBuildTypes.Phase.NEED_SECOND_POINT,
+                0,
+                mouseY);
+    }
+
+    private void advanceSessionByShape(BlockHitResult hit, double mouseY) {
+        switch (this.shapeBuildSession.shape()) {
+            case LINE -> advanceLineSession(hit, mouseY);
+            case SQUARE -> advanceSquareSession(hit, mouseY);
+            case WALL -> advanceWallSession(hit, mouseY);
+            case CIRCLE -> advanceCircleSession(hit, mouseY);
+            case BOX -> advanceBoxSession(hit, mouseY);
+            default -> {}
+        }
+    }
+
+    /** LINE: second click determines length, then immediately ready to confirm. */
+    private void advanceLineSession(BlockHitResult hit, double mouseY) {
+        ShapeBuildTypes.Session session = this.shapeBuildSession;
+        if (session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) return;
+        BlockPos pointB = resolveShapePlanePoint(session, hit);
+        this.shapeBuildSession = new ShapeBuildTypes.Session(
+                session.shape(), session.planeFace(), session.placementFace(),
+                session.pointA(), pointB,
+                ShapeBuildTypes.Phase.READY_CONFIRM, 0, session.boxHeightMouseBaseY());
+    }
+
+    /** SQUARE: second click determines opposite corner, then immediately ready to confirm. */
+    private void advanceSquareSession(BlockHitResult hit, double mouseY) {
+        ShapeBuildTypes.Session session = this.shapeBuildSession;
+        if (session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) return;
+        BlockPos pointB = resolveShapePlanePoint(session, hit);
+        this.shapeBuildSession = new ShapeBuildTypes.Session(
+                session.shape(), session.planeFace(), session.placementFace(),
+                session.pointA(), pointB,
+                ShapeBuildTypes.Phase.READY_CONFIRM, 0, session.boxHeightMouseBaseY());
+    }
+
+    /**
+     * WALL: three-click flow.
+     * <ol>
+     *   <li>First click sets pointA (session creation)</li>
+     *   <li>Second click sets pointB, enters NEED_THIRD_POINT for height</li>
+     *   <li>Third click confirms height → READY_CONFIRM</li>
+     * </ol>
+     */
+    private void advanceWallSession(BlockHitResult hit, double mouseY) {
         ShapeBuildTypes.Session session = this.shapeBuildSession;
         if (session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             BlockPos pointB = resolveShapePlanePoint(session, hit);
             this.shapeBuildSession = new ShapeBuildTypes.Session(
-                    shape,
-                    session.planeFace(),
-                    session.placementFace(),
-                    session.pointA(),
-                    pointB,
-                    ShapeBuildTypes.Phase.READY_CONFIRM,
-                    0,
-                    ShapeGeometryUtil.requiresThirdPoint(shape) ? mouseY : session.boxHeightMouseBaseY());
+                    session.shape(), session.planeFace(), session.placementFace(),
+                    session.pointA(), pointB,
+                    ShapeBuildTypes.Phase.NEED_THIRD_POINT, 0, mouseY);
             return;
         }
         if (session.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
             this.shapeBuildSession = new ShapeBuildTypes.Session(
-                    shape,
-                    session.planeFace(),
-                    session.placementFace(),
-                    session.pointA(),
-                    session.pointB(),
+                    session.shape(), session.planeFace(), session.placementFace(),
+                    session.pointA(), session.pointB(),
                     ShapeBuildTypes.Phase.READY_CONFIRM,
-                    session.boxHeightOffset(),
-                    session.boxHeightMouseBaseY());
+                    session.boxHeightOffset(), session.boxHeightMouseBaseY());
+        }
+    }
+
+    /** CIRCLE: second click determines radius, then immediately ready to confirm. */
+    private void advanceCircleSession(BlockHitResult hit, double mouseY) {
+        ShapeBuildTypes.Session session = this.shapeBuildSession;
+        if (session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) return;
+        BlockPos pointB = resolveShapePlanePoint(session, hit);
+        this.shapeBuildSession = new ShapeBuildTypes.Session(
+                session.shape(), session.planeFace(), session.placementFace(),
+                session.pointA(), pointB,
+                ShapeBuildTypes.Phase.READY_CONFIRM, 0, session.boxHeightMouseBaseY());
+    }
+
+    /**
+     * BOX: three-click flow.
+     * <ol>
+     *   <li>First click sets pointA (session creation)</li>
+     *   <li>Second click sets pointB, enters NEED_THIRD_POINT for height</li>
+     *   <li>Third click confirms height → READY_CONFIRM</li>
+     * </ol>
+     */
+    private void advanceBoxSession(BlockHitResult hit, double mouseY) {
+        ShapeBuildTypes.Session session = this.shapeBuildSession;
+        if (session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
+            BlockPos pointB = resolveShapePlanePoint(session, hit);
+            this.shapeBuildSession = new ShapeBuildTypes.Session(
+                    session.shape(), session.planeFace(), session.placementFace(),
+                    session.pointA(), pointB,
+                    ShapeBuildTypes.Phase.NEED_THIRD_POINT, 0, mouseY);
+            return;
+        }
+        if (session.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
+            this.shapeBuildSession = new ShapeBuildTypes.Session(
+                    session.shape(), session.planeFace(), session.placementFace(),
+                    session.pointA(), session.pointB(),
+                    ShapeBuildTypes.Phase.READY_CONFIRM,
+                    session.boxHeightOffset(), session.boxHeightMouseBaseY());
         }
     }
 
@@ -513,13 +598,8 @@ public final class ScreenShapeController {
         if (delta == 0 || this.shapeBuildSession == null || !canAdjustShapeHeight(this.shapeBuildSession.shape())) {
             return false;
         }
-        if (this.shapeBuildSession.shape() == BuildShape.BOX
-                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT
-                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
-            return false;
-        }
-        if (this.shapeBuildSession.shape() == BuildShape.WALL
-                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
+        if ((this.shapeBuildSession.shape() == BuildShape.BOX || this.shapeBuildSession.shape() == BuildShape.WALL)
+                && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
             return false;
         }
         int nextOffset = ShapeGeometryUtil.clampShapeOffset(this.shapeBuildSession.boxHeightOffset() + delta);

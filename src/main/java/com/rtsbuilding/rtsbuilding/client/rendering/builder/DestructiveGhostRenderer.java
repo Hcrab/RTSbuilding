@@ -18,8 +18,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.core.BlockPos;
 
-import org.joml.Matrix4f;
-
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 
@@ -27,21 +25,17 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
  * Renders destructive (range-destroy) ghost previews — per-block coloured
  * outlines with an envelope around non-breakable blocks.
  * <p>
- * During the free-preview phase ({@code readyConfirm == false}),
- * per-block cell boxes are replaced by a merged outer-perimeter skeleton
- * (via {@link UltimineBlockMerger}) rendered with ultimine-style gold
- * breathing colours (inspired by {@link UltimineGhostRenderer}).
- * After the selection is ready ({@code readyConfirm == true}), individual
- * cell boxes are shown for final confirmation.
+ * Per-block cell boxes are shown with colours indicating the current
+ * confirm state ({@code readyConfirm}).
  */
 public final class DestructiveGhostRenderer {
 
     private static final double BOUNDARY_PADDING = 0.02D;
 
-    // ── Custom no-depth translucent line render type (ultimine-style two-pass) ──
+    // ── Custom no-depth translucent line render type (for envelope outer pass) ──
 
     private static final RenderType LINES_NO_DEPTH = RenderType.create(
-            "rtsbuilding_destructive_lines_no_depth",
+            "rtsbuilding_destructive_env_no_depth",
             DefaultVertexFormat.POSITION_COLOR_NORMAL,
             VertexFormat.Mode.LINES,
             512,
@@ -63,7 +57,7 @@ public final class DestructiveGhostRenderer {
     // ===== Public API (called from ShapeGhostRenderer) =====
 
     /**
-     * Renders destructive ghost with per-block cells / merged skeleton and outer envelope.
+     * Renders destructive ghost with per-block cells and outer envelope.
      */
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
@@ -91,26 +85,9 @@ public final class DestructiveGhostRenderer {
             return;
         }
 
-        if (destructive && !readyConfirm) {
-            // ── Merged skeleton wireframe (ultimine-style gold) for preview phase ──
-            List<BlockPos> outerBlocks = filterOuterBlocks(preview.blocks());
-            if (!outerBlocks.isEmpty()) {
-                List<UltimineBlockMerger.EdgeLine> edges = UltimineBlockMerger.getEdgeLines(outerBlocks);
-                if (!edges.isEmpty()) {
-                    Matrix4f matrix = poseStack.last().pose();
-                    float breathFactor = RenderingUtil.getBreathFactor(0.2F, 0.7F);
-                    float r = 1.00F * breathFactor;
-                    float g = 0.72F * breathFactor;
-                    float b = 0.24F * breathFactor;
-                    float edgeR = RenderingUtil.lerp(r, 0.38F, progress);
-                    float edgeG = RenderingUtil.lerp(g, 1.00F, progress);
-                    float edgeB = RenderingUtil.lerp(b, 0.42F, progress);
-                    renderMergedPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB);
-                    renderMergedPass2(edges, matrix, edgeR, edgeG, edgeB, 0.34F);
-                }
-            }
-        } else if (destructive) {
-            // ── Per-block cell line boxes (confirmed) ──
+        if (destructive) {
+            // ── Per-block cell line boxes ──
+            DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(readyConfirm);
             for (BlockPos pos : preview.blocks()) {
                 double cellMinX = pos.getX() + 0.03D;
                 double cellMinY = pos.getY() + 0.03D;
@@ -119,7 +96,6 @@ public final class DestructiveGhostRenderer {
                 double cellMaxY = pos.getY() + 0.97D;
                 double cellMaxZ = pos.getZ() + 0.97D;
 
-                DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(false);
                 LevelRenderer.renderLineBox(poseStack, lineBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
@@ -170,95 +146,12 @@ public final class DestructiveGhostRenderer {
         List<BlockPos> blocks = preview.blocks();
         if (blocks == null || blocks.isEmpty()) return;
 
-        if (!preview.readyConfirm()) {
-            // ── Merged skeleton rendering (ultimine-style gold) for preview phase ──
-            renderMergedDestructiveCells(blocks, poseStack, lineBuffer, fillBuffer, progress, alpha);
-        } else {
-            // ── Per-block cell highlights (confirmed) ──
-            DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(true);
-            renderPerBlockCells(blocks, poseStack, lineBuffer, fillBuffer, progress, alpha, dcc);
-        }
+        // ── Per-block cell highlights ──
+        DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(preview.readyConfirm());
+        renderPerBlockCells(blocks, poseStack, lineBuffer, fillBuffer, progress, alpha, dcc);
     }
 
-    // ===== Merged skeleton helpers (ultimine-style, for preview state) =====
 
-    /**
-     * Renders a merged outer-perimeter skeleton instead of per-block cell boxes.
-     * Filters to outer blocks, merges via {@link UltimineBlockMerger}, then
-     * renders with a two-pass (opaque + translucent no-depth) approach and
-     * breathing gold colours.
-     */
-    private static void renderMergedDestructiveCells(List<BlockPos> blocks, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alpha) {
-        List<BlockPos> outerBlocks = filterOuterBlocks(blocks);
-        if (outerBlocks.isEmpty()) return;
-
-        List<UltimineBlockMerger.EdgeLine> edges = UltimineBlockMerger.getEdgeLines(outerBlocks);
-        if (edges.isEmpty()) return;
-
-        Matrix4f matrix = poseStack.last().pose();
-
-        // Breathing gold colour (ultimine style)
-        float breathFactor = RenderingUtil.getBreathFactor(0.2F, 0.7F);
-        float r = 1.00F * breathFactor;
-        float g = 0.72F * breathFactor;
-        float b = 0.24F * breathFactor;
-        float edgeR = RenderingUtil.lerp(r, 0.38F, progress);
-        float edgeG = RenderingUtil.lerp(g, 1.00F, progress);
-        float edgeB = RenderingUtil.lerp(b, 0.42F, progress);
-
-        // Pass 1 — opaque depth-tested edges
-        renderMergedPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB);
-
-        // Pass 2 — translucent no-depth edges (visible through world geometry)
-        renderMergedPass2(edges, matrix, edgeR, edgeG, edgeB, 0.34F);
-
-        // Faint per-block fill
-        float fillA = 0.08F * alpha;
-        for (BlockPos pos : outerBlocks) {
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    pos.getX(), pos.getY(), pos.getZ(),
-                    pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1,
-                    edgeR, edgeG, edgeB, fillA);
-        }
-    }
-
-    /** Opaque depth-tested edge pass (writes to the caller-provided line buffer). */
-    private static void renderMergedPass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
-            VertexConsumer lineBuffer, float r, float g, float b) {
-        for (UltimineBlockMerger.EdgeLine edge : edges) {
-            lineBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
-                    .setColor(r, g, b, 0.95F)
-                    .setNormal(edge.xn(), edge.yn(), edge.zn());
-            lineBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
-                    .setColor(r, g, b, 0.95F)
-                    .setNormal(edge.xn(), edge.yn(), edge.zn());
-        }
-    }
-
-    /** Translucent no-depth edge pass (uses internal {@link #LINES_NO_DEPTH}). */
-    private static void renderMergedPass2(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
-            float r, float g, float b, float alpha) {
-        BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
-                DefaultVertexFormat.POSITION_COLOR_NORMAL);
-        for (UltimineBlockMerger.EdgeLine edge : edges) {
-            ndBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
-                    .setColor(r, g, b, alpha)
-                    .setNormal(edge.xn(), edge.yn(), edge.zn());
-            ndBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
-                    .setColor(r, g, b, alpha)
-                    .setNormal(edge.xn(), edge.yn(), edge.zn());
-        }
-        var meshData = ndBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            LINES_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-        }
-    }
 
     // ===== Per-block cell rendering (confirmed state) =====
 
@@ -298,7 +191,7 @@ public final class DestructiveGhostRenderer {
 
     // ===== Envelope rendering =====
 
-    /** Renders a combined bounding-box envelope (line + fill). */
+    /** Renders a combined bounding-box envelope (line + fill) plus a transparent no-depth pass. */
     private static void renderGhostEnvelope(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             List<BlockPos> primaryBlocks, List<BlockPos> envelopeBlocks,
             float lineR, float lineG, float lineB, float lineA,
@@ -321,6 +214,11 @@ public final class DestructiveGhostRenderer {
         LevelRenderer.renderLineBox(poseStack, lineBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ,
                 lineR, lineG, lineB, lineA);
+
+        // ── Transparent no-depth envelope line box (visible through terrain) ──
+        float ndAlpha = 0.20F;
+        renderEnvelopeNoDepthLineBox(poseStack, minX, minY, minZ, maxX, maxY, maxZ,
+                lineR, lineG, lineB, ndAlpha);
     }
 
     private static void renderWireframeEnvelope(PoseStack poseStack, VertexConsumer lineBuffer,
@@ -329,37 +227,42 @@ public final class DestructiveGhostRenderer {
         RenderingUtil.Bounds bounds = RenderingUtil.Bounds.from(primaryBlocks, envelopeBlocks);
         if (bounds == null) return;
         double padding = BOUNDARY_PADDING;
+        double minX = bounds.minX() - padding;
+        double minY = bounds.minY() - padding;
+        double minZ = bounds.minZ() - padding;
+        double maxX = bounds.maxX() + 1.0D + padding;
+        double maxY = bounds.maxY() + 1.0D + padding;
+        double maxZ = bounds.maxZ() + 1.0D + padding;
+
         LevelRenderer.renderLineBox(poseStack, lineBuffer,
-                bounds.minX() - padding, bounds.minY() - padding, bounds.minZ() - padding,
-                bounds.maxX() + 1.0D + padding, bounds.maxY() + 1.0D + padding, bounds.maxZ() + 1.0D + padding,
+                minX, minY, minZ, maxX, maxY, maxZ,
                 lineR, lineG, lineB, lineA);
+
+        // ── Transparent no-depth envelope line box (visible through terrain) ──
+        float ndAlpha = 0.20F;
+        renderEnvelopeNoDepthLineBox(poseStack, minX, minY, minZ, maxX, maxY, maxZ,
+                lineR, lineG, lineB, ndAlpha);
     }
 
-    // ===== Filter helpers =====
+    // ===== No-depth envelope rendering =====
 
-    /**
-     * Filters to outer-perimeter blocks (at least one face neighbour outside
-     * the selection set).
-     */
-    private static List<BlockPos> filterOuterBlocks(List<BlockPos> blocks) {
-        Set<BlockPos> allBlocks = new HashSet<>(blocks);
-        BlockPos[] faceOffsets = {
-                new BlockPos(1, 0, 0), new BlockPos(-1, 0, 0),
-                new BlockPos(0, 1, 0), new BlockPos(0, -1, 0),
-                new BlockPos(0, 0, 1), new BlockPos(0, 0, -1)
-        };
-        List<BlockPos> outerBlocks = new ArrayList<>();
-        for (BlockPos pos : blocks) {
-            boolean isOuter = false;
-            for (BlockPos offset : faceOffsets) {
-                if (!allBlocks.contains(pos.offset(offset))) {
-                    isOuter = true;
-                    break;
-                }
-            }
-            if (isOuter) outerBlocks.add(pos);
+    /** Renders a transparent no-depth line box for the envelope (visible through world geometry). */
+    private static void renderEnvelopeNoDepthLineBox(PoseStack poseStack,
+            double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
+            float r, float g, float b, float alpha) {
+        BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
+                DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        LevelRenderer.renderLineBox(poseStack, ndBuffer,
+                minX, minY, minZ, maxX, maxY, maxZ,
+                r, g, b, alpha);
+        var meshData = ndBuffer.build();
+        if (meshData != null) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            LINES_NO_DEPTH.draw(meshData);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
         }
-        return outerBlocks;
     }
 
     // ===== Internal records =====
