@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.*;
+import org.joml.Matrix4f;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
@@ -13,49 +14,110 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * 形状建造预览渲染器
- * 负责在BuilderScreen中渲染快速建造形状的幽灵预览（如墙体、地板等）
- * <p>
- * 建造模式下使用实际方块模型以透明材质渲染，破坏模式下使用边界框+方块高亮渲染。
+ * Renders in-world ghost previews for shape building and destruction
+ * modes within the {@link BuilderScreen}.
+ *
+ * <p><b>Rendering modes:</b>
+ * <ol>
+ *   <li><b>Build models</b> — transparent block-model overlay for shape
+ *       placement (e.g. walls, floors).</li>
+ *   <li><b>Build fallback</b> — coloured cell outlines when the block
+ *       model cannot be resolved.</li>
+ *   <li><b>Destructive (range destroy)</b> — per-block coloured outlines
+ *       with an envelope around non-breakable blocks.</li>
+ *   <li><b>Ultimine (chain mining)</b> — merged-outer-perimeter edges
+ *       with two-pass rendering (FTB Ultimine style).</li>
+ *   <li><b>Wireframe</b> — simplified per-block wireframes (debug/config
+ *       toggle).</li>
+ * </ol>
+ *
+ * <p>This class is purely static; it is never instantiated.
  */
 public final class ShapeGhostRenderer {
 
-    /** 建造幽灵透明度（包可见，供同包渲染器使用） */
+    /** Alpha value applied to build-mode ghost block models. */
     static final float BUILD_GHOST_ALPHA = 0.8F;
 
-    /** 包围盒边框外扩距离 */
+    /** Boundary padding applied around shape bounding boxes. */
     private static final double BOUNDARY_PADDING = 0.02D;
 
+    // ──────────────────────────────────────────────
+    //  Ultimine (chain-mining) rendering resources
+    // ──────────────────────────────────────────────
+
     /**
-     * 私有构造函数，防止实例化
+     * Custom {@link RenderType} for translucent lines drawn without depth
+     * testing, so they remain visible through world geometry.
+     *
+     * <p>Inspired by FTB Ultimine's
+     * {@code UltimineRenderTypes.LINES_NO_DEPTH_TRANSLUCENT}. Used as the
+     * translucent pass of the two-pass ultimine edge rendering:
+     * <ul>
+     *   <li><b>Pass 1</b> — opaque lines with depth test (standard
+     *       {@code RenderType.lines()})</li>
+     *   <li><b>Pass 2</b> — translucent lines without depth test
+     *       (this {@link RenderType})</li>
+     * </ul>
      */
+    private static final RenderType LINES_NO_DEPTH = RenderType.create(
+            "rtsbuilding_ultimine_lines_no_depth",
+            DefaultVertexFormat.POSITION_COLOR_NORMAL,
+            VertexFormat.Mode.LINES,
+            512,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
+                    .setLineState(RenderStateShard.DEFAULT_LINE)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setOutputState(RenderStateShard.MAIN_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
+
+    /** Backing {@link ByteBufferBuilder} for the no-depth line render type. */
+    private static final ByteBufferBuilder LINES_NO_DEPTH_BACKING = new ByteBufferBuilder(LINES_NO_DEPTH.bufferSize());
+
+    /** Private constructor to prevent instantiation. */
     private ShapeGhostRenderer() {
     }
 
     /**
-     * 渲染形状建造的幽灵预览
-     * <p>
-     * 建造模式：尝试使用透明方块模型渲染，若方块状态不可用则回退到彩色方块高亮。
-     * 破坏模式：使用边界框+方块高亮渲染（无指定方块可预览）。
+     * Entry-point that delegates to the appropriate rendering method based on
+     * the current {@link ShapeDataRecords.GhostPreview} state.
      *
-     * @param minecraft  Minecraft客户端实例
-     * @param poseStack  姿势栈，用于坐标变换
-     * @param lineBuffer 线条缓冲区
-     * @param fillBuffer 填充缓冲区
+     * <p>Dispatch order:
+     * <ol>
+     *   <li><b>Wireframe</b> — config-controlled debug mode, takes priority.</li>
+     *   <li><b>Ultimine</b> — chain-mining ghost (FTB Ultimine style).</li>
+     *   <li><b>Destructive</b> — range-destroy ghost with per-block outlines.</li>
+     *   <li><b>Build models / fallback</b> — shape-placement ghost preview.</li>
+     * </ol>
+     *
+     * @param minecraft  Minecraft client instance
+     * @param poseStack  transformation stack (already translated to camera space)
+     * @param lineBuffer vertex consumer for line geometry (depth-tested)
+     * @param fillBuffer vertex consumer for translucent fill geometry
      */
     public static void renderShapeGhostPreview(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer,
             VertexConsumer fillBuffer) {
-        // 仅在BuilderScreen中渲染
+        // Only render when BuilderScreen is active
         if (!(minecraft.screen instanceof BuilderScreen)) {
             return;
         }
 
         ShapeDataRecords.GhostPreview preview = ((BuilderScreen) minecraft.screen).getShapeGhostPreview();
-        if (preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty()) {
+
+        // Ultimine ghost always tries to render (it handles empty blocks internally);
+        // skip early-exit for ultimine to avoid blocking its fallthrough logic.
+        if (!preview.ultimineGhost() && preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty()) {
             return;
         }
 
@@ -64,25 +126,35 @@ public final class ShapeGhostRenderer {
             return;
         }
 
+        if (preview.ultimineGhost()) {
+            renderUltimineGhost(preview, poseStack, lineBuffer, fillBuffer);
+            return;
+        }
+
         if (preview.destructive()) {
-            // 破坏模式：使用边界框+方块高亮（无特定方块可预览）
             renderDestructiveGhost(preview, poseStack, lineBuffer, fillBuffer);
             return;
         }
 
-        // 建造模式：尝试解析方块状态并使用透明方块模型渲染
+        // Build mode — try transparent block models, fall back to cell outlines
         BlockState blockState = resolveBuildBlockState(minecraft);
         if (blockState != null && !blockState.isAir() && blockState.getRenderShape() == RenderShape.MODEL) {
             renderBuildGhostModels(minecraft, preview, poseStack, blockState, lineBuffer);
         } else {
-            // 无法解析方块状态时回退到彩色方块高亮
             renderBuildGhostFallback(preview, poseStack, lineBuffer, fillBuffer);
         }
     }
 
     /**
-     * 解析当前用于形状建造的方块状态。
-     * 优先使用RTS存储中选择的物品，其次回退到玩家主手物品。
+     * Resolves the {@link BlockState} used for rendering build-mode ghost block models.
+     *
+     * <p>Priority order:
+     * <ol>
+     *   <li>Item selected in the RTS storage panel</li>
+     *   <li>Player's main hand item</li>
+     * </ol>
+     *
+     * @return the block state, or {@code null} if neither source yields a {@link BlockItem}
      */
     private static BlockState resolveBuildBlockState(Minecraft minecraft) {
         ClientRtsController controller = ClientRtsController.get();
@@ -100,8 +172,10 @@ public final class ShapeGhostRenderer {
     }
 
     /**
-     * 使用透明方块模型渲染建造幽灵预览。
-     * 每个方块渲染实际模型，并覆盖半透明alpha，同时绘制整体包围盒边框。
+     * Renders build-mode ghost previews using transparent block models.
+     *
+     * <p>Each block position is rendered with the actual block model at a fixed alpha
+     * ({@value #BUILD_GHOST_ALPHA}), then an overall bounding-box outline is drawn.
      */
     private static void renderBuildGhostModels(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
             PoseStack poseStack, BlockState blockState, VertexConsumer lineBuffer) {
@@ -110,7 +184,7 @@ public final class ShapeGhostRenderer {
             return;
         }
 
-        // 计算包围盒边界
+        // Compute the overall bounding box extent
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
         for (BlockPos pos : blocks) {
@@ -122,7 +196,7 @@ public final class ShapeGhostRenderer {
             maxZ = Math.max(maxZ, pos.getZ() + 1);
         }
 
-        // 渲染每个方块的透明模型（使用该位置的实际光照）
+        // Render translucent block model for each position (with position-specific lighting)
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
         MultiBufferSource translucentBuffer = new GhostAlphaBufferSource(blockBuffer, BUILD_GHOST_ALPHA);
 
@@ -141,7 +215,7 @@ public final class ShapeGhostRenderer {
 
         blockBuffer.endBatch();
 
-        // 渲染整体包围盒边框（readyConfirm=true 绿色系，false 青色系）
+        // Render overall bounding-box outline (green tones when readyConfirm, cyan otherwise)
         float lineR = preview.readyConfirm() ? 0.45F : 0.30F;
         float lineG = preview.readyConfirm() ? 0.95F : 0.75F;
         float lineB = preview.readyConfirm() ? 0.45F : 1.00F;
@@ -155,7 +229,8 @@ public final class ShapeGhostRenderer {
     }
 
     /**
-     * 建造模式回退渲染：当无法解析方块状态时，使用彩色方块高亮。
+     * Fallback rendering for build-mode ghosts: coloured cell outlines used when the
+     * block state cannot be resolved (e.g. non-block item or air).
      */
     private static void renderBuildGhostFallback(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
@@ -196,13 +271,14 @@ public final class ShapeGhostRenderer {
     }
 
     /**
-     * 渲染破坏模式的幽灵预览：边界框 + 方块彩色高亮。
+     * Renders the destructive (range-destroy) ghost preview: per-block coloured
+     * outlines with an envelope around non-breakable blocks (emptyBlocks).
      */
     private static void renderDestructiveGhost(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
         boolean readyConfirm = preview.readyConfirm();
 
-        // 边界框渲染（emptyBlocks 区域使用黄色标记不可破坏方块）
+        // Envelope outline for non-breakable blocks (yellow markers in emptyBlocks region)
         if (!preview.emptyBlocks().isEmpty()) {
             float envLineR = 1.00F, envLineG = 0.86F, envLineB = 0.22F, envLineA = 0.72F;
             float envFillR = 1.00F, envFillG = 0.86F, envFillB = 0.18F, envFillA = 0.18F;
@@ -211,7 +287,7 @@ public final class ShapeGhostRenderer {
                     envFillR, envFillG, envFillB, envFillA);
         }
 
-        // 方块高亮渲染
+        // Per-block cell highlight
         DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(readyConfirm);
         float lineR = dcc.lineR, lineG = dcc.lineG, lineB = dcc.lineB, lineA = dcc.lineA;
         float fillR = dcc.fillR, fillG = dcc.fillG, fillB = dcc.fillB, fillA = dcc.fillA;
@@ -240,6 +316,228 @@ public final class ShapeGhostRenderer {
                     cellMaxX, cellMaxY, cellMaxZ,
                     lineR, lineG, lineB,
                     lineA);
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    //  Ultimine ghost — FTB Ultimine style
+    // ──────────────────────────────────────────────
+
+    /**
+     * Renders the chain-mining (ultimine) ghost preview in FTB Ultimine style.
+     *
+     * <p><b>Pipeline:</b>
+     * <ol>
+     *   <li><b>Outer-perimeter filtering</b> — keeps only blocks that have at
+     *       least one face-adjacent neighbour outside the selection.</li>
+     *   <li><b>AABB merge + edge extraction</b> — adjacent outer blocks are
+     *       merged into larger AABBs; then every outer edge is extracted
+     *       via {@link UltimineBlockMerger#getEdgeLines}.</li>
+     *   <li><b>Breathing colour</b> — gold (1.0, 0.72, 0.24) oscillates
+     *       between full brightness and 70 % via a sine wave.</li>
+     *   <li><b>Pass 1 (depth-tested)</b> — opaque edges via
+     *       {@code RenderType.lines()}.</li>
+     *   <li><b>Pass 2 (no-depth translucent)</b> — same edges without depth
+     *       test, visible through occluding geometry.</li>
+     *   <li><b>Faint per-block fill</b> — alpha-6 % box for each outer block.</li>
+     * </ol>
+     */
+    private static void renderUltimineGhost(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
+        List<BlockPos> blocks = preview.blocks();
+        if (blocks == null || blocks.isEmpty()) {
+            return;
+        }
+
+        // Step 1 — keep only blocks on the outer perimeter of the selection
+        List<BlockPos> outerBlocks = filterOuterBlocks(blocks);
+        if (outerBlocks.isEmpty()) {
+            return;
+        }
+
+        // Step 2 — merge adjacent outer blocks and extract edge segments
+        List<UltimineBlockMerger.EdgeLine> edges = UltimineBlockMerger.getEdgeLines(outerBlocks);
+        if (edges.isEmpty()) {
+            return;
+        }
+
+        Matrix4f matrix = poseStack.last().pose();
+
+        // Step 3 — sinusoidal breathing animation on the gold colour
+        float breathFactor = getBreathFactor();
+        float baseR = 1.00F, baseG = 0.72F, baseB = 0.24F;
+        float r = baseR * breathFactor;
+        float g = baseG * breathFactor;
+        float b = baseB * breathFactor;
+
+        // Step 4 — opaque depth-tested edges (visible only on front faces)
+        renderUltiminePass1(edges, matrix, lineBuffer, r, g, b);
+
+        // Step 5 — translucent no-depth edges (visible through geometry)
+        renderUltiminePass2(edges, matrix, r, g, b);
+
+        // Step 6 — very faint per-block fill
+        renderUltimineFill(outerBlocks, poseStack, fillBuffer, r, g, b);
+    }
+
+    /**
+     * Oscillation frequency of the breathing colour pulse (Hz).
+     * A complete bright → dim → bright cycle takes 1 / {@value #BREATH_SPEED} s.
+     */
+    private static final float BREATH_SPEED = 0.2F;
+
+    /**
+     * Minimum brightness multiplier applied during the breathing cycle.
+     * The factor oscillates in [ {@value #BREATH_MIN_FACTOR}, 1.0 ].
+     */
+    private static final float BREATH_MIN_FACTOR = 0.7F;
+
+    /**
+     * Computes a time-varying scalar in [{@link #BREATH_MIN_FACTOR}, 1.0] that
+     * oscillates sinusoidally at {@link #BREATH_SPEED} Hz.
+     *
+     * <p>Multiplying colour channels by this factor produces a gentle pulsing
+     * effect (identical to the breathing animation in
+     * {@code InteractionTargetRenderer}).
+     *
+     * @return the current breath factor, always 0.7 … 1.0
+     */
+    private static float getBreathFactor() {
+        double timeSeconds = System.currentTimeMillis() / 1000.0D;
+        double phase = timeSeconds * BREATH_SPEED * 2.0D * Math.PI;
+        double sin = Math.sin(phase);
+        // Map sin ∈ [-1, 1] → factor ∈ [BREATH_MIN_FACTOR, 1.0]
+        return (float) ((sin + 1.0D) * 0.5D * (1.0F - BREATH_MIN_FACTOR) + BREATH_MIN_FACTOR);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Outer-perimeter block filtering
+    // ──────────────────────────────────────────────
+
+    /**
+     * Filters the block list to retain only those on the outer perimeter of
+     * the selection — blocks that have at least one face-adjacent neighbour
+     * <em>outside</em> the selection set.
+     *
+     * <p>Internal blocks (all six face neighbours present in the selection)
+     * are excluded, as their edges would be hidden inside the merged volume.
+     *
+     * @param blocks all block positions in the ultimine selection
+     * @return the subset of blocks on the outer perimeter
+     */
+    private static List<BlockPos> filterOuterBlocks(List<BlockPos> blocks) {
+        Set<BlockPos> allBlocks = new HashSet<>(blocks);
+        BlockPos[] faceOffsets = {
+                new BlockPos(1, 0, 0), new BlockPos(-1, 0, 0),
+                new BlockPos(0, 1, 0), new BlockPos(0, -1, 0),
+                new BlockPos(0, 0, 1), new BlockPos(0, 0, -1)
+        };
+        List<BlockPos> outerBlocks = new ArrayList<>();
+        for (BlockPos pos : blocks) {
+            boolean isOuter = false;
+            for (BlockPos offset : faceOffsets) {
+                if (!allBlocks.contains(pos.offset(offset))) {
+                    isOuter = true;
+                    break;
+                }
+            }
+            if (isOuter) {
+                outerBlocks.add(pos);
+            }
+        }
+        return outerBlocks;
+    }
+
+    // ──────────────────────────────────────────────
+    //  Edge line rendering — two-pass
+    // ──────────────────────────────────────────────
+
+    /**
+     * <b>Pass 1:</b> renders solid, depth-tested edge lines using the standard
+     * {@code RenderType.lines()} vertex consumer. Edges are visible only on
+     * front faces of the merged geometry.
+     *
+     * @param edges      edge segments to render
+     * @param matrix     current model-view-projection matrix
+     * @param lineBuffer vertex consumer for depth-tested lines
+     * @param r          red   channel (0-1), modulated by breath factor
+     * @param g          green channel (0-1)
+     * @param b          blue  channel (0-1)
+     */
+    private static void renderUltiminePass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
+            VertexConsumer lineBuffer, float r, float g, float b) {
+        for (UltimineBlockMerger.EdgeLine edge : edges) {
+            lineBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
+                    .setColor(r, g, b, 0.95F)
+                    .setNormal(edge.xn(), edge.yn(), edge.zn());
+            lineBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
+                    .setColor(r, g, b, 0.95F)
+                    .setNormal(edge.xn(), edge.yn(), edge.zn());
+        }
+    }
+
+    /**
+     * <b>Pass 2:</b> renders translucent edge lines with depth testing
+     * disabled, so they remain visible even when occluded by world geometry.
+     *
+     * <p>Uses a manual {@link BufferBuilder} backed by
+     * {@link #LINES_NO_DEPTH_BACKING} and submits the mesh directly via
+     * {@link RenderType#draw}, bypassing the buffer-source pipeline which
+     * does not flush reliably in the
+     * {@code RenderLevelStageEvent.AFTER_TRANSLUCENT_BLOCKS} context.
+     *
+     * @param edges  edge segments to render
+     * @param matrix current model-view-projection matrix
+     * @param r      red   channel (0-1), modulated by breath factor
+     * @param g      green channel (0-1)
+     * @param b      blue  channel (0-1)
+     */
+    private static void renderUltiminePass2(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
+            float r, float g, float b) {
+        BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
+                DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        for (UltimineBlockMerger.EdgeLine edge : edges) {
+            ndBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
+                    .setColor(r, g, b, 0.30F)
+                    .setNormal(edge.xn(), edge.yn(), edge.zn());
+            ndBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
+                    .setColor(r, g, b, 0.30F)
+                    .setNormal(edge.xn(), edge.yn(), edge.zn());
+        }
+        MeshData meshData = ndBuffer.build();
+        if (meshData != null) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            LINES_NO_DEPTH.draw(meshData);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    //  Per-block faint fill
+    // ──────────────────────────────────────────────
+
+    /**
+     * Renders a very translucent filled box (alpha 6 %) for each outer
+     * block, indicating the extent of each block that will be chain-mined.
+     *
+     * @param outerBlocks outer-perimeter block positions
+     * @param poseStack   transformation stack
+     * @param fillBuffer  vertex consumer for translucent fill quads
+     * @param r           red   channel (0-1), modulated by breath factor
+     * @param g           green channel (0-1)
+     * @param b           blue  channel (0-1)
+     */
+    private static void renderUltimineFill(List<BlockPos> outerBlocks, PoseStack poseStack,
+            VertexConsumer fillBuffer, float r, float g, float b) {
+        float fillA = 0.06F;
+        for (BlockPos pos : outerBlocks) {
+            LevelRenderer.addChainedFilledBoxVertices(
+                    poseStack, fillBuffer,
+                    pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1,
+                    r, g, b, fillA);
         }
     }
 

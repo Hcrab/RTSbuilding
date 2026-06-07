@@ -9,21 +9,33 @@ import java.util.List;
 import java.util.Set;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class RtsUltimineCollector {
     public static final int DEFAULT_MAX_RADIUS = 32;
 
-    private static final Direction[] NEIGHBORS = {
-            Direction.UP,
-            Direction.DOWN,
-            Direction.NORTH,
-            Direction.SOUTH,
-            Direction.WEST,
-            Direction.EAST
+    private static final BlockPos[] NEIGHBOR_OFFSETS = {
+            // Face neighbors (6)
+            new BlockPos(1, 0, 0), new BlockPos(-1, 0, 0),
+            new BlockPos(0, 1, 0), new BlockPos(0, -1, 0),
+            new BlockPos(0, 0, 1), new BlockPos(0, 0, -1),
+            // Edge neighbors (12)
+            new BlockPos(1, 1, 0), new BlockPos(1, -1, 0),
+            new BlockPos(-1, 1, 0), new BlockPos(-1, -1, 0),
+            new BlockPos(1, 0, 1), new BlockPos(1, 0, -1),
+            new BlockPos(-1, 0, 1), new BlockPos(-1, 0, -1),
+            new BlockPos(0, 1, 1), new BlockPos(0, 1, -1),
+            new BlockPos(0, -1, 1), new BlockPos(0, -1, -1),
+            // Corner neighbors (8)
+            new BlockPos(1, 1, 1), new BlockPos(1, 1, -1),
+            new BlockPos(1, -1, 1), new BlockPos(1, -1, -1),
+            new BlockPos(-1, 1, 1), new BlockPos(-1, 1, -1),
+            new BlockPos(-1, -1, 1), new BlockPos(-1, -1, -1),
     };
+
+    public static final CandidateFilter MATCH_BY_EXACT_BLOCK = (pos, state, seedState) ->
+            state.getBlock() == seedState.getBlock();
 
     private RtsUltimineCollector() {
     }
@@ -63,8 +75,8 @@ public final class RtsUltimineCollector {
             }
 
             result.add(current.immutable());
-            for (Direction direction : NEIGHBORS) {
-                BlockPos next = current.relative(direction).immutable();
+            for (BlockPos offset : NEIGHBOR_OFFSETS) {
+                BlockPos next = current.offset(offset).immutable();
                 if (manhattanDistance(seedPos, next) <= clampedRadius && visited.add(next)) {
                     frontier.addLast(next);
                 }

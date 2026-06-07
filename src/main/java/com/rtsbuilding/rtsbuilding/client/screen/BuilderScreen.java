@@ -2032,16 +2032,25 @@ public final class BuilderScreen extends Screen {
         return new BlueprintGhostPreview(preview.blocks(), preview.materialsReady(), preview.truncated());
     }
     /**
-     * Collects the list of block positions that would be affected by an ultimine
-     * (vein-mining) operation starting from the current mining seed position
-     * or the block under the cursor.
+     * Collects block positions that would be affected by an ultimine (chain-mining / vein-mining)
+     * operation, starting from the current in-progress mining position or the block under the cursor.
+     *
+     * <p>If the seed block (from {@link ClientRtsController#getMineProgressPos}) is already
+     * broken (air) or absent, falls back to the cursor-aimed block via {@link #pickBlockHit()}.
+     * This ensures the preview stays alive after a successful ultimine execution.
+     *
+     * <p>Delegates to {@link RtsUltimineCollector#collect} for BFS-based connected-block search
+     * in CHAIN mode, or to the area-mine shape routines in AREA mode.
+     *
+     * @return the list of affected block positions, or an empty list if none can be determined
      */
     public List<BlockPos> collectUltiminePreviewBlocks() {
         if (this.minecraft == null || this.minecraft.level == null) {
             return List.of();
         }
         BlockPos seed = this.controller.getMineProgressPos();
-        if (seed == null) {
+        if (seed == null || this.minecraft.level.getBlockState(seed).isAir()) {
+            // Seed is null or already broken (air) → fall back to cursor position
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
             if (hit == null) {
                 return List.of();

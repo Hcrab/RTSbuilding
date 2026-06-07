@@ -298,11 +298,12 @@ public final class ScreenShapeController {
             boolean ready = this.shapeBuildSession != null && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
             return new ShapeDataRecords.GhostPreview(preview.breakableBlocks(), ready, true, preview.emptyBlocks());
         }
+        // Ultimine (chain-mining) ghost — FTB Ultimine style
+        // Always returns a preview when the ultimine panel is open, even when the block
+        // list is empty; the renderer handles empty blocks gracefully.
         if (this.screen.isUltimineOpen()) {
-            List<BlockPos> preview = this.screen.collectUltiminePreviewBlocks();
-            if (!preview.isEmpty()) {
-                return new ShapeDataRecords.GhostPreview(preview, true);
-            }
+            List<BlockPos> ultimineBlocks = this.screen.collectUltiminePreviewBlocks();
+            return new ShapeDataRecords.GhostPreview(ultimineBlocks, false, true, List.of(), true);
         }
         if (this.controller.getBuildShape() == BuildShape.BLOCK) {
             return ShapeDataRecords.GhostPreview.EMPTY;
