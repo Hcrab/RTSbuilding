@@ -7,6 +7,8 @@ import java.util.Map;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 
@@ -54,6 +56,7 @@ public final class DestroyGhostRenderer {
             }
 
             float scale = computeShrinkScale(elapsed);
+            if (!isWithinBounds(ghost.pos)) continue;
             double half = (scale * 0.5D) + (0.02D * scale);
             double minX = ghost.pos.getX() + 0.5D - half;
             double minY = ghost.pos.getY() + 0.5D - half;
@@ -85,5 +88,14 @@ public final class DestroyGhostRenderer {
     // ===== Internal record =====
 
     private record DestroyGhostEntry(BlockPos pos, long addedAtMs) {
+    }
+
+    /**
+     * 判断方块位置是否在 RTS 边界范围内。
+     */
+    private static boolean isWithinBounds(BlockPos pos) {
+        ClientRtsController controller = ClientRtsController.get();
+        if (!controller.hasBounds()) return true;
+        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 }

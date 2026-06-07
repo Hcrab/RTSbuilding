@@ -2637,7 +2637,7 @@ public final class ClientRtsController {
      * </ul>
      */
     public void setAreaMinePointA(BlockPos pos) {
-        this.areaMinePointA = pos == null ? null : pos.immutable();
+        this.areaMinePointA = pos == null ? null : clampToBounds(pos.immutable());
         this.areaMinePointB = null;
         this.areaMineHeightOffset = 0;
         this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
@@ -2654,11 +2654,29 @@ public final class ClientRtsController {
      * </ul>
      */
     public void setAreaMinePointB(BlockPos pos) {
-        this.areaMinePointB = pos == null ? null : pos.immutable();
+        this.areaMinePointB = pos == null ? null : clampToBounds(pos.immutable());
         this.areaMineHeightOffset = 0;
         this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
         this.mineRenderPos = this.areaMinePointB;
         this.mineRenderStage = 0;
+    }
+
+    /**
+     * 将 BlockPos 的 X/Z 钳制到 RTS 边界范围内（水平边界，不修改 Y）。
+     * 如果没有边界限制，直接返回原坐标。
+     */
+    private BlockPos clampToBounds(BlockPos pos) {
+        if (pos == null || !hasBounds()) {
+            return pos;
+        }
+        int minBlockX = Mth.floor(anchorX - maxRadius);
+        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
+        int minBlockZ = Mth.floor(anchorZ - maxRadius);
+        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
+        return new BlockPos(
+                Mth.clamp(pos.getX(), minBlockX, maxBlockX),
+                pos.getY(),
+                Mth.clamp(pos.getZ(), minBlockZ, maxBlockZ));
     }
 
     /** 清除当前范围挖掘会话，重置所有选区状态。 */

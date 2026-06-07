@@ -2,13 +2,20 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import java.util.List;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -29,6 +36,25 @@ public final class BuildGhostRenderer {
     static final float BUILD_GHOST_ALPHA = 0.8F;
 
     private static final double BOUNDARY_PADDING = 0.02D;
+
+    // ── Custom no-depth translucent line render type (for envelope outer pass) ──
+
+    private static final RenderType LINES_NO_DEPTH = RenderType.create(
+            "rtsbuilding_build_env_no_depth",
+            DefaultVertexFormat.POSITION_COLOR_NORMAL,
+            VertexFormat.Mode.LINES,
+            512,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
+                    .setLineState(RenderStateShard.DEFAULT_LINE)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setOutputState(RenderStateShard.MAIN_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
+
+    private static final ByteBufferBuilder LINES_NO_DEPTH_BACKING = new ByteBufferBuilder(LINES_NO_DEPTH.bufferSize());
 
     private BuildGhostRenderer() {
     }
@@ -115,6 +141,13 @@ public final class BuildGhostRenderer {
                 minX - BOUNDARY_PADDING, minY - BOUNDARY_PADDING, minZ - BOUNDARY_PADDING,
                 maxX + BOUNDARY_PADDING, maxY + BOUNDARY_PADDING, maxZ + BOUNDARY_PADDING,
                 lineR, lineG, lineB, 0.95F);
+
+        // ── Transparent no-depth envelope line box (visible through terrain) ──
+        float ndAlpha = 0.20F;
+        renderEnvelopeNoDepthLineBox(poseStack,
+                minX - BOUNDARY_PADDING, minY - BOUNDARY_PADDING, minZ - BOUNDARY_PADDING,
+                maxX + BOUNDARY_PADDING, maxY + BOUNDARY_PADDING, maxZ + BOUNDARY_PADDING,
+                lineR, lineG, lineB, ndAlpha);
     }
 
     /**
@@ -155,6 +188,27 @@ public final class BuildGhostRenderer {
                     cellMinX, cellMinY, cellMinZ,
                     cellMaxX, cellMaxY, cellMaxZ,
                     lineR, lineG, lineB, 0.95F);
+        }
+    }
+
+    // ===== No-depth envelope rendering =====
+
+    /** Renders a transparent no-depth line box (visible through world geometry). */
+    private static void renderEnvelopeNoDepthLineBox(PoseStack poseStack,
+            double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
+            float r, float g, float b, float alpha) {
+        BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
+                DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        LevelRenderer.renderLineBox(poseStack, ndBuffer,
+                minX, minY, minZ, maxX, maxY, maxZ,
+                r, g, b, alpha);
+        var meshData = ndBuffer.build();
+        if (meshData != null) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            LINES_NO_DEPTH.draw(meshData);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
         }
     }
 }

@@ -9,8 +9,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT,
-        bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsCameraRenderSync {
     private RtsCameraRenderSync() {
     }

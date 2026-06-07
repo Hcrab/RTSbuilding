@@ -9,6 +9,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -82,6 +84,7 @@ public final class PendingGhostRenderer {
         long now = System.currentTimeMillis();
         float lineR = 0.30F, lineG = 0.75F, lineB = 1.00F, lineA = 0.75F;
         for (PendingGhostEntry ghost : GHOSTS.values()) {
+            if (!isWithinBounds(ghost.pos)) continue;
             BlockPos pos = ghost.pos;
             float scale = computeGrowScale(now - ghost.addedAtMs);
             double inset = 0.5D - scale * 0.44D;
@@ -105,6 +108,7 @@ public final class PendingGhostRenderer {
         java.util.ArrayList<BlockPos> fallbackPositions = new java.util.ArrayList<>();
 
         for (PendingGhostEntry ghost : GHOSTS.values()) {
+            if (!isWithinBounds(ghost.pos)) continue;
             BlockState state = ghost.blockState;
             if (state != null && !state.isAir() && state.getRenderShape() == RenderShape.MODEL) {
                 modelGroups.computeIfAbsent(state, k -> new java.util.ArrayList<>()).add(ghost.pos);
@@ -180,5 +184,14 @@ public final class PendingGhostRenderer {
     // ===== Internal record =====
 
     private record PendingGhostEntry(BlockPos pos, BlockState blockState, long addedAtMs) {
+    }
+
+    /**
+     * 判断方块位置是否在 RTS 边界范围内。
+     */
+    private static boolean isWithinBounds(BlockPos pos) {
+        ClientRtsController controller = ClientRtsController.get();
+        if (!controller.hasBounds()) return true;
+        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 }

@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
@@ -2052,7 +2053,7 @@ public final class BuilderScreen extends Screen {
             return List.of();
         }
         boolean creative = this.minecraft.player != null && this.minecraft.player.isCreative();
-        return RtsUltimineCollector.collect(
+        List<BlockPos> raw = RtsUltimineCollector.collect(
                 this.minecraft.level,
                 seed,
                 getUltimineLimit(),
@@ -2064,6 +2065,15 @@ public final class BuilderScreen extends Screen {
                     }
                     return state.getBlock() == originalState.getBlock();
                 });
+        return filterToBounds(raw);
+    }
+
+    private List<BlockPos> filterToBounds(List<BlockPos> blocks) {
+        if (!this.controller.hasBounds() || blocks == null || blocks.isEmpty()) {
+            return blocks;
+        }
+        return RenderingUtil.filterBlocksWithinBounds(blocks,
+                this.controller.getAnchorX(), this.controller.getAnchorZ(), this.controller.getMaxRadius());
     }
 
     private double currentRtsGuiRenderScale() {

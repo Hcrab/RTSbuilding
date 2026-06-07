@@ -3,7 +3,9 @@ package com.rtsbuilding.rtsbuilding.client.rendering.util;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -34,6 +36,53 @@ public final class RenderingUtil {
             if (pos.equals(block)) return true;
         }
         return false;
+    }
+
+    /**
+     * 过滤方块位置列表，仅保留在 RTS 边界范围内的方块。
+     * <p>
+     * 边界是一个以锚点为中心的正方形区域，半长为 {@code maxRadius}。
+     * 方块与区域有重叠（不完全在边界外）即视为在范围内。
+     *
+     * @param blocks    待过滤的方块位置列表
+     * @param anchorX   边界中心 X 坐标
+     * @param anchorZ   边界中心 Z 坐标
+     * @param maxRadius 边界半长
+     * @return 仅包含边界内方块的新列表；如果所有方块都在边界外则返回空列表
+     */
+    public static List<BlockPos> filterBlocksWithinBounds(List<BlockPos> blocks, double anchorX, double anchorZ, double maxRadius) {
+        if (blocks == null || blocks.isEmpty()) return blocks;
+        int minBlockX = Mth.floor(anchorX - maxRadius);
+        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
+        int minBlockZ = Mth.floor(anchorZ - maxRadius);
+        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
+        List<BlockPos> result = new ArrayList<>(blocks.size());
+        for (BlockPos pos : blocks) {
+            if (pos != null && pos.getX() >= minBlockX && pos.getX() <= maxBlockX
+                    && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ) {
+                result.add(pos);
+            }
+        }
+        return result.isEmpty() ? List.of() : result;
+    }
+
+    /**
+     * 判断单个方块位置是否在 RTS 边界范围内。
+     *
+     * @param pos       方块位置
+     * @param anchorX   边界中心 X 坐标
+     * @param anchorZ   边界中心 Z 坐标
+     * @param maxRadius 边界半长
+     * @return 如果在边界内则返回 true
+     */
+    public static boolean isWithinBounds(BlockPos pos, double anchorX, double anchorZ, double maxRadius) {
+        if (pos == null) return false;
+        int minBlockX = Mth.floor(anchorX - maxRadius);
+        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
+        int minBlockZ = Mth.floor(anchorZ - maxRadius);
+        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
+        return pos.getX() >= minBlockX && pos.getX() <= maxBlockX
+                && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ;
     }
 
     // ===== Breath animation =====

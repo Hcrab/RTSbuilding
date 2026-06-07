@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
@@ -12,8 +13,12 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 蓝图幽灵预览渲染器
@@ -49,6 +54,12 @@ public final class BlueprintGhostRenderer {
             return;
         }
 
+        // 过滤超出 RTS 边界的蓝图方块，只渲染边界内的部分
+        List<BlueprintPanel.BlueprintGhostBlock> filteredBlocks = filterBlocksWithinBounds(preview.blocks());
+        if (filteredBlocks.isEmpty()) {
+            return;
+        }
+
         // 根据材料是否齐备选择颜色
         // 材料齐备：绿色系；材料缺失：红色系
         float lineR = preview.materialsReady() ? 0.35F : 1.00F;
@@ -67,8 +78,8 @@ public final class BlueprintGhostRenderer {
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
         MultiBufferSource translucentBlockBuffer = new GhostAlphaBufferSource(blockBuffer, GHOST_BLOCK_ALPHA);
 
-        // 遍历所有蓝图方块
-        for (BlueprintPanel.BlueprintGhostBlock block : preview.blocks()) {
+        // 遍历所有在边界内的蓝图方块
+        for (BlueprintPanel.BlueprintGhostBlock block : filteredBlocks) {
             BlockPos pos = block.pos();
 
             // 更新包围盒边界
@@ -138,6 +149,37 @@ public final class BlueprintGhostRenderer {
                     lineR, lineG, lineB,
                     alpha);
         }
+    }
+
+    /**
+     * 过滤蓝图方块列表，仅保留在 RTS 边界范围内的方块。
+     *
+     * @param blocks 待过滤的蓝图方块列表
+     * @return 仅包含边界内方块的新列表
+     */
+    private static List<BlueprintPanel.BlueprintGhostBlock> filterBlocksWithinBounds(
+            List<BlueprintPanel.BlueprintGhostBlock> blocks) {
+        ClientRtsController controller = ClientRtsController.get();
+        if (!controller.hasBounds()) {
+            return blocks;
+        }
+        double ax = controller.getAnchorX();
+        double az = controller.getAnchorZ();
+        double r = controller.getMaxRadius();
+        int minBlockX = Mth.floor(ax - r);
+        int maxBlockX = Mth.ceil(ax + r) - 1;
+        int minBlockZ = Mth.floor(az - r);
+        int maxBlockZ = Mth.ceil(az + r) - 1;
+        List<BlueprintPanel.BlueprintGhostBlock> result = new ArrayList<>(blocks.size());
+        for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
+            if (block == null) continue;
+            BlockPos pos = block.pos();
+            if (pos.getX() >= minBlockX && pos.getX() <= maxBlockX
+                    && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ) {
+                result.add(block);
+            }
+        }
+        return result.isEmpty() ? List.of() : result;
     }
 
 }

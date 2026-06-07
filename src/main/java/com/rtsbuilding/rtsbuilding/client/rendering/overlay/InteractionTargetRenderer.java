@@ -1,7 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.RenderStateShard;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
@@ -91,6 +98,22 @@ public final class InteractionTargetRenderer {
     /** Maximum ray-cast range for cursor-based hit-testing. */
     private static final double MAX_REACH = 128.0D;
 
+    // ── Custom no-depth bracket render type ──
+
+    private static final RenderType BRACKET_NO_DEPTH = RenderType.create(
+            "rtsbuilding_target_brackets_no_depth",
+            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setOutputState(RenderStateShard.MAIN_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
+
+    private static final ByteBufferBuilder BRACKET_NO_DEPTH_BACKING = new ByteBufferBuilder(BRACKET_NO_DEPTH.bufferSize());
+
     // ──────────────────────────────────────────────
     //  Internal helpers
     // ──────────────────────────────────────────────
@@ -144,8 +167,11 @@ public final class InteractionTargetRenderer {
         if (entityHit != null && entityDistSq <= blockDistSq) {
             // Entity is closer (or equal) – render entity highlight
             Entity entity = entityHit.getEntity();
-            double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
-            renderEntityCornerHighlight(poseStack, lineBuffer, entity, distance, breathFactor);
+            // Skip entity outside RTS build boundary
+            if (isWithinBounds(controller, entity.blockPosition())) {
+                double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
+                renderEntityCornerHighlight(poseStack, lineBuffer, entity, distance, breathFactor);
+            }
             return;
         }
 
@@ -155,6 +181,10 @@ public final class InteractionTargetRenderer {
 
         // Block is the nearest target – render block highlight
         BlockPos pos = blockHit.getBlockPos();
+        // Skip block outside RTS build boundary
+        if (!isWithinBounds(controller, pos)) {
+            return;
+        }
         double distance = camPos.distanceTo(Vec3.atCenterOf(pos));
         renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, pos, blockHit.getDirection(), distance, breathFactor);
     }
@@ -199,8 +229,11 @@ public final class InteractionTargetRenderer {
             return true;
         }
 
-        // Blocked in Quick Build range-destroy preview modes
-        if (builderScreen.isQuickBuildRangeDestroyChainMode() || builderScreen.isAreaMineHeightPreview()) {
+        // Blocked when Quick Build panel has an active box selection in progress (框选进行中)
+        var qbSession = builderScreen.getShapeController().getShapeBuildSession();
+        if (builderScreen.isQuickBuildOpen() && qbSession != null
+                && (qbSession.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT
+                || qbSession.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT)) {
             return true;
         }
 
@@ -230,14 +263,21 @@ public final class InteractionTargetRenderer {
     private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer lineBuffer,
             Entity entity, double distance, float breathFactor) {
         AABB bounds = entity.getBoundingBox().inflate(INFLATE);
+        float r = ENTITY_COLOR_R * breathFactor;
+        float g = ENTITY_COLOR_G * breathFactor;
+        float b = ENTITY_COLOR_B * breathFactor;
+
         CornerBracketRenderer.renderCornerBrackets(
                 poseStack, lineBuffer,
                 bounds.minX, bounds.minY, bounds.minZ,
                 bounds.maxX, bounds.maxY, bounds.maxZ,
-                ENTITY_COLOR_R * breathFactor,
-                ENTITY_COLOR_G * breathFactor,
-                ENTITY_COLOR_B * breathFactor,
-                distance);
+                r, g, b, distance);
+
+        // ── Transparent no-depth brackets (visible through terrain) ──
+        renderCornerBracketsNoDepth(poseStack,
+                bounds.minX, bounds.minY, bounds.minZ,
+                bounds.maxX, bounds.maxY, bounds.maxZ,
+                r, g, b, distance, 0.20F);
     }
 
     /**
@@ -263,20 +303,49 @@ public final class InteractionTargetRenderer {
         }
 
         double off = LINE_OFFSET;
+        float r = BLOCK_COLOR_R * breathFactor;
+        float g = BLOCK_COLOR_G * breathFactor;
+        float b = BLOCK_COLOR_B * breathFactor;
+
         CornerBracketRenderer.renderCornerBrackets(
                 poseStack, lineBuffer,
                 bounds.minX - off, bounds.minY - off, bounds.minZ - off,
                 bounds.maxX + off, bounds.maxY + off, bounds.maxZ + off,
-                BLOCK_COLOR_R * breathFactor,
-                BLOCK_COLOR_G * breathFactor,
-                BLOCK_COLOR_B * breathFactor,
-                distance);
+                r, g, b, distance);
+
+        // ── Transparent no-depth brackets (visible through terrain) ──
+        renderCornerBracketsNoDepth(poseStack,
+                bounds.minX - off, bounds.minY - off, bounds.minZ - off,
+                bounds.maxX + off, bounds.maxY + off, bounds.maxZ + off,
+                r, g, b, distance, 0.20F);
 
         // Render a translucent fog layer on the hit face
-        renderHitFaceFog(lineBuffer, poseStack, bounds, hitFace,
-                BLOCK_COLOR_R * breathFactor,
-                BLOCK_COLOR_G * breathFactor,
-                BLOCK_COLOR_B * breathFactor);
+        renderHitFaceFog(lineBuffer, poseStack, bounds, hitFace, r, g, b);
+    }
+
+    // ══════════════════════════════════════════════
+    //  No-depth Bracket Rendering
+    // ══════════════════════════════════════════════
+
+    /** Renders transparent no-depth corner brackets (visible through world geometry). */
+    private static void renderCornerBracketsNoDepth(PoseStack poseStack,
+            double minX, double minY, double minZ,
+            double maxX, double maxY, double maxZ,
+            float r, float g, float b, double distance, float alpha) {
+        BufferBuilder ndBuffer = new BufferBuilder(BRACKET_NO_DEPTH_BACKING, VertexFormat.Mode.QUADS,
+                DefaultVertexFormat.POSITION_COLOR);
+        CornerBracketRenderer.renderCornerBrackets(
+                poseStack, ndBuffer,
+                minX, minY, minZ, maxX, maxY, maxZ,
+                r, g, b, alpha, distance);
+        var meshData = ndBuffer.build();
+        if (meshData != null) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            BRACKET_NO_DEPTH.draw(meshData);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+        }
     }
 
     // ══════════════════════════════════════════════
@@ -324,6 +393,19 @@ public final class InteractionTargetRenderer {
     // ══════════════════════════════════════════════
     //  Bounds Computation
     // ══════════════════════════════════════════════
+
+    /**
+     * Checks whether the given block position is within the RTS build boundary.
+     * If no boundary is active ({@code controller.hasBounds() == false}), always returns {@code true}.
+     *
+     * @param controller the client RTS controller (provides anchor and radius)
+     * @param pos        the block position to test
+     * @return {@code true} if the position is within the build boundary, or if no boundary is set
+     */
+    private static boolean isWithinBounds(ClientRtsController controller, BlockPos pos) {
+        if (!controller.hasBounds()) return true;
+        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+    }
 
     /**
      * Computes the world-space axis-aligned bounding box for the block at {@code pos}.

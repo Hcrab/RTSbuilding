@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.ShapeFillMode;
@@ -163,8 +164,11 @@ public final class ScreenShapeController {
             clearShapeBuildSession();
             RangeDestroyPreview preview = buildRangeDestroyPreview(List.of(hit.getBlockPos().immutable()));
             if (!preview.breakableBlocks().isEmpty()) {
-                rememberConfirmedRangeDestroyPreview(preview);
-                this.controller.confirmShapeAreaDestroy(preview.breakableBlocks(), this.screen.getSelectedToolSlot());
+                List<BlockPos> boundsFiltered = filterToBounds(preview.breakableBlocks());
+                if (!boundsFiltered.isEmpty()) {
+                    rememberConfirmedRangeDestroyPreview(new RangeDestroyPreview(new ArrayList<>(boundsFiltered)));
+                    this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
+                }
             }
             return;
         }
@@ -315,8 +319,12 @@ public final class ScreenShapeController {
         if (targets.isEmpty()) {
             return true;
         }
-        rememberConfirmedRangeDestroyPreview(preview);
-        this.controller.confirmShapeAreaDestroy(targets, this.screen.getSelectedToolSlot());
+        List<BlockPos> boundsFiltered = filterToBounds(targets);
+        if (boundsFiltered.isEmpty()) {
+            return true;
+        }
+        rememberConfirmedRangeDestroyPreview(new RangeDestroyPreview(new ArrayList<>(boundsFiltered)));
+        this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
         return true;
     }
 
@@ -471,8 +479,13 @@ public final class ScreenShapeController {
             clearConfirmedChainDestroyPreview();
             return;
         }
+        List<BlockPos> boundsFiltered = filterToBounds(blocks);
+        if (boundsFiltered.isEmpty()) {
+            clearConfirmedChainDestroyPreview();
+            return;
+        }
         this.confirmedChainDestroyPreview = new ShapeDataRecords.GhostPreview(
-                copyImmutableBlocks(blocks),
+                copyImmutableBlocks(boundsFiltered),
                 true,
                 true,
                 List.of(),
@@ -941,8 +954,12 @@ public final class ScreenShapeController {
         if (preview == null || preview.isEmpty()) {
             return;
         }
+        List<BlockPos> boundsFiltered = filterToBounds(preview.breakableBlocks());
+        if (boundsFiltered.isEmpty()) {
+            return;
+        }
         this.confirmedRangeDestroyPreview = new ShapeDataRecords.GhostPreview(
-                new ArrayList<>(preview.breakableBlocks()),
+                new ArrayList<>(boundsFiltered),
                 true,
                 true,
                 List.of(),
@@ -1076,6 +1093,14 @@ public final class ScreenShapeController {
             }
         }
         return copy;
+    }
+
+    private List<BlockPos> filterToBounds(List<BlockPos> blocks) {
+        if (!this.controller.hasBounds() || blocks == null) {
+            return blocks;
+        }
+        return RenderingUtil.filterBlocksWithinBounds(blocks,
+                this.controller.getAnchorX(), this.controller.getAnchorZ(), this.controller.getMaxRadius());
     }
 
     private RangeDestroyPreview buildRangeDestroyPreview(ShapeBuildTypes.Input input) {

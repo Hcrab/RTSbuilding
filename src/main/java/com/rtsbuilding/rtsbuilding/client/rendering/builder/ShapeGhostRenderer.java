@@ -77,6 +77,10 @@ public final class ShapeGhostRenderer {
             VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
         if (preview == null) return;
 
+        // 将预览方块裁剪到 RTS 边界范围内，超出边界的方块不渲染
+        preview = clampPreviewToBounds(preview);
+        if (preview == null) return;
+
         // Ultimine ghost always tries to render; skip early-exit for ultimine
         if (!preview.chainDestroyPreview() && preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty()) {
             return;
@@ -213,6 +217,38 @@ public final class ShapeGhostRenderer {
         result = 31 * result + (preview.chainDestroyPreview() ? 1 : 0);
         result = 31 * result + (preview.confirmedWorkArea() ? 1 : 0);
         return result;
+    }
+
+    /**
+     * 将 GhostPreview 中的方块位置裁剪到 RTS 边界范围内。
+     * <p>
+     * 如果所有方块都在边界外，返回 {@code null} 以跳过渲染。
+     */
+    private static ShapeDataRecords.GhostPreview clampPreviewToBounds(ShapeDataRecords.GhostPreview preview) {
+        if (preview == null) return null;
+        ClientRtsController controller = ClientRtsController.get();
+        if (!controller.hasBounds()) return preview;
+
+        double ax = controller.getAnchorX();
+        double az = controller.getAnchorZ();
+        double r = controller.getMaxRadius();
+
+        List<BlockPos> filteredBlocks = RenderingUtil.filterBlocksWithinBounds(preview.blocks(), ax, az, r);
+        List<BlockPos> filteredEmptyBlocks = RenderingUtil.filterBlocksWithinBounds(preview.emptyBlocks(), ax, az, r);
+
+        // 如果两个列表都是原对象，说明没有方块被过滤掉
+        if (filteredBlocks == preview.blocks() && filteredEmptyBlocks == preview.emptyBlocks()) {
+            return preview;
+        }
+
+        // 如果所有方块都不在边界内，返回 null 跳过渲染
+        if (filteredBlocks.isEmpty() && filteredEmptyBlocks.isEmpty()) {
+            return null;
+        }
+
+        return new ShapeDataRecords.GhostPreview(
+                filteredBlocks, preview.readyConfirm(), preview.destructive(),
+                filteredEmptyBlocks, preview.chainDestroyPreview(), preview.confirmedWorkArea());
     }
 
 

@@ -49,6 +49,9 @@ public final class PlacementAnimationRenderer {
      * @see DestroyGhostRenderer#add(BlockPos)
      */
     public static void addDestroy(BlockPos pos) {
+        // Clean up any lingering pending ghost that was never confirmed
+        // (e.g. placement confirmation packet hadn't arrived before destruction)
+        PendingGhostRenderer.remove(pos);
         DestroyGhostRenderer.add(pos);
     }
 
