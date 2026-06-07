@@ -39,6 +39,8 @@ public final class ScreenShapeController {
     private ShapeFillMode shapeFillMode = ShapeFillMode.FILL;
     private int shapeRotateDegrees = 0;
     private boolean altShapeMenuHeld = false;
+    private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
+    private long confirmedRangeDestroyPreviewUntilMs;
     private final List<ShapeDataRecords.HistoryBatch> shapeUndoStack = new ArrayList<>();
     private final List<ShapeDataRecords.HistoryBatch> shapeRedoStack = new ArrayList<>();
 
@@ -166,6 +168,7 @@ public final class ScreenShapeController {
 
     private void advanceShapeSession(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
         if (this.shapeBuildSession == null || this.shapeBuildSession.shape() != shape) {
+            clearConfirmedRangeDestroyPreview();
             this.shapeFootprintNudgeA = 0;
             this.shapeFootprintNudgeB = 0;
             Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
@@ -216,9 +219,12 @@ public final class ScreenShapeController {
         if (input == null) {
             return false;
         }
-        List<BlockPos> targets = buildRangeDestroyTargets(input);
+        RangeDestroyPreview preview = buildRangeDestroyPreview(input);
+        List<BlockPos> targets = preview.breakableBlocks();
+        rememberConfirmedRangeDestroyPreview(preview);
         clearShapeBuildSession();
         if (targets.isEmpty()) {
+            clearConfirmedRangeDestroyPreview();
             return true;
         }
         this.controller.confirmShapeAreaDestroy(targets, this.screen.getSelectedToolSlot());
@@ -295,11 +301,11 @@ public final class ScreenShapeController {
             }
             ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
             if (input == null) {
-                return ShapeDataRecords.GhostPreview.EMPTY;
+                return confirmedRangeDestroyPreviewOrEmpty();
             }
             RangeDestroyPreview preview = buildRangeDestroyPreview(input);
             if (preview.isEmpty()) {
-                return ShapeDataRecords.GhostPreview.EMPTY;
+                return confirmedRangeDestroyPreviewOrEmpty();
             }
             boolean ready = this.shapeBuildSession != null && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
             return new ShapeDataRecords.GhostPreview(preview.breakableBlocks(), ready, true, preview.emptyBlocks());
@@ -773,6 +779,72 @@ public final class ScreenShapeController {
             return List.of();
         }
         return filterBreakableRangeDestroyTargets(ShapeGeometryUtil.buildShapePositions(input, this.shapeFillMode));
+    }
+
+    private void rememberConfirmedRangeDestroyPreview(RangeDestroyPreview preview) {
+        if (preview == null || preview.isEmpty()) {
+            clearConfirmedRangeDestroyPreview();
+            return;
+        }
+        this.confirmedRangeDestroyPreview = new ShapeDataRecords.GhostPreview(
+                new ArrayList<>(preview.breakableBlocks()),
+                true,
+                true,
+                new ArrayList<>(preview.emptyBlocks()));
+        this.confirmedRangeDestroyPreviewUntilMs = System.currentTimeMillis() + 2500L;
+    }
+
+    private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreviewOrEmpty() {
+        if (this.confirmedRangeDestroyPreview == null
+                || this.confirmedRangeDestroyPreview == ShapeDataRecords.GhostPreview.EMPTY
+                || (this.confirmedRangeDestroyPreview.blocks().isEmpty()
+                    && this.confirmedRangeDestroyPreview.emptyBlocks().isEmpty())) {
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+        long now = System.currentTimeMillis();
+        BlockPos progressPos = this.controller.getMineProgressPos();
+        boolean containsProgress = previewContains(this.confirmedRangeDestroyPreview, progressPos);
+        boolean hasForeignProgress = progressPos != null
+                && this.controller.getMineProgressStage() >= 0
+                && !containsProgress;
+        if (hasForeignProgress) {
+            clearConfirmedRangeDestroyPreview();
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+        if (containsProgress && this.controller.getMineProgressStage() >= 0
+                && this.controller.getUltimineProgressProcessed() <= 0) {
+            this.confirmedRangeDestroyPreviewUntilMs = now + 850L;
+            return this.confirmedRangeDestroyPreview;
+        }
+        if (now <= this.confirmedRangeDestroyPreviewUntilMs) {
+            return this.confirmedRangeDestroyPreview;
+        }
+        clearConfirmedRangeDestroyPreview();
+        return ShapeDataRecords.GhostPreview.EMPTY;
+    }
+
+    private void clearConfirmedRangeDestroyPreview() {
+        this.confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
+        this.confirmedRangeDestroyPreviewUntilMs = 0L;
+    }
+
+    private static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
+        if (preview == null || pos == null) {
+            return false;
+        }
+        return contains(preview.blocks(), pos) || contains(preview.emptyBlocks(), pos);
+    }
+
+    private static boolean contains(List<BlockPos> blocks, BlockPos pos) {
+        if (blocks == null || pos == null) {
+            return false;
+        }
+        for (BlockPos block : blocks) {
+            if (pos.equals(block)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private RangeDestroyPreview buildRangeDestroyPreview(ShapeBuildTypes.Input input) {
