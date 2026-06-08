@@ -19,6 +19,7 @@ import java.util.function.Supplier;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -33,6 +34,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 
 import net.minecraft.core.BlockPos;
@@ -241,7 +243,6 @@ public final class RtsStorageManager {
             tickActiveMining(player, session);
             tickFunnel(player, session);
             tickPlacedRecoveryJobs(player, session);
-            tickDeferredStoragePageRefresh(player, session);
         }
     }
 
@@ -316,11 +317,109 @@ public final class RtsStorageManager {
                 continue;
             }
             Session session = entry.getValue();
-            if (removeLinkedStorageRef(session, dimension, pos)) {
+            if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
                 saveSessionToPlayerNbt(player, session);
                 requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
             }
         }
+    }
+
+    public static void onLinkedStorageBlockPlaced(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || level.getServer() == null || !RtsBackpackCompat.isAvailable()) {
+            return;
+        }
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        UUID backpackUuid = RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
+        if (backpackUuid == null) {
+            return;
+        }
+        String backpackItemId = RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
+        LinkedStorageRef newRef = new LinkedStorageRef(level.dimension(), pos.immutable());
+        String displayName = RtsLinkedStorageResolver.resolveDisplayName(level, pos);
+        for (var entry : SESSIONS.entrySet()) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                continue;
+            }
+            Session session = entry.getValue();
+            if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
+                saveSessionToPlayerNbt(player, session);
+                requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            }
+        }
+    }
+
+    private static boolean markOrRemoveBrokenLinkedStorageRef(RtsStorageSession session, ServerLevel level,
+            ResourceKey<Level> dimension, BlockPos pos) {
+        if (session == null || dimension == null || pos == null || session.linkedStorages.isEmpty()) {
+            return false;
+        }
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.immutable());
+        if (!session.linkedStorages.contains(ref)) {
+            return false;
+        }
+        UUID backpackUuid = session.linkedBackpackUuids.get(ref);
+        if (backpackUuid != null) {
+            UUID breakingUuid = level == null ? null : RtsBackpackCompat.getBackpackUuid(level.getBlockEntity(pos)).orElse(null);
+            if (!backpackUuid.equals(breakingUuid)) {
+                return false;
+            }
+            return session.detachedBackpackRefs.add(ref);
+        }
+        return removeLinkedStorageRef(session, dimension, pos);
+    }
+
+    private static boolean moveBackpackLinkedStorageRef(RtsStorageSession session, UUID backpackUuid,
+            String backpackItemId, LinkedStorageRef newRef, String displayName) {
+        if (session == null || backpackUuid == null || newRef == null || session.linkedStorages.isEmpty()) {
+            return false;
+        }
+        boolean changed = false;
+        for (LinkedStorageRef oldRef : List.copyOf(session.linkedStorages)) {
+            if (!backpackUuid.equals(session.linkedBackpackUuids.get(oldRef))) {
+                continue;
+            }
+            if (oldRef.equals(newRef)) {
+                session.detachedBackpackRefs.remove(oldRef);
+                session.linkedNames.put(oldRef, displayName);
+                if (backpackItemId != null && !backpackItemId.isBlank()) {
+                    session.linkedBackpackItemIds.put(oldRef, backpackItemId);
+                }
+                changed = true;
+                continue;
+            }
+            if (session.linkedStorages.contains(newRef)
+                    && !backpackUuid.equals(session.linkedBackpackUuids.get(newRef))) {
+                continue;
+            }
+            byte mode = session.linkedModes.getOrDefault(oldRef, LINK_MODE_BIDIRECTIONAL);
+            int priority = session.linkedPriorities.getOrDefault(oldRef, 0);
+            int index = session.linkedStorages.indexOf(oldRef);
+            if (index < 0) {
+                continue;
+            }
+            if (session.linkedStorages.contains(newRef)) {
+                removeLinkedStorageRef(session, oldRef.dimension(), oldRef.pos());
+            } else {
+                session.linkedStorages.set(index, newRef);
+                session.linkedNames.remove(oldRef);
+                session.linkedModes.remove(oldRef);
+                session.linkedPriorities.remove(oldRef);
+                session.linkedBackpackUuids.remove(oldRef);
+                session.linkedBackpackItemIds.remove(oldRef);
+                session.detachedBackpackRefs.remove(oldRef);
+            }
+            session.linkedNames.put(newRef, displayName);
+            session.linkedModes.put(newRef, mode);
+            session.linkedPriorities.put(newRef, sanitizeLinkedStoragePriority(priority));
+            session.linkedBackpackUuids.put(newRef, backpackUuid);
+            if (backpackItemId != null && !backpackItemId.isBlank()) {
+                session.linkedBackpackItemIds.put(newRef, backpackItemId);
+            }
+            session.detachedBackpackRefs.remove(newRef);
+            changed = true;
+        }
+        return changed;
     }
 
     private static boolean removeLinkedStorageRef(RtsStorageSession session, ResourceKey<Level> dimension, BlockPos pos) {
@@ -333,6 +432,9 @@ public final class RtsStorageManager {
             session.linkedNames.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
             session.linkedModes.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
             session.linkedPriorities.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+            session.linkedBackpackUuids.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+            session.linkedBackpackItemIds.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+            session.detachedBackpackRefs.removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
         }
         return removed;
     }
@@ -678,8 +780,23 @@ public final class RtsStorageManager {
                 activeHandlers,
                 activeFluidHandlers);
         PacketDistributor.sendToPlayer(player, result.payload());
+        session.storageViewDirty = false;
         session.page = result.safePage();
         saveSessionToPlayerNbt(player, session);
+    }
+
+    public static void markStorageViewDirty(ServerPlayer player, RtsStorageSession session) {
+        if (player == null || session == null) {
+            return;
+        }
+        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
+            return;
+        }
+        if (session.storageViewDirty) {
+            return;
+        }
+        session.storageViewDirty = true;
+        PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
     }
 
     public static void requestCraftables(ServerPlayer player, String search, boolean showUnavailable, int offset, int limit) {
@@ -877,6 +994,7 @@ public final class RtsStorageManager {
         BlockState beforeClicked = null;
         BlockPos adjacentPos = null;
         BlockState beforeAdjacent = null;
+        boolean useItemInAir = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR;
 
         if (entityId >= 0) {
             targetEntity = level.getEntity(entityId);
@@ -892,10 +1010,12 @@ public final class RtsStorageManager {
                 return;
             }
             effectiveBlockPos = clickedPos.immutable();
-            blockHit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, effectiveBlockPos, false);
-            beforeClicked = level.getBlockState(effectiveBlockPos);
-            adjacentPos = effectiveBlockPos.relative(face);
-            beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+            if (!useItemInAir) {
+                blockHit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, effectiveBlockPos, false);
+                beforeClicked = level.getBlockState(effectiveBlockPos);
+                adjacentPos = effectiveBlockPos.relative(face);
+                beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+            }
         }
 
         InteractionResult result = InteractionResult.PASS;
@@ -904,6 +1024,7 @@ public final class RtsStorageManager {
             sendRemoteMenuOpenHint(player, effectiveBlockPos);
         }
         ItemStack toolSnapshot = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT
+                || sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR
                 ? player.getInventory().getItem(clampHotbarSlot(toolSlot)).copy()
                 : ItemStack.EMPTY;
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
@@ -912,6 +1033,8 @@ public final class RtsStorageManager {
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
             result = interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
+        } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
+            result = useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
             result = interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
         }
@@ -1074,7 +1197,7 @@ public final class RtsStorageManager {
             saveSessionToPlayerNbt(player, session);
         }
 
-        RtsStorageMining.scheduleMiningStorageRefresh(player, session);
+        RtsStorageMining.markMiningStorageDirty(player, session);
     }
 
     private static void enqueuePlacedRecoveryJob(Session session, BlockPos targetPos, List<ItemEntity> droppedEntities) {
@@ -1151,7 +1274,7 @@ public final class RtsStorageManager {
             }
         }
         if (processedAny) {
-            RtsStorageMining.scheduleMiningStorageRefresh(player, session);
+            RtsStorageMining.markMiningStorageDirty(player, session);
             runQuestDetect(player, session, false);
         }
     }
@@ -1283,10 +1406,6 @@ public final class RtsStorageManager {
             return;
         }
         RtsStorageMining.stopActiveMining(player, session);
-    }
-
-    private static void tickDeferredStoragePageRefresh(ServerPlayer player, RtsStorageSession session) {
-        RtsStorageMining.tickDeferredStoragePageRefresh(player, session);
     }
 
     private static <T> T withTemporaryOnGround(ServerPlayer player, boolean onGround, Supplier<T> action) {
@@ -1651,7 +1770,7 @@ public final class RtsStorageManager {
         boolean changed = flushFunnelBufferToDestinations(handlers, player, session);
         changed |= absorbDropsForFunnel(player, session.funnelTarget, handlers, session);
         if (changed) {
-            requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            markStorageViewDirty(player, session);
             runQuestDetect(player, session, false);
         }
     }
@@ -1872,6 +1991,31 @@ public final class RtsStorageManager {
                             InteractionHand.MAIN_HAND));
                 }
                 return InteractionResult.PASS;
+            } finally {
+                player.getInventory().selected = previousSelected;
+            }
+                });
+    }
+
+    private static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
+            int toolSlot, RayContext rayContext) {
+        int slot = clampHotbarSlot(toolSlot);
+        int previousSelected = player.getInventory().selected;
+        Vec3 fallback = hit == null ? player.getEyePosition() : hit;
+        return withTemporaryUseItemContext(
+                player,
+                fallback,
+                fallback,
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> {
+            player.getInventory().selected = slot;
+            try {
+                return withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
+                        player,
+                        level,
+                        player.getMainHandItem(),
+                        InteractionHand.MAIN_HAND));
             } finally {
                 player.getInventory().selected = previousSelected;
             }

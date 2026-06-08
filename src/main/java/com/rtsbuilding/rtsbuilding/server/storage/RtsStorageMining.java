@@ -85,9 +85,6 @@ public final class RtsStorageMining {
     /** How many ultimine targets are processed in a single tick. */
     private static final int ULTIMINE_BLOCKS_PER_TICK = 8;
 
-    /** Ticks to delay a storage-page refresh after mining stops. */
-    private static final long MINING_STORAGE_REFRESH_DELAY_TICKS = 10L;
-
     /** Number of hotbar slots a player has (0-8). */
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
 
@@ -587,7 +584,7 @@ public final class RtsStorageMining {
             }
         }
         returnMiningTool(player, session, session.miningToolLease);
-        scheduleMiningStorageRefresh(player, session);
+        markMiningStorageDirty(player, session);
         resetMiningState(session);
     }
 
@@ -615,41 +612,16 @@ public final class RtsStorageMining {
         }
         returnMiningTool(player, session, session.miningToolLease);
         if (hadMiningState) {
-            scheduleMiningStorageRefresh(player, session);
+            markMiningStorageDirty(player, session);
         }
         resetMiningState(session);
     }
 
-    /**
-     * Ticks the deferred storage-page refresh, firing it once the delay has
-     * elapsed and no mining/ultimine is still active.
-     */
-    public static void tickDeferredStoragePageRefresh(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.deferredStorageRefreshTick < 0L) {
-            return;
-        }
-        if (session.miningPos != null || session.ultimineProgressPos != null || !session.ultimineTargets.isEmpty()) {
-            return;
-        }
-        if (player.serverLevel().getGameTime() < session.deferredStorageRefreshTick) {
-            return;
-        }
-        session.deferredStorageRefreshTick = -1L;
-        RtsStorageManager.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
-    }
-
-    /**
-     * Schedules a deferred storage-page refresh after a short delay, used to
-     * avoid spamming page refreshes while mining is still in progress.
-     *
-     * @param player   the server player
-     * @param session  the player's storage session
-     */
-    public static void scheduleMiningStorageRefresh(ServerPlayer player, RtsStorageSession session) {
+    public static void markMiningStorageDirty(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null) {
             return;
         }
-        session.deferredStorageRefreshTick = player.serverLevel().getGameTime() + MINING_STORAGE_REFRESH_DELAY_TICKS;
+        RtsStorageManager.markStorageViewDirty(player, session);
     }
 
     // =========================================================================
@@ -846,7 +818,7 @@ public final class RtsStorageMining {
             RtsStorageManager.runQuestDetect(player, session, false);
         }
         returnMiningTool(player, session, session.miningToolLease);
-        scheduleMiningStorageRefresh(player, session);
+        markMiningStorageDirty(player, session);
         BlockPos progressPos = session.ultimineProgressPos;
         if (progressPos != null) {
             clearMineProgress(player, progressPos);

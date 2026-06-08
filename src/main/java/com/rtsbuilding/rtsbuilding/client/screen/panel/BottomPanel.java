@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
-import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -43,7 +42,6 @@ public final class BottomPanel {
     public int categoryScroll = 0;
     public int craftScroll = 0;
     public final Set<String> expandedCategoryMods = new HashSet<>();
-    public final RtsCraftQuantityDialog craftQuantityDialog = new RtsCraftQuantityDialog();
 
     public int hoveredEntry = -1;
     public int hoveredRecentEntry = -1;
@@ -85,11 +83,21 @@ public final class BottomPanel {
         int refreshX = bottomRefreshButtonX(layout);
         int refreshY = bottomGuideButtonY(layout);
         boolean refreshHover = inside(mouseX, mouseY, refreshX, refreshY, 12, 12);
+        boolean refreshDirty = activeTab == BottomPanelLayoutTypes.BottomPanelTab.STORAGE
+                && !this.controller.isStorageScanRunning()
+                && this.controller.shouldHighlightStorageRefresh();
         int refreshBg = this.controller.isStorageScanRunning()
                 ? 0xCC3F627E
+                : refreshDirty ? (refreshHover ? 0xDD2FAF49 : 0xCC248C3A)
                 : refreshHover ? 0xCC41576F : 0xAA2B3542;
         g.fill(refreshX, refreshY, refreshX + 12, refreshY + 12, refreshBg);
-        g.drawCenteredString(screen.font(), "R", refreshX + 6, refreshY + 2, 0xEAF4FF);
+        if (refreshDirty) {
+            g.fill(refreshX, refreshY, refreshX + 12, refreshY + 1, 0xFF92F7A0);
+            g.fill(refreshX, refreshY + 11, refreshX + 12, refreshY + 12, 0xFF92F7A0);
+            g.fill(refreshX, refreshY, refreshX + 1, refreshY + 12, 0xFF92F7A0);
+            g.fill(refreshX + 11, refreshY, refreshX + 12, refreshY + 12, 0xFF92F7A0);
+        }
+        g.drawCenteredString(screen.font(), "R", refreshX + 6, refreshY + 2, refreshDirty ? 0xFFFFFFFF : 0xEAF4FF);
         int guideX = bottomGuideButtonX(layout);
         int guideY = bottomGuideButtonY(layout);
         boolean guideHover = inside(mouseX, mouseY, guideX, guideY, 12, 12);
@@ -832,11 +840,11 @@ public final class BottomPanel {
 
     public void openCraftQuantityDialog(ClientRtsController.CraftableEntry entry) {
         screen.blurSearchFocus();
-        RtsCraftablesUiHelper.openCraftQuantityDialog(this.craftQuantityDialog, entry);
+        screen.openCraftQuantityWindow(entry);
     }
 
     public void submitCraftQuantityDialogIfReady() {
-        RtsCraftablesUiHelper.submitPendingCraftRequest(this.craftQuantityDialog, this.controller);
+        screen.submitCraftQuantityWindowIfReady();
     }
 
     // ── 合成底座 ──
@@ -889,7 +897,6 @@ public final class BottomPanel {
             this.bottomPanelTab = clickedTab;
             syncSearchBoxForActiveTab();
             screen.blurSearchFocus();
-            screen.closeGearMenu();
             return true;
         }
         if (inside(mouseX, mouseY, bottomRefreshButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
@@ -900,12 +907,10 @@ public final class BottomPanel {
             } else {
                 this.controller.refreshStoragePage();
             }
-            screen.closeGearMenu();
             return true;
         }
         if (inside(mouseX, mouseY, bottomGuideButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
             screen.openBottomGuide(bottomGuideButtonX(layout) + 6, bottomGuideButtonY(layout));
-            screen.closeGearMenu();
             return true;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {

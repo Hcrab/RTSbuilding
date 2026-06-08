@@ -233,6 +233,55 @@ public final class BlueprintPanel {
         return nameDialogMode != NameDialogMode.NONE;
     }
 
+    static boolean isNameDialogCaptureMode() {
+        return nameDialogMode == NameDialogMode.CAPTURE_SAVE;
+    }
+
+    static String nameDialogValue() {
+        return nameDialogValue;
+    }
+
+    static BlueprintEntry nameDialogEntry() {
+        return nameDialogEntry;
+    }
+
+    static BlockPos nameDialogCapturePointA() {
+        return CAPTURE.pointA();
+    }
+
+    static BlockPos nameDialogCapturePointB() {
+        return CAPTURE.previewPointB();
+    }
+
+    static long nameDialogCaptureBlockCount() {
+        return nameDialogCaptureBlockCount;
+    }
+
+    static void confirmActiveNameDialog() {
+        confirmNameDialog();
+    }
+
+    static void cancelActiveNameDialog() {
+        cancelNameDialog();
+    }
+
+    static BlueprintEntry materialDialogEntry() {
+        return selectedEntry();
+    }
+
+    static int materialDialogScroll() {
+        return materialDialogScroll;
+    }
+
+    static void setMaterialDialogScroll(int scroll) {
+        materialDialogScroll = Math.max(0, scroll);
+    }
+
+    static void closeMaterialDialog() {
+        materialDialogOpen = false;
+        materialDialogScroll = 0;
+    }
+
     public static void renderNameDialog(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY) {
         if (!isNameDialogOpen()) {
             return;
@@ -984,6 +1033,30 @@ public final class BlueprintPanel {
         return true;
     }
 
+    /**
+     * Converts the cursor target block into the internal blueprint anchor.
+     *
+     * <p>The placement payload still uses the original anchor convention, where
+     * blueprint-relative blocks are offset from an invisible origin. For mouse
+     * placement, however, players expect the cursor to hold the building itself,
+     * not an empty corner of a loose capture box. This maps the cursor target to
+     * the transformed blueprint content's bottom-center cell.</p>
+     */
+    public static BlockPos anchorForCursorTarget(BlockPos cursorTarget) {
+        BlueprintEntry entry = selectedEntry();
+        if (cursorTarget == null || entry == null || !entry.error().isBlank()) {
+            return cursorTarget;
+        }
+        int y = BlueprintTransform.normalizeSteps(yRotationSteps);
+        int x = BlueprintTransform.normalizeSteps(xRotationSteps);
+        int z = BlueprintTransform.normalizeSteps(zRotationSteps);
+        PlacementBounds bounds = transformedContentBounds(entry.blueprint(), y, x, z);
+        if (bounds == null) {
+            return cursorTarget;
+        }
+        return cursorTarget.offset(-bounds.centerX(), -bounds.minY(), -bounds.centerZ());
+    }
+
     public static BlueprintGhostPreview createGhostPreview(BlockPos anchor, int yRotationSteps, ClientRtsController controller) {
         BlueprintEntry entry = selectedEntry();
         if (!Config.areBlueprintsEnabled() || anchor == null || entry == null || !entry.error().isBlank()) {
@@ -1006,6 +1079,44 @@ public final class BlueprintPanel {
             }
         }
         return new BlueprintGhostPreview(List.copyOf(out), hasEnoughMaterials(entry, controller), entry.blockCount() > out.size());
+    }
+
+    private static PlacementBounds transformedContentBounds(RtsBlueprint blueprint, int y, int x, int z) {
+        if (blueprint == null || blueprint.blocks().isEmpty()) {
+            return null;
+        }
+        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(blueprint.size(), y, x, z);
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        boolean found = false;
+        for (RtsBlueprintBlock block : blueprint.blocks()) {
+            if (block == null || (!block.isMissingBlock() && (block.state() == null || block.state().isAir()))) {
+                continue;
+            }
+            BlockPos pos = BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset);
+            minX = Math.min(minX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+            maxX = Math.max(maxX, pos.getX());
+            maxY = Math.max(maxY, pos.getY());
+            maxZ = Math.max(maxZ, pos.getZ());
+            found = true;
+        }
+        return found ? new PlacementBounds(minX, minY, minZ, maxX, maxY, maxZ) : null;
+    }
+
+    private record PlacementBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+        int centerX() {
+            return this.minX + ((this.maxX - this.minX) / 2);
+        }
+
+        int centerZ() {
+            return this.minZ + ((this.maxZ - this.minZ) / 2);
+        }
     }
 
     public static boolean placeSelected(BlockPos anchor, int yRotationSteps, int xRotationSteps, int zRotationSteps) {

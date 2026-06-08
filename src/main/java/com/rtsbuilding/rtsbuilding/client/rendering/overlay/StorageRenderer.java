@@ -149,7 +149,7 @@ public final class StorageRenderer {
 
         Set<BlockPos> currPositions = new HashSet<>();
         for (ClientRtsController.LinkedStorageEntry e : entries) {
-            if (e.pos() != null) currPositions.add(e.pos());
+            if (e.worldAvailable() && e.pos() != null) currPositions.add(e.pos());
         }
 
         if (!initialised) {
@@ -184,6 +184,7 @@ public final class StorageRenderer {
 
             // Additions → start BINDING (or restart if still UNBINDING).
             for (ClientRtsController.LinkedStorageEntry e : entries) {
+                if (!e.worldAvailable()) continue;
                 BlockPos p = e.pos();
                 if (p == null || prevPositions.contains(p)) continue;
                 StorageAnim existing = anims.get(p);
@@ -235,6 +236,9 @@ public final class StorageRenderer {
         // ── 3. Render currently linked entries (BINDING / BOUND) ────────────
 
         for (ClientRtsController.LinkedStorageEntry entry : entries) {
+            if (!entry.worldAvailable()) {
+                continue;
+            }
             BlockPos pos = entry.pos();
             if (pos == null || !minecraft.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) {
                 continue;

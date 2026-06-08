@@ -25,6 +25,7 @@ public final class RtsBlockTrackingEvents {
             return;
         }
         PlacedBlockTrackerData.get(serverLevel).mark(event.getPos());
+        serverLevel.getServer().execute(() -> RtsStorageManager.onLinkedStorageBlockPlaced(serverLevel, event.getPos()));
     }
 
     @SubscribeEvent
@@ -38,6 +39,7 @@ public final class RtsBlockTrackingEvents {
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(serverLevel);
         for (BlockSnapshot snapshot : event.getReplacedBlockSnapshots()) {
             tracker.mark(snapshot.getPos());
+            serverLevel.getServer().execute(() -> RtsStorageManager.onLinkedStorageBlockPlaced(serverLevel, snapshot.getPos()));
         }
     }
 

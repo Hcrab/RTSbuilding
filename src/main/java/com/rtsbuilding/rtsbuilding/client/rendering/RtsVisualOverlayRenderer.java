@@ -71,6 +71,18 @@ public final class RtsVisualOverlayRenderer {
                     .setCullState(RenderStateShard.NO_CULL)
                     .createCompositeState(false));
 
+    private static final RenderType TARGET_NO_DEPTH_QUADS = RenderType.create(
+            "rtsbuilding_target_no_depth_quads",
+            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setOutputState(RenderStateShard.MAIN_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
+
     private static final RenderType LINES = RenderType.lines();
     private static final RenderType FILLED_BOX = RenderType.debugFilledBox();
 
@@ -81,6 +93,7 @@ public final class RtsVisualOverlayRenderer {
     private static final ByteBufferBuilder LINE_BACKING = new ByteBufferBuilder(LINES.bufferSize());
     private static final ByteBufferBuilder FILL_BACKING = new ByteBufferBuilder(FILLED_BOX.bufferSize());
     private static final ByteBufferBuilder BRACKET_BACKING = new ByteBufferBuilder(BRACKET_QUADS.bufferSize());
+    private static final ByteBufferBuilder TARGET_NO_DEPTH_BACKING = new ByteBufferBuilder(TARGET_NO_DEPTH_QUADS.bufferSize());
 
     private RtsVisualOverlayRenderer() {}
 
@@ -113,10 +126,11 @@ public final class RtsVisualOverlayRenderer {
             BufferBuilder lineBuffer = bufferFor(LINES, LINE_BACKING);
             BufferBuilder fillBuffer = bufferFor(FILLED_BOX, FILL_BACKING);
             BufferBuilder bracketBuffer = bufferFor(BRACKET_QUADS, BRACKET_BACKING);
+            BufferBuilder targetNoDepthBuffer = bufferFor(TARGET_NO_DEPTH_QUADS, TARGET_NO_DEPTH_BACKING);
 
             BoundaryLineRenderer.renderRedBoundary(poseStack, lineBuffer, minX, minZ, maxX, maxZ, ay);
             StorageRenderer.renderLinkedStorages(minecraft, controller, poseStack, bracketBuffer);
-            InteractionTargetRenderer.renderHoveredInteractionTarget(minecraft, controller, poseStack, bracketBuffer);
+            InteractionTargetRenderer.renderHoveredInteractionTarget(minecraft, controller, poseStack, bracketBuffer, targetNoDepthBuffer);
             ShapeGhostRenderer.renderShapeGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
             BlueprintCaptureRenderer.renderBlueprintCaptureBox(poseStack, lineBuffer, fillBuffer);
             BlueprintGhostRenderer.renderBlueprintGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
@@ -125,6 +139,7 @@ public final class RtsVisualOverlayRenderer {
             drawIfNotEmpty(LINES, lineBuffer);
             drawIfNotEmpty(FILLED_BOX, fillBuffer);
             drawBrackets(bracketBuffer);
+            drawNoDepth(TARGET_NO_DEPTH_QUADS, targetNoDepthBuffer);
         } finally {
             poseStack.popPose();
         }

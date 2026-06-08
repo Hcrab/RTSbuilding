@@ -111,6 +111,11 @@ public final class RtsStoragePackets {
                 RtsClientPayloadBridge::handleStoragePage);
 
         registrar.playToClient(
+                S2CRtsStorageDirtyPayload.TYPE,
+                S2CRtsStorageDirtyPayload.STREAM_CODEC,
+                RtsClientPayloadBridge::handleStorageDirty);
+
+        registrar.playToClient(
                 S2CRtsRemoteMenuHintPayload.TYPE,
                 S2CRtsRemoteMenuHintPayload.STREAM_CODEC,
                 RtsClientPayloadBridge::handleRemoteMenuHint);

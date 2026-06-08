@@ -1514,7 +1514,7 @@ public final class ScreenShapeController {
         return this.controller.isEnabled()
                 && !this.screen.isShapeWheelOpen()
                 && !this.screen.isInteractionWheelOpen()
-                && !this.screen.isGuideOpen()
+                && !this.screen.isMouseOverFloatingWindow(this.screen.getCurrentMouseX(), mouseY)
                 && this.screen.isWorldArea(this.screen.getCurrentMouseX(), mouseY);
     }
 

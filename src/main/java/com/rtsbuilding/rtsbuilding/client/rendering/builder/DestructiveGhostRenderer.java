@@ -233,7 +233,7 @@ public final class DestructiveGhostRenderer {
                     lineR, lineG, lineB, lineA);
 
         // ── Transparent no-depth envelope line box (visible through terrain) ──
-            float ndAlpha = 0.20F;
+            float ndAlpha = 0.20F * RenderingUtil.clamp01(lineA / 0.78F);
             renderEnvelopeNoDepthLineBox(poseStack, minX, minY, minZ, maxX, maxY, maxZ,
                     lineR, lineG, lineB, ndAlpha);
         }

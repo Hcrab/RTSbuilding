@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 
 import net.neoforged.api.distmarker.Dist;
@@ -40,6 +41,12 @@ public final class RtsClientPayloadBridge {
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, IPayloadContext context) {
         if (FMLEnvironment.dist == Dist.CLIENT) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleStoragePage(payload, context);
+        }
+    }
+
+    public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleStorageDirty(payload, context);
         }
     }
 

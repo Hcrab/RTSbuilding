@@ -276,7 +276,7 @@ public final class RtsScreenUiStateManager {
         state.windowPanelBounds.clear();
         for (Map.Entry<String, RtsWindowPanel> entry : this.persistablePanels.entrySet()) {
             RtsWindowPanel panel = entry.getValue();
-            if (panel.hasInitializedBounds()) {
+            if (panel.hasUserBoundsPreference()) {
                 state.windowPanelBounds.put(entry.getKey(),
                         new RtsClientUiStateStore.UiState.PanelBounds(
                                 panel.getWindowX(), panel.getWindowY(),

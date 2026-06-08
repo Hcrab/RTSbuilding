@@ -15,6 +15,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -69,6 +70,9 @@ public final class InteractionTargetRenderer {
 
     /** Small outward offset applied to the hit-face quad to prevent z-fighting. */
     private static final double FACE_FOG_OFFSET = 0.005D;
+
+    private static final float NO_DEPTH_BRACKET_ALPHA = 0.32F;
+    private static final float NO_DEPTH_FACE_FOG_ALPHA = 0.18F;
 
     // ──────────────────────────────────────────────
     //  Constants – Animation
@@ -149,10 +153,11 @@ public final class InteractionTargetRenderer {
      * @param minecraft   the Minecraft client instance
      * @param controller  the client-side RTS controller (used for rotation-capture check)
      * @param poseStack   current transformation stack (already translated to camera space)
-     * @param lineBuffer  {@link VertexConsumer} for the bracket-quad render type
+     * @param lineBuffer  {@link VertexConsumer} for normal depth-tested target geometry
+     * @param noDepthBuffer {@link VertexConsumer} for the final no-depth visibility backstop
      */
     public static void renderHoveredInteractionTarget(Minecraft minecraft, ClientRtsController controller,
-            PoseStack poseStack, VertexConsumer lineBuffer) {
+            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer noDepthBuffer) {
         // ── Fast early-exit checks ──
         if (controller.isRotateCaptured() || minecraft.level == null || minecraft.getCameraEntity() == null) {
             return;
@@ -185,7 +190,7 @@ public final class InteractionTargetRenderer {
             // Skip entity outside RTS build boundary
             if (isWithinBounds(controller, entity.blockPosition())) {
                 double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
-                renderEntityCornerHighlight(poseStack, lineBuffer, entity, distance, breathFactor);
+                renderEntityCornerHighlight(poseStack, lineBuffer, noDepthBuffer, entity, distance, breathFactor);
             }
             return;
         }
@@ -201,7 +206,7 @@ public final class InteractionTargetRenderer {
             return;
         }
         double distance = camPos.distanceTo(Vec3.atCenterOf(pos));
-        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, pos, blockHit.getDirection(), distance, breathFactor);
+        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, noDepthBuffer, pos, blockHit.getDirection(), distance, breathFactor);
     }
 
     // ══════════════════════════════════════════════
@@ -252,7 +257,10 @@ public final class InteractionTargetRenderer {
             return true;
         }
 
-        return false;
+        // Blocked when single block pre-placement ghost is active
+        // The translucent block model overlaps with the corner brackets on the same position.
+        ShapeDataRecords.GhostPreview ghost = builderScreen.getShapeGhostPreview();
+        return ghost != null && ghost.readyConfirm() && !ghost.destructive() && !ghost.blocks().isEmpty();
     }
 
     // ══════════════════════════════════════════════
@@ -269,7 +277,7 @@ public final class InteractionTargetRenderer {
      * @param breathFactor current breathing animation multiplier
      */
     private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer lineBuffer,
-            Entity entity, double distance, float breathFactor) {
+            VertexConsumer noDepthBuffer, Entity entity, double distance, float breathFactor) {
         AABB bounds = entity.getBoundingBox().inflate(INFLATE);
         float r = ENTITY_COLOR_R * breathFactor;
         float g = ENTITY_COLOR_G * breathFactor;
@@ -282,10 +290,10 @@ public final class InteractionTargetRenderer {
                 r, g, b, distance);
 
         // ── Transparent no-depth brackets (visible through terrain) ──
-        renderCornerBracketsNoDepth(poseStack,
+        renderCornerBracketsNoDepth(poseStack, noDepthBuffer,
                 bounds.minX, bounds.minY, bounds.minZ,
                 bounds.maxX, bounds.maxY, bounds.maxZ,
-                r, g, b, distance, 0.20F);
+                r, g, b, distance);
     }
 
     /**
@@ -300,7 +308,8 @@ public final class InteractionTargetRenderer {
      * @param breathFactor current breathing animation multiplier
      */
     private static void renderBlockCornerHighlight(Minecraft minecraft, PoseStack poseStack,
-            VertexConsumer lineBuffer, BlockPos pos, Direction hitFace, double distance, float breathFactor) {
+            VertexConsumer lineBuffer, VertexConsumer noDepthBuffer,
+            BlockPos pos, Direction hitFace, double distance, float breathFactor) {
         if (minecraft.level == null) {
             return;
         }
@@ -322,38 +331,32 @@ public final class InteractionTargetRenderer {
                 r, g, b, distance);
 
         // ── Transparent no-depth brackets (visible through terrain) ──
-        renderCornerBracketsNoDepth(poseStack,
+        renderCornerBracketsNoDepth(poseStack, noDepthBuffer,
                 bounds.minX - off, bounds.minY - off, bounds.minZ - off,
                 bounds.maxX + off, bounds.maxY + off, bounds.maxZ + off,
-                r, g, b, distance, 0.20F);
+                r, g, b, distance);
 
-        // Render a translucent fog layer on the hit face (no depth test)
-        renderHitFaceFog(poseStack, bounds, hitFace, r, g, b);
+        // Render a translucent fog layer on the hit face
+        renderHitFaceFog(lineBuffer, poseStack, bounds, hitFace, r, g, b, FACE_FOG_ALPHA);
+        renderHitFaceFog(noDepthBuffer, poseStack, bounds, hitFace, r, g, b, NO_DEPTH_FACE_FOG_ALPHA);
     }
 
     // ══════════════════════════════════════════════
     //  No-depth Bracket Rendering
     // ══════════════════════════════════════════════
 
-    /** Renders transparent no-depth corner brackets (visible through world geometry). */
-    private static void renderCornerBracketsNoDepth(PoseStack poseStack,
+    /** Adds transparent no-depth corner brackets to the renderer-level backstop buffer. */
+    private static void renderCornerBracketsNoDepth(PoseStack poseStack, VertexConsumer noDepthBuffer,
             double minX, double minY, double minZ,
             double maxX, double maxY, double maxZ,
-            float r, float g, float b, double distance, float alpha) {
-        BufferBuilder ndBuffer = new BufferBuilder(BRACKET_NO_DEPTH_BACKING, VertexFormat.Mode.QUADS,
-                DefaultVertexFormat.POSITION_COLOR);
-        CornerBracketRenderer.renderCornerBrackets(
-                poseStack, ndBuffer,
-                minX, minY, minZ, maxX, maxY, maxZ,
-                r, g, b, alpha, distance);
-        var meshData = ndBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            BRACKET_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
+            float r, float g, float b, double distance) {
+        if (noDepthBuffer == null) {
+            return;
         }
+        CornerBracketRenderer.renderCornerBrackets(
+                poseStack, noDepthBuffer,
+                minX, minY, minZ, maxX, maxY, maxZ,
+                r, g, b, NO_DEPTH_BRACKET_ALPHA, distance);
     }
 
     // ══════════════════════════════════════════════
@@ -365,6 +368,7 @@ public final class InteractionTargetRenderer {
      * that the player's crosshair is currently targeting. Rendered without depth test
      * so it remains visible even when occluded by terrain.
      *
+     * @param consumer  vertex consumer
      * @param poseStack current transformation stack
      * @param bounds    the world-space bounding box of the target block/structure
      * @param face      the direction of the hit face
@@ -372,9 +376,11 @@ public final class InteractionTargetRenderer {
      * @param g         green colour component [0, 1]
      * @param b         blue  colour component [0, 1]
      */
-    private static void renderHitFaceFog(PoseStack poseStack,
-            AABB bounds, Direction face, float r, float g, float b) {
-        float alpha = FACE_FOG_ALPHA;
+    private static void renderHitFaceFog(VertexConsumer consumer, PoseStack poseStack,
+            AABB bounds, Direction face, float r, float g, float b, float alpha) {
+        if (consumer == null) {
+            return;
+        }
         double off = FACE_FOG_OFFSET;
 
         double x1 = bounds.minX, x2 = bounds.maxX;
@@ -385,17 +391,17 @@ public final class InteractionTargetRenderer {
                 DefaultVertexFormat.POSITION_COLOR);
 
         switch (face) {
-            case DOWN -> RenderingUtil.quad(fogBuffer, poseStack,
+            case DOWN -> RenderingUtil.quad(consumer, poseStack,
                     x1, y1 - off, z1, x2, y1 - off, z1, x2, y1 - off, z2, x1, y1 - off, z2, r, g, b, alpha);
-            case UP -> RenderingUtil.quad(fogBuffer, poseStack,
+            case UP -> RenderingUtil.quad(consumer, poseStack,
                     x1, y2 + off, z1, x1, y2 + off, z2, x2, y2 + off, z2, x2, y2 + off, z1, r, g, b, alpha);
-            case NORTH -> RenderingUtil.quad(fogBuffer, poseStack,
+            case NORTH -> RenderingUtil.quad(consumer, poseStack,
                     x1, y1, z1 - off, x2, y1, z1 - off, x2, y2, z1 - off, x1, y2, z1 - off, r, g, b, alpha);
-            case SOUTH -> RenderingUtil.quad(fogBuffer, poseStack,
+            case SOUTH -> RenderingUtil.quad(consumer, poseStack,
                     x1, y1, z2 + off, x1, y2, z2 + off, x2, y2, z2 + off, x2, y1, z2 + off, r, g, b, alpha);
-            case WEST -> RenderingUtil.quad(fogBuffer, poseStack,
+            case WEST -> RenderingUtil.quad(consumer, poseStack,
                     x1 - off, y1, z1, x1 - off, y2, z1, x1 - off, y2, z2, x1 - off, y1, z2, r, g, b, alpha);
-            case EAST -> RenderingUtil.quad(fogBuffer, poseStack,
+            case EAST -> RenderingUtil.quad(consumer, poseStack,
                     x2 + off, y1, z1, x2 + off, y1, z2, x2 + off, y2, z2, x2 + off, y2, z1, r, g, b, alpha);
         }
 

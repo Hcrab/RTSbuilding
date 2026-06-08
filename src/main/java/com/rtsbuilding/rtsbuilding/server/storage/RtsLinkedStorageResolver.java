@@ -3,8 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
@@ -15,6 +17,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -60,17 +63,28 @@ public final class RtsLinkedStorageResolver {
         if (!session.linkedStorages.isEmpty()) {
             ResourceKey<Level> currentDimension = player.serverLevel().dimension();
             for (LinkedStorageRef ref : session.linkedStorages) {
-                if (ref == null || ref.pos() == null || !currentDimension.equals(ref.dimension())) {
+                if (ref == null || ref.pos() == null) {
                     continue;
                 }
                 BlockPos pos = ref.pos();
-                if (!RtsProgressionManager.canAccessHomeRadius(player, pos)) {
-                    continue;
+                UUID backpackUuid = session.linkedBackpackUuids.get(ref);
+                boolean backpackLink = backpackUuid != null;
+                boolean sameDimension = currentDimension.equals(ref.dimension());
+                IItemHandler handler = null;
+
+                if (sameDimension && !session.detachedBackpackRefs.contains(ref)
+                        && RtsProgressionManager.canAccessHomeRadius(player, pos)
+                        && player.serverLevel().hasChunkAt(pos)) {
+                    handler = backpackLink
+                            ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
+                            : RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
                 }
-                if (!player.serverLevel().hasChunkAt(pos)) {
-                    continue;
+
+                if (handler == null && backpackLink) {
+                    handler = RtsBackpackCompat.openBackpack(backpackUuid, session.linkedBackpackItemIds.get(ref), player)
+                            .orElse(null);
                 }
-                IItemHandler handler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+
                 if (handler == null) {
                     continue;
                 }
@@ -206,6 +220,23 @@ public final class RtsLinkedStorageResolver {
         session.linkedNames.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
         session.linkedModes.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
         session.linkedPriorities.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+        session.linkedBackpackUuids.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+        session.linkedBackpackItemIds.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+        session.detachedBackpackRefs.removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+    }
+
+    public static boolean isLinkedRefWorldVisible(ServerPlayer player, RtsStorageSession session, LinkedStorageRef ref) {
+        if (player == null || session == null || ref == null || ref.pos() == null
+                || !player.serverLevel().dimension().equals(ref.dimension())
+                || session.detachedBackpackRefs.contains(ref)
+                || !player.serverLevel().hasChunkAt(ref.pos())) {
+            return false;
+        }
+        UUID backpackUuid = session.linkedBackpackUuids.get(ref);
+        if (backpackUuid != null) {
+            return backpackUuid.equals(readBackpackUuid(player.serverLevel(), ref.pos()));
+        }
+        return !player.serverLevel().getBlockState(ref.pos()).isAir();
     }
 
     public static List<LinkedHandler> orderHandlersForInsert(List<LinkedHandler> handlers) {
@@ -280,6 +311,21 @@ public final class RtsLinkedStorageResolver {
         return session == null || ref == null
                 ? 0
                 : RtsStorageManager.sanitizeLinkedStoragePriority(session.linkedPriorities.getOrDefault(ref, 0));
+    }
+
+    private static IItemHandler findMatchingBackpackBlockHandler(ServerPlayer player, BlockPos pos, UUID expectedUuid) {
+        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.serverLevel(), pos))) {
+            return null;
+        }
+        return RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+    }
+
+    private static UUID readBackpackUuid(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
+            return null;
+        }
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 
     private static List<LinkedHandler> orderedHandlers(List<LinkedHandler> handlers, Comparator<LinkedHandler> comparator) {

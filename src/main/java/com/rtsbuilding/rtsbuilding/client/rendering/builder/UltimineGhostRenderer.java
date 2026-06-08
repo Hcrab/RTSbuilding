@@ -150,12 +150,17 @@ public final class UltimineGhostRenderer {
 
     static void renderPass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
             VertexConsumer lineBuffer, float r, float g, float b) {
+        renderPass1(edges, matrix, lineBuffer, r, g, b, 0.95F);
+    }
+
+    static void renderPass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
+            VertexConsumer lineBuffer, float r, float g, float b, float alpha) {
         for (UltimineBlockMerger.EdgeLine edge : edges) {
             lineBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
-                    .setColor(r, g, b, 0.95F)
+                    .setColor(r, g, b, alpha)
                     .setNormal(edge.xn(), edge.yn(), edge.zn());
             lineBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
-                    .setColor(r, g, b, 0.95F)
+                    .setColor(r, g, b, alpha)
                     .setNormal(edge.xn(), edge.yn(), edge.zn());
         }
     }

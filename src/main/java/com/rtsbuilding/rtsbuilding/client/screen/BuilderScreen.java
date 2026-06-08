@@ -2,12 +2,15 @@ package com.rtsbuilding.rtsbuilding.client.screen;
 
 
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialWindowPanel;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintNameWindowPanel;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
+import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
@@ -103,6 +106,12 @@ public final class BuilderScreen extends Screen {
     private final LinkedStoragePanel linkedStoragePanel = new LinkedStoragePanel();
     /** Windowed blueprint capture/placement controls. */
     private final BlueprintWindowPanel blueprintWindowPanel = new BlueprintWindowPanel();
+    /** Windowed craft quantity picker. */
+    private final RtsCraftQuantityWindowPanel craftQuantityWindowPanel = new RtsCraftQuantityWindowPanel();
+    /** Windowed blueprint save/rename name prompt. */
+    private final BlueprintNameWindowPanel blueprintNameWindowPanel = new BlueprintNameWindowPanel();
+    /** Windowed blueprint material details prompt. */
+    private final BlueprintMaterialWindowPanel blueprintMaterialWindowPanel = new BlueprintMaterialWindowPanel();
     /** Top bar panel with mode buttons, shape selection, and action controls. */
     private final TopBarPanel topBarPanel = new TopBarPanel();
     /** Bottom panel containing storage grid, crafting, blueprints, and pin slots. */
@@ -157,17 +166,31 @@ public final class BuilderScreen extends Screen {
         this.controller = controller;
         this.uiStateManager = new RtsScreenUiStateManager(this.controller, this.shapeController, this.quickBuildPanel);
         this.overlayRenderer = new RtsScreenOverlayRenderer(this, this.controller, this.cursorPicker, this.bottomPanel);
+        this.storageLinkDetailHandler = new StorageLinkDetailHandler(this, this.controller, this.topBarPanel, this.linkedStoragePanel);
         this.floatingWindowLayer = new RtsFloatingWindowLayer(
+                this.storageLinkDetailHandler,
                 this.linkedStoragePanel,
                 this.blueprintWindowPanel,
+                this.blueprintMaterialWindowPanel,
+                this.blueprintNameWindowPanel,
+                this.craftQuantityWindowPanel,
                 this.gearMenuPanel,
                 this.guidePanel,
                 this.quickBuildPanel);
         this.uiStateManager.registerWindowPanel("settings", this.gearMenuPanel);
         this.uiStateManager.registerWindowPanel("blueprints", this.blueprintWindowPanel);
+        this.uiStateManager.registerWindowPanel("guide", this.guidePanel);
+        this.uiStateManager.registerWindowPanel("linked_storage", this.linkedStoragePanel);
+        this.uiStateManager.registerWindowPanel("craft_quantity", this.craftQuantityWindowPanel);
+        this.uiStateManager.registerWindowPanel("blueprint_name", this.blueprintNameWindowPanel);
+        this.uiStateManager.registerWindowPanel("blueprint_materials", this.blueprintMaterialWindowPanel);
+        this.storageLinkDetailHandler.init(this, this.controller);
         this.guidePanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
         this.blueprintWindowPanel.init(this, this.controller);
+        this.blueprintNameWindowPanel.init(this, this.controller);
+        this.blueprintMaterialWindowPanel.init(this, this.controller);
+        this.craftQuantityWindowPanel.init(this, this.controller);
         this.funnelBufferPanel.init(this, this.controller);
         this.quickBuildPanel.init(this, this.controller);
         this.linkedStoragePanel.init(this, this.controller);
@@ -176,7 +199,6 @@ public final class BuilderScreen extends Screen {
         this.shapeController.init(this, this.controller);
         this.cursorPicker.init(this, this.controller, this.shapeController);
         this.cameraInput.init(this, this.controller);
-        this.storageLinkDetailHandler = new StorageLinkDetailHandler(this, this.controller, this.topBarPanel, this.linkedStoragePanel);
     }
     /** Returns the Minecraft font renderer for use by sub-panels and utilities. */
     public Font font() {
@@ -335,7 +357,7 @@ public final class BuilderScreen extends Screen {
         if (this.controller.isEnabled()) {
             RtsClientPacketGateway.sendToggleCamera(this.controller.isStartCameraAtPlayerHead());
         }
-        this.bottomPanel.craftQuantityDialog.close();
+        this.craftQuantityWindowPanel.close();
         this.overlayRenderer.updateNativeCursorVisibility(false);
     }
     /* Called when the screen is fully removed from the display stack. Resets camera vertical input and cursor. */
@@ -396,7 +418,6 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
-        if (handleDialogClicks(mouseX, mouseY, button)) return true;
         if (handleOverlayClicks(mouseX, mouseY, button)) return true;
         if (handleBlueprintCaptureClicks(mouseX, mouseY, button)) return true;
         if (handleHomeSelectionClicks(mouseX, mouseY, button)) return true;
@@ -404,22 +425,6 @@ public final class BuilderScreen extends Screen {
         if (handleLeftClickInteractions(mouseX, mouseY, button)) return true;
         if (handleWorldClickActions(mouseX, mouseY, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    /** Handles click on open dialogs: craft quantity, blueprint name/material. */
-    private boolean handleDialogClicks(double mouseX, double mouseY, int button) {
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            boolean handled = this.bottomPanel.craftQuantityDialog.mouseClicked(mouseX, mouseY, button, this.width, this.height);
-            this.bottomPanel.submitCraftQuantityDialogIfReady();
-            return handled;
-        }
-        if (BlueprintPanel.isNameDialogOpen()) {
-            return BlueprintPanel.mouseClickedNameDialog(mouseX, mouseY, button, this.width, this.height);
-        }
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            return BlueprintPanel.mouseClickedMaterialDialog(mouseX, mouseY, button, this.width, this.height);
-        }
-        return false;
     }
 
     /** Handles left/right click in blueprint capture mode. */
@@ -474,12 +479,10 @@ public final class BuilderScreen extends Screen {
         return true;
     }
 
-    /** Handles click on floating windows and modal guide/gear panels. */
+    /** Handles click on floating windows through the shared window layer. */
     private boolean handleOverlayClicks(double mouseX, double mouseY, int button) {
         if (handleFloatingWindowClick(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            submitCraftQuantityWindowIfReady();
             return true;
         }
         return false;
@@ -500,9 +503,6 @@ public final class BuilderScreen extends Screen {
     private boolean handleLeftClickInteractions(double mouseX, double mouseY, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
-        }
-        if (this.storageLinkDetailHandler.handleClick(mouseX, mouseY)) {
-            return true;
         }
         if (this.topBarPanel.handleClick(mouseX, mouseY)) {
             return true;
@@ -601,9 +601,6 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            return true;
-        }
         if (this.draggingInputSensitivity) {
             this.draggingInputSensitivity = false;
             return true;
@@ -641,9 +638,6 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            return true;
-        }
         if (this.draggingInputSensitivity) {
             this.cameraInput.updateInputSensitivityFromMouse(mouseX);
             return true;
@@ -772,7 +766,8 @@ public final class BuilderScreen extends Screen {
             }
             BlockHitResult blueprintHit = this.cursorPicker.pickBlueprintPlacementHit();
             if (blueprintHit != null) {
-                BlockPos anchor = this.cursorPicker.resolveBlueprintAnchor(blueprintHit);
+                BlockPos anchor = BlueprintPanel.anchorForCursorTarget(
+                        this.cursorPicker.resolveBlueprintAnchor(blueprintHit));
                 if (anchor != null) {
                     BlueprintPanel.pinSelected(anchor);
                 }
@@ -781,6 +776,7 @@ public final class BuilderScreen extends Screen {
         }
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
+            tryUseMainHandItemInAir();
             return true;
         }
         if (this.controller.hasSelectedFluid()) {
@@ -866,6 +862,31 @@ public final class BuilderScreen extends Screen {
         }
         return true;
     }
+
+    private boolean tryUseMainHandItemInAir() {
+        if (!canUseMainHandItemInAir()) {
+            return false;
+        }
+        InteractionTypes.InteractionTarget target = this.cursorPicker.pickItemAirInteractionTarget();
+        if (target == null || target.blockHit() == null) {
+            return false;
+        }
+        this.shapeController.clearShapeBuildSession();
+        this.controller.useItemInAirWithToolSlot(
+                target.blockHit(),
+                getSelectedToolSlot(),
+                target.rayOrigin(),
+                target.rayDir());
+        return true;
+    }
+
+    private boolean canUseMainHandItemInAir() {
+        return hasMainHandItem()
+                && !this.controller.hasSelectedItem()
+                && !this.controller.hasSelectedFluid()
+                && !this.controller.isEmptyHandSelected()
+                && this.controller.getBuildShape() == BuildShape.BLOCK;
+    }
     @Override
     /**
      * Handles mouse scroll with RTS GUI scale remapping. Routes scroll to open
@@ -882,15 +903,6 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            return this.bottomPanel.craftQuantityDialog.mouseScrolled(scrollY);
-        }
-        if (BlueprintPanel.isNameDialogOpen()) {
-            return true;
-        }
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            return BlueprintPanel.mouseScrolledMaterialDialog(scrollY, this.controller, this.width, this.height);
-        }
         if (handleFloatingWindowScroll(mouseX, mouseY, scrollX, scrollY)) {
             return true;
         }
@@ -928,7 +940,6 @@ public final class BuilderScreen extends Screen {
      * search box, tool slot, and sensitivity handlers in priority order.
      */
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (handleDialogKeys(keyCode, scanCode, modifiers)) return true;
         if (handleOverlayKeys(keyCode, scanCode, modifiers)) return true;
         if (handleBlueprintKeys(keyCode, scanCode, modifiers)) return true;
         if (handleHomeSelectionKey(keyCode)) return true;
@@ -937,22 +948,6 @@ public final class BuilderScreen extends Screen {
         if (handleToolSlotKeys(keyCode, scanCode, modifiers)) return true;
         if (handleSensitivityKeys(keyCode, scanCode)) return true;
         return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    /** Dispatches key to craft quantity dialog and blueprint name/material dialogs. */
-    private boolean handleDialogKeys(int keyCode, int scanCode, int modifiers) {
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            boolean handled = this.bottomPanel.craftQuantityDialog.keyPressed(keyCode, scanCode, modifiers);
-            this.bottomPanel.submitCraftQuantityDialogIfReady();
-            return handled;
-        }
-        if (BlueprintPanel.keyPressedNameDialog(keyCode)) {
-            return true;
-        }
-        if (BlueprintPanel.keyPressedMaterialDialog(keyCode)) {
-            return true;
-        }
-        return false;
     }
 
     /** Dispatches key to blueprint capture mode and blueprint panel. */
@@ -978,12 +973,10 @@ public final class BuilderScreen extends Screen {
         return true;
     }
 
-    /** Dispatches key to floating windows and guide/gear overlays. */
+    /** Dispatches key to floating windows. */
     private boolean handleOverlayKeys(int keyCode, int scanCode, int modifiers) {
         if (this.floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            submitCraftQuantityWindowIfReady();
             return true;
         }
         return false;
@@ -1185,12 +1178,6 @@ public final class BuilderScreen extends Screen {
     @Override
     /** Handles character-typed input, routing to quantity dialog, blueprint name dialog, search boxes, and ultimine limit input. */
     public boolean charTyped(char codePoint, int modifiers) {
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            return this.bottomPanel.craftQuantityDialog.charTyped(codePoint, modifiers);
-        }
-        if (BlueprintPanel.charTypedNameDialog(codePoint)) {
-            return true;
-        }
         if (this.floatingWindowLayer.charTyped(codePoint, modifiers)) {
             return true;
         }
@@ -1232,7 +1219,7 @@ public final class BuilderScreen extends Screen {
             return;
         }
         this.topBarPanel.render(guiGraphics, mouseX, mouseY);
-        this.storageLinkDetailHandler.render(guiGraphics, mouseX, mouseY);
+        this.storageLinkDetailHandler.updateVisibility(mouseX, mouseY);
         this.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
         this.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
@@ -1240,13 +1227,14 @@ public final class BuilderScreen extends Screen {
             BlueprintPanel.updateCaptureHoverPoint(hit == null ? null : hit.getBlockPos());
         }
         this.blueprintWindowPanel.syncWithBlueprintState();
+        this.blueprintMaterialWindowPanel.syncWithBlueprintState();
+        this.blueprintNameWindowPanel.syncWithBlueprintState();
         this.floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
         this.floatingWindowLayer.renderFloatingWindowOverlays(guiGraphics, mouseX, mouseY);
         this.overlayRenderer.renderQuestDetectPopup(guiGraphics);
         this.overlayRenderer.renderStorageScanPopup(guiGraphics);
         renderHoveredItemTooltips(guiGraphics, mouseX, mouseY);
         this.bottomPanel.renderCraftFeedback(guiGraphics);
-        renderModalOverlays(guiGraphics, mouseX, mouseY);
         this.overlayRenderer.renderDamageFlash(guiGraphics);
     }
 
@@ -1272,12 +1260,7 @@ public final class BuilderScreen extends Screen {
      * funnel buffer, GUI bind slots, empty hand slot, and discoverability hints.
      */
     private void renderHoveredItemTooltips(GuiGraphics g, int mouseX, int mouseY) {
-        boolean modalOpen = this.gearMenuPanel.isOpen()
-                || this.guidePanel.isOpen()
-                || this.bottomPanel.craftQuantityDialog.isOpen()
-                || BlueprintPanel.isNameDialogOpen()
-                || BlueprintPanel.isMaterialDialogOpen()
-                || isMouseOverFloatingWindow(mouseX, mouseY);
+        boolean modalOpen = isMouseOverFloatingWindow(mouseX, mouseY);
         boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
             if (!placementSelectionActive
@@ -1365,42 +1348,6 @@ public final class BuilderScreen extends Screen {
         }
     }
 
-    /**
-     * Renders modal overlays at elevated Z-layers to appear above other elements.
-     */
-    private void renderModalOverlays(GuiGraphics g, int mouseX, int mouseY) {
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            renderAtGuiLayer(g, RTS_MODAL_LAYER_Z + 50.0F,
-                    () -> BlueprintPanel.renderMaterialDialog(g, this.font, this.controller,
-                            this.width, this.height, mouseX, mouseY));
-        }
-        if (BlueprintPanel.isNameDialogOpen()) {
-            renderAtGuiLayer(g, RTS_MODAL_LAYER_Z + 55.0F,
-                    () -> BlueprintPanel.renderNameDialog(g, this.font, this.width, this.height, mouseX, mouseY));
-        }
-        if (this.bottomPanel.craftQuantityDialog.isOpen()) {
-            renderAtGuiLayer(g, RTS_MODAL_LAYER_Z + 60.0F,
-                    () -> this.bottomPanel.craftQuantityDialog.render(g, this.font, this.width, this.height, mouseX, mouseY));
-        }
-    }
-
-    /**
-     * Renders a sub-component at an elevated Z-layer to ensure it appears above other
-     * game/screen elements.
-     *
-     * @param g        the GuiGraphics context
-     * @param z        the Z-layer offset
-     * @param renderer the rendering action to execute at the elevated layer
-     */
-    private void renderAtGuiLayer(GuiGraphics g, float z, Runnable renderer) {
-        g.pose().pushPose();
-        g.pose().translate(0.0F, 0.0F, z);
-        try {
-            renderer.run();
-        } finally {
-            g.pose().popPose();
-        }
-    }
     /**
      * Scales the rendering to the user-configured fixed RTS GUI scale, then recursively
      * calls {@link #render(GuiGraphics, int, int, float)} with adjusted coordinates.
@@ -1615,6 +1562,20 @@ public final class BuilderScreen extends Screen {
     public void toggleQuickBuild() {
         this.quickBuildPanel.toggleOpen();
     }
+
+    /** Opens the window-layer craft quantity picker for a craftable entry. */
+    public void openCraftQuantityWindow(ClientRtsController.CraftableEntry entry) {
+        this.craftQuantityWindowPanel.open(entry);
+    }
+
+    /** Submits any craft request confirmed through the window-layer picker. */
+    public void submitCraftQuantityWindowIfReady() {
+        RtsCraftQuantityWindowPanel.Request request = this.craftQuantityWindowPanel.consumePendingRequest();
+        if (request != null) {
+            this.controller.craftRecipeToLinked(request.recipeId(), request.craftCount());
+        }
+    }
+
     private boolean handleFloatingWindowClick(double mouseX, double mouseY, int button) {
         return this.floatingWindowLayer.mouseClicked(mouseX, mouseY, button);
     }
@@ -1624,14 +1585,20 @@ public final class BuilderScreen extends Screen {
     }
 
     private boolean handleFloatingWindowRelease(double mouseX, double mouseY, int button) {
-        return this.floatingWindowLayer.mouseReleased(mouseX, mouseY, button);
+        boolean handled = this.floatingWindowLayer.mouseReleased(mouseX, mouseY, button);
+        if (this.floatingWindowLayer.consumeAnyBoundsDirty()) {
+            persistUiState();
+            return true;
+        }
+        submitCraftQuantityWindowIfReady();
+        return handled;
     }
 
     private boolean handleFloatingWindowScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         return this.floatingWindowLayer.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    private boolean isMouseOverFloatingWindow(double mouseX, double mouseY) {
+    public boolean isMouseOverFloatingWindow(double mouseX, double mouseY) {
         for (RtsWindowPanel window : this.floatingWindowLayer.frontToBackWindows()) {
             if (window.isOpen() && window.isInsideWindow(mouseX, mouseY)) {
                 return true;
@@ -1677,7 +1644,7 @@ public final class BuilderScreen extends Screen {
     }
     /** Returns whether the craft quantity dialog is currently open. */
     public boolean isCraftQuantityDialogOpen() {
-        return this.bottomPanel.craftQuantityDialog.isOpen();
+        return this.craftQuantityWindowPanel.isOpen();
     }
     /**
      * Activates the funnel hotkey: stops mining, clears shape preview,
@@ -2017,7 +1984,8 @@ public final class BuilderScreen extends Screen {
         }
         BlockPos anchor = BlueprintPanel.getPinnedAnchor();
         if (anchor == null) {
-            anchor = this.cursorPicker.resolveBlueprintAnchor(this.cursorPicker.pickBlueprintPlacementHit());
+            anchor = BlueprintPanel.anchorForCursorTarget(
+                    this.cursorPicker.resolveBlueprintAnchor(this.cursorPicker.pickBlueprintPlacementHit()));
         }
         if (anchor == null) {
             return BlueprintGhostPreview.EMPTY;

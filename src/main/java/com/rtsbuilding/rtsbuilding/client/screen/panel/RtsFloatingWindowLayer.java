@@ -46,7 +46,8 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
         // 找出鼠标所在的最顶层窗口索引（列表按升序排列，最后一个为顶层）
         int topmostHoverIdx = -1;
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).isInsideWindow(mouseX, mouseY)) {
+            RtsWindowPanel window = this.frontToBackWindows.get(i);
+            if (window.isOpen() && window.isInsideWindow(mouseX, mouseY)) {
                 topmostHoverIdx = i;
                 break;
             }
@@ -81,7 +82,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     public void renderFloatingWindowOverlays(GuiGraphics g, int mouseX, int mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.isInsideWindow(mouseX, mouseY)) {
+            if (window.isOpen() && window.isInsideWindow(mouseX, mouseY)) {
                 window.renderOverlays(g, mouseX, mouseY);
                 return;
             }
@@ -123,6 +124,14 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
             handled = window.mouseReleased(mouseX, mouseY, button) || handled;
         }
         return handled;
+    }
+
+    public boolean consumeAnyBoundsDirty() {
+        boolean dirty = false;
+        for (RtsWindowPanel window : this.frontToBackWindows) {
+            dirty = window.consumeBoundsDirty() || dirty;
+        }
+        return dirty;
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {

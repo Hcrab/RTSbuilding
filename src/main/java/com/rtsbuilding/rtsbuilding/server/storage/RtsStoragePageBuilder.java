@@ -315,6 +315,7 @@ public final class RtsStoragePageBuilder {
                 linkedRefs.modes(),
                 linkedRefs.priorities(),
                 linkedRefs.iconItemIds(),
+                linkedRefs.worldAvailable(),
                 safePage,
                 totalPages,
                 totalEntries,
@@ -358,6 +359,7 @@ public final class RtsStoragePageBuilder {
                 linkedRefs.modes(),
                 linkedRefs.priorities(),
                 linkedRefs.iconItemIds(),
+                linkedRefs.worldAvailable(),
                 0,
                 1,
                 0,
@@ -828,7 +830,7 @@ public final class RtsStoragePageBuilder {
      */
     private static LinkedRefPayload buildLinkedRefPayload(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null || session.linkedStorages.isEmpty()) {
-            return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of());
+            return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
         ResourceKey<Level> currentDimension = player.serverLevel().dimension();
         ServerLevel level = player.serverLevel();
@@ -837,33 +839,41 @@ public final class RtsStoragePageBuilder {
         List<Byte> modes = new ArrayList<>(session.linkedStorages.size());
         List<Integer> priorities = new ArrayList<>(session.linkedStorages.size());
         List<String> iconItemIds = new ArrayList<>(session.linkedStorages.size());
+        List<Boolean> worldAvailable = new ArrayList<>(session.linkedStorages.size());
         for (LinkedStorageRef ref : session.linkedStorages) {
-            if (ref == null || ref.pos() == null || !currentDimension.equals(ref.dimension())) {
+            boolean backpackLink = ref != null && session.linkedBackpackUuids.containsKey(ref);
+            if (ref == null || ref.pos() == null || (!backpackLink && !currentDimension.equals(ref.dimension()))) {
                 continue;
             }
             BlockPos pos = ref.pos();
+            boolean visible = RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref);
             positions.add(pos.asLong());
-            names.add(resolveLinkedRefName(level, session, ref));
+            names.add(resolveLinkedRefName(level, session, ref, visible));
             modes.add(session.linkedModes.getOrDefault(ref, C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL));
             priorities.add(RtsStorageManager.sanitizeLinkedStoragePriority(
                     session.linkedPriorities.getOrDefault(ref, 0)));
-            iconItemIds.add(resolveLinkedRefIconItemId(level, pos));
+            iconItemIds.add(resolveLinkedRefIconItemId(level, session, ref, visible));
+            worldAvailable.add(visible);
         }
-        return new LinkedRefPayload(positions, names, modes, priorities, iconItemIds);
+        return new LinkedRefPayload(positions, names, modes, priorities, iconItemIds, worldAvailable);
     }
 
-    private static String resolveLinkedRefName(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref) {
-        if (level != null && ref != null && ref.pos() != null && level.hasChunkAt(ref.pos())) {
+    private static String resolveLinkedRefName(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref,
+            boolean worldVisible) {
+        if (worldVisible && level != null && ref != null && ref.pos() != null && level.hasChunkAt(ref.pos())) {
             return RtsLinkedStorageResolver.resolveDisplayName(level, ref.pos());
         }
         String cached = session == null || ref == null ? "" : session.linkedNames.get(ref);
         return cached == null || cached.isBlank() ? "Linked Storage" : cached;
     }
 
-    private static String resolveLinkedRefIconItemId(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || !level.hasChunkAt(pos)) {
-            return "";
+    private static String resolveLinkedRefIconItemId(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref,
+            boolean worldVisible) {
+        if (!worldVisible) {
+            String backpackItemId = session == null || ref == null ? "" : session.linkedBackpackItemIds.get(ref);
+            return backpackItemId == null ? "" : backpackItemId;
         }
+        BlockPos pos = ref.pos();
         Item item = level.getBlockState(pos).getBlock().asItem();
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
         return id == null ? "" : id.toString();
@@ -894,7 +904,7 @@ public final class RtsStoragePageBuilder {
     }
 
     private record LinkedRefPayload(List<Long> positions, List<String> names, List<Byte> modes,
-            List<Integer> priorities, List<String> iconItemIds) {
+            List<Integer> priorities, List<String> iconItemIds, List<Boolean> worldAvailable) {
     }
 
     private record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count) {

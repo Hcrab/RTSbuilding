@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import com.rtsbuilding.rtsbuilding.server.storage.placement.RtsPlacementBatch;
@@ -76,6 +77,15 @@ public class RtsStorageSession {
 
     /** AE-style linked storage priority. Default 0 keeps old saves and old links neutral. */
     public final Map<LinkedStorageRef, Integer> linkedPriorities = new HashMap<>();
+
+    /** Sophisticated Backpacks content UUID for linked backpack blocks. */
+    public final Map<LinkedStorageRef, UUID> linkedBackpackUuids = new HashMap<>();
+
+    /** Backpack item id used to reopen UUID-backed contents when the block was moved. */
+    public final Map<LinkedStorageRef, String> linkedBackpackItemIds = new HashMap<>();
+
+    /** UUID-backed backpack refs that were just broken and should not render at their old position. */
+    public final Set<LinkedStorageRef> detachedBackpackRefs = new HashSet<>();
 
     // ======================================================================
     // §3  存储浏览器状态
@@ -179,8 +189,8 @@ public class RtsStorageSession {
     public int miningStage = -1;
     /** 下次检测 RTS 任务或进度的 tick 时间 */
     public long nextQuestDetectTick;
-    /** 挂起的存储刷新 tick（-1L = 无待执行的刷新） */
-    public long deferredStorageRefreshTick = -1L;
+    /** True when the client's storage browser page no longer matches storage contents. */
+    public boolean storageViewDirty;
 
     // ======================================================================
     // §8  放置队列

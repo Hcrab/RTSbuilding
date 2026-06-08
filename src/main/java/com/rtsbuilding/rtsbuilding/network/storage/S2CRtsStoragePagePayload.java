@@ -19,6 +19,7 @@ public record S2CRtsStoragePagePayload(
         List<Byte> linkedModes,
         List<Integer> linkedPriorities,
         List<String> linkedIconItemIds,
+        List<Boolean> linkedWorldAvailable,
         int page,
         int totalPages,
         int totalEntries,
@@ -68,13 +69,16 @@ public record S2CRtsStoragePagePayload(
                         payload.linkedPositions().size(),
                         Math.min(payload.linkedNames().size(),
                                 Math.min(payload.linkedModes().size(),
-                                        Math.min(payload.linkedPriorities().size(), payload.linkedIconItemIds().size()))));
+                                        Math.min(payload.linkedPriorities().size(),
+                                                Math.min(payload.linkedIconItemIds().size(),
+                                                        payload.linkedWorldAvailable().size())))));
                 buf.writeVarInt(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
                     buf.writeUtf(payload.linkedNames().get(i) == null ? "" : payload.linkedNames().get(i), 128);
                     buf.writeByte(payload.linkedModes().get(i) == null ? 0 : payload.linkedModes().get(i));
                     buf.writeVarInt(payload.linkedPriorities().get(i) == null ? 0 : payload.linkedPriorities().get(i));
                     buf.writeUtf(payload.linkedIconItemIds().get(i) == null ? "" : payload.linkedIconItemIds().get(i), 128);
+                    buf.writeBoolean(Boolean.TRUE.equals(payload.linkedWorldAvailable().get(i)));
                 }
                 buf.writeVarInt(payload.page());
                 buf.writeVarInt(payload.totalPages());
@@ -163,11 +167,13 @@ public record S2CRtsStoragePagePayload(
                 List<Byte> linkedModes = new ArrayList<>(linkedDetailSize);
                 List<Integer> linkedPriorities = new ArrayList<>(linkedDetailSize);
                 List<String> linkedIconItemIds = new ArrayList<>(linkedDetailSize);
+                List<Boolean> linkedWorldAvailable = new ArrayList<>(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
                     linkedNames.add(buf.readUtf(128));
                     linkedModes.add(buf.readByte());
                     linkedPriorities.add(buf.readVarInt());
                     linkedIconItemIds.add(buf.readUtf(128));
+                    linkedWorldAvailable.add(buf.readBoolean());
                 }
                 int page = buf.readVarInt();
                 int totalPages = buf.readVarInt();
@@ -248,6 +254,7 @@ public record S2CRtsStoragePagePayload(
                         linkedModes,
                         linkedPriorities,
                         linkedIconItemIds,
+                        linkedWorldAvailable,
                         page,
                         totalPages,
                         totalEntries,

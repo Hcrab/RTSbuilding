@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import java.util.Arrays;
+import java.util.UUID;
 
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import net.minecraft.core.BlockPos;
@@ -38,6 +39,9 @@ public final class RtsStorageSessionCodec {
     private static final String NBT_LINKED_ENTRY_DIMENSION = "dimension";
     private static final String NBT_LINKED_ENTRY_MODE = "mode";
     private static final String NBT_LINKED_ENTRY_PRIORITY = "priority";
+    private static final String NBT_LINKED_ENTRY_BACKPACK_UUID = "bpUuid";
+    private static final String NBT_LINKED_ENTRY_BACKPACK_ITEM = "bpItem";
+    private static final String NBT_LINKED_ENTRY_BACKPACK_DETACHED = "bpDetached";
     private static final String NBT_LINKED_POSITIONS = "linked_positions";
     private static final String NBT_LINKED_MODES = "linked_modes";
     private static final String NBT_LINKED_PRIORITIES = "linked_priorities";
@@ -79,6 +83,9 @@ public final class RtsStorageSessionCodec {
         session.linkedNames.clear();
         session.linkedModes.clear();
         session.linkedPriorities.clear();
+        session.linkedBackpackUuids.clear();
+        session.linkedBackpackItemIds.clear();
+        session.detachedBackpackRefs.clear();
 
         session.page = root.contains(NBT_PAGE, Tag.TAG_INT) ? Math.max(0, root.getInt(NBT_PAGE)) : 0;
         session.search = sanitizeSavedText(root.getString(NBT_SEARCH), 128);
@@ -161,6 +168,16 @@ public final class RtsStorageSessionCodec {
                             ? linkedTag.getInt(NBT_LINKED_ENTRY_PRIORITY)
                             : 0;
                     session.linkedPriorities.put(ref, RtsStorageManager.sanitizeLinkedStoragePriority(priority));
+                    if (linkedTag.contains(NBT_LINKED_ENTRY_BACKPACK_UUID, Tag.TAG_INT_ARRAY)) {
+                        session.linkedBackpackUuids.put(ref, linkedTag.getUUID(NBT_LINKED_ENTRY_BACKPACK_UUID));
+                    }
+                    String backpackItemId = linkedTag.getString(NBT_LINKED_ENTRY_BACKPACK_ITEM);
+                    if (isRegisteredItemId(backpackItemId)) {
+                        session.linkedBackpackItemIds.put(ref, backpackItemId);
+                    }
+                    if (linkedTag.getBoolean(NBT_LINKED_ENTRY_BACKPACK_DETACHED)) {
+                        session.detachedBackpackRefs.add(ref);
+                    }
                 }
             }
             return;
@@ -295,6 +312,17 @@ public final class RtsStorageSessionCodec {
             linkedTag.putString(NBT_LINKED_ENTRY_DIMENSION, ref.dimension().location().toString());
             linkedTag.putByte(NBT_LINKED_ENTRY_MODE, linkMode);
             linkedTag.putInt(NBT_LINKED_ENTRY_PRIORITY, priority);
+            UUID backpackUuid = session.linkedBackpackUuids.get(ref);
+            if (backpackUuid != null) {
+                linkedTag.putUUID(NBT_LINKED_ENTRY_BACKPACK_UUID, backpackUuid);
+            }
+            String backpackItemId = session.linkedBackpackItemIds.get(ref);
+            if (isRegisteredItemId(backpackItemId)) {
+                linkedTag.putString(NBT_LINKED_ENTRY_BACKPACK_ITEM, backpackItemId);
+            }
+            if (session.detachedBackpackRefs.contains(ref)) {
+                linkedTag.putBoolean(NBT_LINKED_ENTRY_BACKPACK_DETACHED, true);
+            }
             linkedEntries.add(linkedTag);
         }
         root.put(NBT_LINKED_ENTRIES, linkedEntries);
@@ -355,6 +383,14 @@ public final class RtsStorageSessionCodec {
             quickSlots.add(quickSlotTag);
         }
         root.put(NBT_QUICK_SLOTS, quickSlots);
+    }
+
+    private static boolean isRegisteredItemId(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return false;
+        }
+        ResourceLocation key = ResourceLocation.tryParse(itemId);
+        return key != null && BuiltInRegistries.ITEM.containsKey(key);
     }
 
     private static void saveGuiBindings(RtsStorageSession session, CompoundTag root) {

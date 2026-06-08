@@ -16,6 +16,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -30,6 +31,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyStoragePage(payload));
+    }
+
+    public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyStorageDirty(payload));
     }
 
     public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, IPayloadContext context) {

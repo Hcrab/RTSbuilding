@@ -103,6 +103,9 @@ public final class PlacementHistoryManager {
         boolean changed = false;
         while (it.hasNext()) {
             PendingBatch pb = it.next();
+            if (pb.batchData.isDestructive()) {
+                continue;
+            }
             pb.pendingPositions.remove(posKey);
             if (pb.isComplete()) {
                 it.remove();

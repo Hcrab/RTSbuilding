@@ -160,11 +160,9 @@ public final class TopBarPanel {
                 }
                 case QUICK_BUILD -> {
                     screen.toggleQuickBuild();
-                    screen.closeGearMenu();
                     screen.persistUiState();
                 }
                 case QUEST_DETECT -> {
-                    screen.closeGearMenu();
                     this.controller.detectQuestsNow();
                 }
                 case CHUNK_VIEW -> {
@@ -173,10 +171,8 @@ public final class TopBarPanel {
                 }
                 case GUIDE -> {
                     screen.toggleTopGuide(button.x() + button.width() / 2, 4 + TOP_BUTTON_H);
-                    screen.closeGearMenu();
                 }
                 case DEBUG -> {
-                    screen.closeGearMenu();
                     screen.copyDebugSnapshotToClipboard();
                 }
                 case GEAR -> screen.toggleGearMenu();
@@ -184,7 +180,6 @@ public final class TopBarPanel {
             }
             return true;
         }
-        screen.closeGearMenu();
         return false;
     }
 

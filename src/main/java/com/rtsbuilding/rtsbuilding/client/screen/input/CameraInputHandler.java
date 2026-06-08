@@ -269,14 +269,10 @@ public final class CameraInputHandler {
     public boolean canUseKeyboardPanDrag(double mouseX, double mouseY) {
         return isKeyboardPanDragActionHeld()
                 && screen.isWorldArea(mouseX, mouseY)
-                && !screen.isCraftQuantityDialogOpen()
+                && !screen.isMouseOverFloatingWindow(mouseX, mouseY)
                 && !screen.isDraggingInputSensitivity()
                 && !screen.isShapeWheelOpen()
                 && !screen.isInteractionWheelOpen()
-                && !screen.isGuideOpen()
-                && !screen.isGearMenuOpen()
-                && !BlueprintPanel.isNameDialogOpen()
-                && !BlueprintPanel.isMaterialDialogOpen()
                 && !screen.isSearchFocused();
     }
 

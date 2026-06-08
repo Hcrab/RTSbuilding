@@ -33,8 +33,19 @@ public final class ShapeGhostRenderer {
     private static float smoothedDestroyProgress;
     private static long smoothedDestroyProgressMs;
     private static int smoothedDestroyProgressKey;
+    private static final long DESTROY_COMPLETE_FADE_MS = 180L;
+    private static int destroyVisualKey;
+    private static int destroyCompletePreviewKey;
+    private static long destroyCompleteFadeStartMs;
+    private static boolean destroyVisualComplete;
 
     private ShapeGhostRenderer() {
+    }
+
+    private record DestroyVisualState(float progress, float alpha, boolean fading) {
+        private boolean hidden() {
+            return alpha <= 0.0F;
+        }
     }
 
     // ===== Entry point =====
@@ -88,19 +99,26 @@ public final class ShapeGhostRenderer {
 
         // ── Confirmed destructive work area ──
         if (preview.destructive() && preview.confirmedWorkArea()) {
+            DestroyVisualState visual = destroyVisualState(ClientRtsController.get(), preview);
+            if (visual.hidden()) {
+                return;
+            }
             if (com.rtsbuilding.rtsbuilding.Config.isRangeDestroySkeletonEnabled()) {
                 if (preview.chainDestroyPreview()) {
-                    float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
-                    MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress);
+                    if (visual.fading()) {
+                        MergedSkeletonRenderer.renderMergedSkeletonSnapshot(preview, poseStack, lineBuffer, fillBuffer,
+                                1.0F, 0.30F, 0.035F, visual.alpha());
+                    } else {
+                        MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer,
+                                fillBuffer, visual.progress(), visual.alpha());
+                    }
                 } else {
-                    renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer);
+                    renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, visual);
                 }
                 return;
             }
-            float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
-            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F,
-                    com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled(),
-                    com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled());
+            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
+                    visual.progress(), visual.alpha());
             return;
         }
 
@@ -115,38 +133,83 @@ public final class ShapeGhostRenderer {
         // ── Destructive (range-destroy) ghost ──
         if (preview.destructive()) {
             float progress = preview.confirmedWorkArea() ? smoothedDestroyProgress(ClientRtsController.get(), preview) : 0.0F;
-            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F,
-                    com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled(),
-                    com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled());
+            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
             return;
         }
 
         // ── Build mode (placement ghost) ──
+        boolean usePlacementLayerSettings = shouldUsePlacementPreviewSettings(preview);
         BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer,
-                com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled(),
-                com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled());
+                usePlacementLayerSettings ? com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled() : true,
+                usePlacementLayerSettings ? com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled() : true);
     }
 
     // ===== Range-destroy confirmed work area handling =====
 
     private static void renderConfirmedRangeDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, DestroyVisualState visual) {
         ClientRtsController controller = ClientRtsController.get();
-        float progress = smoothedDestroyProgress(controller, preview);
 
+        if (visual.fading()) {
+            MergedSkeletonRenderer.renderMergedSkeletonSnapshot(preview, poseStack, lineBuffer, fillBuffer,
+                    1.0F, 0.30F, 0.030F, visual.alpha());
+            return;
+        }
         if (hasStartedDestroyBatch(controller, preview)) {
-            MergedSkeletonRenderer.renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer, 1.0F, 0.30F, 0.030F);
+            MergedSkeletonRenderer.renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
+                    visual.progress(), 0.30F, 0.030F, visual.alpha());
             return;
         }
         if (MergedSkeletonRenderer.hasCachedSkeleton(preview)) {
-            if (MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer, 1.0F, 0.30F, 0.030F)) {
+            if (MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
+                    visual.progress(), 0.30F, 0.030F, visual.alpha())) {
                 return;
             }
         }
-        DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
+        if (MergedSkeletonRenderer.hasSkeletonCacheForPreview(preview)) {
+            return;
+        }
+        DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
+                visual.progress(), visual.alpha());
     }
 
     // ===== Smoothed destroy progress =====
+
+    private static DestroyVisualState destroyVisualState(ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview) {
+        int previewKey = previewKey(preview);
+        if (previewKey != destroyVisualKey) {
+            destroyVisualKey = previewKey;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean active = hasActiveDestroyProgress(controller, preview);
+        boolean complete = hasCompletedDestroyProgress(controller, preview);
+        if (active && !complete) {
+            if (previewKey == destroyCompletePreviewKey) {
+                destroyVisualComplete = false;
+                destroyCompletePreviewKey = 0;
+                destroyCompleteFadeStartMs = 0L;
+            }
+            return new DestroyVisualState(smoothedDestroyProgress(controller, preview), 1.0F, false);
+        }
+
+        boolean recentComplete = hasRecentDestroyCompletion(controller, preview, now);
+        boolean completedPreview = destroyVisualComplete && previewKey == destroyCompletePreviewKey;
+        if (complete || recentComplete || completedPreview) {
+            if (!completedPreview) {
+                destroyVisualComplete = true;
+                destroyCompletePreviewKey = previewKey;
+                long completedAt = controller == null ? 0L : controller.getMineProgressCompletedAtMs();
+                destroyCompleteFadeStartMs = completedAt > 0L ? completedAt : now;
+            }
+            long elapsed = Math.max(0L, now - destroyCompleteFadeStartMs);
+            float alpha = RenderingUtil.clamp01(1.0F - elapsed / (float) DESTROY_COMPLETE_FADE_MS);
+            return new DestroyVisualState(1.0F, alpha, true);
+        }
+
+        return new DestroyVisualState(smoothedDestroyProgress(controller, preview), 1.0F, false);
+    }
 
     static float smoothedDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
         int previewKey = previewKey(preview);
@@ -184,8 +247,12 @@ public final class ShapeGhostRenderer {
         if (progressPos == null || !previewContains(preview, progressPos)) return 0.0F;
         int processed = controller.getUltimineProgressProcessed();
         int total = controller.getUltimineProgressTotal();
-        if (processed > 0 && total > 0) return 1.0F;
         int stage = controller.getMineProgressStage();
+        if (processed >= 0 && total > 0) {
+            if (processed >= total) return 1.0F;
+            float currentBlockProgress = stage < 0 ? 0.0F : RenderingUtil.clamp01((Math.min(9, stage) + 1) / 10.0F);
+            return RenderingUtil.clamp01((processed + currentBlockProgress) / (float) total);
+        }
         return stage < 0 ? 0.0F : RenderingUtil.clamp01((Math.min(9, stage) + 1) / 10.0F);
     }
 
@@ -200,13 +267,46 @@ public final class ShapeGhostRenderer {
         BlockPos progressPos = controller.getMineProgressPos();
         return progressPos != null
                 && previewContains(preview, progressPos)
-                && controller.getUltimineProgressProcessed() > 0
+                && controller.getUltimineProgressProcessed() >= 0
                 && controller.getUltimineProgressTotal() > 0;
+    }
+
+    private static boolean hasActiveDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
+        if (controller == null || preview == null) return false;
+        BlockPos progressPos = controller.getMineProgressPos();
+        if (progressPos == null || !previewContains(preview, progressPos)) return false;
+        if (controller.getUltimineProgressProcessed() >= 0 && controller.getUltimineProgressTotal() > 0) {
+            return true;
+        }
+        return controller.getMineProgressStage() >= 0;
+    }
+
+    private static boolean hasCompletedDestroyProgress(ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview) {
+        if (controller == null || preview == null) return false;
+        BlockPos progressPos = controller.getMineProgressPos();
+        return progressPos != null
+                && previewContains(preview, progressPos)
+                && controller.getUltimineProgressTotal() > 0
+                && controller.getUltimineProgressProcessed() >= controller.getUltimineProgressTotal();
+    }
+
+    private static boolean hasRecentDestroyCompletion(ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview, long now) {
+        if (controller == null || preview == null) return false;
+        long completedAt = controller.getMineProgressCompletedAtMs();
+        return completedAt > 0L
+                && now - completedAt <= DESTROY_COMPLETE_FADE_MS
+                && previewContains(preview, controller.getMineProgressCompletedPos());
     }
 
     static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
         if (preview == null || pos == null) return false;
         return RenderingUtil.contains(preview.blocks(), pos) || RenderingUtil.contains(preview.emptyBlocks(), pos);
+    }
+
+    private static boolean shouldUsePlacementPreviewSettings(ShapeDataRecords.GhostPreview preview) {
+        return preview != null && preview.readyConfirm();
     }
 
     private static int previewKey(ShapeDataRecords.GhostPreview preview) {

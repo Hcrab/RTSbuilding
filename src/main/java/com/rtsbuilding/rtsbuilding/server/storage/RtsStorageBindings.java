@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
@@ -21,6 +22,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.level.block.ChestBlock;
@@ -78,31 +80,28 @@ public final class RtsStorageBindings {
             return UpdateResult.refreshFirst(false);
         }
 
+        BackpackLinkData backpackLinkData = BackpackLinkData.read(player.serverLevel(), pos);
         byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
         if (session.linkedStorages.contains(ref)) {
             byte existingMode = session.linkedModes.getOrDefault(ref, RtsStorageManager.LINK_MODE_BIDIRECTIONAL);
             if (existingMode == normalizedMode) {
-                session.linkedStorages.remove(ref);
-                session.linkedNames.remove(ref);
-                session.linkedModes.remove(ref);
-                session.linkedPriorities.remove(ref);
+                removeLinkedRef(session, ref);
             } else {
                 session.linkedModes.put(ref, normalizedMode);
                 session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+                applyBackpackMetadata(session, ref, backpackLinkData);
             }
         } else {
             // 大箱子检查：如果点击的是双箱子中未链接的一半，且另一半已链接，则执行解绑
             LinkedStorageRef existingRef = findDoubleChestLinkedRef(player, session, pos);
             if (existingRef != null) {
-                session.linkedStorages.remove(existingRef);
-                session.linkedNames.remove(existingRef);
-                session.linkedModes.remove(existingRef);
-                session.linkedPriorities.remove(existingRef);
+                removeLinkedRef(session, existingRef);
             } else {
                 session.linkedStorages.add(ref);
                 session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
                 session.linkedModes.put(ref, normalizedMode);
                 session.linkedPriorities.put(ref, 0);
+                applyBackpackMetadata(session, ref, backpackLinkData);
             }
         }
         return UpdateResult.refreshFirst(true);
@@ -382,6 +381,33 @@ public final class RtsStorageBindings {
         return changed;
     }
 
+    private static void removeLinkedRef(RtsStorageSession session, LinkedStorageRef ref) {
+        session.linkedStorages.remove(ref);
+        session.linkedNames.remove(ref);
+        session.linkedModes.remove(ref);
+        session.linkedPriorities.remove(ref);
+        session.linkedBackpackUuids.remove(ref);
+        session.linkedBackpackItemIds.remove(ref);
+        session.detachedBackpackRefs.remove(ref);
+    }
+
+    private static void applyBackpackMetadata(RtsStorageSession session, LinkedStorageRef ref,
+            BackpackLinkData backpackLinkData) {
+        if (backpackLinkData == null || backpackLinkData.uuid() == null) {
+            session.linkedBackpackUuids.remove(ref);
+            session.linkedBackpackItemIds.remove(ref);
+            session.detachedBackpackRefs.remove(ref);
+            return;
+        }
+        session.linkedBackpackUuids.put(ref, backpackLinkData.uuid());
+        if (backpackLinkData.itemId() == null || backpackLinkData.itemId().isBlank()) {
+            session.linkedBackpackItemIds.remove(ref);
+        } else {
+            session.linkedBackpackItemIds.put(ref, backpackLinkData.itemId());
+        }
+        session.detachedBackpackRefs.remove(ref);
+    }
+
     private static InteractionResult interactWithBoundGui(ServerPlayer player, ServerLevel level, Vec3 interactionPos,
             Vec3 hitLocation, BlockHitResult hit, boolean forceSecondaryUse, double remotePovBlockReach) {
         return RtsStorageManager.withTemporaryUseItemContext(
@@ -498,5 +524,20 @@ public final class RtsStorageBindings {
     }
 
     private record GuiBindingInteraction(BlockHitResult hit, Vec3 interactionPos) {
+    }
+
+    private record BackpackLinkData(java.util.UUID uuid, String itemId) {
+        private static BackpackLinkData read(ServerLevel level, BlockPos pos) {
+            if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
+                return null;
+            }
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            java.util.UUID uuid = RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
+            if (uuid == null) {
+                return null;
+            }
+            String itemId = RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
+            return new BackpackLinkData(uuid, itemId);
+        }
     }
 }

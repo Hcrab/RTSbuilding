@@ -132,6 +132,7 @@ dependencies {
     // compatibility testing, but RTS building does not require them in published builds.
     localRuntime "maven.modrinth:sophisticated-core:${sophisticated_core_version}"
     localRuntime "maven.modrinth:sophisticated-storage:${sophisticated_storage_version}"
+    localRuntime "maven.modrinth:sophisticated-backpacks:${sophisticated_backpacks_version}"
     localRuntime "maven.modrinth:pipez:${pipez_version}"
     compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
 

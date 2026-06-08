@@ -55,6 +55,7 @@ public final class ClientRtsController {
     private static final ClientRtsController INSTANCE = new ClientRtsController();
     private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
     private static final int MAX_STORAGE_PAGE_SIZE = 180;
+    private static final long STORAGE_AUTO_REFRESH_INTERVAL_MS = 30_000L;
 
     private static final float ROT_INPUT_CLAMP = 20.0F;
     private static final float ROTATE_GAIN_X = 0.24F;
@@ -169,6 +170,8 @@ public final class ClientRtsController {
     private long storageScanStartedAtMs;
     private long storageScanVisibleUntilMs;
     private long storagePageReceivedAtMs;
+    private boolean storageViewDirty;
+    private long storageViewDirtySinceMs;
     private String craftablesSearch = "";
     private boolean craftablesShowUnavailable;
     private final List<CraftableEntry> craftableEntries = new ArrayList<>();
@@ -199,6 +202,8 @@ public final class ClientRtsController {
     private int activeMineToolSlot;
     private BlockPos mineRenderPos;
     private int mineRenderStage = -1;
+    private BlockPos mineProgressCompletedPos;
+    private long mineProgressCompletedAtMs;
     /** Ultimine overall progress: number of blocks already processed. Negative = no ultimine in progress. */
     private int ultimineProgressProcessed = -1;
     /** Ultimine overall progress: total number of target blocks. */
@@ -635,6 +640,14 @@ public final class ClientRtsController {
         return this.storageScanRunning;
     }
 
+    public boolean isStorageViewDirty() {
+        return this.storageViewDirty;
+    }
+
+    public boolean shouldHighlightStorageRefresh() {
+        return this.storageViewDirty && !RtsClientUiStateStore.isStorageRefreshQuietEnabled();
+    }
+
     public float getStorageScanProgress() {
         if (!isStorageScanPopupVisible()) {
             return 0.0F;
@@ -980,6 +993,7 @@ public final class ClientRtsController {
             this.storageCategories.clear();
             this.storageCategories.add("all");
             clearStorageScanState();
+            clearStorageViewDirty();
             this.storagePageReceivedAtMs = 0L;
             this.selectedItemId = "";
             this.selectedItemLabel = "";
@@ -1067,6 +1081,7 @@ public final class ClientRtsController {
         this.ultimineProgressProcessed = -1;
         this.ultimineProgressTotal = 0;
         clearStorageScanState();
+        clearStorageViewDirty();
         this.storagePageReceivedAtMs = 0L;
 
         if (minecraft.screen instanceof BuilderScreen) {
@@ -1185,6 +1200,7 @@ public final class ClientRtsController {
         }
 
         this.ensureLocalMirrorCamera(minecraft);
+        tickStorageAutoRefresh();
 
         CameraInput cameraInput = readCameraInput(minecraft);
         float forward = cameraInput.forward;
@@ -1450,6 +1466,24 @@ public final class ClientRtsController {
         requestStoragePage(this.storagePage);
     }
 
+    private void tickStorageAutoRefresh() {
+        if (!this.storageViewDirty
+                || this.storageScanRunning
+                || !hasStoragePageSnapshot()
+                || !RtsClientUiStateStore.isStorageAutoRefreshEnabled()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (this.storageViewDirtySinceMs <= 0L) {
+            this.storageViewDirtySinceMs = now;
+            return;
+        }
+        if (now - this.storageViewDirtySinceMs < STORAGE_AUTO_REFRESH_INTERVAL_MS) {
+            return;
+        }
+        requestStoragePage(this.storagePage);
+    }
+
     public void requestCraftables() {
         this.craftablesSearch = normalizeCraftablesSearch(this.craftablesSearch);
         clearCraftablesState();
@@ -1602,8 +1636,20 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendQuickDrop(itemId, amount, dropPos);
     }
 
+    public void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
+        if (payload == null || !payload.dirty()) {
+            clearStorageViewDirty();
+            return;
+        }
+        if (!this.storageViewDirty) {
+            this.storageViewDirtySinceMs = System.currentTimeMillis();
+        }
+        this.storageViewDirty = true;
+    }
+
     public void applyStoragePage(S2CRtsStoragePagePayload payload) {
         markStorageScanFinished();
+        clearStorageViewDirty();
         this.storageLinked = payload.linked();
         this.linkedStorageName = payload.linkedName();
         this.autoStoreMinedDrops = payload.autoStoreMinedDrops();
@@ -1744,6 +1790,8 @@ public final class ClientRtsController {
         int priority = index >= 0 && index < payload.linkedPriorities().size()
                 ? payload.linkedPriorities().get(index)
                 : 0;
+        boolean worldAvailable = index >= 0 && index < payload.linkedWorldAvailable().size()
+                && Boolean.TRUE.equals(payload.linkedWorldAvailable().get(index));
         ItemStack preview = ItemStack.EMPTY;
         String iconItemId = index >= 0 && index < payload.linkedIconItemIds().size()
                 ? payload.linkedIconItemIds().get(index)
@@ -1752,7 +1800,7 @@ public final class ClientRtsController {
         if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
             preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
         }
-        return new LinkedStorageEntry(pos, label, mode, priority, preview);
+        return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
     }
 
     private void markStorageScanStarted() {
@@ -1775,6 +1823,11 @@ public final class ClientRtsController {
         this.storageScanRunning = false;
         this.storageScanStartedAtMs = 0L;
         this.storageScanVisibleUntilMs = 0L;
+    }
+
+    private void clearStorageViewDirty() {
+        this.storageViewDirty = false;
+        this.storageViewDirtySinceMs = 0L;
     }
 
     private void refreshSelectedItemPreviewFromStorage() {
@@ -2071,8 +2124,16 @@ public final class ClientRtsController {
     }
 
     public void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
+        if (payload.total() > 0 && payload.processed() >= payload.total() && this.mineRenderPos != null) {
+            rememberMineProgressCompleted(this.mineRenderPos);
+        }
         this.ultimineProgressProcessed = payload.processed();
         this.ultimineProgressTotal = payload.total();
+    }
+
+    private void rememberMineProgressCompleted(BlockPos pos) {
+        this.mineProgressCompletedPos = pos == null ? null : pos.immutable();
+        this.mineProgressCompletedAtMs = System.currentTimeMillis();
     }
 
     public void applyProgressionState(S2CRtsProgressionStatePayload payload) {
@@ -2492,6 +2553,14 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
     }
 
+    public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+        if (hit == null) {
+            return;
+        }
+        beginRemoteMenuOpenGrace();
+        RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+    }
+
     public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
         if (hit == null || itemId == null || itemId.isBlank()) {
             return;
@@ -2802,6 +2871,14 @@ public final class ClientRtsController {
         return this.mineRenderPos;
     }
 
+    public BlockPos getMineProgressCompletedPos() {
+        return this.mineProgressCompletedPos;
+    }
+
+    public long getMineProgressCompletedAtMs() {
+        return this.mineProgressCompletedAtMs;
+    }
+
     private void beginRemoteMenuOpenGrace() {
         this.pendingRemoteMenuOpenTicks = Math.max(this.pendingRemoteMenuOpenTicks, REMOTE_MENU_OPEN_GRACE_TICKS);
         this.screenlessRemoteMenuTicks = 0;
@@ -3086,7 +3163,8 @@ public final class ClientRtsController {
      * still valid storage or whether unlink is allowed; those rules stay on the
      * server.
      */
-    public record LinkedStorageEntry(BlockPos pos, String label, byte mode, int priority, ItemStack preview) {
+    public record LinkedStorageEntry(BlockPos pos, String label, byte mode, int priority, ItemStack preview,
+            boolean worldAvailable) {
     }
 
     public record FluidEntry(

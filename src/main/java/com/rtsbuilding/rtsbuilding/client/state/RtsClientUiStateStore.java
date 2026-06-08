@@ -132,6 +132,26 @@ public final class RtsClientUiStateStore {
         save(state);
     }
 
+    public static synchronized boolean isStorageRefreshQuietEnabled() {
+        return load().storageRefreshQuietEnabled;
+    }
+
+    public static synchronized void setStorageRefreshQuietEnabled(boolean enabled) {
+        UiState state = load();
+        state.storageRefreshQuietEnabled = enabled;
+        save(state);
+    }
+
+    public static synchronized boolean isStorageAutoRefreshEnabled() {
+        return load().storageAutoRefreshEnabled;
+    }
+
+    public static synchronized void setStorageAutoRefreshEnabled(boolean enabled) {
+        UiState state = load();
+        state.storageAutoRefreshEnabled = enabled;
+        save(state);
+    }
+
     // ======================== UiState 数据类 ========================
 
     /**
@@ -164,6 +184,8 @@ public final class RtsClientUiStateStore {
         public boolean debugButtonVisible = false;
         public boolean containerOverlayEnabled = false;
         public boolean overlayShiftImportEnabled = false;
+        public boolean storageRefreshQuietEnabled = false;
+        public boolean storageAutoRefreshEnabled = true;
         /** 已关闭的新手引导提醒 key 列表 */
         public List<String> dismissedIntroReminderKeys = new ArrayList<>();
         /** 窗口面板的位置/尺寸持久化映射（key → bounds） */
@@ -221,6 +243,8 @@ public final class RtsClientUiStateStore {
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.overlayShiftImportEnabled = this.overlayShiftImportEnabled;
+            clean.storageRefreshQuietEnabled = this.storageRefreshQuietEnabled;
+            clean.storageAutoRefreshEnabled = this.storageAutoRefreshEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             if (this.windowPanelBounds != null) {
                 clean.windowPanelBounds.putAll(this.windowPanelBounds);

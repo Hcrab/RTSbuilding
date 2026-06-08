@@ -199,10 +199,12 @@ public final class GuidePanel extends RtsWindowPanel {
         this.anchorX = anchorX;
         this.anchorY = anchorY;
 
-        int panelW = Math.min(DEFAULT_WINDOW_W, Math.max(MIN_WINDOW_W, this.screen.width - 28));
-        int panelH = Math.min(DEFAULT_WINDOW_H, Math.max(MIN_WINDOW_H, this.screen.height - 90));
-        GuideTypes.GuidePanelRect rect = openingWindowRect(panelW, panelH);
-        setBounds(rect.x(), rect.y(), rect.w(), rect.h());
+        if (!hasUserBoundsPreference()) {
+            int panelW = Math.min(DEFAULT_WINDOW_W, Math.max(MIN_WINDOW_W, this.screen.width - 28));
+            int panelH = Math.min(DEFAULT_WINDOW_H, Math.max(MIN_WINDOW_H, this.screen.height - 90));
+            GuideTypes.GuidePanelRect rect = openingWindowRect(panelW, panelH);
+            setTransientBounds(rect.x(), rect.y(), rect.w(), rect.h());
+        }
         setOpen(true);
         markBroughtToFront();
     }
