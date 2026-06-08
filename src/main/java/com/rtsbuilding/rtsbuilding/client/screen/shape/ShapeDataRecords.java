@@ -63,22 +63,28 @@ public final class ShapeDataRecords {
     /**
      * History batch for shape undo/redo.
      * <p>
-     * Records one shape placement batch so it can be reversed with Ctrl+Z
-     * or reapplied with Ctrl+Y. Stores the placement kind, item/tool
-     * identifiers, the target face, and all placed positions.
+     * Records one shape placement or break batch so it can be reversed with Ctrl+Z
+     * or reapplied with Ctrl+Y. Stores the operation kind, item/tool
+     * identifiers, the target face, and all affected positions.
      *
-     * @param replayKind  kind of replay (pinned item or tool slot)
-     * @param itemId      item registry name (empty for tool-slot placements)
-     * @param toolSlot    hotbar slot used (0-8, -1 for pinned items)
-     * @param face        the face all positions were placed against
-     * @param positions   the placed block positions
+     * @param replayKind    kind of replay (pinned item, tool slot, or break)
+     * @param itemId        item registry name (empty for tool-slot placements/breaks)
+     * @param toolSlot      hotbar slot used (0-8, -1 for pinned items)
+     * @param face          the face all positions were placed/clicked against
+     * @param positions     the affected block positions
+     * @param isDestructive true if this batch records a BREAK operation (undo=re-place, redo=re-break);
+     *                      false if this batch records a PLACEMENT operation (undo=break, redo=re-place)
+     * @param blockStates   block registry names (e.g. "minecraft:stone") parallel to {@code positions};
+     *                      empty string for unknown blocks
      */
     public record HistoryBatch(
             InteractionTypes.PlacementReplayKind replayKind,
             String itemId,
             int toolSlot,
             Direction face,
-            List<BlockPos> positions) {}
+            List<BlockPos> positions,
+            boolean isDestructive,
+            List<String> blockStates) {}
 
     private ShapeDataRecords() {}
 }

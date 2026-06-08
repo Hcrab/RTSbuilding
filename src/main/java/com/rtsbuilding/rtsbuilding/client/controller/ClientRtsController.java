@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.PlacementHistoryStore;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
@@ -1018,6 +1019,7 @@ public final class ClientRtsController {
         this.localStateReady = false;
         this.homeSelectionMode = false;
         this.closeRangeAllowed = false;
+        PlacementHistoryStore.clear();
         this.lastSmoothCameraFrameNanos = 0L;
         this.funnelEnabled = false;
         this.lastFunnelTarget = null;
@@ -1334,6 +1336,7 @@ public final class ClientRtsController {
         this.lastSmoothCameraFrameNanos = 0L;
         this.previousCameraEntity = null;
         this.localMirrorCamera = null;
+        PlacementHistoryStore.clear();
         RtsClientPacketGateway.sendToggleCamera(false);
         return true;
     }
@@ -2345,14 +2348,33 @@ public final class ClientRtsController {
         boolean clearAfterPlace = !itemId.isBlank()
                 && autoClearUnavailable
                 && selectedCount <= Math.max(1, attemptedPlacements);
+        // 修复：当没有从储存浏览器钉选物品时（即快捷栏模式），
+        // 从当前选中的快捷栏槽位解析物品ID并发送到服务端，
+        // 这样服务端的 resolveStatePlacementPlan 会设置
+        // selectedStorageItem=true，从而从整个储存系统提取方块。
+        // 原有的客户端状态管理（selectedItemId、autoClear等）保持不变。
+        String payloadItemId = itemId;
+        if (payloadItemId.isBlank()) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) {
+                int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
+                ItemStack toolStack = mc.player.getInventory().getItem(slot);
+                if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
+                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                    if (id != null) {
+                        payloadItemId = id.toString();
+                    }
+                }
+            }
+        }
         RtsClientPacketGateway.sendPlaceBatch(
                 hits,
                 templateHit,
                 forcePlace,
                 skipIfOccupied,
-                itemId,
-                itemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
-                itemId.isBlank() ? 0 : this.placeRotateSteps,
+                payloadItemId,
+                payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
+                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
                 rayOrigin,
                 rayDir);
         if (clearAfterPlace) {

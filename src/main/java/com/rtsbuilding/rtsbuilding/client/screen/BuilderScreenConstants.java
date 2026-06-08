@@ -129,7 +129,7 @@ public final class BuilderScreenConstants {
     /** 形状旋转步进角度 */
     public static final int SHAPE_ROTATE_STEP_DEGREES = 15;
     /** 形状历史记录上限 */
-    public static final int SHAPE_HISTORY_LIMIT = 24;
+    public static final int SHAPE_HISTORY_LIMIT = 64;
 
     // ======================== 形状上下文面板 ========================
     /** 形状上下文面板宽度 */

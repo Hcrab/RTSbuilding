@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -371,11 +372,18 @@ public final class CameraInputHandler {
                 }
             } else if (screen.isQuickBuildRangeDestroyChainMode()) {
                 List<BlockPos> preview = screen.collectUltiminePreviewBlocks();
-                screen.getShapeController().rememberConfirmedChainDestroyPreview(
-                        preview.isEmpty() ? List.of(hit.getBlockPos().immutable()) : preview);
+                if (preview.isEmpty()) {
+                    preview = List.of(hit.getBlockPos().immutable());
+                }
+                screen.getShapeController().rememberConfirmedChainDestroyPreview(preview);
+                // 记录连锁破坏操作到撤回栈（等待服务端确认）
+                screen.getShapeController().recordPendingBreakForUndo(preview, hit.getDirection(), screen.getSelectedToolSlot());
                 this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
                         screen.getSelectedToolSlot(), screen.getUltimineLimit(), (byte) 0);
             } else {
+                // 记录普通挖掘操作到撤回栈（等待服务端确认）
+                screen.getShapeController().recordPendingBreakForUndo(
+                        List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
                 this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
             }
         }
