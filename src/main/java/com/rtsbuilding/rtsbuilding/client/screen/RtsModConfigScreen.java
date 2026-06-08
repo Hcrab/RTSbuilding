@@ -51,6 +51,9 @@ public final class RtsModConfigScreen extends Screen {
     private boolean survivalEnabled = Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean();
     private boolean shareWithTeams = Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean();
     private boolean blueprintsEnabled = Config.ENABLE_BLUEPRINTS.getAsBoolean();
+    private boolean blockGhostPreview = Config.isBlockGhostPreviewEnabled();
+    private boolean wireframePreview = Config.isWireframePreviewEnabled();
+    private boolean rangeDestroySkeleton = Config.isRangeDestroySkeletonEnabled();
     private String draftMaxRadius = Integer.toString(Config.maxActionRadiusBlocks());
     private String draftMaxBlueprintBlocks = Integer.toString(Config.maxBlueprintBlocks());
     private EditBox maxRadiusBox;
@@ -220,7 +223,36 @@ public final class RtsModConfigScreen extends Screen {
             this.maxBlueprintBlocksBox.setTextColorUneditable(0xFFB8C7D6);
             addRenderableWidget(this.maxBlueprintBlocksBox);
         }
+        y += OPTION_ROW_H + 6 + SECTION_H;
 
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.blockGhostPreview
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.blockGhostPreview = !this.blockGhostPreview;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
+        y += OPTION_ROW_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.wireframePreview
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.wireframePreview = !this.wireframePreview;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
+        y += OPTION_ROW_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.rangeDestroySkeleton
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.rangeDestroySkeleton = !this.rangeDestroySkeleton;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
     }
 
     private void addSkillWidgets() {
@@ -283,12 +315,15 @@ public final class RtsModConfigScreen extends Screen {
             }
         }
         try {
-            Config.saveProgressionSettings(
+            Config.saveGeneralSettings(
                     this.survivalEnabled,
                     this.shareWithTeams,
                     parseMaxRadius(),
                     this.blueprintsEnabled,
                     parseMaxBlueprintBlocks(),
+                    this.blockGhostPreview,
+                    this.wireframePreview,
+                    this.rangeDestroySkeleton,
                     costOverrides);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
@@ -352,6 +387,18 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H;
         drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.max_blueprint_blocks"),
                 Component.translatable("config.rtsbuilding.max_blueprint_blocks.hint"));
+        y += OPTION_ROW_H + 6;
+
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.rendering"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.block_ghost_preview"),
+                Component.translatable("config.rtsbuilding.option.block_ghost_preview.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.wireframe_preview"),
+                Component.translatable("config.rtsbuilding.option.wireframe_preview.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.range_destroy_skeleton"),
+                Component.translatable("config.rtsbuilding.option.range_destroy_skeleton.hint"));
         g.disableScissor();
     }
 
@@ -370,7 +417,7 @@ public final class RtsModConfigScreen extends Screen {
 
     private int contentHeight(Page target) {
         if (target == Page.GENERAL) {
-            return SECTION_H + OPTION_ROW_H * 3 + 6 + SECTION_H + OPTION_ROW_H * 2;
+            return SECTION_H * 3 + OPTION_ROW_H * 8 + 12;
         }
         return SECTION_H + COST_ROW_H + this.nodes.size() * COST_ROW_H;
     }

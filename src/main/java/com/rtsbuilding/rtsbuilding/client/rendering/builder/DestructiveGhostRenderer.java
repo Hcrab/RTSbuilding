@@ -61,7 +61,14 @@ public final class DestructiveGhostRenderer {
      */
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
-        renderDestructiveGhost(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier);
+        render(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier, true, true);
+    }
+
+    static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
+            boolean renderFill, boolean renderLines) {
+        renderDestructiveGhost(preview, poseStack, lineBuffer, fillBuffer, progress, alphaMultiplier,
+                renderFill, renderLines);
     }
 
     /**
@@ -125,9 +132,10 @@ public final class DestructiveGhostRenderer {
     // ===== Destructive ghost rendering =====
 
     private static void renderDestructiveGhost(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier,
+            boolean renderFill, boolean renderLines) {
         float alpha = RenderingUtil.clamp01(alphaMultiplier);
-        if (alpha <= 0.0F) return;
+        if (alpha <= 0.0F || (!renderFill && !renderLines)) return;
 
         // Outer envelope (yellow → green transition) — always rendered
         if (!RenderingUtil.isEmpty(preview.blocks()) || !RenderingUtil.isEmpty(preview.emptyBlocks())) {
@@ -140,7 +148,8 @@ public final class DestructiveGhostRenderer {
             renderGhostEnvelope(poseStack, lineBuffer, fillBuffer,
                     preview.blocks(), preview.emptyBlocks(),
                     envLineR, envLineG, envLineB, 0.78F * alpha,
-                    envFillR, envFillG, envFillB, 0.10F * alpha);
+                    envFillR, envFillG, envFillB, 0.10F * alpha,
+                    renderFill, renderLines);
         }
 
         List<BlockPos> blocks = preview.blocks();
@@ -148,7 +157,8 @@ public final class DestructiveGhostRenderer {
 
         // ── Per-block cell highlights ──
         DestructiveCellColors dcc = DestructiveCellColors.forConfirmState(preview.readyConfirm());
-        renderPerBlockCells(blocks, poseStack, lineBuffer, fillBuffer, progress, alpha, dcc);
+        renderPerBlockCells(blocks, poseStack, lineBuffer, fillBuffer, progress, alpha, dcc,
+                renderFill, renderLines);
     }
 
 
@@ -157,7 +167,7 @@ public final class DestructiveGhostRenderer {
 
     private static void renderPerBlockCells(List<BlockPos> blocks, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alpha,
-            DestructiveCellColors dcc) {
+            DestructiveCellColors dcc, boolean renderFill, boolean renderLines) {
         float lineR = RenderingUtil.lerp(dcc.lineR(), 0.38F, progress) * alpha;
         float lineG = RenderingUtil.lerp(dcc.lineG(), 1.00F, progress);
         float lineB = RenderingUtil.lerp(dcc.lineB(), 0.42F, progress);
@@ -175,17 +185,20 @@ public final class DestructiveGhostRenderer {
             double cellMaxY = pos.getY() + 0.97D;
             double cellMaxZ = pos.getZ() + 0.97D;
 
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    cellMinX, cellMinY, cellMinZ,
-                    cellMaxX, cellMaxY, cellMaxZ,
-                    fillR, fillG, fillB, fillA);
-
-            LevelRenderer.renderLineBox(
-                    poseStack, lineBuffer,
-                    cellMinX, cellMinY, cellMinZ,
-                    cellMaxX, cellMaxY, cellMaxZ,
-                    lineR, lineG, lineB, lineA);
+            if (renderFill) {
+                LevelRenderer.addChainedFilledBoxVertices(
+                        poseStack, fillBuffer,
+                        cellMinX, cellMinY, cellMinZ,
+                        cellMaxX, cellMaxY, cellMaxZ,
+                        fillR, fillG, fillB, fillA);
+            }
+            if (renderLines) {
+                LevelRenderer.renderLineBox(
+                        poseStack, lineBuffer,
+                        cellMinX, cellMinY, cellMinZ,
+                        cellMaxX, cellMaxY, cellMaxZ,
+                        lineR, lineG, lineB, lineA);
+            }
         }
     }
 
@@ -195,7 +208,8 @@ public final class DestructiveGhostRenderer {
     private static void renderGhostEnvelope(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             List<BlockPos> primaryBlocks, List<BlockPos> envelopeBlocks,
             float lineR, float lineG, float lineB, float lineA,
-            float fillR, float fillG, float fillB, float fillA) {
+            float fillR, float fillG, float fillB, float fillA,
+            boolean renderFill, boolean renderLines) {
         RenderingUtil.Bounds bounds = RenderingUtil.Bounds.from(primaryBlocks, envelopeBlocks);
         if (bounds == null) return;
 
@@ -207,18 +221,22 @@ public final class DestructiveGhostRenderer {
         double maxY = bounds.maxY() + 1.0D + padding;
         double maxZ = bounds.maxZ() + 1.0D + padding;
 
-        LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
-                minX, minY, minZ, maxX, maxY, maxZ,
-                fillR, fillG, fillB, fillA);
+        if (renderFill) {
+            LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+                    minX, minY, minZ, maxX, maxY, maxZ,
+                    fillR, fillG, fillB, fillA);
+        }
 
-        LevelRenderer.renderLineBox(poseStack, lineBuffer,
-                minX, minY, minZ, maxX, maxY, maxZ,
-                lineR, lineG, lineB, lineA);
+        if (renderLines) {
+            LevelRenderer.renderLineBox(poseStack, lineBuffer,
+                    minX, minY, minZ, maxX, maxY, maxZ,
+                    lineR, lineG, lineB, lineA);
 
         // ── Transparent no-depth envelope line box (visible through terrain) ──
-        float ndAlpha = 0.20F;
-        renderEnvelopeNoDepthLineBox(poseStack, minX, minY, minZ, maxX, maxY, maxZ,
-                lineR, lineG, lineB, ndAlpha);
+            float ndAlpha = 0.20F;
+            renderEnvelopeNoDepthLineBox(poseStack, minX, minY, minZ, maxX, maxY, maxZ,
+                    lineR, lineG, lineB, ndAlpha);
+        }
     }
 
     private static void renderWireframeEnvelope(PoseStack poseStack, VertexConsumer lineBuffer,
