@@ -62,7 +62,8 @@ public final class ShapeBuildTypes {
             Direction placementFace,
             BlockPos pointA,
             BlockPos pointB,
-            int boxHeightOffset) {}
+            int boxHeightOffset,
+            boolean connectedLine) {}
 
     /**
      * Shape build session (immutable, extends the Input concept).

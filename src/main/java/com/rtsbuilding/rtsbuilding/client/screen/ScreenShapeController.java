@@ -40,6 +40,7 @@ public final class ScreenShapeController {
     private int shapeFootprintNudgeB = 0;
     private double shapeCursorY = 0.0D;
     private ShapeFillMode shapeFillMode = ShapeFillMode.FILL;
+    private boolean lineConnected = false;
     private int shapeRotateDegrees = 0;
     private boolean altShapeMenuHeld = false;
     private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
@@ -63,6 +64,14 @@ public final class ScreenShapeController {
 
     public void setShapeFillMode(ShapeFillMode mode) {
         this.shapeFillMode = mode;
+    }
+
+    public boolean isLineConnected() {
+        return this.lineConnected;
+    }
+
+    public void setLineConnected(boolean connected) {
+        this.lineConnected = connected;
     }
 
     public int getShapeRotateDegrees() {
@@ -859,7 +868,7 @@ public final class ScreenShapeController {
             }
             BlockPos pointB = resolveShapePlanePoint(session, cursorHit);
             pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0);
+            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0, this.lineConnected);
         }
         BlockPos pointB = session.pointB();
         if (pointB == null) {
@@ -870,10 +879,10 @@ public final class ScreenShapeController {
                 return null;
             }
             pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
+            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session), this.lineConnected);
         }
         pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-        return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
+        return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session), this.lineConnected);
     }
 
     private int resolveBoxHeightOffset(ShapeBuildTypes.Session session) {

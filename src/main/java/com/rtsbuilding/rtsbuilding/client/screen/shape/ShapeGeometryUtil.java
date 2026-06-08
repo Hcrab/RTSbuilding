@@ -34,9 +34,9 @@ public final class ShapeGeometryUtil {
         BlockPos start = input.pointA();
         BlockPos end = input.pointB();
         switch (input.shape()) {
-            case LINE -> addLineTargets(targets, start, end);
+            case LINE -> addLineTargets(targets, start, end, input.connectedLine());
             case SQUARE -> addSquareTargets(targets, start, end, input.planeFace(), fillMode);
-            case WALL -> addWallTargets(targets, start, end, input.boxHeightOffset(), fillMode);
+            case WALL -> addWallTargets(targets, start, end, input.boxHeightOffset(), fillMode, input.connectedLine());
             case CIRCLE -> addCircleTargets(targets, start, end, input.planeFace(), fillMode);
             case BOX -> addBoxTargets(targets, start, end, input.boxHeightOffset(), fillMode);
             default -> targets.add(start);
@@ -48,6 +48,11 @@ public final class ShapeGeometryUtil {
 
     /** 生成直线方块（Bresenham 线段近似） */
     public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end) {
+        addLineTargets(targets, start, end, false);
+    }
+
+    /** 生成直线方块，支持连接模式（斜线断点填充） */
+    public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, boolean connected) {
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
@@ -65,12 +70,111 @@ public final class ShapeGeometryUtil {
             steps = Math.max(Math.abs(dx), Math.max(Math.abs(dy), Math.abs(dz)));
         }
 
+        if (connected) {
+            // 连接模式：使用3D Bresenham变体，确保连续方块之间总是面相邻（6-连通性）
+            addConnectedLineTargets(targets, start, dx, dy, dz, steps);
+            return;
+        }
+
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
             int x = start.getX() + (int) Math.round(dx * t);
             int y = start.getY() + (int) Math.round(dy * t);
             int z = start.getZ() + (int) Math.round(dz * t);
             targets.add(new BlockPos(x, y, z));
+        }
+    }
+
+   /**
+     * 连接模式直线算法：沿最长轴逐格步进，每次步进次要轴之前先添加连接方块，
+     * 确保连续方块之间总是面相邻（6-连通性）。
+     * <p>例如从 (0,0,0) 到 (3,3,0) 会生成：
+     * (0,0,0), (1,0,0), (1,1,0), (2,1,0), (2,2,0), (3,2,0), (3,3,0)</p>
+     * <p>核心思路：先步进主轴，在步进次要轴之前，将当前位置的方块加入（此时主轴已前进但次要轴未动），
+     * 这个方块就是连接斜对角两个方块的"桥梁"。</p>
+     */
+    private static void addConnectedLineTargets(Set<BlockPos> targets, BlockPos start,
+            int dx, int dy, int dz, int steps) {
+        int adx = Math.abs(dx);
+        int ady = Math.abs(dy);
+        int adz = Math.abs(dz);
+
+        int sx = dx >= 0 ? 1 : -1;
+        int sy = dy >= 0 ? 1 : -1;
+        int sz = dz >= 0 ? 1 : -1;
+
+        int x = start.getX();
+        int y = start.getY();
+        int z = start.getZ();
+        targets.add(new BlockPos(x, y, z));
+
+        if (adx >= ady && adx >= adz) {
+            // X 为主轴：先步进 X，在 Y/Z 步进之前添加连接方块
+            int errY = adx / 2;
+            int errZ = adx / 2;
+            for (int i = 0; i < adx; i++) {
+                errY -= ady;
+                errZ -= adz;
+                boolean stepY = errY < 0;
+                boolean stepZ = errZ < 0;
+                x += sx;
+                // 步进次要轴之前：添加连接方块（主轴已前进，次要轴尚未步进）
+                if (stepY) {
+                    targets.add(new BlockPos(x, y, z));
+                    y += sy;
+                    errY += adx;
+                }
+                if (stepZ) {
+                    targets.add(new BlockPos(x, y, z));
+                    z += sz;
+                    errZ += adx;
+                }
+                targets.add(new BlockPos(x, y, z));
+            }
+        } else if (ady >= adx && ady >= adz) {
+            // Y 为主轴：先步进 Y，在 X/Z 步进之前添加连接方块
+            int errX = ady / 2;
+            int errZ = ady / 2;
+            for (int i = 0; i < ady; i++) {
+                errX -= adx;
+                errZ -= adz;
+                boolean stepX = errX < 0;
+                boolean stepZ = errZ < 0;
+                y += sy;
+                if (stepX) {
+                    targets.add(new BlockPos(x, y, z));
+                    x += sx;
+                    errX += ady;
+                }
+                if (stepZ) {
+                    targets.add(new BlockPos(x, y, z));
+                    z += sz;
+                    errZ += ady;
+                }
+                targets.add(new BlockPos(x, y, z));
+            }
+        } else {
+            // Z 为主轴：先步进 Z，在 X/Y 步进之前添加连接方块
+            int errX = adz / 2;
+            int errY = adz / 2;
+            for (int i = 0; i < adz; i++) {
+                errX -= adx;
+                errY -= ady;
+                boolean stepX = errX < 0;
+                boolean stepY = errY < 0;
+                z += sz;
+                if (stepX) {
+                    targets.add(new BlockPos(x, y, z));
+                    x += sx;
+                    errX += adz;
+                }
+                if (stepY) {
+                    targets.add(new BlockPos(x, y, z));
+                    y += sy;
+                    errY += adz;
+                }
+                targets.add(new BlockPos(x, y, z));
+            }
         }
     }
 
@@ -85,10 +189,15 @@ public final class ShapeGeometryUtil {
         addRotatedPlaneRectangleTargets(targets, start, axes[0], axes[1], aOffset, bOffset, fillMode, 0);
     }
 
-    /** 生成墙壁方块 */
+    /** 生成墙壁方块，支持连接模式 */
     public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode) {
+        addWallTargets(targets, start, end, heightOffset, fillMode, false);
+    }
+
+    /** 生成墙壁方块，支持连接模式（斜线断点填充） */
+    public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode, boolean connected) {
         LinkedHashSet<BlockPos> baseLine = new LinkedHashSet<>();
-        addLineTargets(baseLine, start, new BlockPos(end.getX(), start.getY(), end.getZ()));
+        addLineTargets(baseLine, start, new BlockPos(end.getX(), start.getY(), end.getZ()), connected);
         if (baseLine.isEmpty()) {
             baseLine.add(start);
         }

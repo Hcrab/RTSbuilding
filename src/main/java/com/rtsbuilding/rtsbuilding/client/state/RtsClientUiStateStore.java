@@ -182,6 +182,7 @@ public final class RtsClientUiStateStore {
         public boolean damageSoundEnabled = true;
         public boolean damageAutoReturnEnabled = true;
         public boolean debugButtonVisible = false;
+        public boolean lineConnected = false;
         public boolean containerOverlayEnabled = false;
         public boolean overlayShiftImportEnabled = false;
         public boolean storageRefreshQuietEnabled = false;
@@ -241,6 +242,7 @@ public final class RtsClientUiStateStore {
             clean.damageSoundEnabled = this.damageSoundEnabled;
             clean.damageAutoReturnEnabled = this.damageAutoReturnEnabled;
             clean.debugButtonVisible = this.debugButtonVisible;
+            clean.lineConnected = this.lineConnected;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.overlayShiftImportEnabled = this.overlayShiftImportEnabled;
             clean.storageRefreshQuietEnabled = this.storageRefreshQuietEnabled;

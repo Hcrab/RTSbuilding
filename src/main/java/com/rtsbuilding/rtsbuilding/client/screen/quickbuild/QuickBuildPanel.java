@@ -138,6 +138,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     /** 缓存的形状，用于检测 fill mode 是否需要重建 */
     private BuildShape lastFillShape;
+    /** 直线连接模式按钮 */
+    private WindowButton connectToggle;
 
     // ======================== 初始化 ========================
 
@@ -190,6 +192,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (isRangeDestroyChainMode()) {
             this.lastFillShape = controller.getBuildShape();
             fillModeButtons = new WindowButton[0];
+            this.connectToggle = null;
             return;
         }
         this.lastFillShape = controller.getBuildShape();
@@ -203,6 +206,17 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 screen.setShapeFillMode(modes.get(idx));
                 screen.persistUiState();
             });
+        }
+        // 连接模式按钮（LINE/WALL 形状时显示）
+        if (controller.getBuildShape() == BuildShape.LINE || controller.getBuildShape() == BuildShape.WALL) {
+            this.connectToggle = new WindowButton(0, 0, 84, 20,
+                    Component.literal(screen.text("screen.rtsbuilding.quick_build.connect")), btn -> {
+                boolean next = !screen.getShapeController().isLineConnected();
+                screen.getShapeController().setLineConnected(next);
+                screen.persistUiState();
+            });
+        } else {
+            this.connectToggle = null;
         }
     }
 
@@ -465,6 +479,25 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             );
         }
 
+        // --- 连接模式按钮（LINE/WALL 形状时在填充模式下方显示） ---
+        if (this.connectToggle != null) {
+            int connectRowY = bodyY + SECTION_TOP + 15 + ((modes.size() + 0) * 38);
+            this.connectToggle.setX(rightX);
+            this.connectToggle.setY(connectRowY);
+            this.connectToggle.render(g, mouseX, mouseY, partialTick);
+
+            boolean connected = screen.getShapeController().isLineConnected();
+            boolean hovered = this.connectToggle.isHoveredOrFocused();
+            int vOffset = connected ? STATE_H * 2 : (hovered ? STATE_H : 0);
+            RtsTextureRenderer.drawTextureHighPrecision(
+                    g, SELECTION_DOT_TEXTURE,
+                    rightX + 2, connectRowY + 2, 16, 16,
+                    0, vOffset, SHEET_W, STATE_H,
+                    SHEET_W, MODE_BUTTON_H,
+                    0, 0xFFFFFFFF
+            );
+        }
+
         // --- 底部提示文字（仅在选中物品时显示，使用面板扩展区域） ---
         {
             // 分界线
@@ -555,6 +588,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     return;
                 }
             }
+        }
+        if (this.connectToggle != null && this.connectToggle.mouseClicked(mouseX, mouseY, button)) {
+            return;
         }
     }
 

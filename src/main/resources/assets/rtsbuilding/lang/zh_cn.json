@@ -196,6 +196,7 @@
   "screen.rtsbuilding.quick_build.chain_hint": "左键开始连锁破坏相连的同类方块",
   "screen.rtsbuilding.quick_build.chain_limit": "上限：%s",
   "screen.rtsbuilding.quick_build.chain_limit_label": "上限",
+  "screen.rtsbuilding.quick_build.connect": "连接",
   "screen.rtsbuilding.storage.title": "RTS 存储",
   "screen.rtsbuilding.storage.tab": "储存空间",
   "screen.rtsbuilding.creative.tab": "创造",

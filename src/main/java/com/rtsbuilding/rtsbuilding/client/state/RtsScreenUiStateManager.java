@@ -154,6 +154,7 @@ public final class RtsScreenUiStateManager {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         state.buildShape = this.quickBuildPanel.getBuildModeShape().name();
         state.fillMode = this.shapeController.getShapeFillMode().name();
+        state.lineConnected = this.shapeController.isLineConnected();
         state.rotationDegrees = this.shapeController.getShapeRotateDegrees();
         state.quickBuildOpen = this.quickBuildPanel.isQuickBuildOpen();
         state.quickBuildMode = this.quickBuildPanel.getMode().name();
@@ -233,6 +234,7 @@ public final class RtsScreenUiStateManager {
         parseAndSetBuildShape(state.buildShape);
         this.quickBuildPanel.loadStoredShapes(this.controller.getBuildShape(), this.controller.getAreaMineShape());
         parseAndSetFillMode(state.fillMode);
+        this.shapeController.setLineConnected(state.lineConnected);
         this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360));
         this.shapeController.ensureFillModeForShape(this.controller.getBuildShape());
     }
