@@ -9,4 +9,3 @@ public final class FMLPaths {
     private FMLPaths() {
     }
 }
-

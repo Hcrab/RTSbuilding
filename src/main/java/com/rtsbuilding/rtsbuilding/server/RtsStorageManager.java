@@ -266,6 +266,7 @@ public final class RtsStorageManager {
             }
             Session session = entry.getValue();
             tickActiveMining(player, session);
+            RtsStorageMining.tickDeferredStoragePageRefresh(player, session);
             tickFunnel(player, session);
         }
     }
@@ -1097,7 +1098,7 @@ public final class RtsStorageManager {
     }
 
     public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
-            ItemStack toolPrototype, int requestedLimit, byte mode) {
+            ItemStack toolPrototype, int requestedLimit, byte mode, boolean protectTool, boolean replaceTool) {
         RtsStorageMining.startUltimine(
                 player,
                 SESSIONS.get(player.getUUID()),
@@ -1107,7 +1108,22 @@ public final class RtsStorageManager {
                 toolItemId,
                 toolPrototype,
                 requestedLimit,
-                mode);
+                mode,
+                protectTool,
+                replaceTool);
+    }
+
+    public static void areaDestroy(ServerPlayer player, List<BlockPos> positions,
+            byte toolSlot, String toolItemId, ItemStack toolPrototype, boolean protectTool, boolean replaceTool) {
+        RtsStorageMining.areaDestroy(
+                player,
+                SESSIONS.get(player.getUUID()),
+                positions,
+                toolSlot,
+                toolItemId,
+                toolPrototype,
+                protectTool,
+                replaceTool);
     }
 
     private static void tickActiveMining(ServerPlayer player, RtsStorageSession session) {

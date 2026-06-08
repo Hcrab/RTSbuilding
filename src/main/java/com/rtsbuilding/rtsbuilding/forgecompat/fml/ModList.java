@@ -14,4 +14,3 @@ public final class ModList {
         return net.minecraftforge.fml.ModList.get().isLoaded(modId);
     }
 }
-

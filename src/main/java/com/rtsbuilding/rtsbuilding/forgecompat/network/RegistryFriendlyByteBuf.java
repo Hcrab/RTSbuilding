@@ -8,4 +8,3 @@ public class RegistryFriendlyByteBuf extends FriendlyByteBuf {
         super(source);
     }
 }
-

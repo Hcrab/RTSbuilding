@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsBreakPayload;
+import com.rtsbuilding.rtsbuilding.network.C2SRtsAreaDestroyPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsBeginHomeSelectionPayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsCloseRemoteMenuPayload;
@@ -464,8 +465,22 @@ final class RtsClientPacketGateway {
                 allowPlacedBlockRecovery));
     }
 
+    static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
+            boolean protectTool, boolean replaceTool) {
+        if (positions == null || positions.isEmpty()) {
+            return;
+        }
+        PacketDistributor.sendToServer(new C2SRtsAreaDestroyPayload(
+                positions,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                protectTool,
+                replaceTool));
+    }
+
     static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            int limit, byte mode) {
+            int limit, byte mode, boolean protectTool, boolean replaceTool) {
         PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
                 pos,
                 (byte) face,
@@ -473,7 +488,9 @@ final class RtsClientPacketGateway {
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 (short) Mth.clamp(limit, 1, 256),
-                mode));
+                mode,
+                protectTool,
+                replaceTool));
     }
 
     static void sendMineAbort(BlockPos pos, int face, int toolSlot) {

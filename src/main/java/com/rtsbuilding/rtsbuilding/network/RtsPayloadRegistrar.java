@@ -61,6 +61,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, C2SRtsBreakPayload.class, C2SRtsBreakPayload.STREAM_CODEC, RtsNetworkHandlers::handleBreak);
         registerMessage(id++, C2SRtsMinePayload.class, C2SRtsMinePayload.STREAM_CODEC, RtsNetworkHandlers::handleMine);
         registerMessage(id++, C2SRtsUltiminePayload.class, C2SRtsUltiminePayload.STREAM_CODEC, RtsNetworkHandlers::handleUltimine);
+        registerMessage(id++, C2SRtsAreaDestroyPayload.class, C2SRtsAreaDestroyPayload.STREAM_CODEC, RtsNetworkHandlers::handleAreaDestroy);
         registerMessage(id++, C2SRtsFunnelTargetPayload.class, C2SRtsFunnelTargetPayload.STREAM_CODEC, RtsNetworkHandlers::handleFunnelTarget);
         registerMessage(id++, C2SRtsFillInventoryPayload.class, C2SRtsFillInventoryPayload.STREAM_CODEC, RtsNetworkHandlers::handleFillInventory);
         registerMessage(id++, C2SRtsLinkedPickupPayload.class, C2SRtsLinkedPickupPayload.STREAM_CODEC, RtsNetworkHandlers::handleLinkedPickup);
@@ -89,6 +90,7 @@ public final class RtsPayloadRegistrar {
         registerMessage(id++, S2CRtsDamageFeedbackPayload.class, S2CRtsDamageFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleDamageFeedback);
         registerMessage(id++, S2CRtsQuestDetectStatusPayload.class, S2CRtsQuestDetectStatusPayload.STREAM_CODEC, RtsClientPayloadBridge::handleQuestDetectStatus);
         registerMessage(id++, S2CRtsMineProgressPayload.class, S2CRtsMineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleMineProgress);
+        registerMessage(id++, S2CRtsUltimineProgressPayload.class, S2CRtsUltimineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleUltimineProgress);
         registerMessage(id++, S2CRtsProgressionStatePayload.class, S2CRtsProgressionStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleProgressionState);
         registerMessage(id++, S2CBlueprintStatusPayload.class, S2CBlueprintStatusPayload.STREAM_CODEC, BlueprintClientPayloadBridge::handleStatus);
     }
@@ -125,5 +127,3 @@ public final class RtsPayloadRegistrar {
         }
     }
 }
-
-

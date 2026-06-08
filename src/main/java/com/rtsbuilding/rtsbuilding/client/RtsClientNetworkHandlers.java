@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
@@ -10,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsUltimineProgressPayload;
 
 public final class RtsClientNetworkHandlers {
     private RtsClientNetworkHandlers() {
@@ -44,7 +46,16 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleMineProgress(S2CRtsMineProgressPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyMineProgress(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyMineProgress(payload);
+            if (payload.stage() < 0) {
+                ShapeGhostRenderer.markDestroyed(payload.pos());
+            }
+        });
+    }
+
+    public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
     }
 
     public static void handleProgressionState(S2CRtsProgressionStatePayload payload, IPayloadContext context) {

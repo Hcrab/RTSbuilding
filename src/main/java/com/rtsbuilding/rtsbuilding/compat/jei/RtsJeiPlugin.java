@@ -36,4 +36,3 @@ public final class RtsJeiPlugin implements IModPlugin {
         registration.addGlobalGuiHandler(new RtsOverlayJeiGlobalGuiHandler(ingredientManager));
     }
 }
-

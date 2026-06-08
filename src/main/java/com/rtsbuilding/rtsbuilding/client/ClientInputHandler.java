@@ -44,4 +44,3 @@ public final class ClientInputHandler {
         ClientRtsController.get().tick();
     }
 }
-

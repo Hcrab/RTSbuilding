@@ -29,4 +29,3 @@ public final class StreamCodec<B, T> {
         return this.decoder.apply(buffer);
     }
 }
-

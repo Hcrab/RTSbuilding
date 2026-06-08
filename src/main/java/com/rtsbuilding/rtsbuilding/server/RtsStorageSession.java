@@ -104,8 +104,13 @@ class RtsStorageSession {
     Direction miningFace = Direction.DOWN;
     int miningToolSlot;
     RtsStorageMining.ToolLease miningToolLease = RtsStorageMining.ToolLease.empty();
+    boolean protectMiningTool;
+    boolean replaceMiningTool;
+    String miningToolItemId = "";
+    ItemStack miningToolPrototype = ItemStack.EMPTY;
     float miningProgress;
     int miningStage = -1;
+    long deferredStorageRefreshTick = -1L;
     long nextQuestDetectTick;
 
     /*

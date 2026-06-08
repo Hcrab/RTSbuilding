@@ -31,10 +31,33 @@ public final class ShapeDataRecords {
      * @param readyConfirm true once the shape is fully defined and awaiting
      *                     a placement click
      */
-    public record GhostPreview(List<BlockPos> blocks, boolean readyConfirm) {
+    public record GhostPreview(
+            List<BlockPos> blocks,
+            boolean readyConfirm,
+            boolean destructive,
+            List<BlockPos> emptyBlocks,
+            boolean chainDestroyPreview,
+            boolean confirmedWorkArea) {
 
         /** Empty preview sentinel — no blocks, not ready. */
-        public static final GhostPreview EMPTY = new GhostPreview(List.of(), false);
+        public static final GhostPreview EMPTY = new GhostPreview(List.of(), false, false, List.of(), false, false);
+
+        public GhostPreview(List<BlockPos> blocks, boolean readyConfirm) {
+            this(blocks, readyConfirm, false, List.of(), false, false);
+        }
+
+        public GhostPreview(List<BlockPos> blocks, boolean readyConfirm, boolean destructive) {
+            this(blocks, readyConfirm, destructive, List.of(), false, false);
+        }
+
+        public GhostPreview(List<BlockPos> blocks, boolean readyConfirm, boolean destructive, List<BlockPos> emptyBlocks) {
+            this(blocks, readyConfirm, destructive, emptyBlocks, false, false);
+        }
+
+        public GhostPreview(List<BlockPos> blocks, boolean readyConfirm, boolean destructive, List<BlockPos> emptyBlocks,
+                boolean chainDestroyPreview) {
+            this(blocks, readyConfirm, destructive, emptyBlocks, chainDestroyPreview, false);
+        }
     }
 
     /**

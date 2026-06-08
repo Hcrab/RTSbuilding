@@ -319,7 +319,24 @@ public final class RtsNetworkHandlers {
                         payload.toolItemId(),
                         payload.toolPrototype(),
                         payload.limit(),
-                        payload.mode());
+                        payload.mode(),
+                        payload.protectTool(),
+                        payload.replaceTool());
+            }
+        });
+    }
+
+    public static void handleAreaDestroy(C2SRtsAreaDestroyPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsStorageManager.areaDestroy(
+                        serverPlayer,
+                        payload.positions(),
+                        payload.toolSlot(),
+                        payload.toolItemId(),
+                        payload.toolPrototype(),
+                        payload.protectTool(),
+                        payload.replaceTool());
             }
         });
     }

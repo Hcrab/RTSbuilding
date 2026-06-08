@@ -219,6 +219,10 @@ public final class BuilderScreen extends Screen {
     public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
         return this.shapeController.getShapeGhostPreview();
     }
+    /** Returns confirmed range-destroy work areas that should remain visible during mining. */
+    public List<ShapeDataRecords.GhostPreview> getConfirmedRangeDestroyPreviews() {
+        return this.shapeController.getConfirmedRangeDestroyPreviews();
+    }
     /** Ensures the current fill mode is compatible with the given shape type, adjusting if necessary. */
     public void ensureFillModeForShape(ClientRtsController.BuildShape shape) {
         this.shapeController.ensureFillModeForShape(shape);
@@ -1570,6 +1574,9 @@ public final class BuilderScreen extends Screen {
     private void applyStoredUiState() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         this.quickBuildPanel.setQuickBuildOpen(state.quickBuildOpen);
+        this.quickBuildPanel.setQuickBuildModeName(state.quickBuildMode);
+        this.quickBuildPanel.setDestroyChainSelected(state.quickBuildDestroyChainSelected);
+        this.quickBuildPanel.setChainDestroyLimit(state.quickBuildChainDestroyLimit);
         this.ultiminePanel.setOpen(state.ultimineOpen);
         this.ultiminePanel.setLimit(state.ultimineLimit);
         try {
@@ -1585,6 +1592,8 @@ public final class BuilderScreen extends Screen {
         this.controller.setSmoothCamera(state.smoothCamera);
         this.controller.setDamageSoundEnabled(state.damageSoundEnabled);
         this.controller.setDamageAutoReturnEnabled(state.damageAutoReturnEnabled);
+        this.controller.setRangeDestroyToolProtectionEnabled(state.rangeDestroyToolProtectionEnabled);
+        this.controller.setRangeDestroyToolReplacementEnabled(state.rangeDestroyToolReplacementEnabled);
         this.debugButtonVisible = state.debugButtonVisible;
         int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
         double sensitivityFraction = sensitivityPresetCount <= 1
@@ -1615,9 +1624,14 @@ public final class BuilderScreen extends Screen {
         state.fillMode = this.shapeController.getShapeFillMode().name();
         state.rotationDegrees = this.shapeController.getShapeRotateDegrees();
         state.quickBuildOpen = this.quickBuildPanel.isQuickBuildOpen();
+        state.quickBuildMode = this.quickBuildPanel.getQuickBuildModeName();
+        state.quickBuildDestroyChainSelected = this.quickBuildPanel.isDestroyChainSelected();
+        state.quickBuildChainDestroyLimit = this.quickBuildPanel.getChainDestroyLimit();
         state.ultimineOpen = this.ultiminePanel.isOpen();
         state.ultimineLimit = this.ultiminePanel.getLimit();
         state.ultimineMode = this.ultiminePanel.getMode().name();
+        state.rangeDestroyToolProtectionEnabled = this.controller.isRangeDestroyToolProtectionEnabled();
+        state.rangeDestroyToolReplacementEnabled = this.controller.isRangeDestroyToolReplacementEnabled();
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
         state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
@@ -1676,11 +1690,41 @@ public final class BuilderScreen extends Screen {
     }
     /** Returns the current ultimine block limit. */
     public int getUltimineLimit() {
+        if (isQuickBuildRangeDestroyMode()) {
+            return this.quickBuildPanel.getChainDestroyLimit();
+        }
         return this.ultiminePanel.getLimit();
     }
     /** Returns the current ultimine mode selected in the floating panel. */
     public UltimineMode getUltimineMode() {
         return this.ultiminePanel.getMode();
+    }
+    /** Returns true when Quick Build is showing the range-destroy workflow. */
+    public boolean isQuickBuildRangeDestroyMode() {
+        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyMode();
+    }
+    /** Returns true when Quick Build range destroy is using connected-chain mode. */
+    public boolean isQuickBuildRangeDestroyChainMode() {
+        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
+    }
+    /** Handles the left-click selection flow for Quick Build range destroy. */
+    public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
+        if (!isQuickBuildRangeDestroyMode() || isQuickBuildRangeDestroyChainMode() || !isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        if (this.shapeController.tryConfirmPendingRangeDestroy()) {
+            return true;
+        }
+        InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
+        if (target != null && target.blockHit() != null) {
+            this.shapeController.selectRangeDestroyShape(target.blockHit(), mouseY, target.rayDir());
+            return true;
+        }
+        return true;
+    }
+    /** Gives input/render helpers controlled access to the shape state machine. */
+    public ScreenShapeController getShapeController() {
+        return this.shapeController;
     }
     /** Sets the last sent ultimine limit value (to avoid redundant network packets). */
     public void setUltimineLastSentLimit(int limit) {

@@ -49,6 +49,11 @@ public final class RtsClientPayloadBridge {
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleMineProgress(payload, context));
     }
 
+    public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleUltimineProgress(payload, context));
+    }
+
     public static void handleProgressionState(S2CRtsProgressionStatePayload payload, IPayloadContext context) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleProgressionState(payload, context));

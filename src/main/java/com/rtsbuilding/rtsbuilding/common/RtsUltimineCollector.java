@@ -9,21 +9,13 @@ import java.util.List;
 import java.util.Set;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class RtsUltimineCollector {
     public static final int DEFAULT_MAX_RADIUS = 32;
 
-    private static final Direction[] NEIGHBORS = {
-            Direction.UP,
-            Direction.DOWN,
-            Direction.NORTH,
-            Direction.SOUTH,
-            Direction.WEST,
-            Direction.EAST
-    };
+    private static final int[][] NEIGHBOR_OFFSETS = buildNeighborOffsets();
 
     private RtsUltimineCollector() {
     }
@@ -53,7 +45,7 @@ public final class RtsUltimineCollector {
 
         while (!frontier.isEmpty() && result.size() < clampedLimit) {
             BlockPos current = frontier.removeFirst();
-            if (manhattanDistance(seedPos, current) > clampedRadius) {
+            if (chebyshevDistance(seedPos, current) > clampedRadius) {
                 continue;
             }
 
@@ -63,9 +55,9 @@ public final class RtsUltimineCollector {
             }
 
             result.add(current.immutable());
-            for (Direction direction : NEIGHBORS) {
-                BlockPos next = current.relative(direction).immutable();
-                if (manhattanDistance(seedPos, next) <= clampedRadius && visited.add(next)) {
+            for (int[] offset : NEIGHBOR_OFFSETS) {
+                BlockPos next = current.offset(offset[0], offset[1], offset[2]).immutable();
+                if (chebyshevDistance(seedPos, next) <= clampedRadius && visited.add(next)) {
                     frontier.addLast(next);
                 }
             }
@@ -79,10 +71,26 @@ public final class RtsUltimineCollector {
         return result;
     }
 
-    private static int manhattanDistance(BlockPos a, BlockPos b) {
-        return Math.abs(a.getX() - b.getX())
-                + Math.abs(a.getY() - b.getY())
-                + Math.abs(a.getZ() - b.getZ());
+    private static int[][] buildNeighborOffsets() {
+        int[][] offsets = new int[26][3];
+        int index = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dy == 0 && dz == 0) {
+                        continue;
+                    }
+                    offsets[index++] = new int[] { dx, dy, dz };
+                }
+            }
+        }
+        return offsets;
+    }
+
+    private static int chebyshevDistance(BlockPos a, BlockPos b) {
+        return Math.max(
+                Math.max(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY())),
+                Math.abs(a.getZ() - b.getZ()));
     }
 
     private static long distanceSquared(BlockPos a, BlockPos b) {

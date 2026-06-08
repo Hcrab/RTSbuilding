@@ -15,4 +15,3 @@ public final class PacketDistributor {
         RtsPayloadRegistrar.sendToPlayer(player, message);
     }
 }
-

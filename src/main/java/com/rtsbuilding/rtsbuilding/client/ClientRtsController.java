@@ -180,7 +180,11 @@ public final class ClientRtsController {
     private int activeMineToolSlot;
     private BlockPos mineRenderPos;
     private int mineRenderStage = -1;
+    private int ultimineProgressProcessed = -1;
+    private int ultimineProgressTotal = 0;
     private BuildShape buildShape = BuildShape.BLOCK;
+    private boolean rangeDestroyToolProtectionEnabled = true;
+    private boolean rangeDestroyToolReplacementEnabled = false;
     private boolean pendingCraftTerminalOpen;
     private int pendingCraftTerminalOpenTicks;
     private int pendingRemoteMenuOpenTicks;
@@ -632,6 +636,22 @@ public final class ClientRtsController {
 
     public void setBuildShape(BuildShape shape) {
         this.buildShape = shape == null ? BuildShape.BLOCK : shape;
+    }
+
+    public boolean isRangeDestroyToolProtectionEnabled() {
+        return this.rangeDestroyToolProtectionEnabled;
+    }
+
+    public void setRangeDestroyToolProtectionEnabled(boolean enabled) {
+        this.rangeDestroyToolProtectionEnabled = enabled;
+    }
+
+    public boolean isRangeDestroyToolReplacementEnabled() {
+        return this.rangeDestroyToolReplacementEnabled;
+    }
+
+    public void setRangeDestroyToolReplacementEnabled(boolean enabled) {
+        this.rangeDestroyToolReplacementEnabled = enabled;
     }
 
     public boolean isChunkCurtainVisible() {
@@ -1971,6 +1991,16 @@ public final class ClientRtsController {
         this.mineRenderStage = Math.min(9, stage);
     }
 
+    public void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
+        if (payload == null || payload.processed() < 0 || payload.total() <= 0) {
+            this.ultimineProgressProcessed = -1;
+            this.ultimineProgressTotal = 0;
+            return;
+        }
+        this.ultimineProgressProcessed = payload.processed();
+        this.ultimineProgressTotal = payload.total();
+    }
+
     public void applyProgressionState(S2CRtsProgressionStatePayload payload) {
         this.progressionEnabled = payload.enabled();
         this.progressionHomeSet = payload.homeSet();
@@ -2432,11 +2462,32 @@ public final class ClientRtsController {
                 selectedMiningToolItemId(),
                 selectedMiningToolPrototype(),
                 limit,
-                mode);
+                mode,
+                this.rangeDestroyToolProtectionEnabled,
+                this.rangeDestroyToolReplacementEnabled);
     }
 
     public void continueMining(int toolSlot) {
         // Mining progress is maintained server-side after START; no per-tick packet needed.
+    }
+
+    public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) {
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+        BlockPos first = targets.get(0).immutable();
+        this.activeMinePos = first;
+        this.activeMineFace = Direction.UP.get3DDataValue();
+        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.mineRenderPos = first;
+        this.mineRenderStage = 0;
+        RtsClientPacketGateway.sendAreaDestroy(
+                targets,
+                this.activeMineToolSlot,
+                selectedMiningToolItemId(),
+                selectedMiningToolPrototype(),
+                this.rangeDestroyToolProtectionEnabled,
+                this.rangeDestroyToolReplacementEnabled);
     }
 
     public void abortMining(int toolSlot) {
@@ -2467,6 +2518,14 @@ public final class ClientRtsController {
 
     public int getMineProgressStage() {
         return this.mineRenderStage;
+    }
+
+    public int getUltimineProgressProcessed() {
+        return this.ultimineProgressProcessed;
+    }
+
+    public int getUltimineProgressTotal() {
+        return this.ultimineProgressTotal;
     }
 
     public BlockPos getMineProgressPos() {

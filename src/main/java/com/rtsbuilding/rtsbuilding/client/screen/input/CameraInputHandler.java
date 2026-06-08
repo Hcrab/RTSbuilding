@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -17,6 +18,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
 
@@ -336,10 +339,22 @@ public final class CameraInputHandler {
         if (hit == null) {
             return false;
         }
+        if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
+            return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
+        }
+        if (!screen.isQuickBuildRangeDestroyMode() && screen.getShapeController().hasConfirmedDestroyWorkArea()) {
+            return false;
+        }
         if (screen.isUltimineOpen()) {
             this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot(),
                     screen.getUltimineLimit(), (byte) screen.getUltimineMode().ordinal());
             screen.setUltimineLastSentLimit(screen.getUltimineLimit());
+        } else if (screen.isQuickBuildRangeDestroyChainMode()) {
+            List<BlockPos> preview = screen.collectUltiminePreviewBlocks();
+            screen.getShapeController().rememberConfirmedChainDestroyPreview(
+                    preview.isEmpty() ? List.of(hit.getBlockPos().immutable()) : preview);
+            this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
+                    screen.getSelectedToolSlot(), screen.getUltimineLimit(), (byte) 0);
         } else {
             this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
             screen.setUltimineLastSentLimit(1);

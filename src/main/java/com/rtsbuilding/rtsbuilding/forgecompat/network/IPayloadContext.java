@@ -7,4 +7,3 @@ public interface IPayloadContext {
 
     void enqueueWork(Runnable runnable);
 }
-
