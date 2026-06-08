@@ -994,6 +994,7 @@ public final class RtsStorageManager {
         BlockState beforeClicked = null;
         BlockPos adjacentPos = null;
         BlockState beforeAdjacent = null;
+        boolean useItemInAir = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR;
 
         if (entityId >= 0) {
             targetEntity = level.getEntity(entityId);
@@ -1009,10 +1010,12 @@ public final class RtsStorageManager {
                 return;
             }
             effectiveBlockPos = clickedPos.immutable();
-            blockHit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, effectiveBlockPos, false);
-            beforeClicked = level.getBlockState(effectiveBlockPos);
-            adjacentPos = effectiveBlockPos.relative(face);
-            beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+            if (!useItemInAir) {
+                blockHit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, effectiveBlockPos, false);
+                beforeClicked = level.getBlockState(effectiveBlockPos);
+                adjacentPos = effectiveBlockPos.relative(face);
+                beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+            }
         }
 
         InteractionResult result = InteractionResult.PASS;
@@ -1021,6 +1024,7 @@ public final class RtsStorageManager {
             sendRemoteMenuOpenHint(player, effectiveBlockPos);
         }
         ItemStack toolSnapshot = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT
+                || sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR
                 ? player.getInventory().getItem(clampHotbarSlot(toolSlot)).copy()
                 : ItemStack.EMPTY;
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
@@ -1029,6 +1033,8 @@ public final class RtsStorageManager {
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
             result = interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
+        } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
+            result = useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
             result = interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
         }
@@ -1985,6 +1991,31 @@ public final class RtsStorageManager {
                             InteractionHand.MAIN_HAND));
                 }
                 return InteractionResult.PASS;
+            } finally {
+                player.getInventory().selected = previousSelected;
+            }
+                });
+    }
+
+    private static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
+            int toolSlot, RayContext rayContext) {
+        int slot = clampHotbarSlot(toolSlot);
+        int previousSelected = player.getInventory().selected;
+        Vec3 fallback = hit == null ? player.getEyePosition() : hit;
+        return withTemporaryUseItemContext(
+                player,
+                fallback,
+                fallback,
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> {
+            player.getInventory().selected = slot;
+            try {
+                return withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
+                        player,
+                        level,
+                        player.getMainHandItem(),
+                        InteractionHand.MAIN_HAND));
             } finally {
                 player.getInventory().selected = previousSelected;
             }

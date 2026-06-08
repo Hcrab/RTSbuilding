@@ -425,6 +425,25 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
+    public static void sendUseItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+        PacketDistributor.sendToServer(new C2SRtsInteractPayload(
+                C2SRtsInteractPayload.NO_ENTITY,
+                hit.getBlockPos(),
+                (byte) hit.getDirection().get3DDataValue(),
+                hit.getLocation().x,
+                hit.getLocation().y,
+                hit.getLocation().z,
+                C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                "",
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z));
+    }
+
     public static void sendInteractBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 C2SRtsInteractPayload.NO_ENTITY,

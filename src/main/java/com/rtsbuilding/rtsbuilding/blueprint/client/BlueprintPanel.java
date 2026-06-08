@@ -1111,16 +1111,12 @@ public final class BlueprintPanel {
 
     private record PlacementBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
         int centerX() {
-            return nearestInteger((this.minX + this.maxX) * 0.5D);
+            return this.minX + ((this.maxX - this.minX) / 2);
         }
 
         int centerZ() {
-            return nearestInteger((this.minZ + this.maxZ) * 0.5D);
+            return this.minZ + ((this.maxZ - this.minZ) / 2);
         }
-    }
-
-    private static int nearestInteger(double value) {
-        return (int) Math.floor(value + 0.5D);
     }
 
     public static boolean placeSelected(BlockPos anchor, int yRotationSteps, int xRotationSteps, int zRotationSteps) {

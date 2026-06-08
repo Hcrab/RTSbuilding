@@ -776,6 +776,7 @@ public final class BuilderScreen extends Screen {
         }
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
+            tryUseMainHandItemInAir();
             return true;
         }
         if (this.controller.hasSelectedFluid()) {
@@ -860,6 +861,31 @@ public final class BuilderScreen extends Screen {
             }
         }
         return true;
+    }
+
+    private boolean tryUseMainHandItemInAir() {
+        if (!canUseMainHandItemInAir()) {
+            return false;
+        }
+        InteractionTypes.InteractionTarget target = this.cursorPicker.pickItemAirInteractionTarget();
+        if (target == null || target.blockHit() == null) {
+            return false;
+        }
+        this.shapeController.clearShapeBuildSession();
+        this.controller.useItemInAirWithToolSlot(
+                target.blockHit(),
+                getSelectedToolSlot(),
+                target.rayOrigin(),
+                target.rayDir());
+        return true;
+    }
+
+    private boolean canUseMainHandItemInAir() {
+        return hasMainHandItem()
+                && !this.controller.hasSelectedItem()
+                && !this.controller.hasSelectedFluid()
+                && !this.controller.isEmptyHandSelected()
+                && this.controller.getBuildShape() == BuildShape.BLOCK;
     }
     @Override
     /**
