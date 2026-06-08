@@ -186,9 +186,17 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.bd_network.hint",
                 this.controller.isBdNetworkEnabled());
         drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, controlsY + 528,
+                "screen.rtsbuilding.settings.block_ghost_preview",
+                "screen.rtsbuilding.settings.block_ghost_preview.hint",
+                Config.isBlockGhostPreviewEnabled());
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, controlsY + 564,
                 "screen.rtsbuilding.settings.wireframe_preview",
                 "screen.rtsbuilding.settings.wireframe_preview.hint",
                 Config.isWireframePreviewEnabled());
+        drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, controlsY + 600,
+                "screen.rtsbuilding.settings.range_destroy_skeleton",
+                "screen.rtsbuilding.settings.range_destroy_skeleton.hint",
+                Config.isRangeDestroySkeletonEnabled());
     }
 
     private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -275,9 +283,18 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         if (inside(mouseX, contentMouseY, x + 12, controlsY + 488, w - 24, 34)) {
             this.controller.toggleBdNetworkEnabled();
+            return;
         }
         if (inside(mouseX, contentMouseY, x + 12, controlsY + 524, w - 24, 34)) {
+            Config.setBlockGhostPreviewEnabled(!Config.isBlockGhostPreviewEnabled());
+            return;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 560, w - 24, 34)) {
             Config.setWireframePreviewEnabled(!Config.isWireframePreviewEnabled());
+            return;
+        }
+        if (inside(mouseX, contentMouseY, x + 12, controlsY + 596, w - 24, 34)) {
+            Config.setRangeDestroySkeletonEnabled(!Config.isRangeDestroySkeletonEnabled());
         }
     }
 

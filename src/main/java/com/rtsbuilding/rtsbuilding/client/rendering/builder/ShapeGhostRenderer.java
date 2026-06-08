@@ -88,24 +88,25 @@ public final class ShapeGhostRenderer {
 
         // ── Confirmed destructive work area ──
         if (preview.destructive() && preview.confirmedWorkArea()) {
-            if (preview.chainDestroyPreview()) {
-                float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
-                MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress);
-            } else {
-                renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer);
+            if (com.rtsbuilding.rtsbuilding.Config.isRangeDestroySkeletonEnabled()) {
+                if (preview.chainDestroyPreview()) {
+                    float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
+                    MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress);
+                } else {
+                    renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer);
+                }
+                return;
             }
+            float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
+            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F,
+                    com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled(),
+                    com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled());
             return;
         }
 
         // ── Wireframe mode (debug/config toggle) ──
-        if (com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled()) {
-            float progress = preview.confirmedWorkArea() ? smoothedDestroyProgress(ClientRtsController.get(), preview) : 0.0F;
-            DestructiveGhostRenderer.renderWireframe(preview, poseStack, lineBuffer, progress);
-            return;
-        }
-
         // ── Ultimine (chain-mining) ghost ──
-        if (preview.chainDestroyPreview()) {
+        if (preview.chainDestroyPreview() && com.rtsbuilding.rtsbuilding.Config.isRangeDestroySkeletonEnabled()) {
             float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
             UltimineGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress);
             return;
@@ -114,12 +115,16 @@ public final class ShapeGhostRenderer {
         // ── Destructive (range-destroy) ghost ──
         if (preview.destructive()) {
             float progress = preview.confirmedWorkArea() ? smoothedDestroyProgress(ClientRtsController.get(), preview) : 0.0F;
-            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
+            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F,
+                    com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled(),
+                    com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled());
             return;
         }
 
         // ── Build mode (placement ghost) ──
-        BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer);
+        BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer,
+                com.rtsbuilding.rtsbuilding.Config.isBlockGhostPreviewEnabled(),
+                com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled());
     }
 
     // ===== Range-destroy confirmed work area handling =====

@@ -684,6 +684,7 @@ public final class RtsStorageMining {
      * @return {@code true} if the block was successfully broken
      */
     private static boolean destroyMinedBlock(ServerPlayer player, RtsStorageSession session, BlockPos pos, int toolSlot) {
+        BlockState beforeState = player.serverLevel().getBlockState(pos);
         boolean broken;
         if (session != null && session.miningToolLease != null && !session.miningToolLease.isEmpty()) {
             RtsToolLease lease = session.miningToolLease;
@@ -694,7 +695,7 @@ public final class RtsStorageMining {
             broken = withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
         }
         if (broken) {
-            sendBreakAnimation(player, pos);
+            sendBreakAnimation(player, pos, beforeState);
             RtsPlacementSound.playRemoteBlockBreakSound(player, player.serverLevel(), pos);
         }
         return broken;
@@ -1258,11 +1259,11 @@ public final class RtsStorageMining {
         PacketDistributor.sendToPlayer(player, new S2CRtsMineProgressPayload(pos, (byte) stage));
     }
 
-    private static void sendBreakAnimation(ServerPlayer player, BlockPos pos) {
+    private static void sendBreakAnimation(ServerPlayer player, BlockPos pos, BlockState state) {
         if (player == null || pos == null) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsBreakAnimationPayload(pos.immutable()));
+        PacketDistributor.sendToPlayer(player, new S2CRtsBreakAnimationPayload(pos.immutable(), state));
     }
 
     private static void sendUltimineProgress(ServerPlayer player, int processed, int total) {

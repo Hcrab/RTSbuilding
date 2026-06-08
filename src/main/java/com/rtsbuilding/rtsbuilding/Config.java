@@ -42,10 +42,20 @@ public class Config {
 
     // ---- Rendering options ----
 
+    public static final ModConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = BUILDER
+            .comment("Render translucent block ghost models for placement previews and place/break animations.")
+            .translation("rtsbuilding.configuration.useBlockGhostPreview")
+            .define("useBlockGhostPreview", true);
+
     public static final ModConfigSpec.BooleanValue USE_WIREFRAME_PREVIEW = BUILDER
-            .comment("Use wireframe outlines instead of translucent block models for placement previews and ghost animations.")
+            .comment("Render wireframe outlines for placement previews and place/break animations.")
             .translation("rtsbuilding.configuration.useWireframePreview")
             .define("useWireframePreview", false);
+
+    public static final ModConfigSpec.BooleanValue USE_RANGE_DESTROY_SKELETON = BUILDER
+            .comment("Render merged skeleton borders for chain and range destroy previews.")
+            .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
+            .define("useRangeDestroySkeleton", true);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -73,11 +83,29 @@ public class Config {
 
     public static void saveProgressionSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
             boolean blueprintsEnabled, int maxBlueprintBlocks, Map<String, String> costOverrides) {
+        saveGeneralSettings(
+                survivalEnabled,
+                shareWithTeams,
+                radiusBlocks,
+                blueprintsEnabled,
+                maxBlueprintBlocks,
+                isBlockGhostPreviewEnabled(),
+                isWireframePreviewEnabled(),
+                isRangeDestroySkeletonEnabled(),
+                costOverrides);
+    }
+
+    public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
+            boolean blueprintsEnabled, int maxBlueprintBlocks, boolean blockGhostPreview,
+            boolean wireframePreview, boolean rangeDestroySkeleton, Map<String, String> costOverrides) {
         ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
         SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
         MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
         ENABLE_BLUEPRINTS.set(blueprintsEnabled);
         MAX_BLUEPRINT_BLOCKS.set(Math.max(1, Math.min(200000, maxBlueprintBlocks)));
+        USE_BLOCK_GHOST_PREVIEW.set(blockGhostPreview);
+        USE_WIREFRAME_PREVIEW.set(wireframePreview);
+        USE_RANGE_DESTROY_SKELETON.set(rangeDestroySkeleton);
         setProgressionCostOverrides(costOverrides);
         SPEC.save();
     }
@@ -101,12 +129,30 @@ public class Config {
         return out;
     }
 
+    public static boolean isBlockGhostPreviewEnabled() {
+        return USE_BLOCK_GHOST_PREVIEW.getAsBoolean();
+    }
+
+    public static void setBlockGhostPreviewEnabled(boolean enabled) {
+        USE_BLOCK_GHOST_PREVIEW.set(enabled);
+        SPEC.save();
+    }
+
     public static boolean isWireframePreviewEnabled() {
         return USE_WIREFRAME_PREVIEW.getAsBoolean();
     }
 
     public static void setWireframePreviewEnabled(boolean enabled) {
         USE_WIREFRAME_PREVIEW.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean isRangeDestroySkeletonEnabled() {
+        return USE_RANGE_DESTROY_SKELETON.getAsBoolean();
+    }
+
+    public static void setRangeDestroySkeletonEnabled(boolean enabled) {
+        USE_RANGE_DESTROY_SKELETON.set(enabled);
         SPEC.save();
     }
 

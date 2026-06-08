@@ -5,6 +5,7 @@ import java.util.List;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,12 +34,16 @@ public final class PlacementAnimationRenderer {
     }
 
     /**
-     * Removes the pending ghost at the given position (server confirmed placement).
+     * Removes the pending ghost at the given position and plays the confirmed
+     * grow-in animation when placement visuals are enabled.
      *
      * @see PendingGhostRenderer#remove(BlockPos)
      */
-    public static void confirmPlacement(BlockPos pos) {
+    public static void confirmPlacement(BlockPos pos, BlockState state) {
         PendingGhostRenderer.remove(pos);
+        if (shouldRenderPlacementLayers()) {
+            ConfirmedPlacementRenderer.add(pos, state);
+        }
     }
 
     // ===== Destroy ghost delegation =====
@@ -48,11 +53,13 @@ public final class PlacementAnimationRenderer {
      *
      * @see DestroyGhostRenderer#add(BlockPos)
      */
-    public static void addDestroy(BlockPos pos) {
+    public static void addDestroy(BlockPos pos, BlockState state) {
         // Clean up any lingering pending ghost that was never confirmed
         // (e.g. placement confirmation packet hadn't arrived before destruction)
         PendingGhostRenderer.remove(pos);
-        DestroyGhostRenderer.add(pos);
+        if (shouldRenderPlacementLayers()) {
+            DestroyGhostRenderer.add(pos, state);
+        }
     }
 
     // ===== Render =====
@@ -66,12 +73,21 @@ public final class PlacementAnimationRenderer {
         if (minecraft == null || minecraft.level == null) {
             return;
         }
-        if (com.rtsbuilding.rtsbuilding.Config.isWireframePreviewEnabled()) {
-            PendingGhostRenderer.renderWireframes(poseStack, lineBuffer);
-            DestroyGhostRenderer.render(poseStack, lineBuffer);
-        } else {
+        boolean blockGhost = Config.isBlockGhostPreviewEnabled();
+        boolean wireframe = Config.isWireframePreviewEnabled();
+        if (blockGhost) {
             PendingGhostRenderer.render(minecraft, poseStack, lineBuffer, fillBuffer);
-            DestroyGhostRenderer.render(poseStack, lineBuffer);
+            ConfirmedPlacementRenderer.renderModels(minecraft, poseStack, fillBuffer);
+            DestroyGhostRenderer.renderModels(minecraft, poseStack, fillBuffer);
         }
+        if (wireframe) {
+            PendingGhostRenderer.renderWireframes(poseStack, lineBuffer);
+            ConfirmedPlacementRenderer.renderWireframes(poseStack, lineBuffer);
+            DestroyGhostRenderer.renderWireframes(poseStack, lineBuffer);
+        }
+    }
+
+    private static boolean shouldRenderPlacementLayers() {
+        return Config.isBlockGhostPreviewEnabled() || Config.isWireframePreviewEnabled();
     }
 }
