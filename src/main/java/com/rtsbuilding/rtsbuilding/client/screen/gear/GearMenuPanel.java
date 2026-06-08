@@ -21,8 +21,10 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
  * their player-facing actions.
  */
 public final class GearMenuPanel extends RtsWindowPanel {
-    private static final int DEFAULT_WINDOW_W = 300;
-    private static final int MIN_WINDOW_W = 240;
+    private static final int LEGACY_DEFAULT_WINDOW_W = 300;
+    private static final int LEGACY_DEFAULT_WINDOW_H = 284;
+    private static final int DEFAULT_WINDOW_W = 380;
+    private static final int MIN_WINDOW_W = 280;
     private static final int CONTENT_TOP_PADDING = 8;
 
     private int scroll = 0;
@@ -30,6 +32,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
+        this.resizable = true;
     }
 
     public void open() {
@@ -92,11 +95,44 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     @Override
+    public void setBounds(int x, int y, int width, int height) {
+        boolean legacyDefaultBounds = width == LEGACY_DEFAULT_WINDOW_W && height == LEGACY_DEFAULT_WINDOW_H;
+        int restoredWidth = legacyDefaultBounds ? DEFAULT_WINDOW_W : width;
+        int restoredHeight = legacyDefaultBounds ? GEAR_MENU_H : height;
+        super.setBounds(x, y, restoredWidth, restoredHeight);
+    }
+
+    @Override
+    protected int getMaxWindowWidth() {
+        if (this.screen == null) {
+            return super.getMaxWindowWidth();
+        }
+        int viewportLimit = Math.max(getMinWindowWidth(), (this.screen.width * 2) / 3);
+        return Math.min(super.getMaxWindowWidth(), viewportLimit);
+    }
+
+    @Override
+    protected int getMaxWindowHeight() {
+        if (this.screen == null) {
+            return super.getMaxWindowHeight();
+        }
+        int viewportLimit = Math.max(getMinWindowHeight(), (this.screen.height * 2) / 3);
+        return Math.min(super.getMaxWindowHeight(), viewportLimit);
+    }
+
+    @Override
     protected void computeDefaultPosition() {
         this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
         this.windowY = Mth.clamp((this.screen.height - this.windowHeight) / 2,
                 TOP_H + 6,
                 Math.max(TOP_H + 6, this.screen.height - this.windowHeight - 8));
+    }
+
+    @Override
+    protected void onBoundsChanged() {
+        if (this.screen != null) {
+            this.screen.persistUiState();
+        }
     }
 
     private void renderControls(GuiGraphics g, int mouseX, int mouseY, int x, int controlsY, int w) {

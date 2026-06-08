@@ -94,7 +94,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
-        this.resizable = true;
+        this.resizable = false;
         this.draggable = true;
         createTextBoxes();
         createButtons();

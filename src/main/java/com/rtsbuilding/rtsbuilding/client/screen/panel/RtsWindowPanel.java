@@ -46,7 +46,7 @@ public abstract class RtsWindowPanel implements RtsPanel {
     protected boolean open;
     protected boolean mouseHovering;
     protected boolean draggable = true;
-    protected boolean resizable = true;
+    protected boolean resizable = false;
     protected boolean closable = true;
 
     private int defaultWidth;
@@ -345,10 +345,14 @@ public abstract class RtsWindowPanel implements RtsPanel {
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            boolean boundsChanged = this.dragging || this.resizing;
             this.dragging = false;
             this.snapEngaged = false;
             this.resizing = false;
             this.resizeEdge = ResizeEdge.NONE;
+            if (boundsChanged) {
+                onBoundsChanged();
+            }
         }
         return isInsideWindow(mouseX, mouseY);
     }
@@ -402,6 +406,18 @@ public abstract class RtsWindowPanel implements RtsPanel {
 
     protected int getResizeBorderWidth() {
         return DEFAULT_RESIZE_BORDER;
+    }
+
+    protected int getMaxWindowWidth() {
+        return this.screen == null
+                ? this.windowWidth
+                : Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2);
+    }
+
+    protected int getMaxWindowHeight() {
+        return this.screen == null
+                ? this.windowHeight
+                : Math.max(getMinWindowHeight(), this.screen.height - SCREEN_MARGIN * 2);
     }
 
     protected int getBackgroundColor() {
@@ -529,10 +545,12 @@ public abstract class RtsWindowPanel implements RtsPanel {
 
     private ResizeEdge getResizeEdgeAt(int mouseX, int mouseY) {
         int border = getResizeBorderWidth();
-        boolean left = mouseX >= this.windowX - border && mouseX < this.windowX;
-        boolean right = mouseX >= this.windowX + this.windowWidth && mouseX < this.windowX + this.windowWidth + border;
-        boolean top = mouseY >= this.windowY - border && mouseY < this.windowY;
-        boolean bottom = mouseY >= this.windowY + this.windowHeight && mouseY < this.windowY + this.windowHeight + border;
+        boolean left = mouseX >= this.windowX - border && mouseX < this.windowX + border;
+        boolean right = mouseX >= this.windowX + this.windowWidth - border
+                && mouseX < this.windowX + this.windowWidth + border;
+        boolean top = mouseY >= this.windowY - border && mouseY < this.windowY + border;
+        boolean bottom = mouseY >= this.windowY + this.windowHeight - border
+                && mouseY < this.windowY + this.windowHeight + border;
         if (top && left) {
             return ResizeEdge.TOP_LEFT;
         }
@@ -633,10 +651,8 @@ public abstract class RtsWindowPanel implements RtsPanel {
     }
 
     private void clampWindowSize() {
-        int maxW = this.screen == null ? this.windowWidth : Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2);
-        int maxH = this.screen == null ? this.windowHeight : Math.max(getMinWindowHeight(), this.screen.height - SCREEN_MARGIN * 2);
-        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), maxW);
-        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), maxH);
+        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
+        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
     }
 
     private void clampWindowToScreen() {
