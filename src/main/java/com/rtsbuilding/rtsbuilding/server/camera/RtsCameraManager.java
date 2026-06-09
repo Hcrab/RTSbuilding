@@ -31,7 +31,6 @@ public final class RtsCameraManager {
     private static final double DOLLY_PER_SCROLL = 2.6D;
     private static final double VERTICAL_SPEED = 0.32D;
     private static final double FAST_VERTICAL_SPEED = 0.55D;
-    private static final float VERTICAL_INPUT_CLAMP = 3.00F;
 
     private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
 
@@ -253,7 +252,7 @@ public final class RtsCameraManager {
         double targetY = camera.getY();
         double targetZ = camera.getZ();
 
-        float safeVertical = Mth.clamp(vertical, -VERTICAL_INPUT_CLAMP, VERTICAL_INPUT_CLAMP);
+        float safeVertical = Mth.clamp(vertical, -1.0F, 1.0F);
         double dx = (-sin * forward + cos * strafe) * speed;
         double dz = (cos * forward + sin * strafe) * speed;
 

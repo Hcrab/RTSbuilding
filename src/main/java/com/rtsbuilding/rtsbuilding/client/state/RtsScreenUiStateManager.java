@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import net.minecraft.util.Mth;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -163,10 +164,7 @@ public final class RtsScreenUiStateManager {
         state.areaMineShape = this.quickBuildPanel.getRangeDestroyShape().name();
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
-        state.horizontalSensitivityScale = this.controller.getHorizontalSensitivityScale();
-        state.verticalSensitivityScale = this.controller.getVerticalSensitivityScale();
-        state.rotateSensitivityScale = this.controller.getRotateSensitivityScale();
-        state.inputSensitivityIndex = -1;
+        state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
         state.startCameraAtPlayerHead = this.controller.isStartCameraAtPlayerHead();
         state.allowPlacedBlockRecovery = this.controller.isAllowPlacedBlockRecovery();
         state.invertPanDragX = this.controller.isInvertPanDragX();
@@ -211,11 +209,24 @@ public final class RtsScreenUiStateManager {
     private void applyInputState(RtsClientUiStateStore.UiState state) {
         this.controller.setInvertPanDragX(state.invertPanDragX);
         this.controller.setInvertPanDragY(state.invertPanDragY);
-        this.controller.applyInputSensitivityState(
-                state.horizontalSensitivityScale,
-                state.verticalSensitivityScale,
-                state.rotateSensitivityScale,
-                state.inputSensitivityIndex);
+        applyInputSensitivity(state.inputSensitivityIndex);
+    }
+
+    /**
+     * 将存储的灵敏度索引转换为 [0, 1] 分数后应用到控制器。
+     * <p>控制器内部的预设数量决定了索引到分数的映射粒度。
+     *
+     * @param index 存储的灵敏度索引
+     */
+    private void applyInputSensitivity(int index) {
+        int presetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
+        if (presetCount <= 1) {
+            this.controller.setInputSensitivityByFraction(0.0D);
+            return;
+        }
+        int clamped = Mth.clamp(index, 0, presetCount - 1);
+        double fraction = (double) clamped / (double) (presetCount - 1);
+        this.controller.setInputSensitivityByFraction(fraction);
     }
 
     /** 恢复形状模式、填充模式与旋转角度。 */

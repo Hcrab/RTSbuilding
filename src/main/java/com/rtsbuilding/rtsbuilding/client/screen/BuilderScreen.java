@@ -134,6 +134,8 @@ public final class BuilderScreen extends Screen {
     private final RtsFloatingWindowLayer floatingWindowLayer;
     /** Handler for storage link detail action rendering and clicks. */
     private final StorageLinkDetailHandler storageLinkDetailHandler;
+    /** Whether the user is currently dragging the input sensitivity slider. */
+    private boolean draggingInputSensitivity = false;
     /** Whether the funnel hotkey (quick-activate funnel mode) is currently held down. */
     private boolean funnelHotkeyHeld = false;
     /** The builder mode that was active before the funnel hotkey was pressed, for restoration on release. */
@@ -218,9 +220,9 @@ public final class BuilderScreen extends Screen {
     public boolean isDebugButtonVisible() {
         return this.uiStateManager.isDebugButtonVisible();
     }
-    /** Returns whether the user is currently dragging any settings sensitivity slider. */
+    /** Returns whether the user is currently dragging the input sensitivity slider. */
     public boolean isDraggingInputSensitivity() {
-        return this.gearMenuPanel.isDraggingSensitivity();
+        return this.draggingInputSensitivity;
     }
     /** Returns the current shape fill mode (e.g. FILL, HOLLOW, WIREFRAME). Delegates to the shape controller. */
     public ShapeFillMode getShapeFillMode() {
@@ -582,6 +584,10 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.draggingInputSensitivity) {
+            this.draggingInputSensitivity = false;
+            return true;
+        }
         if (handleFloatingWindowRelease(mouseX, mouseY, button)) {
             return true;
         }
@@ -615,6 +621,10 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.draggingInputSensitivity) {
+            this.cameraInput.updateInputSensitivityFromMouse(mouseX);
+            return true;
+        }
         if (handleFloatingWindowDrag(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
@@ -1098,16 +1108,14 @@ public final class BuilderScreen extends Screen {
         return false;
     }
 
-    /** Handles rotate speed adjustment keys. */
+    /** Handles input sensitivity adjustment keys. */
     private boolean handleSensitivityKeys(int keyCode, int scanCode) {
         if (ClientKeyMappings.DECREASE_SENSITIVITY.matches(keyCode, scanCode)) {
             this.controller.decreaseRotateSensitivity();
-            persistUiState();
             return true;
         }
         if (ClientKeyMappings.INCREASE_SENSITIVITY.matches(keyCode, scanCode)) {
             this.controller.increaseRotateSensitivity();
-            persistUiState();
             return true;
         }
         return false;
