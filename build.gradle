@@ -118,38 +118,22 @@ configurations {
 }
 
 dependencies {
-    // Optional mod dependency with JEI (client-side recipe transfer integration)
+    // JEI Compile-Only Dependency
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
-
-    // Player-facing compatibility jars such as JEI, Create, and Sodium should be
-    // placed in run/mods for local testing. Loading Maven runtime artifacts here
-    // at the same time creates duplicate JPMS modules such as jei/jei.neoforge
-    // or create/create.slim, which does not match a real modpack launch.
+    // JEI Runtime Dependency
+    runtimeOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge:${jei_version}"
+    
     compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
 
-    // Runtime-only storage test pack. These mods are loaded by runClient/runServer for
-    // compatibility testing, but RTS building does not require them in published builds.
     localRuntime "maven.modrinth:sophisticated-core:${sophisticated_core_version}"
     localRuntime "maven.modrinth:sophisticated-storage:${sophisticated_storage_version}"
     localRuntime "maven.modrinth:sophisticated-backpacks:${sophisticated_backpacks_version}"
     localRuntime "maven.modrinth:pipez:${pipez_version}"
     compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
 
-    // Example mod dependency using a mod jar from ./libs with a flat dir repository
-    // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
-    // The group id is ignored when searching -- in this case, it is "blank"
-    // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
-
-    // Example mod dependency using a file as dependency
-    // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
-
-    // Example project dependency using a sister or child project:
-    // implementation project(":myproject")
-
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    // Local mod jars from libs/ directory (for runtime testing)
+    runtimeOnly fileTree(dir: 'libs', include: '*.jar')
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

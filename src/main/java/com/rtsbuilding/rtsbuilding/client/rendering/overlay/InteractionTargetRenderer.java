@@ -1,14 +1,20 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.RenderStateShard;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -59,7 +65,7 @@ public final class InteractionTargetRenderer {
     private static final double LINE_OFFSET = 0.01D;
 
     /** Alpha (opacity) of the translucent fog layer on the hit block face. */
-    private static final float FACE_FOG_ALPHA = 0.15F;
+    private static final float FACE_FOG_ALPHA = 0.5F;
 
     /** Small outward offset applied to the hit-face quad to prevent z-fighting. */
     private static final double FACE_FOG_OFFSET = 0.005D;
@@ -93,6 +99,38 @@ public final class InteractionTargetRenderer {
 
     /** Maximum ray-cast range for cursor-based hit-testing. */
     private static final double MAX_REACH = 128.0D;
+
+    // ── Custom no-depth bracket render type ──
+
+    private static final RenderType BRACKET_NO_DEPTH = RenderType.create(
+            "rtsbuilding_target_brackets_no_depth",
+            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setOutputState(RenderStateShard.MAIN_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
+
+    private static final ByteBufferBuilder BRACKET_NO_DEPTH_BACKING = new ByteBufferBuilder(BRACKET_NO_DEPTH.bufferSize());
+
+    // ── Custom no-depth face-fog render type ──
+
+    private static final RenderType FACE_FOG_NO_DEPTH = RenderType.create(
+            "rtsbuilding_face_fog_no_depth",
+            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 256, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                    .setOutputState(RenderStateShard.MAIN_TARGET)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
+
+    private static final ByteBufferBuilder FACE_FOG_NO_DEPTH_BACKING = new ByteBufferBuilder(FACE_FOG_NO_DEPTH.bufferSize());
 
     // ──────────────────────────────────────────────
     //  Internal helpers
@@ -218,13 +256,6 @@ public final class InteractionTargetRenderer {
             return true;
         }
 
-        // Blocked when single block pre-placement ghost is active
-        // The translucent block model overlaps with the corner brackets on the same position.
-        ShapeDataRecords.GhostPreview ghost = builderScreen.getShapeGhostPreview();
-        if (ghost != null && ghost.readyConfirm() && !ghost.destructive() && !ghost.blocks().isEmpty()) {
-            return true;
-        }
-
         return false;
     }
 
@@ -330,8 +361,8 @@ public final class InteractionTargetRenderer {
 
     /**
      * Renders a translucent coloured fog quad on the single face of the bounding box
-     * that the player's crosshair is currently targeting. A small outward offset is
-     * applied along the face normal to prevent z-fighting with the block geometry.
+     * that the player's crosshair is currently targeting. Rendered without depth test
+     * so it remains visible even when occluded by terrain.
      *
      * @param consumer  vertex consumer
      * @param poseStack current transformation stack
@@ -352,6 +383,9 @@ public final class InteractionTargetRenderer {
         double y1 = bounds.minY, y2 = bounds.maxY;
         double z1 = bounds.minZ, z2 = bounds.maxZ;
 
+        BufferBuilder fogBuffer = new BufferBuilder(FACE_FOG_NO_DEPTH_BACKING, VertexFormat.Mode.QUADS,
+                DefaultVertexFormat.POSITION_COLOR);
+
         switch (face) {
             case DOWN -> RenderingUtil.quad(consumer, poseStack,
                     x1, y1 - off, z1, x2, y1 - off, z1, x2, y1 - off, z2, x1, y1 - off, z2, r, g, b, alpha);
@@ -365,6 +399,15 @@ public final class InteractionTargetRenderer {
                     x1 - off, y1, z1, x1 - off, y2, z1, x1 - off, y2, z2, x1 - off, y1, z2, r, g, b, alpha);
             case EAST -> RenderingUtil.quad(consumer, poseStack,
                     x2 + off, y1, z1, x2 + off, y1, z2, x2 + off, y2, z2, x2 + off, y2, z1, r, g, b, alpha);
+        }
+
+        var meshData = fogBuffer.build();
+        if (meshData != null) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            FACE_FOG_NO_DEPTH.draw(meshData);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
         }
     }
 

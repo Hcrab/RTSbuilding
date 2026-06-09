@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
@@ -12,8 +14,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.EndCrystalItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.BlockState;
@@ -36,6 +42,7 @@ public final class ScreenShapeController {
     private int shapeFootprintNudgeB = 0;
     private double shapeCursorY = 0.0D;
     private ShapeFillMode shapeFillMode = ShapeFillMode.FILL;
+    private boolean lineConnected = false;
     private int shapeRotateDegrees = 0;
     private boolean altShapeMenuHeld = false;
     private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
@@ -48,6 +55,7 @@ public final class ScreenShapeController {
         this.screen = screen;
         this.controller = controller;
         this.placementHistory.init(screen, controller);
+        this.placementHistory.loadFromDisk();
     }
 
     // ===== Public state accessors =====
@@ -58,6 +66,14 @@ public final class ScreenShapeController {
 
     public void setShapeFillMode(ShapeFillMode mode) {
         this.shapeFillMode = mode;
+    }
+
+    public boolean isLineConnected() {
+        return this.lineConnected;
+    }
+
+    public void setLineConnected(boolean connected) {
+        this.lineConnected = connected;
     }
 
     public int getShapeRotateDegrees() {
@@ -144,6 +160,11 @@ public final class ScreenShapeController {
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
                 this.placementHistory.recordSinglePlacement(hit, replayKind, replayItemId, replayToolSlot);
+                // Single block pending ghost — resolve target position for accurate direction
+                BlockPos placePos = resolvePlacementTargetPos(hit.getBlockPos(), hit.getDirection());
+                BlockState pendingState = resolvePendingGhostBlockState(placePos);
+                PlacementAnimationRenderer.addPendingBatch(
+                        List.of(hit.getBlockPos().immutable()), pendingState);
             }
             return;
         }
@@ -361,8 +382,9 @@ public final class ScreenShapeController {
             for (BlockHitResult shapedHit : hits) {
                 positions.add(shapedHit.getBlockPos().immutable());
             }
-            // 解析放置的方块类型
-            BlockState pendingState = resolvePendingGhostBlockState();
+            // 解析放置的方块类型 — use first hit position for direction
+            BlockPos firstPlacePos = hits.isEmpty() ? null : hits.get(0).getBlockPos();
+            BlockState pendingState = resolvePendingGhostBlockState(firstPlacePos);
             String blockStateId = pendingState != null
                     ? BuiltInRegistries.BLOCK.getKey(pendingState.getBlock()).toString()
                     : "";
@@ -374,6 +396,9 @@ public final class ScreenShapeController {
                     input.placementFace(),
                     positions,
                     blockStates);
+        
+            // Register pending ghosts for visual feedback while waiting for server confirmation
+            PlacementAnimationRenderer.addPendingBatch(positions, pendingState);
         }
         return true;
     }
@@ -425,7 +450,9 @@ public final class ScreenShapeController {
                 if (mc == null || mc.player == null) {
                     return ShapeDataRecords.GhostPreview.EMPTY;
                 }
-                if (!(mc.player.getMainHandItem().getItem() instanceof BlockItem)) {
+                if (!(mc.player.getMainHandItem().getItem() instanceof BlockItem)
+                        && !(mc.player.getMainHandItem().getItem() instanceof SpawnEggItem)
+                        && !(mc.player.getMainHandItem().getItem() instanceof EndCrystalItem)) {
                     return ShapeDataRecords.GhostPreview.EMPTY;
                 }
             }
@@ -433,14 +460,38 @@ public final class ScreenShapeController {
             if (hit == null) {
                 return ShapeDataRecords.GhostPreview.EMPTY;
             }
-            BlockPos placePos = resolvePlacementTargetPos(hit.getBlockPos().immutable(), hit.getDirection());
+            Minecraft mc = this.screen.getMinecraft();
+            if (mc == null || mc.level == null || mc.player == null) {
+                return ShapeDataRecords.GhostPreview.EMPTY;
+            }
+
+            // Resolve the held item stack (same approach as resolvePendingGhostBlockState)
+            ItemStack itemStack = ItemStack.EMPTY;
+            if (this.controller.hasSelectedItem()) {
+                itemStack = this.controller.getSelectedItemPreview();
+            } else {
+                itemStack = mc.player.getMainHandItem();
+            }
+            if (itemStack.isEmpty()) {
+                return ShapeDataRecords.GhostPreview.EMPTY;
+            }
+
+            // Use BlockPlaceContext to properly determine the placement position,
+            // matching the server's auto-adjustment logic (handles slab merging
+            // where canBeReplaced(context) returns true for matching slabs, etc.).
+            BlockPlaceContext context = new BlockPlaceContext(
+                    mc.level, mc.player, InteractionHand.MAIN_HAND, itemStack, hit);
+            BlockPos placePos = context.getClickedPos();
             if (placePos == null) {
                 return ShapeDataRecords.GhostPreview.EMPTY;
             }
-            // Skip ghost if the target position is already occupied by a non-replaceable block
-            Minecraft mc = this.screen.getMinecraft();
-            if (mc != null && mc.level != null && mc.level.hasChunkAt(placePos)) {
-                if (!mc.level.getBlockState(placePos).isAir() && !mc.level.getBlockState(placePos).canBeReplaced()) {
+
+            // Use context-aware canBeReplaced() instead of the no-arg variant so
+            // that blocks replaceable only with context (e.g., slabs that can merge
+            // into DOUBLE) are not incorrectly treated as occupied.
+            if (mc.level.hasChunkAt(placePos)) {
+                if (!mc.level.getBlockState(placePos).isAir()
+                        && !mc.level.getBlockState(placePos).canBeReplaced(context)) {
                     return ShapeDataRecords.GhostPreview.EMPTY;
                 }
             }
@@ -766,22 +817,41 @@ public final class ScreenShapeController {
 
     /**
      * Resolves the block state to use for pending ghost rendering at placement confirmation time.
+     * Uses the target→camera direction to simulate {@link
+     * net.minecraft.world.level.block.Block#getStateForPlacement(BlockPlaceContext)}
+     * so the ghost preview matches the server-placed block state.
+     *
+     * @param targetPos actual block position where the new block will be placed
      */
-    private BlockState resolvePendingGhostBlockState() {
+    private BlockState resolvePendingGhostBlockState(BlockPos targetPos) {
         Minecraft mc = this.screen.getMinecraft();
+        ItemStack itemStack = ItemStack.EMPTY;
+
         if (this.controller.hasSelectedItem()) {
-            ItemStack preview = this.controller.getSelectedItemPreview();
-            if (preview.getItem() instanceof BlockItem blockItem) {
-                return blockItem.getBlock().defaultBlockState();
-            }
+            itemStack = this.controller.getSelectedItemPreview();
+        } else if (mc != null && mc.player != null) {
+            itemStack = mc.player.getMainHandItem();
         }
-        if (mc != null && mc.player != null) {
-            ItemStack mainHand = mc.player.getMainHandItem();
-            if (mainHand.getItem() instanceof BlockItem blockItem) {
-                return blockItem.getBlock().defaultBlockState();
-            }
+
+        if (itemStack.isEmpty() || !(itemStack.getItem() instanceof BlockItem blockItem)) {
+            return null;
         }
-        return null;
+
+        // If no target position, use default state
+        if (targetPos == null) {
+            return blockItem.getBlock().defaultBlockState();
+        }
+
+        // Resolve block state using BuildGhostBlockStateResolver (deduplicated)
+        BlockState state = BuildGhostBlockStateResolver.resolveStateWithCamera(mc, blockItem, itemStack, targetPos);
+        if (state == null) return null;
+
+        // Apply rotation from shape controller
+        int rotateDegrees = this.shapeRotateDegrees;
+        if (rotateDegrees != 0) {
+            state = BuildGhostBlockStateResolver.applyRotation(state, rotateDegrees, mc.level, targetPos);
+        }
+        return state;
     }
 
     private ShapeBuildTypes.Input resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
@@ -802,7 +872,7 @@ public final class ScreenShapeController {
             }
             BlockPos pointB = resolveShapePlanePoint(session, cursorHit);
             pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0);
+            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0, this.lineConnected);
         }
         BlockPos pointB = session.pointB();
         if (pointB == null) {
@@ -813,10 +883,10 @@ public final class ScreenShapeController {
                 return null;
             }
             pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
+            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session), this.lineConnected);
         }
         pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-        return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session));
+        return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session), this.lineConnected);
     }
 
     private int resolveBoxHeightOffset(ShapeBuildTypes.Session session) {

@@ -200,6 +200,7 @@
   "screen.rtsbuilding.quick_build.chain_hint": "LMB starts Chain Break on connected matching blocks.",
   "screen.rtsbuilding.quick_build.chain_limit": "Limit: %s",
   "screen.rtsbuilding.quick_build.chain_limit_label": "Limit",
+  "screen.rtsbuilding.quick_build.connect": "Connect",
   "screen.rtsbuilding.storage.title": "RTS Storage",
   "screen.rtsbuilding.storage.tab": "Storage",
   "screen.rtsbuilding.creative.tab": "Creative",
