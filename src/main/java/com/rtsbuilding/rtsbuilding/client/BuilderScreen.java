@@ -176,7 +176,6 @@ public final class BuilderScreen extends Screen {
                 this.blueprintNameWindowPanel,
                 this.blueprintMaterialWindowPanel,
                 this.blueprintWindowPanel,
-                this.ultiminePanel,
                 this.quickBuildPanel);
         this.guidePanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
@@ -917,6 +916,9 @@ public final class BuilderScreen extends Screen {
         if (isInsideBottomPanel(mouseX, mouseY)) {
             return this.bottomPanel.handleMouseScrolled(mouseX, mouseY, scrollY);
         }
+        if (!isSearchFocused() && this.shapeController.handleShapeHeightMouseScrolled(scrollY)) {
+            return true;
+        }
         if (this.controller.getMode() == BuilderMode.ROTATE) {
             if (scrollY > 0.0D) {
                 this.controller.rotatePlacementClockwise();
@@ -1587,7 +1589,7 @@ public final class BuilderScreen extends Screen {
         this.quickBuildPanel.setQuickBuildModeName(state.quickBuildMode);
         this.quickBuildPanel.setDestroyChainSelected(state.quickBuildDestroyChainSelected);
         this.quickBuildPanel.setChainDestroyLimit(state.quickBuildChainDestroyLimit);
-        this.ultiminePanel.setOpen(state.ultimineOpen);
+        this.ultiminePanel.setOpen(false);
         this.ultiminePanel.setLimit(state.ultimineLimit);
         try {
             this.ultiminePanel.setMode(UltimineMode.valueOf(state.ultimineMode));
@@ -1637,8 +1639,8 @@ public final class BuilderScreen extends Screen {
         state.quickBuildMode = this.quickBuildPanel.getQuickBuildModeName();
         state.quickBuildDestroyChainSelected = this.quickBuildPanel.isDestroyChainSelected();
         state.quickBuildChainDestroyLimit = this.quickBuildPanel.getChainDestroyLimit();
-        state.ultimineOpen = this.ultiminePanel.isOpen();
-        state.ultimineLimit = this.ultiminePanel.getLimit();
+        state.ultimineOpen = false;
+        state.ultimineLimit = this.quickBuildPanel.getChainDestroyLimit();
         state.ultimineMode = this.ultiminePanel.getMode().name();
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
@@ -1694,14 +1696,11 @@ public final class BuilderScreen extends Screen {
 
     /** Returns whether the ultimine panel is currently open. */
     public boolean isUltimineOpen() {
-        return this.ultiminePanel.isOpen();
+        return false;
     }
     /** Returns the current ultimine block limit. */
     public int getUltimineLimit() {
-        if (isQuickBuildRangeDestroyMode()) {
-            return this.quickBuildPanel.getChainDestroyLimit();
-        }
-        return this.ultiminePanel.getLimit();
+        return this.quickBuildPanel.getChainDestroyLimit();
     }
     /** Returns the current ultimine mode selected in the floating panel. */
     public UltimineMode getUltimineMode() {
@@ -1714,6 +1713,13 @@ public final class BuilderScreen extends Screen {
     /** Returns true when Quick Build range destroy is using connected-chain mode. */
     public boolean isQuickBuildRangeDestroyChainMode() {
         return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
+    }
+    /** Player-facing shape label for the top status row. */
+    public String activeQuickBuildShapeLabel() {
+        if (isQuickBuildRangeDestroyChainMode()) {
+            return text("screen.rtsbuilding.shape.chain");
+        }
+        return shapeLabel(this.controller.getBuildShape());
     }
     /** Handles the left-click selection flow for Quick Build range destroy. */
     public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
@@ -1764,7 +1770,10 @@ public final class BuilderScreen extends Screen {
     }
     /** Toggles the ultimine panel open/closed. */
     public void toggleUltimine() {
-        this.ultiminePanel.setOpen(!this.ultiminePanel.isOpen());
+        this.quickBuildPanel.setQuickBuildOpen(true);
+        this.quickBuildPanel.setQuickBuildModeName("DESTROY");
+        this.quickBuildPanel.setDestroyChainSelected(true);
+        persistUiState();
     }
     /** Closes the gear (settings) menu. */
     public void closeGearMenu() {
@@ -2160,8 +2169,11 @@ public final class BuilderScreen extends Screen {
         if (this.minecraft == null || this.minecraft.level == null) {
             return List.of();
         }
+        if (!isQuickBuildRangeDestroyChainMode()) {
+            return List.of();
+        }
         BlockPos seed = this.controller.getMineProgressPos();
-        if (seed == null) {
+        if (seed == null || this.minecraft.level.getBlockState(seed).isAir()) {
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
             if (hit == null) {
                 return List.of();
@@ -2173,11 +2185,10 @@ public final class BuilderScreen extends Screen {
             return List.of();
         }
         boolean creative = this.minecraft.player != null && this.minecraft.player.isCreative();
-        int limit = this.ultiminePanel.getLimit();
         return RtsUltimineCollector.collect(
                 this.minecraft.level,
                 seed,
-                limit,
+                getUltimineLimit(),
                 (pos, state, originalState) -> !state.isAir()
                         && state.getBlock() == originalState.getBlock()
                         && (creative || state.getDestroySpeed(this.minecraft.level, pos) >= 0.0F));

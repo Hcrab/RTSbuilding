@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
+import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 
 import java.util.List;
@@ -39,6 +40,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private static final int MODE_TOGGLE_GAP = 4;
     private static final int SHAPE_TOP = 45;
     private static final int FILL_BUTTON_H = 20;
+    private static final int CHAIN_SHEET_W = 450;
+    private static final int CHAIN_SHEET_H = 900;
+    private static final int CHAIN_STATE_H = 450;
 
     private static final ClientRtsController.BuildShape[] SHAPES = {
             ClientRtsController.BuildShape.BLOCK,
@@ -145,8 +149,22 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int bg = selected ? 0xAA2D6B47 : (hover ? 0xAA243547 : 0xAA1C232D);
         RtsClientUiUtil.drawPanelFrame(g, slotX, slotY, QUICK_BUILD_SHAPE_SLOT, QUICK_BUILD_SHAPE_SLOT,
                 bg, 0xFF647B92, 0xFF0D1117);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), "C", slotX + QUICK_BUILD_SHAPE_SLOT / 2, slotY + 12,
-                selected ? 0xE8FFE8 : 0xD8E3EE);
+        int vOffset = selected || hover ? CHAIN_STATE_H : 0;
+        RtsTextureRenderer.drawTextureHighPrecision(
+                g,
+                QUICK_BUILD_CHAIN_BLOCK,
+                slotX + 2,
+                slotY + 2,
+                QUICK_BUILD_SHAPE_SLOT - 4,
+                QUICK_BUILD_SHAPE_SLOT - 4,
+                0,
+                vOffset,
+                CHAIN_SHEET_W,
+                CHAIN_STATE_H,
+                CHAIN_SHEET_W,
+                CHAIN_SHEET_H,
+                0,
+                0xFFFFFFFF);
     }
 
     private void renderRightSection(GuiGraphics g, int mouseX, int mouseY) {

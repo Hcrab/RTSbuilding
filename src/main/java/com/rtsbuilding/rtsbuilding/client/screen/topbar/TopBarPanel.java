@@ -98,16 +98,16 @@ public final class TopBarPanel {
         String row1 = modeText;
 
         // ---- Status bar row 2: storage, auto-store, fill, rotation, undo/redo ----
+        String shapeStatus = screen.isQuickBuildOpen() ? screen.pendingShapeStatusText() : "";
         String row2 = linked + (this.controller.isAutoStoreMinedDrops()
                 ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
                 : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
                 + (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL) ? "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off")) : "")
-                + (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE) ? "    " + screen.text("screen.rtsbuilding.status.shape", screen.shapeLabel(this.controller.getBuildShape())) : "")
-                + (screen.hasProgressionNode(RtsProgressionNodes.ULTIMINE) && screen.isUltimineOpen() ? "    " + screen.text("screen.rtsbuilding.status.ultimine", screen.getUltimineLimit()) : "")
+                + (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE) ? "    " + screen.text("screen.rtsbuilding.status.shape", screen.activeQuickBuildShapeLabel()) : "")
                 + "    " + screen.text("screen.rtsbuilding.status.fill", screen.fillModeLabel(screen.getShapeFillMode()))
                 + "    " + screen.text("screen.rtsbuilding.status.rotation", screen.getShapeRotateDegrees())
                 + "    " + screen.text("screen.rtsbuilding.status.undo_redo", screen.getShapeUndoSize(), screen.getShapeRedoSize())
-                + "    " + screen.pendingShapeStatusText()
+                + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         int statusX = 8;
@@ -163,11 +163,6 @@ public final class TopBarPanel {
                     screen.closeGearMenu();
                     screen.persistUiState();
                 }
-                case ULTIMINE -> {
-                    screen.toggleUltimine();
-                    screen.closeGearMenu();
-                    screen.persistUiState();
-                }
                 case QUEST_DETECT -> {
                     screen.closeGearMenu();
                     this.controller.detectQuestsNow();
@@ -200,7 +195,7 @@ public final class TopBarPanel {
      * <p>
      * Buttons are arranged left-to-right: mode buttons first (INTERACT, LINK,
      * FUNNEL, ROTATE — each gated by progression), then a separator, then action
-     * buttons (QUICK_BUILD, ULTIMINE, QUEST_DETECT, CHUNK_VIEW, GUIDE, optionally
+     * buttons (QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GUIDE, optionally
      * DEBUG), then a right-aligned GEAR button.
      * <p>
      * Mode buttons track their active state via {@link #topActionForMode()}.
@@ -232,10 +227,6 @@ public final class TopBarPanel {
         // ---- Action buttons (center group) ----
         if (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
             layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        if (screen.hasProgressionNode(RtsProgressionNodes.ULTIMINE)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ULTIMINE, x, TOP_ICON_BUTTON_W, "", true, screen.isUltimineOpen()));
             x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
         }
         if (isFtbQuestIntegrationLoaded()) {

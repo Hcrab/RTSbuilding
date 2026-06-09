@@ -138,7 +138,7 @@ public final class RtsClientUiStateStore {
             clean.quickBuildMode = sanitizeEnum(this.quickBuildMode, "BUILD");
             clean.quickBuildDestroyChainSelected = this.quickBuildDestroyChainSelected;
             clean.quickBuildChainDestroyLimit = Math.max(1, Math.min(256, this.quickBuildChainDestroyLimit));
-            clean.ultimineOpen = this.ultimineOpen;
+            clean.ultimineOpen = false;
             clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
             clean.ultimineMode = sanitizeEnum(this.ultimineMode, "CHAIN");
             clean.chunkCurtainVisible = this.chunkCurtainVisible;

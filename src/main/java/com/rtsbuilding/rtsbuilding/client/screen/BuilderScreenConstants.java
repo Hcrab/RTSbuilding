@@ -250,6 +250,8 @@ public final class BuilderScreenConstants {
     public static final ResourceLocation SHAPE_BOX_HOVER = quickBuildTexture("shape_box_hover");
     /** 形状纹理：立方体（活跃） */
     public static final ResourceLocation SHAPE_BOX_ACTIVE = quickBuildTexture("shape_box_active");
+    /** Quick Build Range Destroy chain shape texture. */
+    public static final ResourceLocation QUICK_BUILD_CHAIN_BLOCK = quickBuildTexture("chain_block");
 
     // ======================== 顶部栏模式纹理 ========================
     /** 交互模式（非活跃） */

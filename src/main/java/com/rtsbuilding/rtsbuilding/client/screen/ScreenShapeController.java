@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.client.screen;
 
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
-import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.*;
 import net.minecraft.client.Minecraft;
@@ -155,10 +153,6 @@ public final class ScreenShapeController {
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
                 recordSinglePlacementForUndo(hit, replayKind, replayItemId, replayToolSlot);
-                BlockPos placePos = resolvePlacementTargetPos(hit);
-                PlacementAnimationRenderer.addPendingBatch(
-                        List.of(placePos),
-                        BuildGhostBlockStateResolver.resolve(this.screen.getMinecraft(), placePos));
             }
             return;
         }
@@ -283,10 +277,6 @@ public final class ScreenShapeController {
                     usePinnedItem ? -1 : this.screen.getSelectedToolSlot(),
                     input.placementFace(),
                     positions);
-            BlockState pendingState = BuildGhostBlockStateResolver.resolve(
-                    mc,
-                    positions.isEmpty() ? null : positions.get(0));
-            PlacementAnimationRenderer.addPendingBatch(positions, pendingState);
         }
         return true;
     }
@@ -541,6 +531,17 @@ public final class ScreenShapeController {
         return true;
     }
 
+    public boolean handleShapeHeightMouseScrolled(double scrollY) {
+        if (scrollY == 0.0D || !canAdjustCurrentShapeHeight()) {
+            return false;
+        }
+        int delta = scrollY > 0.0D ? 1 : -1;
+        if (isAltDown()) {
+            delta *= 4;
+        }
+        return adjustShapeHeightNudge(delta);
+    }
+
     // ===== Label / status helpers =====
 
     public String fillModeLabel(ShapeBuildTypes.ShapeFillMode mode) {
@@ -599,6 +600,9 @@ public final class ScreenShapeController {
     }
 
     public String currentShapeCostText() {
+        if (this.screen.isQuickBuildRangeDestroyChainMode()) {
+            return Integer.toString(this.screen.collectUltiminePreviewBlocks().size());
+        }
         ClientRtsController.BuildShape shape = this.controller.getBuildShape();
         if (shape == ClientRtsController.BuildShape.BLOCK) {
             return "1";
@@ -723,12 +727,7 @@ public final class ScreenShapeController {
         if (session == null) {
             return 0;
         }
-        if (session.shape() != ClientRtsController.BuildShape.BOX
-                || (session.phase() != ShapeBuildTypes.Phase.READY_CONFIRM && session.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT)) {
-            return session.boxHeightOffset();
-        }
-        int mouseOffset = (int) Math.round((session.boxHeightMouseBaseY() - this.shapeCursorY) / 10.0D);
-        return ShapeGeometryUtil.clampShapeOffset(session.boxHeightOffset() + mouseOffset);
+        return session.boxHeightOffset();
     }
 
     private BlockPos resolveShapePlanePoint(ShapeBuildTypes.Session session, BlockHitResult cursorHit) {
