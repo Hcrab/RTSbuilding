@@ -117,7 +117,7 @@
   "screen.rtsbuilding.top_hint.guide": "不會操作？點 i",
   "screen.rtsbuilding.debug.copied": "RTS debug 狀態已複製",
   "chat.rtsbuilding.intro.rts_key": "按 %s 可以開啟 RTS 建造/儲存模式。",
-  "chat.rtsbuilding.intro.version_warning": "目前 Pilot 版本是 1.1.2，仍處於初步測試階段。如果這個版本體驗不穩定或遇到嚴重問題，可以先退回目前最穩定的 release：1.0.5；如果想保留較新的 Pilot 功能，1.1.0 的穩定性也還可以。詳細使用說明見：https://rts.ciallo.ltd。",
+  "chat.rtsbuilding.intro.version_warning": "目前 Pilot 版本是 1.1.3，仍處於初步測試階段。目前最穩定的 release 是 1.1.2 以及 1.0.5。詳細使用說明見：https://rts.ciallo.ltd。",
   "chat.rtsbuilding.intro.feedback": "回饋入口：Discord %s | GitHub %s | QQ 群 %s。如果 RTSBuilding 對你有幫助，也歡迎在 GitHub 點一個 star。",
   "chat.rtsbuilding.intro.config_hint": "看到小 i 按鈕就能開啟對應面板/懸浮窗教學。",
   "chat.rtsbuilding.intro.dismiss": "[不要再提醒了]",
