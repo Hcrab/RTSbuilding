@@ -16,9 +16,7 @@ public record C2SRtsAreaDestroyPayload(
         List<BlockPos> positions,
         byte toolSlot,
         String toolItemId,
-        ItemStack toolPrototype,
-        boolean protectTool,
-        boolean replaceTool) implements CustomPacketPayload {
+        ItemStack toolPrototype) implements CustomPacketPayload {
     public static final int MAX_POSITIONS = 32768;
 
     public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(
@@ -39,8 +37,6 @@ public record C2SRtsAreaDestroyPayload(
                 if (!toolPrototype.isEmpty()) {
                     buf.writeItem(toolPrototype);
                 }
-                buf.writeBoolean(payload.protectTool());
-                buf.writeBoolean(payload.replaceTool());
             },
             (buf) -> {
                 int size = buf.readVarInt();
@@ -55,9 +51,7 @@ public record C2SRtsAreaDestroyPayload(
                         positions,
                         buf.readByte(),
                         buf.readUtf(256),
-                        buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
-                        buf.readBoolean(),
-                        buf.readBoolean());
+                        buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY);
             });
 
     @Override

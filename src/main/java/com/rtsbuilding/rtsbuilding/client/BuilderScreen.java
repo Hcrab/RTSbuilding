@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialWindowPanel;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintNameWindowPanel;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsUiScaleFrame;
 import com.rtsbuilding.rtsbuilding.client.screen.ScreenCursorPicker;
@@ -17,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.*;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
@@ -95,6 +99,12 @@ public final class BuilderScreen extends Screen {
     private final QuickBuildPanel quickBuildPanel = new QuickBuildPanel();
     /** Panel for configuring and triggering vein-mining (ultimine) operations. */
     private final UltiminePanel ultiminePanel = new UltiminePanel();
+    /** Windowed blueprint capture/placement controls. */
+    private final BlueprintWindowPanel blueprintWindowPanel = new BlueprintWindowPanel();
+    /** Windowed blueprint save/rename name prompt. */
+    private final BlueprintNameWindowPanel blueprintNameWindowPanel = new BlueprintNameWindowPanel();
+    /** Windowed blueprint material details prompt. */
+    private final BlueprintMaterialWindowPanel blueprintMaterialWindowPanel = new BlueprintMaterialWindowPanel();
     /** Top bar panel with mode buttons, shape selection, and action controls. */
     private final TopBarPanel topBarPanel = new TopBarPanel();
     /** Bottom panel containing storage grid, crafting, blueprints, and pin slots. */
@@ -125,6 +135,12 @@ public final class BuilderScreen extends Screen {
     private BuilderMode modeBeforeFunnelHotkey = BuilderMode.INTERACT;
     /** Tracks whether the native GLFW cursor has been hidden (e.g. for funnel cursor display). */
     private boolean nativeCursorHidden = false;
+    /** Current native cursor style when not hidden. */
+    private RtsWindowPanel.ResizeCursor nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+    private long resizeEwCursor;
+    private long resizeNsCursor;
+    private long resizeNwseCursor;
+    private long resizeNeswCursor;
     /** Whether we are currently inside a fixed-RTS-scale render pass (for UI scaling). */
     private boolean fixedRtsScaleRenderPass = false;
     /** Whether we are currently inside a fixed-RTS-scale input pass (for UI scaling). */
@@ -157,10 +173,16 @@ public final class BuilderScreen extends Screen {
         this.floatingWindowLayer = new RtsFloatingWindowLayer(
                 this.gearMenuPanel,
                 this.guidePanel,
+                this.blueprintNameWindowPanel,
+                this.blueprintMaterialWindowPanel,
+                this.blueprintWindowPanel,
                 this.ultiminePanel,
                 this.quickBuildPanel);
         this.guidePanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
+        this.blueprintWindowPanel.init(this, this.controller);
+        this.blueprintNameWindowPanel.init(this, this.controller);
+        this.blueprintMaterialWindowPanel.init(this, this.controller);
         this.interactionWheelPanel.init(this, this.controller);
         this.funnelBufferPanel.init(this, this.controller);
         this.quickBuildPanel.init(this, this.controller);
@@ -392,40 +414,30 @@ public final class BuilderScreen extends Screen {
             this.bottomPanel.submitCraftQuantityDialogIfReady();
             return handled;
         }
-        if (BlueprintPanel.isNameDialogOpen()) {
-            return BlueprintPanel.mouseClickedNameDialog(mouseX, mouseY, button, this.width, this.height);
-        }
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            return BlueprintPanel.mouseClickedMaterialDialog(mouseX, mouseY, button, this.width, this.height);
+        if (this.floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
         }
         if (BlueprintPanel.isCaptureModeActive()) {
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 this.cameraInput.stopActiveMining();
-                if (!BlueprintPanel.mouseClickedCaptureOverlay(mouseX, mouseY, this.width, this.height, TOP_H + 8)) {
-                    if (BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
-                        BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                        if (hit != null
-                                && hit.getType() == HitResult.Type.BLOCK
-                                && BlueprintPanel.toggleCaptureBlockExclusion(hit.getBlockPos())) {
+                if (isWorldArea(mouseX, mouseY)) {
+                    BlockHitResult hit = this.cursorPicker.pickBlockHit();
+                    if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
+                        if (!BlueprintPanel.isCaptureSelectionComplete()) {
+                            BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
+                            return true;
+                        }
+                        if (BlueprintPanel.toggleCaptureBlockExclusion(hit.getBlockPos())) {
                             return true;
                         }
                     }
-                    BlueprintPanel.cancelCaptureFromClick();
                 }
                 return true;
             }
-            if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-                if (!BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
-                    BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                    if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
-                        BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
-                    }
-                    return true;
-                }
-                if (!BlueprintPanel.isCaptureSelectionComplete()) {
-                    return true;
-                }
+            if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT || button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+                return false;
             }
+            return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && this.ultiminePanel.isLimitEditing()
@@ -449,19 +461,10 @@ public final class BuilderScreen extends Screen {
         if (this.interactionWheelPanel.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        if (this.floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
             return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            boolean insideBottomPanel = isInsideBottomPanel(mouseX, mouseY);
-            if (!insideBottomPanel
-                    && this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
-                    && BlueprintPanel.mouseClickedPlacementHud(mouseX, mouseY, this.width, this.height, TOP_H + 8, this.bottomPanel.getBottomY(), this.controller)) {
-                return true;
-            }
             if (this.topBarPanel.handleClick(mouseX, mouseY)) {
                 return true;
             }
@@ -699,7 +702,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
-            if (!BlueprintPanel.isCaptureSelectionComplete() && isWorldArea(mouseX, mouseY)) {
+            if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                    && !BlueprintPanel.isCaptureSelectionComplete()
+                    && isWorldArea(mouseX, mouseY)) {
                 BlockHitResult hit = this.cursorPicker.pickBlockHit();
                 if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
                     BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
@@ -733,10 +738,6 @@ public final class BuilderScreen extends Screen {
             }
             return true;
         }
-        if (isWheelModifierDown()) {
-            openInteractionWheel(mouseX, mouseY);
-            return true;
-        }
         boolean forcePlace = hasShiftDown();
         if (this.shapeController.tryConfirmPendingShapeBuild(forcePlace)) {
             return true;
@@ -757,6 +758,7 @@ public final class BuilderScreen extends Screen {
         }
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
+            tryUseMainHandItemInAir();
             return true;
         }
         if (this.controller.hasSelectedFluid()) {
@@ -814,7 +816,13 @@ public final class BuilderScreen extends Screen {
         }
         this.shapeController.clearShapeBuildSession();
         if (this.controller.isEmptyHandSelected()) {
-            if (!target.isEntityTarget() && target.blockHit() != null) {
+            if (target.isEntityTarget()) {
+                this.controller.interactEntityEmpty(
+                        target.entityId(),
+                        target.hitLocation(),
+                        target.rayOrigin(),
+                        target.rayDir());
+            } else if (target.blockHit() != null) {
                 this.controller.interactEmpty(target.blockHit(), target.rayOrigin(), target.rayDir());
             }
             return true;
@@ -842,6 +850,32 @@ public final class BuilderScreen extends Screen {
         }
         return true;
     }
+
+    private boolean tryUseMainHandItemInAir() {
+        if (!canUseMainHandItemInAir()) {
+            return false;
+        }
+        InteractionTypes.InteractionTarget target = this.cursorPicker.pickItemAirInteractionTarget();
+        if (target == null || target.blockHit() == null) {
+            return false;
+        }
+        this.shapeController.clearShapeBuildSession();
+        this.controller.useItemInAirWithToolSlot(
+                target.blockHit(),
+                getSelectedToolSlot(),
+                target.rayOrigin(),
+                target.rayDir());
+        return true;
+    }
+
+    private boolean canUseMainHandItemInAir() {
+        return hasMainHandItem()
+                && !this.controller.hasSelectedItem()
+                && !this.controller.hasSelectedFluid()
+                && !this.controller.isEmptyHandSelected()
+                && this.controller.getBuildShape() == ClientRtsController.BuildShape.BLOCK;
+    }
+
     /**
      * Handles mouse scroll with RTS GUI scale remapping. Routes scroll to open
      * dialogs, gear menu, wheel panels, guide panel, bottom panel, rotation mode,
@@ -870,12 +904,6 @@ public final class BuilderScreen extends Screen {
         }
         if (this.bottomPanel.craftQuantityDialog.isOpen()) {
             return this.bottomPanel.craftQuantityDialog.mouseScrolled(scrollY);
-        }
-        if (BlueprintPanel.isNameDialogOpen()) {
-            return true;
-        }
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            return BlueprintPanel.mouseScrolledMaterialDialog(scrollY, this.controller, this.width, this.height);
         }
         if (this.interactionWheelPanel.mouseScrolled(scrollY)) {
             return true;
@@ -915,10 +943,7 @@ public final class BuilderScreen extends Screen {
             this.bottomPanel.submitCraftQuantityDialogIfReady();
             return handled;
         }
-        if (BlueprintPanel.keyPressedNameDialog(keyCode)) {
-            return true;
-        }
-        if (BlueprintPanel.keyPressedMaterialDialog(keyCode)) {
+        if (this.floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
         if (BlueprintPanel.isCaptureModeActive() && BlueprintPanel.keyPressed(keyCode, scanCode, this.controller)) {
@@ -938,9 +963,6 @@ public final class BuilderScreen extends Screen {
             return this.ultiminePanel.handleKeyPressed(keyCode);
         }
         if (this.interactionWheelPanel.keyPressed(keyCode)) {
-            return true;
-        }
-        if (this.floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
@@ -1125,12 +1147,12 @@ public final class BuilderScreen extends Screen {
         return true;
     }
     @Override
-    /** Handles character-typed input, routing to quantity dialog, blueprint name dialog, search boxes, and ultimine limit input. */
+    /** Handles character-typed input, routing to quantity dialog, floating windows, search boxes, and ultimine limit input. */
     public boolean charTyped(char codePoint, int modifiers) {
         if (this.bottomPanel.craftQuantityDialog.isOpen()) {
             return this.bottomPanel.craftQuantityDialog.charTyped(codePoint, modifiers);
         }
-        if (BlueprintPanel.charTypedNameDialog(codePoint)) {
+        if (this.floatingWindowLayer.charTyped(codePoint, modifiers)) {
             return true;
         }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.charTyped(codePoint)) {
@@ -1148,9 +1170,6 @@ public final class BuilderScreen extends Screen {
         }
         if (this.ultiminePanel.isLimitEditing()) {
             return this.ultiminePanel.handleCharTyped(codePoint);
-        }
-        if (this.floatingWindowLayer.charTyped(codePoint, modifiers)) {
-            return true;
         }
         return super.charTyped(codePoint, modifiers);
     }
@@ -1190,25 +1209,22 @@ public final class BuilderScreen extends Screen {
         this.topBarPanel.render(guiGraphics, mouseX, mouseY);
         this.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
         this.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
-        this.floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
-        this.floatingWindowLayer.renderFloatingWindowOverlays(guiGraphics, mouseX, mouseY);
         renderQuestDetectPopup(guiGraphics);
         renderStorageScanPopup(guiGraphics);
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
             BlockHitResult hit = isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
             BlueprintPanel.updateCaptureHoverPoint(hit == null ? null : hit.getBlockPos());
         }
-        BlueprintPanel.renderCaptureOverlay(guiGraphics, this.font, this.width, this.height, mouseX, mouseY, TOP_H + 8);
-        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
-            BlueprintPanel.renderPlacementHud(guiGraphics, this.font, this.controller,
-                    this.width, this.height, mouseX, mouseY, TOP_H + 8, this.bottomPanel.getBottomY());
-        }
+        this.blueprintWindowPanel.syncWithBlueprintState();
+        this.blueprintMaterialWindowPanel.syncWithBlueprintState();
+        this.blueprintNameWindowPanel.syncWithBlueprintState();
+        this.floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
+        this.floatingWindowLayer.renderFloatingWindowOverlays(guiGraphics, mouseX, mouseY);
+        RtsWindowPanel.ResizeCursor resizeCursor = this.floatingWindowLayer.resizeCursorAt(mouseX, mouseY);
         boolean modalOpen = this.gearMenuPanel.isOpen()
                 || this.guidePanel.isOpen()
                 || this.interactionWheelPanel.isOpen()
-                || this.bottomPanel.craftQuantityDialog.isOpen()
-                || BlueprintPanel.isNameDialogOpen()
-                || BlueprintPanel.isMaterialDialogOpen();
+                || this.bottomPanel.craftQuantityDialog.isOpen();
         boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
             if (!placementSelectionActive
@@ -1279,32 +1295,26 @@ public final class BuilderScreen extends Screen {
             }
             renderDiscoverabilityTooltips(guiGraphics, mouseX, mouseY);
             boolean funnelCursor = shouldRenderFunnelCursor();
-            updateNativeCursorVisibility(funnelCursor);
             if (funnelCursor) {
+                updateNativeCursorVisibility(true);
                 guiGraphics.renderItem(FUNNEL_CURSOR_STACK, mouseX + 8, mouseY + 8);
-            } else if (this.pendingGuiBindSlot >= 0) {
-                drawGuiBindCursor(guiGraphics, mouseX, mouseY);
             } else {
-                ItemStack cursorPreview = resolveCursorPreview();
-                if (!cursorPreview.isEmpty() && !isSearchFocused() && !this.guidePanel.isOpen() && !this.interactionWheelPanel.isOpen()) {
-                    guiGraphics.renderItem(cursorPreview, mouseX + 10, mouseY + 10);
+                updateNativeCursor(resizeCursor);
+                if (this.pendingGuiBindSlot >= 0) {
+                    drawGuiBindCursor(guiGraphics, mouseX, mouseY);
+                } else {
+                    ItemStack cursorPreview = resolveCursorPreview();
+                    if (!cursorPreview.isEmpty() && !isSearchFocused() && !this.guidePanel.isOpen() && !this.interactionWheelPanel.isOpen()) {
+                        guiGraphics.renderItem(cursorPreview, mouseX + 10, mouseY + 10);
+                    }
                 }
             }
         } else {
-            updateNativeCursorVisibility(false);
+            updateNativeCursor(RtsWindowPanel.ResizeCursor.DEFAULT);
         }
         this.bottomPanel.renderCraftFeedback(guiGraphics);
         if (this.interactionWheelPanel.isOpen()) {
             renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z, () -> renderInteractionWheel(guiGraphics, mouseX, mouseY));
-        }
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 50.0F,
-                    () -> BlueprintPanel.renderMaterialDialog(guiGraphics, this.font, this.controller,
-                            this.width, this.height, mouseX, mouseY));
-        }
-        if (BlueprintPanel.isNameDialogOpen()) {
-            renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 55.0F,
-                    () -> BlueprintPanel.renderNameDialog(guiGraphics, this.font, this.width, this.height, mouseX, mouseY));
         }
         if (this.bottomPanel.craftQuantityDialog.isOpen()) {
             renderAtGuiLayer(guiGraphics, RTS_MODAL_LAYER_Z + 60.0F,
@@ -1592,8 +1602,6 @@ public final class BuilderScreen extends Screen {
         this.controller.setSmoothCamera(state.smoothCamera);
         this.controller.setDamageSoundEnabled(state.damageSoundEnabled);
         this.controller.setDamageAutoReturnEnabled(state.damageAutoReturnEnabled);
-        this.controller.setRangeDestroyToolProtectionEnabled(state.rangeDestroyToolProtectionEnabled);
-        this.controller.setRangeDestroyToolReplacementEnabled(state.rangeDestroyToolReplacementEnabled);
         this.debugButtonVisible = state.debugButtonVisible;
         int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
         double sensitivityFraction = sensitivityPresetCount <= 1
@@ -1611,6 +1619,7 @@ public final class BuilderScreen extends Screen {
         } catch (IllegalArgumentException ignored) {
             this.shapeController.setShapeFillMode(ShapeBuildTypes.ShapeFillMode.FILL);
         }
+        this.shapeController.setLineConnected(state.lineConnected);
         this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360));
         this.shapeController.ensureFillModeForShape(this.controller.getBuildShape());
     }
@@ -1622,6 +1631,7 @@ public final class BuilderScreen extends Screen {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         state.buildShape = this.controller.getBuildShape().name();
         state.fillMode = this.shapeController.getShapeFillMode().name();
+        state.lineConnected = this.shapeController.isLineConnected();
         state.rotationDegrees = this.shapeController.getShapeRotateDegrees();
         state.quickBuildOpen = this.quickBuildPanel.isQuickBuildOpen();
         state.quickBuildMode = this.quickBuildPanel.getQuickBuildModeName();
@@ -1630,8 +1640,6 @@ public final class BuilderScreen extends Screen {
         state.ultimineOpen = this.ultiminePanel.isOpen();
         state.ultimineLimit = this.ultiminePanel.getLimit();
         state.ultimineMode = this.ultiminePanel.getMode().name();
-        state.rangeDestroyToolProtectionEnabled = this.controller.isRangeDestroyToolProtectionEnabled();
-        state.rangeDestroyToolReplacementEnabled = this.controller.isRangeDestroyToolReplacementEnabled();
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
         state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
@@ -1919,8 +1927,7 @@ public final class BuilderScreen extends Screen {
         return out.toString();
     }
     /**
-     * Renders discoverability tooltips for various UI elements when hovered:
-     * undo/redo key hint, quick-build toggle, quick-build cancel area.
+     * Renders discoverability tooltips for stable UI elements when hovered.
      */
     private void renderDiscoverabilityTooltips(GuiGraphics g, int mouseX, int mouseY) {
         if (this.guidePanel.isOpen() || this.interactionWheelPanel.isOpen()) {
@@ -1935,12 +1942,6 @@ public final class BuilderScreen extends Screen {
                     && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
                 g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
                 return;
-            }
-        }
-        if (this.quickBuildPanel.isQuickBuildOpen() && hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
-            PanelLayouts.QuickBuildPanelLayout layout = resolveQuickBuildPanelLayout();
-            if (layout != null && layout.contains(mouseX, mouseY)) {
-                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_cancel"), mouseX, mouseY);
             }
         }
     }
@@ -2387,14 +2388,74 @@ public final class BuilderScreen extends Screen {
     private void updateNativeCursorVisibility(boolean hide) {
         if (this.minecraft == null) {
             this.nativeCursorHidden = false;
+            this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
             return;
         }
         long window = this.minecraft.getWindow().getWindow();
-        if (hide == this.nativeCursorHidden) {
+        if (hide) {
+            if (this.nativeCursorStyle != RtsWindowPanel.ResizeCursor.DEFAULT) {
+                GLFW.glfwSetCursor(window, 0L);
+                this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+            }
+            if (this.nativeCursorHidden) {
+                return;
+            }
+            GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_HIDDEN);
+            this.nativeCursorHidden = true;
             return;
         }
-        GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, hide ? GLFW.GLFW_CURSOR_HIDDEN : GLFW.GLFW_CURSOR_NORMAL);
-        this.nativeCursorHidden = hide;
+        updateNativeCursor(RtsWindowPanel.ResizeCursor.DEFAULT);
+    }
+
+    private void updateNativeCursor(RtsWindowPanel.ResizeCursor cursor) {
+        if (this.minecraft == null) {
+            this.nativeCursorHidden = false;
+            this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+            return;
+        }
+        long window = this.minecraft.getWindow().getWindow();
+        if (this.nativeCursorHidden) {
+            GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
+            this.nativeCursorHidden = false;
+        }
+        RtsWindowPanel.ResizeCursor safeCursor = cursor == null
+                ? RtsWindowPanel.ResizeCursor.DEFAULT
+                : cursor;
+        if (safeCursor == this.nativeCursorStyle) {
+            return;
+        }
+        GLFW.glfwSetCursor(window, cursorHandle(safeCursor));
+        this.nativeCursorStyle = safeCursor;
+    }
+
+    private long cursorHandle(RtsWindowPanel.ResizeCursor cursor) {
+        return switch (cursor) {
+            case RESIZE_EW -> {
+                if (this.resizeEwCursor == 0L) {
+                    this.resizeEwCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_EW_CURSOR);
+                }
+                yield this.resizeEwCursor;
+            }
+            case RESIZE_NS -> {
+                if (this.resizeNsCursor == 0L) {
+                    this.resizeNsCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NS_CURSOR);
+                }
+                yield this.resizeNsCursor;
+            }
+            case RESIZE_NWSE -> {
+                if (this.resizeNwseCursor == 0L) {
+                    this.resizeNwseCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NWSE_CURSOR);
+                }
+                yield this.resizeNwseCursor;
+            }
+            case RESIZE_NESW -> {
+                if (this.resizeNeswCursor == 0L) {
+                    this.resizeNeswCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NESW_CURSOR);
+                }
+                yield this.resizeNeswCursor;
+            }
+            case DEFAULT -> 0L;
+        };
     }
     /** Delegates to the cursor picker to compute the ray direction from the current cursor position. */
     public Vec3 computeCursorRayDirection() {

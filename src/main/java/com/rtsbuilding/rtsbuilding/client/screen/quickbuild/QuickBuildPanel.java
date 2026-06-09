@@ -39,7 +39,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private static final int MODE_TOGGLE_GAP = 4;
     private static final int SHAPE_TOP = 45;
     private static final int FILL_BUTTON_H = 20;
-    private static final int PROTECTION_ROW_H = 18;
 
     private static final ClientRtsController.BuildShape[] SHAPES = {
             ClientRtsController.BuildShape.BLOCK,
@@ -61,7 +60,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private Mode mode = Mode.BUILD;
     private boolean destroyChainSelected = true;
-    private boolean toolProtectionExpanded;
     private int chainDestroyLimit = 64;
 
     @Override
@@ -156,7 +154,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int titleY = contentY() + 30;
         if (isRangeDestroyChainMode()) {
             renderChainLimitControls(g, mouseX, mouseY, rightX, titleY);
-            renderProtectionControls(g, mouseX, mouseY, rightX, titleY + 72);
             return;
         }
         g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.fill"),
@@ -168,12 +165,20 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             boolean selected = screen.getShapeFillMode() == fillMode;
             renderFillModeButton(g, mouseX, mouseY, rightX, rowY, fillMode, selected);
         }
-        int nextY = contentY() + SHAPE_TOP + (modes.size() * FILL_BUTTON_H) + 10;
-        if (mode == Mode.DESTROY) {
-            renderProtectionControls(g, mouseX, mouseY, rightX, nextY);
-        } else {
+        int nextY = contentY() + SHAPE_TOP + (modes.size() * FILL_BUTTON_H) + 8;
+        if (isLineOrWallShape()) {
+            renderConnectToggle(g, mouseX, mouseY, rightX, nextY);
+            nextY += FILL_BUTTON_H + 8;
+        }
+        if (mode != Mode.DESTROY) {
             renderRotationControls(g, mouseX, mouseY, rightX, contentY() + 134);
         }
+    }
+
+    private void renderConnectToggle(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
+        renderButton(g, mouseX, mouseY, x, y, 84, FILL_BUTTON_H,
+                screen.text("screen.rtsbuilding.quick_build.connect"),
+                screen.getShapeController().isLineConnected());
     }
 
     private void renderFillModeButton(GuiGraphics g, int mouseX, int mouseY, int x, int y,
@@ -189,7 +194,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private void renderChainLimitControls(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.ultimine.limit"), x, y, 0xD8E3EE, false);
+        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.chain_limit_label"), x, y, 0xD8E3EE, false);
         renderButton(g, mouseX, mouseY, x, y + 16, 20, 18, "-", false);
         RtsClientUiUtil.drawPanelFrame(g, x + 24, y + 16, 48, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), Integer.toString(this.chainDestroyLimit), x + 48, y + 21, 0xF2F7FF);
@@ -202,21 +207,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             int fillW = Mth.clamp((int) Math.round((processed / (double) total) * 94.0D), 1, 94);
             g.fill(x + 1, barY + 1, x + 1 + fillW, barY + 9, 0xFF78B28C);
         }
-    }
-
-    private void renderProtectionControls(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
-        renderButton(g, mouseX, mouseY, x, y, 96, PROTECTION_ROW_H,
-                (this.toolProtectionExpanded ? "v " : "> ") + screen.text("screen.rtsbuilding.quick_build.protection_settings"),
-                false);
-        if (!this.toolProtectionExpanded) {
-            return;
-        }
-        renderButton(g, mouseX, mouseY, x, y + 22, 96, PROTECTION_ROW_H,
-                toggleLabel(controller.isRangeDestroyToolProtectionEnabled(), "screen.rtsbuilding.quick_build.tool_protection"),
-                controller.isRangeDestroyToolProtectionEnabled());
-        renderButton(g, mouseX, mouseY, x, y + 44, 96, PROTECTION_ROW_H,
-                toggleLabel(controller.isRangeDestroyToolReplacementEnabled(), "screen.rtsbuilding.quick_build.tool_replacement"),
-                controller.isRangeDestroyToolReplacementEnabled());
     }
 
     private void renderRotationControls(GuiGraphics g, int mouseX, int mouseY, int rightX, int rotY) {
@@ -247,6 +237,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int centerY = dividerY + BOTTOM_INFO_H / 2;
         int textY = centerY - screen.font().lineHeight / 2;
         int itemY = centerY - 8;
+        if (mode == Mode.DESTROY) {
+            String hintKey = isRangeDestroyChainMode()
+                    ? "screen.rtsbuilding.quick_build.chain_hint"
+                    : "screen.rtsbuilding.quick_build.destroy_hint";
+            g.drawString(screen.font(), screen.text(hintKey), x + 8, textY, 0xFFB8B8, false);
+            return;
+        }
         String costText = "x " + screen.currentShapeCostText();
         g.drawString(screen.font(), costText, x + 8, textY, 0xB8FFB8, false);
         ItemStack preview = resolveShapeBuildItem();
@@ -317,7 +314,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 screen.persistUiState();
                 return;
             }
-            handleProtectionClick(mouseX, mouseY, rightX, y + 72);
             return;
         }
 
@@ -330,8 +326,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 return;
             }
         }
+        int connectY = contentY() + SHAPE_TOP + (modes.size() * FILL_BUTTON_H) + 8;
+        if (isLineOrWallShape() && inside(mouseX, mouseY, rightX, connectY, 84, FILL_BUTTON_H)) {
+            screen.getShapeController().setLineConnected(!screen.getShapeController().isLineConnected());
+            screen.persistUiState();
+            return;
+        }
         if (mode == Mode.DESTROY) {
-            handleProtectionClick(mouseX, mouseY, rightX, contentY() + SHAPE_TOP + (modes.size() * FILL_BUTTON_H) + 10);
             return;
         }
         int rotY = contentY() + 134;
@@ -341,26 +342,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
         if (inside(mouseX, mouseY, rightX + 84, rotY + 10, 20, 18)) {
             screen.rotateShapeByStep(1);
-        }
-    }
-
-    private void handleProtectionClick(double mouseX, double mouseY, int x, int y) {
-        if (inside(mouseX, mouseY, x, y, 96, PROTECTION_ROW_H)) {
-            this.toolProtectionExpanded = !this.toolProtectionExpanded;
-            screen.persistUiState();
-            return;
-        }
-        if (!this.toolProtectionExpanded) {
-            return;
-        }
-        if (inside(mouseX, mouseY, x, y + 22, 96, PROTECTION_ROW_H)) {
-            controller.setRangeDestroyToolProtectionEnabled(!controller.isRangeDestroyToolProtectionEnabled());
-            screen.persistUiState();
-            return;
-        }
-        if (inside(mouseX, mouseY, x, y + 44, 96, PROTECTION_ROW_H)) {
-            controller.setRangeDestroyToolReplacementEnabled(!controller.isRangeDestroyToolReplacementEnabled());
-            screen.persistUiState();
         }
     }
 
@@ -466,16 +447,17 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return contentY() + SHAPE_TOP + (row * SHAPE_ROW_PITCH);
     }
 
-    private String toggleLabel(boolean active, String key) {
-        return (active ? "[x] " : "[ ] ") + screen.text(key);
-    }
-
     private boolean shouldShowBottomInfo() {
         if (mode == Mode.DESTROY) {
-            return false;
+            return true;
         }
         ItemStack preview = resolveShapeBuildItem();
         return !preview.isEmpty() && preview.getItem() instanceof BlockItem;
+    }
+
+    private boolean isLineOrWallShape() {
+        return this.controller.getBuildShape() == ClientRtsController.BuildShape.LINE
+                || this.controller.getBuildShape() == ClientRtsController.BuildShape.WALL;
     }
 
     private ItemStack resolveShapeBuildItem() {

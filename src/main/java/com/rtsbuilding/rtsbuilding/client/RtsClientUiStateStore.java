@@ -75,9 +75,30 @@ public final class RtsClientUiStateStore {
         save(state);
     }
 
+    public static synchronized boolean isStorageRefreshQuietEnabled() {
+        return load().storageRefreshQuietEnabled;
+    }
+
+    public static synchronized void setStorageRefreshQuietEnabled(boolean enabled) {
+        UiState state = load();
+        state.storageRefreshQuietEnabled = enabled;
+        save(state);
+    }
+
+    public static synchronized boolean isStorageAutoRefreshEnabled() {
+        return load().storageAutoRefreshEnabled;
+    }
+
+    public static synchronized void setStorageAutoRefreshEnabled(boolean enabled) {
+        UiState state = load();
+        state.storageAutoRefreshEnabled = enabled;
+        save(state);
+    }
+
     static final class UiState {
         String buildShape = ClientRtsController.BuildShape.BLOCK.name();
         String fillMode = "FILL";
+        boolean lineConnected = false;
         int rotationDegrees = 0;
         boolean quickBuildOpen = true;
         String quickBuildMode = "BUILD";
@@ -86,8 +107,6 @@ public final class RtsClientUiStateStore {
         boolean ultimineOpen = false;
         int ultimineLimit = 64;
         String ultimineMode = "CHAIN";
-        boolean rangeDestroyToolProtectionEnabled = true;
-        boolean rangeDestroyToolReplacementEnabled = false;
         boolean chunkCurtainVisible = false;
         double rtsGuiScale = 2.0D;
         int inputSensitivityIndex = 2;
@@ -101,6 +120,8 @@ public final class RtsClientUiStateStore {
         boolean debugButtonVisible = false;
         boolean containerOverlayEnabled = false;
         boolean overlayShiftImportEnabled = false;
+        boolean storageRefreshQuietEnabled = false;
+        boolean storageAutoRefreshEnabled = true;
         List<String> dismissedIntroReminderKeys = new ArrayList<>();
 
         static UiState defaults() {
@@ -111,6 +132,7 @@ public final class RtsClientUiStateStore {
             UiState clean = new UiState();
             clean.buildShape = sanitizeEnum(this.buildShape, ClientRtsController.BuildShape.BLOCK.name());
             clean.fillMode = sanitizeEnum(this.fillMode, "FILL");
+            clean.lineConnected = this.lineConnected;
             clean.rotationDegrees = Math.floorMod(this.rotationDegrees, 360);
             clean.quickBuildOpen = this.quickBuildOpen;
             clean.quickBuildMode = sanitizeEnum(this.quickBuildMode, "BUILD");
@@ -119,8 +141,6 @@ public final class RtsClientUiStateStore {
             clean.ultimineOpen = this.ultimineOpen;
             clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
             clean.ultimineMode = sanitizeEnum(this.ultimineMode, "CHAIN");
-            clean.rangeDestroyToolProtectionEnabled = this.rangeDestroyToolProtectionEnabled;
-            clean.rangeDestroyToolReplacementEnabled = this.rangeDestroyToolReplacementEnabled;
             clean.chunkCurtainVisible = this.chunkCurtainVisible;
             clean.rtsGuiScale = sanitizeScale(this.rtsGuiScale);
             clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));
@@ -134,6 +154,8 @@ public final class RtsClientUiStateStore {
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
             clean.overlayShiftImportEnabled = this.overlayShiftImportEnabled;
+            clean.storageRefreshQuietEnabled = this.storageRefreshQuietEnabled;
+            clean.storageAutoRefreshEnabled = this.storageAutoRefreshEnabled;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             return clean;
         }

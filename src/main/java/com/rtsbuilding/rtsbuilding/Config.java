@@ -34,6 +34,18 @@ public final class Config {
             .comment("Maximum non-air blocks allowed in one RTS blueprint import, capture, or placement job.")
             .defineInRange("maxBlueprintBlocks", 20000, 1, 200000);
 
+    public static final ForgeConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = BUILDER
+            .comment("Render translucent block ghost models for placement previews and place/break animations.")
+            .define("useBlockGhostPreview", true);
+
+    public static final ForgeConfigSpec.BooleanValue USE_WIREFRAME_PREVIEW = BUILDER
+            .comment("Render wireframe outlines for placement previews and place/break animations.")
+            .define("useWireframePreview", false);
+
+    public static final ForgeConfigSpec.BooleanValue USE_RANGE_DESTROY_SKELETON = BUILDER
+            .comment("Render merged skeleton borders for non-chain range destroy previews. Chain mining always uses the skeleton style.")
+            .define("useRangeDestroySkeleton", true);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private Config() {
@@ -70,6 +82,33 @@ public final class Config {
 
     public static int maxBlueprintBlocks() {
         return MAX_BLUEPRINT_BLOCKS.get();
+    }
+
+    public static boolean isBlockGhostPreviewEnabled() {
+        return USE_BLOCK_GHOST_PREVIEW.get();
+    }
+
+    public static void setBlockGhostPreviewEnabled(boolean enabled) {
+        USE_BLOCK_GHOST_PREVIEW.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean isWireframePreviewEnabled() {
+        return USE_WIREFRAME_PREVIEW.get();
+    }
+
+    public static void setWireframePreviewEnabled(boolean enabled) {
+        USE_WIREFRAME_PREVIEW.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean isRangeDestroySkeletonEnabled() {
+        return USE_RANGE_DESTROY_SKELETON.get();
+    }
+
+    public static void setRangeDestroySkeletonEnabled(boolean enabled) {
+        USE_RANGE_DESTROY_SKELETON.set(enabled);
+        SPEC.save();
     }
 
     public static Map<String, String> progressionCostOverrides() {

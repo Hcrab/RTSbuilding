@@ -281,8 +281,18 @@ final class RtsClientPacketGateway {
         sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, rayOrigin, rayDir, false);
     }
 
+    static void sendEmptyHandPlace(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
+        sendPlace(hit, false, false, "", ItemStack.EMPTY, 0, rayOrigin, rayDir, false, true);
+    }
+
     static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild) {
+        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, rayOrigin, rayDir, quickBuild, false);
+    }
+
+    private static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
+            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild,
+            boolean forceEmptyHand) {
         ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
@@ -304,7 +314,8 @@ final class RtsClientPacketGateway {
                 rayDir.x,
                 rayDir.y,
                 rayDir.z,
-                quickBuild));
+                quickBuild,
+                forceEmptyHand));
     }
 
     static void sendPlaceBatch(List<BlockHitResult> hits, boolean forcePlace, boolean skipIfOccupied, String itemId,
@@ -389,6 +400,25 @@ final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
+    static void sendUseItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+        PacketDistributor.sendToServer(new C2SRtsInteractPayload(
+                C2SRtsInteractPayload.NO_ENTITY,
+                hit.getBlockPos(),
+                (byte) hit.getDirection().get3DDataValue(),
+                hit.getLocation().x,
+                hit.getLocation().y,
+                hit.getLocation().z,
+                C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                "",
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z));
+    }
+
     static void sendInteractBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 C2SRtsInteractPayload.NO_ENTITY,
@@ -418,6 +448,25 @@ final class RtsClientPacketGateway {
                 hitLocation.z,
                 C2SRtsInteractPayload.SOURCE_TOOL_SLOT,
                 (byte) Mth.clamp(toolSlot, 0, 8),
+                "",
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z));
+    }
+
+    static void sendInteractEntityEmptyHand(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) {
+        PacketDistributor.sendToServer(new C2SRtsInteractPayload(
+                entityId,
+                BlockPos.containing(hitLocation),
+                (byte) 1,
+                hitLocation.x,
+                hitLocation.y,
+                hitLocation.z,
+                C2SRtsInteractPayload.SOURCE_EMPTY_HAND,
+                (byte) 0,
                 "",
                 rayOrigin.x,
                 rayOrigin.y,
@@ -465,8 +514,7 @@ final class RtsClientPacketGateway {
                 allowPlacedBlockRecovery));
     }
 
-    static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            boolean protectTool, boolean replaceTool) {
+    static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
@@ -474,13 +522,11 @@ final class RtsClientPacketGateway {
                 positions,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
-                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                protectTool,
-                replaceTool));
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype));
     }
 
     static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            int limit, byte mode, boolean protectTool, boolean replaceTool) {
+            int limit, byte mode) {
         PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
                 pos,
                 (byte) face,
@@ -488,9 +534,7 @@ final class RtsClientPacketGateway {
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 (short) Mth.clamp(limit, 1, 256),
-                mode,
-                protectTool,
-                replaceTool));
+                mode));
     }
 
     static void sendMineAbort(BlockPos pos, int face, int toolSlot) {

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -49,9 +50,9 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInsp
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.materialSummary;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintFolder;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.createSchematicsFolder;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.ensureExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.isBlueprintFile;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.otherModBlueprintFolders;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.sanitizeFileBase;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripBlueprintExtension;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueBlueprintPath;
@@ -159,7 +160,7 @@ public final class BlueprintPanel {
             return true;
         }
         if (inside(mouseX, mouseY, top.syncCreateX(), y, top.syncCreateW(), BUTTON_H)) {
-            syncCreateSchematics();
+            syncOtherModBlueprints();
             return true;
         }
         if (inside(mouseX, mouseY, top.captureX(), y, top.captureW(), BUTTON_H)) {
@@ -230,6 +231,55 @@ public final class BlueprintPanel {
 
     public static boolean isNameDialogOpen() {
         return nameDialogMode != NameDialogMode.NONE;
+    }
+
+    static boolean isNameDialogCaptureMode() {
+        return nameDialogMode == NameDialogMode.CAPTURE_SAVE;
+    }
+
+    static String nameDialogValue() {
+        return nameDialogValue;
+    }
+
+    static BlueprintEntry nameDialogEntry() {
+        return nameDialogEntry;
+    }
+
+    static BlockPos nameDialogCapturePointA() {
+        return CAPTURE.pointA();
+    }
+
+    static BlockPos nameDialogCapturePointB() {
+        return CAPTURE.previewPointB();
+    }
+
+    static long nameDialogCaptureBlockCount() {
+        return nameDialogCaptureBlockCount;
+    }
+
+    static void confirmActiveNameDialog() {
+        confirmNameDialog();
+    }
+
+    static void cancelActiveNameDialog() {
+        cancelNameDialog();
+    }
+
+    static BlueprintEntry materialDialogEntry() {
+        return selectedEntry();
+    }
+
+    static int materialDialogScroll() {
+        return materialDialogScroll;
+    }
+
+    static void setMaterialDialogScroll(int scroll) {
+        materialDialogScroll = Math.max(0, scroll);
+    }
+
+    static void closeMaterialDialog() {
+        materialDialogOpen = false;
+        materialDialogScroll = 0;
     }
 
     public static void renderNameDialog(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY) {
@@ -586,11 +636,11 @@ public final class BlueprintPanel {
                 return true;
             }
             if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP) {
-                CAPTURE.expandVertical(step, BlueprintPanel::setStatus);
+                CAPTURE.moveSelection(0, step, 0, BlueprintPanel::setStatus);
                 return true;
             }
             if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN) {
-                CAPTURE.expandVertical(-step, BlueprintPanel::setStatus);
+                CAPTURE.moveSelection(0, -step, 0, BlueprintPanel::setStatus);
                 return true;
             }
             return true;
@@ -665,6 +715,32 @@ public final class BlueprintPanel {
         return entry != null && entry.error().isBlank();
     }
 
+    static String selectedBlueprintName() {
+        BlueprintEntry entry = selectedEntry();
+        return entry == null ? "" : entry.name();
+    }
+
+    static String selectedBlueprintSizeText() {
+        BlueprintEntry entry = selectedEntry();
+        return entry == null ? "" : entry.sizeText();
+    }
+
+    static void selectRelativeBlueprint(int delta) {
+        ensureLoaded();
+        if (ENTRIES.isEmpty() || delta == 0) {
+            return;
+        }
+        int start = selectedIndex >= 0 && selectedIndex < ENTRIES.size() ? selectedIndex : 0;
+        for (int step = 1; step <= ENTRIES.size(); step++) {
+            int index = Math.floorMod(start + delta * step, ENTRIES.size());
+            BlueprintEntry entry = ENTRIES.get(index);
+            if (entry.error().isBlank()) {
+                selectEntry(entry);
+                return;
+            }
+        }
+    }
+
     public static int getYRotationSteps() {
         return yRotationSteps;
     }
@@ -681,8 +757,20 @@ public final class BlueprintPanel {
         return pinnedAnchor;
     }
 
+    static Component statusText() {
+        return statusText;
+    }
+
+    static int statusColor() {
+        return statusColor;
+    }
+
     public static boolean isCaptureModeActive() {
         return Config.areBlueprintsEnabled() && CAPTURE.isActive();
+    }
+
+    static boolean isCaptureSaving() {
+        return Config.areBlueprintsEnabled() && CAPTURE.isSaving();
     }
 
     public static boolean isCaptureSelectionComplete() {
@@ -701,6 +789,38 @@ public final class BlueprintPanel {
         return CAPTURE.pointB();
     }
 
+    static String capturePointAText() {
+        return shortPos(CAPTURE.pointA());
+    }
+
+    static String capturePointBText() {
+        return shortPos(CAPTURE.previewPointB());
+    }
+
+    static String captureSizeText() {
+        return BlueprintCaptureGeometry.captureSizeText(CAPTURE.pointA(), CAPTURE.previewPointB());
+    }
+
+    static int captureSizeX() {
+        return CAPTURE.sizeX();
+    }
+
+    static int captureSizeY() {
+        return CAPTURE.sizeY();
+    }
+
+    static int captureSizeZ() {
+        return CAPTURE.sizeZ();
+    }
+
+    static long countCaptureBlocks() {
+        return CAPTURE.countCapturableBlocks(Minecraft.getInstance().level);
+    }
+
+    static String captureSaveProgressLine() {
+        return CAPTURE.saveProgressLine();
+    }
+
     public static void updateCaptureHoverPoint(BlockPos pos) {
         CAPTURE.updateHoverPoint(pos);
     }
@@ -709,16 +829,18 @@ public final class BlueprintPanel {
         return CAPTURE.previewPointB();
     }
 
-    public static boolean shouldRenderCapturePreviewFill() {
-        return Config.areBlueprintsEnabled() && CAPTURE.shouldRenderPreviewFill();
-    }
-
     public static List<BlockPos> getCaptureIncludedBlocksForRender(int limit) {
-        return Config.areBlueprintsEnabled() ? CAPTURE.includedBlocksForRender(limit) : List.of();
+        return Config.areBlueprintsEnabled()
+                ? CAPTURE.includedBlocksForRender(Minecraft.getInstance().level, limit)
+                : List.of();
     }
 
     public static boolean shouldRenderCaptureBlockHighlights(int limit) {
         return Config.areBlueprintsEnabled() && CAPTURE.shouldRenderBlockHighlights(limit);
+    }
+
+    public static boolean shouldRenderCapturePreviewFill() {
+        return Config.areBlueprintsEnabled() && CAPTURE.shouldRenderPreviewFill();
     }
 
     public static List<BlockPos> getCaptureExcludedBlocksForRender(int limit) {
@@ -745,6 +867,38 @@ public final class BlueprintPanel {
         return true;
     }
 
+    static void moveCaptureSelection(int dx, int dy, int dz) {
+        if (!Config.areBlueprintsEnabled()) {
+            return;
+        }
+        CAPTURE.moveSelection(dx, dy, dz, BlueprintPanel::setStatus);
+    }
+
+    static void adjustCaptureSize(int dx, int dy, int dz) {
+        if (!Config.areBlueprintsEnabled()) {
+            return;
+        }
+        CAPTURE.resizeSelection(dx, dy, dz, BlueprintPanel::setStatus);
+    }
+
+    public static boolean mouseScrolledCaptureHeight(double scrollY) {
+        if (!Config.areBlueprintsEnabled() || !CAPTURE.isActive()) {
+            return false;
+        }
+        if (CAPTURE.isSaving()) {
+            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
+            return true;
+        }
+        return false;
+    }
+
+    static void setCaptureSize(int x, int y, int z) {
+        if (!Config.areBlueprintsEnabled()) {
+            return;
+        }
+        CAPTURE.setSelectionSize(x, y, z, BlueprintPanel::setStatus);
+    }
+
     public static void renderCaptureOverlay(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY,
             int topSafeY) {
         if (!Config.areBlueprintsEnabled() || !CAPTURE.isActive()) {
@@ -769,7 +923,7 @@ public final class BlueprintPanel {
         String sizeLine = CAPTURE.pointA() == null
                 ? state
                 : text("screen.rtsbuilding.blueprints.capture_live_size",
-                        captureSizeText(CAPTURE.pointA(), CAPTURE.previewPointB()));
+                        BlueprintCaptureGeometry.captureSizeText(CAPTURE.pointA(), CAPTURE.previewPointB()));
         g.drawString(font, trim(font, sizeLine + "  " + state, infoW - 112), infoX + 6, infoY + 20,
                 CAPTURE.pointA() != null && CAPTURE.pointB() != null ? 0xFF8EEA9B : 0xFFFFC06C, false);
         if (CAPTURE.pointB() == null && !CAPTURE.isSaving()) {
@@ -790,31 +944,6 @@ public final class BlueprintPanel {
                     0xFFB7CDE2, false);
         }
 
-        int leftW = 92;
-        int leftH = 90;
-        int leftX = 10;
-        int leftY = topSafeY;
-        drawFrame(g, leftX, leftY, leftW, leftH, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_controls"), leftW - 12),
-                leftX + 6, leftY + 6, 0xFFEAF2FF, false);
-
-        int buttonX = leftX + 8;
-        int buttonW = leftW - 16;
-        int rowY = leftY + 22;
-        drawButton(g, font, buttonX, rowY, buttonW, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.capture_move_up"),
-                inside(mouseX, mouseY, buttonX, rowY, buttonW, DETAIL_BUTTON_H));
-        rowY += 18;
-        drawButton(g, font, buttonX, rowY, buttonW, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.capture_move_down"),
-                inside(mouseX, mouseY, buttonX, rowY, buttonW, DETAIL_BUTTON_H));
-        rowY += 18;
-        drawButton(g, font, buttonX, rowY, buttonW, DETAIL_BUTTON_H,
-                text("screen.rtsbuilding.blueprints.capture_preview"),
-                inside(mouseX, mouseY, buttonX, rowY, buttonW, DETAIL_BUTTON_H),
-                CAPTURE.previewVisible());
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_page_hint"), leftW - 12),
-                leftX + 6, leftY + leftH - 15, 0xFFB7CDE2, false);
     }
 
     public static boolean mouseClickedCaptureOverlay(double mouseX, double mouseY, int screenW, int screenH, int topSafeY) {
@@ -841,32 +970,11 @@ public final class BlueprintPanel {
         if (inside(mouseX, mouseY, infoX, infoY, infoW, CAPTURE.isSaving() ? 58 : 46)) {
             return true;
         }
-        int leftW = 92;
-        int leftX = 10;
-        int leftY = topSafeY;
-        int buttonX = leftX + 8;
-        int buttonW = leftW - 16;
-        int rowY = leftY + 22;
         if (CAPTURE.isSaving()) {
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
-            return inside(mouseX, mouseY, leftX, leftY, leftW, 126);
-        }
-        if (inside(mouseX, mouseY, buttonX, rowY, buttonW, DETAIL_BUTTON_H)) {
-            CAPTURE.moveSelection(1, BlueprintPanel::setStatus);
             return true;
         }
-        rowY += 18;
-        if (inside(mouseX, mouseY, buttonX, rowY, buttonW, DETAIL_BUTTON_H)) {
-            CAPTURE.moveSelection(-1, BlueprintPanel::setStatus);
-            return true;
-        }
-        rowY += 18;
-        if (inside(mouseX, mouseY, buttonX, rowY, buttonW, DETAIL_BUTTON_H)) {
-            CAPTURE.togglePreviewVisible();
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_preview", "");
-            return true;
-        }
-        return inside(mouseX, mouseY, leftX, leftY, leftW, 90);
+        return false;
     }
 
     public static boolean pinSelected(BlockPos anchor) {
@@ -882,6 +990,30 @@ public final class BlueprintPanel {
         pinnedNudgeForward = currentHorizontalFacingDirection();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_pinned", shortPos(pinnedAnchor));
         return true;
+    }
+
+    /**
+     * Converts the cursor target block into the internal blueprint anchor.
+     *
+     * <p>The placement payload still uses the original anchor convention, where
+     * blueprint-relative blocks are offset from an invisible origin. For mouse
+     * placement, however, players expect the cursor to hold the building itself,
+     * not an empty corner of a loose capture box. This maps the cursor target to
+     * the transformed blueprint content's bottom-center cell.</p>
+     */
+    public static BlockPos anchorForCursorTarget(BlockPos cursorTarget) {
+        BlueprintEntry entry = selectedEntry();
+        if (cursorTarget == null || entry == null || !entry.error().isBlank()) {
+            return cursorTarget;
+        }
+        int y = BlueprintTransform.normalizeSteps(yRotationSteps);
+        int x = BlueprintTransform.normalizeSteps(xRotationSteps);
+        int z = BlueprintTransform.normalizeSteps(zRotationSteps);
+        PlacementBounds bounds = transformedContentBounds(entry.blueprint(), y, x, z);
+        if (bounds == null) {
+            return cursorTarget;
+        }
+        return cursorTarget.offset(-bounds.centerX(), -bounds.minY(), -bounds.centerZ());
     }
 
     public static BlueprintGhostPreview createGhostPreview(BlockPos anchor, int yRotationSteps, ClientRtsController controller) {
@@ -906,6 +1038,44 @@ public final class BlueprintPanel {
             }
         }
         return new BlueprintGhostPreview(List.copyOf(out), hasEnoughMaterials(entry, controller), entry.blockCount() > out.size());
+    }
+
+    private static PlacementBounds transformedContentBounds(RtsBlueprint blueprint, int y, int x, int z) {
+        if (blueprint == null || blueprint.blocks().isEmpty()) {
+            return null;
+        }
+        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(blueprint.size(), y, x, z);
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        boolean found = false;
+        for (RtsBlueprintBlock block : blueprint.blocks()) {
+            if (block == null || (!block.isMissingBlock() && (block.state() == null || block.state().isAir()))) {
+                continue;
+            }
+            BlockPos pos = BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset);
+            minX = Math.min(minX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+            maxX = Math.max(maxX, pos.getX());
+            maxY = Math.max(maxY, pos.getY());
+            maxZ = Math.max(maxZ, pos.getZ());
+            found = true;
+        }
+        return found ? new PlacementBounds(minX, minY, minZ, maxX, maxY, maxZ) : null;
+    }
+
+    private record PlacementBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+        int centerX() {
+            return this.minX + ((this.maxX - this.minX) / 2);
+        }
+
+        int centerZ() {
+            return this.minZ + ((this.maxZ - this.minZ) / 2);
+        }
     }
 
     public static boolean placeSelected(BlockPos anchor, int yRotationSteps, int xRotationSteps, int zRotationSteps) {
@@ -965,7 +1135,29 @@ public final class BlueprintPanel {
         return true;
     }
 
-    private static boolean nudgePinnedAnchor(int dx, int dy, int dz, ClientRtsController controller) {
+    static void rotateSelectedBlueprintY(int step) {
+        if (!hasSelectedBlueprint()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
+            return;
+        }
+        yRotationSteps = BlueprintTransform.normalizeSteps(yRotationSteps + step);
+        rememberCurrentRotationAsDefault();
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
+    }
+
+    static void resetSelectedBlueprintRotation() {
+        if (!hasSelectedBlueprint()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
+            return;
+        }
+        yRotationSteps = 0;
+        xRotationSteps = 0;
+        zRotationSteps = 0;
+        rememberCurrentRotationAsDefault();
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
+    }
+
+    static boolean nudgePinnedAnchor(int dx, int dy, int dz, ClientRtsController controller) {
         if (pinnedAnchor == null) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_preview", "");
             return true;
@@ -980,7 +1172,17 @@ public final class BlueprintPanel {
         return true;
     }
 
-    private static boolean nudgePinnedAnchorRelative(int rightSteps, int forwardSteps, int upSteps,
+    static boolean setPinnedAnchor(BlockPos anchor, ClientRtsController controller) {
+        if (anchor == null) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_preview", "");
+            return true;
+        }
+        pinnedAnchor = clampAnchorToClientBuildLimits(anchor, controller).immutable();
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.nudged", shortPos(pinnedAnchor));
+        return true;
+    }
+
+    static boolean nudgePinnedAnchorRelative(int rightSteps, int forwardSteps, int upSteps,
             ClientRtsController controller) {
         Direction forward = pinnedNudgeForward == null ? currentHorizontalFacingDirection() : pinnedNudgeForward;
         Direction right = rightOf(forward);
@@ -1205,7 +1407,7 @@ public final class BlueprintPanel {
         return true;
     }
 
-    private static void openMaterialDialog() {
+    static void openMaterialDialog() {
         if (selectedEntry() == null) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
@@ -1306,11 +1508,12 @@ public final class BlueprintPanel {
     private static void importBlueprintFile() {
         String selected;
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer filters = stack.mallocPointer(4);
+            PointerBuffer filters = stack.mallocPointer(5);
             filters.put(stack.UTF8("*.nbt"));
             filters.put(stack.UTF8("*.schem"));
             filters.put(stack.UTF8("*.schematic"));
             filters.put(stack.UTF8("*.litematic"));
+            filters.put(stack.UTF8("*.json"));
             filters.flip();
             selected = TinyFileDialogs.tinyfd_openFileDialog(
                     text("screen.rtsbuilding.blueprints.import_file"),
@@ -1340,9 +1543,13 @@ public final class BlueprintPanel {
         }
     }
 
-    private static void syncCreateSchematics() {
-        Path sourceFolder = createSchematicsFolder();
-        if (!Files.isDirectory(sourceFolder)) {
+    private static void syncOtherModBlueprints() {
+        List<Path> sourceFolders = otherModBlueprintFolders().stream()
+                .map(path -> path.toAbsolutePath().normalize())
+                .filter(Files::isDirectory)
+                .distinct()
+                .toList();
+        if (sourceFolders.isEmpty()) {
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.create_sync_missing", "");
             return;
         }
@@ -1352,30 +1559,30 @@ public final class BlueprintPanel {
         String lastCopied = "";
         try {
             Files.createDirectories(blueprintFolder());
-            try (var stream = Files.list(sourceFolder)) {
-                List<Path> files = stream
-                        .filter(Files::isRegularFile)
-                        .filter(BlueprintPanelFiles::isBlueprintFile)
-                        .sorted(Comparator.comparing(path -> path.getFileName().toString(), String.CASE_INSENSITIVE_ORDER))
-                        .limit(512)
-                        .toList();
-                for (Path source : files) {
-                    Path fileName = source.getFileName();
-                    if (fileName == null) {
-                        continue;
-                    }
-                    Path dest = blueprintFolder().resolve(fileName.toString());
-                    if (Files.exists(dest)) {
-                        skipped++;
-                        continue;
-                    }
-                    try {
-                        Files.copy(source, dest);
-                        copied++;
-                        lastCopied = fileName.toString();
-                    } catch (IOException ex) {
-                        failed++;
-                    }
+            Map<String, Path> filesByName = new LinkedHashMap<>();
+            for (Path sourceFolder : sourceFolders) {
+                try (var stream = Files.walk(sourceFolder, 3)) {
+                    stream.filter(Files::isRegularFile)
+                            .filter(BlueprintPanelFiles::isSyncBlueprintFile)
+                            .sorted(Comparator.comparing(path -> path.getFileName().toString(), String.CASE_INSENSITIVE_ORDER))
+                            .limit(512)
+                            .forEach(path -> filesByName.putIfAbsent(path.getFileName().toString(), path));
+                } catch (IOException ex) {
+                    failed++;
+                }
+            }
+            for (Map.Entry<String, Path> entry : filesByName.entrySet()) {
+                Path dest = blueprintFolder().resolve(entry.getKey());
+                if (Files.exists(dest)) {
+                    skipped++;
+                    continue;
+                }
+                try {
+                    Files.copy(entry.getValue(), dest);
+                    copied++;
+                    lastCopied = entry.getKey();
+                } catch (IOException ex) {
+                    failed++;
                 }
             }
             if (copied > 0) {
@@ -1552,6 +1759,19 @@ public final class BlueprintPanel {
         openCaptureNameDialog();
     }
 
+    static void saveCapturedAreaAs(String requestedName) {
+        if (!isCaptureSelectionComplete()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.capture_incomplete", "");
+            return;
+        }
+        String cleanName = sanitizeFileBase(stripBlueprintExtension(requestedName == null ? "" : requestedName));
+        if (cleanName.isBlank()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.name_required", "");
+            return;
+        }
+        startCaptureSave(cleanName);
+    }
+
     private static void startCaptureSave(String requestedName) {
         if (CAPTURE.isSaving()) {
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
@@ -1576,7 +1796,7 @@ public final class BlueprintPanel {
         }
     }
 
-    private static void cancelCaptureMode() {
+    static void cancelCaptureMode() {
         CAPTURE.cancel(BlueprintPanel::setStatus);
         nameDialogMode = NameDialogMode.NONE;
         nameDialogValue = "";
@@ -1639,7 +1859,7 @@ public final class BlueprintPanel {
                 entry.error().isBlank() ? entry.name() : entry.error());
     }
 
-    private static void clearSelectedBlueprint() {
+    static void clearSelectedBlueprint() {
         selectedIndex = -1;
         pinnedAnchor = null;
         pinnedNudgeForward = Direction.SOUTH;

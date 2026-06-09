@@ -1,15 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsBreakAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsMineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsUltimineProgressPayload;
 
@@ -23,6 +27,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyStoragePage(payload));
+    }
+
+    public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyStorageDirty(payload));
     }
 
     public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, IPayloadContext context) {
@@ -51,6 +59,17 @@ public final class RtsClientNetworkHandlers {
             if (payload.stage() < 0) {
                 ShapeGhostRenderer.markDestroyed(payload.pos());
             }
+        });
+    }
+
+    public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> PlacementAnimationRenderer.confirmPlacement(payload.pos(), payload.state()));
+    }
+
+    public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            PlacementAnimationRenderer.addDestroy(payload.pos(), payload.state());
+            ShapeGhostRenderer.markDestroyed(payload.pos());
         });
     }
 

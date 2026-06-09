@@ -26,6 +26,8 @@ public record C2SRtsInteractPayload(
         double rayDirZ) implements CustomPacketPayload {
     public static final byte SOURCE_TOOL_SLOT = 0;
     public static final byte SOURCE_PIN_ITEM = 1;
+    public static final byte SOURCE_TOOL_SLOT_AIR = 2;
+    public static final byte SOURCE_EMPTY_HAND = 3;
     public static final int NO_ENTITY = -1;
 
     public static final Type<C2SRtsInteractPayload> TYPE = new Type<>(

@@ -2,12 +2,18 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Matrix4f;
 
@@ -94,13 +100,31 @@ public final class ShapeGhostRenderer {
             return;
         }
 
-        renderBuildGhostFallback(preview, poseStack, lineBuffer, fillBuffer);
+        renderBuildGhostFallback(minecraft, preview, poseStack, lineBuffer, fillBuffer);
     }
 
-    private static void renderBuildGhostFallback(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+    private static void renderBuildGhostFallback(Minecraft minecraft, ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
         List<BlockPos> blocks = preview.blocks();
         if (isEmpty(blocks)) {
+            return;
+        }
+
+        BlockState blockState = BuildGhostBlockStateResolver.resolve(minecraft, blocks.get(0));
+        if (blockState != null && !blockState.isAir() && blockState.getRenderShape() == RenderShape.MODEL) {
+            renderBlockModelGhosts(minecraft, blocks, poseStack, blockState);
+            renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            return;
+        }
+        ItemStack spawnEggStack = BuildGhostBlockStateResolver.resolveSpawnEggStack(minecraft);
+        if (!spawnEggStack.isEmpty()) {
+            EntityGhostRenderer.renderEntities(minecraft, blocks, poseStack, spawnEggStack);
+            renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            return;
+        }
+        if (!BuildGhostBlockStateResolver.resolveEndCrystalStack(minecraft).isEmpty()) {
+            EntityGhostRenderer.renderEndCrystals(minecraft, blocks, poseStack);
+            renderBuildGhostWireframes(preview, poseStack, lineBuffer);
             return;
         }
 
@@ -128,6 +152,38 @@ public final class ShapeGhostRenderer {
                     poseStack, lineBuffer,
                     minX, minY, minZ,
                     maxX, maxY, maxZ,
+                    lineR, lineG, lineB, 0.95F);
+        }
+    }
+
+    private static void renderBlockModelGhosts(Minecraft minecraft, List<BlockPos> blocks, PoseStack poseStack,
+            BlockState blockState) {
+        if (minecraft == null || minecraft.level == null || isEmpty(blocks)) {
+            return;
+        }
+        MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
+        MultiBufferSource translucentBuffer = new GhostAlphaBufferSource(blockBuffer, 0.70F);
+        for (BlockPos pos : blocks) {
+            poseStack.pushPose();
+            poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+            int light = LevelRenderer.getLightColor(minecraft.level, pos);
+            minecraft.getBlockRenderer().renderSingleBlock(
+                    blockState, poseStack, translucentBuffer, light, OverlayTexture.NO_OVERLAY);
+            poseStack.popPose();
+        }
+        blockBuffer.endBatch();
+    }
+
+    private static void renderBuildGhostWireframes(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer) {
+        float lineR = preview.readyConfirm() ? 0.45F : 0.30F;
+        float lineG = preview.readyConfirm() ? 0.95F : 0.75F;
+        float lineB = preview.readyConfirm() ? 0.45F : 1.00F;
+        for (BlockPos pos : preview.blocks()) {
+            LevelRenderer.renderLineBox(
+                    poseStack, lineBuffer,
+                    pos.getX() + 0.03D, pos.getY() + 0.03D, pos.getZ() + 0.03D,
+                    pos.getX() + 0.97D, pos.getY() + 0.97D, pos.getZ() + 0.97D,
                     lineR, lineG, lineB, 0.95F);
         }
     }
@@ -188,6 +244,12 @@ public final class ShapeGhostRenderer {
     private static void renderConfirmedRangeDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
         ClientRtsController controller = ClientRtsController.get();
+        if (!Config.isRangeDestroySkeletonEnabled()) {
+            cachedMergedSkeleton = CachedMergedSkeleton.EMPTY;
+            renderDestructiveGhost(preview, poseStack, lineBuffer, fillBuffer,
+                    smoothedDestroyProgress(controller, preview), 1.0F);
+            return;
+        }
         if (hasStartedDestroyBatch(controller, preview)) {
             renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, 1.0F, 0.030F);
             return;

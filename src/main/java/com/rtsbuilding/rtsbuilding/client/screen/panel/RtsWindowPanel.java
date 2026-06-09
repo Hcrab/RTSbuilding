@@ -38,7 +38,7 @@ public abstract class RtsWindowPanel implements RtsPanel {
     protected int windowHeight;
     protected boolean open;
     protected boolean draggable = true;
-    protected boolean resizable = true;
+    protected boolean resizable = false;
     protected boolean closable = true;
 
     private boolean positionInitialized;
@@ -67,6 +67,14 @@ public abstract class RtsWindowPanel implements RtsPanel {
         TOP_RIGHT,
         BOTTOM_LEFT,
         BOTTOM_RIGHT
+    }
+
+    public enum ResizeCursor {
+        DEFAULT,
+        RESIZE_EW,
+        RESIZE_NS,
+        RESIZE_NWSE,
+        RESIZE_NESW
     }
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
@@ -129,6 +137,24 @@ public abstract class RtsWindowPanel implements RtsPanel {
 
     public void setSkipHoverDetection(boolean skipHoverDetection) {
         this.skipHoverDetection = skipHoverDetection;
+    }
+
+    public boolean isInsideResizableBorder(double mouseX, double mouseY) {
+        return currentResizeCursor(mouseX, mouseY) != ResizeCursor.DEFAULT;
+    }
+
+    public ResizeCursor currentResizeCursor(double mouseX, double mouseY) {
+        if (!this.open || !canShowWindow() || !this.resizable) {
+            return ResizeCursor.DEFAULT;
+        }
+        ResizeEdge edge = this.resizing ? this.resizeEdge : resolveResizeEdge(mouseX, mouseY);
+        return switch (edge) {
+            case LEFT, RIGHT -> ResizeCursor.RESIZE_EW;
+            case TOP, BOTTOM -> ResizeCursor.RESIZE_NS;
+            case TOP_LEFT, BOTTOM_RIGHT -> ResizeCursor.RESIZE_NWSE;
+            case TOP_RIGHT, BOTTOM_LEFT -> ResizeCursor.RESIZE_NESW;
+            case NONE -> ResizeCursor.DEFAULT;
+        };
     }
 
     public int contentX() {
@@ -289,6 +315,18 @@ public abstract class RtsWindowPanel implements RtsPanel {
         return MIN_H;
     }
 
+    protected int getMaxWindowWidth() {
+        return this.screen == null
+                ? Math.max(getMinWindowWidth(), this.windowWidth)
+                : Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2);
+    }
+
+    protected int getMaxWindowHeight() {
+        return this.screen == null
+                ? Math.max(getMinWindowHeight(), this.windowHeight)
+                : Math.max(getMinWindowHeight(), this.screen.height - BuilderScreenConstants.TOP_H - SCREEN_MARGIN * 2);
+    }
+
     protected abstract void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick);
 
     protected abstract void handleContentClick(double mouseX, double mouseY, int button);
@@ -412,8 +450,8 @@ public abstract class RtsWindowPanel implements RtsPanel {
         if (this.screen == null) {
             return;
         }
-        this.windowWidth = Math.min(Math.max(getMinWindowWidth(), this.windowWidth), Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2));
-        this.windowHeight = Math.min(Math.max(getMinWindowHeight(), this.windowHeight), Math.max(getMinWindowHeight(), this.screen.height - BuilderScreenConstants.TOP_H - SCREEN_MARGIN * 2));
+        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
+        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
         int minY = BuilderScreenConstants.TOP_H + SCREEN_MARGIN;
         this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, Math.max(SCREEN_MARGIN, this.screen.width - this.windowWidth - SCREEN_MARGIN));
         this.windowY = Mth.clamp(this.windowY, minY, Math.max(minY, this.screen.height - this.windowHeight - SCREEN_MARGIN));

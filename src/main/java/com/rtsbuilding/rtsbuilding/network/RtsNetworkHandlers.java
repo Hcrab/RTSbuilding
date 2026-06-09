@@ -179,7 +179,8 @@ public final class RtsNetworkHandlers {
                         payload.rayDirX(),
                         payload.rayDirY(),
                         payload.rayDirZ(),
-                        payload.quickBuild());
+                        payload.quickBuild(),
+                        payload.forceEmptyHand());
             }
         });
     }
@@ -319,9 +320,7 @@ public final class RtsNetworkHandlers {
                         payload.toolItemId(),
                         payload.toolPrototype(),
                         payload.limit(),
-                        payload.mode(),
-                        payload.protectTool(),
-                        payload.replaceTool());
+                        payload.mode());
             }
         });
     }
@@ -334,9 +333,7 @@ public final class RtsNetworkHandlers {
                         payload.positions(),
                         payload.toolSlot(),
                         payload.toolItemId(),
-                        payload.toolPrototype(),
-                        payload.protectTool(),
-                        payload.replaceTool());
+                        payload.toolPrototype());
             }
         });
     }
@@ -428,7 +425,12 @@ public final class RtsNetworkHandlers {
     public static void handleJeiTransfer(C2SRtsJeiTransferPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsStorageManager.applyJeiTransfer(serverPlayer, payload.recipeId(), payload.maxTransfer(), payload.clearGridFirst());
+                RtsStorageManager.applyJeiTransfer(
+                        serverPlayer,
+                        payload.recipeId(),
+                        payload.ingredientPrototypes(),
+                        payload.maxTransfer(),
+                        payload.clearGridFirst());
             }
         });
     }

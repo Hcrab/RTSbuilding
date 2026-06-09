@@ -3,7 +3,9 @@ package com.rtsbuilding.rtsbuilding.server;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
@@ -54,7 +56,7 @@ final class RtsStoragePlacement {
     static void placeSelected(ServerPlayer player, RtsStorageSession session, BlockPos clickedPos, Direction face,
             double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied,
             String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild) {
+            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean forceEmptyHand) {
         placeSelectedInternal(
                 player,
                 session,
@@ -75,6 +77,7 @@ final class RtsStoragePlacement {
                 rayDirY,
                 rayDirZ,
                 quickBuild,
+                forceEmptyHand,
                 true,
                 true);
     }
@@ -155,6 +158,7 @@ final class RtsStoragePlacement {
                         job.rayDirZ(),
                         true,
                         false,
+                        false,
                         false);
                 remaining--;
                 if (!keepGoing) {
@@ -178,7 +182,7 @@ final class RtsStoragePlacement {
             Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace,
             boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
             double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild,
-            boolean refreshStoragePage, boolean sendRemoteHint) {
+            boolean forceEmptyHand, boolean refreshStoragePage, boolean sendRemoteHint) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return false;
         }
@@ -200,6 +204,10 @@ final class RtsStoragePlacement {
         }
 
         if (!useSelectedStorageItem) {
+            if (forceEmptyHand) {
+                return placeWithForcedEmptyHand(player, session, level, clickedPos, hit, interactionPos, rayContext,
+                        forcePlace);
+            }
             ItemStack sourceSnapshot = player.getMainHandItem().copy();
             boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
             if (skipIfOccupied && player.getMainHandItem().getItem() instanceof BlockItem) {
@@ -396,6 +404,47 @@ final class RtsStoragePlacement {
         return true;
     }
 
+    private static boolean placeWithForcedEmptyHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
+            BlockPos clickedPos, BlockHitResult hit, Vec3 interactionPos, RtsStorageManager.RayContext rayContext,
+            boolean forcePlace) {
+        AbstractContainerMenu menuBeforeEmptyUse = player.containerMenu;
+        RtsStorageManager.UseOnOutcome emptyUse = RtsStorageManager.withTemporaryUseItemContext(
+                player,
+                interactionPos,
+                hit.getLocation(),
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> RtsStorageManager.useItemOnWithMainHand(player, level, ItemStack.EMPTY, hit, forcePlace));
+        AbstractContainerMenu menuAfterEmptyUse = player.containerMenu;
+        if (menuAfterEmptyUse != menuBeforeEmptyUse) {
+            RtsStorageManager.markRemoteMenuOpen(player, session, menuAfterEmptyUse, clickedPos);
+            return false;
+        }
+        if (emptyUse.result().consumesAction()) {
+            RtsStorageManager.saveSessionToPlayerNbt(player, session);
+            return true;
+        }
+
+        AbstractContainerMenu menuBeforeEmptyFallback = player.containerMenu;
+        RtsStorageManager.UseOnOutcome emptyFallback = RtsStorageManager.withTemporaryUseItemContext(
+                player,
+                interactionPos,
+                hit.getLocation(),
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> RtsStorageManager.useItemWithMainHand(player, level, ItemStack.EMPTY, forcePlace));
+        AbstractContainerMenu menuAfterEmptyFallback = player.containerMenu;
+        if (menuAfterEmptyFallback != menuBeforeEmptyFallback) {
+            RtsStorageManager.markRemoteMenuOpen(player, session, menuAfterEmptyFallback, clickedPos);
+            return false;
+        }
+        if (emptyFallback.result().consumesAction()) {
+            RtsStorageManager.saveSessionToPlayerNbt(player, session);
+            return true;
+        }
+        return false;
+    }
+
     private static ItemStack sanitizePrototype(String itemId, ItemStack itemPrototype) {
         if (itemId == null || itemId.isBlank() || itemPrototype == null || itemPrototype.isEmpty()) {
             return ItemStack.EMPTY;
@@ -449,6 +498,7 @@ final class RtsStoragePlacement {
         if (state.isAir()) {
             return;
         }
+        PacketDistributor.sendToPlayer(player, new S2CRtsPlaceAnimationPayload(pos.immutable(), state));
         long gameTime = level.getGameTime();
         if (quickBuild && session != null) {
             noteQuickBuildPlacement(session, pos, gameTime);

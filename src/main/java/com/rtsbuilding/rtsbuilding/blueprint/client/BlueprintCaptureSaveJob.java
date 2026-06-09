@@ -265,4 +265,5 @@ final class BlueprintCaptureSaveJob {
             return new Result(false, "", null, null, messageKey, detail == null ? "" : detail);
         }
     }
+
 }

@@ -15,6 +15,7 @@ import net.minecraft.world.phys.*;
 
 public final class ScreenCursorPicker {
     private static final double BLUEPRINT_AIR_FALLBACK_DISTANCE = 24.0D;
+    private static final double ITEM_AIR_INTERACTION_DISTANCE = 2.0D;
 
     private BuilderScreen screen;
     private ClientRtsController controller;
@@ -76,6 +77,25 @@ public final class ScreenCursorPicker {
                     dir);
         }
         return null;
+    }
+
+    public InteractionTypes.InteractionTarget pickItemAirInteractionTarget() {
+        Minecraft mc = this.screen.getMinecraft();
+        if (mc == null || mc.level == null || mc.player == null || mc.getCameraEntity() == null) {
+            return null;
+        }
+        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 dir = computeCursorRayDirection();
+        BlockHitResult airHit = createItemAirInteractionHit(camPos, dir);
+        if (airHit == null) {
+            return null;
+        }
+        return new InteractionTypes.InteractionTarget(
+                C2SRtsInteractPayload.NO_ENTITY,
+                airHit.getLocation(),
+                airHit,
+                camPos,
+                dir);
     }
 
     public BlockHitResult pickBlockHit() {
@@ -223,6 +243,16 @@ public final class ScreenCursorPicker {
         }
         Vec3 hitVec = camPos.add(dir.scale(t));
         return new BlockHitResult(hitVec, Direction.UP, BlockPos.containing(hitVec), false);
+    }
+
+    private BlockHitResult createItemAirInteractionHit(Vec3 camPos, Vec3 dir) {
+        if (camPos == null || dir == null || dir.lengthSqr() < 1.0E-6D) {
+            return null;
+        }
+        Vec3 normalizedDir = dir.normalize();
+        Vec3 hitVec = camPos.add(normalizedDir.scale(ITEM_AIR_INTERACTION_DISTANCE));
+        Direction face = Direction.getNearest(-normalizedDir.x, -normalizedDir.y, -normalizedDir.z);
+        return new BlockHitResult(hitVec, face, BlockPos.containing(hitVec), false);
     }
 
     private Direction resolveAirShapeFace(Vec3 dir) {

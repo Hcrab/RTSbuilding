@@ -52,6 +52,16 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
         }
     }
 
+    public RtsWindowPanel.ResizeCursor resizeCursorAt(double mouseX, double mouseY) {
+        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
+            RtsWindowPanel.ResizeCursor cursor = this.frontToBackWindows.get(i).currentResizeCursor(mouseX, mouseY);
+            if (cursor != RtsWindowPanel.ResizeCursor.DEFAULT) {
+                return cursor;
+            }
+        }
+        return RtsWindowPanel.ResizeCursor.DEFAULT;
+    }
+
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             if (this.frontToBackWindows.get(i).mouseClicked(mouseX, mouseY, button)) {

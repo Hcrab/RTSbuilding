@@ -84,12 +84,15 @@ public final class RtsPayloadRegistrar {
 
         registerMessage(id++, S2CRtsCameraStatePayload.class, S2CRtsCameraStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleCameraState);
         registerMessage(id++, S2CRtsStoragePagePayload.class, S2CRtsStoragePagePayload.STREAM_CODEC, RtsClientPayloadBridge::handleStoragePage);
+        registerMessage(id++, S2CRtsStorageDirtyPayload.class, S2CRtsStorageDirtyPayload.STREAM_CODEC, RtsClientPayloadBridge::handleStorageDirty);
         registerMessage(id++, S2CRtsRemoteMenuHintPayload.class, S2CRtsRemoteMenuHintPayload.STREAM_CODEC, RtsClientPayloadBridge::handleRemoteMenuHint);
         registerMessage(id++, S2CRtsCraftablesPayload.class, S2CRtsCraftablesPayload.STREAM_CODEC, RtsClientPayloadBridge::handleCraftables);
         registerMessage(id++, S2CRtsCraftFeedbackPayload.class, S2CRtsCraftFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleCraftFeedback);
         registerMessage(id++, S2CRtsDamageFeedbackPayload.class, S2CRtsDamageFeedbackPayload.STREAM_CODEC, RtsClientPayloadBridge::handleDamageFeedback);
         registerMessage(id++, S2CRtsQuestDetectStatusPayload.class, S2CRtsQuestDetectStatusPayload.STREAM_CODEC, RtsClientPayloadBridge::handleQuestDetectStatus);
         registerMessage(id++, S2CRtsMineProgressPayload.class, S2CRtsMineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleMineProgress);
+        registerMessage(id++, S2CRtsPlaceAnimationPayload.class, S2CRtsPlaceAnimationPayload.STREAM_CODEC, RtsClientPayloadBridge::handlePlaceAnimation);
+        registerMessage(id++, S2CRtsBreakAnimationPayload.class, S2CRtsBreakAnimationPayload.STREAM_CODEC, RtsClientPayloadBridge::handleBreakAnimation);
         registerMessage(id++, S2CRtsUltimineProgressPayload.class, S2CRtsUltimineProgressPayload.STREAM_CODEC, RtsClientPayloadBridge::handleUltimineProgress);
         registerMessage(id++, S2CRtsProgressionStatePayload.class, S2CRtsProgressionStatePayload.STREAM_CODEC, RtsClientPayloadBridge::handleProgressionState);
         registerMessage(id++, S2CBlueprintStatusPayload.class, S2CBlueprintStatusPayload.STREAM_CODEC, BlueprintClientPayloadBridge::handleStatus);

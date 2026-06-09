@@ -35,6 +35,7 @@ import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 
@@ -632,7 +633,23 @@ public final class RtsStorageManager {
                 activeFluidHandlers);
         PacketDistributor.sendToPlayer(player, result.payload());
         session.page = result.safePage();
+        session.storageViewDirty = false;
+        PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(false));
         saveSessionToPlayerNbt(player, session);
+    }
+
+    public static void markStorageViewDirty(ServerPlayer player, RtsStorageSession session) {
+        if (player == null || session == null) {
+            return;
+        }
+        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
+            return;
+        }
+        if (session.storageViewDirty) {
+            return;
+        }
+        session.storageViewDirty = true;
+        PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
     }
 
     public static void requestCraftables(ServerPlayer player, String search, boolean showUnavailable, int offset, int limit) {
@@ -693,7 +710,7 @@ public final class RtsStorageManager {
     public static void placeSelected(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
             double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
-            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild) {
+            double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean forceEmptyHand) {
         RtsStoragePlacement.placeSelected(
                 player,
                 player == null ? null : SESSIONS.get(player.getUUID()),
@@ -713,7 +730,8 @@ public final class RtsStorageManager {
                 rayDirX,
                 rayDirY,
                 rayDirZ,
-                quickBuild);
+                quickBuild,
+                forceEmptyHand);
     }
 
     public static void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
@@ -821,6 +839,7 @@ public final class RtsStorageManager {
         BlockState beforeClicked = null;
         BlockPos adjacentPos = null;
         BlockState beforeAdjacent = null;
+        boolean useItemInAir = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR;
 
         if (entityId >= 0) {
             targetEntity = level.getEntity(entityId);
@@ -836,10 +855,12 @@ public final class RtsStorageManager {
                 return;
             }
             effectiveBlockPos = clickedPos.immutable();
-            blockHit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, effectiveBlockPos, false);
-            beforeClicked = level.getBlockState(effectiveBlockPos);
-            adjacentPos = effectiveBlockPos.relative(face);
-            beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+            if (!useItemInAir) {
+                blockHit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, effectiveBlockPos, false);
+                beforeClicked = level.getBlockState(effectiveBlockPos);
+                adjacentPos = effectiveBlockPos.relative(face);
+                beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+            }
         }
 
         InteractionResult result = InteractionResult.PASS;
@@ -848,6 +869,7 @@ public final class RtsStorageManager {
             sendRemoteMenuOpenHint(player, effectiveBlockPos);
         }
         ItemStack toolSnapshot = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT
+                || sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR
                 ? player.getInventory().getItem(clampHotbarSlot(toolSlot)).copy()
                 : ItemStack.EMPTY;
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
@@ -856,8 +878,12 @@ public final class RtsStorageManager {
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
             result = interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
+        } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
+            result = useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
             result = interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
+        } else if (sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND) {
+            result = interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
         }
         AbstractContainerMenu menuAfterInteract = player.containerMenu;
         if (menuAfterInteract != menuBeforeInteract) {
@@ -929,11 +955,22 @@ public final class RtsStorageManager {
                 craftedCount);
     }
 
-    public static void applyJeiTransfer(ServerPlayer player, String recipeId, boolean maxTransfer, boolean clearGridFirst) {
+    public static void applyJeiTransfer(
+            ServerPlayer player,
+            String recipeId,
+            List<ItemStack> ingredientPrototypes,
+            boolean maxTransfer,
+            boolean clearGridFirst) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
             return;
         }
-        RtsStorageCrafting.applyJeiTransfer(player, getOrCreateSession(player), recipeId, maxTransfer, clearGridFirst);
+        RtsStorageCrafting.applyJeiTransfer(
+                player,
+                getOrCreateSession(player),
+                recipeId,
+                ingredientPrototypes,
+                maxTransfer,
+                clearGridFirst);
     }
 
     public static void breakPlaced(ServerPlayer player, BlockPos pos, Direction face, boolean allowAdjacentFallback) {
@@ -1098,7 +1135,7 @@ public final class RtsStorageManager {
     }
 
     public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
-            ItemStack toolPrototype, int requestedLimit, byte mode, boolean protectTool, boolean replaceTool) {
+            ItemStack toolPrototype, int requestedLimit, byte mode) {
         RtsStorageMining.startUltimine(
                 player,
                 SESSIONS.get(player.getUUID()),
@@ -1108,22 +1145,18 @@ public final class RtsStorageManager {
                 toolItemId,
                 toolPrototype,
                 requestedLimit,
-                mode,
-                protectTool,
-                replaceTool);
+                mode);
     }
 
     public static void areaDestroy(ServerPlayer player, List<BlockPos> positions,
-            byte toolSlot, String toolItemId, ItemStack toolPrototype, boolean protectTool, boolean replaceTool) {
+            byte toolSlot, String toolItemId, ItemStack toolPrototype) {
         RtsStorageMining.areaDestroy(
                 player,
                 SESSIONS.get(player.getUUID()),
                 positions,
                 toolSlot,
                 toolItemId,
-                toolPrototype,
-                protectTool,
-                replaceTool);
+                toolPrototype);
     }
 
     private static void tickActiveMining(ServerPlayer player, RtsStorageSession session) {
@@ -1723,6 +1756,54 @@ public final class RtsStorageManager {
             } finally {
                 player.getInventory().selected = previousSelected;
             }
+                });
+    }
+
+    private static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
+            int toolSlot, RayContext rayContext) {
+        int slot = clampHotbarSlot(toolSlot);
+        int previousSelected = player.getInventory().selected;
+        Vec3 fallback = hit == null ? player.getEyePosition() : hit;
+        return withTemporaryUseItemContext(
+                player,
+                fallback,
+                fallback,
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> {
+            player.getInventory().selected = slot;
+            try {
+                return withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
+                        player,
+                        level,
+                        player.getMainHandItem(),
+                        InteractionHand.MAIN_HAND));
+            } finally {
+                player.getInventory().selected = previousSelected;
+            }
+                });
+    }
+
+    private static InteractionResult interactWithEmptyHand(ServerPlayer player, ServerLevel level, Entity targetEntity,
+            BlockHitResult blockHit, Vec3 hit, RayContext rayContext) {
+        Vec3 interactionPos = resolveInteractionPosition(targetEntity, blockHit, hit);
+        return withTemporaryUseItemContext(
+                player,
+                interactionPos,
+                hit,
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> {
+                    if (targetEntity != null) {
+                        return useItemOnEntityWithMainHand(player, level, ItemStack.EMPTY, targetEntity, hit).result();
+                    }
+                    if (blockHit != null) {
+                        UseOnOutcome primary = useItemOnWithMainHand(player, level, ItemStack.EMPTY, blockHit, false);
+                        if (primary.result().consumesAction()) {
+                            return primary.result();
+                        }
+                    }
+                    return useItemWithMainHand(player, level, ItemStack.EMPTY, false).result();
                 });
     }
 

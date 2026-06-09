@@ -882,7 +882,13 @@ final class RtsStorageCrafting {
      * storage page refresh. It does not own JEI integration registration or
      * packet payload shape.
      */
-    static void applyJeiTransfer(ServerPlayer player, RtsStorageSession session, String recipeId, boolean maxTransfer, boolean clearGridFirst) {
+    static void applyJeiTransfer(
+            ServerPlayer player,
+            RtsStorageSession session,
+            String recipeId,
+            List<ItemStack> ingredientPrototypes,
+            boolean maxTransfer,
+            boolean clearGridFirst) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
             return;
         }
@@ -916,6 +922,7 @@ final class RtsStorageCrafting {
         if (required.length != 9) {
             return;
         }
+        ItemStack[] preferredPrototypes = sanitizeIngredientPrototypes(required, ingredientPrototypes);
 
         List<ItemStack> cleared = new ArrayList<>(9);
         if (clearGridFirst) {
@@ -966,7 +973,7 @@ final class RtsStorageCrafting {
                     continue;
                 }
 
-                ItemStack extracted = extractOneMatchingIngredientCombined(handlers, player, ingredient, ItemStack.EMPTY);
+                ItemStack extracted = extractOneMatchingIngredientCombined(handlers, player, ingredient, preferredPrototypes[i]);
                 if (extracted.isEmpty()) {
                     continue;
                 }
@@ -997,6 +1004,29 @@ final class RtsStorageCrafting {
         if (anyInserted) {
             RtsStorageManager.runQuestDetect(player, session, false);
         }
+    }
+
+    private static ItemStack[] sanitizeIngredientPrototypes(Ingredient[] required, List<ItemStack> prototypes) {
+        ItemStack[] sanitized = new ItemStack[9];
+        for (int i = 0; i < sanitized.length; i++) {
+            sanitized[i] = ItemStack.EMPTY;
+        }
+        if (required == null || required.length != 9 || prototypes == null) {
+            return sanitized;
+        }
+        for (int i = 0; i < sanitized.length && i < prototypes.size(); i++) {
+            Ingredient ingredient = required[i];
+            ItemStack prototype = prototypes.get(i);
+            if (ingredient == null || ingredient.isEmpty() || prototype == null || prototype.isEmpty()) {
+                continue;
+            }
+            if (ingredient.test(prototype)) {
+                ItemStack copy = prototype.copy();
+                copy.setCount(1);
+                sanitized[i] = copy;
+            }
+        }
+        return sanitized;
     }
 
     private static CraftExecutionResult craftSingleRecipeToLinked(ServerPlayer player, List<IItemHandler> handlers,

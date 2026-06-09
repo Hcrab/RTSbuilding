@@ -55,6 +55,7 @@ public final class ShapeBuildTypes {
      * @param pointA         first anchor point (origin corner)
      * @param pointB         second anchor point (opposite corner / end)
      * @param boxHeightOffset height offset in blocks (BOX only, 0 otherwise)
+     * @param connectedLine  true when LINE/WALL should fill face-adjacent bridge blocks
      */
     public record Input(
             ClientRtsController.BuildShape shape,
@@ -62,7 +63,8 @@ public final class ShapeBuildTypes {
             Direction placementFace,
             BlockPos pointA,
             BlockPos pointB,
-            int boxHeightOffset) {}
+            int boxHeightOffset,
+            boolean connectedLine) {}
 
     /**
      * Shape build session (immutable, extends the Input concept).

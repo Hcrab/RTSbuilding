@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -11,7 +13,7 @@ import net.minecraftforge.fml.loading.FMLPaths;
  *
  * <p>Blueprint UI code needs names, extensions, and instance-local folders, but
  * the panel itself should not know loader-specific path APIs. This class is the
- * small Forge edge: the NeoForge branch keeps the same helper shape with its own
+ * small NeoForge edge: the Forge branch keeps the same helper shape with its own
  * {@code FMLPaths} import.</p>
  */
 final class BlueprintPanelFiles {
@@ -26,10 +28,26 @@ final class BlueprintPanelFiles {
     }
 
     /**
-     * Returns Create's conventional schematic folder for one-way sync/copy.
+     * Returns common mod-owned blueprint folders for one-way sync/copy into
+     * RTSBuilding's own blueprint folder.
      */
-    static Path createSchematicsFolder() {
-        return FMLPaths.GAMEDIR.get().resolve("schematics");
+    static List<Path> otherModBlueprintFolders() {
+        Path gameDir = FMLPaths.GAMEDIR.get();
+        return List.of(
+                gameDir.resolve("schematics"),
+                gameDir.resolve("buildinggadgets"),
+                gameDir.resolve("buildinggadgets").resolve("templates"),
+                gameDir.resolve("buildinggadgets").resolve("blueprints"),
+                gameDir.resolve("buildinggadgets2"),
+                gameDir.resolve("buildinggadgets2").resolve("templates"),
+                gameDir.resolve("buildinggadgets2").resolve("blueprints"),
+                gameDir.resolve("building_gadgets"),
+                gameDir.resolve("building_gadgets").resolve("templates"),
+                gameDir.resolve("building_gadgets").resolve("blueprints"),
+                gameDir.resolve("templates").resolve("buildinggadgets"),
+                gameDir.resolve("templates").resolve("buildinggadgets2"),
+                gameDir.resolve("blueprints").resolve("buildinggadgets"),
+                gameDir.resolve("blueprints").resolve("buildinggadgets2"));
     }
 
     /**
@@ -70,6 +88,9 @@ final class BlueprintPanelFiles {
         if (lower.endsWith(".litematic")) {
             return clean.substring(0, clean.length() - ".litematic".length());
         }
+        if (lower.endsWith(".json")) {
+            return clean.substring(0, clean.length() - ".json".length());
+        }
         if (lower.endsWith(".nbt")) {
             return clean.substring(0, clean.length() - ".nbt".length());
         }
@@ -89,6 +110,9 @@ final class BlueprintPanelFiles {
         }
         if (lower.endsWith(".litematic")) {
             return "litematic";
+        }
+        if (lower.endsWith(".json")) {
+            return "json";
         }
         if (lower.endsWith(".nbt")) {
             return "nbt";
@@ -166,6 +190,28 @@ final class BlueprintPanelFiles {
     static boolean isBlueprintFile(Path path) {
         String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
         return lower.endsWith(".nbt") || lower.endsWith(".schem") || lower.endsWith(".schematic")
-                || lower.endsWith(".litematic");
+                || lower.endsWith(".litematic") || lower.endsWith(".json");
+    }
+
+    /**
+     * Filters files discovered from other mods. JSON is accepted only when it
+     * looks like a Building Gadgets template, so config files are not copied
+     * into the player's RTS blueprint list by accident.
+     */
+    static boolean isSyncBlueprintFile(Path path) {
+        if (!isBlueprintFile(path)) {
+            return false;
+        }
+        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!lower.endsWith(".json")) {
+            return true;
+        }
+        try {
+            String text = Files.readString(path, StandardCharsets.UTF_8);
+            return text.contains("\"statePosArrayList\"")
+                    || (text.contains("\"header\"") && text.contains("\"body\""));
+        } catch (Exception ex) {
+            return false;
+        }
     }
 }

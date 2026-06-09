@@ -19,6 +19,11 @@ public final class RtsClientPayloadBridge {
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleStoragePage(payload, context));
     }
 
+    public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleStorageDirty(payload, context));
+    }
+
     public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, IPayloadContext context) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleRemoteMenuHint(payload, context));
@@ -47,6 +52,16 @@ public final class RtsClientPayloadBridge {
     public static void handleMineProgress(S2CRtsMineProgressPayload payload, IPayloadContext context) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleMineProgress(payload, context));
+    }
+
+    public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handlePlaceAnimation(payload, context));
+    }
+
+    public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload, IPayloadContext context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientNetworkHandlers.handleBreakAnimation(payload, context));
     }
 
     public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {

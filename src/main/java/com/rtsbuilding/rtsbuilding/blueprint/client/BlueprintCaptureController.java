@@ -26,7 +26,6 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.s
  */
 final class BlueprintCaptureController {
     private boolean active = false;
-    private boolean previewVisible = true;
     private BlockPos pointA = null;
     private BlockPos pointB = null;
     private BlockPos hoverPoint = null;
@@ -65,7 +64,7 @@ final class BlueprintCaptureController {
     }
 
     boolean shouldRenderPreviewFill() {
-        return active && previewVisible && pointB != null;
+        return active && pointB != null;
     }
 
     boolean shouldRenderBlockHighlights(int limit) {
@@ -76,8 +75,8 @@ final class BlueprintCaptureController {
         return volume > 0L && volume <= limit;
     }
 
-    List<BlockPos> includedBlocksForRender(int limit) {
-        if (!shouldRenderBlockHighlights(limit)) {
+    List<BlockPos> includedBlocksForRender(Level level, int limit) {
+        if (level == null || !shouldRenderBlockHighlights(limit)) {
             return List.of();
         }
         long volume = captureVolume(pointA, pointB);
@@ -91,12 +90,17 @@ final class BlueprintCaptureController {
         if (minY > maxY) {
             return List.of();
         }
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int y = minY; y <= maxY; y++) {
             for (int z = minZ; z <= maxZ; z++) {
                 for (int x = minX; x <= maxX; x++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    if (!excludedBlocks.contains(pos)) {
-                        blocks.add(pos);
+                    cursor.set(x, y, z);
+                    if (excludedBlocks.contains(cursor) || !level.hasChunkAt(cursor)) {
+                        continue;
+                    }
+                    BlockState state = level.getBlockState(cursor);
+                    if (!state.isAir() && !state.is(Blocks.STRUCTURE_VOID)) {
+                        blocks.add(cursor.immutable());
                     }
                 }
             }
@@ -139,7 +143,6 @@ final class BlueprintCaptureController {
         pointB = null;
         hoverPoint = null;
         excludedBlocks.clear();
-        previewVisible = true;
         status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_start", "");
     }
 
@@ -212,22 +215,29 @@ final class BlueprintCaptureController {
     }
 
     void moveSelection(int deltaY, StatusSink status) {
+        moveSelection(0, deltaY, 0, status);
+    }
+
+    void moveSelection(int deltaX, int deltaY, int deltaZ, StatusSink status) {
         if (saveJob != null) {
             status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
             return;
         }
-        if (pointA == null || deltaY == 0) {
+        if (pointA == null || (deltaX == 0 && deltaY == 0 && deltaZ == 0)) {
             status.set(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.capture_incomplete", "");
             return;
         }
-        pointA = pointA.offset(0, deltaY, 0);
+        pointA = pointA.offset(deltaX, deltaY, deltaZ);
         if (pointB != null) {
-            pointB = pointB.offset(0, deltaY, 0);
+            pointB = pointB.offset(deltaX, deltaY, deltaZ);
+        }
+        if (hoverPoint != null) {
+            hoverPoint = hoverPoint.offset(deltaX, deltaY, deltaZ);
         }
         if (!excludedBlocks.isEmpty()) {
             Set<BlockPos> moved = new HashSet<>();
             for (BlockPos pos : excludedBlocks) {
-                moved.add(pos.offset(0, deltaY, 0));
+                moved.add(pos.offset(deltaX, deltaY, deltaZ));
             }
             excludedBlocks.clear();
             excludedBlocks.addAll(moved);
@@ -258,12 +268,50 @@ final class BlueprintCaptureController {
                 captureSizeText(pointA, pointB));
     }
 
-    void togglePreviewVisible() {
-        previewVisible = !previewVisible;
+    void resizeSelection(int deltaX, int deltaY, int deltaZ, StatusSink status) {
+        if (pointA == null || pointB == null || (deltaX == 0 && deltaY == 0 && deltaZ == 0)) {
+            status.set(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.capture_incomplete", "");
+            return;
+        }
+        int nextX = Math.max(1, sizeX() + deltaX);
+        int nextY = Math.max(0, sizeY() + deltaY);
+        int nextZ = Math.max(1, sizeZ() + deltaZ);
+        setSelectionSize(nextX, nextY, nextZ, status);
     }
 
-    boolean previewVisible() {
-        return previewVisible;
+    void setSelectionSize(int sizeX, int sizeY, int sizeZ, StatusSink status) {
+        if (saveJob != null) {
+            status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
+            return;
+        }
+        if (pointA == null || pointB == null) {
+            status.set(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.capture_incomplete", "");
+            return;
+        }
+        int minX = Math.min(pointA.getX(), pointB.getX());
+        int minY = Math.min(pointA.getY(), pointB.getY());
+        int minZ = Math.min(pointA.getZ(), pointB.getZ());
+        int nextMaxX = minX + Math.max(1, sizeX) - 1;
+        int nextMaxY = minY + Math.max(0, sizeY);
+        int nextMaxZ = minZ + Math.max(1, sizeZ) - 1;
+        pointA = new BlockPos(minX, minY, minZ);
+        pointB = new BlockPos(nextMaxX, nextMaxY, nextMaxZ);
+        hoverPoint = pointB;
+        excludedBlocks.removeIf(pos -> !isInsideSelection(pointA, pointB, pos));
+        status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_resized",
+                captureSizeText(pointA, pointB));
+    }
+
+    int sizeX() {
+        return pointA == null || pointB == null ? 0 : Math.abs(pointA.getX() - pointB.getX()) + 1;
+    }
+
+    int sizeY() {
+        return pointA == null || pointB == null ? 0 : Math.abs(pointA.getY() - pointB.getY());
+    }
+
+    int sizeZ() {
+        return pointA == null || pointB == null ? 0 : Math.abs(pointA.getZ() - pointB.getZ()) + 1;
     }
 
     String saveStatusLine() {
