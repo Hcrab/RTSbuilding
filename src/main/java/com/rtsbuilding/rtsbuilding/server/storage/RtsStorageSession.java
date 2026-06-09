@@ -177,8 +177,6 @@ public class RtsStorageSession {
     public int ultimineProcessedTargets;
     /** 连锁挖掘是否已吸收掉落物（防止重复收集，由管理器控制） */
     public boolean ultimineAbsorbedDrops;
-    /** Post-break drop absorption jobs. They run after mining visuals have had a tick to flush. */
-    public final Deque<PendingMinedDropAbsorption> pendingMinedDropAbsorptions = new ArrayDeque<>();
     /** 挖掘方向（默认为下） */
     public Direction miningFace = Direction.DOWN;
     /** 当前使用的工具栏格索引 */
@@ -227,9 +225,4 @@ public class RtsStorageSession {
         Arrays.fill(this.quickSlotItemIds, "");
     }
 
-    public record PendingMinedDropAbsorption(BlockPos pos, long dueGameTime) {
-        public PendingMinedDropAbsorption {
-            pos = pos == null ? BlockPos.ZERO : pos.immutable();
-        }
-    }
 }

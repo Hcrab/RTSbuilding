@@ -25,7 +25,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
  * <p>When the player confirms a destructive work area, individual per-block
  * outlines are replaced by a merged-outer-perimeter skeleton for visual
  * clarity. As blocks are destroyed (via {@link #markDestroyed(BlockPos)}),
- * the skeleton incrementally updates to expose newly adjacent faces.
+ * the skeleton incrementally erodes that original outer skeleton instead of
+ * exposing newly adjacent internal faces.
  */
 public final class MergedSkeletonRenderer {
 
@@ -270,10 +271,6 @@ public final class MergedSkeletonRenderer {
             remainingKeys.remove(removedKey);
         }
         collectNoLongerLiveNeighbourTargets(edgeMap, removedKeys, remainingKeys);
-        for (Long removedKey : removedKeys) {
-            BlockPos removedPos = BlockPos.of(removedKey);
-            addNewlyExposedNeighbourContributions(edgeMap, removedPos, remainingKeys);
-        }
         List<BlockPos> fillBlocks = remainingKeys.size() <= MAX_MERGED_FILL_BLOCKS
                 ? buildFillBlocks(remainingKeys)
                 : List.of();
@@ -378,24 +375,6 @@ public final class MergedSkeletonRenderer {
         if (!blockKeys.contains(BlockPos.asLong(x, y - 1, z))) removeFaceEdges(edges, x, y, z, FaceSide.DOWN);
         if (!blockKeys.contains(BlockPos.asLong(x, y, z + 1))) removeFaceEdges(edges, x, y, z, FaceSide.SOUTH);
         if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) removeFaceEdges(edges, x, y, z, FaceSide.NORTH);
-    }
-
-    private static void addNewlyExposedNeighbourContributions(Map<EdgeKey, EdgeAccumulator> edges, BlockPos removedPos,
-            Set<Long> remainingKeys) {
-        int x = removedPos.getX(), y = removedPos.getY(), z = removedPos.getZ();
-        addBlockFaceIfPresent(edges, x + 1, y, z, FaceSide.WEST, remainingKeys);
-        addBlockFaceIfPresent(edges, x - 1, y, z, FaceSide.EAST, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y + 1, z, FaceSide.DOWN, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y - 1, z, FaceSide.UP, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y, z + 1, FaceSide.NORTH, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y, z - 1, FaceSide.SOUTH, remainingKeys);
-    }
-
-    private static void addBlockFaceIfPresent(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z, FaceSide side,
-            Set<Long> blockKeys) {
-        if (blockKeys.contains(BlockPos.asLong(x, y, z))) {
-            addFaceEdges(edges, x, y, z, side);
-        }
     }
 
     private static void addBlockSurfaceContributions(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z,

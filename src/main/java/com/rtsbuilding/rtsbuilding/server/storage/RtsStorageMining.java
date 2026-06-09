@@ -84,10 +84,6 @@ public final class RtsStorageMining {
 
     /** How many ultimine targets are processed in a single tick. */
     private static final int ULTIMINE_BLOCKS_PER_TICK = 8;
-    /** Delay drop absorption so block updates and destroy shrink-out packets can flush first. */
-    private static final long MINED_DROP_ABSORPTION_DELAY_TICKS = 1L;
-    /** Keep deferred storage work small so it does not recreate mining stutter on large packs. */
-    private static final int MINED_DROP_ABSORPTIONS_PER_TICK = 4;
 
     /** Number of hotbar slots a player has (0-8). */
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
@@ -606,7 +602,7 @@ public final class RtsStorageMining {
             removeUltimineTarget(session, pos);
             session.ultimineProcessedTargets = Math.max(session.ultimineProcessedTargets, 1);
             if (canAutoStoreDrops(player, session)) {
-                scheduleMinedDropAbsorption(player, session, pos);
+                absorbMinedDropsImmediately(player, session, pos);
             }
             session.miningPos = null;
             session.miningProgress = 0.0F;
@@ -617,49 +613,11 @@ public final class RtsStorageMining {
 
         clearMineProgress(player, pos);
         if (broken && canAutoStoreDrops(player, session)) {
-            scheduleMinedDropAbsorption(player, session, pos);
+            absorbMinedDropsImmediately(player, session, pos);
         }
         returnMiningTool(player, session, session.miningToolLease);
         markMiningStorageDirty(player, session);
         resetMiningState(session);
-    }
-
-    /**
-     * Runs post-break storage absorption after visible mining has already
-     * completed. Keeping this out of the break-confirmation tick lets the
-     * block update plus destroy shrink-out animation reach the client before
-     * large modpack storage handlers do their slower item insertion work.
-     */
-    public static void tickDeferredMiningWork(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.pendingMinedDropAbsorptions.isEmpty()) {
-            return;
-        }
-        if (hasActiveMiningVisualWork(session)) {
-            return;
-        }
-
-        long now = player.serverLevel().getGameTime();
-        int processed = 0;
-        while (processed < MINED_DROP_ABSORPTIONS_PER_TICK && !session.pendingMinedDropAbsorptions.isEmpty()) {
-            RtsStorageSession.PendingMinedDropAbsorption job = session.pendingMinedDropAbsorptions.peekFirst();
-            if (job == null) {
-                session.pendingMinedDropAbsorptions.removeFirst();
-                continue;
-            }
-            if (job.dueGameTime() > now) {
-                break;
-            }
-            session.pendingMinedDropAbsorptions.removeFirst();
-            processed++;
-            if (!canAutoStoreDrops(player, session)) {
-                continue;
-            }
-            boolean absorbed = absorbNearbyMinedDrops(player, job.pos(), session);
-            if (absorbed) {
-                RtsStorageManager.runQuestDetect(player, session, false);
-                markMiningStorageDirty(player, session);
-            }
-        }
     }
 
     /**
@@ -743,7 +701,8 @@ public final class RtsStorageMining {
             broken = withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
         }
         if (broken) {
-            sendBreakAnimation(player, pos, beforeState);
+            BlockState resultState = player.serverLevel().getBlockState(pos);
+            sendBreakAnimation(player, pos, beforeState, resultState);
             RtsPlacementSound.playRemoteBlockBreakSound(player, player.serverLevel(), pos);
         }
         return broken;
@@ -862,7 +821,7 @@ public final class RtsStorageMining {
             }
             boolean targetBroken = destroyMinedBlock(player, session, target, session.miningToolSlot);
             if (targetBroken && canAutoStoreDrops(player, session)) {
-                scheduleMinedDropAbsorption(player, session, target);
+                absorbMinedDropsImmediately(player, session, target);
             }
             if (targetBroken && isToolNearBreak(player, session)) {
                 finishUltimineBatch(player, session);
@@ -894,9 +853,7 @@ public final class RtsStorageMining {
 
     /**
      * Finalises an ultimine batch: clears progress, returns the borrowed tool,
-     * schedules a storage page refresh, and resets the mining state. Deferred
-     * auto-store jobs trigger quest detection when their later insertion
-     * actually absorbs drops.
+     * marks the storage page dirty, and resets the mining state.
      */
     private static void finishUltimineBatch(ServerPlayer player, RtsStorageSession session) {
         sendUltimineProgress(player, -1, 0);
@@ -1339,13 +1296,13 @@ public final class RtsStorageMining {
         return changed;
     }
 
-    private static void scheduleMinedDropAbsorption(ServerPlayer player, RtsStorageSession session, BlockPos pos) {
+    private static void absorbMinedDropsImmediately(ServerPlayer player, RtsStorageSession session, BlockPos pos) {
         if (player == null || session == null || pos == null) {
             return;
         }
-        long dueGameTime = player.serverLevel().getGameTime() + MINED_DROP_ABSORPTION_DELAY_TICKS;
-        session.pendingMinedDropAbsorptions.addLast(
-                new RtsStorageSession.PendingMinedDropAbsorption(pos, dueGameTime));
+        if (absorbNearbyMinedDrops(player, pos, session)) {
+            RtsStorageManager.runQuestDetect(player, session, false);
+        }
     }
 
     // =========================================================================
@@ -1359,11 +1316,11 @@ public final class RtsStorageMining {
         PacketDistributor.sendToPlayer(player, new S2CRtsMineProgressPayload(pos, (byte) stage));
     }
 
-    private static void sendBreakAnimation(ServerPlayer player, BlockPos pos, BlockState state) {
+    private static void sendBreakAnimation(ServerPlayer player, BlockPos pos, BlockState state, BlockState resultState) {
         if (player == null || pos == null) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsBreakAnimationPayload(pos.immutable(), state));
+        PacketDistributor.sendToPlayer(player, new S2CRtsBreakAnimationPayload(pos.immutable(), state, resultState));
     }
 
     private static void sendUltimineProgress(ServerPlayer player, int processed, int total) {
@@ -1410,13 +1367,6 @@ public final class RtsStorageMining {
     private static boolean canAutoStoreDrops(ServerPlayer player, RtsStorageSession session) {
         return session.autoStoreMinedDrops
                 && RtsProgressionManager.canUse(player, RtsFeature.AUTO_STORE_MINED_DROPS);
-    }
-
-    private static boolean hasActiveMiningVisualWork(RtsStorageSession session) {
-        return session != null
-                && (session.miningPos != null
-                        || session.ultimineProgressPos != null
-                        || !session.ultimineTargets.isEmpty());
     }
 
     private static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session) {

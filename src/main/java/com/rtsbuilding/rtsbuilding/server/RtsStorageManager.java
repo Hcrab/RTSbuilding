@@ -241,7 +241,6 @@ public final class RtsStorageManager {
             }
             Session session = entry.getValue();
             tickActiveMining(player, session);
-            RtsStorageMining.tickDeferredMiningWork(player, session);
             tickFunnel(player, session);
             tickPlacedRecoveryJobs(player, session);
         }

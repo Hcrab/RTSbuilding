@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.input;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import net.minecraft.client.Minecraft;
@@ -27,6 +28,7 @@ public final class ClientInputHandler {
 
     @SubscribeEvent
     public static void onClientTickPost(ClientTickEvent.Post event) {
+        ClientFakeAirBlocks.tick();
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
             toggleKeyWasDown = false;
