@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Builds read-only client packet/UI snapshots from an RTS storage session.
@@ -38,6 +39,16 @@ public final class RtsStorageUiPayloads {
             quickSlotItemIds.add(itemId == null || itemId.isEmpty() ? "" : itemId);
         }
         return quickSlotItemIds;
+    }
+
+    public static List<ItemStack> buildQuickSlotPreviewPayload(RtsStorageSession session, int quickSlotCount) {
+        List<ItemStack> quickSlotPreviews = new ArrayList<>(quickSlotCount);
+        ItemStack[] source = session == null ? null : session.quickSlotPreviews;
+        for (int i = 0; i < quickSlotCount; i++) {
+            ItemStack preview = source == null || i >= source.length ? ItemStack.EMPTY : source[i];
+            quickSlotPreviews.add(preview == null || preview.isEmpty() ? ItemStack.EMPTY : preview.copyWithCount(1));
+        }
+        return quickSlotPreviews;
     }
 
     /**

@@ -130,10 +130,12 @@ class RtsStorageSession {
      */
     final Deque<RecentEntry> recentEntries = new ArrayDeque<>();
     final String[] quickSlotItemIds = new String[RtsStorageManager.QUICK_SLOT_COUNT];
+    final ItemStack[] quickSlotPreviews = new ItemStack[RtsStorageManager.QUICK_SLOT_COUNT];
     final GuiBinding[] guiBindings = new GuiBinding[RtsStorageManager.GUI_BINDING_SLOT_COUNT];
 
     RtsStorageSession() {
         Arrays.fill(this.quickSlotItemIds, "");
+        Arrays.fill(this.quickSlotPreviews, ItemStack.EMPTY);
     }
 }
 

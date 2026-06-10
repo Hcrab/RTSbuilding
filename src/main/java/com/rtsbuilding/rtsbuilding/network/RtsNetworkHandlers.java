@@ -98,7 +98,7 @@ public final class RtsNetworkHandlers {
     public static void handleSetQuickSlot(C2SRtsSetQuickSlotPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsStorageManager.setQuickSlot(serverPlayer, payload.slot(), payload.itemId());
+                RtsStorageManager.setQuickSlot(serverPlayer, payload.slot(), payload.itemId(), payload.previewStack());
             }
         });
     }

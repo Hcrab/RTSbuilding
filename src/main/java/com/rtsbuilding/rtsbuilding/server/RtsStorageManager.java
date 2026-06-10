@@ -397,9 +397,9 @@ public final class RtsStorageManager {
         runQuestDetect(player, session, false);
     }
 
-    public static void setQuickSlot(ServerPlayer player, byte slotId, String itemId) {
+    public static void setQuickSlot(ServerPlayer player, byte slotId, String itemId, ItemStack previewStack) {
         Session session = getOrCreateSession(player);
-        applyBindingUpdate(player, session, RtsStorageBindings.setQuickSlot(session, slotId, itemId));
+        applyBindingUpdate(player, session, RtsStorageBindings.setQuickSlot(session, slotId, itemId, previewStack));
     }
 
     public static void setGuiBinding(ServerPlayer player, byte slotId, boolean clear, BlockPos pos, Direction face, String itemIdHint) {
@@ -940,6 +940,14 @@ public final class RtsStorageManager {
 
     public static void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu, ItemStack[] blueprint) {
         RtsStorageCrafting.refillCraftGridFromLinked(player, SESSIONS.get(player.getUUID()), craftingMenu, blueprint);
+    }
+
+    public static void refillCraftGridFromLinked(
+            ServerPlayer player,
+            CraftingMenu craftingMenu,
+            ItemStack[] blueprint,
+            CraftingRecipe recipe) {
+        RtsStorageCrafting.refillCraftGridFromLinked(player, SESSIONS.get(player.getUUID()), craftingMenu, blueprint, recipe);
     }
 
     public static void refillCurrentCraftGridFromBlueprintIds(

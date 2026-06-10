@@ -12,6 +12,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
 /**
@@ -53,6 +54,7 @@ final class RtsStorageSessionCodec {
     private static final String NBT_QUICK_SLOTS = "quick_slots";
     private static final String NBT_QUICK_SLOT_INDEX = "slot";
     private static final String NBT_QUICK_SLOT_ITEM_ID = "item_id";
+    private static final String NBT_QUICK_SLOT_PREVIEW = "preview";
     private static final String NBT_GUI_BINDINGS = "gui_bindings";
     private static final String NBT_GUI_BINDING_SLOT = "slot";
     private static final String NBT_GUI_BINDING_POS = "pos";
@@ -209,6 +211,7 @@ final class RtsStorageSessionCodec {
 
     private static void loadQuickSlots(RtsStorageSession session, CompoundTag root) {
         Arrays.fill(session.quickSlotItemIds, "");
+        Arrays.fill(session.quickSlotPreviews, ItemStack.EMPTY);
         ListTag quickSlots = root.getList(NBT_QUICK_SLOTS, Tag.TAG_COMPOUND);
         for (int i = 0; i < quickSlots.size(); i++) {
             CompoundTag quickSlotTag = quickSlots.getCompound(i);
@@ -222,6 +225,12 @@ final class RtsStorageSessionCodec {
                 continue;
             }
             session.quickSlotItemIds[slot] = itemId;
+            if (quickSlotTag.contains(NBT_QUICK_SLOT_PREVIEW, Tag.TAG_COMPOUND)) {
+                ItemStack preview = ItemStack.of(quickSlotTag.getCompound(NBT_QUICK_SLOT_PREVIEW));
+                if (!preview.isEmpty() && BuiltInRegistries.ITEM.getKey(preview.getItem()).toString().equals(itemId)) {
+                    session.quickSlotPreviews[slot] = preview.copyWithCount(1);
+                }
+            }
         }
     }
 
@@ -334,6 +343,10 @@ final class RtsStorageSessionCodec {
             CompoundTag quickSlotTag = new CompoundTag();
             quickSlotTag.putInt(NBT_QUICK_SLOT_INDEX, i);
             quickSlotTag.putString(NBT_QUICK_SLOT_ITEM_ID, itemId);
+            ItemStack preview = i < session.quickSlotPreviews.length ? session.quickSlotPreviews[i] : ItemStack.EMPTY;
+            if (preview != null && !preview.isEmpty()) {
+                quickSlotTag.put(NBT_QUICK_SLOT_PREVIEW, preview.copyWithCount(1).save(new CompoundTag()));
+            }
             quickSlots.add(quickSlotTag);
         }
         root.put(NBT_QUICK_SLOTS, quickSlots);

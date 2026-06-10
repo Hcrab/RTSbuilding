@@ -96,7 +96,7 @@ final class RtsStorageBindings {
      * Updates one fixed quick-slot cell. Blank/null item ids clear the slot;
      * nonblank ids must parse to a registered item before the session changes.
      */
-    static UpdateResult setQuickSlot(RtsStorageSession session, byte slotId, String itemId) {
+    static UpdateResult setQuickSlot(RtsStorageSession session, byte slotId, String itemId, ItemStack previewStack) {
         if (session == null) {
             return UpdateResult.none();
         }
@@ -114,11 +114,18 @@ final class RtsStorageBindings {
             normalized = itemId;
         }
 
-        if (normalized.equals(session.quickSlotItemIds[slot])) {
+        ItemStack normalizedPreview = ItemStack.EMPTY;
+        if (!normalized.isBlank() && previewStack != null && !previewStack.isEmpty()) {
+            normalizedPreview = previewStack.copyWithCount(1);
+        }
+
+        if (normalized.equals(session.quickSlotItemIds[slot])
+                && ItemStack.isSameItemSameTags(normalizedPreview, session.quickSlotPreviews[slot])) {
             return UpdateResult.none();
         }
 
         session.quickSlotItemIds[slot] = normalized;
+        session.quickSlotPreviews[slot] = normalizedPreview;
         return UpdateResult.refreshCurrent(session, true);
     }
 

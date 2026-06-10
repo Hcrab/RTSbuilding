@@ -805,6 +805,15 @@ final class RtsStorageCrafting {
      * {@link RtsStorageTransfers}.
      */
     static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session, CraftingMenu craftingMenu, ItemStack[] blueprint) {
+        refillCraftGridFromLinked(player, session, craftingMenu, blueprint, null);
+    }
+
+    static void refillCraftGridFromLinked(
+            ServerPlayer player,
+            RtsStorageSession session,
+            CraftingMenu craftingMenu,
+            ItemStack[] blueprint,
+            CraftingRecipe recipe) {
         if (session == null || craftingMenu == null || blueprint == null || blueprint.length != 9) {
             return;
         }
@@ -822,7 +831,8 @@ final class RtsStorageCrafting {
             handlers.add(linked.handler());
         }
 
-        refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, false, true);
+        Ingredient[] ingredients = recipe == null ? null : mapCraftingIngredients(recipe);
+        refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
         craftingMenu.broadcastChanges();
         RtsStorageManager.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
     }
@@ -1311,6 +1321,11 @@ final class RtsStorageCrafting {
      */
     static void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
+        refillCraftGridFromBlueprint(menu, handlers, player, blueprint, null, fillAll, includePlayerFallback);
+    }
+
+    static void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            ItemStack[] blueprint, Ingredient[] ingredients, boolean fillAll, boolean includePlayerFallback) {
         if (blueprint == null || blueprint.length != 9) {
             return;
         }
@@ -1321,22 +1336,28 @@ final class RtsStorageCrafting {
             boolean inserted = false;
             for (int i = 0; i < 9; i++) {
                 ItemStack blueprintStack = blueprint[i];
-                if (blueprintStack == null || blueprintStack.isEmpty()) {
+                Ingredient ingredient = ingredients != null && i < ingredients.length ? ingredients[i] : Ingredient.EMPTY;
+                boolean hasBlueprint = blueprintStack != null && !blueprintStack.isEmpty();
+                boolean hasIngredient = ingredient != null && !ingredient.isEmpty();
+                if (!hasBlueprint && !hasIngredient) {
                     continue;
                 }
                 Slot grid = menu.getSlot(1 + i);
                 ItemStack current = grid.getItem();
                 if (!current.isEmpty()) {
-                    if (!ItemStack.isSameItemSameTags(current, blueprintStack)) {
+                    if (hasIngredient ? !ingredient.test(current) : !ItemStack.isSameItemSameTags(current, blueprintStack)) {
                         continue;
                     }
                     if (current.getCount() >= current.getMaxStackSize()) {
                         continue;
                     }
                     ItemStack extracted = includePlayerFallback
-                            ? RtsStorageTransfers.extractOneMatchingPrototypeCombined(handlers, player, blueprintStack)
-                            : RtsStorageTransfers.extractOneMatchingPrototypeFromLinked(handlers, blueprintStack);
-                    if (extracted.isEmpty()) {
+                            ? RtsStorageTransfers.extractOneMatchingPrototypeCombined(handlers, player, current)
+                            : RtsStorageTransfers.extractOneMatchingPrototypeFromLinked(handlers, current);
+                    if (extracted.isEmpty() || !ItemStack.isSameItemSameTags(current, extracted)) {
+                        if (!extracted.isEmpty()) {
+                            RtsStorageTransfers.storeToLinkedWithFallbackPreferExisting(handlers, player, extracted);
+                        }
                         continue;
                     }
                     current.grow(1);
@@ -1346,9 +1367,12 @@ final class RtsStorageCrafting {
                     continue;
                 }
 
-                ItemStack extracted = includePlayerFallback
-                        ? RtsStorageTransfers.extractOneMatchingPrototypeCombined(handlers, player, blueprintStack)
-                        : RtsStorageTransfers.extractOneMatchingPrototypeFromLinked(handlers, blueprintStack);
+                ItemStack extracted = extractCraftGridRefillStack(
+                        handlers,
+                        player,
+                        hasIngredient ? ingredient : Ingredient.EMPTY,
+                        hasBlueprint ? blueprintStack : ItemStack.EMPTY,
+                        includePlayerFallback);
                 if (extracted.isEmpty()) {
                     continue;
                 }
@@ -1368,6 +1392,29 @@ final class RtsStorageCrafting {
         if (changed) {
             refreshCraftingResult(menu);
         }
+    }
+
+    private static ItemStack extractCraftGridRefillStack(
+            List<IItemHandler> handlers,
+            ServerPlayer player,
+            Ingredient ingredient,
+            ItemStack preferred,
+            boolean includePlayerFallback) {
+        boolean hasIngredient = ingredient != null && !ingredient.isEmpty();
+        if (hasIngredient) {
+            ItemStack extracted = includePlayerFallback
+                    ? extractOneMatchingIngredientCombined(handlers, player, ingredient, preferred)
+                    : extractOneMatchingIngredient(handlers, ingredient, preferred);
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
+        }
+        if (preferred == null || preferred.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        return includePlayerFallback
+                ? RtsStorageTransfers.extractOneMatchingPrototypeCombined(handlers, player, preferred)
+                : RtsStorageTransfers.extractOneMatchingPrototypeFromLinked(handlers, preferred);
     }
 
     private static void refreshCraftingResult(CraftingMenu menu) {

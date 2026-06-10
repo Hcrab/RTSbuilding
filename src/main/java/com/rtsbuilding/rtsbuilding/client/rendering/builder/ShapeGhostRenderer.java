@@ -360,9 +360,6 @@ public final class ShapeGhostRenderer {
             remainingKeys.remove(removedKey);
         }
         collectNoLongerLiveNeighbourTargets(edgeMap, removedKeys, remainingKeys);
-        for (Long removedKey : removedKeys) {
-            addNewlyExposedNeighbourContributions(edgeMap, BlockPos.of(removedKey), remainingKeys);
-        }
         List<BlockPos> fillBlocks = remainingKeys.size() <= MAX_MERGED_FILL_BLOCKS
                 ? buildFillBlocks(remainingKeys)
                 : List.of();
@@ -682,26 +679,6 @@ public final class ShapeGhostRenderer {
         }
         if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) {
             removeFaceEdges(edges, x, y, z, FaceSide.NORTH);
-        }
-    }
-
-    private static void addNewlyExposedNeighbourContributions(Map<EdgeKey, EdgeAccumulator> edges, BlockPos removedPos,
-            Set<Long> remainingKeys) {
-        int x = removedPos.getX();
-        int y = removedPos.getY();
-        int z = removedPos.getZ();
-        addBlockFaceIfPresent(edges, x + 1, y, z, FaceSide.WEST, remainingKeys);
-        addBlockFaceIfPresent(edges, x - 1, y, z, FaceSide.EAST, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y + 1, z, FaceSide.DOWN, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y - 1, z, FaceSide.UP, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y, z + 1, FaceSide.NORTH, remainingKeys);
-        addBlockFaceIfPresent(edges, x, y, z - 1, FaceSide.SOUTH, remainingKeys);
-    }
-
-    private static void addBlockFaceIfPresent(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z, FaceSide side,
-            Set<Long> blockKeys) {
-        if (blockKeys.contains(BlockPos.asLong(x, y, z))) {
-            addFaceEdges(edges, x, y, z, side);
         }
     }
 

@@ -221,14 +221,13 @@ final class RtsStorageMining {
         }
 
         session.miningProgress += step;
-        int stage = Math.min(9, (int) (session.miningProgress * 10.0F));
-        if (stage != session.miningStage) {
-            level.destroyBlockProgress(player.getId(), pos, stage);
-            sendMineProgress(player, pos, stage);
-            session.miningStage = stage;
-        }
-
         if (session.miningProgress < 1.0F) {
+            int stage = visibleMiningStage(session.miningProgress);
+            if (stage != session.miningStage) {
+                level.destroyBlockProgress(player.getId(), pos, stage);
+                sendMineProgress(player, pos, stage);
+                session.miningStage = stage;
+            }
             return;
         }
 
@@ -543,7 +542,8 @@ final class RtsStorageMining {
             broken = withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
         }
         if (broken && !beforeState.isAir()) {
-            PacketDistributor.sendToPlayer(player, new S2CRtsBreakAnimationPayload(pos.immutable(), beforeState));
+            BlockState resultState = player.serverLevel().getBlockState(pos);
+            PacketDistributor.sendToPlayer(player, new S2CRtsBreakAnimationPayload(pos.immutable(), beforeState, resultState));
         }
         return broken;
     }
@@ -700,6 +700,14 @@ final class RtsStorageMining {
         }
         return destroyStep;
     }
+
+    private static int visibleMiningStage(float progress) {
+        if (progress <= 0.0F) {
+            return 0;
+        }
+        return Math.max(0, Math.min(8, (int) (progress * 10.0F)));
+    }
+
     private static <T> T withTemporarySelectedSlot(ServerPlayer player, int toolSlot, Supplier<T> action) {
         int slot = clampHotbarSlot(toolSlot);
         int prevSelected = player.getInventory().selected;

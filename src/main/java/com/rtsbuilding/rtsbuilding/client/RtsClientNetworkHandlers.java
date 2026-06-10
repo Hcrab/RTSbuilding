@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.network.S2CRtsBreakAnimationPayload;
@@ -68,6 +69,7 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
+            ClientFakeAirBlocks.hideUntilServerState(payload.pos(), payload.state(), payload.resultState());
             PlacementAnimationRenderer.addDestroy(payload.pos(), payload.state());
             ShapeGhostRenderer.markDestroyed(payload.pos());
         });
