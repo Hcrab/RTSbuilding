@@ -1,16 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
+
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 
 import java.util.List;
 
 /**
- * 蓝图虚影预览数据。
+ * 钃濆浘铏氬奖棰勮鏁版嵁銆?
  * <p>
- * 用于在世界上渲染蓝图放置的预览方块，
- * 包含预览方块列表、材料是否就绪、是否被截断等信息。
+ * 鐢ㄤ簬鍦ㄤ笘鐣屼笂娓叉煋钃濆浘鏀剧疆鐨勯瑙堟柟鍧楋紝
+ * 鍖呭惈棰勮鏂瑰潡鍒楄〃銆佹潗鏂欐槸鍚﹀氨缁€佹槸鍚﹁鎴柇绛変俊鎭€?
  */
 public record BlueprintGhostPreview(List<BlueprintPanel.BlueprintGhostBlock> blocks, boolean materialsReady, boolean truncated) {
-    /** 空预览常量 */
+    /** 绌洪瑙堝父閲?*/
     public static final BlueprintGhostPreview EMPTY = new BlueprintGhostPreview(List.of(), false, false);
 }

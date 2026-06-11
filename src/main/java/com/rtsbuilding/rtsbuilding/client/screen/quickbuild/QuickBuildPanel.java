@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
@@ -15,6 +16,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -35,14 +37,23 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
 public final class QuickBuildPanel extends RtsWindowPanel {
     private static final int RIGHT_COL_X = 88;
     private static final int SHAPE_ROW_PITCH = QUICK_BUILD_SHAPE_SLOT + 6;
-    private static final int BOTTOM_INFO_H = 30;
+    private static final int BOTTOM_INFO_H = 52;
+    private static final int BOTTOM_TEXT_MAX_LINES = 3;
     private static final int MODE_TOGGLE_H = 18;
     private static final int MODE_TOGGLE_GAP = 4;
     private static final int SHAPE_TOP = 45;
     private static final int FILL_BUTTON_H = 20;
+    private static final ResourceLocation SELECTION_DOT_TEXTURE =
+            ResourceLocation.tryParse("rtsbuilding:textures/gui/general/mode_button.png");
+    private static final int SHAPE_SHEET_W = 450;
+    private static final int SHAPE_SHEET_H = 900;
+    private static final int SHAPE_STATE_H = 450;
     private static final int CHAIN_SHEET_W = 450;
     private static final int CHAIN_SHEET_H = 900;
     private static final int CHAIN_STATE_H = 450;
+    private static final int MODE_BUTTON_SHEET_W = 512;
+    private static final int MODE_BUTTON_STATE_H = 512;
+    private static final int MODE_BUTTON_SHEET_H = MODE_BUTTON_STATE_H * 3;
 
     private static final ClientRtsController.BuildShape[] SHAPES = {
             ClientRtsController.BuildShape.BLOCK,
@@ -75,8 +86,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        int base = mode == Mode.DESTROY ? 262 : QUICK_BUILD_PANEL_H;
-        this.windowHeight = base + (shouldShowBottomInfo() ? BOTTOM_INFO_H : 0);
+        this.windowHeight = currentBasePanelHeight() + (shouldShowBottomInfo() ? BOTTOM_INFO_H : 0);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -112,7 +122,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private void renderModeButtons(GuiGraphics g, int mouseX, int mouseY) {
         int x = this.windowX + 8;
         int y = contentY() + 5;
-        int w = (this.windowWidth - 20 - MODE_TOGGLE_GAP) / 2;
+        int w = modeButtonWidth();
         renderButton(g, mouseX, mouseY, x, y, w, MODE_TOGGLE_H,
                 screen.text("screen.rtsbuilding.quick_build.mode_build"), mode == Mode.BUILD);
         renderButton(g, mouseX, mouseY, x + w + MODE_TOGGLE_GAP, y, w, MODE_TOGGLE_H,
@@ -178,25 +188,24 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 rightX, titleY, 0xD8E3EE, false);
         List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
         for (int i = 0; i < modes.size(); i++) {
-            int rowY = contentY() + SHAPE_TOP + (i * FILL_BUTTON_H);
+            int rowY = contentY() + SHAPE_TOP + (i * SHAPE_ROW_PITCH);
             ShapeBuildTypes.ShapeFillMode fillMode = modes.get(i);
             boolean selected = screen.getShapeFillMode() == fillMode;
             renderFillModeButton(g, mouseX, mouseY, rightX, rowY, fillMode, selected);
         }
-        int nextY = contentY() + SHAPE_TOP + (modes.size() * FILL_BUTTON_H) + 8;
+        int nextY = contentY() + SHAPE_TOP + (modes.size() * SHAPE_ROW_PITCH);
         if (isLineOrWallShape()) {
             renderConnectToggle(g, mouseX, mouseY, rightX, nextY);
-            nextY += FILL_BUTTON_H + 8;
-        }
-        if (mode != Mode.DESTROY) {
-            renderRotationControls(g, mouseX, mouseY, rightX, contentY() + 134);
         }
     }
 
     private void renderConnectToggle(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
+        boolean connected = screen.getShapeController().isLineConnected();
+        boolean hover = inside(mouseX, mouseY, x, y, 84, FILL_BUTTON_H);
         renderButton(g, mouseX, mouseY, x, y, 84, FILL_BUTTON_H,
                 screen.text("screen.rtsbuilding.quick_build.connect"),
-                screen.getShapeController().isLineConnected());
+                connected);
+        renderSelectionDot(g, x + 2, y + 2, connected, hover);
     }
 
     private void renderFillModeButton(GuiGraphics g, int mouseX, int mouseY, int x, int y,
@@ -204,11 +213,27 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         boolean hover = inside(mouseX, mouseY, x, y, 84, FILL_BUTTON_H);
         int bg = selected ? 0xAA2D6B47 : (hover ? 0xAA243547 : 0xAA1C232D);
         RtsClientUiUtil.drawPanelFrame(g, x, y, 84, FILL_BUTTON_H, bg, 0xFF647B92, 0xFF0D1117);
-        g.fill(x + 4, y + 5, x + 12, y + 13, 0xAA111820);
-        if (selected) {
-            g.fill(x + 6, y + 7, x + 10, y + 11, 0xFF78B28C);
-        }
-        g.drawString(screen.font(), screen.fillModeLabel(fillMode), x + 18, y + 6, 0xF2F7FF, false);
+        renderSelectionDot(g, x + 2, y + 2, selected, hover);
+        g.drawString(screen.font(), screen.fillModeLabel(fillMode), x + 22, y + 6, 0xF2F7FF, false);
+    }
+
+    private void renderSelectionDot(GuiGraphics g, int x, int y, boolean selected, boolean hover) {
+        int vOffset = selected ? MODE_BUTTON_STATE_H * 2 : (hover ? MODE_BUTTON_STATE_H : 0);
+        RtsTextureRenderer.drawTextureHighPrecision(
+                g,
+                SELECTION_DOT_TEXTURE,
+                x,
+                y,
+                16,
+                16,
+                0,
+                vOffset,
+                MODE_BUTTON_SHEET_W,
+                MODE_BUTTON_STATE_H,
+                MODE_BUTTON_SHEET_W,
+                MODE_BUTTON_SHEET_H,
+                0,
+                0xFFFFFFFF);
     }
 
     private void renderChainLimitControls(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
@@ -227,16 +252,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderRotationControls(GuiGraphics g, int mouseX, int mouseY, int rightX, int rotY) {
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.rotation"),
-                rightX, rotY, 0xD8E3EE, false);
-        renderButton(g, mouseX, mouseY, rightX, rotY + 10, 20, 18, "-", false);
-        RtsClientUiUtil.drawPanelFrame(g, rightX + 24, rotY + 10, 56, 18, 0xAA1C232D, 0xFF647B92, 0xFF0D1117);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), screen.getShapeRotateDegrees() + "deg",
-                rightX + 52, rotY + 15, 0xF2F7FF);
-        renderButton(g, mouseX, mouseY, rightX + 84, rotY + 10, 20, 18, "+", false);
-    }
-
     private void renderButton(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h, String label, boolean active) {
         boolean hover = inside(mouseX, mouseY, x, y, w, h);
         int bg = active ? 0xAA2D6B47 : (hover ? 0xAA243547 : 0xAA1C232D);
@@ -250,16 +265,16 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             return;
         }
         int x = this.windowX;
-        int dividerY = this.windowY + (mode == Mode.DESTROY ? 262 : QUICK_BUILD_PANEL_H);
+        int dividerY = this.windowY + currentBasePanelHeight();
         g.fill(x + 6, dividerY - 1, x + this.windowWidth - 6, dividerY, 0xFF647B92);
-        int centerY = dividerY + BOTTOM_INFO_H / 2;
-        int textY = centerY - screen.font().lineHeight / 2;
-        int itemY = centerY - 8;
+        int textY = dividerY + 12;
+        int itemY = textY - 4;
         if (mode == Mode.DESTROY) {
             String hintKey = isRangeDestroyChainMode()
                     ? "screen.rtsbuilding.quick_build.chain_hint"
                     : "screen.rtsbuilding.quick_build.destroy_hint";
-            g.drawString(screen.font(), screen.text(hintKey), x + 8, textY, 0xFFB8B8, false);
+            renderBottomInfoText(g, Component.translatable(hintKey),
+                    x + 8, textY, this.windowWidth - 16, 0xFFB8B8);
             return;
         }
         String costText = "x " + screen.currentShapeCostText();
@@ -277,6 +292,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
     }
 
+    private void renderBottomInfoText(GuiGraphics g, Component text, int x, int y, int maxWidth, int color) {
+        List<FormattedCharSequence> lines = screen.font().split(text, Math.max(1, maxWidth));
+        int lineCount = Math.min(BOTTOM_TEXT_MAX_LINES, lines.size());
+        for (int i = 0; i < lineCount; i++) {
+            g.drawString(screen.font(), lines.get(i), x, y + i * screen.font().lineHeight, color, false);
+        }
+    }
+
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -284,7 +307,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
         int modeX = this.windowX + 8;
         int modeY = contentY() + 5;
-        int modeW = (this.windowWidth - 20 - MODE_TOGGLE_GAP) / 2;
+        int modeW = modeButtonWidth();
         if (inside(mouseX, mouseY, modeX, modeY, modeW, MODE_TOGGLE_H)) {
             this.mode = Mode.BUILD;
             screen.clearShapeBuildSession();
@@ -337,29 +360,18 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
         List<ShapeBuildTypes.ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(this.controller.getBuildShape());
         for (int i = 0; i < modes.size(); i++) {
-            int rowY = contentY() + SHAPE_TOP + (i * FILL_BUTTON_H);
+            int rowY = contentY() + SHAPE_TOP + (i * SHAPE_ROW_PITCH);
             if (inside(mouseX, mouseY, rightX, rowY, 84, FILL_BUTTON_H)) {
                 screen.setShapeFillMode(modes.get(i));
                 screen.persistUiState();
                 return;
             }
         }
-        int connectY = contentY() + SHAPE_TOP + (modes.size() * FILL_BUTTON_H) + 8;
+        int connectY = contentY() + SHAPE_TOP + (modes.size() * SHAPE_ROW_PITCH);
         if (isLineOrWallShape() && inside(mouseX, mouseY, rightX, connectY, 84, FILL_BUTTON_H)) {
             screen.getShapeController().setLineConnected(!screen.getShapeController().isLineConnected());
             screen.persistUiState();
             return;
-        }
-        if (mode == Mode.DESTROY) {
-            return;
-        }
-        int rotY = contentY() + 134;
-        if (inside(mouseX, mouseY, rightX, rotY + 10, 20, 18)) {
-            screen.rotateShapeByStep(-1);
-            return;
-        }
-        if (inside(mouseX, mouseY, rightX + 84, rotY + 10, 20, 18)) {
-            screen.rotateShapeByStep(1);
         }
     }
 
@@ -465,6 +477,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return contentY() + SHAPE_TOP + (row * SHAPE_ROW_PITCH);
     }
 
+    private int currentBasePanelHeight() {
+        return mode == Mode.DESTROY ? QUICK_BUILD_PANEL_H + SHAPE_ROW_PITCH : QUICK_BUILD_PANEL_H;
+    }
+
+    private int modeButtonWidth() {
+        return (this.windowWidth - 16 - MODE_TOGGLE_GAP) / 2;
+    }
+
     private boolean shouldShowBottomInfo() {
         if (mode == Mode.DESTROY) {
             return true;
@@ -514,14 +534,29 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private void drawShapeTexture(GuiGraphics g, ClientRtsController.BuildShape shape, String state, int x, int y) {
         ResourceLocation texture = switch (shape) {
-            case BLOCK -> "active".equals(state) ? SHAPE_BLOCK_ACTIVE : ("hover".equals(state) ? SHAPE_BLOCK_HOVER : SHAPE_BLOCK_INACTIVE);
-            case LINE -> "active".equals(state) ? SHAPE_LINE_ACTIVE : ("hover".equals(state) ? SHAPE_LINE_HOVER : SHAPE_LINE_INACTIVE);
-            case SQUARE -> "active".equals(state) ? SHAPE_SQUARE_ACTIVE : ("hover".equals(state) ? SHAPE_SQUARE_HOVER : SHAPE_SQUARE_INACTIVE);
-            case WALL -> "active".equals(state) ? SHAPE_WALL_ACTIVE : ("hover".equals(state) ? SHAPE_WALL_HOVER : SHAPE_WALL_INACTIVE);
-            case CIRCLE -> "active".equals(state) ? SHAPE_CIRCLE_ACTIVE : ("hover".equals(state) ? SHAPE_CIRCLE_HOVER : SHAPE_CIRCLE_INACTIVE);
-            case BOX -> "active".equals(state) ? SHAPE_BOX_ACTIVE : ("hover".equals(state) ? SHAPE_BOX_HOVER : SHAPE_BOX_INACTIVE);
+            case BLOCK -> QUICK_BUILD_SINGLE_BLOCK;
+            case LINE -> QUICK_BUILD_LINE_BLOCK;
+            case SQUARE -> QUICK_BUILD_SQUARE_BLOCK;
+            case WALL -> QUICK_BUILD_WALL_BLOCK;
+            case CIRCLE -> QUICK_BUILD_CIRCLE_BLOCK;
+            case BOX -> QUICK_BUILD_BOX_BLOCK;
         };
-        g.blit(texture, x + 2, y + 2, 0, 0, 28, 28, 32, 32);
+        int vOffset = "active".equals(state) || "hover".equals(state) ? SHAPE_STATE_H : 0;
+        RtsTextureRenderer.drawTextureHighPrecision(
+                g,
+                texture,
+                x + 2,
+                y + 2,
+                QUICK_BUILD_SHAPE_SLOT - 4,
+                QUICK_BUILD_SHAPE_SLOT - 4,
+                0,
+                vOffset,
+                SHAPE_SHEET_W,
+                SHAPE_STATE_H,
+                SHAPE_SHEET_W,
+                SHAPE_SHEET_H,
+                0,
+                0xFFFFFFFF);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

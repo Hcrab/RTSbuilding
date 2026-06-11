@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
+
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -15,7 +16,7 @@ import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
-final class RtsFtbCompatImpl {
+public final class RtsFtbCompatImpl {
     private final Method teamsApiMethod;
     private final Method getTeamManagerMethod;
     private final Method getTeamForPlayerMethod;

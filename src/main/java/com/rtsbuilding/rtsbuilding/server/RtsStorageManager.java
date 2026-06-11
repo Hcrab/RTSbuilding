@@ -1,5 +1,23 @@
 package com.rtsbuilding.rtsbuilding.server;
 
+
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.OverflowOutcome;
+import com.rtsbuilding.rtsbuilding.server.storage.placement.RtsStoragePlacement;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageCrafting;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageMining;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSessionCodec;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageTransfers;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -26,17 +44,17 @@ import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsPlaceBatchPayload;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsStoreFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsQuestDetectStatusPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsRemoteMenuHintPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsStorageDirtyPayload;
-import com.rtsbuilding.rtsbuilding.network.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 
 import net.minecraft.core.BlockPos;
@@ -122,14 +140,14 @@ public final class RtsStorageManager {
     private static final int SHIFT_IMPORT_MAX_CRAFT_ITERATIONS = 64;
     // Shared with RtsStorageSession so the extracted state object cannot drift
     // from the packet/UI limits that RtsStorageManager still owns.
-    static final int CRAFTABLE_BATCH_SIZE = 12;
-    static final int RECENT_ENTRY_LIMIT = 24;
+    public static final int CRAFTABLE_BATCH_SIZE = 12;
+    public static final int RECENT_ENTRY_LIMIT = 24;
     private static final long QUEST_DETECT_COOLDOWN_TICKS = 60L;
     // Package-private for the page builder to reuse the same payload padding
     // limits without copying storage UI runtime rules.
-    static final int QUICK_SLOT_COUNT = 27;
-    static final int GUI_BINDING_SLOT_COUNT = 8;
-    static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
+    public static final int QUICK_SLOT_COUNT = 27;
+    public static final int GUI_BINDING_SLOT_COUNT = 8;
+    public static final byte LINK_MODE_BIDIRECTIONAL = C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
     private static final byte LINK_MODE_EXTRACT_ONLY = C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
 
     private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
@@ -241,7 +259,7 @@ public final class RtsStorageManager {
         }
     }
 
-    static void saveSessionToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
+    public static void saveSessionToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
         CompoundTag root = RtsStorageSessionCodec.serialize(session);
         player.getPersistentData().put(RtsStorageSessionCodec.ROOT_KEY, root.copy());
         RtsStorageSessionStore.saveSession(player, root);
@@ -695,7 +713,7 @@ public final class RtsStorageManager {
         RtsStorageCrafting.craftRecipeToLinked(player, getOrCreateSession(player), recipeId, craftCount);
     }
 
-    static String normalizeCategory(String category) {
+    public static String normalizeCategory(String category) {
         return RtsStoragePageBuilder.normalizeCategory(category);
     }
 
@@ -1182,7 +1200,7 @@ public final class RtsStorageManager {
         return RtsStorageMining.withTemporaryOnGround(player, onGround, action);
     }
 
-    static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
+    public static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
         return RtsStorageMining.withTemporaryMainHandItem(player, stack, action);
     }
     private static int clampHotbarSlot(int slot) {
@@ -1339,11 +1357,11 @@ public final class RtsStorageManager {
         return RtsStorageTransfers.snapshotPlayerMatchingCounts(player, prototype);
     }
 
-    static ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
+    public static ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
         return RtsStorageCrafting.snapshotCraftGridBlueprint(menu);
     }
 
-    static void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+    public static void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsStorageCrafting.refillCraftGridFromBlueprint(menu, handlers, player, blueprint, fillAll, includePlayerFallback);
     }
@@ -1595,11 +1613,11 @@ public final class RtsStorageManager {
         RtsStorageCrafting.recordCraftedOutput(player, SESSIONS.get(player.getUUID()), crafted);
     }
 
-    static void recordRecentItem(RtsStorageSession session, String itemId, byte kind, long amount) {
+    public static void recordRecentItem(RtsStorageSession session, String itemId, byte kind, long amount) {
         RtsStorageRecentEntries.recordRecentItem(session, itemId, kind, amount);
     }
 
-    static void runQuestDetect(ServerPlayer player, RtsStorageSession session, boolean force) {
+    public static void runQuestDetect(ServerPlayer player, RtsStorageSession session, boolean force) {
         if (player == null || session == null) {
             return;
         }
@@ -1643,7 +1661,7 @@ public final class RtsStorageManager {
                         Math.max(0, completedTasks)));
     }
 
-    static void playRemoteUseSound(ServerPlayer player, ServerLevel level, Entity targetEntity, BlockPos pos,
+    public static void playRemoteUseSound(ServerPlayer player, ServerLevel level, Entity targetEntity, BlockPos pos,
             ItemStack stack) {
         if (player == null || level == null || stack == null || stack.isEmpty()) {
             return;
@@ -1693,7 +1711,7 @@ public final class RtsStorageManager {
         return new ItemStack(BuiltInRegistries.ITEM.get(id));
     }
 
-    static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
+    public static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
             double z, float volume, float pitch) {
         if (player == null || sound == null || sound == SoundEvents.EMPTY) {
             return;
@@ -1891,7 +1909,7 @@ public final class RtsStorageManager {
         return result;
     }
 
-    static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {
+    public static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {
         if (targetEntity != null) {
             Vec3 center = targetEntity.getBoundingBox().getCenter();
             Vec3 delta = center.subtract(hit);
@@ -1917,7 +1935,7 @@ public final class RtsStorageManager {
         return new float[] { yaw, pitch };
     }
 
-    static RayContext parseRayContext(
+    public static RayContext parseRayContext(
             double originX, double originY, double originZ,
             double dirX, double dirY, double dirZ) {
         if (!Double.isFinite(originX) || !Double.isFinite(originY) || !Double.isFinite(originZ)
@@ -1931,12 +1949,12 @@ public final class RtsStorageManager {
         return new RayContext(new Vec3(originX, originY, originZ), dir.normalize());
     }
 
-    static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+    public static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             double reach, Supplier<T> action) {
         return withTemporaryUseItemContext(player, fallbackPos, fallbackLookAt, null, reach, action);
     }
 
-    static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+    public static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
         if (rayContext == null) {
             return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
@@ -1982,7 +2000,7 @@ public final class RtsStorageManager {
         }
     }
 
-    static <T> T withTemporaryShiftKey(ServerPlayer player, boolean active, Supplier<T> action) {
+    public static <T> T withTemporaryShiftKey(ServerPlayer player, boolean active, Supplier<T> action) {
         boolean previous = player.isShiftKeyDown();
         if (previous == active) {
             return action.get();
@@ -1995,7 +2013,7 @@ public final class RtsStorageManager {
         }
     }
 
-    static UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
+    public static UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
             BlockHitResult hit, boolean forceSecondaryUse) {
         ItemStack previousMainHand = player.getMainHandItem().copy();
         player.setItemInHand(InteractionHand.MAIN_HAND, handStack);
@@ -2015,7 +2033,7 @@ public final class RtsStorageManager {
         return new UseOnOutcome(result, remainder);
     }
 
-    static UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
+    public static UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level, ItemStack handStack,
             boolean forceSecondaryUse) {
         ItemStack previousMainHand = player.getMainHandItem().copy();
         player.setItemInHand(InteractionHand.MAIN_HAND, handStack);
@@ -2049,7 +2067,7 @@ public final class RtsStorageManager {
         return new UseOnOutcome(result, remainder);
     }
 
-    static void relaxOpenedMenuValidation(AbstractContainerMenu menu) {
+    public static void relaxOpenedMenuValidation(AbstractContainerMenu menu) {
         if (menu == null) {
             return;
         }
@@ -2086,7 +2104,7 @@ public final class RtsStorageManager {
         }
     }
 
-    static void markRemoteMenuOpen(ServerPlayer player, RtsStorageSession session, AbstractContainerMenu menu, BlockPos pos) {
+    public static void markRemoteMenuOpen(ServerPlayer player, RtsStorageSession session, AbstractContainerMenu menu, BlockPos pos) {
         if (menu == null) {
             return;
         }
@@ -2133,7 +2151,7 @@ public final class RtsStorageManager {
         session.remoteMenuPos = null;
     }
 
-    static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {
+    public static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null) {
             return;
         }
@@ -2229,7 +2247,7 @@ public final class RtsStorageManager {
         return RtsLinkedStorageResolver.buildLinkedSummary(session);
     }
 
-    static byte sanitizeLinkMode(byte linkMode) {
+    public static byte sanitizeLinkMode(byte linkMode) {
         return RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
     }
 
@@ -2237,7 +2255,7 @@ public final class RtsStorageManager {
         return RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
     }
 
-    static ResourceKey<Level> parseDimensionKey(String dimensionId) {
+    public static ResourceKey<Level> parseDimensionKey(String dimensionId) {
         if (dimensionId == null || dimensionId.isBlank()) {
             return null;
         }
@@ -2255,10 +2273,10 @@ public final class RtsStorageManager {
 
     // Package-visible because extracted placement code needs the validated ray
     // origin/direction, while parsing and reach checks remain manager-owned.
-    record RayContext(Vec3 origin, Vec3 dir) {
+    public record RayContext(Vec3 origin, Vec3 dir) {
     }
 
-    record UseOnOutcome(InteractionResult result, ItemStack remainder) {
+    public record UseOnOutcome(InteractionResult result, ItemStack remainder) {
     }
 
     private static final class AlwaysValidContainer implements Container {

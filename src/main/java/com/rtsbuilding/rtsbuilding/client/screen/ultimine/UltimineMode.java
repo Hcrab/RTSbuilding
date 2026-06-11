@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.ultimine;
 
+
 /**
  * Player-facing batch mining mode selected from the Ultimine window.
  */

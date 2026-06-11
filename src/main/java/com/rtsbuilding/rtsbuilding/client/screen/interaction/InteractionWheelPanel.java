@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.interaction;
 
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -16,10 +17,10 @@ import java.util.List;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 
 /**
- * 交互轮盘面板。
+ * 浜や簰杞洏闈㈡澘銆?
  * <p>
- * 独立的交互轮盘面板组件，处理轮盘状态的渲染、输入和状态管理。
- * 由 {@link BuilderScreen} 统一调度生命周期。
+ * 鐙珛鐨勪氦浜掕疆鐩橀潰鏉跨粍浠讹紝澶勭悊杞洏鐘舵€佺殑娓叉煋銆佽緭鍏ュ拰鐘舵€佺鐞嗐€?
+ * 鐢?{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡銆?
  */
 public final class InteractionWheelPanel {
 
@@ -38,7 +39,7 @@ public final class InteractionWheelPanel {
         this.controller = controller;
     }
 
-    // ── 公开查询方法 ──
+    // 鈹€鈹€ 鍏紑鏌ヨ鏂规硶 鈹€鈹€
 
     public boolean isOpen() {
         return this.open;
@@ -79,7 +80,7 @@ public final class InteractionWheelPanel {
         return this.target;
     }
 
-    // ── 输入方法 ──
+    // 鈹€鈹€ 杈撳叆鏂规硶 鈹€鈹€
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!this.open) {
@@ -135,7 +136,7 @@ public final class InteractionWheelPanel {
         return true;
     }
 
-    // ── 渲染 ──
+    // 鈹€鈹€ 娓叉煋 鈹€鈹€
 
     public void render(GuiGraphics g, int mouseX, int mouseY) {
         if (!this.open) {
@@ -206,7 +207,7 @@ public final class InteractionWheelPanel {
         }
     }
 
-    // ── 内部方法 ──
+    // 鈹€鈹€ 鍐呴儴鏂规硶 鈹€鈹€
 
     private List<InteractionTypes.InteractionOption> buildInteractionOptions() {
         List<InteractionTypes.InteractionOption> result = new ArrayList<>();

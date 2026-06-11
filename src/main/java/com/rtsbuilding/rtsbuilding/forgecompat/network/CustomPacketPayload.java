@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.forgecompat.network;
 
+
 import net.minecraft.resources.ResourceLocation;
 
 public interface CustomPacketPayload {

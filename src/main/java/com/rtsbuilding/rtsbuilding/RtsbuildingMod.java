@@ -1,12 +1,14 @@
 package com.rtsbuilding.rtsbuilding;
 
+
+import com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap;
 import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
-import com.rtsbuilding.rtsbuilding.server.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.RtsDamageFeedbackManager;
-import com.rtsbuilding.rtsbuilding.server.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -54,7 +56,7 @@ public final class RtsbuildingMod {
         RtsPayloadRegistrar.register();
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> com.rtsbuilding.rtsbuilding.client.RtsClientBootstrap.registerConfigUi(ModLoadingContext.get()));
+                () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(ModLoadingContext.get()));
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

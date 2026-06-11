@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
@@ -23,7 +24,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
  * <p>
  * This panel is owned by {@link BuilderScreen} and is the single point of contact
  * between the screen layer and the top bar UI data. It holds no direct rendering
- * state of its own — the appearance of each button is computed fresh every frame.
+ * state of its own 鈥?the appearance of each button is computed fresh every frame.
  * <p>
  * <b>Key responsibilities:</b>
  * <ul>
@@ -194,7 +195,7 @@ public final class TopBarPanel {
      * Builds the ordered list of all top bar button layouts for the current frame.
      * <p>
      * Buttons are arranged left-to-right: mode buttons first (INTERACT, LINK,
-     * FUNNEL, ROTATE — each gated by progression), then a separator, then action
+     * FUNNEL, ROTATE 鈥?each gated by progression), then a separator, then action
      * buttons (QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GUIDE, optionally
      * DEBUG), then a right-aligned GEAR button.
      * <p>

@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -24,57 +24,57 @@ import java.util.List;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
 
 /**
- * 处理 RTS 镜头和输入交互的状态管理。
+ * 澶勭悊 RTS 闀滃ご鍜岃緭鍏ヤ氦浜掔殑鐘舵€佺鐞嗐€?
  * <p>
- * 包含鼠标拖拽(右键旋转、中键平移/拾取)、挖矿动作、键盘镜头控制和键盘拖拽平移的状态。
- * 所有状态在 BuilderScreen 的事件方法中被使用，本类负责存储和管理这些状态，
- * 并提供辅助方法进行输入判断和动作执行。
+ * 鍖呭惈榧犳爣鎷栨嫿(鍙抽敭鏃嬭浆銆佷腑閿钩绉?鎷惧彇)銆佹寲鐭垮姩浣溿€侀敭鐩橀暅澶存帶鍒跺拰閿洏鎷栨嫿骞崇Щ鐨勭姸鎬併€?
+ * 鎵€鏈夌姸鎬佸湪 BuilderScreen 鐨勪簨浠舵柟娉曚腑琚娇鐢紝鏈被璐熻矗瀛樺偍鍜岀鐞嗚繖浜涚姸鎬侊紝
+ * 骞舵彁渚涜緟鍔╂柟娉曡繘琛岃緭鍏ュ垽鏂拰鍔ㄤ綔鎵ц銆?
  */
 public final class CameraInputHandler {
     private BuilderScreen screen;
     private ClientRtsController controller;
 
-    // ======================== 鼠标/镜头状态 ========================
+    // ======================== 榧犳爣/闀滃ご鐘舵€?========================
 
-    /** 右键拖拽是否激活 */
+    /** 鍙抽敭鎷栨嫿鏄惁婵€娲?*/
     private boolean rightPressActive = false;
-    /** 触发右键拖拽的鼠标按钮 */
+    /** 瑙﹀彂鍙抽敭鎷栨嫿鐨勯紶鏍囨寜閽?*/
     private int rightPressButton = -1;
-    /** 当前右键是否可触发主要动作 */
+    /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戜富瑕佸姩浣?*/
     private boolean rightPressCanPrimary = false;
-    /** 当前右键是否可触发旋转 */
+    /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戞棆杞?*/
     private boolean rightPressCanRotate = false;
-    /** 是否已发生旋转拖拽（用于区分点击和拖拽） */
+    /** 鏄惁宸插彂鐢熸棆杞嫋鎷斤紙鐢ㄤ簬鍖哄垎鐐瑰嚮鍜屾嫋鎷斤級 */
     private boolean rightDragRotated = false;
-    /** 右键拖拽累积距离 */
+    /** 鍙抽敭鎷栨嫿绱Н璺濈 */
     private double rightDragDistance = 0.0D;
 
-    /** 中键拖拽是否激活 */
+    /** 涓敭鎷栨嫿鏄惁婵€娲?*/
     private boolean middlePressActive = false;
-    /** 触发中键拖拽的鼠标按钮 */
+    /** 瑙﹀彂涓敭鎷栨嫿鐨勯紶鏍囨寜閽?*/
     private int middlePressButton = -1;
-    /** 当前中键是否可平移 */
+    /** 褰撳墠涓敭鏄惁鍙钩绉?*/
     private boolean middlePressCanPan = false;
-    /** 当前中键是否可拾取方块 */
+    /** 褰撳墠涓敭鏄惁鍙嬀鍙栨柟鍧?*/
     private boolean middlePressCanPick = false;
-    /** 中键拖拽累积距离 */
+    /** 涓敭鎷栨嫿绱Н璺濈 */
     private double middleDragDistance = 0.0D;
 
-    /** 键盘拖拽平移 - 上次鼠标 X (用于计算增量) */
+    /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 X (鐢ㄤ簬璁＄畻澧為噺) */
     private double keyboardPanLastMouseX = Double.NaN;
-    /** 键盘拖拽平移 - 上次鼠标 Y */
+    /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 Y */
     private double keyboardPanLastMouseY = Double.NaN;
 
-    /** 左键挖矿是否激活 */
+    /** 宸﹂敭鎸栫熆鏄惁婵€娲?*/
     private boolean leftMiningActive = false;
-    /** 挖矿激活时的鼠标按钮（键盘触发时为 -1） */
+    /** 鎸栫熆婵€娲绘椂鐨勯紶鏍囨寜閽紙閿洏瑙﹀彂鏃朵负 -1锛?*/
     private int activeMiningMouseButton = -1;
-    /** 挖矿是否由键盘触发 */
+    /** 鎸栫熆鏄惁鐢遍敭鐩樿Е鍙?*/
     private boolean activeMiningKeyboard = false;
 
-    /** 镜头向上动作是否正在按住 */
+    /** 闀滃ご鍚戜笂鍔ㄤ綔鏄惁姝ｅ湪鎸変綇 */
     private boolean cameraUpActionHeld = false;
-    /** 镜头向下动作是否正在按住 */
+    /** 闀滃ご鍚戜笅鍔ㄤ綔鏄惁姝ｅ湪鎸変綇 */
     private boolean cameraDownActionHeld = false;
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
@@ -82,7 +82,7 @@ public final class CameraInputHandler {
         this.controller = controller;
     }
 
-    // ======================== 静态输入辅助方法 ========================
+    // ======================== 闈欐€佽緭鍏ヨ緟鍔╂柟娉?========================
 
     public static boolean isPrimaryActionMouse(int button) {
         return ClientKeyMappings.ACTION_PRIMARY.matchesMouse(button);
@@ -116,7 +116,7 @@ public final class CameraInputHandler {
                 && !isPickBlockActionMouse(button);
     }
 
-    // ======================== 镜头/输入状态查询 ========================
+    // ======================== 闀滃ご/杈撳叆鐘舵€佹煡璇?========================
 
     public boolean isCameraUpActionHeld() {
         return this.cameraUpActionHeld || ClientKeyMappings.CAMERA_UP.isDown();
@@ -162,7 +162,7 @@ public final class CameraInputHandler {
         return this.middleDragDistance;
     }
 
-    // ======================== 右键拖拽状态管理 ========================
+    // ======================== 鍙抽敭鎷栨嫿鐘舵€佺鐞?========================
 
     public void beginRightPress(double mouseX, double mouseY, int button, boolean primaryMouse, boolean rotateMouse) {
         this.rightPressActive = true;
@@ -194,8 +194,8 @@ public final class CameraInputHandler {
     }
 
     /**
-     * 结束右键拖拽，返回 true 表示需要调用 runPrimaryActionAt。
-     * 仅当拖拽未发生旋转且可触发主要动作时返回 true。
+     * 缁撴潫鍙抽敭鎷栨嫿锛岃繑鍥?true 琛ㄧず闇€瑕佽皟鐢?runPrimaryActionAt銆?
+     * 浠呭綋鎷栨嫿鏈彂鐢熸棆杞笖鍙Е鍙戜富瑕佸姩浣滄椂杩斿洖 true銆?
      */
     public boolean endRightPress(double mouseX, double mouseY, int button) {
         if (!this.rightPressActive || button != this.rightPressButton) {
@@ -209,17 +209,17 @@ public final class CameraInputHandler {
         if (this.rightDragRotated) {
             this.rightDragRotated = false;
             this.rightDragDistance = 0.0D;
-            return false; // 已发生旋转，不触发动作
+            return false; // 宸插彂鐢熸棆杞紝涓嶈Е鍙戝姩浣?
         }
         if (!screen.isWorldArea(mouseX, mouseY) || !canPrimary) {
             this.rightDragDistance = 0.0D;
             return false;
         }
         this.rightDragDistance = 0.0D;
-        return true; // 调用方需执行 runPrimaryActionAt
+        return true; // 璋冪敤鏂归渶鎵ц runPrimaryActionAt
     }
 
-    // ======================== 中键拖拽状态管理 ========================
+    // ======================== 涓敭鎷栨嫿鐘舵€佺鐞?========================
 
     public void beginMiddlePress(boolean worldArea, int button, boolean panMouse, boolean pickMouse) {
         this.middlePressActive = worldArea;
@@ -242,8 +242,8 @@ public final class CameraInputHandler {
     }
 
     /**
-     * 结束中键拖拽，返回 true 表示事件已处理。
-     * 如果中键按下时未发生拖拽且可拾取，则触发 tryPickHoveredBlockForPlacement。
+     * 缁撴潫涓敭鎷栨嫿锛岃繑鍥?true 琛ㄧず浜嬩欢宸插鐞嗐€?
+     * 濡傛灉涓敭鎸変笅鏃舵湭鍙戠敓鎷栨嫿涓斿彲鎷惧彇锛屽垯瑙﹀彂 tryPickHoveredBlockForPlacement銆?
      */
     public boolean endMiddlePress(double mouseX, double mouseY, int button) {
         if (this.middlePressActive && button == this.middlePressButton) {
@@ -262,19 +262,13 @@ public final class CameraInputHandler {
         return false;
     }
 
-    // ======================== 键盘拖拽平移 ========================
+    // ======================== 閿洏鎷栨嫿骞崇Щ ========================
 
     public boolean canUseKeyboardPanDrag(double mouseX, double mouseY) {
         return isKeyboardPanDragActionHeld()
                 && screen.isWorldArea(mouseX, mouseY)
-                && !screen.isCraftQuantityDialogOpen()
+                && !screen.isMouseOverFloatingWindow(mouseX, mouseY)
                 && !screen.isDraggingInputSensitivity()
-                && !screen.isShapeWheelOpen()
-                && !screen.isInteractionWheelOpen()
-                && !screen.isGuideOpen()
-                && !screen.isGearMenuOpen()
-                && !BlueprintPanel.isNameDialogOpen()
-                && !BlueprintPanel.isMaterialDialogOpen()
                 && !screen.isSearchFocused();
     }
 
@@ -305,7 +299,7 @@ public final class CameraInputHandler {
         return false;
     }
 
-    // ======================== 镜头垂直方向 ========================
+    // ======================== 闀滃ご鍨傜洿鏂瑰悜 ========================
 
     public boolean updateCameraVerticalHeldState(int keyCode, int scanCode, boolean down) {
         boolean handled = false;
@@ -325,7 +319,7 @@ public final class CameraInputHandler {
         this.cameraDownActionHeld = false;
     }
 
-    // ======================== 挖矿动作 ========================
+    // ======================== 鎸栫熆鍔ㄤ綔 ========================
 
     public boolean startMiningAt(double mouseX, double mouseY, int mouseButton, boolean keyboard) {
         if (screen.getPendingGuiBindSlot() >= 0
@@ -383,7 +377,7 @@ public final class CameraInputHandler {
         return this.activeMiningMouseButton;
     }
 
-    // ======================== 鼠标拾取方块到物品栏 ========================
+    // ======================== 榧犳爣鎷惧彇鏂瑰潡鍒扮墿鍝佹爮 ========================
 
     public boolean tryPickHoveredBlockForPlacement() {
         Minecraft mc = screen.getMinecraft();
@@ -412,7 +406,7 @@ public final class CameraInputHandler {
         return true;
     }
 
-    // ======================== 输入灵敏度 ========================
+    // ======================== 杈撳叆鐏垫晱搴?========================
 
     public void updateInputSensitivityFromMouse(double mouseX) {
         int menuW = Math.min(300, screen.width - 24);
@@ -424,7 +418,7 @@ public final class CameraInputHandler {
         this.controller.setInputSensitivityByFraction(fraction);
     }
 
-    // ======================== Modifier 查询 ========================
+    // ======================== Modifier 鏌ヨ ========================
 
     private static boolean isAltDown() {
         Minecraft mc = Minecraft.getInstance();

@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
+
 import java.util.List;
 import java.util.Optional;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
 
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.runtime.IClickableIngredient;
@@ -12,7 +13,7 @@ import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.item.ItemStack;
 
-final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCraftTerminalScreen> {
+public final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCraftTerminalScreen> {
     private final IIngredientManager ingredientManager;
 
     RtsCraftTerminalJeiGuiHandler(IIngredientManager ingredientManager) {

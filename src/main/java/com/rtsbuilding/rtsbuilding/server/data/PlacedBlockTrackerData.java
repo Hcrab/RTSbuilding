@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
+
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;

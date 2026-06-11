@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.network;
 
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;

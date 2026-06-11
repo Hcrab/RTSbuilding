@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -7,7 +8,7 @@ import java.util.Map;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 

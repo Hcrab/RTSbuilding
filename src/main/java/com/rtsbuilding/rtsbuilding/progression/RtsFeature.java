@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.progression;
 
+
 public enum RtsFeature {
     CAMERA,
     LINK_STORAGE,

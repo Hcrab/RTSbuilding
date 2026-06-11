@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.forgecompat.fml;
 
+
 public final class ModList {
     private static final ModList INSTANCE = new ModList();
 

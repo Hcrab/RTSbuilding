@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
+
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -11,9 +12,9 @@ import java.util.List;
  * <p>
  * Groups immutable data carriers that are passed between components:
  * <ul>
- *   <li>{@link GhostPreview} — block positions shown as in-world ghost
+ *   <li>{@link GhostPreview} 鈥?block positions shown as in-world ghost
  *       preview during shape placement</li>
- *   <li>{@link HistoryBatch} — undo/redo record for one shape placement</li>
+ *   <li>{@link HistoryBatch} 鈥?undo/redo record for one shape placement</li>
  * </ul>
  * <p>
  * These records carry data only and contain no behaviour logic.
@@ -39,7 +40,7 @@ public final class ShapeDataRecords {
             boolean chainDestroyPreview,
             boolean confirmedWorkArea) {
 
-        /** Empty preview sentinel — no blocks, not ready. */
+        /** Empty preview sentinel 鈥?no blocks, not ready. */
         public static final GhostPreview EMPTY = new GhostPreview(List.of(), false, false, List.of(), false, false);
 
         public GhostPreview(List<BlockPos> blocks, boolean readyConfirm) {

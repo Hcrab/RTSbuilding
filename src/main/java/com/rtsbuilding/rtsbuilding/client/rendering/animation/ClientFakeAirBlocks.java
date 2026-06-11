@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
+
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;

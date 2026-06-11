@@ -1,30 +1,31 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * RTS 面板统一接口。
+ * RTS 闈㈡澘缁熶竴鎺ュ彛銆?
  * <p>
- * 所有 RTS UI 面板实现该接口，由 {@link BuilderScreen} 统一调度
- * 的 init / tick / render / 事件分发生命周期。
+ * 鎵€鏈?RTS UI 闈㈡澘瀹炵幇璇ユ帴鍙ｏ紝鐢?{@link BuilderScreen} 缁熶竴璋冨害
+ * 鐨?init / tick / render / 浜嬩欢鍒嗗彂鐢熷懡鍛ㄦ湡銆?
  */
 public interface RtsPanel {
 
-    /** 初始化面板，每次屏幕 init() 时调用 */
+    /** 鍒濆鍖栭潰鏉匡紝姣忔灞忓箷 init() 鏃惰皟鐢?*/
     default void init(BuilderScreen screen, ClientRtsController controller) {}
 
-    /** 每 tick 更新面板状态 */
+    /** 姣?tick 鏇存柊闈㈡澘鐘舵€?*/
     default void tick() {}
 
-    /** 渲染面板内容 */
+    /** 娓叉煋闈㈡澘鍐呭 */
     default void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 
-    /** 渲染 tooltip（在 hover 检测之后） */
+    /** 娓叉煋 tooltip锛堝湪 hover 妫€娴嬩箣鍚庯級 */
     default void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {}
 
-    // --- 输入事件 ---
+    // --- 杈撳叆浜嬩欢 ---
 
     default boolean mouseClicked(double mouseX, double mouseY, int button) { return false; }
 
@@ -42,6 +43,6 @@ public interface RtsPanel {
 
     default boolean charTyped(char codePoint, int modifiers) { return false; }
 
-    /** 面板关闭/屏幕关闭时调用 */
+    /** 闈㈡澘鍏抽棴/灞忓箷鍏抽棴鏃惰皟鐢?*/
     default void close() {}
 }

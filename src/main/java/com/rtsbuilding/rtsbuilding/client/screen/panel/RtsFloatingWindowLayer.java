@@ -62,6 +62,17 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
         return RtsWindowPanel.ResizeCursor.DEFAULT;
     }
 
+    public boolean isMouseOverWindowOrResizableBorder(double mouseX, double mouseY) {
+        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
+            RtsWindowPanel window = this.frontToBackWindows.get(i);
+            if (window.isOpen()
+                    && (window.isInsideWindow(mouseX, mouseY) || window.isInsideResizableBorder(mouseX, mouseY))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             if (this.frontToBackWindows.get(i).mouseClicked(mouseX, mouseY, button)) {

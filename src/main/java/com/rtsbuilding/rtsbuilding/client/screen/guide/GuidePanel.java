@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
@@ -19,14 +20,14 @@ import java.util.List;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 
 /**
- * 指南面板。
+ * 鎸囧崡闈㈡澘銆?
  * <p>
- * 独立的指南面板组件，处理指南面板的渲染、输入和状态管理。
- * 由 {@link BuilderScreen} 统一调度生命周期。
+ * 鐙珛鐨勬寚鍗楅潰鏉跨粍浠讹紝澶勭悊鎸囧崡闈㈡澘鐨勬覆鏌撱€佽緭鍏ュ拰鐘舵€佺鐞嗐€?
+ * 鐢?{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡銆?
  */
 public final class GuidePanel extends RtsWindowPanel {
 
-    // ── 状态 ──
+    // 鈹€鈹€ 鐘舵€?鈹€鈹€
     private GuideTypes.GuideContext context = GuideTypes.GuideContext.TOP;
     private int page = 0;
     private int topicScroll = 0;
@@ -39,7 +40,7 @@ public final class GuidePanel extends RtsWindowPanel {
         super.init(screen, controller);
     }
 
-    // ── 输入方法 ──
+    // 鈹€鈹€ 杈撳叆鏂规硶 鈹€鈹€
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         return super.mouseClicked(mouseX, mouseY, button);
@@ -53,7 +54,7 @@ public final class GuidePanel extends RtsWindowPanel {
         return super.keyPressed(keyCode, 0, 0);
     }
 
-    // ── 渲染 ──
+    // 鈹€鈹€ 娓叉煋 鈹€鈹€
 
     public void render(GuiGraphics g) {
         if (!this.open) {
@@ -263,7 +264,7 @@ public final class GuidePanel extends RtsWindowPanel {
         this.windowHeight = rect.h();
     }
 
-    // ── 公开查询方法 ──
+    // 鈹€鈹€ 鍏紑鏌ヨ鏂规硶 鈹€鈹€
 
     public GuideTypes.GuideContext getContext() {
         return this.context;
@@ -285,7 +286,7 @@ public final class GuidePanel extends RtsWindowPanel {
         setOpen(true);
     }
 
-    // ── 顶部栏指南提示（由 BuilderScreen 调用） ──
+    // 鈹€鈹€ 椤堕儴鏍忔寚鍗楁彁绀猴紙鐢?BuilderScreen 璋冪敤锛?鈹€鈹€
 
     public void renderTopHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         if (this.open && this.context == GuideTypes.GuideContext.TOP) {
@@ -319,7 +320,7 @@ public final class GuidePanel extends RtsWindowPanel {
         g.drawString(screen.font(), hint, hintX + 8, y, 0xFFE7C46A);
     }
 
-    // ── 私有方法与辅助 ──
+    // 鈹€鈹€ 绉佹湁鏂规硶涓庤緟鍔?鈹€鈹€
 
     private Component title() {
         return switch (this.context) {

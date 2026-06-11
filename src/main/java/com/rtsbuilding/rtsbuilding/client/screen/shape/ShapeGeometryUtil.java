@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -11,22 +12,22 @@ import net.minecraft.world.phys.Vec3;
 import java.util.*;
 
 /**
- * 形状几何计算工具类。
+ * 褰㈢姸鍑犱綍璁＄畻宸ュ叿绫汇€?
  * <p>
- * 提供各种建造形状（直线、方形、墙壁、圆形、立方体）的方块位置计算，
- * 以及形状旋转、面朝向解析、填充模式处理等纯几何运算。
- * 所有方法均为静态无状态方法。
+ * 鎻愪緵鍚勭寤洪€犲舰鐘讹紙鐩寸嚎銆佹柟褰€佸澹併€佸渾褰€佺珛鏂逛綋锛夌殑鏂瑰潡浣嶇疆璁＄畻锛?
+ * 浠ュ強褰㈢姸鏃嬭浆銆侀潰鏈濆悜瑙ｆ瀽銆佸～鍏呮ā寮忓鐞嗙瓑绾嚑浣曡繍绠椼€?
+ * 鎵€鏈夋柟娉曞潎涓洪潤鎬佹棤鐘舵€佹柟娉曘€?
  */
 public final class ShapeGeometryUtil {
 
-    // ======================== 形状放置目标生成 ========================
+    // ======================== 褰㈢姸鏀剧疆鐩爣鐢熸垚 ========================
 
     /**
-     * 根据形状构建输入和填充模式生成所有目标方块位置。
+     * 鏍规嵁褰㈢姸鏋勫缓杈撳叆鍜屽～鍏呮ā寮忕敓鎴愭墍鏈夌洰鏍囨柟鍧椾綅缃€?
      *
-     * @param input    形状构建输入（形状类型、锚点等）
-     * @param fillMode 填充模式（实心、空心、骨架）
-     * @return 目标方块位置列表
+     * @param input    褰㈢姸鏋勫缓杈撳叆锛堝舰鐘剁被鍨嬨€侀敋鐐圭瓑锛?
+     * @param fillMode 濉厖妯″紡锛堝疄蹇冦€佺┖蹇冦€侀鏋讹級
+     * @return 鐩爣鏂瑰潡浣嶇疆鍒楄〃
      */
     public static List<BlockPos> buildShapePositions(ShapeBuildTypes.Input input, ShapeBuildTypes.ShapeFillMode fillMode) {
         LinkedHashSet<BlockPos> targets = new LinkedHashSet<>();
@@ -43,14 +44,14 @@ public final class ShapeGeometryUtil {
         return new ArrayList<>(targets);
     }
 
-    // ======================== 单个形状算法 ========================
+    // ======================== 鍗曚釜褰㈢姸绠楁硶 ========================
 
-    /** 生成直线方块（Bresenham 线段近似） */
+    /** 鐢熸垚鐩寸嚎鏂瑰潡锛圔resenham 绾挎杩戜技锛?*/
     public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end) {
         addLineTargets(targets, start, end, false);
     }
 
-    /** 生成直线方块，连接模式会填入桥接方块，避免斜向线段断开。 */
+    /** 鐢熸垚鐩寸嚎鏂瑰潡锛岃繛鎺ユā寮忎細濉叆妗ユ帴鏂瑰潡锛岄伩鍏嶆枩鍚戠嚎娈垫柇寮€銆?*/
     public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, boolean connected) {
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
@@ -166,7 +167,7 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    /** 生成正方形方块 */
+    /** 鐢熸垚姝ｆ柟褰㈡柟鍧?*/
     public static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeBuildTypes.ShapeFillMode fillMode) {
         Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.SQUARE, face);
         int dx = end.getX() - start.getX();
@@ -177,12 +178,12 @@ public final class ShapeGeometryUtil {
         addRotatedPlaneRectangleTargets(targets, start, axes[0], axes[1], aOffset, bOffset, fillMode, 0);
     }
 
-    /** 生成墙壁方块 */
+    /** 鐢熸垚澧欏鏂瑰潡 */
     public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
         addWallTargets(targets, start, end, heightOffset, fillMode, false);
     }
 
-    /** 生成墙壁方块，连接模式会让底部线段保持面相邻。 */
+    /** 鐢熸垚澧欏鏂瑰潡锛岃繛鎺ユā寮忎細璁╁簳閮ㄧ嚎娈典繚鎸侀潰鐩搁偦銆?*/
     public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
             ShapeBuildTypes.ShapeFillMode fillMode, boolean connected) {
         LinkedHashSet<BlockPos> baseLine = new LinkedHashSet<>();
@@ -207,9 +208,9 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    /** 生成圆形方块 */
+    /** 鐢熸垚鍦嗗舰鏂瑰潡 */
     public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeBuildTypes.ShapeFillMode fillMode) {
-        int degrees = 0; // 由调用方传入旋转角度
+        int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑害
         Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.CIRCLE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
@@ -244,9 +245,9 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    /** 生成立方体方块 */
+    /** 鐢熸垚绔嬫柟浣撴柟鍧?*/
     public static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
-        int degrees = 0; // 由调用方传入旋转角度
+        int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑害
         int xOffset = clampShapeOffset(end.getX() - start.getX());
         int zOffset = clampShapeOffset(end.getZ() - start.getZ());
         int yOffset = clampShapeOffset(heightOffset);
@@ -295,9 +296,9 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    // ======================== 平面矩形（带旋转） ========================
+    // ======================== 骞抽潰鐭╁舰锛堝甫鏃嬭浆锛?========================
 
-    /** 生成带旋转的平面矩形方块 */
+    /** 鐢熸垚甯︽棆杞殑骞抽潰鐭╁舰鏂瑰潡 */
     public static void addRotatedPlaneRectangleTargets(Set<BlockPos> targets, BlockPos start, Direction axisA, Direction axisB,
             int aOffset, int bOffset, ShapeBuildTypes.ShapeFillMode fillMode, int degrees) {
         int minA = Math.min(0, aOffset);
@@ -316,9 +317,9 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    // ======================== 实用方法 ========================
+    // ======================== 瀹炵敤鏂规硶 ========================
 
-    /** 检查是否平面边界单元格 */
+    /** 妫€鏌ユ槸鍚﹀钩闈㈣竟鐣屽崟鍏冩牸 */
     public static boolean isPlaneBoundaryCell(Set<PlaneCell> filledCells, PlaneCell cell) {
         return !filledCells.contains(new PlaneCell(cell.a() + 1, cell.b()))
                 || !filledCells.contains(new PlaneCell(cell.a() - 1, cell.b()))
@@ -326,7 +327,7 @@ public final class ShapeGeometryUtil {
                 || !filledCells.contains(new PlaneCell(cell.a(), cell.b() - 1));
     }
 
-    /** 构建旋转矩形填充单元格集合 */
+    /** 鏋勫缓鏃嬭浆鐭╁舰濉厖鍗曞厓鏍奸泦鍚?*/
     public static Set<PlaneCell> buildRotatedRectangleFillCells(int minA, int maxA, int minB, int maxB, int degrees) {
         Set<PlaneCell> filled = new HashSet<>();
         int normalized = Math.floorMod(degrees, 360);
@@ -378,7 +379,7 @@ public final class ShapeGeometryUtil {
         return fillPlaneInteriorHoles(filled);
     }
 
-    /** 逆旋转检测单元格是否在边界内 */
+    /** 閫嗘棆杞娴嬪崟鍏冩牸鏄惁鍦ㄨ竟鐣屽唴 */
     public static boolean isInverseRotatedInsideCellBounds(
             int targetA, int targetB,
             int minA, int maxA, int minB, int maxB,
@@ -402,7 +403,7 @@ public final class ShapeGeometryUtil {
         return false;
     }
 
-    /** 填充平面内部空洞（洪水填充算法） */
+    /** 濉厖骞抽潰鍐呴儴绌烘礊锛堟椽姘村～鍏呯畻娉曪級 */
     public static Set<PlaneCell> fillPlaneInteriorHoles(Set<PlaneCell> filledCells) {
         if (filledCells == null || filledCells.isEmpty()) {
             return filledCells == null ? Set.of() : filledCells;
@@ -450,7 +451,7 @@ public final class ShapeGeometryUtil {
         return dense;
     }
 
-    /** 将外部单元格加入队列 */
+    /** 灏嗗閮ㄥ崟鍏冩牸鍔犲叆闃熷垪 */
     private static void queueOutsidePlaneCell(
             PlaneCell cell, Set<PlaneCell> filledCells, Set<PlaneCell> outside,
             ArrayDeque<PlaneCell> queue, int minA, int maxA, int minB, int maxB) {
@@ -460,19 +461,19 @@ public final class ShapeGeometryUtil {
         queue.addLast(cell);
     }
 
-    // ======================== 坐标/向量工具 ========================
+    // ======================== 鍧愭爣/鍚戦噺宸ュ叿 ========================
 
-    /** 限制形状偏移值 */
+    /** 闄愬埗褰㈢姸鍋忕Щ鍊?*/
     public static int clampShapeOffset(int value) {
         return Mth.clamp(value, -BuilderScreenConstants.SHAPE_MAX_OFFSET, BuilderScreenConstants.SHAPE_MAX_OFFSET);
     }
 
-    /** 计算方向上的投影分量 */
+    /** 璁＄畻鏂瑰悜涓婄殑鎶曞奖鍒嗛噺 */
     public static int dotDelta(int dx, int dy, int dz, Direction axis) {
         return (dx * axis.getStepX()) + (dy * axis.getStepY()) + (dz * axis.getStepZ());
     }
 
-    /** 在两个方向轴上偏移位置 */
+    /** 鍦ㄤ袱涓柟鍚戣酱涓婂亸绉讳綅缃?*/
     public static BlockPos offsetPos(BlockPos origin, Direction axisA, int stepA, Direction axisB, int stepB) {
         int dx = (axisA.getStepX() * stepA) + (axisB.getStepX() * stepB);
         int dy = (axisA.getStepY() * stepA) + (axisB.getStepY() * stepB);
@@ -480,7 +481,7 @@ public final class ShapeGeometryUtil {
         return origin.offset(dx, dy, dz);
     }
 
-    /** 旋转平面偏移量 */
+    /** 鏃嬭浆骞抽潰鍋忕Щ閲?*/
     public static RotatedOffset rotatePlaneOffset(int a, int b, double centerA, double centerB, int degrees) {
         int normalized = Math.floorMod(degrees, 360);
         if (normalized == 0) return new RotatedOffset(a, b);
@@ -491,9 +492,9 @@ public final class ShapeGeometryUtil {
         return new RotatedOffset(ra, rb);
     }
 
-    // ======================== 面朝向解析 ========================
+    // ======================== 闈㈡湞鍚戣В鏋?========================
 
-    /** 解析形状的构建基准面 */
+    /** 瑙ｆ瀽褰㈢姸鐨勬瀯寤哄熀鍑嗛潰 */
     public static Direction resolveShapeBuildFace(ClientRtsController.BuildShape shape, Direction clickedFace, Vec3 rayDir) {
         if (shape == null) return clickedFace == null ? Direction.UP : clickedFace;
         return switch (shape) {
@@ -502,13 +503,13 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    /** 解析形状的放置面 */
+    /** 瑙ｆ瀽褰㈢姸鐨勬斁缃潰 */
     public static Direction resolveShapePlacementFace(ClientRtsController.BuildShape shape, Direction clickedFace, Vec3 rayDir) {
         if (clickedFace != null) return clickedFace;
         return resolveShapeBuildFace(shape, clickedFace, rayDir);
     }
 
-    /** 解析形状的平面轴向 */
+    /** 瑙ｆ瀽褰㈢姸鐨勫钩闈㈣酱鍚?*/
     public static Direction[] resolveShapePlaneAxes(ClientRtsController.BuildShape shape, Direction face) {
         if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
             return new Direction[] { Direction.EAST, Direction.SOUTH };
@@ -524,23 +525,23 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    /** 判断形状是否需要第三点（仅立方体需要） */
+    /** 鍒ゆ柇褰㈢姸鏄惁闇€瑕佺涓夌偣锛堜粎绔嬫柟浣撻渶瑕侊級 */
     public static boolean requiresThirdPoint(ClientRtsController.BuildShape shape) {
         return shape == ClientRtsController.BuildShape.BOX;
     }
 
-    // ======================== 放置命中结果生成 ========================
+    // ======================== 鏀剧疆鍛戒腑缁撴灉鐢熸垚 ========================
 
-    /** 创建形状放置的 BlockHitResult */
+    /** 鍒涘缓褰㈢姸鏀剧疆鐨?BlockHitResult */
     public static BlockHitResult createShapePlacementHit(BlockPos pos, Direction face) {
         Vec3 faceNormal = Vec3.atLowerCornerOf(face.getNormal());
         Vec3 hitVec = Vec3.atCenterOf(pos).add(faceNormal.scale(0.5D));
         return new BlockHitResult(hitVec, face, pos, false);
     }
 
-    // ======================== 可用填充模式 ========================
+    // ======================== 鍙敤濉厖妯″紡 ========================
 
-    /** 获取形状的可用填充模式列表 */
+    /** 鑾峰彇褰㈢姸鐨勫彲鐢ㄥ～鍏呮ā寮忓垪琛?*/
     public static List<ShapeBuildTypes.ShapeFillMode> availableFillModes(ClientRtsController.BuildShape shape) {
         if (shape == null) return List.of(ShapeBuildTypes.ShapeFillMode.FILL);
         return switch (shape) {
@@ -551,15 +552,15 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    // ======================== 数据记录 ========================
+    // ======================== 鏁版嵁璁板綍 ========================
 
-    /** 旋转偏移量 */
+    /** 鏃嬭浆鍋忕Щ閲?*/
     public record RotatedOffset(int a, int b) {}
 
-    /** 平面单元格 */
+    /** 骞抽潰鍗曞厓鏍?*/
     public record PlaneCell(int a, int b) {}
 
     private ShapeGeometryUtil() {
-        // 工具类，禁止实例化
+        // 宸ュ叿绫伙紝绂佹瀹炰緥鍖?
     }
 }

@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 
 import net.minecraft.client.gui.GuiGraphics;

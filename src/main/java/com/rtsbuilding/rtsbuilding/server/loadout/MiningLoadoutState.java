@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.loadout;
 
+
 import java.util.OptionalInt;
 
 import net.minecraft.core.registries.BuiltInRegistries;

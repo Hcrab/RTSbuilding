@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -10,27 +11,27 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 区块引导线渲染器
- * 负责在RTS模式下渲染以玩家为中心的3x3区块网格，用于视觉参考
+ * 鍖哄潡寮曞绾挎覆鏌撳櫒
+ * 璐熻矗鍦≧TS妯″紡涓嬫覆鏌撲互鐜╁涓轰腑蹇冪殑3x3鍖哄潡缃戞牸锛岀敤浜庤瑙夊弬鑰?
  */
 public final class ChunkGuideRenderer {
-    // 区块引导范围半径（以区块为单位），1表示渲染中心区块周围3x3区域
+    // 鍖哄潡寮曞鑼冨洿鍗婂緞锛堜互鍖哄潡涓哄崟浣嶏級锛?琛ㄧず娓叉煋涓績鍖哄潡鍛ㄥ洿3x3鍖哄煙
     private static final int CHUNK_GUIDE_RADIUS_CHUNKS = 1;
 
     /**
-     * 私有构造函数，防止实例化
+     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
      */
     private ChunkGuideRenderer() {
     }
 
     /**
-     * 渲染区块引导网格
+     * 娓叉煋鍖哄潡寮曞缃戞牸
      *
-     * @param minecraft Minecraft客户端实例
-     * @param cameraPosition 相机位置
-     * @param poseStack 姿势栈，用于坐标变换
-     * @param fillBuffer 填充缓冲区，用于绘制半透明方块
-     * @param lineBuffer 线条缓冲区，用于绘制边框线
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param cameraPosition 鐩告満浣嶇疆
+     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻崲
+     * @param fillBuffer 濉厖缂撳啿鍖猴紝鐢ㄤ簬缁樺埗鍗婇€忔槑鏂瑰潡
+     * @param lineBuffer 绾挎潯缂撳啿鍖猴紝鐢ㄤ簬缁樺埗杈规绾?
      */
     public static void renderChunkGuides(
             Minecraft minecraft,
@@ -42,22 +43,22 @@ public final class ChunkGuideRenderer {
             return;
         }
 
-        // 计算相机所在区块坐标
+        // 璁＄畻鐩告満鎵€鍦ㄥ尯鍧楀潗鏍?
         BlockPos cameraBlockPos = BlockPos.containing(cameraPosition);
         int centerChunkX = SectionPos.blockToSectionCoord(cameraBlockPos.getX());
         int centerChunkZ = SectionPos.blockToSectionCoord(cameraBlockPos.getZ());
 
-        // 计算渲染范围的边界
+        // 璁＄畻娓叉煋鑼冨洿鐨勮竟鐣?
         int minChunkX = centerChunkX - CHUNK_GUIDE_RADIUS_CHUNKS;
         int maxChunkX = centerChunkX + CHUNK_GUIDE_RADIUS_CHUNKS;
         int minChunkZ = centerChunkZ - CHUNK_GUIDE_RADIUS_CHUNKS;
         int maxChunkZ = centerChunkZ + CHUNK_GUIDE_RADIUS_CHUNKS;
 
-        // 确定引导线的Y轴高度：优先使用玩家位置，否则使用相机位置
+        // 纭畾寮曞绾跨殑Y杞撮珮搴︼細浼樺厛浣跨敤鐜╁浣嶇疆锛屽惁鍒欎娇鐢ㄧ浉鏈轰綅缃?
         int guideYSource = minecraft.player == null ? cameraBlockPos.getY() : minecraft.player.blockPosition().getY();
         int guideY = Mth.clamp(guideYSource, minecraft.level.getMinBuildHeight(), minecraft.level.getMaxBuildHeight() - 1);
 
-        // 遍历范围内的所有区块，渲染边缘高亮
+        // 閬嶅巻鑼冨洿鍐呯殑鎵€鏈夊尯鍧楋紝娓叉煋杈圭紭楂樹寒
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
                 renderChunkEdgeHighlights(minecraft, poseStack, fillBuffer, lineBuffer, cx, cz, guideY);
@@ -66,15 +67,15 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 渲染单个区块的边缘高亮
+     * 娓叉煋鍗曚釜鍖哄潡鐨勮竟缂橀珮浜?
      *
-     * @param minecraft Minecraft客户端实例
-     * @param poseStack 姿势栈
-     * @param fillBuffer 填充缓冲区
-     * @param lineBuffer 线条缓冲区
-     * @param chunkX 区块X坐标
-     * @param chunkZ 区块Z坐标
-     * @param guideY 引导线Y轴高度
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param poseStack 濮垮娍鏍?
+     * @param fillBuffer 濉厖缂撳啿鍖?
+     * @param lineBuffer 绾挎潯缂撳啿鍖?
+     * @param chunkX 鍖哄潡X鍧愭爣
+     * @param chunkZ 鍖哄潡Z鍧愭爣
+     * @param guideY 寮曞绾縔杞撮珮搴?
      */
     private static void renderChunkEdgeHighlights(
             Minecraft minecraft,
@@ -84,27 +85,27 @@ public final class ChunkGuideRenderer {
             int chunkX,
             int chunkZ,
             int guideY) {
-        // 将区块坐标转换为世界坐标（每个区块16x16）
-        int startX = chunkX << 4;  // 等同于 chunkX * 16
+        // 灏嗗尯鍧楀潗鏍囪浆鎹负涓栫晫鍧愭爣锛堟瘡涓尯鍧?6x16锛?
+        int startX = chunkX << 4;  // 绛夊悓浜?chunkX * 16
         int startZ = chunkZ << 4;
         int endX = startX + 15;
         int endZ = startZ + 15;
 
-        // 优化：在区块级别检查加载状态，避免每个单元格重复检查
+        // 浼樺寲锛氬湪鍖哄潡绾у埆妫€鏌ュ姞杞界姸鎬侊紝閬垮厤姣忎釜鍗曞厓鏍奸噸澶嶆鏌?
         if (minecraft.level != null && !minecraft.level.hasChunkAt(new BlockPos(startX, guideY, startZ))) {
             return;
         }
 
-        // 根据区块坐标的奇偶性选择颜色（棋盘格效果）
+        // 鏍规嵁鍖哄潡鍧愭爣鐨勫鍋舵€ч€夋嫨棰滆壊锛堟鐩樻牸鏁堟灉锛?
         ChunkGuideColor color = chunkGuideColor(chunkX, chunkZ);
 
-        // 渲染区块四条边的所有方块单元格
-        // 上下边（完整行）
+        // 娓叉煋鍖哄潡鍥涙潯杈圭殑鎵€鏈夋柟鍧楀崟鍏冩牸
+        // 涓婁笅杈癸紙瀹屾暣琛岋級
         for (int x = startX; x <= endX; x++) {
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, x, startZ, guideY, color);
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, x, endZ, guideY, color);
         }
-        // 左右边（排除角点，避免重复渲染）
+        // 宸﹀彸杈癸紙鎺掗櫎瑙掔偣锛岄伩鍏嶉噸澶嶆覆鏌擄級
         for (int z = startZ + 1; z < endZ; z++) {
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, startX, z, guideY, color);
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, endX, z, guideY, color);
@@ -112,15 +113,15 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 渲染单个单元格的引导高亮（填充+边框）
+     * 娓叉煋鍗曚釜鍗曞厓鏍肩殑寮曞楂樹寒锛堝～鍏?杈规锛?
      *
-     * @param poseStack 姿势栈
-     * @param fillBuffer 填充缓冲区
-     * @param lineBuffer 线条缓冲区
-     * @param x 世界X坐标
-     * @param z 世界Z坐标
-     * @param guideY Y轴高度
-     * @param color 颜色配置
+     * @param poseStack 濮垮娍鏍?
+     * @param fillBuffer 濉厖缂撳啿鍖?
+     * @param lineBuffer 绾挎潯缂撳啿鍖?
+     * @param x 涓栫晫X鍧愭爣
+     * @param z 涓栫晫Z鍧愭爣
+     * @param guideY Y杞撮珮搴?
+     * @param color 棰滆壊閰嶇疆
      */
     private static void renderChunkGuideCell(
             PoseStack poseStack,
@@ -130,7 +131,7 @@ public final class ChunkGuideRenderer {
             int z,
             int guideY,
             ChunkGuideColor color) {
-        // 向内收缩0.04单位，使相邻单元格之间产生间隙
+        // 鍚戝唴鏀剁缉0.04鍗曚綅锛屼娇鐩搁偦鍗曞厓鏍间箣闂翠骇鐢熼棿闅?
         double inset = 0.04D;
         double minX = x + inset;
         double minY = guideY + inset;
@@ -139,7 +140,7 @@ public final class ChunkGuideRenderer {
         double maxY = guideY + 1.0D - inset;
         double maxZ = z + 1.0D - inset;
 
-        // 绘制半透明填充
+        // 缁樺埗鍗婇€忔槑濉厖
         LevelRenderer.addChainedFilledBoxVertices(
                 poseStack,
                 fillBuffer,
@@ -147,7 +148,7 @@ public final class ChunkGuideRenderer {
                 maxX, maxY, maxZ,
                 color.r(), color.g(), color.b(), color.a());
 
-        // 绘制边框线（颜色比填充稍亮）
+        // 缁樺埗杈规绾匡紙棰滆壊姣斿～鍏呯◢浜級
         LevelRenderer.renderLineBox(
                 poseStack,
                 lineBuffer,
@@ -160,21 +161,21 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 根据区块坐标生成棋盘格颜色
-     * 偶数区块使用青蓝色，奇数区块使用金黄色
+     * 鏍规嵁鍖哄潡鍧愭爣鐢熸垚妫嬬洏鏍奸鑹?
+     * 鍋舵暟鍖哄潡浣跨敤闈掕摑鑹诧紝濂囨暟鍖哄潡浣跨敤閲戦粍鑹?
      *
-     * @param chunkX 区块X坐标
-     * @param chunkZ 区块Z坐标
-     * @return 颜色配置
+     * @param chunkX 鍖哄潡X鍧愭爣
+     * @param chunkZ 鍖哄潡Z鍧愭爣
+     * @return 棰滆壊閰嶇疆
      */
     private static ChunkGuideColor chunkGuideColor(int chunkX, int chunkZ) {
         return ((chunkX ^ chunkZ) & 1) == 0
-                ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)   // 青蓝色
-                : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);  // 金黄色
+                ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)   // 闈掕摑鑹?
+                : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);  // 閲戦粍鑹?
     }
 
     /**
-     * 颜色记录类，存储RGBA值
+     * 棰滆壊璁板綍绫伙紝瀛樺偍RGBA鍊?
      */
     private record ChunkGuideColor(float r, float g, float b, float a) {
     }

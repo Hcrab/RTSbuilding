@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
+
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.CRAFT_DOCK_C_SIZE;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.CRAFT_DOCK_GAP;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.CRAFT_DOCK_SLOT_SIZE;
@@ -18,15 +19,15 @@ public final class PanelLayouts {
      * Craft-dock layout (the grid of 8 surrounding slots).
      * <p>
      * Computes the X/Y position of each of the 8 input/output slots
-     * that ring the central 3×3 crafting grid. Slot numbering:
+     * that ring the central 3脳3 crafting grid. Slot numbering:
      * <pre>
      *   0   1   2
      *   3   C   4
      *   5   6   7
      * </pre>
      *
-     * @param cX centre-X of the 3×3 crafting grid
-     * @param cY centre-Y of the 3×3 crafting grid
+     * @param cX centre-X of the 3脳3 crafting grid
+     * @param cY centre-Y of the 3脳3 crafting grid
      */
     public record CraftDockLayout(int cX, int cY) {
 

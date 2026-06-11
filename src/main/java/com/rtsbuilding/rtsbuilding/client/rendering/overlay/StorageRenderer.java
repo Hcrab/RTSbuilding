@@ -1,32 +1,33 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * 储存方块高亮渲染器
- * 负责渲染已链接的储存容器方块的蓝色边框，帮助玩家识别RTS系统的储存网络
+ * 鍌ㄥ瓨鏂瑰潡楂樹寒娓叉煋鍣?
+ * 璐熻矗娓叉煋宸查摼鎺ョ殑鍌ㄥ瓨瀹瑰櫒鏂瑰潡鐨勮摑鑹茶竟妗嗭紝甯姪鐜╁璇嗗埆RTS绯荤粺鐨勫偍瀛樼綉缁?
  */
 public final class StorageRenderer {
 
     /**
-     * 私有构造函数，防止实例化
+     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
      */
     private StorageRenderer() {
     }
 
     /**
-     * 渲染所有已链接的储存方块高亮
+     * 娓叉煋鎵€鏈夊凡閾炬帴鐨勫偍瀛樻柟鍧楅珮浜?
      *
-     * @param minecraft Minecraft客户端实例
-     * @param controller RTS控制器，提供储存位置列表
-     * @param poseStack 姿势栈，用于坐标变换
-     * @param lineBuffer 线条缓冲区
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param controller RTS鎺у埗鍣紝鎻愪緵鍌ㄥ瓨浣嶇疆鍒楄〃
+     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻崲
+     * @param lineBuffer 绾挎潯缂撳啿鍖?
      */
     public static void renderLinkedStorages(Minecraft minecraft, ClientRtsController controller, PoseStack poseStack,
                                             VertexConsumer lineBuffer) {
@@ -34,20 +35,20 @@ public final class StorageRenderer {
             return;
         }
 
-        // 遍历所有已链接的储存位置
+        // 閬嶅巻鎵€鏈夊凡閾炬帴鐨勫偍瀛樹綅缃?
         for (BlockPos pos : controller.getLinkedStoragePositions()) {
-            // 检查区块是否已加载
+            // 妫€鏌ュ尯鍧楁槸鍚﹀凡鍔犺浇
             if (!minecraft.level.hasChunkAt(pos)) {
                 continue;
             }
 
-            // 检查方块是否存在（非空气）
+            // 妫€鏌ユ柟鍧楁槸鍚﹀瓨鍦紙闈炵┖姘旓級
             BlockState state = minecraft.level.getBlockState(pos);
             if (state.isAir()) {
                 continue;
             }
 
-            // 绘制蓝色边框，向外扩展0.002单位以避免Z-fighting
+            // 缁樺埗钃濊壊杈规锛屽悜澶栨墿灞?.002鍗曚綅浠ラ伩鍏峑-fighting
             LevelRenderer.renderLineBox(
                     poseStack,
                     lineBuffer,
@@ -57,7 +58,7 @@ public final class StorageRenderer {
                     pos.getX() + 1.002D,
                     pos.getY() + 1.002D,
                     pos.getZ() + 1.002D,
-                    0.24F, 0.55F, 1.00F, 1.0F);  // 天蓝色
+                    0.24F, 0.55F, 1.00F, 1.0F);  // 澶╄摑鑹?
         }
     }
 }

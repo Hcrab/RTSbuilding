@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint;
 
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.Blocks;

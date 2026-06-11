@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import net.minecraft.client.gui.Font;
 
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.buttonWidth;
@@ -7,7 +8,7 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.butt
 /**
  * Computes the stable geometry for the blueprint bottom panel controls.
  */
-final class BlueprintPanelLayout {
+public final class BlueprintPanelLayout {
     static final int LIST_COLUMN_GAP = 4;
 
     private BlueprintPanelLayout() {

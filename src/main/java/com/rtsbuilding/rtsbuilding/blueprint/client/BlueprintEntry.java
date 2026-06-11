@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ import net.minecraft.world.item.Items;
  * text, preview items, unsupported block counts, and missing block-id counts.
  * The UI can therefore render a row without reparsing the source file.</p>
  */
-record BlueprintEntry(
+public record BlueprintEntry(
         Path path,
         String fileName,
         String name,

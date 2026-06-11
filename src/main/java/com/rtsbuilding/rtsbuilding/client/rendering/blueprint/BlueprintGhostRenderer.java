@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -16,30 +17,30 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * 蓝图幽灵预览渲染器
- * 负责在BuilderScreen中渲染蓝图的3D幽灵预览，包括方块模型和缺失标记
+ * 钃濆浘骞界伒棰勮娓叉煋鍣?
+ * 璐熻矗鍦˙uilderScreen涓覆鏌撹摑鍥剧殑3D骞界伒棰勮锛屽寘鎷柟鍧楁ā鍨嬪拰缂哄け鏍囪
  */
 public final class BlueprintGhostRenderer {
     private static final float GHOST_BLOCK_ALPHA = 0.30F;
     private static final float TRUNCATED_BOX_ALPHA = 0.22F;
 
     /**
-     * 私有构造函数，防止实例化
+     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
      */
     private BlueprintGhostRenderer() {
     }
 
     /**
-     * 渲染蓝图的幽灵预览
+     * 娓叉煋钃濆浘鐨勫菇鐏甸瑙?
      *
-     * @param minecraft Minecraft客户端实例
-     * @param poseStack 姿势栈，用于坐标变换
-     * @param lineBuffer 线条缓冲区
-     * @param fillBuffer 填充缓冲区（预留，当前未使用）
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻崲
+     * @param lineBuffer 绾挎潯缂撳啿鍖?
+     * @param fillBuffer 濉厖缂撳啿鍖猴紙棰勭暀锛屽綋鍓嶆湭浣跨敤锛?
      */
     public static void renderBlueprintGhostPreview(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer,
             VertexConsumer fillBuffer) {
-        // 仅在BuilderScreen中渲染
+        // 浠呭湪BuilderScreen涓覆鏌?
         if (!(minecraft.screen instanceof BuilderScreen builderScreen)) {
             return;
         }
@@ -49,13 +50,13 @@ public final class BlueprintGhostRenderer {
             return;
         }
 
-        // 根据材料是否齐备选择颜色
-        // 材料齐备：绿色系；材料缺失：红色系
+        // 鏍规嵁鏉愭枡鏄惁榻愬閫夋嫨棰滆壊
+        // 鏉愭枡榻愬锛氱豢鑹茬郴锛涙潗鏂欑己澶憋細绾㈣壊绯?
         float lineR = preview.materialsReady() ? 0.35F : 1.00F;
         float lineG = preview.materialsReady() ? 0.95F : 0.72F;
         float lineB = preview.materialsReady() ? 0.72F : 0.22F;
 
-        // 初始化包围盒边界
+        // 鍒濆鍖栧寘鍥寸洅杈圭晫
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
         int minZ = Integer.MAX_VALUE;
@@ -67,11 +68,11 @@ public final class BlueprintGhostRenderer {
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
         MultiBufferSource translucentBlockBuffer = new AlphaBlockPreviewBufferSource(blockBuffer, GHOST_BLOCK_ALPHA);
 
-        // 遍历所有蓝图方块
+        // 閬嶅巻鎵€鏈夎摑鍥炬柟鍧?
         for (BlueprintPanel.BlueprintGhostBlock block : preview.blocks()) {
             BlockPos pos = block.pos();
 
-            // 更新包围盒边界
+            // 鏇存柊鍖呭洿鐩掕竟鐣?
             minX = Math.min(minX, pos.getX());
             minY = Math.min(minY, pos.getY());
             minZ = Math.min(minZ, pos.getZ());
@@ -81,7 +82,7 @@ public final class BlueprintGhostRenderer {
 
             BlockState state = block.state();
 
-            // 如果方块存在且不是空气，且有模型，则渲染实际方块模型
+            // 濡傛灉鏂瑰潡瀛樺湪涓斾笉鏄┖姘旓紝涓旀湁妯″瀷锛屽垯娓叉煋瀹為檯鏂瑰潡妯″瀷
             if (!block.missing()
                     && state != null
                     && !state.isAir()
@@ -92,14 +93,14 @@ public final class BlueprintGhostRenderer {
                         state,
                         poseStack,
                         translucentBlockBuffer,
-                        LightTexture.FULL_BRIGHT,  // 使用最大亮度，不受光照影响
+                        LightTexture.FULL_BRIGHT,  // 浣跨敤鏈€澶т寒搴︼紝涓嶅彈鍏夌収褰卞搷
                         OverlayTexture.NO_OVERLAY);
                 poseStack.popPose();
                 renderedBlockModels = true;
                 continue;
             }
 
-            // 对于缺失或无模型的方块，绘制边框占位符
+            // 瀵逛簬缂哄け鎴栨棤妯″瀷鐨勬柟鍧楋紝缁樺埗杈规鍗犱綅绗?
             double cellMinX = pos.getX() + 0.04D;
             double cellMinY = pos.getY() + 0.04D;
             double cellMinZ = pos.getZ() + 0.04D;
@@ -107,7 +108,7 @@ public final class BlueprintGhostRenderer {
             double cellMaxY = pos.getY() + 0.96D;
             double cellMaxZ = pos.getZ() + 0.96D;
 
-            // 缺失方块使用红色，其他使用状态色
+            // 缂哄け鏂瑰潡浣跨敤绾㈣壊锛屽叾浠栦娇鐢ㄧ姸鎬佽壊
             float fallbackR = block.missing() ? 1.00F : lineR;
             float fallbackG = block.missing() ? 0.25F : lineG;
             float fallbackB = block.missing() ? 0.25F : lineB;
@@ -121,14 +122,14 @@ public final class BlueprintGhostRenderer {
                     0.90F);
         }
 
-        // 如果渲染了方块模型，需要提交批处理
+        // 濡傛灉娓叉煋浜嗘柟鍧楁ā鍨嬶紝闇€瑕佹彁浜ゆ壒澶勭悊
         if (renderedBlockModels) {
             blockBuffer.endBatch();
         }
 
-        // 渲染整体包围盒边框
+        // 娓叉煋鏁翠綋鍖呭洿鐩掕竟妗?
         if (minX != Integer.MAX_VALUE) {
-            // 如果蓝图被截断（方块数量过多），降低透明度
+            // 濡傛灉钃濆浘琚埅鏂紙鏂瑰潡鏁伴噺杩囧锛夛紝闄嶄綆閫忔槑搴?
             float alpha = preview.truncated() ? TRUNCATED_BOX_ALPHA : GHOST_BLOCK_ALPHA;
             LevelRenderer.renderLineBox(
                     poseStack,

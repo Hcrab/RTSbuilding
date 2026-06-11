@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.entity;
 
+
 import java.util.UUID;
 
 import net.minecraft.nbt.CompoundTag;

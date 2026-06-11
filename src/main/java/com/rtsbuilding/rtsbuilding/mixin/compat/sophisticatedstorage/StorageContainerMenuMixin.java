@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.mixin.compat.sophisticatedstorage;
 
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,7 +17,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
         "net.p3pp3rf1y.sophisticatedstorage.common.gui.StorageContainerMenu",
         "net.p3pp3rf1y.sophisticatedcore.common.gui.StorageContainerMenuBase"
 }, remap = false)
-abstract class StorageContainerMenuMixin {
+public abstract class StorageContainerMenuMixin {
     @Inject(method = { "stillValid", "m_6875_" }, at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private void rtsbuilding$forceRemoteStillValid(Player player, CallbackInfoReturnable<Boolean> cir) {
         if (RtsSophisticatedStorageCompat.shouldForceStillValid((AbstractContainerMenu) (Object) this, player)) {

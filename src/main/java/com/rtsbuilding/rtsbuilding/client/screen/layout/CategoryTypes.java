@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
+import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
+
+
 /**
  * Container for category-browsing data types.
  * <p>

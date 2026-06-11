@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding;
 
+
 public final class RtsCommunityLinks {
     public static final String DISCORD_INVITE = "https://discord.gg/9Pw6vZfAm";
     public static final String GITHUB_REPOSITORY = "https://github.com/Hcrab/RTSbuilding";

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -24,7 +25,7 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.s
 /**
  * Owns the mutable state for selecting and saving a blueprint capture region.
  */
-final class BlueprintCaptureController {
+public final class BlueprintCaptureController {
     private boolean active = false;
     private BlockPos pointA = null;
     private BlockPos pointB = null;

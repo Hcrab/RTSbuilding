@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint;
 
+
 public enum BlueprintFormat {
     VANILLA_NBT("nbt"),
     SPONGE_SCHEM("schem"),

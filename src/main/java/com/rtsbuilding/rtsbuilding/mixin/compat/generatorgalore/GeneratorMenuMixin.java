@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.mixin.compat.generatorgalore;
 
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,7 +14,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 
 @Pseudo
 @Mixin(targets = "cy.jdkdigital.generatorgalore.common.container.GeneratorMenu", remap = false)
-abstract class GeneratorMenuMixin {
+public abstract class GeneratorMenuMixin {
     @Inject(method = "stillValid", at = @At("HEAD"), cancellable = true, remap = false)
     private void rtsbuilding$forceRemoteStillValid(Player player, CallbackInfoReturnable<Boolean> cir) {
         if (RtsRemoteMenuCompat.shouldForceStillValid((AbstractContainerMenu) (Object) this, player)) {

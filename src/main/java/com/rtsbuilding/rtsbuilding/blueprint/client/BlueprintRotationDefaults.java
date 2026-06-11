@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -14,7 +15,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
 /**
  * Stores the per-file default rotation players save from the blueprint preview.
  */
-final class BlueprintRotationDefaults {
+public final class BlueprintRotationDefaults {
     private static boolean loaded = false;
     private static final Map<String, RotationPreset> DEFAULT_ROTATIONS = new HashMap<>();
 

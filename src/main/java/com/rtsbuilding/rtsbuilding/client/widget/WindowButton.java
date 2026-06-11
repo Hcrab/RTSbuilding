@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
+
+import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -11,8 +13,8 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * 自定义窗口按钮
- * 支持贴图绘制和矢量缩放
+ * 鑷畾涔夌獥鍙ｆ寜閽?
+ * 鏀寔璐村浘缁樺埗鍜岀煝閲忕缉鏀?
  */
 public class WindowButton extends AbstractButton {
 
@@ -26,10 +28,10 @@ public class WindowButton extends AbstractButton {
     private final int textureV;
     private final int textureWidth;
     private final int textureHeight;
-    private final int hoverTextureV;  // 悬停状态的贴图V坐标
-    private final int hoverTextureHeight;  // 悬停状态的贴图高度
-    private final int fullTextureWidth;   // 完整贴图的总宽度
-    private final int fullTextureHeight;  // 完整贴图的总高度
+    private final int hoverTextureV;  // 鎮仠鐘舵€佺殑璐村浘V鍧愭爣
+    private final int hoverTextureHeight;  // 鎮仠鐘舵€佺殑璐村浘楂樺害
+    private final int fullTextureWidth;   // 瀹屾暣璐村浘鐨勬€诲搴?
+    private final int fullTextureHeight;  // 瀹屾暣璐村浘鐨勬€婚珮搴?
 
     private static final int TEXT_COLOR = 0xFFD8E3EE;
     private static final int TEXT_COLOR_DISABLED = 0xFF556677;
@@ -46,30 +48,30 @@ public class WindowButton extends AbstractButton {
     private static boolean globalSkipHover;
 
     /**
-     * 创建纯色按钮
+     * 鍒涘缓绾壊鎸夐挳
      */
     public WindowButton(int x, int y, int width, int height, Component message, OnPress onPress) {
         this(x, y, width, height, message, null, 0, 0, 0, 0, onPress);
     }
 
     /**
-     * 创建带贴图的按钮（支持悬停状态切换）
+     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堟敮鎸佹偓鍋滅姸鎬佸垏鎹級
      *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @param width 按钮宽度
-     * @param height 按钮高度
-     * @param message 按钮文本
-     * @param textureLocation 贴图资源位置（null 表示使用纯色）
-     * @param textureU 贴图 U 坐标
-     * @param textureV 贴图 V 坐标（正常状态）
-     * @param textureWidth 贴图宽度
-     * @param textureHeight 贴图高度（正常状态）
-     * @param hoverTextureV 悬停状态的贴图 V 坐标
-     * @param hoverTextureHeight 悬停状态的贴图高度
-     * @param fullTextureWidth 完整贴图的总宽度
-     * @param fullTextureHeight 完整贴图的总高度
-     * @param onPress 点击回调
+     * @param x X 鍧愭爣
+     * @param y Y 鍧愭爣
+     * @param width 鎸夐挳瀹藉害
+     * @param height 鎸夐挳楂樺害
+     * @param message 鎸夐挳鏂囨湰
+     * @param textureLocation 璐村浘璧勬簮浣嶇疆锛坣ull 琛ㄧず浣跨敤绾壊锛?
+     * @param textureU 璐村浘 U 鍧愭爣
+     * @param textureV 璐村浘 V 鍧愭爣锛堟甯哥姸鎬侊級
+     * @param textureWidth 璐村浘瀹藉害
+     * @param textureHeight 璐村浘楂樺害锛堟甯哥姸鎬侊級
+     * @param hoverTextureV 鎮仠鐘舵€佺殑璐村浘 V 鍧愭爣
+     * @param hoverTextureHeight 鎮仠鐘舵€佺殑璐村浘楂樺害
+     * @param fullTextureWidth 瀹屾暣璐村浘鐨勬€诲搴?
+     * @param fullTextureHeight 瀹屾暣璐村浘鐨勬€婚珮搴?
+     * @param onPress 鐐瑰嚮鍥炶皟
      */
     public WindowButton(int x, int y, int width, int height, Component message,
                        ResourceLocation textureLocation, int textureU, int textureV,
@@ -89,7 +91,7 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 创建带贴图的按钮（兼容旧版，悬停使用相同贴图）
+     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堝吋瀹规棫鐗堬紝鎮仠浣跨敤鐩稿悓璐村浘锛?
      */
     public WindowButton(int x, int y, int width, int height, Component message,
                        ResourceLocation textureLocation, int textureU, int textureV,
@@ -109,14 +111,14 @@ public class WindowButton extends AbstractButton {
         Minecraft minecraft = Minecraft.getInstance();
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
-            // 使用贴图绘制（矢量缩放）
+            // 浣跨敤璐村浘缁樺埗锛堢煝閲忕缉鏀撅級
             renderWithTexture(guiGraphics);
         } else {
-            // 使用纯色绘制
+            // 浣跨敤绾壊缁樺埗
             renderWithSolidColor(guiGraphics);
         }
 
-        // 计算文本位置（居中）
+        // 璁＄畻鏂囨湰浣嶇疆锛堝眳涓級
         int textColor = this.active ? TEXT_COLOR : TEXT_COLOR_DISABLED;
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
                 Math.max(4, this.width - 8));
@@ -124,48 +126,48 @@ public class WindowButton extends AbstractButton {
         int textX = this.getX() + (this.width - textWidth) / 2;
         int textY = this.getY() + (this.height - 8) / 2;
 
-        // 绘制文本
+        // 缁樺埗鏂囨湰
         if (!label.isEmpty()) {
             guiGraphics.drawString(minecraft.font, label, textX, textY, textColor, false);
         }
     }
 
     /**
-     * 使用贴图绘制按钮（支持矢量缩放和悬停效果）
+     * 浣跨敤璐村浘缁樺埗鎸夐挳锛堟敮鎸佺煝閲忕缉鏀惧拰鎮仠鏁堟灉锛?
      */
     private void renderWithTexture(GuiGraphics guiGraphics) {
-        // 确保贴图已加载
+        // 纭繚璐村浘宸插姞杞?
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(textureLocation);
 
         if (texture == null) {
-            // 尝试触发贴图自动加载
+            // 灏濊瘯瑙﹀彂璐村浘鑷姩鍔犺浇
             try {
-                // 使用 setShaderTexture 触发贴图加载
+                // 浣跨敤 setShaderTexture 瑙﹀彂璐村浘鍔犺浇
                 RenderSystem.setShaderTexture(0, textureLocation);
 
-                // 再次尝试获取贴图
+                // 鍐嶆灏濊瘯鑾峰彇璐村浘
                 texture = textureManager.getTexture(textureLocation);
 
                 if (texture == null) {
-                    // 如果仍然无法加载，绘制红色方块提示
+                    // 濡傛灉浠嶇劧鏃犳硶鍔犺浇锛岀粯鍒剁孩鑹叉柟鍧楁彁绀?
                     guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
                     return;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                // 如果仍然无法加载，绘制红色方块提示
+                // 濡傛灉浠嶇劧鏃犳硶鍔犺浇锛岀粯鍒剁孩鑹叉柟鍧楁彁绀?
                 guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
                 return;
             }
         }
 
-        // 根据悬停状态选择不同的贴图区域（被覆盖窗口强制使用非悬停贴图）
+        // 鏍规嵁鎮仠鐘舵€侀€夋嫨涓嶅悓鐨勮创鍥惧尯鍩燂紙琚鐩栫獥鍙ｅ己鍒朵娇鐢ㄩ潪鎮仠璐村浘锛?
         boolean effectiveHovered = isHovered && !globalSkipHover;
         int currentV = effectiveHovered ? hoverTextureV : textureV;
         int currentHeight = effectiveHovered ? hoverTextureHeight : textureHeight;
 
-        // 启用混合模式以支持透明度
+        // 鍚敤娣峰悎妯″紡浠ユ敮鎸侀€忔槑搴?
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
             org.lwjgl.opengl.GL11.GL_SRC_ALPHA,
@@ -174,26 +176,26 @@ public class WindowButton extends AbstractButton {
             org.lwjgl.opengl.GL11.GL_ZERO
         );
 
-        // 绑定贴图（在设置参数之前绑定）
+        // 缁戝畾璐村浘锛堝湪璁剧疆鍙傛暟涔嬪墠缁戝畾锛?
         RenderSystem.setShaderTexture(0, textureLocation);
 
-        // 设置高质量的纹理过滤参数
-        // 缩小过滤：三线性过滤（mipmap + 线性插值）
+        // 璁剧疆楂樿川閲忕殑绾圭悊杩囨护鍙傛暟
+        // 缂╁皬杩囨护锛氫笁绾挎€ц繃婊わ紙mipmap + 绾挎€ф彃鍊硷級
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
             org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR
         );
-        // 放大过滤：线性插值
+        // 鏀惧ぇ杩囨护锛氱嚎鎬ф彃鍊?
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
             org.lwjgl.opengl.GL11.GL_LINEAR
         );
-        // 尝试设置各向异性过滤以提高斜向缩放质量
-        // 注意：各向异性过滤是 OpenGL 扩展，需要检查支持情况
+        // 灏濊瘯璁剧疆鍚勫悜寮傛€ц繃婊や互鎻愰珮鏂滃悜缂╂斁璐ㄩ噺
+        // 娉ㄦ剰锛氬悇鍚戝紓鎬ц繃婊ゆ槸 OpenGL 鎵╁睍锛岄渶瑕佹鏌ユ敮鎸佹儏鍐?
         try {
-            // 使用 ARB_texture_filter_anisotropic 扩展常量
+            // 浣跨敤 ARB_texture_filter_anisotropic 鎵╁睍甯搁噺
             int GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
             int GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
 
@@ -207,37 +209,37 @@ public class WindowButton extends AbstractButton {
                 );
             }
         } catch (Exception e) {
-            // 忽略不支持的各向异性过滤
+            // 蹇界暐涓嶆敮鎸佺殑鍚勫悜寮傛€ц繃婊?
         }
 
-        // 使用 PoseStack 变换进行缩放（避免裁剪问题）
+        // 浣跨敤 PoseStack 鍙樻崲杩涜缂╂斁锛堥伩鍏嶈鍓棶棰橈級
         guiGraphics.pose().pushPose();
 
-        // 计算缩放比例（使用按钮实际尺寸和要渲染的纹理尺寸）
+        // 璁＄畻缂╂斁姣斾緥锛堜娇鐢ㄦ寜閽疄闄呭昂瀵稿拰瑕佹覆鏌撶殑绾圭悊灏哄锛?
         float scaleX = (float) this.width / textureWidth;
         float scaleY = (float) this.height / textureHeight;
 
-        // 应用缩放变换
+        // 搴旂敤缂╂斁鍙樻崲
         guiGraphics.pose().translate(this.getX(), this.getY(), 0);
         guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
 
-        // 绘制原始尺寸的纹理（blit 会自动使用当前绑定的纹理）
+        // 缁樺埗鍘熷灏哄鐨勭汗鐞嗭紙blit 浼氳嚜鍔ㄤ娇鐢ㄥ綋鍓嶇粦瀹氱殑绾圭悊锛?
         guiGraphics.blit(
             textureLocation,
-            0,  // 相对于变换后的位置
-            0,  // 相对于变换后的位置
+            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅缃?
+            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅缃?
             textureU,
-            currentV,      // 使用对应的V坐标
-            textureWidth,  // 要渲染的宽度
-            currentHeight, // 要渲染的高度
-            fullTextureWidth,   // 完整贴图的总宽度
-            fullTextureHeight   // 完整贴图的总高度
+            currentV,      // 浣跨敤瀵瑰簲鐨刅鍧愭爣
+            textureWidth,  // 瑕佹覆鏌撶殑瀹藉害
+            currentHeight, // 瑕佹覆鏌撶殑楂樺害
+            fullTextureWidth,   // 瀹屾暣璐村浘鐨勬€诲搴?
+            fullTextureHeight   // 瀹屾暣璐村浘鐨勬€婚珮搴?
         );
 
-        // 恢复变换状态
+        // 鎭㈠鍙樻崲鐘舵€?
         guiGraphics.pose().popPose();
 
-        // 恢复默认设置
+        // 鎭㈠榛樿璁剧疆
         RenderSystem.disableBlend();
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
@@ -252,10 +254,10 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 使用纯色绘制按钮（RTS 深色风格）
+     * 浣跨敤绾壊缁樺埗鎸夐挳锛圧TS 娣辫壊椋庢牸锛?
      */
     private void renderWithSolidColor(GuiGraphics guiGraphics) {
-        // 确定背景颜色（被覆盖窗口强制使用非悬停颜色）
+        // 纭畾鑳屾櫙棰滆壊锛堣瑕嗙洊绐楀彛寮哄埗浣跨敤闈炴偓鍋滈鑹诧級
         int backgroundColor = (!globalSkipHover && this.isHoveredOrFocused()) ? BUTTON_HOVER : BUTTON_BACKGROUND;
         RtsClientUiUtil.drawPanelFrame(guiGraphics,
                 this.getX(), this.getY(), this.width, this.height,

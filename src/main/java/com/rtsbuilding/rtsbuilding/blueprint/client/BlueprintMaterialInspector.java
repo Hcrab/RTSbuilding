@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -24,7 +25,7 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text
  * Computes the material, unsupported-block, and missing-mod summaries shown by
  * the blueprint panel.
  */
-final class BlueprintMaterialInspector {
+public final class BlueprintMaterialInspector {
     private static final int WATER_BUCKET_THRESHOLD = 2;
 
     private BlueprintMaterialInspector() {

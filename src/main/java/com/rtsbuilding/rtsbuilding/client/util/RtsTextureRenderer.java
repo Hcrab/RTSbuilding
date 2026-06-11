@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
+
+import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -7,10 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 /**
- * 高精度矢量贴图绘制工具。
+ * 楂樼簿搴︾煝閲忚创鍥剧粯鍒跺伐鍏枫€?
  * <p>
- * 使用浮点坐标和 PoseStack 矩阵变换实现亚像素精度渲染，
- * 支持绕中心旋转、颜色染色，且不污染全局 GL 纹理过滤状态。
+ * 浣跨敤娴偣鍧愭爣鍜?PoseStack 鐭╅樀鍙樻崲瀹炵幇浜氬儚绱犵簿搴︽覆鏌擄紝
+ * 鏀寔缁曚腑蹇冩棆杞€侀鑹叉煋鑹诧紝涓斾笉姹℃煋鍏ㄥ眬 GL 绾圭悊杩囨护鐘舵€併€?
  */
 public final class RtsTextureRenderer {
 
@@ -18,30 +20,30 @@ public final class RtsTextureRenderer {
     }
 
     /**
-     * 高精度矢量绘制贴图。
+     * 楂樼簿搴︾煝閲忕粯鍒惰创鍥俱€?
      * <p>
-     * 相比 {@code GuiGraphics.blit} 直接调用，此方法：
+     * 鐩告瘮 {@code GuiGraphics.blit} 鐩存帴璋冪敤锛屾鏂规硶锛?
      * <ul>
-     *   <li>目标位置和 UV 使用 float 精度，支持亚像素定位</li>
-     *   <li>绕中心旋转（角度制）</li>
-     *   <li>颜色染色（乘色），格式 0xAARRGGBB</li>
-     *   <li>不污染全局 GL 纹理过滤状态</li>
+     *   <li>鐩爣浣嶇疆鍜?UV 浣跨敤 float 绮惧害锛屾敮鎸佷簹鍍忕礌瀹氫綅</li>
+     *   <li>缁曚腑蹇冩棆杞紙瑙掑害鍒讹級</li>
+     *   <li>棰滆壊鏌撹壊锛堜箻鑹诧級锛屾牸寮?0xAARRGGBB</li>
+     *   <li>涓嶆薄鏌撳叏灞€ GL 绾圭悊杩囨护鐘舵€?/li>
      * </ul>
      *
-     * @param guiGraphics   渲染上下文
-     * @param texLocation   贴图资源路径
-     * @param x             目标左上角 X（float 精度）
-     * @param y             目标左上角 Y（float 精度）
-     * @param width         目标绘制宽度
-     * @param height        目标绘制高度
-     * @param uOffset       源贴图 U 偏移（float 精度）
-     * @param vOffset       源贴图 V 偏移（float 精度）
-     * @param uWidth        源贴图区域宽度
-     * @param vHeight       源贴图区域高度
-     * @param textureWidth  完整贴图总宽度
-     * @param textureHeight 完整贴图总高度
-     * @param rotationDeg   旋转角度（度），0 表示不旋转
-     * @param color         颜色染色 0xAARRGGBB，0xFFFFFFFF 表示不染色
+     * @param guiGraphics   娓叉煋涓婁笅鏂?
+     * @param texLocation   璐村浘璧勬簮璺緞
+     * @param x             鐩爣宸︿笂瑙?X锛坒loat 绮惧害锛?
+     * @param y             鐩爣宸︿笂瑙?Y锛坒loat 绮惧害锛?
+     * @param width         鐩爣缁樺埗瀹藉害
+     * @param height        鐩爣缁樺埗楂樺害
+     * @param uOffset       婧愯创鍥?U 鍋忕Щ锛坒loat 绮惧害锛?
+     * @param vOffset       婧愯创鍥?V 鍋忕Щ锛坒loat 绮惧害锛?
+     * @param uWidth        婧愯创鍥惧尯鍩熷搴?
+     * @param vHeight       婧愯创鍥惧尯鍩熼珮搴?
+     * @param textureWidth  瀹屾暣璐村浘鎬诲搴?
+     * @param textureHeight 瀹屾暣璐村浘鎬婚珮搴?
+     * @param rotationDeg   鏃嬭浆瑙掑害锛堝害锛夛紝0 琛ㄧず涓嶆棆杞?
+     * @param color         棰滆壊鏌撹壊 0xAARRGGBB锛?xFFFFFFFF 琛ㄧず涓嶆煋鑹?
      */
     public static void drawTextureHighPrecision(
             GuiGraphics guiGraphics,
@@ -54,7 +56,7 @@ public final class RtsTextureRenderer {
             float rotationDeg,
             int color
     ) {
-        // 1. 确保贴图已加载（同 WindowButton.renderWithTexture）
+        // 1. 纭繚璐村浘宸插姞杞斤紙鍚?WindowButton.renderWithTexture锛?
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(texLocation);
         if (texture == null) {
@@ -68,16 +70,16 @@ public final class RtsTextureRenderer {
             }
         }
 
-        // 2. 启用混合
+        // 2. 鍚敤娣峰悎
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        // 3. 绑定贴图并设置高质量过滤参数
+        // 3. 缁戝畾璐村浘骞惰缃珮璐ㄩ噺杩囨护鍙傛暟
         RenderSystem.setShaderTexture(0, texLocation);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
-        // 4. 颜色染色
+        // 4. 棰滆壊鏌撹壊
         boolean hasTint = (color & 0xFFFFFFFFL) != 0xFFFFFFFFL;
         if (hasTint) {
             guiGraphics.setColor(
@@ -88,7 +90,7 @@ public final class RtsTextureRenderer {
             );
         }
 
-        // 5. 使用 PoseStack 变换（同 WindowButton.renderWithTexture）
+        // 5. 浣跨敤 PoseStack 鍙樻崲锛堝悓 WindowButton.renderWithTexture锛?
         var pose = guiGraphics.pose();
         pose.pushPose();
         pose.translate(x, y, 0);
@@ -96,7 +98,7 @@ public final class RtsTextureRenderer {
         float scaleY = height / vHeight;
         pose.scale(scaleX, scaleY, 1.0f);
 
-        // 6. 绘制（在变换后的坐标中，纹理以原始UV尺寸绘制在 (0,0)）
+        // 6. 缁樺埗锛堝湪鍙樻崲鍚庣殑鍧愭爣涓紝绾圭悊浠ュ師濮婾V灏哄缁樺埗鍦?(0,0)锛?
         guiGraphics.blit(
                 texLocation,
                 0, 0,
@@ -105,15 +107,15 @@ public final class RtsTextureRenderer {
                 textureWidth, textureHeight
         );
 
-        // 7. 恢复变换
+        // 7. 鎭㈠鍙樻崲
         pose.popPose();
 
-        // 8. 恢复颜色
+        // 8. 鎭㈠棰滆壊
         if (hasTint) {
             guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        // 9. 恢复混合和纹理过滤
+        // 9. 鎭㈠娣峰悎鍜岀汗鐞嗚繃婊?
         RenderSystem.disableBlend();
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);

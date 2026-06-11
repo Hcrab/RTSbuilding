@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen;
 
+
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
-import com.rtsbuilding.rtsbuilding.client.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
-import com.rtsbuilding.rtsbuilding.network.C2SRtsInteractPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -13,7 +14,7 @@ import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.*;
 
-public final class ScreenCursorPicker {
+final class ScreenCursorPicker {
     private static final double BLUEPRINT_AIR_FALLBACK_DISTANCE = 24.0D;
     private static final double ITEM_AIR_INTERACTION_DISTANCE = 2.0D;
 

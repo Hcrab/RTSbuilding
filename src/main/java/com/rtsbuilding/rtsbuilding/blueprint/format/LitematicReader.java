@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.format;
 
+
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,7 +29,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-final class LitematicReader {
+public final class LitematicReader {
     private LitematicReader() {
     }
 

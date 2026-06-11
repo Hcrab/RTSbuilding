@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-import com.rtsbuilding.rtsbuilding.client.ClientRtsController;
+
+import com.rtsbuilding.rtsbuilding.client.screen.ScreenShapeController;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
@@ -11,9 +13,9 @@ import net.minecraft.core.Direction;
  * Groups three closely coupled types that are always used together in the
  * shape build flow:
  * <ul>
- *   <li>{@link Phase} — enum for the current interaction stage</li>
- *   <li>{@link Input} — immutable input parameters for geometry computation</li>
- *   <li>{@link Session} — full session state including phase and height drag ref</li>
+ *   <li>{@link Phase} 鈥?enum for the current interaction stage</li>
+ *   <li>{@link Input} 鈥?immutable input parameters for geometry computation</li>
+ *   <li>{@link Session} 鈥?full session state including phase and height drag ref</li>
  * </ul>
  * <p>
  * All types here are tightly coupled to {@link ShapeGeometryUtil} and
@@ -27,11 +29,11 @@ public final class ShapeBuildTypes {
      * Represents the current interaction stage when the player is defining
      * a shape through successive clicks:
      * <ul>
-     *   <li>{@link #NEED_SECOND_POINT} — first anchor placed, waiting for
+     *   <li>{@link #NEED_SECOND_POINT} 鈥?first anchor placed, waiting for
      *       the second anchor click</li>
-     *   <li>{@link #NEED_THIRD_POINT} — second anchor placed, waiting for
+     *   <li>{@link #NEED_THIRD_POINT} 鈥?second anchor placed, waiting for
      *       height drag input (cube only)</li>
-     *   <li>{@link #READY_CONFIRM} — all anchors determined, waiting for
+     *   <li>{@link #READY_CONFIRM} 鈥?all anchors determined, waiting for
      *       placement confirmation</li>
      * </ul>
      */
@@ -98,9 +100,9 @@ public final class ShapeBuildTypes {
      * Defines how a multi-block shape is filled when generating block
      * positions during the shape-build pipeline:
      * <ul>
-     *   <li>{@link #FILL} — every interior position is included (solid fill)</li>
-     *   <li>{@link #HOLLOW} — only the outer shell is included (walls, surface)</li>
-     *   <li>{@link #SKELETON} — only edge skeleton is included (BOX only,
+     *   <li>{@link #FILL} 鈥?every interior position is included (solid fill)</li>
+     *   <li>{@link #HOLLOW} 鈥?only the outer shell is included (walls, surface)</li>
+     *   <li>{@link #SKELETON} 鈥?only edge skeleton is included (BOX only,
      *       shows the 12 edges of a cuboid)</li>
      * </ul>
      */

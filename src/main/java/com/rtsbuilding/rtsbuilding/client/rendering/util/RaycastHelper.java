@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -7,25 +8,25 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.*;
 
 /**
- * 射线检测辅助工具类
- * 提供鼠标射线计算和方块/实体检测功能
+ * 灏勭嚎妫€娴嬭緟鍔╁伐鍏风被
+ * 鎻愪緵榧犳爣灏勭嚎璁＄畻鍜屾柟鍧?瀹炰綋妫€娴嬪姛鑳?
  */
 public final class RaycastHelper {
 
     /**
-     * 私有构造函数，防止实例化
+     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
      */
     private RaycastHelper() {
     }
 
     /**
-     * 从相机位置向鼠标方向发射射线，检测命中的方块
+     * 浠庣浉鏈轰綅缃悜榧犳爣鏂瑰悜鍙戝皠灏勭嚎锛屾娴嬪懡涓殑鏂瑰潡
      *
-     * @param minecraft Minecraft客户端实例
-     * @param camPos 相机起始位置
-     * @param to 射线终点位置
-     * @param includeFluidSource 是否包含流体源方块
-     * @return 方块命中结果，未命中则返回null
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param camPos 鐩告満璧峰浣嶇疆
+     * @param to 灏勭嚎缁堢偣浣嶇疆
+     * @param includeFluidSource 鏄惁鍖呭惈娴佷綋婧愭柟鍧?
+     * @return 鏂瑰潡鍛戒腑缁撴灉锛屾湭鍛戒腑鍒欒繑鍥瀗ull
      */
     public static BlockHitResult raycastBlockFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to,
             boolean includeFluidSource) {
@@ -44,14 +45,14 @@ public final class RaycastHelper {
     }
 
     /**
-     * 从相机位置向鼠标方向发射射线，检测命中的实体
+     * 浠庣浉鏈轰綅缃悜榧犳爣鏂瑰悜鍙戝皠灏勭嚎锛屾娴嬪懡涓殑瀹炰綋
      *
-     * @param minecraft Minecraft客户端实例
-     * @param camPos 相机起始位置
-     * @param to 射线终点位置
-     * @param viewDir 视线方向向量
-     * @param reach 射线最大距离
-     * @return 实体命中结果，未命中则返回null
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param camPos 鐩告満璧峰浣嶇疆
+     * @param to 灏勭嚎缁堢偣浣嶇疆
+     * @param viewDir 瑙嗙嚎鏂瑰悜鍚戦噺
+     * @param reach 灏勭嚎鏈€澶ц窛绂?
+     * @return 瀹炰綋鍛戒腑缁撴灉锛屾湭鍛戒腑鍒欒繑鍥瀗ull
      */
     public static EntityHitResult raycastEntityFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to, Vec3 viewDir,
             double reach) {
@@ -60,10 +61,10 @@ public final class RaycastHelper {
             return null;
         }
 
-        // 构建搜索范围：以相机为中心，沿视线方向扩展
+        // 鏋勫缓鎼滅储鑼冨洿锛氫互鐩告満涓轰腑蹇冿紝娌胯绾挎柟鍚戞墿灞?
         AABB search = cameraEntity.getBoundingBox().expandTowards(viewDir.scale(reach)).inflate(1.0D);
 
-        // 执行实体射线检测
+        // 鎵ц瀹炰綋灏勭嚎妫€娴?
         return ProjectileUtil.getEntityHitResult(
                 cameraEntity,
                 camPos,
@@ -78,48 +79,48 @@ public final class RaycastHelper {
     }
 
     /**
-     * 计算鼠标光标对应的射线方向向量
-     * 考虑FOV、窗口尺寸、相机朝向等因素
+     * 璁＄畻榧犳爣鍏夋爣瀵瑰簲鐨勫皠绾挎柟鍚戝悜閲?
+     * 鑰冭檻FOV銆佺獥鍙ｅ昂瀵搞€佺浉鏈烘湞鍚戠瓑鍥犵礌
      *
-     * @param minecraft Minecraft客户端实例
-     * @return 归一化的射线方向向量
+     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @return 褰掍竴鍖栫殑灏勭嚎鏂瑰悜鍚戦噺
      */
     public static Vec3 computeCursorRayDirection(Minecraft minecraft) {
-        // 获取鼠标屏幕坐标
+        // 鑾峰彇榧犳爣灞忓箷鍧愭爣
         double mouseX = minecraft.mouseHandler.xpos();
         double mouseY = minecraft.mouseHandler.ypos();
         double width = Math.max(1.0D, minecraft.getWindow().getScreenWidth());
         double height = Math.max(1.0D, minecraft.getWindow().getScreenHeight());
 
-        // 转换为NDC（归一化设备坐标），范围[-1, 1]
+        // 杞崲涓篘DC锛堝綊涓€鍖栬澶囧潗鏍囷級锛岃寖鍥碵-1, 1]
         double nx = (mouseX / width) * 2.0D - 1.0D;
         double ny = 1.0D - (mouseY / height) * 2.0D;
 
-        // 获取相机朝向角度
+        // 鑾峰彇鐩告満鏈濆悜瑙掑害
         float yawDeg = minecraft.gameRenderer.getMainCamera().getYRot();
         float pitchDeg = minecraft.gameRenderer.getMainCamera().getXRot();
         double yaw = Math.toRadians(yawDeg);
         double pitch = Math.toRadians(pitchDeg);
 
-        // 计算前向向量（相机正前方）
+        // 璁＄畻鍓嶅悜鍚戦噺锛堢浉鏈烘鍓嶆柟锛?
         Vec3 forward = new Vec3(
                 -Math.sin(yaw) * Math.cos(pitch),
                 -Math.sin(pitch),
                 Math.cos(yaw) * Math.cos(pitch)).normalize();
 
-        // 计算右向向量
+        // 璁＄畻鍙冲悜鍚戦噺
         Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
 
-        // 计算上向向量（叉乘）
+        // 璁＄畻涓婂悜鍚戦噺锛堝弶涔橈級
         Vec3 up = forward.cross(right).normalize();
 
-        // 计算FOV相关的缩放因子
+        // 璁＄畻FOV鐩稿叧鐨勭缉鏀惧洜瀛?
         double fovY = Math.toRadians(minecraft.options.fov().get());
         double tanY = Math.tan(fovY * 0.5D);
         double tanX = tanY * (width / height);
 
-        // 组合最终射线方向：前向 + 水平偏移 + 垂直偏移
-        // 注意：当前yaw基向量产生的是左向量，因此需要反转X NDC以保持屏幕右侧对应射线右侧
+        // 缁勫悎鏈€缁堝皠绾挎柟鍚戯細鍓嶅悜 + 姘村钩鍋忕Щ + 鍨傜洿鍋忕Щ
+        // 娉ㄦ剰锛氬綋鍓峺aw鍩哄悜閲忎骇鐢熺殑鏄乏鍚戦噺锛屽洜姝ら渶瑕佸弽杞琗 NDC浠ヤ繚鎸佸睆骞曞彸渚у搴斿皠绾垮彸渚?
         return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
     }
 }

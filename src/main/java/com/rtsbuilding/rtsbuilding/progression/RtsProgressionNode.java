@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.progression;
 
+
 import java.util.List;
 
 import net.minecraft.resources.ResourceLocation;

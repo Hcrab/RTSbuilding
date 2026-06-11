@@ -1,355 +1,363 @@
 package com.rtsbuilding.rtsbuilding.client.screen;
 
+
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * BuilderScreen 使用的布局常量定义。
+ * BuilderScreen 浣跨敤鐨勫竷灞€甯搁噺瀹氫箟銆?
  * <p>
- * 所有与屏幕布局、面板尺寸、间距相关的常量集中在此，
- * 便于统一调整 UI 布局参数。
+ * 鎵€鏈変笌灞忓箷甯冨眬銆侀潰鏉垮昂瀵搞€侀棿璺濈浉鍏崇殑甯搁噺闆嗕腑鍦ㄦ锛?
+ * 渚夸簬缁熶竴璋冩暣 UI 甯冨眬鍙傛暟銆?
  */
 public final class BuilderScreenConstants {
 
-    // ======================== 顶部栏 ========================
-    /** 顶部栏高度 */
+    // ======================== 椤堕儴鏍?========================
+    /** 椤堕儴鏍忛珮搴?*/
     public static final int TOP_H = 52;
-    /** 顶部按钮间距 */
+    /** 椤堕儴鎸夐挳闂磋窛 */
     public static final int TOP_BUTTON_GAP = 5;
-    /** 顶部按钮高度 */
+    /** 椤堕儴鎸夐挳楂樺害 */
     public static final int TOP_BUTTON_H = 24;
-    /** 顶部按钮最小宽度 */
+    /** 椤堕儴鎸夐挳鏈€灏忓搴?*/
     public static final int MIN_TOP_BUTTON_W = 28;
-    /** 模式按钮宽度 */
+    /** 妯″紡鎸夐挳瀹藉害 */
     public static final int TOP_MODE_BUTTON_W = 32;
-    /** 图标按钮宽度 */
+    /** 鍥炬爣鎸夐挳瀹藉害 */
     public static final int TOP_ICON_BUTTON_W = 32;
 
-    // ======================== 底部面板 ========================
-    /** 默认底部面板高度 */
+    // ======================== 搴曢儴闈㈡澘 ========================
+    /** 榛樿搴曢儴闈㈡澘楂樺害 */
     public static final int DEFAULT_BOTTOM_H = 110;
-    /** 底部面板最小高度 */
+    /** 搴曢儴闈㈡澘鏈€灏忛珮搴?*/
     public static final int MIN_BOTTOM_H = 72;
-    /** 底部面板最大高度 */
+    /** 搴曢儴闈㈡澘鏈€澶ч珮搴?*/
     public static final int MAX_BOTTOM_H = 320;
-    /** 底部面板内边距 */
+    /** 搴曢儴闈㈡澘鍐呰竟璺?*/
     public static final int BOTTOM_PANEL_PADDING = 8;
-    /** 底部面板标题栏高度 */
+    /** 搴曢儴闈㈡澘鏍囬鏍忛珮搴?*/
     public static final int BOTTOM_PANEL_HEADER_H = 18;
-    /** 存储网格最小行数 */
+    /** 瀛樺偍缃戞牸鏈€灏忚鏁?*/
     public static final int MIN_STORAGE_GRID_ROWS = 2;
-    /** 网格底部内边距 */
+    /** 缃戞牸搴曢儴鍐呰竟璺?*/
     public static final int GRID_BOTTOM_PADDING = 4;
 
-    // ======================== 槽位/格子 ========================
-    /** 存储网格单个格子大小 */
+    // ======================== 妲戒綅/鏍煎瓙 ========================
+    /** 瀛樺偍缃戞牸鍗曚釜鏍煎瓙澶у皬 */
     public static final int SLOT = 22;
-    /** 快捷栏单个格子大小 */
+    /** 蹇嵎鏍忓崟涓牸瀛愬ぇ灏?*/
     public static final int HOTBAR_SLOT = 18;
-    /** 快捷栏格子间距 */
+    /** 蹇嵎鏍忔牸瀛愰棿璺?*/
     public static final int HOTBAR_PITCH = 20;
-    /** 工具快捷栏物品槽位数 */
+    /** 宸ュ叿蹇嵎鏍忕墿鍝佹Ы浣嶆暟 */
     public static final int TOOL_HOTBAR_ITEM_SLOTS = 9;
-    /** 空手按钮索引（第9格） */
+    /** 绌烘墜鎸夐挳绱㈠紩锛堢9鏍硷級 */
     public static final int EMPTY_HAND_BUTTON_INDEX = TOOL_HOTBAR_ITEM_SLOTS;
-    /** 工具区域高度 */
+    /** 宸ュ叿鍖哄煙楂樺害 */
     public static final int TOOL_AREA_H = HOTBAR_SLOT;
 
-    // ======================== 搜索/排序 ========================
-    /** 搜索清除按钮大小 */
+    // ======================== 鎼滅储/鎺掑簭 ========================
+    /** 鎼滅储娓呴櫎鎸夐挳澶у皬 */
     public static final int SEARCH_CLEAR_SIZE = 12;
-    /** 排序按钮大小 */
+    /** 鎺掑簭鎸夐挳澶у皬 */
     public static final int SORT_BUTTON_SIZE = 16;
 
-    // ======================== 合成面板 ========================
-    /** 合成面板宽度 */
+    // ======================== 鍚堟垚闈㈡澘 ========================
+    /** 鍚堟垚闈㈡澘瀹藉害 */
     public static final int CRAFT_PANEL_W = 126;
-    /** 合成面板与存储网格的间距 */
+    /** 鍚堟垚闈㈡澘涓庡瓨鍌ㄧ綉鏍肩殑闂磋窛 */
     public static final int CRAFT_PANEL_GAP = 6;
-    /** 合成面板列数 */
+    /** 鍚堟垚闈㈡澘鍒楁暟 */
     public static final int CRAFT_PANEL_COLS = 4;
-    /** 合成面板槽位大小 */
+    /** 鍚堟垚闈㈡澘妲戒綅澶у皬 */
     public static final int CRAFT_PANEL_SLOT = 18;
-    /** 合成面板行间距 */
+    /** 鍚堟垚闈㈡澘琛岄棿璺?*/
     public static final int CRAFT_PANEL_PITCH = 20;
-    /** 合成搜索框高度 */
+    /** 鍚堟垚鎼滅储妗嗛珮搴?*/
     public static final int CRAFT_PANEL_SEARCH_H = 12;
-    /** 合成应用按钮宽度 */
+    /** 鍚堟垚搴旂敤鎸夐挳瀹藉害 */
     public static final int CRAFT_PANEL_APPLY_W = 18;
-    /** 合成切换按钮宽度 */
+    /** 鍚堟垚鍒囨崲鎸夐挳瀹藉害 */
     public static final int CRAFT_PANEL_TOGGLE_W = 38;
-    /** 合成底座中央按钮大小 */
+    /** 鍚堟垚搴曞骇涓ぎ鎸夐挳澶у皬 */
     public static final int CRAFT_DOCK_C_SIZE = 18;
-    /** 合成底座槽位大小 */
+    /** 鍚堟垚搴曞骇妲戒綅澶у皬 */
     public static final int CRAFT_DOCK_SLOT_SIZE = 10;
-    /** 合成底座间距 */
+    /** 鍚堟垚搴曞骇闂磋窛 */
     public static final int CRAFT_DOCK_GAP = 2;
-    /** 存储与最近物品间距 */
+    /** 瀛樺偍涓庢渶杩戠墿鍝侀棿璺?*/
     public static final int STORAGE_RECENT_GAP = 6;
 
-    // ======================== 分类面板 ========================
-    /** 分类面板宽度 */
+    // ======================== 鍒嗙被闈㈡澘 ========================
+    /** 鍒嗙被闈㈡澘瀹藉害 */
     public static final int CATEGORY_W = 124;
-    /** 分类行高 */
+    /** 鍒嗙被琛岄珮 */
     public static final int CATEGORY_ROW_H = 11;
-    /** 分类文字缩放比例 */
+    /** 鍒嗙被鏂囧瓧缂╂斁姣斾緥 */
     public static final float CATEGORY_TEXT_SCALE = 0.84F;
 
-    // ======================== 交互轮盘 ========================
-    /** 交互轮盘单页大小 */
+    // ======================== 浜や簰杞洏 ========================
+    /** 浜や簰杞洏鍗曢〉澶у皬 */
     public static final int INTERACT_WHEEL_PAGE_SIZE = 10;
-    /** 交互轮盘半径 */
+    /** 浜や簰杞洏鍗婂緞 */
     public static final int INTERACT_WHEEL_RADIUS = 68;
-    /** 交互轮盘槽位大小 */
+    /** 浜や簰杞洏妲戒綅澶у皬 */
     public static final int INTERACT_WHEEL_SLOT = 18;
-    /** 交互轮盘槽位半长 */
+    /** 浜や簰杞洏妲戒綅鍗婇暱 */
     public static final int INTERACT_WHEEL_SLOT_HALF = INTERACT_WHEEL_SLOT / 2;
 
-    // ======================== 快速建造面板 ========================
-    /** 快速建造面板宽度 */
+    // ======================== 蹇€熷缓閫犻潰鏉?========================
+    /** 蹇€熷缓閫犻潰鏉垮搴?*/
     public static final int QUICK_BUILD_PANEL_W = 188;
-    /** 快速建造面板高度 */
+    /** 蹇€熷缓閫犻潰鏉块珮搴?*/
     public static final int QUICK_BUILD_PANEL_H = 216;
-    /** 快速建造面板最小高度 */
+    /** 蹇€熷缓閫犻潰鏉挎渶灏忛珮搴?*/
     public static final int QUICK_BUILD_PANEL_MIN_H = 156;
-    /** 快速建造形状槽位大小 */
+    /** 蹇€熷缓閫犲舰鐘舵Ы浣嶅ぇ灏?*/
     public static final int QUICK_BUILD_SHAPE_SLOT = 32;
-    /** 快速建造形状间距 */
+    /** 蹇€熷缓閫犲舰鐘堕棿璺?*/
     public static final int QUICK_BUILD_SHAPE_GAP = 8;
-    /** 快速建造齿轮菜单宽度 */
+    /** 蹇€熷缓閫犻娇杞彍鍗曞搴?*/
     public static final int QUICK_BUILD_GEAR_MENU_W = 148;
-    /** 快速建造齿轮行高 */
+    /** 蹇€熷缓閫犻娇杞楂?*/
     public static final int QUICK_BUILD_GEAR_ROW_H = 18;
 
-    // ======================== 连锁挖掘面板 ========================
-    /** 连锁挖掘面板宽度 */
+    // ======================== 杩為攣鎸栨帢闈㈡澘 ========================
+    /** 杩為攣鎸栨帢闈㈡澘瀹藉害 */
     public static final int ULTIMINE_PANEL_W = 238;
-    /** 连锁挖掘面板高度 */
+    /** 杩為攣鎸栨帢闈㈡澘楂樺害 */
     public static final int ULTIMINE_PANEL_H = 122;
-    /** 连锁挖掘最小限制 */
+    /** 杩為攣鎸栨帢鏈€灏忛檺鍒?*/
     public static final int ULTIMINE_MIN_LIMIT = 1;
-    /** 连锁挖掘最大限制 */
+    /** 杩為攣鎸栨帢鏈€澶ч檺鍒?*/
     public static final int ULTIMINE_MAX_LIMIT = 256;
 
-    // ======================== 形状轮盘 ========================
-    /** 形状轮盘半径 */
+    // ======================== 褰㈢姸杞洏 ========================
+    /** 褰㈢姸杞洏鍗婂緞 */
     public static final int SHAPE_WHEEL_RADIUS = 52;
-    /** 形状轮盘槽位大小 */
+    /** 褰㈢姸杞洏妲戒綅澶у皬 */
     public static final int SHAPE_WHEEL_SLOT = 22;
-    /** 形状最大尺寸 */
+    /** 褰㈢姸鏈€澶у昂瀵?*/
     public static final int SHAPE_MAX_DIMENSION = 32;
-    /** 形状最大偏移 */
+    /** 褰㈢姸鏈€澶у亸绉?*/
     public static final int SHAPE_MAX_OFFSET = SHAPE_MAX_DIMENSION - 1;
-    /** 形状最大半径 */
+    /** 褰㈢姸鏈€澶у崐寰?*/
     public static final int SHAPE_MAX_RADIUS = 32;
-    /** 形状旋转步进角度 */
+    /** 褰㈢姸鏃嬭浆姝ヨ繘瑙掑害 */
     public static final int SHAPE_ROTATE_STEP_DEGREES = 15;
-    /** 形状历史记录上限 */
+    /** 褰㈢姸鍘嗗彶璁板綍涓婇檺 */
     public static final int SHAPE_HISTORY_LIMIT = 24;
 
-    // ======================== 形状上下文面板 ========================
-    /** 形状上下文面板宽度 */
+    // ======================== 褰㈢姸涓婁笅鏂囬潰鏉?========================
+    /** 褰㈢姸涓婁笅鏂囬潰鏉垮搴?*/
     public static final int SHAPE_CONTEXT_PANEL_W = 148;
-    /** 形状上下文面板 X 边距 */
+    /** 褰㈢姸涓婁笅鏂囬潰鏉?X 杈硅窛 */
     public static final int SHAPE_CONTEXT_PANEL_X_MARGIN = 10;
-    /** 形状上下文面板 Y 坐标 */
+    /** 褰㈢姸涓婁笅鏂囬潰鏉?Y 鍧愭爣 */
     public static final int SHAPE_CONTEXT_PANEL_Y = TOP_H + 10;
-    /** 形状上下文行高 */
+    /** 褰㈢姸涓婁笅鏂囪楂?*/
     public static final int SHAPE_CONTEXT_ROW_H = 14;
 
-    // ======================== 漏斗缓冲面板 ========================
-    /** 漏斗缓冲面板宽度 */
+    // ======================== 婕忔枟缂撳啿闈㈡澘 ========================
+    /** 婕忔枟缂撳啿闈㈡澘瀹藉害 */
     public static final int FUNNEL_BUFFER_PANEL_W = 132;
-    /** 漏斗缓冲行高 */
+    /** 婕忔枟缂撳啿琛岄珮 */
     public static final int FUNNEL_BUFFER_ROW_H = 22;
-    /** 漏斗缓冲切换按钮宽度 */
+    /** 婕忔枟缂撳啿鍒囨崲鎸夐挳瀹藉害 */
     public static final int FUNNEL_BUFFER_TOGGLE_W = 60;
-    /** 漏斗缓冲切换按钮高度 */
+    /** 婕忔枟缂撳啿鍒囨崲鎸夐挳楂樺害 */
     public static final int FUNNEL_BUFFER_TOGGLE_H = 16;
 
-    // ======================== 齿轮菜单（设置） ========================
-    /** 齿轮菜单高度 */
+    // ======================== 榻胯疆鑿滃崟锛堣缃級 ========================
+    /** 榻胯疆鑿滃崟楂樺害 */
     public static final int GEAR_MENU_H = 520;
-    /** 齿轮菜单最小高度 */
+    /** 榻胯疆鑿滃崟鏈€灏忛珮搴?*/
     public static final int GEAR_MENU_MIN_H = 220;
-    /** 齿轮菜单内容高度 */
+    /** 榻胯疆鑿滃崟鍐呭楂樺害 */
     public static final int GEAR_MENU_CONTENT_H = 724;
 
-    // ======================== 任务检测弹窗 ========================
-    /** 任务检测弹窗宽度 */
+    // ======================== 浠诲姟妫€娴嬪脊绐?========================
+    /** 浠诲姟妫€娴嬪脊绐楀搴?*/
     public static final int QUEST_DETECT_POPUP_W = 178;
-    /** 任务检测弹窗高度 */
+    /** 浠诲姟妫€娴嬪脊绐楅珮搴?*/
     public static final int QUEST_DETECT_POPUP_H = 48;
 
-    // ======================== 存储扫描弹窗 ========================
-    /** 存储扫描弹窗宽度 */
+    // ======================== 瀛樺偍鎵弿寮圭獥 ========================
+    /** 瀛樺偍鎵弿寮圭獥瀹藉害 */
     public static final int STORAGE_SCAN_POPUP_W = 150;
-    /** 存储扫描弹窗高度 */
+    /** 瀛樺偍鎵弿寮圭獥楂樺害 */
     public static final int STORAGE_SCAN_POPUP_H = 30;
 
-    // ======================== 输入 / 渲染控制 ========================
-    /** 中键拖拽阈值（像素） */
+    // ======================== 杈撳叆 / 娓叉煋鎺у埗 ========================
+    /** 涓敭鎷栨嫿闃堝€硷紙鍍忕礌锛?*/
     public static final double MIDDLE_CLICK_DRAG_THRESHOLD = 1.5D;
-    /** 默认 RTS UI 缩放 */
+    /** 榛樿 RTS UI 缂╂斁 */
     public static final double DEFAULT_RTS_GUI_SCALE = 2.0D;
-    /** 最小 RTS UI 缩放 */
+    /** 鏈€灏?RTS UI 缂╂斁 */
     public static final double MIN_RTS_GUI_SCALE = 1.0D;
-    /** 最大 RTS UI 缩放 */
+    /** 鏈€澶?RTS UI 缂╂斁 */
     public static final double MAX_RTS_GUI_SCALE = 4.0D;
-    /** RTS UI 缩放步进 */
+    /** RTS UI 缂╂斁姝ヨ繘 */
     public static final double RTS_GUI_SCALE_STEP = 0.5D;
-    /** 模态层 Z 轴向深度 */
+    /** 妯℃€佸眰 Z 杞村悜娣卞害 */
     public static final float RTS_MODAL_LAYER_Z = 400.0F;
-    /** 受伤闪光持续时间（毫秒） */
+    /** 鍙椾激闂厜鎸佺画鏃堕棿锛堟绉掞級 */
     public static final long DAMAGE_FLASH_DURATION_MS = 300L;
 
-    // ======================== 杂项 ========================
-    /** 漏斗光标使用的物品图标（漏斗） */
+    // ======================== 鏉傞」 ========================
+    /** 婕忔枟鍏夋爣浣跨敤鐨勭墿鍝佸浘鏍囷紙婕忔枟锛?*/
     public static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(net.minecraft.world.item.Items.HOPPER);
-    /** "全部"分类标记 */
+    /** "鍏ㄩ儴"鍒嗙被鏍囪 */
     public static final String CATEGORY_ALL = "all";
-    /** Mod 分类前缀 */
+    /** Mod 鍒嗙被鍓嶇紑 */
     public static final String CATEGORY_MOD_PREFIX = "mod|";
-    /** Tab 分类前缀 */
+    /** Tab 鍒嗙被鍓嶇紑 */
     public static final String CATEGORY_TAB_PREFIX = "tab|";
 
-    // ======================== 纹理资源 ========================
-    /** 形状纹理：方块（非活跃） */
+    public static final ResourceLocation QUICK_BUILD_SINGLE_BLOCK = quickBuildTexture("single_block");
+    public static final ResourceLocation QUICK_BUILD_LINE_BLOCK = quickBuildTexture("line_block");
+    public static final ResourceLocation QUICK_BUILD_SQUARE_BLOCK = quickBuildTexture("square_block");
+    public static final ResourceLocation QUICK_BUILD_WALL_BLOCK = quickBuildTexture("wall_block");
+    public static final ResourceLocation QUICK_BUILD_CIRCLE_BLOCK = quickBuildTexture("circle_block");
+    public static final ResourceLocation QUICK_BUILD_BOX_BLOCK = quickBuildTexture("box_block");
+
+    // ======================== 绾圭悊璧勬簮 ========================
+    /** 褰㈢姸绾圭悊锛氭柟鍧楋紙闈炴椿璺冿級 */
     public static final ResourceLocation SHAPE_BLOCK_INACTIVE = quickBuildTexture("shape_block_inactive");
-    /** 形状纹理：方块（悬停） */
+    /** 褰㈢姸绾圭悊锛氭柟鍧楋紙鎮仠锛?*/
     public static final ResourceLocation SHAPE_BLOCK_HOVER = quickBuildTexture("shape_block_hover");
-    /** 形状纹理：方块（活跃） */
+    /** 褰㈢姸绾圭悊锛氭柟鍧楋紙娲昏穬锛?*/
     public static final ResourceLocation SHAPE_BLOCK_ACTIVE = quickBuildTexture("shape_block_active");
-    /** 形状纹理：线条（非活跃） */
+    /** 褰㈢姸绾圭悊锛氱嚎鏉★紙闈炴椿璺冿級 */
     public static final ResourceLocation SHAPE_LINE_INACTIVE = quickBuildTexture("shape_line_inactive");
-    /** 形状纹理：线条（悬停） */
+    /** 褰㈢姸绾圭悊锛氱嚎鏉★紙鎮仠锛?*/
     public static final ResourceLocation SHAPE_LINE_HOVER = quickBuildTexture("shape_line_hover");
-    /** 形状纹理：线条（活跃） */
+    /** 褰㈢姸绾圭悊锛氱嚎鏉★紙娲昏穬锛?*/
     public static final ResourceLocation SHAPE_LINE_ACTIVE = quickBuildTexture("shape_line_active");
-    /** 形状纹理：正方形（非活跃） */
+    /** 褰㈢姸绾圭悊锛氭鏂瑰舰锛堥潪娲昏穬锛?*/
     public static final ResourceLocation SHAPE_SQUARE_INACTIVE = quickBuildTexture("shape_square_inactive");
-    /** 形状纹理：正方形（悬停） */
+    /** 褰㈢姸绾圭悊锛氭鏂瑰舰锛堟偓鍋滐級 */
     public static final ResourceLocation SHAPE_SQUARE_HOVER = quickBuildTexture("shape_square_hover");
-    /** 形状纹理：正方形（活跃） */
+    /** 褰㈢姸绾圭悊锛氭鏂瑰舰锛堟椿璺冿級 */
     public static final ResourceLocation SHAPE_SQUARE_ACTIVE = quickBuildTexture("shape_square_active");
-    /** 形状纹理：墙壁（非活跃） */
+    /** 褰㈢姸绾圭悊锛氬澹侊紙闈炴椿璺冿級 */
     public static final ResourceLocation SHAPE_WALL_INACTIVE = quickBuildTexture("shape_wall_inactive");
-    /** 形状纹理：墙壁（悬停） */
+    /** 褰㈢姸绾圭悊锛氬澹侊紙鎮仠锛?*/
     public static final ResourceLocation SHAPE_WALL_HOVER = quickBuildTexture("shape_wall_hover");
-    /** 形状纹理：墙壁（活跃） */
+    /** 褰㈢姸绾圭悊锛氬澹侊紙娲昏穬锛?*/
     public static final ResourceLocation SHAPE_WALL_ACTIVE = quickBuildTexture("shape_wall_active");
-    /** 形状纹理：圆（非活跃） */
+    /** 褰㈢姸绾圭悊锛氬渾锛堥潪娲昏穬锛?*/
     public static final ResourceLocation SHAPE_CIRCLE_INACTIVE = quickBuildTexture("shape_circle_inactive");
-    /** 形状纹理：圆（悬停） */
+    /** 褰㈢姸绾圭悊锛氬渾锛堟偓鍋滐級 */
     public static final ResourceLocation SHAPE_CIRCLE_HOVER = quickBuildTexture("shape_circle_hover");
-    /** 形状纹理：圆（活跃） */
+    /** 褰㈢姸绾圭悊锛氬渾锛堟椿璺冿級 */
     public static final ResourceLocation SHAPE_CIRCLE_ACTIVE = quickBuildTexture("shape_circle_active");
-    /** 形状纹理：立方体（非活跃） */
+    /** 褰㈢姸绾圭悊锛氱珛鏂逛綋锛堥潪娲昏穬锛?*/
     public static final ResourceLocation SHAPE_BOX_INACTIVE = quickBuildTexture("shape_box_inactive");
-    /** 形状纹理：立方体（悬停） */
+    /** 褰㈢姸绾圭悊锛氱珛鏂逛綋锛堟偓鍋滐級 */
     public static final ResourceLocation SHAPE_BOX_HOVER = quickBuildTexture("shape_box_hover");
-    /** 形状纹理：立方体（活跃） */
+    /** 褰㈢姸绾圭悊锛氱珛鏂逛綋锛堟椿璺冿級 */
     public static final ResourceLocation SHAPE_BOX_ACTIVE = quickBuildTexture("shape_box_active");
     /** Quick Build Range Destroy chain shape texture. */
     public static final ResourceLocation QUICK_BUILD_CHAIN_BLOCK = quickBuildTexture("chain_block");
 
-    // ======================== 顶部栏模式纹理 ========================
-    /** 交互模式（非活跃） */
+    // ======================== 椤堕儴鏍忔ā寮忕汗鐞?========================
+    /** 浜や簰妯″紡锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_INTERACT_INACTIVE = topbarTexture("mode_interact_inactive");
-    /** 交互模式（悬停） */
+    /** 浜や簰妯″紡锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_INTERACT_HOVER = topbarTexture("mode_interact_hover");
-    /** 交互模式（活跃） */
+    /** 浜や簰妯″紡锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_INTERACT_ACTIVE = topbarTexture("mode_interact_active");
-    /** 交互模式（按下） */
+    /** 浜や簰妯″紡锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_INTERACT_PRESSED = topbarTexture("mode_interact_pressed");
 
-    /** 链接模式（非活跃） */
+    /** 閾炬帴妯″紡锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_LINK_INACTIVE = topbarTexture("mode_link_inactive");
-    /** 链接模式（悬停） */
+    /** 閾炬帴妯″紡锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_LINK_HOVER = topbarTexture("mode_link_hover");
-    /** 链接模式（活跃） */
+    /** 閾炬帴妯″紡锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_LINK_ACTIVE = topbarTexture("mode_link_active");
-    /** 链接模式（按下） */
+    /** 閾炬帴妯″紡锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_LINK_PRESSED = topbarTexture("mode_link_pressed");
 
-    /** 漏斗模式（非活跃） */
+    /** 婕忔枟妯″紡锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_FUNNEL_INACTIVE = topbarTexture("mode_funnel_inactive");
-    /** 漏斗模式（悬停） */
+    /** 婕忔枟妯″紡锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_FUNNEL_HOVER = topbarTexture("mode_funnel_hover");
-    /** 漏斗模式（活跃） */
+    /** 婕忔枟妯″紡锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_FUNNEL_ACTIVE = topbarTexture("mode_funnel_active");
-    /** 漏斗模式（按下） */
+    /** 婕忔枟妯″紡锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_FUNNEL_PRESSED = topbarTexture("mode_funnel_pressed");
 
-    /** 旋转模式（非活跃） */
+    /** 鏃嬭浆妯″紡锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_ROTATE_INACTIVE = topbarTexture("mode_rotate_inactive");
-    /** 旋转模式（悬停） */
+    /** 鏃嬭浆妯″紡锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_ROTATE_HOVER = topbarTexture("mode_rotate_hover");
-    /** 旋转模式（活跃） */
+    /** 鏃嬭浆妯″紡锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_ROTATE_ACTIVE = topbarTexture("mode_rotate_active");
-    /** 旋转模式（按下） */
+    /** 鏃嬭浆妯″紡锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_ROTATE_PRESSED = topbarTexture("mode_rotate_pressed");
 
-    /** 快速建造（非活跃） */
+    /** 蹇€熷缓閫狅紙闈炴椿璺冿級 */
     public static final ResourceLocation TOPBAR_QUICK_BUILD_INACTIVE = topbarTexture("quick_build_inactive");
-    /** 快速建造（悬停） */
+    /** 蹇€熷缓閫狅紙鎮仠锛?*/
     public static final ResourceLocation TOPBAR_QUICK_BUILD_HOVER = topbarTexture("quick_build_hover");
-    /** 快速建造（活跃） */
+    /** 蹇€熷缓閫狅紙娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_QUICK_BUILD_ACTIVE = topbarTexture("quick_build_active");
-    /** 快速建造（按下） */
+    /** 蹇€熷缓閫狅紙鎸変笅锛?*/
     public static final ResourceLocation TOPBAR_QUICK_BUILD_PRESSED = topbarTexture("quick_build_pressed");
 
-    /** 连锁挖掘（非活跃） */
+    /** 杩為攣鎸栨帢锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_ULTIMINE_INACTIVE = topbarTexture("ultimine_inactive");
-    /** 连锁挖掘（悬停） */
+    /** 杩為攣鎸栨帢锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_ULTIMINE_HOVER = topbarTexture("ultimine_hover");
-    /** 连锁挖掘（活跃） */
+    /** 杩為攣鎸栨帢锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_ULTIMINE_ACTIVE = topbarTexture("ultimine_active");
-    /** 连锁挖掘（按下） */
+    /** 杩為攣鎸栨帢锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_ULTIMINE_PRESSED = topbarTexture("ultimine_pressed");
 
-    /** 区块视图（非活跃） */
+    /** 鍖哄潡瑙嗗浘锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_CHUNK_VIEW_INACTIVE = topbarTexture("chunk_view_inactive");
-    /** 区块视图（悬停） */
+    /** 鍖哄潡瑙嗗浘锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_CHUNK_VIEW_HOVER = topbarTexture("chunk_view_hover");
-    /** 区块视图（活跃） */
+    /** 鍖哄潡瑙嗗浘锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_CHUNK_VIEW_ACTIVE = topbarTexture("chunk_view_active");
-    /** 区块视图（按下） */
+    /** 鍖哄潡瑙嗗浘锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_CHUNK_VIEW_PRESSED = topbarTexture("chunk_view_pressed");
 
-    /** 设置齿轮（非活跃） */
+    /** 璁剧疆榻胯疆锛堥潪娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_GEAR_INACTIVE = topbarTexture("settings_gear_inactive");
-    /** 设置齿轮（悬停） */
+    /** 璁剧疆榻胯疆锛堟偓鍋滐級 */
     public static final ResourceLocation TOPBAR_GEAR_HOVER = topbarTexture("settings_gear_hover");
-    /** 设置齿轮（活跃） */
+    /** 璁剧疆榻胯疆锛堟椿璺冿級 */
     public static final ResourceLocation TOPBAR_GEAR_ACTIVE = topbarTexture("settings_gear_active");
-    /** 设置齿轮（按下） */
+    /** 璁剧疆榻胯疆锛堟寜涓嬶級 */
     public static final ResourceLocation TOPBAR_GEAR_PRESSED = topbarTexture("settings_gear_pressed");
 
-    /** 任务检测（非活跃） */
+    /** 浠诲姟妫€娴嬶紙闈炴椿璺冿級 */
     public static final ResourceLocation TOPBAR_QUEST_DETECT_INACTIVE = topbarTexture("quest_detect_inactive");
-    /** 任务检测（悬停） */
+    /** 浠诲姟妫€娴嬶紙鎮仠锛?*/
     public static final ResourceLocation TOPBAR_QUEST_DETECT_HOVER = topbarTexture("quest_detect_hover");
-    /** 任务检测（活跃） */
+    /** 浠诲姟妫€娴嬶紙娲昏穬锛?*/
     public static final ResourceLocation TOPBAR_QUEST_DETECT_ACTIVE = topbarTexture("quest_detect_active");
-    /** 任务检测（按下） */
+    /** 浠诲姟妫€娴嬶紙鎸変笅锛?*/
     public static final ResourceLocation TOPBAR_QUEST_DETECT_PRESSED = topbarTexture("quest_detect_pressed");
 
-    // ======================== 辅助方法 ========================
+    // ======================== 杈呭姪鏂规硶 ========================
 
-    /** 构建快速建造纹理路径 */
+    /** 鏋勫缓蹇€熷缓閫犵汗鐞嗚矾寰?*/
     private static ResourceLocation quickBuildTexture(String key) {
         ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/quickbuild/" + key + ".png");
         return id == null ? new ResourceLocation("minecraft", "missingno") : id;
     }
 
-    /** 构建顶部栏纹理路径 */
+    /** 鏋勫缓椤堕儴鏍忕汗鐞嗚矾寰?*/
     private static ResourceLocation topbarTexture(String key) {
         ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/topbar/" + key + ".png");
         return id == null ? new ResourceLocation("minecraft", "missingno") : id;
     }
 
     private BuilderScreenConstants() {
-        // 工具类，禁止实例化
+        // 宸ュ叿绫伙紝绂佹瀹炰緥鍖?
     }
 }

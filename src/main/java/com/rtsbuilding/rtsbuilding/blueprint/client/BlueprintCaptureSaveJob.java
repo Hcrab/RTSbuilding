@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +31,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * text is throttled, the bottom Y plane is skipped to match player selection
  * intuition, and the final vanilla NBT file is written off the render thread.</p>
  */
-final class BlueprintCaptureSaveJob {
+public final class BlueprintCaptureSaveJob {
     private static final int CAPTURE_SCAN_BUDGET_PER_STEP = 64;
     private static final long CAPTURE_SCAN_TIME_BUDGET_NANOS = 500_000L;
     private static final long CAPTURE_SCAN_MIN_INTERVAL_MS = 15L;
