@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageMining;
+import com.rtsbuilding.rtsbuilding.server.storage.mining.RtsMiningStateMachine;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -80,7 +80,7 @@ public final class RtsToolLease {
     // ─────────────────────────────────────────────────────────────────
 
     /** Returns the shared empty-lease sentinel. */
-    static RtsToolLease empty() {
+    public static RtsToolLease empty() {
         return EMPTY;
     }
 
@@ -90,7 +90,7 @@ public final class RtsToolLease {
      * @param slot  inventory slot index
      * @param stack the borrowed tool stack (mutable copy)
      */
-    static RtsToolLease playerSlot(int slot, ItemStack stack) {
+    public static RtsToolLease playerSlot(int slot, ItemStack stack) {
         return new RtsToolLease(stack, stack, null, -1, slot,
                 "player inventory slot " + slot);
     }
@@ -102,7 +102,7 @@ public final class RtsToolLease {
      * @param slot    slot index within the handler
      * @param stack   the borrowed tool stack (mutable copy)
      */
-    static RtsToolLease linkedSlot(IItemHandler handler, int slot,
+    public static RtsToolLease linkedSlot(IItemHandler handler, int slot,
                                     ItemStack stack) {
         return new RtsToolLease(stack, stack, handler, slot, -1,
                 "linked storage slot " + slot);
@@ -113,21 +113,21 @@ public final class RtsToolLease {
     // ─────────────────────────────────────────────────────────────────
 
     /** Whether this lease holds an actual tool (non-empty stack). */
-    boolean isEmpty() {
+    public boolean isEmpty() {
         return this.stack.isEmpty();
     }
 
     /** Returns the mutable borrowed tool stack. */
-    ItemStack stack() {
+    public ItemStack stack() {
         return this.stack;
     }
 
     /**
      * Returns an immutable copy of the original stack as it was at borrow
      * time. Used only for the safety-fallback check in
-     * {@link RtsStorageMining}.
+     * {@link RtsMiningStateMachine}.
      */
-    ItemStack original() {
+    public ItemStack original() {
         return this.original;
     }
 
@@ -143,7 +143,7 @@ public final class RtsToolLease {
      * @return a new lease, or a lease carrying {@link ItemStack#EMPTY} if the
      *         updated stack is null/empty
      */
-    RtsToolLease withStack(ItemStack updatedStack) {
+    public RtsToolLease withStack(ItemStack updatedStack) {
         if (this == EMPTY || updatedStack == null || updatedStack.isEmpty()) {
             return new RtsToolLease(this.original, ItemStack.EMPTY,
                     this.linkedHandler, this.linkedSlot, this.playerSlot,
@@ -166,7 +166,7 @@ public final class RtsToolLease {
      * @return any remainder that could not be returned; {@link
      *         ItemStack#EMPTY} if successful
      */
-    ItemStack returnToSource(ServerPlayer player) {
+    public ItemStack returnToSource(ServerPlayer player) {
         if (this.isEmpty()) {
             return ItemStack.EMPTY;
         }
@@ -180,7 +180,7 @@ public final class RtsToolLease {
     }
 
     /** Human-readable description for log messages. */
-    String describeSource() {
+    public String describeSource() {
         return this.sourceDescription;
     }
 

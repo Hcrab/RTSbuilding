@@ -100,8 +100,6 @@ public final class RtsPlacementExecutor {
                 return placeWithForcedEmptyHand(player, session, level, clickedPos, hit, interactionPos, rayContext,
                         forcePlace);
             }
-            // 完全改为使用储存空间的方块进行放置，快捷栏只用来看。
-            // 不再支持直接从主手放置，必须使用储存空间
             return false;
         }
 

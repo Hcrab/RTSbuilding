@@ -26,6 +26,7 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.storage.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.placement.RtsPlacementHelper;
 import com.rtsbuilding.rtsbuilding.server.storage.placement.RtsPlacementSound;
@@ -1427,11 +1428,11 @@ public final class RtsStorageManager {
     }
 
     private static <T> T withTemporaryOnGround(ServerPlayer player, boolean onGround, Supplier<T> action) {
-        return RtsStorageMining.withTemporaryOnGround(player, onGround, action);
+        return RtsMiningStateMachine.withTemporaryOnGround(player, onGround, action);
     }
 
     public static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
-        return RtsStorageMining.withTemporaryMainHandItem(player, stack, action);
+        return RtsMiningStateMachine.withTemporaryMainHandItem(player, stack, action);
     }
     private static int clampHotbarSlot(int slot) {
         return Math.max(0, Math.min(8, slot));
