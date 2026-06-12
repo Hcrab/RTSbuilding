@@ -10,7 +10,6 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import net.minecraft.client.player.LocalPlayer;
 
 /**
- * 在 RTS 模式下强制 {@link LocalPlayer#isControlledCamera()} 返回 {@code true}，
  * 让 Minecraft 原生的客户端-服务端同步机制正常工作。
  * <p>
  * RTS 模式每 tick 调用 {@code minecraft.setCameraEntity(localMirrorCamera)} 切换摄像机，

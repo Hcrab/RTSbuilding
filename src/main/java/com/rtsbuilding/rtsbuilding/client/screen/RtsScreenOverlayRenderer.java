@@ -247,6 +247,7 @@ public final class RtsScreenOverlayRenderer {
         g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
     }
 
+
     private Component questDetectStatusText(byte phase) {
         int scanned = this.controller.getQuestDetectScannedTasks();
         int total = Math.max(scanned, this.controller.getQuestDetectTotalTasks());

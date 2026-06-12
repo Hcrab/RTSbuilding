@@ -130,6 +130,8 @@ public final class BuilderScreen extends Screen {
     private final RtsScreenUiStateManager uiStateManager;
     /** Lightweight overlay/popup renderer split out from the main screen. */
     private final RtsScreenOverlayRenderer overlayRenderer;
+    /** Renders player health, food, armor and absorption bars. */
+    private final PlayerStatusRenderer playerStatusRenderer;
     /** Front-to-back input routing for movable RTS windows. */
     private final RtsFloatingWindowLayer floatingWindowLayer;
     /** Handler for storage link detail action rendering and clicks. */
@@ -166,6 +168,7 @@ public final class BuilderScreen extends Screen {
         this.controller = controller;
         this.uiStateManager = new RtsScreenUiStateManager(this.controller, this.shapeController, this.quickBuildPanel);
         this.overlayRenderer = new RtsScreenOverlayRenderer(this, this.controller, this.cursorPicker, this.bottomPanel);
+        this.playerStatusRenderer = new PlayerStatusRenderer(this);
         this.storageLinkDetailHandler = new StorageLinkDetailHandler(this, this.controller, this.topBarPanel, this.linkedStoragePanel);
         this.floatingWindowLayer = new RtsFloatingWindowLayer(
                 this.storageLinkDetailHandler,
@@ -1220,6 +1223,7 @@ public final class BuilderScreen extends Screen {
             return;
         }
         this.topBarPanel.render(guiGraphics, mouseX, mouseY);
+        this.playerStatusRenderer.render(guiGraphics);
         this.storageLinkDetailHandler.updateVisibility(mouseX, mouseY);
         this.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
         this.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
