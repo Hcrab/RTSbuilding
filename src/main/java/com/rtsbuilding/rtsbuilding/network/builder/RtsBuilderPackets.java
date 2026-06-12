@@ -86,22 +86,22 @@ public final class RtsBuilderPackets {
         registrar.playToClient(
                 S2CRtsMineProgressPayload.TYPE,
                 S2CRtsMineProgressPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchBuilder(p, ctx));
+                ClientPayloadDispatcher::dispatchBuilder);
 
         registrar.playToClient(
                 S2CRtsPlaceAnimationPayload.TYPE,
                 S2CRtsPlaceAnimationPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchBuilder(p, ctx));
+                ClientPayloadDispatcher::dispatchBuilder);
 
         registrar.playToClient(
                 S2CRtsBreakAnimationPayload.TYPE,
                 S2CRtsBreakAnimationPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchBuilder(p, ctx));
+                ClientPayloadDispatcher::dispatchBuilder);
 
         registrar.playToClient(
                 S2CRtsUltimineProgressPayload.TYPE,
                 S2CRtsUltimineProgressPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchBuilder(p, ctx));
+                ClientPayloadDispatcher::dispatchBuilder);
 
         // ===== Undo =====
 
@@ -113,6 +113,6 @@ public final class RtsBuilderPackets {
         registrar.playToClient(
                 S2CRtsHistorySyncPayload.TYPE,
                 S2CRtsHistorySyncPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchBuilder(p, ctx));
+                ClientPayloadDispatcher::dispatchBuilder);
     }
 }

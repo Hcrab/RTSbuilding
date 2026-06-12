@@ -18,6 +18,6 @@ public final class RtsFeedbackPackets {
         registrar.playToClient(
                 S2CRtsDamageFeedbackPayload.TYPE,
                 S2CRtsDamageFeedbackPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchFeedback(p, ctx));
+                ClientPayloadDispatcher::dispatchFeedback);
     }
 }

@@ -53,11 +53,11 @@ public final class RtsProgressionPackets {
         registrar.playToClient(
                 S2CRtsQuestDetectStatusPayload.TYPE,
                 S2CRtsQuestDetectStatusPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchProgression(p, ctx));
+                ClientPayloadDispatcher::dispatchProgression);
 
         registrar.playToClient(
                 S2CRtsProgressionStatePayload.TYPE,
                 S2CRtsProgressionStatePayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchProgression(p, ctx));
+                ClientPayloadDispatcher::dispatchProgression);
     }
 }

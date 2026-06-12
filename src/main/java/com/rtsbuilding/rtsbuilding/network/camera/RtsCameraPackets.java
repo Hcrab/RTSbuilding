@@ -28,6 +28,6 @@ public final class RtsCameraPackets {
         registrar.playToClient(
                 S2CRtsCameraStatePayload.TYPE,
                 S2CRtsCameraStatePayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchCamera(p, ctx));
+                ClientPayloadDispatcher::dispatchCamera);
     }
 }

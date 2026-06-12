@@ -43,11 +43,11 @@ public final class RtsCraftPackets {
         registrar.playToClient(
                 S2CRtsCraftablesPayload.TYPE,
                 S2CRtsCraftablesPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchCraft(p, ctx));
+                ClientPayloadDispatcher::dispatchCraft);
 
         registrar.playToClient(
                 S2CRtsCraftFeedbackPayload.TYPE,
                 S2CRtsCraftFeedbackPayload.STREAM_CODEC,
-                (p, ctx) -> ClientPayloadDispatcher.dispatchCraft(p, ctx));
+                ClientPayloadDispatcher::dispatchCraft);
     }
 }

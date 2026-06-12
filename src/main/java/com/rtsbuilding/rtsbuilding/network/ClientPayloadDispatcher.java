@@ -24,7 +24,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * client-only handler classes.
  *
  * <p>Each domain gets one dispatch method using Java 21 pattern matching,
- * replacing the per-payload boilerplate of the old {@link RtsClientPayloadBridge}.
  *
  * <p>The {@code IS_CLIENT} guard ensures {@code RtsClientNetworkHandlers} is
  * never loaded on dedicated server runtimes.
