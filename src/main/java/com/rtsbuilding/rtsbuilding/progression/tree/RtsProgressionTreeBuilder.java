@@ -8,20 +8,20 @@ import com.rtsbuilding.rtsbuilding.progression.node.RtsProgressionNodeId;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * 科技树构建器，负责组装默认的科技???
+ * 科技树构建器，负责组装默认的科技树。
  * <p>
- * 替代旧版 {@code RtsProgressionNodes.buildNodes()} 硬编码方???
- * 使用 {@link RtsProgressionNodeBuilder} 确保编译时类型安???
+ * 替代旧版 {@code RtsProgressionNodes.buildNodes()} 硬编码方式。
+ * 使用 {@link RtsProgressionNodeBuilder} 确保编译时类型安全。
  */
 public final class RtsProgressionTreeBuilder {
 
     /**
-     * 构建默认科技树，包含所有内置节???
+     * 构建默认科技树，包含所有内置节点。
      */
     public static MutableProgressionTree buildDefaultTree() {
         MutableProgressionTree tree = new MutableProgressionTree();
 
-        // ─── 相机核心（根节点，无依赖??───
+        // ─── 相机核心（根节点，无依赖） ───
         tree.register(RtsProgressionNodeBuilder.of(RtsProgressionNodeId.CAMERA_CORE)
                 .effects(
                         RtsUnlockEffect.unlock(RtsFeature.CAMERA),
@@ -29,7 +29,7 @@ public final class RtsProgressionTreeBuilder {
                         RtsUnlockEffect.radius(16))
                 .at(0, 0).build());
 
-        // ─── 作用半径扩展??───
+        // ─── 作用半径扩展链 ───
         tree.register(RtsProgressionNodeBuilder.of(RtsProgressionNodeId.RADIUS_1)
                 .dependsOn(RtsProgressionNodeId.CAMERA_CORE)
                 .costs(rl("minecraft:glass"), 8)
@@ -54,7 +54,7 @@ public final class RtsProgressionTreeBuilder {
                 .effects(RtsUnlockEffect.radius(Config.maxActionRadiusBlocks()))
                 .at(4, 0).build());
 
-        // ─── 存储与远程操??───
+        // ─── 存储与远程操作 ───
         tree.register(RtsProgressionNodeBuilder.of(RtsProgressionNodeId.STORAGE_LINK)
                 .dependsOn(RtsProgressionNodeId.CAMERA_CORE)
                 .costs(rl("minecraft:chest"), 2)
@@ -92,7 +92,7 @@ public final class RtsProgressionTreeBuilder {
                 .effects(RtsUnlockEffect.unlock(RtsFeature.BLUEPRINTS))
                 .at(1, 3).build());
 
-        // ─── 自动存储与漏??───
+        // ─── 自动存储与漏斗 ───
         tree.register(RtsProgressionNodeBuilder.of(RtsProgressionNodeId.AUTO_STORE_MINED)
                 .dependsOn(RtsProgressionNodeId.STORAGE_LINK)
                 .costs(rl("minecraft:hopper"), 1)
@@ -116,7 +116,7 @@ public final class RtsProgressionTreeBuilder {
                         RtsUnlockEffect.fluidCapacityBuckets(100))
                 .at(2, 3).build());
 
-        // ─── 远程 GUI 与合??───
+        // ─── 远程 GUI 与合成 ───
         tree.register(RtsProgressionNodeBuilder.of(RtsProgressionNodeId.REMOTE_GUI)
                 .dependsOn(RtsProgressionNodeId.STORAGE_LINK)
                 .costs(rl("minecraft:comparator"), 1)
@@ -138,7 +138,7 @@ public final class RtsProgressionTreeBuilder {
                 .effects(RtsUnlockEffect.unlock(RtsFeature.JEI_TRANSFER))
                 .at(4, -1).build());
 
-        // ─── 连锁挖掘与范围破??───
+        // ─── 连锁挖掘与范围破坏 ───
         tree.register(RtsProgressionNodeBuilder.of(RtsProgressionNodeId.ULTIMINE)
                 .dependsOn(RtsProgressionNodeId.AUTO_STORE_MINED)
                 .costs(rl("minecraft:diamond_pickaxe"), 1)
@@ -165,7 +165,7 @@ public final class RtsProgressionTreeBuilder {
     }
 
     private static ResourceLocation rl(String string) {
-        return new ResourceLocation(string);
+        return ResourceLocation.parse(string);
     }
 
     private RtsProgressionTreeBuilder() {

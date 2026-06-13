@@ -8,8 +8,8 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
  * Server-side C2S adapter for RTS crafting actions.
  *
  * Keep recipe scanning, grid refill, JEI transfer, and output insertion in
- * {@link RtsCraftingService}; this layer should only unwrap payloads and
- * enqueue work on the server thread.
+ * RtsStorageManager; this layer should only unwrap payloads and enqueue work on
+ * the server thread.
  */
 public final class RtsCraftNetworkHandlers {
     private RtsCraftNetworkHandlers() {

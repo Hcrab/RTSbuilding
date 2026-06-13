@@ -4,7 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;

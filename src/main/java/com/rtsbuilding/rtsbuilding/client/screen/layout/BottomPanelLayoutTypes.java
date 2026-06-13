@@ -1,17 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
 
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.BOTTOM_PANEL_HEADER_H;
+import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.BOTTOM_PANEL_HEADER_H;
 
 /**
  * Container for bottom-panel layout data types.
  * <p>
  * Groups the panel layout parameters and the tab enum that together define
  * the bottom panel's geometry and mode selection. Both types are always
- * referenced together by {@link com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel}
- * and {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen}.
  */
 public final class BottomPanelLayoutTypes {
 

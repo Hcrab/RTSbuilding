@@ -1,31 +1,30 @@
 package com.rtsbuilding.rtsbuilding.progression;
 
-import java.util.Collection;
-import java.util.List;
-
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.progression.cost.RtsCostOverrideManager;
 import com.rtsbuilding.rtsbuilding.progression.cost.RtsCostSerialization;
 import com.rtsbuilding.rtsbuilding.progression.node.RtsProgressionNodeId;
 import com.rtsbuilding.rtsbuilding.progression.tree.MutableProgressionTree;
 import com.rtsbuilding.rtsbuilding.progression.tree.RtsProgressionTreeBuilder;
-
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.Collection;
+import java.util.List;
+
 /**
- * 科技树节点的集中访问入口（兼容层???
+ * 科技树节点的集中访问入口（兼容层）。
  * <p>
- * 内部委托给新的模块化架构??
+ * 内部委托给新的模块化架构：
  * <ul>
- *   <li>{@link RtsProgressionTreeBuilder} + {@link MutableProgressionTree} ??树结??/li>
- *   <li>{@link RtsCostOverrideManager} ??成本覆写</li>
- *   <li>{@link RtsCostSerialization} ??成本序列??/li>
+ *   <li>{@link RtsProgressionTreeBuilder} + {@link MutableProgressionTree} — 树结构</li>
+ *   <li>{@link RtsCostOverrideManager} — 成本覆写</li>
+ *   <li>{@link RtsCostSerialization} — 成本序列化</li>
  * </ul>
  * <p>
- * 所有公??API 签名保持不变，现有调用方无需修改??
+ * 所有公共 API 签名保持不变，现有调用方无需修改。
  */
 public final class RtsProgressionNodes {
-    // ─── 常量（向后兼容，委托??RtsProgressionNodeId??───
+    // ─── 常量（向后兼容，委托至 RtsProgressionNodeId） ───
     public static final ResourceLocation CAMERA_CORE = RtsProgressionNodeId.CAMERA_CORE;
     public static final ResourceLocation RADIUS_1 = RtsProgressionNodeId.RADIUS_1;
     public static final ResourceLocation RADIUS_2 = RtsProgressionNodeId.RADIUS_2;
@@ -91,14 +90,14 @@ public final class RtsProgressionNodes {
     }
 
     /**
-     * 获取内部科技树实例（供新架构代码使用???
+     * 获取内部科技树实例（供新架构代码使用）。
      */
     public static MutableProgressionTree tree() {
         return TREE;
     }
 
     /**
-     * 获取内部成本覆写管理器（供新架构代码使用???
+     * 获取内部成本覆写管理器（供新架构代码使用）。
      */
     public static RtsCostOverrideManager costManager() {
         return COST_MANAGER;

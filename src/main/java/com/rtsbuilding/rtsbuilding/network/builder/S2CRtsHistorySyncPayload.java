@@ -7,15 +7,16 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * 服务端→客户端：同步当前撤回状???
+ * 服务端→客户端：同步当前撤回状态。
  * <p>
- * 每次撤回操作完成后发送，更新客户端的按钮状???
+ * 每次撤回操作完成后发送，更新客户端的按钮状态。
  *
  * @param undoSize 当前可撤回的步数
  */
 public record S2CRtsHistorySyncPayload(
         int undoSize) implements CustomPacketPayload {
-    public static final Type<S2CRtsHistorySyncPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_history_sync"), S2CRtsHistorySyncPayload.class);
+    public static final Type<S2CRtsHistorySyncPayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_history_sync"), S2CRtsHistorySyncPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsHistorySyncPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

@@ -6,9 +6,9 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.*;
 
 /**
- * 科技树验证器，检测循环依赖和悬挂依赖??
+ * 科技树验证器，检测循环依赖和悬挂依赖。
  * <p>
- * 使用 Tarjan DFS 算法检测有向无环图（DAG）中的环??
+ * 使用 Tarjan DFS 算法检测有向无环图（DAG）中的环。
  */
 public final class RtsProgressionTreeValidator {
 
@@ -16,7 +16,7 @@ public final class RtsProgressionTreeValidator {
     }
 
     /**
-     * 验证科技树的合法???
+     * 验证科技树的合法性。
      */
     public static ValidationResult validate(RtsProgressionTree tree) {
         List<String> errors = new ArrayList<>();
@@ -24,20 +24,20 @@ public final class RtsProgressionTreeValidator {
                 .map(RtsProgressionNode::id)
                 .collect(java.util.stream.Collectors.toSet());
 
-        // 1. 检查依赖节点是否存??
+        // 1. 检查依赖节点是否存在
         for (RtsProgressionNode node : tree.all()) {
             for (ResourceLocation dep : node.dependencies()) {
                 if (!allIds.contains(dep)) {
-                    errors.add("Node [" + node.id() + "] depends on missing node [" + dep + "]");
+                    errors.add("节点 [" + node.id() + "] 依赖的 [" + dep + "] 不存在");
                 }
             }
         }
 
-        // 2. 检查循环依??
+        // 2. 检查循环依赖
         if (allIds.size() > 1) {
             Set<ResourceLocation> cycleNodes = detectCycle(tree, allIds);
             if (!cycleNodes.isEmpty()) {
-                errors.add("Detected cyclic progression dependencies: " + cycleNodes);
+                errors.add("检测到循环依赖，涉及节点: " + cycleNodes);
             }
         }
 
@@ -45,11 +45,11 @@ public final class RtsProgressionTreeValidator {
     }
 
     /**
-     * 使用 DFS 检测循环依???
-     * 返回参与循环的节??ID 集合，无循环时返回空???
+     * 使用 DFS 检测循环依赖。
+     * 返回参与循环的节点 ID 集合，无循环时返回空集。
      */
     private static Set<ResourceLocation> detectCycle(RtsProgressionTree tree, Set<ResourceLocation> allIds) {
-        // WHITE=未访?? GRAY=访问??当前路径), BLACK=已访问完??
+        // WHITE=未访问, GRAY=访问中(当前路径), BLACK=已访问完成
         Map<ResourceLocation, Color> colors = new HashMap<>();
         for (ResourceLocation id : allIds) {
             colors.put(id, Color.WHITE);
@@ -60,7 +60,7 @@ public final class RtsProgressionTreeValidator {
         for (ResourceLocation id : allIds) {
             if (colors.get(id) == Color.WHITE) {
                 if (dfsVisit(tree, id, colors, cycleNodes)) {
-                    // 有环，继续检查其他节??
+                    // 有环，继续检查其他节点
                 }
             }
         }
@@ -78,7 +78,7 @@ public final class RtsProgressionTreeValidator {
             for (ResourceLocation dep : node.dependencies()) {
                 Color depColor = colors.get(dep);
                 if (depColor == null) {
-                    continue; // 依赖不存在，已在步骤1中报??
+                    continue; // 依赖不存在，已在步骤1中报告
                 }
                 if (depColor == Color.GRAY) {
                     cycleNodes.add(dep);
@@ -103,7 +103,7 @@ public final class RtsProgressionTreeValidator {
     }
 
     /**
-     * 验证结果??
+     * 验证结果。
      */
     public record ValidationResult(List<String> errors) {
         public boolean isValid() {

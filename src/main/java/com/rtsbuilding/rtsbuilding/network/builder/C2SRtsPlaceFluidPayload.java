@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -22,7 +21,8 @@ public record C2SRtsPlaceFluidPayload(
         double rayDirX,
         double rayDirY,
         double rayDirZ) implements CustomPacketPayload {
-    public static final Type<C2SRtsPlaceFluidPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place_fluid"), C2SRtsPlaceFluidPayload.class);
+    public static final Type<C2SRtsPlaceFluidPayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place_fluid"), C2SRtsPlaceFluidPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsPlaceFluidPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

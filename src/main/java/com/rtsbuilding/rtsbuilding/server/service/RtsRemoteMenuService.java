@@ -23,18 +23,16 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
- * 远程菜单管理服务——处??RTS 模式下远程打开菜单的校验绕过和状态追???
+ * 远程菜单管理服务——处理 RTS 模式下远程打开菜单的校验绕过和状态追踪。
  *
- * <p>职责范围??
+ * <p>职责范围：
  * <ul>
- *   <li>远程菜单校验绕过（反射替??Container / ContainerLevelAccess??/li>
+ *   <li>远程菜单校验绕过（反射替换 Container / ContainerLevelAccess）</li>
  *   <li>远程菜单打开状态记录与包装</li>
- *   <li>远程菜单打开提示包发??/li>
+ *   <li>远程菜单打开提示包发送</li>
  * </ul>
  */
 public final class RtsRemoteMenuService {
-
-    public static final RtsRemoteMenuService INSTANCE = new RtsRemoteMenuService();
 
     private RtsRemoteMenuService() {
     }
@@ -85,8 +83,8 @@ public final class RtsRemoteMenuService {
             player.containerMenu = remoteMenu;
         }
         if (session != null) {
-            session.remoteMenuContainerId = remoteMenu.containerId;
-            session.remoteMenuPos = pos == null ? null : pos.immutable();
+            session.transfer.remoteMenuContainerId = remoteMenu.containerId;
+            session.transfer.remoteMenuPos = pos == null ? null : pos.immutable();
         }
         relaxOpenedMenuValidation(remoteMenu);
         if (session != null && RtsRemoteMenuCompat.isSupportedRemoteMenu(remoteMenu)) {

@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsInteractionHandlers;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsMiningHandlers;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPlaceHandlers;
-
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 
 /**

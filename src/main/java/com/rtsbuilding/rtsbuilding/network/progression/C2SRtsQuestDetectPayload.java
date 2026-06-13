@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
@@ -10,7 +9,8 @@ import net.minecraft.resources.ResourceLocation;
 public record C2SRtsQuestDetectPayload(byte mode) implements CustomPacketPayload {
     public static final byte MODE_MANUAL = 0;
 
-    public static final Type<C2SRtsQuestDetectPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_quest_detect"), C2SRtsQuestDetectPayload.class);
+    public static final Type<C2SRtsQuestDetectPayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_quest_detect"), C2SRtsQuestDetectPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsQuestDetectPayload> STREAM_CODEC =
             StreamCodec.of(

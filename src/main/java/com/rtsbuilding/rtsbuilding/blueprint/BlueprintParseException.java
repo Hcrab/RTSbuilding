@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.blueprint;
 
-
 public final class BlueprintParseException extends Exception {
     public BlueprintParseException(String message) {
         super(message);

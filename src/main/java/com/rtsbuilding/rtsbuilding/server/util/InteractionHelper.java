@@ -10,10 +10,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 远程交互辅助工具???
+ * 远程交互辅助工具集。
  *
- * <p>封装 RTS 模式下远程使用物??与方块交??与实体交互的通用操作??
- * 每个方法临时替换玩家的主手物品、处??Shift 右键等，执行后自动恢???
+ * <p>封装 RTS 模式下远程使用物品/与方块交互/与实体交互的通用操作。
+ * 每个方法临时替换玩家的主手物品、处理 Shift 右键等，执行后自动恢复。
  */
 public final class InteractionHelper {
 
@@ -25,8 +25,8 @@ public final class InteractionHelper {
     // ======================================================================
 
     /**
-     * 临时??{@code handStack} 放入玩家主手，在 {@code hit} 位置执行
-     * {@code useItemOn}，然后恢复主手并返回结果 + 剩余物品??
+     * 临时将 {@code handStack} 放入玩家主手，在 {@code hit} 位置执行
+     * {@code useItemOn}，然后恢复主手并返回结果 + 剩余物品。
      */
     public static TemporaryContextSwitcher.UseOnOutcome useItemOnWithMainHand(ServerPlayer player, ServerLevel level,
             ItemStack handStack, BlockHitResult hit, boolean forceSecondaryUse) {
@@ -53,8 +53,8 @@ public final class InteractionHelper {
     // ======================================================================
 
     /**
-     * 临时??{@code handStack} 放入玩家主手，执??{@code useItem}??
-     * 然后恢复主手并返回结??+ 剩余物品??
+     * 临时将 {@code handStack} 放入玩家主手，执行 {@code useItem}，
+     * 然后恢复主手并返回结果 + 剩余物品。
      */
     public static TemporaryContextSwitcher.UseOnOutcome useItemWithMainHand(ServerPlayer player, ServerLevel level,
             ItemStack handStack, boolean forceSecondaryUse) {
@@ -80,7 +80,7 @@ public final class InteractionHelper {
     // ======================================================================
 
     /**
-     * 临时??{@code handStack} 放入玩家主手，与实体交互，然后恢复主???
+     * 临时将 {@code handStack} 放入玩家主手，与实体交互，然后恢复主手。
      */
     public static TemporaryContextSwitcher.UseOnOutcome useItemOnEntityWithMainHand(ServerPlayer player, ServerLevel level,
             ItemStack handStack, Entity entity, Vec3 hit) {
@@ -98,7 +98,7 @@ public final class InteractionHelper {
     }
 
     /**
-     * 对实体执行交互操作：先调 player.interactOn，再??entity.interactAt，最??fallback ??useItem??
+     * 对实体执行交互操作：先调 player.interactOn，再试 entity.interactAt，最后 fallback 到 useItem。
      */
     public static InteractionResult interactEntityWithMainHand(ServerPlayer player, ServerLevel level, Entity entity, Vec3 hit) {
         InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND);
@@ -117,11 +117,11 @@ public final class InteractionHelper {
     // ======================================================================
 
     /**
-     * 解析远程交互??虚拟玩家脚部位置"??
+     * 解析远程交互的"虚拟玩家脚部位置"：
      * <ul>
-     *   <li>对实体：从实体中心向击中点反方向偏移 1.8 ??/li>
-     *   <li>对方块：从击中点沿法线反方向偏移 2.2 ??/li>
-     *   <li>无目标：返回 {@code hit} ???/li>
+     *   <li>对实体：从实体中心向击中点反方向偏移 1.8 格</li>
+     *   <li>对方块：从击中点沿法线反方向偏移 2.2 格</li>
+     *   <li>无目标：返回 {@code hit} 原值</li>
      * </ul>
      */
     public static Vec3 resolveInteractionPosition(Entity targetEntity, BlockHitResult blockHit, Vec3 hit) {

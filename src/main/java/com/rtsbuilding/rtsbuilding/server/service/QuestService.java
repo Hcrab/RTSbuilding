@@ -8,14 +8,12 @@ import net.minecraft.server.level.ServerPlayer;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
 /**
- * FTB 任务检测服???
+ * FTB 任务检测服务。
  *
- * <p>周期性扫描玩家的 FTB Quests 完成情况??
- * 通过网络包将相位和进度推送至客户??UI??
+ * <p>周期性扫描玩家的 FTB Quests 完成情况，
+ * 通过网络包将相位和进度推送至客户端 UI。
  */
 public final class QuestService {
-
-    public static final QuestService INSTANCE = new QuestService();
 
     private static final long QUEST_DETECT_COOLDOWN_TICKS = 100L;
 
@@ -32,7 +30,7 @@ public final class QuestService {
     }
 
     /**
-     * 运行任务检测扫???
+     * 运行任务检测扫描。
      *
      * @param player  目标玩家
      * @param session 当前 RTS 会话
@@ -49,10 +47,10 @@ public final class QuestService {
             return;
         }
         long now = player.serverLevel().getGameTime();
-        if (!force && now < session.nextQuestDetectTick) {
+        if (!force && now < session.transfer.nextQuestDetectTick) {
             return;
         }
-        session.nextQuestDetectTick = now + QUEST_DETECT_COOLDOWN_TICKS;
+        session.transfer.nextQuestDetectTick = now + QUEST_DETECT_COOLDOWN_TICKS;
         if (force) {
             sendQuestDetectStatus(player, S2CRtsQuestDetectStatusPayload.PHASE_STARTED, 0, 0, 0);
         }

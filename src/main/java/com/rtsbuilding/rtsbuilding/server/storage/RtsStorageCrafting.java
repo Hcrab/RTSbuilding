@@ -16,13 +16,14 @@ import java.util.List;
  *
  * <p>All methods delegate to the appropriate sub-module in the
  * {@code crafting} package.  This class exists solely to preserve the
- * existing service and network call sites without importing crafting internals.
+ * existing call sites in {@link com.rtsbuilding.rtsbuilding.server.RtsStorageManager} and the network
+ * layer without import changes.
  *
  * <p>The actual implementation lives in:
  * <ul>
- *   <li>{@link RtsCraftingSearch}  ??craftable-panel search &amp; recipe scanning</li>
- *   <li>{@link RtsCraftingExecutor} ??craft execution &amp; terminal opening</li>
- *   <li>{@link RtsCraftingGridFiller} ??grid refill &amp; JEI transfer</li>
+ *   <li>{@link RtsCraftingSearch}  — craftable-panel search &amp; recipe scanning</li>
+ *   <li>{@link RtsCraftingExecutor} — craft execution &amp; terminal opening</li>
+ *   <li>{@link RtsCraftingGridFiller} — grid refill &amp; JEI transfer</li>
  * </ul>
  *
  * @see RtsCraftingSearch

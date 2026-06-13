@@ -8,8 +8,8 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsToolLease;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsToolLeaseManager;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLeaseManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -76,7 +76,7 @@ public final class RtsUltimineProcessor {
             }
             RtsMiningStateMachine.stopActiveMining(player, session);
             breakCreativeUltimineTargets(player, session, targets, slot);
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             return;
         }
 
@@ -93,18 +93,18 @@ public final class RtsUltimineProcessor {
             return;
         }
 
-        session.miningToolLease = toolLease;
-        session.miningSelectedToolRequested = selectedToolRequested;
-        session.miningToolProtectionEnabled = toolProtectionEnabled;
-        session.ultimineTargets.clear();
-        session.ultimineTargets.addAll(targets);
-        session.ultimineProgressPos = targets.peekFirst();
-        session.ultimineTotalTargets = targets.size();
-        session.ultimineProcessedTargets = 0;
-        session.ultimineProcessedPositions.clear();
-        session.ultimineAbsorbedDrops = false;
-        session.miningFace = face == null ? Direction.DOWN : face;
-        session.miningToolSlot = slot;
+        session.mining.miningToolLease = toolLease;
+        session.mining.miningSelectedToolRequested = selectedToolRequested;
+        session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
+        session.mining.ultimineTargets.clear();
+        session.mining.ultimineTargets.addAll(targets);
+        session.mining.ultimineProgressPos = targets.peekFirst();
+        session.mining.ultimineTotalTargets = targets.size();
+        session.mining.ultimineProcessedTargets = 0;
+        session.mining.ultimineProcessedPositions.clear();
+        session.mining.ultimineAbsorbedDrops = false;
+        session.mining.miningFace = face == null ? Direction.DOWN : face;
+        session.mining.miningToolSlot = slot;
         RtsMiningNetworkHelper.sendUltimineProgress(player, 0, targets.size());
         RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), face, slot);
     }
@@ -172,22 +172,22 @@ public final class RtsUltimineProcessor {
         if (player.isCreative()) {
             RtsMiningStateMachine.stopActiveMining(player, session);
             breakCreativeUltimineTargets(player, session, targets, slot);
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             return;
         }
 
-        session.miningToolLease = toolLease;
-        session.miningSelectedToolRequested = selectedToolRequested;
-        session.miningToolProtectionEnabled = toolProtectionEnabled;
-        session.ultimineTargets.clear();
-        session.ultimineTargets.addAll(targets);
-        session.ultimineProgressPos = targets.peekFirst();
-        session.ultimineTotalTargets = targets.size();
-        session.ultimineProcessedTargets = 0;
-        session.ultimineProcessedPositions.clear();
-        session.ultimineAbsorbedDrops = false;
-        session.miningFace = Direction.DOWN;
-        session.miningToolSlot = slot;
+        session.mining.miningToolLease = toolLease;
+        session.mining.miningSelectedToolRequested = selectedToolRequested;
+        session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
+        session.mining.ultimineTargets.clear();
+        session.mining.ultimineTargets.addAll(targets);
+        session.mining.ultimineProgressPos = targets.peekFirst();
+        session.mining.ultimineTotalTargets = targets.size();
+        session.mining.ultimineProcessedTargets = 0;
+        session.mining.ultimineProcessedPositions.clear();
+        session.mining.ultimineAbsorbedDrops = false;
+        session.mining.miningFace = Direction.DOWN;
+        session.mining.miningToolSlot = slot;
         RtsMiningNetworkHelper.sendUltimineProgress(player, 0, targets.size());
         RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), null, slot);
     }
@@ -220,7 +220,7 @@ public final class RtsUltimineProcessor {
             }
             RtsMiningStateMachine.stopActiveMining(player, session);
             breakCreativeUltimineTargets(player, session, targets, slot);
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             return;
         }
 
@@ -237,18 +237,18 @@ public final class RtsUltimineProcessor {
             return;
         }
 
-        session.miningToolLease = toolLease;
-        session.miningSelectedToolRequested = selectedToolRequested;
-        session.miningToolProtectionEnabled = toolProtectionEnabled;
-        session.ultimineTargets.clear();
-        session.ultimineTargets.addAll(targets);
-        session.ultimineProgressPos = targets.peekFirst();
-        session.ultimineTotalTargets = targets.size();
-        session.ultimineProcessedTargets = 0;
-        session.ultimineProcessedPositions.clear();
-        session.ultimineAbsorbedDrops = false;
-        session.miningFace = Direction.DOWN;
-        session.miningToolSlot = slot;
+        session.mining.miningToolLease = toolLease;
+        session.mining.miningSelectedToolRequested = selectedToolRequested;
+        session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
+        session.mining.ultimineTargets.clear();
+        session.mining.ultimineTargets.addAll(targets);
+        session.mining.ultimineProgressPos = targets.peekFirst();
+        session.mining.ultimineTotalTargets = targets.size();
+        session.mining.ultimineProcessedTargets = 0;
+        session.mining.ultimineProcessedPositions.clear();
+        session.mining.ultimineAbsorbedDrops = false;
+        session.mining.miningFace = Direction.DOWN;
+        session.mining.miningToolSlot = slot;
         RtsMiningNetworkHelper.sendUltimineProgress(player, 0, targets.size());
         RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), null, slot);
     }
@@ -296,21 +296,21 @@ public final class RtsUltimineProcessor {
      * queued ultimine targets.
      */
     static void processUltimineTargets(ServerPlayer player, RtsStorageSession session) {
-        if (session.ultimineTargets.isEmpty()) {
+        if (session.mining.ultimineTargets.isEmpty()) {
             finishUltimineBatch(player, session);
             return;
         }
 
         ServerLevel level = player.serverLevel();
         int processedThisTick = 0;
-        while (processedThisTick < RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK && !session.ultimineTargets.isEmpty()) {
+        while (processedThisTick < RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK && !session.mining.ultimineTargets.isEmpty()) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
                 finishUltimineBatch(player, session);
                 return;
             }
-            BlockPos target = session.ultimineTargets.removeFirst();
+            BlockPos target = session.mining.ultimineTargets.removeFirst();
             processedThisTick++;
-            session.ultimineProcessedTargets++;
+            session.mining.ultimineProcessedTargets++;
 
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
                 continue;
@@ -320,8 +320,8 @@ public final class RtsUltimineProcessor {
                     || !RtsMiningValidator.hasValidDestroySpeed(targetState, level, target)) {
                 continue;
             }
-            if (RtsMiningStateMachine.computeRemoteDestroyStep(player, targetState, target, session.miningToolSlot,
-                    session.miningToolLease.stack(), session.miningSelectedToolRequested) <= 0.0F) {
+            if (RtsMiningStateMachine.computeRemoteDestroyStep(player, targetState, target, session.mining.miningToolSlot,
+                    session.mining.miningToolLease.stack(), session.mining.miningSelectedToolRequested) <= 0.0F) {
                 continue;
             }
 
@@ -330,10 +330,10 @@ public final class RtsUltimineProcessor {
             List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(level, target);
 
             RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(
-                    player, session, target, session.miningToolSlot);
+                    player, session, target, session.mining.miningToolSlot);
 
             if (result.broken() && preRecord != null) {
-                session.ultimineProcessedPositions.add(preRecord);
+                session.mining.ultimineProcessedPositions.add(preRecord);
                 // Record any collateral multi-block destruction
                 recordCollateralBlocks(level, session, neighborRecords, target);
             }
@@ -347,7 +347,7 @@ public final class RtsUltimineProcessor {
         }
 
         RtsMiningNetworkHelper.sendUltimineBatchProgress(player, session);
-        if (session.ultimineTargets.isEmpty()) {
+        if (session.mining.ultimineTargets.isEmpty()) {
             finishUltimineBatch(player, session);
         }
     }
@@ -357,15 +357,15 @@ public final class RtsUltimineProcessor {
      * marks the storage page dirty, and resets the mining state.
      */
     static void finishUltimineBatch(ServerPlayer player, RtsStorageSession session) {
-        if (!session.ultimineProcessedPositions.isEmpty()) {
-            ServerHistoryManager.recordBreakWithRecords(player, new ArrayList<>(session.ultimineProcessedPositions), session.miningFace);
-            session.ultimineProcessedPositions.clear();
+        if (!session.mining.ultimineProcessedPositions.isEmpty()) {
+            ServerHistoryManager.recordBreakWithRecords(player, new ArrayList<>(session.mining.ultimineProcessedPositions), session.mining.miningFace);
+            session.mining.ultimineProcessedPositions.clear();
         }
         RtsMiningNetworkHelper.sendUltimineProgress(player, -1, 0);
-        RtsToolLeaseManager.returnMiningTool(player, session, session.miningToolLease);
+        RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
         RtsPageService.markStorageViewDirty(player, session);
-        if (session.ultimineProgressPos != null) {
-            RtsMiningNetworkHelper.clearMineProgress(player, session.ultimineProgressPos);
+        if (session.mining.ultimineProgressPos != null) {
+            RtsMiningNetworkHelper.clearMineProgress(player, session.mining.ultimineProgressPos);
         }
         RtsMiningStateMachine.resetMiningState(session);
     }
@@ -383,7 +383,7 @@ public final class RtsUltimineProcessor {
                 }
             }
             if (!validTargets.isEmpty()) {
-                Direction face = session != null && session.miningFace != null ? session.miningFace : Direction.DOWN;
+                Direction face = session != null && session.mining.miningFace != null ? session.mining.miningFace : Direction.DOWN;
                 ServerHistoryManager.recordBreak(player, validTargets, face);
             }
         }
@@ -429,7 +429,7 @@ public final class RtsUltimineProcessor {
             // If the neighbor was solid before but is now air, it was collateral-destroyed
             BlockState currentState = level.getBlockState(nr.pos());
             if (currentState.isAir() && !nr.state().isAir()) {
-                session.ultimineProcessedPositions.add(nr);
+                session.mining.ultimineProcessedPositions.add(nr);
             }
         }
     }

@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,9 +14,9 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 /**
- * 放置服务——管理方块放置、批量放置和方块旋转??
+ * 放置服务——管理方块放置、批量放置和方块旋转。
  *
- * <p>职责范围??
+ * <p>职责范围：
  * <ul>
  *   <li>选中方块放置</li>
  *   <li>批量方块放置入队</li>
@@ -26,13 +25,11 @@ import java.util.List;
  */
 public final class RtsPlacementService {
 
-    public static final RtsPlacementService INSTANCE = new RtsPlacementService();
-
     private RtsPlacementService() {
     }
 
     /**
-     * 放置选中方块??
+     * 放置选中方块。
      */
     public static void placeSelected(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
             double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
@@ -66,7 +63,7 @@ public final class RtsPlacementService {
     }
 
     /**
-     * 批量方块放置入队??
+     * 批量方块放置入队。
      */
     public static void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
             double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps,
@@ -98,7 +95,7 @@ public final class RtsPlacementService {
     }
 
     /**
-     * 旋转已放置的方块??
+     * 旋转已放置的方块。
      */
     public static void rotateBlock(ServerPlayer player, BlockPos pos) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {

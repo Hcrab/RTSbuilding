@@ -10,14 +10,14 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 类型安全??{@link RtsProgressionNode} 建造???
+ * 类型安全的 {@link RtsProgressionNode} 建造者。
  * <p>
- * 替代旧版 {@code cost(Object...)} 变参方法，在编译时保证类型安???
- * 用法??
+ * 替代旧版 {@code cost(Object...)} 变参方法，在编译时保证类型安全。
+ * 用法：
  * <pre>{@code
  * RtsProgressionNodeBuilder.of(RtsProgressionNodeId.CAMERA_CORE)
  *     .effects(RtsUnlockEffect.unlock(RtsFeature.CAMERA))
- *     .costs(new ResourceLocation("minecraft:glass"), 8)
+ *     .costs(ResourceLocation.parse("minecraft:glass"), 8)
  *     .at(0, 0)
  *     .build()
  * }</pre>

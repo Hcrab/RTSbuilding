@@ -1,5 +1,21 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
+import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
+import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
+import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -7,19 +23,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
-import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
-
-import net.minecraft.Util;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Frame-sliced blueprint capture scanner plus asynchronous file writer.
@@ -31,7 +34,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * text is throttled, the bottom Y plane is skipped to match player selection
  * intuition, and the final vanilla NBT file is written off the render thread.</p>
  */
-public final class BlueprintCaptureSaveJob {
+final class BlueprintCaptureSaveJob {
     private static final int CAPTURE_SCAN_BUDGET_PER_STEP = 64;
     private static final long CAPTURE_SCAN_TIME_BUDGET_NANOS = 500_000L;
     private static final long CAPTURE_SCAN_MIN_INTERVAL_MS = 15L;
@@ -186,13 +189,49 @@ public final class BlueprintCaptureSaveJob {
         this.blocks.add(new RtsBlueprintBlock(
                 new BlockPos(this.x - this.minX, this.y - this.captureMinY, this.z - this.minZ),
                 state,
-                new net.minecraft.nbt.CompoundTag()));
+                captureBlockEntityTag(this.cursor),
+                "",
+                resolveMaterialItemId(state, this.cursor)));
         int maxCaptureBlocks = BlueprintWriters.maxCaptureBlocks();
         if (this.blocks.size() > maxCaptureBlocks) {
             return Result.failure("screen.rtsbuilding.blueprints.status.save_failed",
                     "Blueprint capture contains more than " + maxCaptureBlocks + " blocks");
         }
         return null;
+    }
+
+    private CompoundTag captureBlockEntityTag(BlockPos pos) {
+        BlockEntity blockEntity = this.level.getBlockEntity(pos);
+        if (blockEntity == null) {
+            return new CompoundTag();
+        }
+        try {
+            CompoundTag tag = blockEntity.saveWithFullMetadata();
+            tag.remove("x");
+            tag.remove("y");
+            tag.remove("z");
+            return tag;
+        } catch (RuntimeException ignored) {
+            return new CompoundTag();
+        }
+    }
+
+    private String resolveMaterialItemId(BlockState state, BlockPos pos) {
+        if (state == null || pos == null) {
+            return "";
+        }
+        try {
+            ItemStack cloneStack = state.getBlock().getCloneItemStack(this.level, pos, state);
+            if (!cloneStack.isEmpty()) {
+                ResourceLocation id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
+                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+                    return id.toString();
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+        ResourceLocation fallback = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        return fallback == null || !BuiltInRegistries.ITEM.containsKey(fallback) ? "" : fallback.toString();
     }
 
     /**

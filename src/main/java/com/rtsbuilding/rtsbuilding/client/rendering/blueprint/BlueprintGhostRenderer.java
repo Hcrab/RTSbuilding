@@ -4,7 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;

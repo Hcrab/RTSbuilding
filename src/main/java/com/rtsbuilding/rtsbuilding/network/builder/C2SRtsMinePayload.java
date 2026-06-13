@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -18,7 +17,8 @@ public record C2SRtsMinePayload(
         ItemStack toolPrototype,
         boolean allowPlacedBlockRecovery,
         boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsMinePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_mine"), C2SRtsMinePayload.class);
+    public static final Type<C2SRtsMinePayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_mine"), C2SRtsMinePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsMinePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

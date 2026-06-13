@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.api.impl;
 
 import com.rtsbuilding.rtsbuilding.server.api.RtsInteractionAPI;
 import com.rtsbuilding.rtsbuilding.server.service.RtsInteractionService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPlacementService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;

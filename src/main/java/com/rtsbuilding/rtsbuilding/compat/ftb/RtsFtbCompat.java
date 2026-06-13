@@ -1,10 +1,8 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.server.level.ServerPlayer;
-import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 public final class RtsFtbCompat {
     private static final boolean FTB_QUESTS_LOADED = ModList.get().isLoaded("ftbquests");

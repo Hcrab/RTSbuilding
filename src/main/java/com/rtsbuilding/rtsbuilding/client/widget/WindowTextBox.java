@@ -1,14 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
-
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
+
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Text input styled for RTS window panels.

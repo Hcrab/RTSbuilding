@@ -6,27 +6,23 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.interaction.RtsEmptyHandInteractor;
+import com.rtsbuilding.rtsbuilding.server.service.interaction.RtsLinkedItemInteractor;
+import com.rtsbuilding.rtsbuilding.server.service.interaction.RtsToolSlotInteractor;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
-import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
-import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.UseOnOutcome;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -35,24 +31,19 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.items.IItemHandler;
-
-import java.util.List;
 
 /**
- * 远程交互服务——处??RTS 模式下与方块/实体的远程交???
+ * 远程交互服务——处理 RTS 模式下与方块/实体的远程交互。
  *
- * <p>职责范围??
+ * <p>职责范围：
  * <ul>
  *   <li>工具栏格物品交互（放置、使用）</li>
- *   <li>空手交互（右键方??实体??/li>
- *   <li>大头针物品交互（从链接存储中提取物品使用??/li>
+ *   <li>空手交互（右键方块/实体）</li>
+ *   <li>大头针物品交互（从链接存储中提取物品使用）</li>
  *   <li>空中使用物品</li>
  * </ul>
  */
 public final class RtsInteractionService {
-
-    public static final RtsInteractionService INSTANCE = new RtsInteractionService();
 
     private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
 
@@ -60,7 +51,7 @@ public final class RtsInteractionService {
     }
 
     /**
-     * 远程交互目标（方??实体???
+     * 远程交互目标（方块/实体）。
      */
     public static void interactTarget(ServerPlayer player, int entityId, BlockPos clickedPos, Direction face,
                                       double hitX, double hitY, double hitZ,
@@ -124,13 +115,13 @@ public final class RtsInteractionService {
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
 
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
-            result = interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
+            result = RtsToolSlotInteractor.interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
-            result = useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
+            result = RtsToolSlotInteractor.useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
-            result = interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
+            result = RtsLinkedItemInteractor.interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND) {
-            result = interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
+            result = RtsEmptyHandInteractor.interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
         }
 
         AbstractContainerMenu menuAfterInteract = player.containerMenu;
@@ -167,179 +158,8 @@ public final class RtsInteractionService {
             }
         }
 
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending, false);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
     }
 
-    private static int clampHotbarSlot(int slot) {
-        return Math.max(0, Math.min(8, slot));
-    }
 
-    public static InteractionResult interactWithToolSlot(ServerPlayer player, ServerLevel level, Entity targetEntity,
-            BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext) {
-        int slot = clampHotbarSlot(toolSlot);
-        int previousSelected = player.getInventory().selected;
-        Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
-        return TemporaryContextSwitcher.withTemporaryUseItemContext(
-                player,
-                interactionPos,
-                hit,
-                rayContext,
-                REMOTE_POV_BLOCK_REACH,
-                () -> {
-            player.getInventory().selected = slot;
-            try {
-                if (targetEntity != null) {
-                    return InteractionHelper.interactEntityWithMainHand(player, level, targetEntity, hit);
-                }
-                if (blockHit != null) {
-                    InteractionResult primaryResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            blockHit));
-                    if (primaryResult.consumesAction()) {
-                        return primaryResult;
-                    }
-                    InteractionResult primaryUseResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND));
-                    if (primaryUseResult.consumesAction()) {
-                        return primaryUseResult;
-                    }
-                    InteractionResult secondaryResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, true, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            blockHit));
-                    if (secondaryResult.consumesAction()) {
-                        return secondaryResult;
-                    }
-                    return TemporaryContextSwitcher.withTemporaryShiftKey(player, true, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND));
-                }
-                return InteractionResult.PASS;
-            } finally {
-                player.getInventory().selected = previousSelected;
-            }
-                });
-    }
-
-    public static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
-            int toolSlot, RayContext rayContext) {
-        int slot = clampHotbarSlot(toolSlot);
-        int previousSelected = player.getInventory().selected;
-        Vec3 fallback = hit == null ? player.getEyePosition() : hit;
-        return TemporaryContextSwitcher.withTemporaryUseItemContext(
-                player,
-                fallback,
-                fallback,
-                rayContext,
-                REMOTE_POV_BLOCK_REACH,
-                () -> {
-            player.getInventory().selected = slot;
-            try {
-                return TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
-                        player,
-                        level,
-                        player.getMainHandItem(),
-                        InteractionHand.MAIN_HAND));
-            } finally {
-                player.getInventory().selected = previousSelected;
-            }
-                });
-    }
-
-    public static InteractionResult interactWithEmptyHand(ServerPlayer player, ServerLevel level, Entity targetEntity,
-            BlockHitResult blockHit, Vec3 hit, RayContext rayContext) {
-        Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
-        return TemporaryContextSwitcher.withTemporaryUseItemContext(
-                player,
-                interactionPos,
-                hit,
-                rayContext,
-                REMOTE_POV_BLOCK_REACH,
-                () -> {
-                    if (targetEntity != null) {
-                        return InteractionHelper.useItemOnEntityWithMainHand(player, level, ItemStack.EMPTY, targetEntity, hit).result();
-                    }
-                    if (blockHit != null) {
-                        UseOnOutcome primary = InteractionHelper.useItemOnWithMainHand(player, level, ItemStack.EMPTY, blockHit, false);
-                        if (primary.result().consumesAction()) {
-                            return primary.result();
-                        }
-                    }
-                    return InteractionHelper.useItemWithMainHand(player, level, ItemStack.EMPTY, false).result();
-                });
-    }
-
-    public static InteractionResult interactWithLinkedItem(ServerPlayer player, ServerLevel level, RtsStorageSession session,
-            Entity targetEntity, BlockHitResult blockHit, Vec3 hit, String itemId, RayContext rayContext) {
-        if (itemId == null || itemId.isBlank() || !RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
-            return InteractionResult.PASS;
-        }
-
-        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
-            return InteractionResult.PASS;
-        }
-
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
-
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return InteractionResult.PASS;
-        }
-
-        ItemStack extracted = RtsTransferExtractor.extractOneFromNetwork(extractHandlers, player, BuiltInRegistries.ITEM.get(id));
-        if (extracted.isEmpty()) {
-            return InteractionResult.PASS;
-        }
-
-        Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
-        UseOnOutcome outcome = TemporaryContextSwitcher.withTemporaryUseItemContext(
-                player,
-                interactionPos,
-                hit,
-                rayContext,
-                REMOTE_POV_BLOCK_REACH,
-                () -> {
-            if (targetEntity != null) {
-                return InteractionHelper.useItemOnEntityWithMainHand(player, level, extracted, targetEntity, hit);
-            }
-            // Alt interaction: normal item interaction first, build-like secondary interaction later.
-            UseOnOutcome primaryOn = InteractionHelper.useItemOnWithMainHand(player, level, extracted, blockHit, false);
-            if (primaryOn.result().consumesAction()) {
-                return primaryOn;
-            }
-            ItemStack afterPrimaryOn = primaryOn.remainder().isEmpty() ? extracted.copy() : primaryOn.remainder().copy();
-
-            UseOnOutcome primaryUse = InteractionHelper.useItemWithMainHand(player, level, afterPrimaryOn, false);
-            if (primaryUse.result().consumesAction()) {
-                return primaryUse;
-            }
-            ItemStack afterPrimaryUse = primaryUse.remainder().isEmpty() ? afterPrimaryOn : primaryUse.remainder().copy();
-
-            UseOnOutcome secondaryOn = InteractionHelper.useItemOnWithMainHand(player, level, afterPrimaryUse, blockHit, true);
-            if (secondaryOn.result().consumesAction()) {
-                return secondaryOn;
-            }
-            ItemStack afterSecondaryOn = secondaryOn.remainder().isEmpty() ? afterPrimaryUse : secondaryOn.remainder().copy();
-            return InteractionHelper.useItemWithMainHand(player, level, afterSecondaryOn, true);
-                });
-        if (!outcome.remainder().isEmpty()) {
-            RtsTransferInserter.refundToLinked(insertHandlers, player, outcome.remainder());
-        }
-        // Force-refresh slot cache and invalidate page cache after linked-item interaction
-        RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
-        return outcome.result();
-    }
 }

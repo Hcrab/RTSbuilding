@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,16 +7,12 @@ import net.minecraft.core.BlockPos;
 
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.capturePreviewSummaryLine;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.nameDialogLayout;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawButton;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawFrame;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.inside;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.trim;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.*;
 
 /**
  * Renders the blueprint save/rename modal and classifies mouse clicks.
  */
-public final class BlueprintNameDialog {
+final class BlueprintNameDialog {
     private static final int BUTTON_H = 14;
     private static final int TITLE_H = 20;
     private static final int CLOSE_SIZE = 14;

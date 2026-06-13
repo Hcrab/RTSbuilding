@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Team;
 
 import java.util.LinkedHashSet;
@@ -67,7 +68,7 @@ final class RtsProgressionPersistence {
             return ftbTeamKey;
         }
         Team vanillaTeam = player.getTeam();
-        return vanillaTeam == null ? "" : "scoreboard:" + vanillaTeam.getName();
+        return vanillaTeam instanceof PlayerTeam playerTeam ? "scoreboard:" + playerTeam.getName() : "";
     }
 
     static RtsSharedProgressionData sharedProgressionData(ServerPlayer player) {

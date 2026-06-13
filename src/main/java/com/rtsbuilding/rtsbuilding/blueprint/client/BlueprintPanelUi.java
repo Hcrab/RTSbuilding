@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -15,7 +14,7 @@ import net.minecraft.util.Mth;
  * these primitives here makes the panel easier to read without changing any
  * gameplay behavior or input priority.</p>
  */
-public final class BlueprintPanelUi {
+final class BlueprintPanelUi {
     private BlueprintPanelUi() {
     }
 

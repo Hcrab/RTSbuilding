@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
@@ -21,7 +20,8 @@ public record C2SRtsAreaMinePayload(
         byte shapeType,
         byte fillType,
         boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsAreaMinePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_mine"), C2SRtsAreaMinePayload.class);
+    public static final Type<C2SRtsAreaMinePayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_mine"), C2SRtsAreaMinePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaMinePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

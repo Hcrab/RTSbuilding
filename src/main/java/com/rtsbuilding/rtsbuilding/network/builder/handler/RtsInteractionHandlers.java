@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsBreakPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsQuickDropPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsInteractionService;
@@ -21,7 +25,7 @@ public final class RtsInteractionHandlers {
     private RtsInteractionHandlers() {
     }
 
-    public static void handleInteract(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload payload, IPayloadContext context) {
+    public static void handleInteract(C2SRtsInteractPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -46,7 +50,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleQuickDrop(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsQuickDropPayload payload, IPayloadContext context) {
+    public static void handleQuickDrop(C2SRtsQuickDropPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsTransferService.quickDropLinkedItem(
@@ -60,7 +64,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleBreak(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsBreakPayload payload, IPayloadContext context) {
+    public static void handleBreak(C2SRtsBreakPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -69,7 +73,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleUndo(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload payload, IPayloadContext context) {
+    public static void handleUndo(C2SRtsUndoPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 // Non-RTS mode undo requests are ignored

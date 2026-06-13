@@ -6,15 +6,15 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.*;
 
 /**
- * 可变的科技树实现，支持动态注册节???
- * 提供注册表风??API，替代旧版硬编码 {@code buildNodes()} 模式??
+ * 可变的科技树实现，支持动态注册节点。
+ * 提供注册表风格 API，替代旧版硬编码 {@code buildNodes()} 模式。
  */
 public final class MutableProgressionTree implements RtsProgressionTree {
 
     private final Map<ResourceLocation, RtsProgressionNode> nodes = new LinkedHashMap<>();
 
     /**
-     * 注册一个节点，重复注册会抛出异???
+     * 注册一个节点，重复注册会抛出异常。
      */
     public void register(RtsProgressionNode node) {
         Objects.requireNonNull(node, "node must not be null");
@@ -25,7 +25,7 @@ public final class MutableProgressionTree implements RtsProgressionTree {
     }
 
     /**
-     * 批量注册节点??
+     * 批量注册节点。
      */
     public void registerAll(Collection<RtsProgressionNode> nodes) {
         for (RtsProgressionNode node : nodes) {
@@ -34,7 +34,7 @@ public final class MutableProgressionTree implements RtsProgressionTree {
     }
 
     /**
-     * 注册或替换（覆盖模式），用于热加载场???
+     * 注册或替换（覆盖模式），用于热加载场景。
      */
     public void registerOrReplace(RtsProgressionNode node) {
         Objects.requireNonNull(node, "node must not be null");
@@ -57,21 +57,21 @@ public final class MutableProgressionTree implements RtsProgressionTree {
     }
 
     /**
-     * 返回不可变节点映射视???
+     * 返回不可变节点映射视图。
      */
     public Map<ResourceLocation, RtsProgressionNode> nodesView() {
         return Collections.unmodifiableMap(nodes);
     }
 
     /**
-     * 返回已注册的节点数量??
+     * 返回已注册的节点数量。
      */
     public int size() {
         return nodes.size();
     }
 
     /**
-     * 清空所有节???
+     * 清空所有节点。
      */
     public void clear() {
         nodes.clear();

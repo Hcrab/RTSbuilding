@@ -1,15 +1,13 @@
 package com.rtsbuilding.rtsbuilding.blueprint.network;
 
-
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
-
 import net.minecraft.server.level.ServerPlayer;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 
 public final class BlueprintNetworkHandlers {
     private BlueprintNetworkHandlers() {
@@ -33,7 +31,7 @@ public final class BlueprintNetworkHandlers {
                 return;
             }
             try {
-                RtsBlueprint blueprint = BlueprintReaders.parse(payload.data(), payload.fileName(), player.level().registryAccess());
+                RtsBlueprint blueprint = BlueprintReaders.parse(payload.data(), payload.fileName(), player.serverLevel().registryAccess());
                 BlueprintPlacementService.queuePlacement(
                         player,
                         blueprint,

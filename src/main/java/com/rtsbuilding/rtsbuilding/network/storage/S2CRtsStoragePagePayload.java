@@ -1,16 +1,15 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public record S2CRtsStoragePagePayload(
         boolean linked,
@@ -56,7 +55,8 @@ public record S2CRtsStoragePagePayload(
     public static final byte RECENT_FLUID_USED = 4;
     public static final byte RECENT_FLUID_CRAFTED = 5;
 
-    public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_storage_page"), S2CRtsStoragePagePayload.class);
+    public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_storage_page"), S2CRtsStoragePagePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

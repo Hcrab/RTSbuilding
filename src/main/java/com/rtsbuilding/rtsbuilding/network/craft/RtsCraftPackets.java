@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
-
+import com.rtsbuilding.rtsbuilding.network.craft.handler.RtsCraftNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 
 /**

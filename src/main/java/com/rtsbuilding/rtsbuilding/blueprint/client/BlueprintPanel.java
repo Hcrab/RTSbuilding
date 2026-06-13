@@ -1,36 +1,16 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.tinyfd.TinyFileDialogs;
-
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.*;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.RowActionLayout;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.TopBarLayout;
-
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -39,37 +19,24 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureSizeText;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.shortPos;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.buildStats;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.hasEnoughMaterials;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.materialSummary;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintExtension;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.blueprintFolder;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.ensureExtension;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.isBlueprintFile;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.otherModBlueprintFolders;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.sanitizeFileBase;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripBlueprintExtension;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueBlueprintPath;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.uniqueNbtFileName;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.LIST_COLUMN_GAP;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.listCellWidth;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.listColumns;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.maxListScroll;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.rowActionLayout;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.topBarLayout;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawButton;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.drawFrame;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.inside;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.trim;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
+
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialInspector.*;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.*;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelLayout.*;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.*;
 
 public final class BlueprintPanel {
     private static final int ROW_H = 24;
@@ -842,7 +809,8 @@ public final class BlueprintPanel {
     }
 
     public static boolean shouldRenderCapturePreviewFill() {
-        return Config.areBlueprintsEnabled() && CAPTURE.shouldRenderPreviewFill();
+        return Config.areBlueprintsEnabled() && CAPTURE.isActive() && CAPTURE.pointA() != null
+                && CAPTURE.previewPointB() != null;
     }
 
     public static List<BlockPos> getCaptureExcludedBlocksForRender(int limit) {

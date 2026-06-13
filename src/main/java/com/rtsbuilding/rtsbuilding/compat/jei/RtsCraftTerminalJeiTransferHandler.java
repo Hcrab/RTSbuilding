@@ -1,12 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
-
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
@@ -26,6 +20,10 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public final class RtsCraftTerminalJeiTransferHandler
         implements IRecipeTransferHandler<CraftingMenu, CraftingRecipe> {
@@ -88,11 +86,7 @@ public final class RtsCraftTerminalJeiTransferHandler
                 continue;
             }
             ItemStack chosen = choosePrototype(inputViews.get(viewIndex), ingredient);
-            if (!chosen.isEmpty()) {
-                ItemStack copy = chosen.copy();
-                copy.setCount(1);
-                prototypes.set(slot, copy);
-            }
+            prototypes.set(slot, chosen.isEmpty() ? ItemStack.EMPTY : chosen.copyWithCount(1));
             viewIndex++;
         }
         return prototypes;
@@ -147,7 +141,6 @@ public final class RtsCraftTerminalJeiTransferHandler
         if (player == null || player.level() == null || recipe == null) {
             return "";
         }
-
         for (ResourceLocation id : player.level().getRecipeManager().getRecipeIds().toList()) {
             Recipe<?> candidate = player.level().getRecipeManager().byKey(id).orElse(null);
             if (candidate == recipe) {

@@ -1,15 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.funnel;
 
-
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.record.FunnelBufferEntry;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
+import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
 public final class FunnelBufferPanel {
     private BuilderScreen screen;
@@ -46,7 +46,7 @@ public final class FunnelBufferPanel {
         g.fill(panelX, panelY, panelX + FUNNEL_BUFFER_PANEL_W, panelY + panelH, 0xAA17191F);
         g.drawString(screen.font(), "Funnel Buffer", panelX + 6, panelY + 4, 0xF0F0F0);
 
-        List<ClientRtsController.FunnelBufferEntry> entries = controller.getFunnelBufferEntries();
+        List<FunnelBufferEntry> entries = controller.getFunnelBufferEntries();
         int listY = panelY + 16;
         int rows = Math.max(1, (panelH - 20) / FUNNEL_BUFFER_ROW_H);
         for (int i = 0; i < rows; i++) {

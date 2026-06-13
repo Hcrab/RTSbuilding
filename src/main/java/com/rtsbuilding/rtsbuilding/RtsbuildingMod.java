@@ -5,18 +5,16 @@ import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
-import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
+import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsBenchmarkCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
@@ -125,11 +123,6 @@ public final class RtsbuildingMod {
                 RtsDamageFeedbackManager.tick(serverPlayer);
                 BlueprintPlacementService.tick(serverPlayer);
             }
-        }
-
-        @SubscribeEvent
-        static void onRegisterCommands(final RegisterCommandsEvent event) {
-            RtsBenchmarkCommand.register(event.getDispatcher());
         }
 
         @SubscribeEvent

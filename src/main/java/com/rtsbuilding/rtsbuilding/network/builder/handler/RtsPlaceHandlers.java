@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBindingService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsFluidService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacementService;
@@ -19,7 +20,7 @@ public final class RtsPlaceHandlers {
     private RtsPlaceHandlers() {
     }
 
-    public static void handleSetMode(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetModePayload payload, IPayloadContext context) {
+    public static void handleSetMode(C2SRtsSetModePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 int modeId = payload.mode();
@@ -32,7 +33,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handleRotateBlock(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRotateBlockPayload payload, IPayloadContext context) {
+    public static void handleRotateBlock(C2SRtsRotateBlockPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsPlacementService.rotateBlock(serverPlayer, payload.pos());
@@ -40,7 +41,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handlePlace(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlacePayload payload, IPayloadContext context) {
+    public static void handlePlace(C2SRtsPlacePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -68,7 +69,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handlePlaceBatch(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload payload, IPayloadContext context) {
+    public static void handlePlaceBatch(C2SRtsPlaceBatchPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -94,7 +95,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handlePlaceFluid(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceFluidPayload payload, IPayloadContext context) {
+    public static void handlePlaceFluid(C2SRtsPlaceFluidPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -117,7 +118,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handleStoreFluid(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload payload, IPayloadContext context) {
+    public static void handleStoreFluid(C2SRtsStoreFluidPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsFluidService.storeFluidFromContainer(

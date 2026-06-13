@@ -1,7 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
-
-import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.Minecraft;
@@ -13,8 +11,8 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * 鑷畾涔夌獥鍙ｆ寜閽?
- * 鏀寔璐村浘缁樺埗鍜岀煝閲忕缉鏀?
+ * Custom window button.
+ * Supports texture rendering and vector scaling.
  */
 public class WindowButton extends AbstractButton {
 
@@ -28,10 +26,10 @@ public class WindowButton extends AbstractButton {
     private final int textureV;
     private final int textureWidth;
     private final int textureHeight;
-    private final int hoverTextureV;  // 鎮仠鐘舵€佺殑璐村浘V鍧愭??
-    private final int hoverTextureHeight;  // 鎮仠鐘舵€佺殑璐村浘楂樺害
-    private final int fullTextureWidth;   // 瀹屾暣璐村浘鐨勬€诲搴?
-    private final int fullTextureHeight;  // 瀹屾暣璐村浘鐨勬€婚珮搴?
+    private final int hoverTextureV;  // Texture V coordinate for hover state
+    private final int hoverTextureHeight;  // Texture height for hover state
+    private final int fullTextureWidth;   // Total width of the full texture
+    private final int fullTextureHeight;  // Total height of the full texture
 
     private static final int TEXT_COLOR = 0xFFD8E3EE;
     private static final int TEXT_COLOR_DISABLED = 0xFF556677;
@@ -48,30 +46,30 @@ public class WindowButton extends AbstractButton {
     private static boolean globalSkipHover;
 
     /**
-     * 鍒涘缓绾壊鎸夐??
+     * Creates a solid-colour button.
      */
     public WindowButton(int x, int y, int width, int height, Component message, OnPress onPress) {
         this(x, y, width, height, message, null, 0, 0, 0, 0, onPress);
     }
 
     /**
-     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堟敮鎸佹偓鍋滅姸鎬佸垏鎹??
+     * Creates a textured button with hover state switching support.
      *
-     * @param x X 鍧愭??
-     * @param y Y 鍧愭??
-     * @param width 鎸夐挳瀹藉??
-     * @param height 鎸夐挳楂樺害
-     * @param message 鎸夐挳鏂囨湰
-     * @param textureLocation 璐村浘璧勬簮浣嶇疆锛坣ull 琛ㄧず浣跨敤绾壊锛?
-     * @param textureU 璐村??U 鍧愭??
-     * @param textureV 璐村??V 鍧愭爣锛堟甯哥姸鎬侊級
-     * @param textureWidth 璐村浘瀹藉??
-     * @param textureHeight 璐村浘楂樺害锛堟甯哥姸鎬侊??
-     * @param hoverTextureV 鎮仠鐘舵€佺殑璐村??V 鍧愭??
-     * @param hoverTextureHeight 鎮仠鐘舵€佺殑璐村浘楂樺害
-     * @param fullTextureWidth 瀹屾暣璐村浘鐨勬€诲搴?
-     * @param fullTextureHeight 瀹屾暣璐村浘鐨勬€婚珮搴?
-     * @param onPress 鐐瑰嚮鍥炶皟
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param width button width
+     * @param height button height
+     * @param message button text
+     * @param textureLocation texture resource location (null for solid colour)
+     * @param textureU texture U coordinate
+     * @param textureV texture V coordinate (normal state)
+     * @param textureWidth texture width
+     * @param textureHeight texture height (normal state)
+     * @param hoverTextureV texture V coordinate for hover state
+     * @param hoverTextureHeight texture height for hover state
+     * @param fullTextureWidth total width of the full texture
+     * @param fullTextureHeight total height of the full texture
+     * @param onPress click callback
      */
     public WindowButton(int x, int y, int width, int height, Component message,
                        ResourceLocation textureLocation, int textureU, int textureV,
@@ -91,7 +89,7 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堝吋瀹规棫鐗堬紝鎮仠浣跨敤鐩稿悓璐村浘??
+     * Creates a textured button (legacy-compatible, uses same texture for hover).
      */
     public WindowButton(int x, int y, int width, int height, Component message,
                        ResourceLocation textureLocation, int textureU, int textureV,
@@ -111,14 +109,14 @@ public class WindowButton extends AbstractButton {
         Minecraft minecraft = Minecraft.getInstance();
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
-            // 浣跨敤璐村浘缁樺埗锛堢煝閲忕缉鏀撅級
+            // Render with texture (vector scaling)
             renderWithTexture(guiGraphics);
         } else {
-            // 浣跨敤绾壊缁樺??
+            // Render with solid colour
             renderWithSolidColor(guiGraphics);
         }
 
-        // 璁＄畻鏂囨湰浣嶇疆锛堝眳涓??
+        // Calculate text position (centred)
         int textColor = this.active ? TEXT_COLOR : TEXT_COLOR_DISABLED;
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
                 Math.max(4, this.width - 8));
@@ -126,48 +124,48 @@ public class WindowButton extends AbstractButton {
         int textX = this.getX() + (this.width - textWidth) / 2;
         int textY = this.getY() + (this.height - 8) / 2;
 
-        // 缁樺埗鏂囨湰
+        // Draw text
         if (!label.isEmpty()) {
             guiGraphics.drawString(minecraft.font, label, textX, textY, textColor, false);
         }
     }
 
     /**
-     * 浣跨敤璐村浘缁樺埗鎸夐挳锛堟敮鎸佺煝閲忕缉鏀惧拰鎮仠鏁堟灉??
+     * Renders the button with a texture (supports vector scaling and hover effects).
      */
     private void renderWithTexture(GuiGraphics guiGraphics) {
-        // 纭繚璐村浘宸插姞杞?
+        // Ensure the texture is loaded
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(textureLocation);
 
         if (texture == null) {
-            // 灏濊瘯瑙﹀彂璐村浘鑷姩鍔犺浇
+            // Try to trigger automatic texture loading
             try {
-                // 浣跨??setShaderTexture 瑙﹀彂璐村浘鍔犺??
+                // Use setShaderTexture to trigger texture loading
                 RenderSystem.setShaderTexture(0, textureLocation);
 
-                // 鍐嶆灏濊瘯鑾峰彇璐村浘
+                // Try to get the texture again
                 texture = textureManager.getTexture(textureLocation);
 
                 if (texture == null) {
-                    // 濡傛灉浠嶇劧鏃犳硶鍔犺浇锛岀粯鍒剁孩鑹叉柟鍧楁彁绀?
+                    // If still not loaded, draw a red rectangle as a hint
                     guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
                     return;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                // 濡傛灉浠嶇劧鏃犳硶鍔犺浇锛岀粯鍒剁孩鑹叉柟鍧楁彁绀?
+                // If still not loaded, draw a red rectangle as a hint
                 guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
                 return;
             }
         }
 
-        // 鏍规嵁鎮仠鐘舵€侀€夋嫨涓嶅悓鐨勮创鍥惧尯鍩燂紙琚鐩栫獥鍙ｅ己鍒朵娇鐢ㄩ潪鎮仠璐村浘??
+        // Select texture region based on hover state (covered windows forced to non-hover texture)
         boolean effectiveHovered = isHovered && !globalSkipHover;
         int currentV = effectiveHovered ? hoverTextureV : textureV;
         int currentHeight = effectiveHovered ? hoverTextureHeight : textureHeight;
 
-        // 鍚敤娣峰悎妯″紡浠ユ敮鎸侀€忔槑搴?
+        // Enable blend mode for transparency
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
             org.lwjgl.opengl.GL11.GL_SRC_ALPHA,
@@ -176,26 +174,26 @@ public class WindowButton extends AbstractButton {
             org.lwjgl.opengl.GL11.GL_ZERO
         );
 
-        // 缁戝畾璐村浘锛堝湪璁剧疆鍙傛暟涔嬪墠缁戝畾锛?
+        // Bind texture (bind before setting parameters)
         RenderSystem.setShaderTexture(0, textureLocation);
 
-        // 璁剧疆楂樿川閲忕殑绾圭悊杩囨护鍙傛暟
-        // 缂╁皬杩囨护锛氫笁绾挎€ц繃婊わ紙mipmap + 绾挎€ф彃鍊硷??
+        // Set high-quality texture filter parameters
+        // Minification filter: trilinear (mipmap + linear interpolation)
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
             org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR
         );
-        // 鏀惧ぇ杩囨护锛氱嚎鎬ф彃??
+        // Magnification filter: linear interpolation
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
             org.lwjgl.opengl.GL11.GL_LINEAR
         );
-        // 灏濊瘯璁剧疆鍚勫悜寮傛€ц繃婊や互鎻愰珮鏂滃悜缂╂斁璐ㄩ噺
-        // 娉ㄦ剰锛氬悇鍚戝紓鎬ц繃婊ゆ槸 OpenGL 鎵╁睍锛岄渶瑕佹鏌ユ敮鎸佹儏鍐?
+        // Try setting anisotropic filtering for better angled scaling quality
+        // Note: anisotropic filtering is an OpenGL extension, check support
         try {
-            // 浣跨??ARB_texture_filter_anisotropic 鎵╁睍甯搁噺
+            // Use ARB_texture_filter_anisotropic extension constants
             int GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
             int GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
 
@@ -209,37 +207,37 @@ public class WindowButton extends AbstractButton {
                 );
             }
         } catch (Exception e) {
-            // 蹇界暐涓嶆敮鎸佺殑鍚勫悜寮傛€ц繃??
+            // Ignore unsupported anisotropic filtering
         }
 
-        // 浣跨??PoseStack 鍙樻崲杩涜缂╂斁锛堥伩鍏嶈鍓棶棰橈??
+        // Use PoseStack transform for scaling (avoids clipping issues)
         guiGraphics.pose().pushPose();
 
-        // 璁＄畻缂╂斁姣斾緥锛堜娇鐢ㄦ寜閽疄闄呭昂瀵稿拰瑕佹覆鏌撶殑绾圭悊灏哄锛?
+        // Calculate scale ratio (using button size and texture size to render)
         float scaleX = (float) this.width / textureWidth;
         float scaleY = (float) this.height / textureHeight;
 
-        // 搴旂敤缂╂斁鍙樻??
+        // Apply scale transform
         guiGraphics.pose().translate(this.getX(), this.getY(), 0);
         guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
 
-        // 缁樺埗鍘熷灏哄鐨勭汗鐞嗭紙blit 浼氳嚜鍔ㄤ娇鐢ㄥ綋鍓嶇粦瀹氱殑绾圭悊??
+        // Draw texture at original size (blit automatically uses currently bound texture)
         guiGraphics.blit(
             textureLocation,
-            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅??
-            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅??
+            0,  // Relative to transformed position
+            0,  // Relative to transformed position
             textureU,
-            currentV,      // 浣跨敤瀵瑰簲鐨刅鍧愭爣
-            textureWidth,  // 瑕佹覆鏌撶殑瀹藉??
-            currentHeight, // 瑕佹覆鏌撶殑楂樺??
-            fullTextureWidth,   // 瀹屾暣璐村浘鐨勬€诲搴?
-            fullTextureHeight   // 瀹屾暣璐村浘鐨勬€婚珮搴?
+            currentV,      // Use the corresponding V coordinate
+            textureWidth,  // Width to render
+            currentHeight, // Height to render
+            fullTextureWidth,   // Total width of the full texture
+            fullTextureHeight   // Total height of the full texture
         );
 
-        // 鎭㈠鍙樻崲鐘舵??
+        // Restore transform state
         guiGraphics.pose().popPose();
 
-        // 鎭㈠榛樿璁剧??
+        // Restore default settings
         RenderSystem.disableBlend();
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
@@ -254,10 +252,10 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 浣跨敤绾壊缁樺埗鎸夐挳锛圧TS 娣辫壊椋庢牸??
+     * Renders the button with solid colours (RTS dark style).
      */
     private void renderWithSolidColor(GuiGraphics guiGraphics) {
-        // 纭畾鑳屾櫙棰滆壊锛堣瑕嗙洊绐楀彛寮哄埗浣跨敤闈炴偓鍋滈鑹诧級
+        // Determine background colour (covered windows forced to non-hover colour)
         int backgroundColor = (!globalSkipHover && this.isHoveredOrFocused()) ? BUTTON_HOVER : BUTTON_BACKGROUND;
         RtsClientUiUtil.drawPanelFrame(guiGraphics,
                 this.getX(), this.getY(), this.width, this.height,

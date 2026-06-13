@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-
 import net.minecraft.core.BlockPos;
 
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text;
@@ -8,7 +7,7 @@ import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text
 /**
  * Calculates capture-box size, volume, and hit testing for blueprint creation.
  */
-public final class BlueprintCaptureGeometry {
+final class BlueprintCaptureGeometry {
     private BlueprintCaptureGeometry() {
     }
 

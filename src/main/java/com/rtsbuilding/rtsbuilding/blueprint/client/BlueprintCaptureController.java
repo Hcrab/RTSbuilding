@@ -1,5 +1,12 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
+import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -7,25 +14,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureSizeText;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.captureVolume;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.isInsideSelection;
-import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.shortPos;
+import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintCaptureGeometry.*;
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelFiles.stripNbtExtension;
 
 /**
  * Owns the mutable state for selecting and saving a blueprint capture region.
  */
-public final class BlueprintCaptureController {
+final class BlueprintCaptureController {
     private boolean active = false;
     private BlockPos pointA = null;
     private BlockPos pointB = null;

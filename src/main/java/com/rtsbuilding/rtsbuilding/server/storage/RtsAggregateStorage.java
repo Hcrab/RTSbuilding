@@ -323,6 +323,14 @@ public final class RtsAggregateStorage {
         if (handler == null || targetItem == null || limit <= 0) {
             return ItemStack.EMPTY;
         }
+
+        // Bulk-extraction fast path for AnySlotInsertItemHandler (AE2, BD, etc.):
+        // skip the per-slot scan and let the handler do a bulk extract.
+        // Only safe when preferred is empty (no NBT variant required).
+        if ((preferred == null || preferred.isEmpty()) && handler instanceof AnySlotInsertItemHandler anySlot) {
+            return anySlot.extractItemAnywhere(targetItem, limit, false);
+        }
+
         int remaining = limit;
         ItemStack out = ItemStack.EMPTY;
         for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {

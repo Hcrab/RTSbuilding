@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.camera;
 
-
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.resources.ResourceLocation;
@@ -14,7 +12,7 @@ public final class RtsCameraEntityRenderer extends EntityRenderer<RtsCameraEntit
 
     @Override
     public ResourceLocation getTextureLocation(RtsCameraEntity entity) {
-        return new ResourceLocation("minecraft", "textures/misc/empty.png");
+        return ResourceLocation.withDefaultNamespace("textures/misc/empty.png");
     }
 
     @Override

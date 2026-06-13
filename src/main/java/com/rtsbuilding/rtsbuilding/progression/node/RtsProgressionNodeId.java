@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * 科技树节??ID 常量集中定义??
- * 与树结构定义解耦，方便其他模块引用??
+ * 科技树节点 ID 常量集中定义。
+ * 与树结构定义解耦，方便其他模块引用。
  */
 public final class RtsProgressionNodeId {
     // ─── 相机与基础 ───
@@ -16,7 +16,7 @@ public final class RtsProgressionNodeId {
     public static final ResourceLocation RADIUS_MAX = id("radius_max");
     public static final ResourceLocation FIELD_DEPLOYMENT = id("field_deployment");
 
-    // ─── 存储与远程操??───
+    // ─── 存储与远程操作 ───
     public static final ResourceLocation STORAGE_LINK = id("storage_link");
     public static final ResourceLocation REMOTE_PLACE = id("remote_place");
     public static final ResourceLocation REMOTE_BREAK = id("remote_break");
@@ -25,12 +25,12 @@ public final class RtsProgressionNodeId {
     public static final ResourceLocation FUNNEL = id("funnel");
     public static final ResourceLocation FLUID_BUFFER = id("fluid_buffer");
 
-    // ─── 远程 GUI 与合??───
+    // ─── 远程 GUI 与合成 ───
     public static final ResourceLocation REMOTE_GUI = id("remote_gui");
     public static final ResourceLocation CRAFT_TERMINAL = id("craft_terminal");
     public static final ResourceLocation JEI_TRANSFER = id("jei_transfer");
 
-    // ─── 挖掘与蓝??───
+    // ─── 挖掘与蓝图 ───
     public static final ResourceLocation ULTIMINE = id("ultimine");
     public static final ResourceLocation AREA_DESTROY = id("area_destroy");
     public static final ResourceLocation BLUEPRINTS = id("blueprints");

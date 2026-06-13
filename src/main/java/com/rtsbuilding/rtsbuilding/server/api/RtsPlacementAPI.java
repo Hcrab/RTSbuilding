@@ -7,17 +7,17 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 /**
- * 远程方块放置 API??
+ * 远程方块放置 API。
  *
- * <p>管理 RTS 模式下的方块放置队列和即时放置操???
+ * <p>管理 RTS 模式下的方块放置队列和即时放置操作。
  */
 public interface RtsPlacementAPI {
 
     /**
-     * 放置单个选中的方???
+     * 放置单个选中的方块。
      *
      * @param player           执行玩家
-     * @param clickedPos       点击的方块坐标（net.minecraft.core.BlockPos??
+     * @param clickedPos       点击的方块坐标（net.minecraft.core.BlockPos）
      * @param face             点击的面
      * @param hitX             X 命中坐标
      * @param hitY             Y 命中坐标
@@ -33,7 +33,7 @@ public interface RtsPlacementAPI {
      * @param rayDirX          射线方向 X
      * @param rayDirY          射线方向 Y
      * @param rayDirZ          射线方向 Z
-     * @param quickBuild       是否快速建??
+     * @param quickBuild       是否快速建造
      * @param forceEmptyHand   是否强制空手
      */
     void placeSelected(ServerPlayer player, Object clickedPos, Direction face,
@@ -45,7 +45,7 @@ public interface RtsPlacementAPI {
                        boolean quickBuild, boolean forceEmptyHand);
 
     /**
-     * 将多个位置加入放置队???
+     * 将多个位置加入放置队列。
      */
     void enqueueBatch(ServerPlayer player, List<Object> clickedPositions, Direction face,
                       double hitOffsetX, double hitOffsetY, double hitOffsetZ,

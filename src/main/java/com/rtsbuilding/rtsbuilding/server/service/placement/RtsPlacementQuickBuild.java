@@ -2,11 +2,14 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -34,7 +37,7 @@ import java.util.List;
  *
  * <p>This helper deliberately does not execute interactive (main-hand)
  * placement, manage batch-job lifecycle, play sounds, or handle extraction
- * orchestration ??those responsibilities live in their dedicated helpers.
+ * orchestration — those responsibilities live in their dedicated helpers.
  */
 public final class RtsPlacementQuickBuild {
 
@@ -57,8 +60,8 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        // 完全改为使用储存空间的方块进行放置，快捷栏只用来???
-        // 必须存在有效??itemId，否则拒??
+        // 完全改为使用储存空间的方块进行放置，快捷栏只用来看。
+        // 必须存在有效的 itemId，否则拒绝
         String jobItemId = job.itemId();
         if (jobItemId == null || jobItemId.isBlank()) {
             return null;
@@ -137,7 +140,7 @@ public final class RtsPlacementQuickBuild {
         ItemStack extracted = ItemStack.EMPTY;
         boolean refundExtractedOnFailure = false;
         List<IItemHandler> insertHandlers = List.of();
-        // 完全改为使用储存空间的方块进行放??
+        // 完全改为使用储存空间的方块进行放置
         {
             List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
             boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
@@ -177,7 +180,7 @@ public final class RtsPlacementQuickBuild {
             }
             placedState.getBlock().setPlacedBy(level, targetPos, placedState, player, placementStack);
         }
-        // 完全改为使用储存空间的方块进行放置，不再从主手扣??
+        // 完全改为使用储存空间的方块进行放置，不再从主手扣除
         PlacedBlockTrackerData.get(level).mark(targetPos);
         RtsPlacementSound.playRemotePlacedBlockAnimation(player, targetPos);
         RtsPlacementSound.playRemotePlacedBlockSound(player, level, targetPos);

@@ -1,14 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsUltimineProcessor;
-import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsToolLeaseManager;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLeaseManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,20 +18,18 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * 挖矿服务——管理单方块挖掘、连锁挖掘、范围挖掘和范围破坏??
+ * 挖矿服务——管理单方块挖掘、连锁挖掘、范围挖掘和范围破坏。
  *
- * <p>职责范围??
+ * <p>职责范围：
  * <ul>
- *   <li>单方块挖??/li>
- *   <li>连锁挖掘（Ultimine??/li>
- *   <li>范围挖掘（Area Mine??/li>
- *   <li>范围破坏（Area Destroy??/li>
- *   <li>临时主手持物品切??/li>
+ *   <li>单方块挖掘</li>
+ *   <li>连锁挖掘（Ultimine）</li>
+ *   <li>范围挖掘（Area Mine）</li>
+ *   <li>范围破坏（Area Destroy）</li>
+ *   <li>临时主手持物品切换</li>
  * </ul>
  */
 public final class RtsMiningService {
-
-    public static final RtsMiningService INSTANCE = new RtsMiningService();
 
     private RtsMiningService() {
     }
@@ -41,7 +39,7 @@ public final class RtsMiningService {
     // =========================================================================
 
     /**
-     * 单方块挖掘——开??停止远程挖掘并完成工具借用/归还??
+     * 单方块挖掘——开始/停止远程挖掘并完成工具借用/归还。
      */
     public static void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
             String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
@@ -77,18 +75,18 @@ public final class RtsMiningService {
                         player, List.of(pos.immutable()), actualFace);
                 RtsMiningStateMachine.destroyMinedBlock(player, session, pos, slot);
                 RtsPageService.requestPage(
-                        player, session.page, session.search, session.category, session.sort, session.ascending);
+                        player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
                 return;
             }
 
-            session.miningSelectedToolRequested = RtsMiningValidator.isSelectedMiningToolRequested(toolItemId, toolPrototype);
-            session.miningToolLease = RtsToolLeaseManager.borrowMiningTool(
+            session.mining.miningSelectedToolRequested = RtsMiningValidator.isSelectedMiningToolRequested(toolItemId, toolPrototype);
+            session.mining.miningToolLease = RtsToolLeaseManager.borrowMiningTool(
                     player, session, toolItemId, toolPrototype, slot);
-            if (session.miningSelectedToolRequested && session.miningToolLease.isEmpty()) {
+            if (session.mining.miningSelectedToolRequested && session.mining.miningToolLease.isEmpty()) {
                 RtsMiningStateMachine.resetMiningState(session);
                 return;
             }
-            session.miningToolProtectionEnabled = toolProtectionEnabled;
+            session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
             RtsMiningStateMachine.beginRemoteMining(player, session, pos, face, slot);
             return;
         }
@@ -104,7 +102,7 @@ public final class RtsMiningService {
     // =========================================================================
 
     /**
-     * 连锁挖掘（Ultimine???
+     * 连锁挖掘（Ultimine）。
      */
     public static void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot, String toolItemId,
             ItemStack toolPrototype, int requestedLimit, byte mode, boolean toolProtectionEnabled) {
@@ -118,7 +116,7 @@ public final class RtsMiningService {
     // =========================================================================
 
     /**
-     * 范围挖掘（Area Mine???
+     * 范围挖掘（Area Mine）。
      */
     public static void areaMine(ServerPlayer player,
             int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
@@ -134,7 +132,7 @@ public final class RtsMiningService {
     // =========================================================================
 
     /**
-     * 范围破坏（Area Destroy???
+     * 范围破坏（Area Destroy）。
      */
     public static void areaDestroy(ServerPlayer player, List<BlockPos> positions,
             byte toolSlot, String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
@@ -148,7 +146,7 @@ public final class RtsMiningService {
     // =========================================================================
 
     /**
-     * 临时切换主手持物品执行操???
+     * 临时切换主手持物品执行操作。
      */
     public static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
         return RtsMiningStateMachine.withTemporaryMainHandItem(player, stack, action);

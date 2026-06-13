@@ -1,15 +1,14 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
+import mezz.jei.api.runtime.IClickableIngredient;
+import mezz.jei.api.runtime.IIngredientManager;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.world.item.ItemStack;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Comparator;
 import java.util.Optional;
-
-import mezz.jei.api.runtime.IClickableIngredient;
-import mezz.jei.api.runtime.IIngredientManager;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.world.item.ItemStack;
 
 public final class RtsJeiIngredientCompat {
     private RtsJeiIngredientCompat() {

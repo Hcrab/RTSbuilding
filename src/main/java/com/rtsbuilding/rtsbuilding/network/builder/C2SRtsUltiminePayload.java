@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -18,7 +17,8 @@ public record C2SRtsUltiminePayload(
         short limit,
         byte mode,
         boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsUltiminePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_ultimine"), C2SRtsUltiminePayload.class);
+    public static final Type<C2SRtsUltiminePayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_ultimine"), C2SRtsUltiminePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUltiminePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

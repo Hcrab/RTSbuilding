@@ -26,8 +26,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * GUI 绑定：设置绑定、远程打开、菜单提供者解析、图标解???
- * <p>包私有——仅??{@link RtsStorageBindings} 内部委托??
+ * GUI 绑定：设置绑定、远程打开、菜单提供者解析、图标解析。
+ * <p>包私有——仅供 {@link RtsStorageBindings} 内部委托。
  */
 final class RtsGuiBindingHelper {
 

@@ -14,14 +14,12 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 远程交互声音服务??
+ * 远程交互声音服务。
  *
- * <p>封装 RTS 模式下远程操作方??实体后播放声音的逻辑??
- * 包括声音选择、声音包发送、以及声音栈构???
+ * <p>封装 RTS 模式下远程操作方块/实体后播放声音的逻辑，
+ * 包括声音选择、声音包发送、以及声音栈构造。
  */
 public final class SoundService {
-
-    public static final SoundService INSTANCE = new SoundService();
 
     private SoundService() {
     }
@@ -59,7 +57,7 @@ public final class SoundService {
     }
 
     /**
-     * 根据物品栈选择对应的远程使用声???
+     * 根据物品栈选择对应的远程使用声音。
      */
     static SoundEvent selectRemoteUseSound(ItemStack stack) {
         Item item = stack.getItem();
@@ -85,7 +83,7 @@ public final class SoundService {
     }
 
     /**
-     * 根据物品 ID 构造用于声音播放的 ItemStack??
+     * 根据物品 ID 构造用于声音播放的 ItemStack。
      */
     public static ItemStack createSoundStack(String itemId) {
         ResourceLocation id = ResourceLocation.tryParse(itemId == null ? "" : itemId);

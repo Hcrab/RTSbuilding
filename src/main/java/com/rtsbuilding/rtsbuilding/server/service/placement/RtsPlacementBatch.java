@@ -27,7 +27,7 @@ import java.util.List;
  * throttling per-tick block-processing via {@link #tickPlaceBatchJobs}, and
  * the {@link PlaceBatchJob} data holder. It deliberately does not execute
  * individual placement logic, resolve quick-build state plans, play sounds,
- * or extract items ??those responsibilities live in their dedicated helpers.
+ * or extract items — those responsibilities live in their dedicated helpers.
  */
 public final class RtsPlacementBatch {
     private static final int BUILD_BATCH_MAX_BLOCKS_PER_TICK = 64;
@@ -109,10 +109,10 @@ public final class RtsPlacementBatch {
         }
         // Quick-build jobs (shape builds) are limited to BUILD_BATCH_MAX_QUEUED_JOBS;
         // reject when full. Single-block placements bypass this limit.
-        if (quickBuild && session.placeBatchJobs.size() >= BUILD_BATCH_MAX_QUEUED_JOBS) {
+        if (quickBuild && session.placement.placeBatchJobs.size() >= BUILD_BATCH_MAX_QUEUED_JOBS) {
             return;
         }
-        session.placeBatchJobs.addLast(new PlaceBatchJob(
+        session.placement.placeBatchJobs.addLast(new PlaceBatchJob(
                 positions,
                 face,
                 RtsPlacementHelper.sanitizeHitOffset(hitOffsetX, face, Direction.Axis.X),
@@ -146,21 +146,21 @@ public final class RtsPlacementBatch {
             return;
         }
         int totalBlocks = 0;
-        for (PlaceBatchJob j : session.placeBatchJobs) {
+        for (PlaceBatchJob j : session.placement.placeBatchJobs) {
             totalBlocks += j.totalCount();
         }
         int remaining = Math.min(BUILD_BATCH_MAX_BLOCKS_PER_TICK, Math.max(1, totalBlocks / 10));
         boolean finishedJob = false;
         PlaceBatchJob completedJobRef = null;
-        while (remaining > 0 && !session.placeBatchJobs.isEmpty()) {
-            PlaceBatchJob job = session.placeBatchJobs.peekFirst();
+        while (remaining > 0 && !session.placement.placeBatchJobs.isEmpty()) {
+            PlaceBatchJob job = session.placement.placeBatchJobs.peekFirst();
             while (remaining > 0 && job.hasNext()) {
                 BlockPos clickedPos = job.next();
                 RtsPlacementQuickBuild.StatePlacementPlan statePlan = job.quickBuild()
                         ? job.statePlacementPlan(player) : null;
                 boolean keepGoing;
                 if (statePlan != null) {
-                    // 快速建造路径：记录放置前的状态，用于批撤??
+                    // 快速建造路径：记录放置前的状态，用于批撤回
                     BlockPos trackedPos = clickedPos;
                     BlockState beforeState = player.serverLevel().getBlockState(trackedPos);
                     keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(player, session, clickedPos, statePlan);
@@ -174,7 +174,7 @@ public final class RtsPlacementBatch {
                             clickedPos.getX() + job.hitOffsetX(),
                             clickedPos.getY() + job.hitOffsetY(),
                             clickedPos.getZ() + job.hitOffsetZ());
-                    // 记录放置前状态，用于检测实际放置位??
+                    // 记录放置前状态，用于检测实际放置位置
                     BlockPos adjPos = clickedPos.relative(job.face());
                     BlockState beforeClicked = player.serverLevel().getBlockState(clickedPos);
                     BlockState beforeAdjacent = player.serverLevel().hasChunkAt(adjPos)
@@ -202,7 +202,7 @@ public final class RtsPlacementBatch {
                             job.forceEmptyHand(),
                             false,
                             job.sendRemoteHint());
-                    // 检测实际放置位置（可能??clickedPos ??adjacentPos??
+                    // 检测实际放置位置（可能是 clickedPos 或 adjacentPos）
                     if (keepGoing) {
                         BlockPos actualPos = RtsPlacementHelper.detectPlacedPos(
                                 player.serverLevel(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
@@ -214,23 +214,23 @@ public final class RtsPlacementBatch {
                 remaining--;
                 if (!keepGoing) {
                     completedJobRef = job;
-                    session.placeBatchJobs.removeFirst();
+                    session.placement.placeBatchJobs.removeFirst();
                     finishedJob = true;
                     break;
                 }
             }
-            if (!session.placeBatchJobs.isEmpty() && session.placeBatchJobs.peekFirst() == job && !job.hasNext()) {
+            if (!session.placement.placeBatchJobs.isEmpty() && session.placement.placeBatchJobs.peekFirst() == job && !job.hasNext()) {
                 completedJobRef = job;
-                session.placeBatchJobs.removeFirst();
+                session.placement.placeBatchJobs.removeFirst();
                 finishedJob = true;
             }
         }
         if (finishedJob && completedJobRef != null && !completedJobRef.placedPositions.isEmpty()) {
             ServerHistoryManager.recordPlacement(player, completedJobRef.placedPositions, completedJobRef.face());
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.pageDataVersion.incrementAndGet();
+            session.transfer.pageDataVersion.incrementAndGet();
             RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         }
     }
 

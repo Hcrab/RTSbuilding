@@ -1,7 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
-
-import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -9,10 +7,10 @@ import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 /**
- * 楂樼簿搴︾煝閲忚创鍥剧粯鍒跺伐鍏枫€?
+ * High-precision vector texture renderer.
  * <p>
- * 浣跨敤娴偣鍧愭爣鍜?PoseStack 鐭╅樀鍙樻崲瀹炵幇浜氬儚绱犵簿搴︽覆鏌擄??
- * 鏀寔缁曚腑蹇冩棆杞€侀鑹叉煋鑹诧紝涓斾笉姹℃煋鍏ㄥ眬 GL 绾圭悊杩囨护鐘舵€併??
+ * Uses floating-point coordinates and PoseStack matrix transforms for sub-pixel accuracy,
+ * supports centre rotation, colour tinting, and does not pollute global GL texture filter state.
  */
 public final class RtsTextureRenderer {
 
@@ -20,30 +18,30 @@ public final class RtsTextureRenderer {
     }
 
     /**
-     * 楂樼簿搴︾煝閲忕粯鍒惰创鍥俱??
+     * High-precision texture drawing.
      * <p>
-     * 鐩告??{@code GuiGraphics.blit} 鐩存帴璋冪敤锛屾鏂规硶??
+     * Compared with a direct {@code GuiGraphics.blit} call, this method:
      * <ul>
-     *   <li>鐩爣浣嶇疆??UV 浣跨??float 绮惧害锛屾敮鎸佷簹鍍忕礌瀹氫??/li>
-     *   <li>缁曚腑蹇冩棆杞紙瑙掑害鍒讹??/li>
-     *   <li>棰滆壊鏌撹壊锛堜箻鑹诧級锛屾牸寮?0xAARRGGBB</li>
-     *   <li>涓嶆薄鏌撳叏灞€ GL 绾圭悊杩囨护鐘舵??/li>
+     *   <li>Uses float-precision target position and UV, enabling sub-pixel positioning</li>
+     *   <li>Supports centre rotation (in degrees)</li>
+     *   <li>Supports colour tinting (multiplicative), format 0xAARRGGBB</li>
+     *   <li>Does not pollute global GL texture filter state</li>
      * </ul>
      *
-     * @param guiGraphics   娓叉煋涓婁笅??
-     * @param texLocation   璐村浘璧勬簮璺??
-     * @param x             鐩爣宸︿笂??X锛坒loat 绮惧害锛?
-     * @param y             鐩爣宸︿笂??Y锛坒loat 绮惧害锛?
-     * @param width         鐩爣缁樺埗瀹藉??
-     * @param height        鐩爣缁樺埗楂樺??
-     * @param uOffset       婧愯创鍥?U 鍋忕Щ锛坒loat 绮惧害锛?
-     * @param vOffset       婧愯创鍥?V 鍋忕Щ锛坒loat 绮惧害锛?
-     * @param uWidth        婧愯创鍥惧尯鍩熷搴?
-     * @param vHeight       婧愯创鍥惧尯鍩熼珮搴?
-     * @param textureWidth  瀹屾暣璐村浘鎬诲搴?
-     * @param textureHeight 瀹屾暣璐村浘鎬婚珮搴?
-     * @param rotationDeg   鏃嬭浆瑙掑害锛堝害锛夛紝0 琛ㄧず涓嶆棆??
-     * @param color         棰滆壊鏌撹壊 0xAARRGGBB??xFFFFFFFF 琛ㄧず涓嶆煋??
+     * @param guiGraphics   render context
+     * @param texLocation   texture resource path
+     * @param x             target top-left X (float precision)
+     * @param y             target top-left Y (float precision)
+     * @param width         target draw width
+     * @param height        target draw height
+     * @param uOffset       source texture U offset (float precision)
+     * @param vOffset       source texture V offset (float precision)
+     * @param uWidth        source texture region width
+     * @param vHeight       source texture region height
+     * @param textureWidth  full texture total width
+     * @param textureHeight full texture total height
+     * @param rotationDeg   rotation angle in degrees; 0 means no rotation
+     * @param color         colour tint 0xAARRGGBB; 0xFFFFFFFF means no tint
      */
     public static void drawTextureHighPrecision(
             GuiGraphics guiGraphics,
@@ -56,7 +54,7 @@ public final class RtsTextureRenderer {
             float rotationDeg,
             int color
     ) {
-        // 1. 纭繚璐村浘宸插姞杞斤紙??WindowButton.renderWithTexture??
+        // 1. Ensure the texture is loaded (same as WindowButton.renderWithTexture)
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(texLocation);
         if (texture == null) {
@@ -70,16 +68,16 @@ public final class RtsTextureRenderer {
             }
         }
 
-        // 2. 鍚敤娣峰悎
+        // 2. Enable blending
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        // 3. 缁戝畾璐村浘骞惰缃珮璐ㄩ噺杩囨护鍙傛暟
+        // 3. Bind the texture and set high-quality filter parameters
         RenderSystem.setShaderTexture(0, texLocation);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
-        // 4. 棰滆壊鏌撹壊
+        // 4. Colour tinting
         boolean hasTint = (color & 0xFFFFFFFFL) != 0xFFFFFFFFL;
         if (hasTint) {
             guiGraphics.setColor(
@@ -90,7 +88,7 @@ public final class RtsTextureRenderer {
             );
         }
 
-        // 5. 浣跨??PoseStack 鍙樻崲锛堝悓 WindowButton.renderWithTexture??
+        // 5. Use PoseStack transform (same as WindowButton.renderWithTexture)
         var pose = guiGraphics.pose();
         pose.pushPose();
         pose.translate(x, y, 0);
@@ -98,7 +96,7 @@ public final class RtsTextureRenderer {
         float scaleY = height / vHeight;
         pose.scale(scaleX, scaleY, 1.0f);
 
-        // 6. 缁樺埗锛堝湪鍙樻崲鍚庣殑鍧愭爣涓紝绾圭悊浠ュ師濮婾V灏哄缁樺埗??(0,0)??
+        // 6. Draw (in transformed coordinates, texture is drawn at (0,0) with original UV size)
         guiGraphics.blit(
                 texLocation,
                 0, 0,
@@ -107,15 +105,15 @@ public final class RtsTextureRenderer {
                 textureWidth, textureHeight
         );
 
-        // 7. 鎭㈠鍙樻崲
+        // 7. Restore transform
         pose.popPose();
 
-        // 8. 鎭㈠棰滆壊
+        // 8. Restore colour
         if (hasTint) {
             guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        // 9. 鎭㈠娣峰悎鍜岀汗鐞嗚繃??
+        // 9. Restore blend and texture filter
         RenderSystem.disableBlend();
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);

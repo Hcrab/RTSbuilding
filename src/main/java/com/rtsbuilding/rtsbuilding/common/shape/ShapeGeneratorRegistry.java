@@ -1,10 +1,8 @@
 package com.rtsbuilding.rtsbuilding.common.shape;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -20,15 +18,17 @@ import java.util.Map;
  */
 public final class ShapeGeneratorRegistry {
 
-    private static final Map<AreaShape, AreaShapeGenerator> GENERATORS = new EnumMap<>(AreaShape.class);
+    private static final Map<AreaShape, AreaShapeGenerator> GENERATORS = Collections.unmodifiableMap(initGenerators());
 
-    static {
-        GENERATORS.put(AreaShape.BLOCK, new SingleBlockGenerator());
-        GENERATORS.put(AreaShape.LINE, new LineShapeGenerator());
-        GENERATORS.put(AreaShape.SQUARE, new SquareShapeGenerator());
-        GENERATORS.put(AreaShape.WALL, new WallShapeGenerator());
-        GENERATORS.put(AreaShape.CIRCLE, new CircleShapeGenerator());
-        GENERATORS.put(AreaShape.BOX, new BoxShapeGenerator());
+    private static Map<AreaShape, AreaShapeGenerator> initGenerators() {
+        Map<AreaShape, AreaShapeGenerator> map = new EnumMap<>(AreaShape.class);
+        map.put(AreaShape.BLOCK, new SingleBlockGenerator());
+        map.put(AreaShape.LINE, new LineShapeGenerator());
+        map.put(AreaShape.SQUARE, new SquareShapeGenerator());
+        map.put(AreaShape.WALL, new WallShapeGenerator());
+        map.put(AreaShape.CIRCLE, new CircleShapeGenerator());
+        map.put(AreaShape.BOX, new BoxShapeGenerator());
+        return map;
     }
 
     private ShapeGeneratorRegistry() {

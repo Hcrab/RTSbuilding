@@ -16,13 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * 家的管理与家选择状态管???
- * <p>包私有——仅??{@link RtsProgressionManager} 内部委托??
+ * 家的管理与家选择状态管理。
+ * <p>包私有——仅供 {@link RtsProgressionManager} 内部委托。
  */
 final class RtsHomeManager {
 
     // ======================================================================
-    //  家选择???
+    //  家选择状态
     // ======================================================================
 
     private static final ConcurrentMap<UUID, HomeSelection> HOME_SELECTIONS = new ConcurrentHashMap<>();
@@ -61,11 +61,11 @@ final class RtsHomeManager {
     }
 
     // ======================================================================
-    //  家位置读??
+    //  家位置读写
     // ======================================================================
 
     /**
-     * 获取玩家已保存的个人???
+     * 获取玩家已保存的个人家。
      */
     static HomeAnchor personalHome(ServerPlayer player) {
         if (player == null) {
@@ -89,7 +89,7 @@ final class RtsHomeManager {
     }
 
     /**
-     * 获取玩家的家（共??> 个人???
+     * 获取玩家的家（共享 > 个人）。
      */
     static HomeAnchor getHome(ServerPlayer player) {
         if (player == null) {
@@ -107,7 +107,7 @@ final class RtsHomeManager {
     }
 
     // ======================================================================
-    //  家访问控??
+    //  家访问控制
     // ======================================================================
 
     static boolean hasHome(ServerPlayer player) {
@@ -133,7 +133,7 @@ final class RtsHomeManager {
     }
 
     // ======================================================================
-    //  家变更控??
+    //  家变更控制
     // ======================================================================
 
     static boolean canChangeHome(ServerPlayer player) {
@@ -169,7 +169,7 @@ final class RtsHomeManager {
     }
 
     // ======================================================================
-    //  家提??
+    //  家提交
     // ======================================================================
 
     static boolean commitHome(ServerPlayer player, BlockPos pos) {

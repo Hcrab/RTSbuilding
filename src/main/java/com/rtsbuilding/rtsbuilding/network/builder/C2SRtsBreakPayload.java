@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -12,7 +11,8 @@ public record C2SRtsBreakPayload(
         BlockPos pos,
         byte face,
         boolean allowAdjacentFallback) implements CustomPacketPayload {
-    public static final Type<C2SRtsBreakPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_break"), C2SRtsBreakPayload.class);
+    public static final Type<C2SRtsBreakPayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_break"), C2SRtsBreakPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsBreakPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

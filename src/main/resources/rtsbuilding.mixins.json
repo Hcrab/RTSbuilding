@@ -3,9 +3,12 @@
   "minVersion": "0.8.5",
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_17",
+  "client": [
+    "LocalPlayerMixin"
+  ],
   "mixins": [
     "ChestMenuMixin",
-    "compat.sophisticatedstorage.StorageContainerMenuMixin"
+    "ModdedRemoteStillValidMixin"
   ],
   "injectors": {
     "defaultRequire": 0

@@ -10,10 +10,10 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * 能力推导器，根据已解锁节点集合推导出玩家的完整能力集??
+ * 能力推导器，根据已解锁节点集合推导出玩家的完整能力集。
  * <p>
- * ??{@link RtsProgressionTree} 中读取节点定义，遍历所有已解锁节点的效果，
- * 计算出最终的 {@link DerivedCapabilities}??
+ * 从 {@link RtsProgressionTree} 中读取节点定义，遍历所有已解锁节点的效果，
+ * 计算出最终的 {@link DerivedCapabilities}。
  */
 public final class RtsCapabilityResolver {
 
@@ -24,7 +24,7 @@ public final class RtsCapabilityResolver {
     }
 
     /**
-     * 根据已解锁节点推导能???
+     * 根据已解锁节点推导能力。
      */
     public DerivedCapabilities resolve(Set<ResourceLocation> unlockedNodeIds) {
         EnumSet<RtsFeature> features = EnumSet.noneOf(RtsFeature.class);
@@ -60,7 +60,7 @@ public final class RtsCapabilityResolver {
     }
 
     /**
-     * 已推导的玩家能力，不可变??
+     * 已推导的玩家能力，不可变。
      */
     public record DerivedCapabilities(
             EnumSet<RtsFeature> features,

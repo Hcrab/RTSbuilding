@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
-
+import com.rtsbuilding.rtsbuilding.network.progression.handler.RtsProgressionNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 
 /**

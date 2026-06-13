@@ -3,15 +3,18 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -75,7 +78,7 @@ public final class RtsCraftingExecutor {
                         }),
                 Component.literal("RTS Craft Terminal")));
         RtsRemoteMenuService.relaxOpenedMenuValidation(player.containerMenu);
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
     }
 
     /**
@@ -145,7 +148,7 @@ public final class RtsCraftingExecutor {
             RtsCraftingUtils.mergeConsumedCounts(consumedCounts, result.consumedCounts());
         }
 
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         RtsCraftingSearch.refreshCraftables(player, session);
         if (completedCrafts <= 0) {
             if (storageFull) {
@@ -212,7 +215,7 @@ public final class RtsCraftingExecutor {
             inputStacks.add(taken.stack().copyWithCount(1));
         }
 
-        CraftingContainer input = RtsCraftingUtils.createCraftingContainer(player, inputStacks);
+        CraftingContainer input = RtsCraftingUtils.createCraftingContainer(player.containerMenu, inputStacks);
         if (!recipe.matches(input, player.serverLevel())) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
@@ -450,7 +453,8 @@ public final class RtsCraftingExecutor {
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        return recipe.assemble(RtsCraftingUtils.createCraftingContainer(player, previewStacks), player.serverLevel().registryAccess()).copy();
+        CraftingContainer input = RtsCraftingUtils.createCraftingContainer(player.containerMenu, previewStacks);
+        return recipe.assemble(input, player.serverLevel().registryAccess()).copy();
     }
 
     // ---- craft grid refill from blueprint ----------------------------------------

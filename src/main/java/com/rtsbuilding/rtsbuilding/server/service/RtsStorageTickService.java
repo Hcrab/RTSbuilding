@@ -15,8 +15,8 @@ import java.util.*;
  * <p>Inspired by AE2's {@code TickManagerService}: each player's storage is
  * refreshed on an <b>adaptive</b> schedule instead of a fixed interval:
  * <ul>
- *   <li>Items keep changing ??speed up to every tick (min responsiveness)</li>
- *   <li>Nothing changes for a while ??gradually slow down to reduce CPU load</li>
+ *   <li>Items keep changing → speed up to every tick (min responsiveness)</li>
+ *   <li>Nothing changes for a while → gradually slow down to reduce CPU load</li>
  *   <li>{@link #alert(UUID)} can be called externally to wake up immediately</li>
  * </ul>
  *
@@ -27,37 +27,14 @@ public final class RtsStorageTickService {
 
     public static final RtsStorageTickService INSTANCE = new RtsStorageTickService();
 
-    // ---- adaptive rate constants ---------------------------------------------
-
-    /** Fastest: refresh every tick (50ms at 20 TPS). */
-    private static final int MIN_TICK_RATE = 1;
-
-    /** Slowest: refresh every 60 ticks (3s at 20 TPS) when fully idle. */
-    private static final int MAX_TICK_RATE = 60;
-
-    /** Starting rate after registration or alert. */
-    private static final int DEFAULT_TICK_RATE = 8;
-
-    /**
-     * Maximum initial rate based on slot count.
-     * Even huge AE2 systems start at most this rate; the adaptive
-     * mechanism quickly speeds up if changes are detected.
-     */
-    private static final int MAX_INITIAL_RATE = 8;
-
-    /**
-     * How many consecutive idle cycles before slowing down.
-     * At default rate of 8, this is 15 × 8 = 120 ticks (6s) of no activity
-     * before we start increasing the interval.
-     */
-    private static final int IDLE_THRESHOLD = 15;
+    // ---- adaptive rate constants (see RtsServiceConstants) -------------------
 
     // ---- state ---------------------------------------------------------------
 
     /** Per-player aggregate storage instance. */
     private final Map<UUID, RtsAggregateStorage> playerStorage = new HashMap<>();
 
-    /** Per-player handler ??cache mappings. */
+    /** Per-player handler → cache mappings. */
     private final Map<UUID, List<HandlerCachePair>> playerHandlers = new HashMap<>();
 
     /** Per-player adaptive tick trackers (replaces old fixed counter). */
@@ -150,7 +127,7 @@ public final class RtsStorageTickService {
      * Called on every server tick for all active players.
      * Uses AE2-style adaptive scheduling: speeds up when busy, slows when idle.
      *
-     * @return map of player UUID ??set of changed item IDs since last refresh
+     * @return map of player UUID → set of changed item IDs since last refresh
      */
     public Map<UUID, Set<String>> tick() {
         Map<UUID, Set<String>> allChanges = new HashMap<>();
@@ -172,15 +149,15 @@ public final class RtsStorageTickService {
             Set<String> changes = storage.tickUpdate();
 
             if (!changes.isEmpty()) {
-                // ── Changes detected ??speed up like AE2's URGENT/FASTER ──
-                tracker.currentRate = Math.max(MIN_TICK_RATE, tracker.currentRate / 2);
+                // ── Changes detected → speed up like AE2's URGENT/FASTER ──
+                tracker.currentRate = Math.max(RtsServiceConstants.MIN_TICK_RATE, tracker.currentRate / 2);
                 tracker.consecutiveIdle = 0;
                 allChanges.put(uuid, changes);
             } else {
-                // ── No changes ??gradually slow down like AE2's IDLE ──
+                // ── No changes → gradually slow down like AE2's IDLE ──
                 tracker.consecutiveIdle++;
-                if (tracker.consecutiveIdle > IDLE_THRESHOLD) {
-                    tracker.currentRate = Math.min(MAX_TICK_RATE, tracker.currentRate + 1);
+                if (tracker.consecutiveIdle > RtsServiceConstants.IDLE_THRESHOLD) {
+                    tracker.currentRate = Math.min(RtsServiceConstants.MAX_TICK_RATE, tracker.currentRate + 1);
                 }
             }
         }
@@ -200,8 +177,8 @@ public final class RtsStorageTickService {
     public void alert(UUID playerUuid) {
         TickTracker tracker = this.tickTrackers.get(playerUuid);
         if (tracker != null) {
-            tracker.currentRate = MIN_TICK_RATE;
-            tracker.ticksSinceRefresh = MIN_TICK_RATE; // Will trigger on next tick
+            tracker.currentRate = RtsServiceConstants.MIN_TICK_RATE;
+            tracker.ticksSinceRefresh = RtsServiceConstants.MIN_TICK_RATE; // Will trigger on next tick
             tracker.consecutiveIdle = 0;
         }
     }
@@ -236,16 +213,16 @@ public final class RtsStorageTickService {
      * <p>
      * Uses a logarithmic formula: {@code rate = ceil(log2(slots / 27 + 1))}.
      * <ul>
-     *   <li>1 chest (27 slots) ??rate=1 (every tick)</li>
-     *   <li>5 chests (135 slots) ??rate=3</li>
-     *   <li>10 chests (270 slots) ??rate=4</li>
-     *   <li>100 chests (2700 slots) ??rate=7</li>
+     *   <li>1 chest (27 slots) → rate=1 (every tick)</li>
+     *   <li>5 chests (135 slots) → rate=3</li>
+     *   <li>10 chests (270 slots) → rate=4</li>
+     *   <li>100 chests (2700 slots) → rate=7</li>
      * </ul>
      * This ensures smooth scaling: few slots = instant response,
      * many slots = graceful back-off without abrupt threshold jumps.
      */
     private static int calculateInitialRate(List<IItemHandler> handlers) {
-        if (handlers == null || handlers.isEmpty()) return DEFAULT_TICK_RATE;
+        if (handlers == null || handlers.isEmpty()) return RtsServiceConstants.DEFAULT_TICK_RATE;
         int totalSlots = 0;
         for (IItemHandler h : handlers) {
             try {
@@ -253,12 +230,12 @@ public final class RtsStorageTickService {
             } catch (Exception ignored) {
             }
         }
-        if (totalSlots <= 0) return MIN_TICK_RATE;
+        if (totalSlots <= 0) return RtsServiceConstants.MIN_TICK_RATE;
         // Logarithmic scaling: rate = ceil(log2(slots / 27 + 1))
         // 27 is one chest's slot count, used as the base unit.
         double logValue = Math.log((double) totalSlots / 27.0 + 1.0) / Math.log(2.0);
         int rate = (int) Math.ceil(logValue);
-        return Math.max(MIN_TICK_RATE, Math.min(MAX_INITIAL_RATE, rate));
+        return Math.max(RtsServiceConstants.MIN_TICK_RATE, Math.min(RtsServiceConstants.MAX_INITIAL_RATE, rate));
     }
 
     // ---- value types -----------------------------------------------------------

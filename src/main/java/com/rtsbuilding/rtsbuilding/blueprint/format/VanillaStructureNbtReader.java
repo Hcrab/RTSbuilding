@@ -1,32 +1,26 @@
 package com.rtsbuilding.rtsbuilding.blueprint.format;
 
-
-import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
-import java.util.List;
-
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-public final class VanillaStructureNbtReader {
+import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+final class VanillaStructureNbtReader {
     private VanillaStructureNbtReader() {
     }
 
@@ -62,6 +56,9 @@ public final class VanillaStructureNbtReader {
             CompoundTag blockEntityTag = blockTag.contains("nbt", Tag.TAG_COMPOUND)
                     ? blockTag.getCompound("nbt").copy()
                     : new CompoundTag();
+            String materialItemId = blockTag.contains("rtsbuilding_material_item", Tag.TAG_STRING)
+                    ? blockTag.getString("rtsbuilding_material_item")
+                    : "";
             if (!paletteEntry.missingBlockId().isBlank()) {
                 out.add(RtsBlueprintBlock.missing(pos, paletteEntry.missingBlockId(), blockEntityTag));
                 continue;
@@ -69,7 +66,7 @@ public final class VanillaStructureNbtReader {
             if (state.isAir() || state.is(Blocks.STRUCTURE_VOID)) {
                 continue;
             }
-            out.add(new RtsBlueprintBlock(pos, state, blockEntityTag));
+            out.add(new RtsBlueprintBlock(pos, state, blockEntityTag, "", materialItemId));
         }
         return RtsBlueprint.create(cleanName(fileName), fileName, BlueprintFormat.VANILLA_NBT, size, out);
     }

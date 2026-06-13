@@ -1,13 +1,12 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-
-import net.minecraftforge.fml.loading.FMLPaths;
 
 /**
  * File-system helper layer for the client blueprint panel.
@@ -17,7 +16,7 @@ import net.minecraftforge.fml.loading.FMLPaths;
  * small NeoForge edge: the Forge branch keeps the same helper shape with its own
  * {@code FMLPaths} import.</p>
  */
-public final class BlueprintPanelFiles {
+final class BlueprintPanelFiles {
     private BlueprintPanelFiles() {
     }
 

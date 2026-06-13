@@ -1,54 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsBreakPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsBeginHomeSelectionPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsCloseRemoteMenuPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFillInventoryPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFunnelTargetPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
-import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsOpenGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlacePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsQuestDetectPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsQuickDropPayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsRequestProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsRequestCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRotateBlockPayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetHomePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetAutoStorePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetFunnelPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetGuiBindingPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetModePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetProgressionCostPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetQuickSlotPayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetSurvivalProgressionPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsUnlockProgressionNodePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsRequestCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.progression.*;
+import com.rtsbuilding.rtsbuilding.network.storage.*;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
-
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
@@ -56,6 +21,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class RtsClientPacketGateway {
     private RtsClientPacketGateway() {
@@ -137,6 +106,25 @@ public final class RtsClientPacketGateway {
 
     public static void sendSetAutoStoreMinedDrops(boolean enabled) {
         PacketDistributor.sendToServer(new C2SRtsSetAutoStorePayload(enabled));
+    }
+
+    public static void sendSetBdNetwork(boolean enabled) {
+        PacketDistributor.sendToServer(new C2SRtsSetBdNetworkPayload(enabled));
+    }
+
+    public static void sendUnlinkStorage(BlockPos pos) {
+        if (pos != null) {
+            PacketDistributor.sendToServer(new C2SRtsUnlinkStoragePayload(pos));
+        }
+    }
+
+    public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
+        if (pos != null) {
+            PacketDistributor.sendToServer(new C2SRtsUpdateLinkedStoragePayload(
+                    pos,
+                    extractOnly ? C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL,
+                    Mth.clamp(priority, -9999, 9999)));
+        }
     }
 
     public static void sendCraftRecipe(String recipeId, int craftCount) {
@@ -258,10 +246,8 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendSetQuickSlot(int index, String itemId, ItemStack previewStack) {
-        PacketDistributor.sendToServer(new C2SRtsSetQuickSlotPayload(
-                (byte) index,
-                itemId,
-                previewStack == null ? ItemStack.EMPTY : previewStack.copyWithCount(1)));
+        ItemStack preview = previewStack == null ? ItemStack.EMPTY : previewStack.copyWithCount(1);
+        PacketDistributor.sendToServer(new C2SRtsSetQuickSlotPayload((byte) index, itemId, preview));
     }
 
     public static void sendSetGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
@@ -311,7 +297,7 @@ public final class RtsClientPacketGateway {
                 (byte) rotateSteps,
                 forcePlace,
                 skipIfOccupied,
-                itemId,
+                itemId == null ? "" : itemId,
                 prototype,
                 rayOrigin.x,
                 rayOrigin.y,
@@ -325,10 +311,20 @@ public final class RtsClientPacketGateway {
 
     public static void sendPlaceBatch(List<BlockHitResult> hits, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
+        sendPlaceBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, skipIfOccupied,
+                itemId, itemPrototype, rotateSteps, rayOrigin, rayDir);
+    }
+
+    public static void sendPlaceBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
+            boolean skipIfOccupied, String itemId, ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
         if (hits == null || hits.isEmpty()) {
             return;
         }
         Direction face = hits.get(0).getDirection();
+        BlockHitResult placementTemplate = templateHit == null ? hits.get(0) : templateHit;
+        double hitOffsetX = placementTemplate.getLocation().x - placementTemplate.getBlockPos().getX();
+        double hitOffsetY = placementTemplate.getLocation().y - placementTemplate.getBlockPos().getY();
+        double hitOffsetZ = placementTemplate.getLocation().z - placementTemplate.getBlockPos().getZ();
         List<BlockPos> positions = new ArrayList<>(Math.min(hits.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
         for (BlockHitResult hit : hits) {
             if (hit == null || hit.getDirection() != face) {
@@ -346,10 +342,6 @@ public final class RtsClientPacketGateway {
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
         }
-        BlockHitResult placementTemplate = hits.get(0);
-        double hitOffsetX = placementTemplate.getLocation().x - placementTemplate.getBlockPos().getX();
-        double hitOffsetY = placementTemplate.getLocation().y - placementTemplate.getBlockPos().getY();
-        double hitOffsetZ = placementTemplate.getLocation().z - placementTemplate.getBlockPos().getZ();
         PacketDistributor.sendToServer(new C2SRtsPlaceBatchPayload(
                 positions,
                 (byte) face.get3DDataValue(),
@@ -514,20 +506,21 @@ public final class RtsClientPacketGateway {
                 allowAdjacentFallback));
     }
 
-    public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            boolean allowPlacedBlockRecovery) {
-        PacketDistributor.sendToServer(new C2SRtsMinePayload(
-                pos,
-                (byte) face,
-                true,
+    public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+            int toolSlot, String toolItemId, ItemStack toolPrototype, byte shapeType, byte fillType,
+            boolean toolProtectionEnabled) {
+        PacketDistributor.sendToServer(new C2SRtsAreaMinePayload(
+                minX, maxX, minY, maxY, minZ, maxZ,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                allowPlacedBlockRecovery,
-                false));
+                shapeType,
+                fillType,
+                toolProtectionEnabled));
     }
 
-    public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype) {
+    public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
+            boolean toolProtectionEnabled) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
@@ -536,11 +529,24 @@ public final class RtsClientPacketGateway {
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                false));
+                toolProtectionEnabled));
+    }
+
+    public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
+            boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
+        PacketDistributor.sendToServer(new C2SRtsMinePayload(
+                pos,
+                (byte) face,
+                true,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                allowPlacedBlockRecovery,
+                toolProtectionEnabled));
     }
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            int limit, byte mode) {
+            int limit, byte mode, boolean toolProtectionEnabled) {
         PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
                 pos,
                 (byte) face,
@@ -549,7 +555,11 @@ public final class RtsClientPacketGateway {
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 (short) Mth.clamp(limit, 1, 256),
                 mode,
-                false));
+                toolProtectionEnabled));
+    }
+
+    public static void sendUndo() {
+        PacketDistributor.sendToServer(new C2SRtsUndoPayload());
     }
 
     public static void sendMineAbort(BlockPos pos, int face, int toolSlot) {
@@ -562,9 +572,5 @@ public final class RtsClientPacketGateway {
                 ItemStack.EMPTY,
                 false,
                 false));
-    }
-
-    public static void sendUndo() {
-        PacketDistributor.sendToServer(new C2SRtsUndoPayload());
     }
 }

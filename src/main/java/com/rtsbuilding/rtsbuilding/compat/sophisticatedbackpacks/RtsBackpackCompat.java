@@ -1,18 +1,18 @@
 package com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Optional;
-import java.util.UUID;
-
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.items.IItemHandler;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Optional Sophisticated Backpacks bridge for RTS linked storage.

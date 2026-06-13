@@ -1,25 +1,27 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
-import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
+import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
+import com.rtsbuilding.rtsbuilding.client.record.RecentEntry;
+import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
-import com.rtsbuilding.rtsbuilding.server.storage.RecentEntry;
-import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -28,16 +30,16 @@ import net.minecraftforge.fml.ModList;
 
 import java.util.*;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
+import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
 /**
- * 搴曢儴闈㈡澘 ??鍌ㄥ瓨缃戞牸銆佸垎绫汇€佸悎鎴愩€佹祦浣撱€佽摑鍥剧殑闆嗕腑 UI??
+ * Bottom panel ??centralised UI for storage grids, categories, crafting, fluids, and blueprints.
  * <p>
- * ??{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡??
+ * Lifecycle is orchestrated by {@link BuilderScreen}.
  */
 public final class BottomPanel {
 
-    // 鈹€鈹€ 鐘舵??鈹€鈹€
+    // ── State ──
     private BuilderScreen screen;
     private ClientRtsController controller;
 
@@ -46,7 +48,6 @@ public final class BottomPanel {
     public int categoryScroll = 0;
     public int craftScroll = 0;
     public final Set<String> expandedCategoryMods = new HashSet<>();
-    public final RtsCraftQuantityDialog craftQuantityDialog = new RtsCraftQuantityDialog();
 
     public int hoveredEntry = -1;
     public int hoveredRecentEntry = -1;
@@ -70,7 +71,7 @@ public final class BottomPanel {
         this.controller = controller;
     }
 
-    // 鈹€鈹€ 娓叉??鈹€鈹€
+    // ── Rendering ──
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
@@ -188,7 +189,7 @@ public final class BottomPanel {
         RtsCraftFeedbackPopup.render(g, screen.font(), screen.width, this.controller);
     }
 
-    // 鈹€鈹€ 鏍囩椤垫覆??鈹€鈹€
+    // ── Tab rendering ──
 
     private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
         int labelX = layout.panelX() + 8;
@@ -326,7 +327,7 @@ public final class BottomPanel {
         return Component.translatable("screen.rtsbuilding.storage.tab").getString();
     }
 
-    // 鈹€鈹€ 宸ュ叿鏍?鈹溾攢鈹??鐑敭鏍?鍥哄畾浣?鈹€鈹€
+    // ── Toolbar ── hotbar / pinned slots ──
 
     private void renderToolArea(GuiGraphics g, int mouseX, int mouseY, int storageX, int rowY, int storageW) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
@@ -436,7 +437,7 @@ public final class BottomPanel {
         g.fill(left, top, left + size, top + size, 0xFFFFC3A3);
     }
 
-    // 鈹€鈹€ 鎺掑??/ 鍒嗛??/ 鎼滅??鈹€鈹€
+    // ── Sort / paging / search ──
 
     private void drawSortButton(GuiGraphics g, int x, int y, String label) {
         g.fill(x, y, x + SORT_BUTTON_SIZE, y + SORT_BUTTON_SIZE, 0xAA29323D);
@@ -481,7 +482,7 @@ public final class BottomPanel {
         g.drawCenteredString(screen.font(), "x", x + SEARCH_CLEAR_SIZE / 2, y + 3, textColor);
     }
 
-    // 鈹€鈹€ 鍒嗙被闈㈡澘 鈹€鈹€
+    // ── Category panel ──
 
     private void drawCategoryPanel(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
         g.fill(x, y, x + width, y + height, 0x8820222A);
@@ -550,14 +551,14 @@ public final class BottomPanel {
         g.pose().popPose();
     }
 
-    // 鈹€鈹€ 鍌ㄥ瓨缃戞牸 鈹€鈹€
+    // ── Storage grid ──
 
     private void drawStorageGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
         this.controller.updateStoragePageSize(maxSlots);
-        List<ClientRtsController.StorageEntry> entries = this.controller.getStorageEntries();
+        List<StorageEntry> entries = this.controller.getStorageEntries();
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -660,7 +661,7 @@ public final class BottomPanel {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
-        List<ClientRtsController.RecentEntry> entries = this.controller.getRecentEntries();
+        List<RecentEntry> entries = this.controller.getRecentEntries();
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -676,7 +677,7 @@ public final class BottomPanel {
                 continue;
             }
 
-            ClientRtsController.RecentEntry entry = entries.get(i);
+            RecentEntry entry = entries.get(i);
             if (!entry.preview().isEmpty()) {
                 g.renderItem(entry.preview(), cx + 2, cy + 2);
             }
@@ -691,7 +692,7 @@ public final class BottomPanel {
         }
     }
 
-    private String formatRecentAmount(ClientRtsController.RecentEntry entry) {
+    private String formatRecentAmount(RecentEntry entry) {
         if (entry == null) {
             return "";
         }
@@ -703,14 +704,14 @@ public final class BottomPanel {
         RtsClientUiUtil.drawSlotCountOverlay(g, screen.font(), slotX, slotY, box, countText, color);
     }
 
-    // 鈹€鈹€ 娴佷綋缃戞牸 鈹€鈹€
+    // ── Fluid grid ──
 
     private void drawFluidGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = 2;
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
         int box = SLOT - 2;
-        List<ClientRtsController.FluidEntry> entries = this.controller.getFluidEntries();
+        List<FluidEntry> entries = this.controller.getFluidEntries();
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -742,7 +743,7 @@ public final class BottomPanel {
         }
     }
 
-    // 鈹€鈹€ 鍚堟垚闈㈡澘 鈹€鈹€
+    // ── Crafting panel ──
 
     private void renderCraftablesPanel(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
         syncCraftSearchValueFromController();
@@ -786,7 +787,7 @@ public final class BottomPanel {
 
         int gridY = searchY + CRAFT_PANEL_SEARCH_H + 6;
         int clampedRows = Math.max(1, (height - (gridY - y) - 6) / CRAFT_PANEL_PITCH);
-        List<ClientRtsController.CraftableEntry> entries = this.controller.getCraftableEntries();
+        List<CraftableEntry> entries = this.controller.getCraftableEntries();
         int totalRows = Math.max(1, (int) Math.ceil(entries.size() / (double) CRAFT_PANEL_COLS));
         int maxScroll = Math.max(0, totalRows - clampedRows);
         this.craftScroll = Mth.clamp(this.craftScroll, 0, maxScroll);
@@ -799,7 +800,7 @@ public final class BottomPanel {
                 int slotY = gridY + row * CRAFT_PANEL_PITCH;
                 int fill = 0xAA1A212B;
                 if (index < entries.size()) {
-                    ClientRtsController.CraftableEntry entry = entries.get(index);
+                    CraftableEntry entry = entries.get(index);
                     fill = entry.craftable() ? 0xAA214131 : 0xAA3F2323;
                 }
                 RtsClientUiUtil.drawPanelFrame(g, slotX, slotY, CRAFT_PANEL_SLOT, CRAFT_PANEL_SLOT, fill, 0xFF596D84, 0xFF11171E);
@@ -807,7 +808,7 @@ public final class BottomPanel {
                     continue;
                 }
 
-                ClientRtsController.CraftableEntry entry = entries.get(index);
+                CraftableEntry entry = entries.get(index);
                 g.renderItem(entry.stack(), slotX + 1, slotY + 1);
                 if (entry.resultCount() > 1) {
                     drawSlotCountOverlay(g, slotX, slotY, CRAFT_PANEL_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
@@ -843,16 +844,16 @@ public final class BottomPanel {
         return RtsCraftablesUiHelper.normalizeSearchDraft(value);
     }
 
-    public void openCraftQuantityDialog(ClientRtsController.CraftableEntry entry) {
+    public void openCraftQuantityDialog(CraftableEntry entry) {
         screen.blurSearchFocus();
-        RtsCraftablesUiHelper.openCraftQuantityDialog(this.craftQuantityDialog, entry);
+        screen.openCraftQuantityWindow(entry);
     }
 
     public void submitCraftQuantityDialogIfReady() {
-        RtsCraftablesUiHelper.submitPendingCraftRequest(this.craftQuantityDialog, this.controller);
+        screen.submitCraftQuantityWindowIfReady();
     }
 
-    // 鈹€鈹€ 鍚堟垚搴曞骇 鈹€鈹€
+    // ── Craft dock ──
 
     private void drawCraftDock(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
@@ -888,7 +889,7 @@ public final class BottomPanel {
         }
     }
 
-    // 鈹€鈹€ 鐐瑰嚮澶勭悊 鈹€鈹€
+    // ── Click handling ──
 
     public boolean handleClick(double mouseX, double mouseY) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
@@ -902,7 +903,6 @@ public final class BottomPanel {
             this.bottomPanelTab = clickedTab;
             syncSearchBoxForActiveTab();
             screen.blurSearchFocus();
-            screen.closeGearMenu();
             return true;
         }
         if (inside(mouseX, mouseY, bottomRefreshButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
@@ -913,12 +913,10 @@ public final class BottomPanel {
             } else {
                 this.controller.refreshStoragePage();
             }
-            screen.closeGearMenu();
             return true;
         }
         if (inside(mouseX, mouseY, bottomGuideButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
             screen.openBottomGuide(bottomGuideButtonX(layout) + 6, bottomGuideButtonY(layout));
-            screen.closeGearMenu();
             return true;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
@@ -998,8 +996,15 @@ public final class BottomPanel {
         CategoryTypes.CategoryClick categoryClick = resolveClickedCategoryAction(mouseX, mouseY);
         if (categoryClick != null) {
             if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
+                if (categoryClick.toggleExpandOnly()) {
+                    toggleCategoryExpansion(categoryClick.modNamespace());
+                    return true;
+                }
                 this.creativeCategory = categoryClick.categoryToken();
                 this.creativePage = 0;
+                if (categoryClick.modNamespace() != null && !categoryClick.modNamespace().isBlank()) {
+                    this.expandedCategoryMods.add(categoryClick.modNamespace());
+                }
                 return true;
             }
             if (categoryClick.toggleExpandOnly()) {
@@ -1168,11 +1173,28 @@ public final class BottomPanel {
         }
         if (isInsideCategoryList(mouseX, mouseY)) {
             shiftCategoryScroll(scrollY > 0.0D ? -1 : 1);
+            return true;
+        }
+        if (isInsideStorageBrowseScrollArea(mouseX, mouseY, layout)) {
+            if (scrollY > 0.0D) {
+                this.controller.prevPage();
+            } else if (scrollY < 0.0D) {
+                this.controller.nextPage();
+            }
         }
         return true;
     }
 
-    // 鈹€鈹€ 鍐呴儴鐐瑰嚮澶勭??鈹€鈹€
+    private boolean isInsideStorageBrowseScrollArea(double mouseX, double mouseY,
+            BottomPanelLayoutTypes.BottomPanelLayout layout) {
+        int left = layout.storageX();
+        int top = layout.storageY();
+        int right = layout.storageX() + layout.mainStorageW();
+        int bottom = layout.gridY() + layout.gridH();
+        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
+    }
+
+    // ── Internal click handling ──
 
     private boolean handleCraftDockClick(double mouseX, double mouseY, int button, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
@@ -1446,7 +1468,7 @@ public final class BottomPanel {
         if (entryIndex < 0 || entryIndex >= this.controller.getCraftableEntries().size()) {
             return inside(mouseX, mouseY, x, y, width, height);
         }
-        ClientRtsController.CraftableEntry entry = this.controller.getCraftableEntries().get(entryIndex);
+        CraftableEntry entry = this.controller.getCraftableEntries().get(entryIndex);
         if (!entry.craftable()) {
             return true;
         }
@@ -1458,7 +1480,7 @@ public final class BottomPanel {
         int searchY = y + 15;
         int gridY = searchY + CRAFT_PANEL_SEARCH_H + 6;
         int visibleRows = Math.max(1, (height - (gridY - y) - 6) / CRAFT_PANEL_PITCH);
-        List<ClientRtsController.CraftableEntry> entries = this.controller.getCraftableEntries();
+        List<CraftableEntry> entries = this.controller.getCraftableEntries();
         int totalRows = Math.max(1, (int) Math.ceil(entries.size() / (double) CRAFT_PANEL_COLS));
         int maxScroll = Math.max(0, totalRows - visibleRows);
         this.craftScroll = Mth.clamp(this.craftScroll, 0, maxScroll);
@@ -1482,7 +1504,7 @@ public final class BottomPanel {
         return index < entries.size() ? index : -1;
     }
 
-    // 鈹€鈹€ 甯冨眬涓庤В鏋?鈹€鈹€
+    // ── Layout & resolution ──
 
     public BottomPanelLayoutTypes.BottomPanelLayout resolveBottomPanelLayout() {
         int dynamicMaxH = Math.max(MIN_BOTTOM_H, Math.min(MAX_BOTTOM_H, screen.height - TOP_H - 16));
@@ -1600,16 +1622,34 @@ public final class BottomPanel {
         return layout.panelY() + 3;
     }
 
-    // 鈹€鈹€ 鍒嗙被鏋勫缓 鈹€鈹€
+    // ── Category building ──
 
     private List<CategoryTypes.CategoryRow> buildCategoryRows() {
         if (activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
             List<CategoryTypes.CategoryRow> rows = new ArrayList<>();
+            String selected = normalizeCategoryToken(this.creativeCategory);
+            if (selected.startsWith(CATEGORY_TAB_PREFIX)) {
+                String payload = selected.substring(CATEGORY_TAB_PREFIX.length());
+                int split = payload.indexOf('|');
+                if (split > 0) {
+                    this.expandedCategoryMods.add(payload.substring(0, split));
+                }
+            }
             for (RtsCreativeItemCatalog.CreativeCategory category : RtsCreativeItemCatalog.get().categories()) {
+                if (category.depth() > 0 && !this.expandedCategoryMods.contains(category.modNamespace())) {
+                    continue;
+                }
                 String label = "all".equals(category.token())
                         ? Component.translatable("screen.rtsbuilding.creative.all").getString()
                         : category.label();
-                rows.add(new CategoryTypes.CategoryRow(category.token(), label, 0, false, false, ""));
+                boolean expanded = category.expandable() && this.expandedCategoryMods.contains(category.modNamespace());
+                rows.add(new CategoryTypes.CategoryRow(
+                        category.token(),
+                        label,
+                        category.depth(),
+                        category.expandable(),
+                        expanded,
+                        category.modNamespace()));
             }
             return rows;
         }
@@ -1816,7 +1856,7 @@ public final class BottomPanel {
         return sb.toString();
     }
 
-    // 鈹€鈹€ 鐐瑰嚮鍧愭爣瑙ｆ??鈹€鈹€
+    // ── Click coordinate resolution ──
 
     private int resolveClickedCreativeEntry(double mouseX, double mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
@@ -1901,7 +1941,7 @@ public final class BottomPanel {
         return new CategoryTypes.CategoryClick(clicked.token(), clicked.modNamespace(), false);
     }
 
-    // 鈹€鈹€ Pin / 宸ュ叿鏍忚緟??鈹€鈹€
+    // ── Pin / toolbar helpers ──
 
     private long resolvePinnedItemCount(String itemId) {
         return this.controller.getStorageTotalCount(itemId);
@@ -1922,7 +1962,8 @@ public final class BottomPanel {
     }
 
     private int getHotbarSlotsWidth() {
-        return HOTBAR_PITCH * (TOOL_HOTBAR_ITEM_SLOTS + 1) - (HOTBAR_PITCH - HOTBAR_SLOT);
+        int slots = TOOL_HOTBAR_ITEM_SLOTS + 1;
+        return HOTBAR_PITCH * slots - (HOTBAR_PITCH - HOTBAR_SLOT);
     }
 
     private int getFluidStripWidth(int storageWidth) {
@@ -1959,7 +2000,7 @@ public final class BottomPanel {
         return visibleCells;
     }
 
-    // 鈹€鈹€ 鎺掑簭鏍囩 鈹€鈹€
+    // ── Sort label ──
 
     private static String sortLabel(RtsStorageSort sort) {
         return switch (sort) {
@@ -1969,7 +2010,7 @@ public final class BottomPanel {
         };
     }
 
-    // 鈹€鈹€ 宸ュ??鈹€鈹€
+    // ── Utilities ──
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
         return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
