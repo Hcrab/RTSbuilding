@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.common;
 
-
 public enum BuilderMode {
     OFF,
     SELECT_PAN,

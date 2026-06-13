@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,8 +17,7 @@ public record C2SRtsRequestCraftablesPayload(
         int limit,
         boolean pinyinSearchEnabled,
         List<String> localizedSearchMatches) implements CustomPacketPayload {
-    public static final Type<C2SRtsRequestCraftablesPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_request_craftables"));
+    public static final Type<C2SRtsRequestCraftablesPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_request_craftables"), C2SRtsRequestCraftablesPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestCraftablesPayload> STREAM_CODEC =
             StreamCodec.of(

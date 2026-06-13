@@ -1,21 +1,23 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 
 import net.minecraft.core.BlockPos;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 public record C2SRtsPlaceBatchPayload(
         List<BlockPos> clickedPositions,
         byte face,
+        double hitOffsetX,
+        double hitOffsetY,
+        double hitOffsetZ,
         byte rotateSteps,
         boolean forcePlace,
         boolean skipIfOccupied,
@@ -29,8 +31,7 @@ public record C2SRtsPlaceBatchPayload(
         double rayDirZ) implements CustomPacketPayload {
     public static final int MAX_POSITIONS = 32768;
 
-    public static final Type<C2SRtsPlaceBatchPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place_batch"));
+    public static final Type<C2SRtsPlaceBatchPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place_batch"), C2SRtsPlaceBatchPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsPlaceBatchPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -40,6 +41,9 @@ public record C2SRtsPlaceBatchPayload(
                     buf.writeBlockPos(payload.clickedPositions().get(i));
                 }
                 buf.writeByte(payload.face());
+                buf.writeDouble(payload.hitOffsetX());
+                buf.writeDouble(payload.hitOffsetY());
+                buf.writeDouble(payload.hitOffsetZ());
                 buf.writeByte(payload.rotateSteps());
                 buf.writeBoolean(payload.forcePlace());
                 buf.writeBoolean(payload.skipIfOccupied());
@@ -47,7 +51,7 @@ public record C2SRtsPlaceBatchPayload(
                 ItemStack itemPrototype = payload.itemPrototype() == null ? ItemStack.EMPTY : payload.itemPrototype();
                 buf.writeBoolean(!itemPrototype.isEmpty());
                 if (!itemPrototype.isEmpty()) {
-                    buf.writeItem(itemPrototype);
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, itemPrototype);
                 }
                 buf.writeDouble(payload.rayOriginX());
                 buf.writeDouble(payload.rayOriginY());
@@ -68,11 +72,14 @@ public record C2SRtsPlaceBatchPayload(
                 return new C2SRtsPlaceBatchPayload(
                         positions,
                         buf.readByte(),
+                        buf.readDouble(),
+                        buf.readDouble(),
+                        buf.readDouble(),
                         buf.readByte(),
                         buf.readBoolean(),
                         buf.readBoolean(),
                         buf.readUtf(128),
-                        buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
+                        buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY,
                         buf.readDouble(),
                         buf.readDouble(),
                         buf.readDouble(),

@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import net.minecraft.core.BlockPos;
@@ -17,9 +16,9 @@ public record C2SRtsUltiminePayload(
         String toolItemId,
         ItemStack toolPrototype,
         short limit,
-        byte mode) implements CustomPacketPayload {
-    public static final Type<C2SRtsUltiminePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_ultimine"));
+        byte mode,
+        boolean toolProtectionEnabled) implements CustomPacketPayload {
+    public static final Type<C2SRtsUltiminePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_ultimine"), C2SRtsUltiminePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUltiminePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -30,19 +29,21 @@ public record C2SRtsUltiminePayload(
                 ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
                 buf.writeBoolean(!toolPrototype.isEmpty());
                 if (!toolPrototype.isEmpty()) {
-                    buf.writeItem(toolPrototype);
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, toolPrototype);
                 }
                 buf.writeShort(payload.limit());
                 buf.writeByte(payload.mode());
+                buf.writeBoolean(payload.toolProtectionEnabled());
             },
             (buf) -> new C2SRtsUltiminePayload(
                     buf.readBlockPos(),
                     buf.readByte(),
                     buf.readByte(),
                     buf.readUtf(256),
-                    buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
+                    buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY,
                     buf.readShort(),
-                    buf.readByte()));
+                    buf.readByte(),
+                    buf.readBoolean()));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

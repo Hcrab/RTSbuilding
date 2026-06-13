@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import net.minecraft.core.BlockPos;
@@ -17,9 +16,9 @@ public record C2SRtsMinePayload(
         byte toolSlot,
         String toolItemId,
         ItemStack toolPrototype,
-        boolean allowPlacedBlockRecovery) implements CustomPacketPayload {
-    public static final Type<C2SRtsMinePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_mine"));
+        boolean allowPlacedBlockRecovery,
+        boolean toolProtectionEnabled) implements CustomPacketPayload {
+    public static final Type<C2SRtsMinePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_mine"), C2SRtsMinePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsMinePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -31,9 +30,10 @@ public record C2SRtsMinePayload(
                 ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
                 buf.writeBoolean(!toolPrototype.isEmpty());
                 if (!toolPrototype.isEmpty()) {
-                    buf.writeItem(toolPrototype);
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, toolPrototype);
                 }
                 buf.writeBoolean(payload.allowPlacedBlockRecovery());
+                buf.writeBoolean(payload.toolProtectionEnabled());
             },
             (buf) -> new C2SRtsMinePayload(
                     buf.readBlockPos(),
@@ -41,7 +41,8 @@ public record C2SRtsMinePayload(
                     buf.readBoolean(),
                     buf.readByte(),
                     buf.readUtf(256),
-                    buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
+                    buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY,
+                    buf.readBoolean(),
                     buf.readBoolean()));
 
     @Override

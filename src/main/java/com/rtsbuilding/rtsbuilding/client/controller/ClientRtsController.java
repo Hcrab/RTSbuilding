@@ -2854,7 +2854,7 @@ public final class ClientRtsController {
 
         double adx = targetX - this.anchorX;
         double adz = targetZ - this.anchorZ;
-        // 浣跨敤姝ｆ柟浣撹竟鐣岄檺鍒朵唬鏇垮渾褰㈣竟鐣岋紝涓庢斁缃檺鍒剁孩绾夸繚鎸佷竴鑷?
+        // 浣跨敤姝ｆ柟浣撹竟鐣岄檺鍒朵唬鏇垮渾褰㈣竟鐣岋紝涓庢斁缃檺鍒剁孩绾夸繚鎸佷竴??
         double halfExtent = this.maxRadius;
         targetX = Mth.clamp(targetX, this.anchorX - halfExtent, this.anchorX + halfExtent);
         targetZ = Mth.clamp(targetZ, this.anchorZ - halfExtent, this.anchorZ + halfExtent);

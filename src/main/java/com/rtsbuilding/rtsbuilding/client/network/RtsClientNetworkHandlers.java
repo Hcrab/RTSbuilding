@@ -6,7 +6,9 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
+import com.rtsbuilding.rtsbuilding.client.screen.PlacementHistoryManager;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
@@ -83,5 +85,9 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleProgressionState(S2CRtsProgressionStatePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyProgressionState(payload));
+    }
+
+    public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
     }
 }

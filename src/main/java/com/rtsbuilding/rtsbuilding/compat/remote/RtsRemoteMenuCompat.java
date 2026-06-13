@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.compat.remote;
 
 
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,7 +21,10 @@ public final class RtsRemoteMenuCompat {
     }
 
     public static boolean isSupportedRemoteMenu(AbstractContainerMenu menu) {
-        return isVanillaChestMenu(menu) || isIronFurnacesMenu(menu) || isGeneratorGaloreMenu(menu);
+        return isVanillaChestMenu(menu)
+                || isIronFurnacesMenu(menu)
+                || isGeneratorGaloreMenu(menu)
+                || RtsSophisticatedStorageCompat.isSupportedRemoteMenu(menu);
     }
 
     public static boolean isVanillaChestMenu(AbstractContainerMenu menu) {
@@ -34,6 +39,10 @@ public final class RtsRemoteMenuCompat {
 
     public static boolean isGeneratorGaloreMenu(AbstractContainerMenu menu) {
         return menu != null && isInstanceOf(menu, "cy.jdkdigital.generatorgalore.common.container.GeneratorMenu");
+    }
+
+    public static AbstractContainerMenu wrapRemoteMenu(AbstractContainerMenu menu) {
+        return RtsSophisticatedStorageCompat.wrapRemoteMenu(menu);
     }
 
     public static void markServerRemoteMenu(ServerPlayer player, AbstractContainerMenu menu) {

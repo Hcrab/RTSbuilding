@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -13,8 +12,7 @@ public record C2SRtsSetQuickSlotPayload(
         byte slot,
         String itemId,
         ItemStack previewStack) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetQuickSlotPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_quick_slot"));
+    public static final Type<C2SRtsSetQuickSlotPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_quick_slot"), C2SRtsSetQuickSlotPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetQuickSlotPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -23,13 +21,13 @@ public record C2SRtsSetQuickSlotPayload(
                 ItemStack preview = payload.previewStack() == null ? ItemStack.EMPTY : payload.previewStack();
                 buf.writeBoolean(!preview.isEmpty());
                 if (!preview.isEmpty()) {
-                    buf.writeItem(preview.copyWithCount(1));
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, preview.copyWithCount(1));
                 }
             },
             (buf) -> new C2SRtsSetQuickSlotPayload(
                     buf.readByte(),
                     buf.readUtf(128),
-                    buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY));
+                    buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

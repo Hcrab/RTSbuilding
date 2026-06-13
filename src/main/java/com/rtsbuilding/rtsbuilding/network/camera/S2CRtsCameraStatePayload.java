@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -20,8 +19,7 @@ public record S2CRtsCameraStatePayload(
         float pitchDeg,
         boolean homeSelection,
         boolean closeRangeAllowed) implements CustomPacketPayload {
-    public static final Type<S2CRtsCameraStatePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_camera_state"));
+    public static final Type<S2CRtsCameraStatePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_camera_state"), S2CRtsCameraStatePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCameraStatePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

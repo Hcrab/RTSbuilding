@@ -6,9 +6,18 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-public record RtsBlueprintBlock(BlockPos relativePos, BlockState state, CompoundTag blockEntityTag, String missingBlockId) {
+public record RtsBlueprintBlock(
+        BlockPos relativePos,
+        BlockState state,
+        CompoundTag blockEntityTag,
+        String missingBlockId,
+        String materialItemId) {
     public RtsBlueprintBlock(BlockPos relativePos, BlockState state, CompoundTag blockEntityTag) {
-        this(relativePos, state, blockEntityTag, "");
+        this(relativePos, state, blockEntityTag, "", "");
+    }
+
+    public RtsBlueprintBlock(BlockPos relativePos, BlockState state, CompoundTag blockEntityTag, String missingBlockId) {
+        this(relativePos, state, blockEntityTag, missingBlockId, "");
     }
 
     public static RtsBlueprintBlock missing(BlockPos relativePos, String missingBlockId, CompoundTag blockEntityTag) {
@@ -16,7 +25,8 @@ public record RtsBlueprintBlock(BlockPos relativePos, BlockState state, Compound
                 relativePos,
                 Blocks.AIR.defaultBlockState(),
                 blockEntityTag == null ? new CompoundTag() : blockEntityTag,
-                missingBlockId == null ? "" : missingBlockId);
+                missingBlockId == null ? "" : missingBlockId,
+                "");
     }
 
     public boolean hasBlockEntityTag() {

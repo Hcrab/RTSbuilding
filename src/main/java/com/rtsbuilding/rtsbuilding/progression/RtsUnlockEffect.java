@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.progression;
 
-
 public record RtsUnlockEffect(Type type, RtsFeature feature, int value) {
     public enum Type {
         UNLOCK_FEATURE,

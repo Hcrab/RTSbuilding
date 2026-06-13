@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.common;
 
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -90,8 +89,8 @@ public final class RtsUltimineCollector {
 
     private static int chebyshevDistance(BlockPos a, BlockPos b) {
         return Math.max(
-                Math.max(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY())),
-                Math.abs(a.getZ() - b.getZ()));
+                Math.abs(a.getX() - b.getX()),
+                Math.max(Math.abs(a.getY() - b.getY()), Math.abs(a.getZ() - b.getZ())));
     }
 
     private static long distanceSquared(BlockPos a, BlockPos b) {

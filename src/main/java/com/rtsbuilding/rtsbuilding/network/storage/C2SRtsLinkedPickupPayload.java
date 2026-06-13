@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -12,16 +11,15 @@ import net.minecraft.world.item.ItemStack;
 public record C2SRtsLinkedPickupPayload(
         ItemStack prototype,
         int amount) implements CustomPacketPayload {
-    public static final Type<C2SRtsLinkedPickupPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_linked_pickup"));
+    public static final Type<C2SRtsLinkedPickupPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_linked_pickup"), C2SRtsLinkedPickupPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsLinkedPickupPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
-                buf.writeItem(payload.prototype());
+                com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, payload.prototype());
                 buf.writeVarInt(payload.amount());
             },
             (buf) -> new C2SRtsLinkedPickupPayload(
-                    buf.readItem(),
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf),
                     buf.readVarInt()));
 
     @Override

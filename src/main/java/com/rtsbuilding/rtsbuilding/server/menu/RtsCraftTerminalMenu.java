@@ -1,22 +1,21 @@
 package com.rtsbuilding.rtsbuilding.server.menu;
 
-
-import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
-
-
-import java.util.ArrayList;
-import java.util.List;
+import com.rtsbuilding.rtsbuilding.server.service.RtsCraftingService;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public final class RtsCraftTerminalMenu extends CraftingMenu {
     public RtsCraftTerminalMenu(int containerId, Inventory inventory, ContainerLevelAccess access) {
@@ -48,9 +47,9 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         if (slotId == 0 && player instanceof ServerPlayer serverPlayer && blueprint != null) {
             ItemStack carried = serverPlayer.containerMenu.getCarried();
             if (!carried.isEmpty()) {
-                RtsStorageManager.recordCraftedOutput(serverPlayer, carried.copy());
+                RtsCraftingService.recordCraftedOutput(serverPlayer, carried.copy());
             }
-            RtsStorageManager.refillCraftGridFromLinked(serverPlayer, this, blueprint, recipe);
+            RtsCraftingService.refillCraftGridFromLinked(serverPlayer, this, blueprint, recipe);
         }
     }
 
@@ -64,7 +63,7 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
     }
 
     private CraftingRecipe resolveCurrentRecipe(ServerPlayer player) {
-        if (player == null) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) {
             return null;
         }
         TransientCraftingContainer input = new TransientCraftingContainer(this, 3, 3);
@@ -75,9 +74,8 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         for (int i = 0; i < stacks.size(); i++) {
             input.setItem(i, stacks.get(i));
         }
-        return player.serverLevel()
-                .getRecipeManager()
-                .getRecipeFor(RecipeType.CRAFTING, input, player.serverLevel())
+        return level.getRecipeManager()
+                .getRecipeFor(RecipeType.CRAFTING, input, level)
                 .orElse(null);
     }
 }

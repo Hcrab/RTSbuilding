@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -17,36 +16,37 @@ public final class PlacedBlockTrackerData extends SavedData {
         this.placedPositions = new LongOpenHashSet();
     }
 
-    private static PlacedBlockTrackerData load(final CompoundTag tag) {
+    private static PlacedBlockTrackerData load(CompoundTag tag) {
         PlacedBlockTrackerData data = new PlacedBlockTrackerData();
-        for (long value : tag.getLongArray(KEY_PLACED)) {
+        long[] packed = tag.getLongArray(KEY_PLACED);
+        for (long value : packed) {
             data.placedPositions.add(value);
         }
         return data;
     }
 
-    public static PlacedBlockTrackerData get(final ServerLevel level) {
+    public static PlacedBlockTrackerData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(PlacedBlockTrackerData::load, PlacedBlockTrackerData::new, DATA_NAME);
     }
 
-    public void mark(final BlockPos pos) {
+    public void mark(BlockPos pos) {
         if (this.placedPositions.add(pos.asLong())) {
             setDirty();
         }
     }
 
-    public void clear(final BlockPos pos) {
+    public void clear(BlockPos pos) {
         if (this.placedPositions.remove(pos.asLong())) {
             setDirty();
         }
     }
 
-    public boolean isPlaced(final BlockPos pos) {
+    public boolean isPlaced(BlockPos pos) {
         return this.placedPositions.contains(pos.asLong());
     }
 
     @Override
-    public CompoundTag save(final CompoundTag tag) {
+    public CompoundTag save(CompoundTag tag) {
         tag.putLongArray(KEY_PLACED, this.placedPositions.toLongArray());
         return tag;
     }

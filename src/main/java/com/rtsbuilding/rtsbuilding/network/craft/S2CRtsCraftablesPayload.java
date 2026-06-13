@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,8 +27,7 @@ public record S2CRtsCraftablesPayload(
         List<Boolean> optionCraftable,
         List<String> optionSummaries,
         List<String> optionMissingSummaries) implements CustomPacketPayload {
-    public static final Type<S2CRtsCraftablesPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_craftables"));
+    public static final Type<S2CRtsCraftablesPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_craftables"), S2CRtsCraftablesPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCraftablesPayload> STREAM_CODEC =
             StreamCodec.of(

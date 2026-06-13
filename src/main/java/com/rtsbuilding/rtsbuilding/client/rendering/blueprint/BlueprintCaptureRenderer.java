@@ -11,10 +11,10 @@ import java.util.List;
 
 /**
  * 钃濆浘鎹曡幏妗嗘覆鏌撳櫒
- * 璐熻矗娓叉煋钃濆浘褰曞埗鏃剁殑閫夋嫨妗嗐€佸寘鍚柟鍧楅珮浜拰鎺掗櫎鏂瑰潡鏍囪
+ * 璐熻矗娓叉煋钃濆浘褰曞埗鏃剁殑閫夋嫨妗嗐€佸寘鍚柟鍧楅珮浜拰鎺掗櫎鏂瑰潡鏍囪??
  */
 public final class BlueprintCaptureRenderer {
-    // 鍖呭惈鏂瑰潡楂樹寒鐨勬渶澶ф暟閲忛檺鍒讹紝閬垮厤鎬ц兘闂
+    // 鍖呭惈鏂瑰潡楂樹寒鐨勬渶澶ф暟閲忛檺鍒讹紝閬垮厤鎬ц兘闂??
     private static final int CAPTURE_BLOCK_HIGHLIGHT_LIMIT = 8192;
     // 鎺掗櫎鏂瑰潡楂樹寒鐨勬渶澶ф暟閲忛檺鍒?
     private static final int CAPTURE_EXCLUDED_HIGHLIGHT_LIMIT = 1024;
@@ -49,9 +49,9 @@ public final class BlueprintCaptureRenderer {
     /**
      * 娓叉煋钃濆浘鎹曡幏閫夋嫨妗嗗拰楂樹寒
      *
-     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻崲
-     * @param lineBuffer 绾挎潯缂撳啿鍖?
-     * @param fillBuffer 濉厖缂撳啿鍖?
+     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻??
+     * @param lineBuffer 绾挎潯缂撳啿??
+     * @param fillBuffer 濉厖缂撳啿??
      */
     public static void renderBlueprintCaptureBox(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
         // 鑾峰彇绗竴涓鐐癸紙璧峰鐐癸級
@@ -66,7 +66,7 @@ public final class BlueprintCaptureRenderer {
             second = first;
         }
 
-        // 璁＄畻鍖呭洿鐩掕竟鐣岋紙鍚戝鎵╁睍0.01鍗曚綅浠ラ伩鍏峑-fighting锛?
+        // 璁＄畻鍖呭洿鐩掕竟鐣岋紙鍚戝鎵╁睍0.01鍗曚綅浠ラ伩鍏峑-fighting??
         double minX = Math.min(first.getX(), second.getX()) - 0.01D;
         double minY = Math.min(first.getY(), second.getY()) + 0.99D;
         double minZ = Math.min(first.getZ(), second.getZ()) - 0.01D;
@@ -74,15 +74,15 @@ public final class BlueprintCaptureRenderer {
         double maxY = Math.max(first.getY(), second.getY()) + 1.01D;
         double maxZ = Math.max(first.getZ(), second.getZ()) + 1.01D;
 
-        // 纭繚Y杞磋寖鍥存湁鏁?
+        // 纭繚Y杞磋寖鍥存湁??
         if (minY > maxY) {
             minY = maxY - 0.02D;
         }
 
-        // 鑾峰彇鍖呭惈鐨勬柟鍧楀垪琛紙鍙楁暟閲忛檺鍒讹級
+        // 鑾峰彇鍖呭惈鐨勬柟鍧楀垪琛紙鍙楁暟閲忛檺鍒讹??
         List<BlockPos> includedBlocks = BlueprintPanel.getCaptureIncludedBlocksForRender(CAPTURE_BLOCK_HIGHLIGHT_LIMIT);
 
-        // 濡傛灉闇€瑕佹覆鏌撴暣浣撳～鍏呬笖涓嶆覆鏌撳崟涓柟鍧楅珮浜紝鍒欑粯鍒跺崐閫忔槑钃濊壊濉厖
+        // 濡傛灉闇€瑕佹覆鏌撴暣浣撳～鍏呬笖涓嶆覆鏌撳崟涓柟鍧楅珮浜紝鍒欑粯鍒跺崐閫忔槑钃濊壊濉??
         if (BlueprintPanel.shouldRenderCapturePreviewFill()
                 && !BlueprintPanel.shouldRenderCaptureBlockHighlights(CAPTURE_BLOCK_HIGHLIGHT_LIMIT)) {
             LevelRenderer.addChainedFilledBoxVertices(
@@ -93,7 +93,7 @@ public final class BlueprintCaptureRenderer {
                     CAPTURE_FILL_R, CAPTURE_FILL_G, CAPTURE_FILL_B, CAPTURE_FILL_A);
         }
 
-        // 娓叉煋姣忎釜鍖呭惈鏂瑰潡鐨勮摑鑹查珮浜?
+        // 娓叉煋姣忎釜鍖呭惈鏂瑰潡鐨勮摑鑹查珮??
         for (BlockPos pos : includedBlocks) {
             LevelRenderer.addChainedFilledBoxVertices(
                     poseStack,
@@ -103,7 +103,7 @@ public final class BlueprintCaptureRenderer {
                     INCLUDED_BLOCK_R, INCLUDED_BLOCK_G, INCLUDED_BLOCK_B, INCLUDED_BLOCK_A);
         }
 
-        // 娓叉煋姣忎釜鎺掗櫎鏂瑰潡鐨勭孩鑹茶竟妗?
+        // 娓叉煋姣忎釜鎺掗櫎鏂瑰潡鐨勭孩鑹茶竟??
         for (BlockPos pos : BlueprintPanel.getCaptureExcludedBlocksForRender(CAPTURE_EXCLUDED_HIGHLIGHT_LIMIT)) {
             LevelRenderer.renderLineBox(
                     poseStack,

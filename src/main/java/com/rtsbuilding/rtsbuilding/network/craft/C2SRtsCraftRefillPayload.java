@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,32 +9,37 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 public record C2SRtsCraftRefillPayload(
-        List<String> blueprintItemIds,
+        List<ItemStack> blueprintStacks,
         String craftedItemId,
         int craftedCount) implements CustomPacketPayload {
     private static final int BLUEPRINT_SIZE = 9;
-    public static final Type<C2SRtsCraftRefillPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_craft_refill"));
+    public static final Type<C2SRtsCraftRefillPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_craft_refill"), C2SRtsCraftRefillPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsCraftRefillPayload> STREAM_CODEC =
             StreamCodec.of(
                     (buf, payload) -> {
-                        List<String> ids = payload.blueprintItemIds();
+                        List<ItemStack> stacks = payload.blueprintStacks();
                         for (int i = 0; i < BLUEPRINT_SIZE; i++) {
-                            String value = ids != null && i < ids.size() ? ids.get(i) : "";
-                            buf.writeUtf(value == null ? "" : value, 128);
+                            ItemStack stack = stacks != null && i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
+                            if (stack == null || stack.isEmpty()) {
+                                buf.writeBoolean(false);
+                                continue;
+                            }
+                            buf.writeBoolean(true);
+                            com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, stack.copyWithCount(1));
                         }
                         buf.writeUtf(payload.craftedItemId() == null ? "" : payload.craftedItemId(), 128);
                         buf.writeVarInt(Math.max(0, payload.craftedCount()));
                     },
                     (buf) -> {
-                        List<String> ids = new ArrayList<>(BLUEPRINT_SIZE);
+                        List<ItemStack> stacks = new ArrayList<>(BLUEPRINT_SIZE);
                         for (int i = 0; i < BLUEPRINT_SIZE; i++) {
-                            ids.add(buf.readUtf(128));
+                            stacks.add(buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY);
                         }
-                        return new C2SRtsCraftRefillPayload(ids, buf.readUtf(128), buf.readVarInt());
+                        return new C2SRtsCraftRefillPayload(stacks, buf.readUtf(128), buf.readVarInt());
                     });
 
     @Override

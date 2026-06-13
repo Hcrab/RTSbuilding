@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -9,8 +8,7 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record C2SRtsSetFunnelPayload(boolean enabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetFunnelPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_funnel"));
+    public static final Type<C2SRtsSetFunnelPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_funnel"), C2SRtsSetFunnelPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetFunnelPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> buf.writeBoolean(payload.enabled()),

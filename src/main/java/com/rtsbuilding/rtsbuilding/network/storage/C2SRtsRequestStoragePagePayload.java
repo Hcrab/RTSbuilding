@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,8 +19,7 @@ public record C2SRtsRequestStoragePagePayload(
         int pageSize,
         boolean pinyinSearchEnabled,
         List<String> localizedSearchMatches) implements CustomPacketPayload {
-    public static final Type<C2SRtsRequestStoragePagePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_request_storage_page"));
+    public static final Type<C2SRtsRequestStoragePagePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_request_storage_page"), C2SRtsRequestStoragePagePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

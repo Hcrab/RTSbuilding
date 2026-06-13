@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,8 +18,7 @@ public record C2SRtsJeiTransferPayload(
         boolean clearGridFirst) implements CustomPacketPayload {
     private static final int GRID_SIZE = 9;
 
-    public static final Type<C2SRtsJeiTransferPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_jei_transfer"));
+    public static final Type<C2SRtsJeiTransferPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_jei_transfer"), C2SRtsJeiTransferPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsJeiTransferPayload> STREAM_CODEC =
             StreamCodec.of(
@@ -34,9 +32,7 @@ public record C2SRtsJeiTransferPayload(
                                 continue;
                             }
                             buf.writeBoolean(true);
-                            ItemStack copy = prototype.copy();
-                            copy.setCount(1);
-                            buf.writeItem(copy);
+                            com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, prototype.copyWithCount(1));
                         }
                         buf.writeBoolean(payload.maxTransfer());
                         buf.writeBoolean(payload.clearGridFirst());
@@ -45,7 +41,7 @@ public record C2SRtsJeiTransferPayload(
                         String recipeId = buf.readUtf(256);
                         List<ItemStack> prototypes = new ArrayList<>(GRID_SIZE);
                         for (int i = 0; i < GRID_SIZE; i++) {
-                            prototypes.add(buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY);
+                            prototypes.add(buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY);
                         }
                         return new C2SRtsJeiTransferPayload(
                                 recipeId,

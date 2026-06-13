@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.progression;
 
-
 public enum RtsFeature {
     CAMERA,
     LINK_STORAGE,
@@ -16,5 +15,6 @@ public enum RtsFeature {
     JEI_TRANSFER,
     FLUID_HANDLING,
     ULTIMINE,
+    AREA_DESTROY,
     BLUEPRINTS
 }

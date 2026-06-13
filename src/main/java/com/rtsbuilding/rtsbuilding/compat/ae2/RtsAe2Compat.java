@@ -65,6 +65,10 @@ public final class RtsAe2Compat {
         return fallbackStack == null || fallbackStack.isEmpty() ? 0L : Math.max(0L, fallbackStack.getCount());
     }
 
+    public static void releaseNetworkHandler(IItemHandler handler) {
+        // Reflection-backed Forge handlers do not hold explicit closeable AE2 resources.
+    }
+
     public static String resolveGuiBindingIconItemId(Level level, BlockPos pos, Direction face, String labelHint) {
         if (level == null || pos == null || !ModList.get().isLoaded("ae2") || !level.hasChunkAt(pos)) {
             return "";

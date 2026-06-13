@@ -20,14 +20,14 @@ import java.util.List;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 
 /**
- * 鎸囧崡闈㈡澘銆?
+ * 鎸囧崡闈㈡澘??
  * <p>
- * 鐙珛鐨勬寚鍗楅潰鏉跨粍浠讹紝澶勭悊鎸囧崡闈㈡澘鐨勬覆鏌撱€佽緭鍏ュ拰鐘舵€佺鐞嗐€?
- * 鐢?{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡銆?
+ * 鐙珛鐨勬寚鍗楅潰鏉跨粍浠讹紝澶勭悊鎸囧崡闈㈡澘鐨勬覆鏌撱€佽緭鍏ュ拰鐘舵€佺鐞嗐??
+ * ??{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡??
  */
 public final class GuidePanel extends RtsWindowPanel {
 
-    // 鈹€鈹€ 鐘舵€?鈹€鈹€
+    // 鈹€鈹€ 鐘舵??鈹€鈹€
     private GuideTypes.GuideContext context = GuideTypes.GuideContext.TOP;
     private int page = 0;
     private int topicScroll = 0;
@@ -54,7 +54,7 @@ public final class GuidePanel extends RtsWindowPanel {
         return super.keyPressed(keyCode, 0, 0);
     }
 
-    // 鈹€鈹€ 娓叉煋 鈹€鈹€
+    // 鈹€鈹€ 娓叉??鈹€鈹€
 
     public void render(GuiGraphics g) {
         if (!this.open) {
@@ -264,7 +264,7 @@ public final class GuidePanel extends RtsWindowPanel {
         this.windowHeight = rect.h();
     }
 
-    // 鈹€鈹€ 鍏紑鏌ヨ鏂规硶 鈹€鈹€
+    // 鈹€鈹€ 鍏紑鏌ヨ鏂规??鈹€鈹€
 
     public GuideTypes.GuideContext getContext() {
         return this.context;
@@ -286,7 +286,7 @@ public final class GuidePanel extends RtsWindowPanel {
         setOpen(true);
     }
 
-    // 鈹€鈹€ 椤堕儴鏍忔寚鍗楁彁绀猴紙鐢?BuilderScreen 璋冪敤锛?鈹€鈹€
+    // 鈹€鈹€ 椤堕儴鏍忔寚鍗楁彁绀猴紙??BuilderScreen 璋冪敤锛?鈹€鈹€
 
     public void renderTopHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         if (this.open && this.context == GuideTypes.GuideContext.TOP) {

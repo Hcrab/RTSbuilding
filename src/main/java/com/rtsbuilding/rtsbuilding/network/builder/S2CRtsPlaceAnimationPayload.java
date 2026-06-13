@@ -1,21 +1,25 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 
 import net.minecraft.core.BlockPos;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Server confirmation that an RTS remote placement succeeded. */
+/**
+ * Server confirmation that an RTS block placement actually succeeded.
+ *
+ * <p>The client treats this as a purely visual cue. It must not drive gameplay
+ * state, inventory counts, undo history, or placement retries; those stay
+ * authoritative on the server-side placement path.
+ */
 public record S2CRtsPlaceAnimationPayload(BlockPos pos, BlockState state) implements CustomPacketPayload {
-    public static final Type<S2CRtsPlaceAnimationPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_place_animation"));
+    public static final Type<S2CRtsPlaceAnimationPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_place_animation"), S2CRtsPlaceAnimationPayload.class);
 
     public S2CRtsPlaceAnimationPayload {
         pos = pos == null ? BlockPos.ZERO : pos;
@@ -27,7 +31,9 @@ public record S2CRtsPlaceAnimationPayload(BlockPos pos, BlockState state) implem
                 buf.writeBlockPos(payload.pos());
                 buf.writeVarInt(Block.getId(payload.state()));
             },
-            (buf) -> new S2CRtsPlaceAnimationPayload(buf.readBlockPos(), Block.stateById(buf.readVarInt())));
+            (buf) -> new S2CRtsPlaceAnimationPayload(
+                    buf.readBlockPos(),
+                    Block.stateById(buf.readVarInt())));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

@@ -1,27 +1,26 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
+import net.minecraft.core.BlockPos;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import net.minecraft.core.BlockPos;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 
 public record C2SRtsAreaDestroyPayload(
         List<BlockPos> positions,
         byte toolSlot,
         String toolItemId,
-        ItemStack toolPrototype) implements CustomPacketPayload {
+        ItemStack toolPrototype,
+        boolean toolProtectionEnabled) implements CustomPacketPayload {
     public static final int MAX_POSITIONS = 32768;
 
-    public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_destroy"));
+    public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_destroy"), C2SRtsAreaDestroyPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaDestroyPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -36,8 +35,9 @@ public record C2SRtsAreaDestroyPayload(
                 ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
                 buf.writeBoolean(!toolPrototype.isEmpty());
                 if (!toolPrototype.isEmpty()) {
-                    buf.writeItem(toolPrototype);
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, toolPrototype);
                 }
+                buf.writeBoolean(payload.toolProtectionEnabled());
             },
             (buf) -> {
                 int size = buf.readVarInt();
@@ -52,7 +52,8 @@ public record C2SRtsAreaDestroyPayload(
                         positions,
                         buf.readByte(),
                         buf.readUtf(256),
-                        buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY);
+                        buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY,
+                        buf.readBoolean());
             });
 
     @Override

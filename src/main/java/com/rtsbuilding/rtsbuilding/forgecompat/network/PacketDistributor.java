@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.forgecompat.network;
 
 
-import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class PacketDistributor {
@@ -9,10 +9,10 @@ public final class PacketDistributor {
     }
 
     public static void sendToServer(final Object message) {
-        RtsPayloadRegistrar.CHANNEL.sendToServer(message);
+        RtsForgePayloadRegistrar.CHANNEL.sendToServer(message);
     }
 
     public static void sendToPlayer(final ServerPlayer player, final Object message) {
-        RtsPayloadRegistrar.sendToPlayer(player, message);
+        RtsForgePayloadRegistrar.sendToPlayer(player, message);
     }
 }

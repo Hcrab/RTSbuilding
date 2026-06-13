@@ -31,13 +31,13 @@ import java.util.*;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 
 /**
- * 搴曢儴闈㈡澘 鈥?鍌ㄥ瓨缃戞牸銆佸垎绫汇€佸悎鎴愩€佹祦浣撱€佽摑鍥剧殑闆嗕腑 UI銆?
+ * 搴曢儴闈㈡澘 ??鍌ㄥ瓨缃戞牸銆佸垎绫汇€佸悎鎴愩€佹祦浣撱€佽摑鍥剧殑闆嗕腑 UI??
  * <p>
- * 鐢?{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡銆?
+ * ??{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡??
  */
 public final class BottomPanel {
 
-    // 鈹€鈹€ 鐘舵€?鈹€鈹€
+    // 鈹€鈹€ 鐘舵??鈹€鈹€
     private BuilderScreen screen;
     private ClientRtsController controller;
 
@@ -70,7 +70,7 @@ public final class BottomPanel {
         this.controller = controller;
     }
 
-    // 鈹€鈹€ 娓叉煋 鈹€鈹€
+    // 鈹€鈹€ 娓叉??鈹€鈹€
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
@@ -188,7 +188,7 @@ public final class BottomPanel {
         RtsCraftFeedbackPopup.render(g, screen.font(), screen.width, this.controller);
     }
 
-    // 鈹€鈹€ 鏍囩椤垫覆鏌?鈹€鈹€
+    // 鈹€鈹€ 鏍囩椤垫覆??鈹€鈹€
 
     private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
         int labelX = layout.panelX() + 8;
@@ -326,7 +326,7 @@ public final class BottomPanel {
         return Component.translatable("screen.rtsbuilding.storage.tab").getString();
     }
 
-    // 鈹€鈹€ 宸ュ叿鏍?鈹溾攢鈹€ 鐑敭鏍?鍥哄畾浣?鈹€鈹€
+    // 鈹€鈹€ 宸ュ叿鏍?鈹溾攢鈹??鐑敭鏍?鍥哄畾浣?鈹€鈹€
 
     private void renderToolArea(GuiGraphics g, int mouseX, int mouseY, int storageX, int rowY, int storageW) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
@@ -436,7 +436,7 @@ public final class BottomPanel {
         g.fill(left, top, left + size, top + size, 0xFFFFC3A3);
     }
 
-    // 鈹€鈹€ 鎺掑簭 / 鍒嗛〉 / 鎼滅储 鈹€鈹€
+    // 鈹€鈹€ 鎺掑??/ 鍒嗛??/ 鎼滅??鈹€鈹€
 
     private void drawSortButton(GuiGraphics g, int x, int y, String label) {
         g.fill(x, y, x + SORT_BUTTON_SIZE, y + SORT_BUTTON_SIZE, 0xAA29323D);
@@ -1172,7 +1172,7 @@ public final class BottomPanel {
         return true;
     }
 
-    // 鈹€鈹€ 鍐呴儴鐐瑰嚮澶勭悊 鈹€鈹€
+    // 鈹€鈹€ 鍐呴儴鐐瑰嚮澶勭??鈹€鈹€
 
     private boolean handleCraftDockClick(double mouseX, double mouseY, int button, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
@@ -1816,7 +1816,7 @@ public final class BottomPanel {
         return sb.toString();
     }
 
-    // 鈹€鈹€ 鐐瑰嚮鍧愭爣瑙ｆ瀽 鈹€鈹€
+    // 鈹€鈹€ 鐐瑰嚮鍧愭爣瑙ｆ??鈹€鈹€
 
     private int resolveClickedCreativeEntry(double mouseX, double mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
@@ -1901,7 +1901,7 @@ public final class BottomPanel {
         return new CategoryTypes.CategoryClick(clicked.token(), clicked.modNamespace(), false);
     }
 
-    // 鈹€鈹€ Pin / 宸ュ叿鏍忚緟鍔?鈹€鈹€
+    // 鈹€鈹€ Pin / 宸ュ叿鏍忚緟??鈹€鈹€
 
     private long resolvePinnedItemCount(String itemId) {
         return this.controller.getStorageTotalCount(itemId);
@@ -1969,7 +1969,7 @@ public final class BottomPanel {
         };
     }
 
-    // 鈹€鈹€ 宸ュ叿 鈹€鈹€
+    // 鈹€鈹€ 宸ュ??鈹€鈹€
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
         return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;

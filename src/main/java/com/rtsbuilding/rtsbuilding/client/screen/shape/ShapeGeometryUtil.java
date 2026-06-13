@@ -12,10 +12,10 @@ import net.minecraft.world.phys.Vec3;
 import java.util.*;
 
 /**
- * 褰㈢姸鍑犱綍璁＄畻宸ュ叿绫汇€?
+ * 褰㈢姸鍑犱綍璁＄畻宸ュ叿绫汇??
  * <p>
- * 鎻愪緵鍚勭寤洪€犲舰鐘讹紙鐩寸嚎銆佹柟褰€佸澹併€佸渾褰€佺珛鏂逛綋锛夌殑鏂瑰潡浣嶇疆璁＄畻锛?
- * 浠ュ強褰㈢姸鏃嬭浆銆侀潰鏈濆悜瑙ｆ瀽銆佸～鍏呮ā寮忓鐞嗙瓑绾嚑浣曡繍绠椼€?
+ * 鎻愪緵鍚勭寤洪€犲舰鐘讹紙鐩寸嚎銆佹柟褰€佸澹併€佸渾褰€佺珛鏂逛綋锛夌殑鏂瑰潡浣嶇疆璁＄畻??
+ * 浠ュ強褰㈢姸鏃嬭浆銆侀潰鏈濆悜瑙ｆ瀽銆佸～鍏呮ā寮忓鐞嗙瓑绾嚑浣曡繍绠椼??
  * 鎵€鏈夋柟娉曞潎涓洪潤鎬佹棤鐘舵€佹柟娉曘€?
  */
 public final class ShapeGeometryUtil {
@@ -23,11 +23,11 @@ public final class ShapeGeometryUtil {
     // ======================== 褰㈢姸鏀剧疆鐩爣鐢熸垚 ========================
 
     /**
-     * 鏍规嵁褰㈢姸鏋勫缓杈撳叆鍜屽～鍏呮ā寮忕敓鎴愭墍鏈夌洰鏍囨柟鍧椾綅缃€?
+     * 鏍规嵁褰㈢姸鏋勫缓杈撳叆鍜屽～鍏呮ā寮忕敓鎴愭墍鏈夌洰鏍囨柟鍧椾綅缃??
      *
-     * @param input    褰㈢姸鏋勫缓杈撳叆锛堝舰鐘剁被鍨嬨€侀敋鐐圭瓑锛?
+     * @param input    褰㈢姸鏋勫缓杈撳叆锛堝舰鐘剁被鍨嬨€侀敋鐐圭瓑??
      * @param fillMode 濉厖妯″紡锛堝疄蹇冦€佺┖蹇冦€侀鏋讹級
-     * @return 鐩爣鏂瑰潡浣嶇疆鍒楄〃
+     * @return 鐩爣鏂瑰潡浣嶇疆鍒???
      */
     public static List<BlockPos> buildShapePositions(ShapeBuildTypes.Input input, ShapeBuildTypes.ShapeFillMode fillMode) {
         LinkedHashSet<BlockPos> targets = new LinkedHashSet<>();
@@ -44,14 +44,14 @@ public final class ShapeGeometryUtil {
         return new ArrayList<>(targets);
     }
 
-    // ======================== 鍗曚釜褰㈢姸绠楁硶 ========================
+    // ======================== 鍗曚釜褰㈢姸绠楁??========================
 
-    /** 鐢熸垚鐩寸嚎鏂瑰潡锛圔resenham 绾挎杩戜技锛?*/
+    /** 鐢熸垚鐩寸嚎鏂瑰潡锛圔resenham 绾挎杩戜技??*/
     public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end) {
         addLineTargets(targets, start, end, false);
     }
 
-    /** 鐢熸垚鐩寸嚎鏂瑰潡锛岃繛鎺ユā寮忎細濉叆妗ユ帴鏂瑰潡锛岄伩鍏嶆枩鍚戠嚎娈垫柇寮€銆?*/
+    /** 鐢熸垚鐩寸嚎鏂瑰潡锛岃繛鎺ユā寮忎細濉叆妗ユ帴鏂瑰潡锛岄伩鍏嶆枩鍚戠嚎娈垫柇寮€??*/
     public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, boolean connected) {
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
@@ -178,12 +178,12 @@ public final class ShapeGeometryUtil {
         addRotatedPlaneRectangleTargets(targets, start, axes[0], axes[1], aOffset, bOffset, fillMode, 0);
     }
 
-    /** 鐢熸垚澧欏鏂瑰潡 */
+    /** 鐢熸垚澧欏鏂瑰??*/
     public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
         addWallTargets(targets, start, end, heightOffset, fillMode, false);
     }
 
-    /** 鐢熸垚澧欏鏂瑰潡锛岃繛鎺ユā寮忎細璁╁簳閮ㄧ嚎娈典繚鎸侀潰鐩搁偦銆?*/
+    /** 鐢熸垚澧欏鏂瑰潡锛岃繛鎺ユā寮忎細璁╁簳閮ㄧ嚎娈典繚鎸侀潰鐩搁偦??*/
     public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
             ShapeBuildTypes.ShapeFillMode fillMode, boolean connected) {
         LinkedHashSet<BlockPos> baseLine = new LinkedHashSet<>();
@@ -208,9 +208,9 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    /** 鐢熸垚鍦嗗舰鏂瑰潡 */
+    /** 鐢熸垚鍦嗗舰鏂瑰??*/
     public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeBuildTypes.ShapeFillMode fillMode) {
-        int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑害
+        int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑??
         Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.CIRCLE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
@@ -247,7 +247,7 @@ public final class ShapeGeometryUtil {
 
     /** 鐢熸垚绔嬫柟浣撴柟鍧?*/
     public static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
-        int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑害
+        int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑??
         int xOffset = clampShapeOffset(end.getX() - start.getX());
         int zOffset = clampShapeOffset(end.getZ() - start.getZ());
         int yOffset = clampShapeOffset(heightOffset);
@@ -296,7 +296,7 @@ public final class ShapeGeometryUtil {
         }
     }
 
-    // ======================== 骞抽潰鐭╁舰锛堝甫鏃嬭浆锛?========================
+    // ======================== 骞抽潰鐭╁舰锛堝甫鏃嬭浆??========================
 
     /** 鐢熸垚甯︽棆杞殑骞抽潰鐭╁舰鏂瑰潡 */
     public static void addRotatedPlaneRectangleTargets(Set<BlockPos> targets, BlockPos start, Direction axisA, Direction axisB,
@@ -327,7 +327,7 @@ public final class ShapeGeometryUtil {
                 || !filledCells.contains(new PlaneCell(cell.a(), cell.b() - 1));
     }
 
-    /** 鏋勫缓鏃嬭浆鐭╁舰濉厖鍗曞厓鏍奸泦鍚?*/
+    /** 鏋勫缓鏃嬭浆鐭╁舰濉厖鍗曞厓鏍奸泦??*/
     public static Set<PlaneCell> buildRotatedRectangleFillCells(int minA, int maxA, int minB, int maxB, int degrees) {
         Set<PlaneCell> filled = new HashSet<>();
         int normalized = Math.floorMod(degrees, 360);
@@ -379,7 +379,7 @@ public final class ShapeGeometryUtil {
         return fillPlaneInteriorHoles(filled);
     }
 
-    /** 閫嗘棆杞娴嬪崟鍏冩牸鏄惁鍦ㄨ竟鐣屽唴 */
+    /** 閫嗘棆杞娴嬪崟鍏冩牸鏄惁鍦ㄨ竟鐣屽??*/
     public static boolean isInverseRotatedInsideCellBounds(
             int targetA, int targetB,
             int minA, int maxA, int minB, int maxB,
@@ -451,7 +451,7 @@ public final class ShapeGeometryUtil {
         return dense;
     }
 
-    /** 灏嗗閮ㄥ崟鍏冩牸鍔犲叆闃熷垪 */
+    /** 灏嗗閮ㄥ崟鍏冩牸鍔犲叆闃熷??*/
     private static void queueOutsidePlaneCell(
             PlaneCell cell, Set<PlaneCell> filledCells, Set<PlaneCell> outside,
             ArrayDeque<PlaneCell> queue, int minA, int maxA, int minB, int maxB) {
@@ -461,14 +461,14 @@ public final class ShapeGeometryUtil {
         queue.addLast(cell);
     }
 
-    // ======================== 鍧愭爣/鍚戦噺宸ュ叿 ========================
+    // ======================== 鍧愭??鍚戦噺宸ュ叿 ========================
 
-    /** 闄愬埗褰㈢姸鍋忕Щ鍊?*/
+    /** 闄愬埗褰㈢姸鍋忕Щ??*/
     public static int clampShapeOffset(int value) {
         return Mth.clamp(value, -BuilderScreenConstants.SHAPE_MAX_OFFSET, BuilderScreenConstants.SHAPE_MAX_OFFSET);
     }
 
-    /** 璁＄畻鏂瑰悜涓婄殑鎶曞奖鍒嗛噺 */
+    /** 璁＄畻鏂瑰悜涓婄殑鎶曞奖鍒嗛??*/
     public static int dotDelta(int dx, int dy, int dz, Direction axis) {
         return (dx * axis.getStepX()) + (dy * axis.getStepY()) + (dz * axis.getStepZ());
     }
@@ -481,7 +481,7 @@ public final class ShapeGeometryUtil {
         return origin.offset(dx, dy, dz);
     }
 
-    /** 鏃嬭浆骞抽潰鍋忕Щ閲?*/
+    /** 鏃嬭浆骞抽潰鍋忕Щ??*/
     public static RotatedOffset rotatePlaneOffset(int a, int b, double centerA, double centerB, int degrees) {
         int normalized = Math.floorMod(degrees, 360);
         if (normalized == 0) return new RotatedOffset(a, b);
@@ -494,7 +494,7 @@ public final class ShapeGeometryUtil {
 
     // ======================== 闈㈡湞鍚戣В鏋?========================
 
-    /** 瑙ｆ瀽褰㈢姸鐨勬瀯寤哄熀鍑嗛潰 */
+    /** 瑙ｆ瀽褰㈢姸鐨勬瀯寤哄熀鍑嗛??*/
     public static Direction resolveShapeBuildFace(ClientRtsController.BuildShape shape, Direction clickedFace, Vec3 rayDir) {
         if (shape == null) return clickedFace == null ? Direction.UP : clickedFace;
         return switch (shape) {
@@ -503,13 +503,13 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    /** 瑙ｆ瀽褰㈢姸鐨勬斁缃潰 */
+    /** 瑙ｆ瀽褰㈢姸鐨勬斁缃??*/
     public static Direction resolveShapePlacementFace(ClientRtsController.BuildShape shape, Direction clickedFace, Vec3 rayDir) {
         if (clickedFace != null) return clickedFace;
         return resolveShapeBuildFace(shape, clickedFace, rayDir);
     }
 
-    /** 瑙ｆ瀽褰㈢姸鐨勫钩闈㈣酱鍚?*/
+    /** 瑙ｆ瀽褰㈢姸鐨勫钩闈㈣酱??*/
     public static Direction[] resolveShapePlaneAxes(ClientRtsController.BuildShape shape, Direction face) {
         if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
             return new Direction[] { Direction.EAST, Direction.SOUTH };
@@ -525,14 +525,14 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    /** 鍒ゆ柇褰㈢姸鏄惁闇€瑕佺涓夌偣锛堜粎绔嬫柟浣撻渶瑕侊級 */
+    /** 鍒ゆ柇褰㈢姸鏄惁闇€瑕佺涓夌偣锛堜粎绔嬫柟浣撻渶瑕侊??*/
     public static boolean requiresThirdPoint(ClientRtsController.BuildShape shape) {
         return shape == ClientRtsController.BuildShape.BOX;
     }
 
-    // ======================== 鏀剧疆鍛戒腑缁撴灉鐢熸垚 ========================
+    // ======================== 鏀剧疆鍛戒腑缁撴灉鐢熸??========================
 
-    /** 鍒涘缓褰㈢姸鏀剧疆鐨?BlockHitResult */
+    /** 鍒涘缓褰㈢姸鏀剧疆??BlockHitResult */
     public static BlockHitResult createShapePlacementHit(BlockPos pos, Direction face) {
         Vec3 faceNormal = Vec3.atLowerCornerOf(face.getNormal());
         Vec3 hitVec = Vec3.atCenterOf(pos).add(faceNormal.scale(0.5D));
@@ -557,7 +557,7 @@ public final class ShapeGeometryUtil {
     /** 鏃嬭浆鍋忕Щ閲?*/
     public record RotatedOffset(int a, int b) {}
 
-    /** 骞抽潰鍗曞厓鏍?*/
+    /** 骞抽潰鍗曞厓??*/
     public record PlaneCell(int a, int b) {}
 
     private ShapeGeometryUtil() {

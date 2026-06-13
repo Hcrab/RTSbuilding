@@ -1,16 +1,19 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
 /**
- * Player-defined shortcut to reopen an external block GUI from RTS mode.
+ * 玩家自定义的外部 GUI 快捷绑定??
  *
- * <p>The binding stores the target block and display metadata only. Validation,
- * menu opening, and face-specific interaction behavior stay in the manager.
+ * <p>存储一个目标方块和显示元数据，允许??RTS 模式一键打开容器??GUI??
+ * @param pos       目标方块坐标
+ * @param dimension 目标方块所在维??
+ * @param label     玩家自定义的显示标签
+ * @param itemId    用于图标的物??ID
+ * @param face      与方块交互的朝向
  */
-record GuiBinding(BlockPos pos, ResourceKey<Level> dimension, String label, String itemId, Direction face) {
+public record GuiBinding(BlockPos pos, ResourceKey<Level> dimension, String label, String itemId, Direction face) {
 }

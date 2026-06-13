@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
-
 public record OverflowOutcome(int movedToInventory, int dropped) {
     public static final OverflowOutcome EMPTY = new OverflowOutcome(0, 0);
 

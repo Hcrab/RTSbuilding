@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import net.minecraft.core.BlockPos;
@@ -29,8 +28,7 @@ public record C2SRtsPlacePayload(
         double rayDirZ,
         boolean quickBuild,
         boolean forceEmptyHand) implements CustomPacketPayload {
-    public static final Type<C2SRtsPlacePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place"));
+    public static final Type<C2SRtsPlacePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_place"), C2SRtsPlacePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsPlacePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -46,7 +44,7 @@ public record C2SRtsPlacePayload(
                 ItemStack itemPrototype = payload.itemPrototype() == null ? ItemStack.EMPTY : payload.itemPrototype();
                 buf.writeBoolean(!itemPrototype.isEmpty());
                 if (!itemPrototype.isEmpty()) {
-                    buf.writeItem(itemPrototype);
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, itemPrototype);
                 }
                 buf.writeDouble(payload.rayOriginX());
                 buf.writeDouble(payload.rayOriginY());
@@ -67,7 +65,7 @@ public record C2SRtsPlacePayload(
                     buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readUtf(128),
-                    buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY,
+                    buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY,
                     buf.readDouble(),
                     buf.readDouble(),
                     buf.readDouble(),

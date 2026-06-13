@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,11 +10,17 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 public record S2CRtsStoragePagePayload(
         boolean linked,
         String linkedName,
         List<Long> linkedPositions,
+        List<String> linkedNames,
+        List<Byte> linkedModes,
+        List<Integer> linkedPriorities,
+        List<String> linkedIconItemIds,
+        List<Boolean> linkedWorldAvailable,
         int page,
         int totalPages,
         int totalEntries,
@@ -24,6 +29,7 @@ public record S2CRtsStoragePagePayload(
         byte sort,
         boolean ascending,
         boolean autoStoreMinedDrops,
+        boolean useBdNetwork,
         List<String> categories,
         List<ItemStack> itemStacks,
         List<Long> counts,
@@ -50,8 +56,7 @@ public record S2CRtsStoragePagePayload(
     public static final byte RECENT_FLUID_USED = 4;
     public static final byte RECENT_FLUID_CRAFTED = 5;
 
-    public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_storage_page"));
+    public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_storage_page"), S2CRtsStoragePagePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
@@ -61,6 +66,21 @@ public record S2CRtsStoragePagePayload(
                 for (Long packedPos : payload.linkedPositions()) {
                     buf.writeLong(packedPos == null ? 0L : packedPos.longValue());
                 }
+                int linkedDetailSize = Math.min(
+                        payload.linkedPositions().size(),
+                        Math.min(payload.linkedNames().size(),
+                                Math.min(payload.linkedModes().size(),
+                                        Math.min(payload.linkedPriorities().size(),
+                                                Math.min(payload.linkedIconItemIds().size(),
+                                                        payload.linkedWorldAvailable().size())))));
+                buf.writeVarInt(linkedDetailSize);
+                for (int i = 0; i < linkedDetailSize; i++) {
+                    buf.writeUtf(payload.linkedNames().get(i) == null ? "" : payload.linkedNames().get(i), 128);
+                    buf.writeByte(payload.linkedModes().get(i) == null ? 0 : payload.linkedModes().get(i));
+                    buf.writeVarInt(payload.linkedPriorities().get(i) == null ? 0 : payload.linkedPriorities().get(i));
+                    buf.writeUtf(payload.linkedIconItemIds().get(i) == null ? "" : payload.linkedIconItemIds().get(i), 128);
+                    buf.writeBoolean(Boolean.TRUE.equals(payload.linkedWorldAvailable().get(i)));
+                }
                 buf.writeVarInt(payload.page());
                 buf.writeVarInt(payload.totalPages());
                 buf.writeVarInt(payload.totalEntries());
@@ -69,6 +89,7 @@ public record S2CRtsStoragePagePayload(
                 buf.writeByte(payload.sort());
                 buf.writeBoolean(payload.ascending());
                 buf.writeBoolean(payload.autoStoreMinedDrops());
+                buf.writeBoolean(payload.useBdNetwork());
 
                 buf.writeVarInt(payload.categories().size());
                 for (String category : payload.categories()) {
@@ -78,7 +99,7 @@ public record S2CRtsStoragePagePayload(
                 int size = Math.min(payload.itemStacks().size(), payload.counts().size());
                 buf.writeVarInt(size);
                 for (int i = 0; i < size; i++) {
-                    buf.writeItem(payload.itemStacks().get(i));
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, payload.itemStacks().get(i));
                     buf.writeVarLong(payload.counts().get(i));
                 }
 
@@ -120,7 +141,7 @@ public record S2CRtsStoragePagePayload(
                     ItemStack preview = quickSlotPreview == null ? ItemStack.EMPTY : quickSlotPreview;
                     buf.writeBoolean(!preview.isEmpty());
                     if (!preview.isEmpty()) {
-                        buf.writeItem(preview.copyWithCount(1));
+                        com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, preview.copyWithCount(1));
                     }
                 }
 
@@ -150,6 +171,19 @@ public record S2CRtsStoragePagePayload(
                 for (int i = 0; i < linkedPosSize; i++) {
                     linkedPositions.add(buf.readLong());
                 }
+                int linkedDetailSize = buf.readVarInt();
+                List<String> linkedNames = new ArrayList<>(linkedDetailSize);
+                List<Byte> linkedModes = new ArrayList<>(linkedDetailSize);
+                List<Integer> linkedPriorities = new ArrayList<>(linkedDetailSize);
+                List<String> linkedIconItemIds = new ArrayList<>(linkedDetailSize);
+                List<Boolean> linkedWorldAvailable = new ArrayList<>(linkedDetailSize);
+                for (int i = 0; i < linkedDetailSize; i++) {
+                    linkedNames.add(buf.readUtf(128));
+                    linkedModes.add(buf.readByte());
+                    linkedPriorities.add(buf.readVarInt());
+                    linkedIconItemIds.add(buf.readUtf(128));
+                    linkedWorldAvailable.add(buf.readBoolean());
+                }
                 int page = buf.readVarInt();
                 int totalPages = buf.readVarInt();
                 int totalEntries = buf.readVarInt();
@@ -158,6 +192,7 @@ public record S2CRtsStoragePagePayload(
                 byte sort = buf.readByte();
                 boolean ascending = buf.readBoolean();
                 boolean autoStoreMinedDrops = buf.readBoolean();
+                boolean useBdNetwork = buf.readBoolean();
                 int categorySize = buf.readVarInt();
                 List<String> categories = new ArrayList<>(categorySize);
                 for (int i = 0; i < categorySize; i++) {
@@ -167,7 +202,7 @@ public record S2CRtsStoragePagePayload(
                 List<ItemStack> itemStacks = new ArrayList<>(size);
                 List<Long> counts = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) {
-                    itemStacks.add(buf.readItem());
+                    itemStacks.add(com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf));
                     counts.add(buf.readVarLong());
                 }
                 int totalItemSize = buf.readVarInt();
@@ -205,7 +240,7 @@ public record S2CRtsStoragePagePayload(
                 int quickSlotPreviewSize = buf.readVarInt();
                 List<ItemStack> quickSlotPreviews = new ArrayList<>(quickSlotPreviewSize);
                 for (int i = 0; i < quickSlotPreviewSize; i++) {
-                    quickSlotPreviews.add(buf.readBoolean() ? buf.readItem() : ItemStack.EMPTY);
+                    quickSlotPreviews.add(buf.readBoolean() ? com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY);
                 }
                 int guiBindingSize = buf.readVarInt();
                 List<String> guiBindingLabels = new ArrayList<>(guiBindingSize);
@@ -229,6 +264,11 @@ public record S2CRtsStoragePagePayload(
                         linked,
                         linkedName,
                         linkedPositions,
+                        linkedNames,
+                        linkedModes,
+                        linkedPriorities,
+                        linkedIconItemIds,
+                        linkedWorldAvailable,
                         page,
                         totalPages,
                         totalEntries,
@@ -237,6 +277,7 @@ public record S2CRtsStoragePagePayload(
                         sort,
                         ascending,
                         autoStoreMinedDrops,
+                        useBdNetwork,
                         categories,
                         itemStacks,
                         counts,
@@ -259,7 +300,7 @@ public record S2CRtsStoragePagePayload(
             });
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public @NotNull Type<? extends CustomPacketPayload> type() {
         return TYPE;
     }
 }

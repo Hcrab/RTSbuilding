@@ -24,17 +24,17 @@ import java.util.List;
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
 
 /**
- * 澶勭悊 RTS 闀滃ご鍜岃緭鍏ヤ氦浜掔殑鐘舵€佺鐞嗐€?
+ * 澶勭??RTS 闀滃ご鍜岃緭鍏ヤ氦浜掔殑鐘舵€佺鐞嗐??
  * <p>
- * 鍖呭惈榧犳爣鎷栨嫿(鍙抽敭鏃嬭浆銆佷腑閿钩绉?鎷惧彇)銆佹寲鐭垮姩浣溿€侀敭鐩橀暅澶存帶鍒跺拰閿洏鎷栨嫿骞崇Щ鐨勭姸鎬併€?
+ * 鍖呭惈榧犳爣鎷栨??鍙抽敭鏃嬭浆銆佷腑閿钩??鎷惧??銆佹寲鐭垮姩浣溿€侀敭鐩橀暅澶存帶鍒跺拰閿洏鎷栨嫿骞崇Щ鐨勭姸鎬併??
  * 鎵€鏈夌姸鎬佸湪 BuilderScreen 鐨勪簨浠舵柟娉曚腑琚娇鐢紝鏈被璐熻矗瀛樺偍鍜岀鐞嗚繖浜涚姸鎬侊紝
- * 骞舵彁渚涜緟鍔╂柟娉曡繘琛岃緭鍏ュ垽鏂拰鍔ㄤ綔鎵ц銆?
+ * 骞舵彁渚涜緟鍔╂柟娉曡繘琛岃緭鍏ュ垽鏂拰鍔ㄤ綔鎵ц??
  */
 public final class CameraInputHandler {
     private BuilderScreen screen;
     private ClientRtsController controller;
 
-    // ======================== 榧犳爣/闀滃ご鐘舵€?========================
+    // ======================== 榧犳??闀滃ご鐘舵??========================
 
     /** 鍙抽敭鎷栨嫿鏄惁婵€娲?*/
     private boolean rightPressActive = false;
@@ -42,39 +42,39 @@ public final class CameraInputHandler {
     private int rightPressButton = -1;
     /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戜富瑕佸姩浣?*/
     private boolean rightPressCanPrimary = false;
-    /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戞棆杞?*/
+    /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戞棆??*/
     private boolean rightPressCanRotate = false;
     /** 鏄惁宸插彂鐢熸棆杞嫋鎷斤紙鐢ㄤ簬鍖哄垎鐐瑰嚮鍜屾嫋鎷斤級 */
     private boolean rightDragRotated = false;
-    /** 鍙抽敭鎷栨嫿绱Н璺濈 */
+    /** 鍙抽敭鎷栨嫿绱Н璺濈??*/
     private double rightDragDistance = 0.0D;
 
     /** 涓敭鎷栨嫿鏄惁婵€娲?*/
     private boolean middlePressActive = false;
     /** 瑙﹀彂涓敭鎷栨嫿鐨勯紶鏍囨寜閽?*/
     private int middlePressButton = -1;
-    /** 褰撳墠涓敭鏄惁鍙钩绉?*/
+    /** 褰撳墠涓敭鏄惁鍙钩??*/
     private boolean middlePressCanPan = false;
     /** 褰撳墠涓敭鏄惁鍙嬀鍙栨柟鍧?*/
     private boolean middlePressCanPick = false;
-    /** 涓敭鎷栨嫿绱Н璺濈 */
+    /** 涓敭鎷栨嫿绱Н璺濈??*/
     private double middleDragDistance = 0.0D;
 
-    /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 X (鐢ㄤ簬璁＄畻澧為噺) */
+    /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 X (鐢ㄤ簬璁＄畻澧為?? */
     private double keyboardPanLastMouseX = Double.NaN;
     /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 Y */
     private double keyboardPanLastMouseY = Double.NaN;
 
     /** 宸﹂敭鎸栫熆鏄惁婵€娲?*/
     private boolean leftMiningActive = false;
-    /** 鎸栫熆婵€娲绘椂鐨勯紶鏍囨寜閽紙閿洏瑙﹀彂鏃朵负 -1锛?*/
+    /** 鎸栫熆婵€娲绘椂鐨勯紶鏍囨寜閽紙閿洏瑙﹀彂鏃朵负 -1??*/
     private int activeMiningMouseButton = -1;
     /** 鎸栫熆鏄惁鐢遍敭鐩樿Е鍙?*/
     private boolean activeMiningKeyboard = false;
 
-    /** 闀滃ご鍚戜笂鍔ㄤ綔鏄惁姝ｅ湪鎸変綇 */
+    /** 闀滃ご鍚戜笂鍔ㄤ綔鏄惁姝ｅ湪鎸変??*/
     private boolean cameraUpActionHeld = false;
-    /** 闀滃ご鍚戜笅鍔ㄤ綔鏄惁姝ｅ湪鎸変綇 */
+    /** 闀滃ご鍚戜笅鍔ㄤ綔鏄惁姝ｅ湪鎸変??*/
     private boolean cameraDownActionHeld = false;
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
@@ -116,7 +116,7 @@ public final class CameraInputHandler {
                 && !isPickBlockActionMouse(button);
     }
 
-    // ======================== 闀滃ご/杈撳叆鐘舵€佹煡璇?========================
+    // ======================== 闀滃ご/杈撳叆鐘舵€佹煡??========================
 
     public boolean isCameraUpActionHeld() {
         return this.cameraUpActionHeld || ClientKeyMappings.CAMERA_UP.isDown();
@@ -194,8 +194,8 @@ public final class CameraInputHandler {
     }
 
     /**
-     * 缁撴潫鍙抽敭鎷栨嫿锛岃繑鍥?true 琛ㄧず闇€瑕佽皟鐢?runPrimaryActionAt銆?
-     * 浠呭綋鎷栨嫿鏈彂鐢熸棆杞笖鍙Е鍙戜富瑕佸姩浣滄椂杩斿洖 true銆?
+     * 缁撴潫鍙抽敭鎷栨嫿锛岃繑??true 琛ㄧず闇€瑕佽皟??runPrimaryActionAt??
+     * 浠呭綋鎷栨嫿鏈彂鐢熸棆杞笖鍙Е鍙戜富瑕佸姩浣滄椂杩斿??true??
      */
     public boolean endRightPress(double mouseX, double mouseY, int button) {
         if (!this.rightPressActive || button != this.rightPressButton) {
@@ -209,7 +209,7 @@ public final class CameraInputHandler {
         if (this.rightDragRotated) {
             this.rightDragRotated = false;
             this.rightDragDistance = 0.0D;
-            return false; // 宸插彂鐢熸棆杞紝涓嶈Е鍙戝姩浣?
+            return false; // 宸插彂鐢熸棆杞紝涓嶈Е鍙戝姩??
         }
         if (!screen.isWorldArea(mouseX, mouseY) || !canPrimary) {
             this.rightDragDistance = 0.0D;
@@ -242,8 +242,8 @@ public final class CameraInputHandler {
     }
 
     /**
-     * 缁撴潫涓敭鎷栨嫿锛岃繑鍥?true 琛ㄧず浜嬩欢宸插鐞嗐€?
-     * 濡傛灉涓敭鎸変笅鏃舵湭鍙戠敓鎷栨嫿涓斿彲鎷惧彇锛屽垯瑙﹀彂 tryPickHoveredBlockForPlacement銆?
+     * 缁撴潫涓敭鎷栨嫿锛岃繑??true 琛ㄧず浜嬩欢宸插鐞嗐€?
+     * 濡傛灉涓敭鎸変笅鏃舵湭鍙戠敓鎷栨嫿涓斿彲鎷惧彇锛屽垯瑙﹀??tryPickHoveredBlockForPlacement??
      */
     public boolean endMiddlePress(double mouseX, double mouseY, int button) {
         if (this.middlePressActive && button == this.middlePressButton) {
@@ -377,7 +377,7 @@ public final class CameraInputHandler {
         return this.activeMiningMouseButton;
     }
 
-    // ======================== 榧犳爣鎷惧彇鏂瑰潡鍒扮墿鍝佹爮 ========================
+    // ======================== 榧犳爣鎷惧彇鏂瑰潡鍒扮墿鍝佹??========================
 
     public boolean tryPickHoveredBlockForPlacement() {
         Minecraft mc = screen.getMinecraft();
@@ -406,7 +406,7 @@ public final class CameraInputHandler {
         return true;
     }
 
-    // ======================== 杈撳叆鐏垫晱搴?========================
+    // ======================== 杈撳叆鐏垫晱??========================
 
     public void updateInputSensitivityFromMouse(double mouseX) {
         int menuW = Math.min(300, screen.width - 24);
@@ -418,7 +418,7 @@ public final class CameraInputHandler {
         this.controller.setInputSensitivityByFraction(fraction);
     }
 
-    // ======================== Modifier 鏌ヨ ========================
+    // ======================== Modifier 鏌ヨ??========================
 
     private static boolean isAltDown() {
         Minecraft mc = Minecraft.getInstance();

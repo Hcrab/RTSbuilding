@@ -1,18 +1,22 @@
 package com.rtsbuilding.rtsbuilding;
 
 
-import com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap;
 import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
+import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
+import com.rtsbuilding.rtsbuilding.server.service.RtsBenchmarkCommand;
+import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
@@ -53,13 +57,14 @@ public final class RtsbuildingMod {
         modEventBus.addListener(this::commonSetup);
 
         ENTITY_TYPES.register(modEventBus);
-        RtsPayloadRegistrar.register();
+        RtsForgePayloadRegistrar.register();
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(ModLoadingContext.get()));
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
+        RtsAPIImpl.init();
         LOGGER.info("RTSBuilding common setup complete");
     }
 
@@ -84,7 +89,7 @@ public final class RtsbuildingMod {
 
         @SubscribeEvent
         static void onServerStarted(final ServerStartedEvent event) {
-            RtsStorageManager.warmCreativeTabCaches(event.getServer());
+            RtsSessionService.warmCreativeTabCaches(event.getServer());
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
         }
 
@@ -94,8 +99,9 @@ public final class RtsbuildingMod {
                 RtsCameraManager.stopIfActive(serverPlayer);
                 BlueprintPlacementService.clear(serverPlayer);
                 RtsDamageFeedbackManager.forget(serverPlayer);
-                RtsStorageManager.onPlayerLogout(serverPlayer);
+                RtsSessionService.onPlayerLogout(serverPlayer);
                 RtsProgressionManager.onPlayerLogout(serverPlayer);
+                ServerHistoryManager.clear(serverPlayer.getUUID());
             }
         }
 
@@ -103,7 +109,7 @@ public final class RtsbuildingMod {
         static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 RtsCameraManager.stopIfActive(serverPlayer);
-                RtsStorageManager.onPlayerChangedDimension(serverPlayer);
+                RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
             }
         }
 
@@ -113,12 +119,17 @@ public final class RtsbuildingMod {
                 return;
             }
             if (event.phase == TickEvent.Phase.START) {
-                RtsStorageManager.onPlayerTickPre(serverPlayer);
+                RtsSessionService.onPlayerTickPre(serverPlayer);
             } else {
-                RtsStorageManager.onPlayerTickPost(serverPlayer);
+                RtsSessionService.onPlayerTickPost(serverPlayer);
                 RtsDamageFeedbackManager.tick(serverPlayer);
                 BlueprintPlacementService.tick(serverPlayer);
             }
+        }
+
+        @SubscribeEvent
+        static void onRegisterCommands(final RegisterCommandsEvent event) {
+            RtsBenchmarkCommand.register(event.getDispatcher());
         }
 
         @SubscribeEvent
@@ -128,7 +139,7 @@ public final class RtsbuildingMod {
             }
             var server = ServerLifecycleHooks.getCurrentServer();
             if (server != null) {
-                RtsStorageManager.tickMining(server);
+                RtsSessionService.tickMining(server);
             }
         }
     }

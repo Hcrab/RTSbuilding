@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,8 +24,7 @@ public record S2CRtsProgressionStatePayload(
         List<String> unlockedNodes,
         List<String> unlockableNodes,
         List<String> costOverrides) implements CustomPacketPayload {
-    public static final Type<S2CRtsProgressionStatePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_progression_state"));
+    public static final Type<S2CRtsProgressionStatePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_progression_state"), S2CRtsProgressionStatePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsProgressionStatePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

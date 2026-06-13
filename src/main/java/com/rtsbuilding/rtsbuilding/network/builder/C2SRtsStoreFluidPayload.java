@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -16,8 +15,7 @@ public record C2SRtsStoreFluidPayload(
     public static final byte SOURCE_TOOL_SLOT = 1;
     public static final byte SOURCE_PIN_ITEM = 2;
 
-    public static final Type<C2SRtsStoreFluidPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_store_fluid"));
+    public static final Type<C2SRtsStoreFluidPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_store_fluid"), C2SRtsStoreFluidPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsStoreFluidPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

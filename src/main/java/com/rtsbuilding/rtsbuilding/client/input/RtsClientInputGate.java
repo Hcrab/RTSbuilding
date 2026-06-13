@@ -119,7 +119,7 @@ public final class RtsClientInputGate {
     private static final Set<Integer> shiftImportDragSlots = new HashSet<>();
     private static Screen pendingCraftRefillScreen;
     private static int pendingCraftRefillButton = -1;
-    private static List<String> pendingCraftRefillBlueprint = List.of();
+    private static List<ItemStack> pendingCraftRefillBlueprint = List.of();
     private static String pendingCraftResultItemId = "";
     private static int pendingCraftResultCount;
     private static final ItemStack[] RETURN_QUEUE = new ItemStack[RETURN_SLOTS];
@@ -1376,12 +1376,11 @@ public final class RtsClientInputGate {
             return;
         }
 
-        List<String> blueprint = new ArrayList<>(9);
+        List<ItemStack> blueprint = new ArrayList<>(9);
         for (int i = 0; i < 9; i++) {
             Slot slot = menu.getSlot(1 + i);
             ItemStack stack = slot == null ? ItemStack.EMPTY : slot.getItem();
-            var itemId = stack.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(stack.getItem());
-            blueprint.add(itemId == null ? "" : itemId.toString());
+            blueprint.add(stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1));
         }
 
         Slot resultSlot = menu.getSlot(0);

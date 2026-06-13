@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-
 public enum RtsStorageSort {
     QUANTITY,
     MOD,

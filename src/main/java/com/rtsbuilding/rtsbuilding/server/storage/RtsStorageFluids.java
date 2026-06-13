@@ -1,17 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
-
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.RtsStorageManager;
-
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
+import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -34,6 +27,10 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.items.IItemHandler;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 /**
  * Owns RTS storage fluid mutation and linked-fluid behavior.
  *
@@ -41,10 +38,7 @@ import net.minecraftforge.items.IItemHandler;
  * fluid handler fill/drain behavior, fluid container draining, target tank
  * filling, and world fluid placement rules. It deliberately does not own item
  * transfer, crafting, storage page dispatch, or packet registration; callers
- * pass already-resolved item handlers, use {@link RtsStorageTransfers} for item
  * extraction/refund, and keep session save/page refresh in
- * {@link RtsStorageManager}. Linked fluid capability probing stays in
- * {@link RtsLinkedStorageResolver}, not here.
  */
 public final class RtsStorageFluids {
     private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
@@ -53,13 +47,16 @@ public final class RtsStorageFluids {
     private RtsStorageFluids() {
     }
 
-    public static boolean storeFluidFromContainer(ServerPlayer player, RtsStorageSession session, List<IItemHandler> itemHandlers,
+    public static boolean storeFluidFromContainer(ServerPlayer player, RtsStorageSession session,
+            List<IItemHandler> extractItemHandlers, List<IItemHandler> insertItemHandlers,
             List<LinkedFluidHandler> fluidHandlers, byte sourceType, byte toolSlot, String itemId) {
-        List<IItemHandler> safeItemHandlers = itemHandlers == null ? List.of() : itemHandlers;
+        List<IItemHandler> safeExtractItemHandlers = extractItemHandlers == null ? List.of() : extractItemHandlers;
+        List<IItemHandler> safeInsertItemHandlers = insertItemHandlers == null ? List.of() : insertItemHandlers;
         List<LinkedFluidHandler> safeFluidHandlers = fluidHandlers == null ? List.of() : fluidHandlers;
         return switch (sourceType) {
             case C2SRtsStoreFluidPayload.SOURCE_STORAGE_ITEM, C2SRtsStoreFluidPayload.SOURCE_PIN_ITEM ->
-                storeFluidFromLinkedItem(player, session, safeItemHandlers, safeFluidHandlers, itemId);
+                storeFluidFromLinkedItem(player, session, safeExtractItemHandlers, safeInsertItemHandlers,
+                        safeFluidHandlers, itemId);
             case C2SRtsStoreFluidPayload.SOURCE_TOOL_SLOT ->
                 storeFluidFromToolSlot(player, session, safeFluidHandlers, clampHotbarSlot(toolSlot));
             default -> false;
@@ -135,8 +132,9 @@ public final class RtsStorageFluids {
     }
 
     private static boolean storeFluidFromLinkedItem(ServerPlayer player, RtsStorageSession session,
-            List<IItemHandler> itemHandlers, List<LinkedFluidHandler> fluidHandlers, String itemId) {
-        if (itemId == null || itemId.isBlank() || itemHandlers.isEmpty()) {
+            List<IItemHandler> extractItemHandlers, List<IItemHandler> insertItemHandlers,
+            List<LinkedFluidHandler> fluidHandlers, String itemId) {
+        if (itemId == null || itemId.isBlank() || extractItemHandlers.isEmpty()) {
             return false;
         }
         ResourceLocation id = ResourceLocation.tryParse(itemId);
@@ -145,38 +143,38 @@ public final class RtsStorageFluids {
         }
 
         Item item = BuiltInRegistries.ITEM.get(id);
-        ItemStack extracted = RtsStorageTransfers.extractOneFromNetwork(itemHandlers, player, item);
+        ItemStack extracted = RtsTransferExtractor.extractOneFromNetwork(extractItemHandlers, player, item);
         if (extracted.isEmpty()) {
             return false;
         }
 
         ContainerDrainOutcome simulated = drainContainer(extracted, FLUID_TRANSFER_MB, false);
         if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
-            RtsStorageTransfers.refundToLinked(itemHandlers, player, extracted);
+            RtsTransferInserter.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
         FluidStack targetFluid = simulated.fluid().copy();
         targetFluid.setAmount(FLUID_TRANSFER_MB);
         if (insertFluidIntoNetwork(player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
-            RtsStorageTransfers.refundToLinked(itemHandlers, player, extracted);
+            RtsTransferInserter.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
 
         ContainerDrainOutcome executed = drainContainer(extracted, FLUID_TRANSFER_MB, true);
         if (executed.isEmpty() || executed.fluid().getAmount() < FLUID_TRANSFER_MB) {
-            RtsStorageTransfers.refundToLinked(itemHandlers, player, extracted);
+            RtsTransferInserter.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
         FluidStack insertFluid = executed.fluid().copy();
         insertFluid.setAmount(FLUID_TRANSFER_MB);
         int inserted = insertFluidIntoNetwork(player, session, fluidHandlers, insertFluid, true);
         if (inserted < FLUID_TRANSFER_MB) {
-            RtsStorageTransfers.refundToLinked(itemHandlers, player, extracted);
+            RtsTransferInserter.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
 
         if (!executed.remainder().isEmpty()) {
-            RtsStorageTransfers.refundToLinked(itemHandlers, player, executed.remainder());
+            RtsTransferInserter.refundToLinked(insertItemHandlers, player, executed.remainder());
         }
         ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
         if (fluidId != null) {
@@ -274,7 +272,7 @@ public final class RtsStorageFluids {
         }
         int remaining = fluidStack.getAmount();
 
-        for (LinkedFluidHandler linked : fluidHandlers) {
+        for (LinkedFluidHandler linked : RtsLinkedStorageResolver.orderFluidHandlersForInsert(fluidHandlers)) {
             if (remaining <= 0) {
                 break;
             }
@@ -288,11 +286,14 @@ public final class RtsStorageFluids {
         }
 
         if (remaining <= 0) {
+            // Bump page data version so the storage browser cache invalidates.
+            if (execute) session.pageDataVersion.incrementAndGet();
             return fluidStack.getAmount();
         }
 
         ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluidStack.getFluid());
         if (id == null) {
+            if (execute && remaining < fluidStack.getAmount()) session.pageDataVersion.incrementAndGet();
             return fluidStack.getAmount() - remaining;
         }
         String fluidId = id.toString();
@@ -305,6 +306,7 @@ public final class RtsStorageFluids {
             }
             remaining -= toInternal;
         }
+        if (execute && remaining < fluidStack.getAmount()) session.pageDataVersion.incrementAndGet();
         return fluidStack.getAmount() - remaining;
     }
 
@@ -313,7 +315,7 @@ public final class RtsStorageFluids {
             return 0L;
         }
         long total = 0L;
-        for (LinkedFluidHandler linked : fluidHandlers) {
+        for (LinkedFluidHandler linked : RtsLinkedStorageResolver.orderFluidHandlersForExtract(fluidHandlers)) {
             IFluidHandler handler = linked == null ? null : linked.handler();
             if (handler == null) {
                 continue;
@@ -339,7 +341,7 @@ public final class RtsStorageFluids {
         }
 
         int remaining = amount;
-        for (LinkedFluidHandler linked : fluidHandlers) {
+        for (LinkedFluidHandler linked : RtsLinkedStorageResolver.orderFluidHandlersForExtract(fluidHandlers)) {
             if (remaining <= 0) {
                 break;
             }
@@ -369,6 +371,7 @@ public final class RtsStorageFluids {
             }
         }
 
+        if (execute && remaining < amount) session.pageDataVersion.incrementAndGet();
         return amount - remaining;
     }
 
@@ -435,7 +438,7 @@ public final class RtsStorageFluids {
     }
 
     private static void addFluidHandlerCandidate(ServerLevel level, BlockPos pos, Direction side, List<IFluidHandler> out) {
-        IFluidHandler handler = RtsLinkedStorageResolver.findFluidHandler(level, pos, side);
+        IFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(level, pos, side);
         if (handler != null && !out.contains(handler)) {
             out.add(handler);
         }
@@ -547,7 +550,7 @@ public final class RtsStorageFluids {
     }
 
     private static void moveToPlayerInventoryOrDrop(ServerPlayer player, ItemStack stack) {
-        ItemStack remainder = RtsStorageTransfers.moveToPlayerInventoryOnly(player, stack);
+        ItemStack remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, stack);
         if (!remainder.isEmpty()) {
             player.drop(remainder, false);
         }

@@ -7,7 +7,7 @@ import net.minecraft.util.Mth;
 import java.util.function.Consumer;
 
 /**
- * 绐楀彛椋庢牸鐨勬按骞虫粦鏉★紝閫傜敤浜?RTS 闈㈡澘銆?
+ * 绐楀彛椋庢牸鐨勬按骞虫粦鏉★紝閫傜敤??RTS 闈㈡澘銆?
  * <p>
  * 鏀寔榧犳爣鐐瑰嚮鍜屾嫋鎷借皟鏁村€硷紝甯︽湁婊戣建鍜屾棆閽覆鏌撱€?
  */
@@ -42,7 +42,7 @@ public class WindowSlider {
         this.value = Mth.clamp(value, min, this.max);
     }
 
-    // ======================== 灞炴€?========================
+    // ======================== 灞炴??========================
 
     public int getValue() {
         return this.value;
@@ -84,7 +84,7 @@ public class WindowSlider {
         return this;
     }
 
-    // ======================== 娓叉煋 ========================
+    // ======================== 娓叉??========================
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
@@ -96,7 +96,7 @@ public class WindowSlider {
         g.fill(x, trackCenterY - TRACK_H / 2, x + width, trackCenterY + TRACK_H - TRACK_H / 2, TRACK_BG);
         g.fill(x + 1, trackCenterY - TRACK_H / 2 + 1, x + width - 1, trackCenterY + TRACK_H - TRACK_H / 2 - 1, TRACK_FILL);
 
-        // 鏃嬮挳
+        // 鏃嬮??
         int knobY = trackCenterY - KNOB_H / 2;
         g.fill(knobX - KNOB_W / 2, knobY, knobX + KNOB_W - KNOB_W / 2, knobY + KNOB_H, KNOB_COLOR);
     }

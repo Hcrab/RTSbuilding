@@ -10,7 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * 鍌ㄥ瓨鏂瑰潡楂樹寒娓叉煋鍣?
+ * 鍌ㄥ瓨鏂瑰潡楂樹寒娓叉煋??
  * 璐熻矗娓叉煋宸查摼鎺ョ殑鍌ㄥ瓨瀹瑰櫒鏂瑰潡鐨勮摑鑹茶竟妗嗭紝甯姪鐜╁璇嗗埆RTS绯荤粺鐨勫偍瀛樼綉缁?
  */
 public final class StorageRenderer {
@@ -22,12 +22,12 @@ public final class StorageRenderer {
     }
 
     /**
-     * 娓叉煋鎵€鏈夊凡閾炬帴鐨勫偍瀛樻柟鍧楅珮浜?
+     * 娓叉煋鎵€鏈夊凡閾炬帴鐨勫偍瀛樻柟鍧楅珮??
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄渚?
-     * @param controller RTS鎺у埗鍣紝鎻愪緵鍌ㄥ瓨浣嶇疆鍒楄〃
-     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻崲
-     * @param lineBuffer 绾挎潯缂撳啿鍖?
+     * @param minecraft Minecraft瀹㈡埛绔疄??
+     * @param controller RTS鎺у埗鍣紝鎻愪緵鍌ㄥ瓨浣嶇疆鍒楄??
+     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻??
+     * @param lineBuffer 绾挎潯缂撳啿??
      */
     public static void renderLinkedStorages(Minecraft minecraft, ClientRtsController controller, PoseStack poseStack,
                                             VertexConsumer lineBuffer) {

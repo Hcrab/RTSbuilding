@@ -8,21 +8,21 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * RTS 闈㈡澘缁熶竴鎺ュ彛銆?
  * <p>
- * 鎵€鏈?RTS UI 闈㈡澘瀹炵幇璇ユ帴鍙ｏ紝鐢?{@link BuilderScreen} 缁熶竴璋冨害
- * 鐨?init / tick / render / 浜嬩欢鍒嗗彂鐢熷懡鍛ㄦ湡銆?
+ * 鎵€??RTS UI 闈㈡澘瀹炵幇璇ユ帴鍙ｏ紝鐢?{@link BuilderScreen} 缁熶竴璋冨害
+ * ??init / tick / render / 浜嬩欢鍒嗗彂鐢熷懡鍛ㄦ湡??
  */
 public interface RtsPanel {
 
-    /** 鍒濆鍖栭潰鏉匡紝姣忔灞忓箷 init() 鏃惰皟鐢?*/
+    /** 鍒濆鍖栭潰鏉匡紝姣忔灞忓??init() 鏃惰皟鐢?*/
     default void init(BuilderScreen screen, ClientRtsController controller) {}
 
-    /** 姣?tick 鏇存柊闈㈡澘鐘舵€?*/
+    /** ??tick 鏇存柊闈㈡澘鐘舵??*/
     default void tick() {}
 
-    /** 娓叉煋闈㈡澘鍐呭 */
+    /** 娓叉煋闈㈡澘鍐呭??*/
     default void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 
-    /** 娓叉煋 tooltip锛堝湪 hover 妫€娴嬩箣鍚庯級 */
+    /** 娓叉??tooltip锛堝??hover 妫€娴嬩箣鍚庯級 */
     default void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {}
 
     // --- 杈撳叆浜嬩欢 ---

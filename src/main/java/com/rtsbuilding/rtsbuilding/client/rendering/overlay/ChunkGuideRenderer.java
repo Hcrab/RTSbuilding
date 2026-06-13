@@ -12,10 +12,10 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * 鍖哄潡寮曞绾挎覆鏌撳櫒
- * 璐熻矗鍦≧TS妯″紡涓嬫覆鏌撲互鐜╁涓轰腑蹇冪殑3x3鍖哄潡缃戞牸锛岀敤浜庤瑙夊弬鑰?
+ * 璐熻矗鍦≧TS妯″紡涓嬫覆鏌撲互鐜╁涓轰腑蹇冪??x3鍖哄潡缃戞牸锛岀敤浜庤瑙夊弬鑰?
  */
 public final class ChunkGuideRenderer {
-    // 鍖哄潡寮曞鑼冨洿鍗婂緞锛堜互鍖哄潡涓哄崟浣嶏級锛?琛ㄧず娓叉煋涓績鍖哄潡鍛ㄥ洿3x3鍖哄煙
+    // 鍖哄潡寮曞鑼冨洿鍗婂緞锛堜互鍖哄潡涓哄崟浣嶏級??琛ㄧず娓叉煋涓績鍖哄潡鍛ㄥ??x3鍖哄??
     private static final int CHUNK_GUIDE_RADIUS_CHUNKS = 1;
 
     /**
@@ -27,11 +27,11 @@ public final class ChunkGuideRenderer {
     /**
      * 娓叉煋鍖哄潡寮曞缃戞牸
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄渚?
-     * @param cameraPosition 鐩告満浣嶇疆
-     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻崲
-     * @param fillBuffer 濉厖缂撳啿鍖猴紝鐢ㄤ簬缁樺埗鍗婇€忔槑鏂瑰潡
-     * @param lineBuffer 绾挎潯缂撳啿鍖猴紝鐢ㄤ簬缁樺埗杈规绾?
+     * @param minecraft Minecraft瀹㈡埛绔疄??
+     * @param cameraPosition 鐩告満浣嶇??
+     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻??
+     * @param fillBuffer 濉厖缂撳啿鍖猴紝鐢ㄤ簬缁樺埗鍗婇€忔槑鏂瑰??
+     * @param lineBuffer 绾挎潯缂撳啿鍖猴紝鐢ㄤ簬缁樺埗杈规??
      */
     public static void renderChunkGuides(
             Minecraft minecraft,
@@ -48,13 +48,13 @@ public final class ChunkGuideRenderer {
         int centerChunkX = SectionPos.blockToSectionCoord(cameraBlockPos.getX());
         int centerChunkZ = SectionPos.blockToSectionCoord(cameraBlockPos.getZ());
 
-        // 璁＄畻娓叉煋鑼冨洿鐨勮竟鐣?
+        // 璁＄畻娓叉煋鑼冨洿鐨勮竟??
         int minChunkX = centerChunkX - CHUNK_GUIDE_RADIUS_CHUNKS;
         int maxChunkX = centerChunkX + CHUNK_GUIDE_RADIUS_CHUNKS;
         int minChunkZ = centerChunkZ - CHUNK_GUIDE_RADIUS_CHUNKS;
         int maxChunkZ = centerChunkZ + CHUNK_GUIDE_RADIUS_CHUNKS;
 
-        // 纭畾寮曞绾跨殑Y杞撮珮搴︼細浼樺厛浣跨敤鐜╁浣嶇疆锛屽惁鍒欎娇鐢ㄧ浉鏈轰綅缃?
+        // 纭畾寮曞绾跨殑Y杞撮珮搴︼細浼樺厛浣跨敤鐜╁浣嶇疆锛屽惁鍒欎娇鐢ㄧ浉鏈轰綅??
         int guideYSource = minecraft.player == null ? cameraBlockPos.getY() : minecraft.player.blockPosition().getY();
         int guideY = Mth.clamp(guideYSource, minecraft.level.getMinBuildHeight(), minecraft.level.getMaxBuildHeight() - 1);
 
@@ -69,13 +69,13 @@ public final class ChunkGuideRenderer {
     /**
      * 娓叉煋鍗曚釜鍖哄潡鐨勮竟缂橀珮浜?
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄渚?
+     * @param minecraft Minecraft瀹㈡埛绔疄??
      * @param poseStack 濮垮娍鏍?
-     * @param fillBuffer 濉厖缂撳啿鍖?
-     * @param lineBuffer 绾挎潯缂撳啿鍖?
-     * @param chunkX 鍖哄潡X鍧愭爣
-     * @param chunkZ 鍖哄潡Z鍧愭爣
-     * @param guideY 寮曞绾縔杞撮珮搴?
+     * @param fillBuffer 濉厖缂撳啿??
+     * @param lineBuffer 绾挎潯缂撳啿??
+     * @param chunkX 鍖哄潡X鍧愭??
+     * @param chunkZ 鍖哄潡Z鍧愭??
+     * @param guideY 寮曞绾縔杞撮珮??
      */
     private static void renderChunkEdgeHighlights(
             Minecraft minecraft,
@@ -85,7 +85,7 @@ public final class ChunkGuideRenderer {
             int chunkX,
             int chunkZ,
             int guideY) {
-        // 灏嗗尯鍧楀潗鏍囪浆鎹负涓栫晫鍧愭爣锛堟瘡涓尯鍧?6x16锛?
+        // 灏嗗尯鍧楀潗鏍囪浆鎹负涓栫晫鍧愭爣锛堟瘡涓尯鍧?6x16??
         int startX = chunkX << 4;  // 绛夊悓浜?chunkX * 16
         int startZ = chunkZ << 4;
         int endX = startX + 15;
@@ -96,7 +96,7 @@ public final class ChunkGuideRenderer {
             return;
         }
 
-        // 鏍规嵁鍖哄潡鍧愭爣鐨勫鍋舵€ч€夋嫨棰滆壊锛堟鐩樻牸鏁堟灉锛?
+        // 鏍规嵁鍖哄潡鍧愭爣鐨勫鍋舵€ч€夋嫨棰滆壊锛堟鐩樻牸鏁堟灉??
         ChunkGuideColor color = chunkGuideColor(chunkX, chunkZ);
 
         // 娓叉煋鍖哄潡鍥涙潯杈圭殑鎵€鏈夋柟鍧楀崟鍏冩牸
@@ -116,10 +116,10 @@ public final class ChunkGuideRenderer {
      * 娓叉煋鍗曚釜鍗曞厓鏍肩殑寮曞楂樹寒锛堝～鍏?杈规锛?
      *
      * @param poseStack 濮垮娍鏍?
-     * @param fillBuffer 濉厖缂撳啿鍖?
-     * @param lineBuffer 绾挎潯缂撳啿鍖?
-     * @param x 涓栫晫X鍧愭爣
-     * @param z 涓栫晫Z鍧愭爣
+     * @param fillBuffer 濉厖缂撳啿??
+     * @param lineBuffer 绾挎潯缂撳啿??
+     * @param x 涓栫晫X鍧愭??
+     * @param z 涓栫晫Z鍧愭??
      * @param guideY Y杞撮珮搴?
      * @param color 棰滆壊閰嶇疆
      */
@@ -140,7 +140,7 @@ public final class ChunkGuideRenderer {
         double maxY = guideY + 1.0D - inset;
         double maxZ = z + 1.0D - inset;
 
-        // 缁樺埗鍗婇€忔槑濉厖
+        // 缁樺埗鍗婇€忔槑濉??
         LevelRenderer.addChainedFilledBoxVertices(
                 poseStack,
                 fillBuffer,
@@ -148,7 +148,7 @@ public final class ChunkGuideRenderer {
                 maxX, maxY, maxZ,
                 color.r(), color.g(), color.b(), color.a());
 
-        // 缁樺埗杈规绾匡紙棰滆壊姣斿～鍏呯◢浜級
+        // 缁樺埗杈规绾匡紙棰滆壊姣斿～鍏呯◢浜??
         LevelRenderer.renderLineBox(
                 poseStack,
                 lineBuffer,
@@ -161,11 +161,11 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 鏍规嵁鍖哄潡鍧愭爣鐢熸垚妫嬬洏鏍奸鑹?
+     * 鏍规嵁鍖哄潡鍧愭爣鐢熸垚妫嬬洏鏍奸??
      * 鍋舵暟鍖哄潡浣跨敤闈掕摑鑹诧紝濂囨暟鍖哄潡浣跨敤閲戦粍鑹?
      *
-     * @param chunkX 鍖哄潡X鍧愭爣
-     * @param chunkZ 鍖哄潡Z鍧愭爣
+     * @param chunkX 鍖哄潡X鍧愭??
+     * @param chunkZ 鍖哄潡Z鍧愭??
      * @return 棰滆壊閰嶇疆
      */
     private static ChunkGuideColor chunkGuideColor(int chunkX, int chunkZ) {
@@ -175,7 +175,7 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 棰滆壊璁板綍绫伙紝瀛樺偍RGBA鍊?
+     * 棰滆壊璁板綍绫伙紝瀛樺偍RGBA??
      */
     private record ChunkGuideColor(float r, float g, float b, float a) {
     }

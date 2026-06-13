@@ -19,8 +19,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
 /**
  * 浜や簰杞洏闈㈡澘銆?
  * <p>
- * 鐙珛鐨勪氦浜掕疆鐩橀潰鏉跨粍浠讹紝澶勭悊杞洏鐘舵€佺殑娓叉煋銆佽緭鍏ュ拰鐘舵€佺鐞嗐€?
- * 鐢?{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡銆?
+ * 鐙珛鐨勪氦浜掕疆鐩橀潰鏉跨粍浠讹紝澶勭悊杞洏鐘舵€佺殑娓叉煋銆佽緭鍏ュ拰鐘舵€佺鐞嗐??
+ * ??{@link BuilderScreen} 缁熶竴璋冨害鐢熷懡鍛ㄦ湡??
  */
 public final class InteractionWheelPanel {
 
@@ -39,7 +39,7 @@ public final class InteractionWheelPanel {
         this.controller = controller;
     }
 
-    // 鈹€鈹€ 鍏紑鏌ヨ鏂规硶 鈹€鈹€
+    // 鈹€鈹€ 鍏紑鏌ヨ鏂规??鈹€鈹€
 
     public boolean isOpen() {
         return this.open;
@@ -136,7 +136,7 @@ public final class InteractionWheelPanel {
         return true;
     }
 
-    // 鈹€鈹€ 娓叉煋 鈹€鈹€
+    // 鈹€鈹€ 娓叉??鈹€鈹€
 
     public void render(GuiGraphics g, int mouseX, int mouseY) {
         if (!this.open) {

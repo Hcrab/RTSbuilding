@@ -1,9 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.policy;
 
-
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.loadout.RtsMiningRules;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;

@@ -65,7 +65,7 @@ import java.util.Locale;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 /**
- * The main RTS Builder screen 鈥?the primary UI entry point for the RTS building mode.
+ * The main RTS Builder screen ??the primary UI entry point for the RTS building mode.
  * <p>
  * This screen overlays the Minecraft game view and provides all RTS functionality
  * including quick building, vein-mining (ultimine), item storage browsing, the
@@ -2003,7 +2003,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /**
-     * Returns whether the given screen coordinates are within the "world area" 鈥?
+     * Returns whether the given screen coordinates are within the "world area" ??
      * below the top bar and outside the bottom panel. Clicks in this area interact
      * with the Minecraft world.
      */

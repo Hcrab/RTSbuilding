@@ -28,7 +28,7 @@ public class WindowButton extends AbstractButton {
     private final int textureV;
     private final int textureWidth;
     private final int textureHeight;
-    private final int hoverTextureV;  // 鎮仠鐘舵€佺殑璐村浘V鍧愭爣
+    private final int hoverTextureV;  // 鎮仠鐘舵€佺殑璐村浘V鍧愭??
     private final int hoverTextureHeight;  // 鎮仠鐘舵€佺殑璐村浘楂樺害
     private final int fullTextureWidth;   // 瀹屾暣璐村浘鐨勬€诲搴?
     private final int fullTextureHeight;  // 瀹屾暣璐村浘鐨勬€婚珮搴?
@@ -48,26 +48,26 @@ public class WindowButton extends AbstractButton {
     private static boolean globalSkipHover;
 
     /**
-     * 鍒涘缓绾壊鎸夐挳
+     * 鍒涘缓绾壊鎸夐??
      */
     public WindowButton(int x, int y, int width, int height, Component message, OnPress onPress) {
         this(x, y, width, height, message, null, 0, 0, 0, 0, onPress);
     }
 
     /**
-     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堟敮鎸佹偓鍋滅姸鎬佸垏鎹級
+     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堟敮鎸佹偓鍋滅姸鎬佸垏鎹??
      *
-     * @param x X 鍧愭爣
-     * @param y Y 鍧愭爣
-     * @param width 鎸夐挳瀹藉害
+     * @param x X 鍧愭??
+     * @param y Y 鍧愭??
+     * @param width 鎸夐挳瀹藉??
      * @param height 鎸夐挳楂樺害
      * @param message 鎸夐挳鏂囨湰
      * @param textureLocation 璐村浘璧勬簮浣嶇疆锛坣ull 琛ㄧず浣跨敤绾壊锛?
-     * @param textureU 璐村浘 U 鍧愭爣
-     * @param textureV 璐村浘 V 鍧愭爣锛堟甯哥姸鎬侊級
-     * @param textureWidth 璐村浘瀹藉害
-     * @param textureHeight 璐村浘楂樺害锛堟甯哥姸鎬侊級
-     * @param hoverTextureV 鎮仠鐘舵€佺殑璐村浘 V 鍧愭爣
+     * @param textureU 璐村??U 鍧愭??
+     * @param textureV 璐村??V 鍧愭爣锛堟甯哥姸鎬侊級
+     * @param textureWidth 璐村浘瀹藉??
+     * @param textureHeight 璐村浘楂樺害锛堟甯哥姸鎬侊??
+     * @param hoverTextureV 鎮仠鐘舵€佺殑璐村??V 鍧愭??
      * @param hoverTextureHeight 鎮仠鐘舵€佺殑璐村浘楂樺害
      * @param fullTextureWidth 瀹屾暣璐村浘鐨勬€诲搴?
      * @param fullTextureHeight 瀹屾暣璐村浘鐨勬€婚珮搴?
@@ -91,7 +91,7 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堝吋瀹规棫鐗堬紝鎮仠浣跨敤鐩稿悓璐村浘锛?
+     * 鍒涘缓甯﹁创鍥剧殑鎸夐挳锛堝吋瀹规棫鐗堬紝鎮仠浣跨敤鐩稿悓璐村浘??
      */
     public WindowButton(int x, int y, int width, int height, Component message,
                        ResourceLocation textureLocation, int textureU, int textureV,
@@ -114,11 +114,11 @@ public class WindowButton extends AbstractButton {
             // 浣跨敤璐村浘缁樺埗锛堢煝閲忕缉鏀撅級
             renderWithTexture(guiGraphics);
         } else {
-            // 浣跨敤绾壊缁樺埗
+            // 浣跨敤绾壊缁樺??
             renderWithSolidColor(guiGraphics);
         }
 
-        // 璁＄畻鏂囨湰浣嶇疆锛堝眳涓級
+        // 璁＄畻鏂囨湰浣嶇疆锛堝眳涓??
         int textColor = this.active ? TEXT_COLOR : TEXT_COLOR_DISABLED;
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
                 Math.max(4, this.width - 8));
@@ -133,7 +133,7 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 浣跨敤璐村浘缁樺埗鎸夐挳锛堟敮鎸佺煝閲忕缉鏀惧拰鎮仠鏁堟灉锛?
+     * 浣跨敤璐村浘缁樺埗鎸夐挳锛堟敮鎸佺煝閲忕缉鏀惧拰鎮仠鏁堟灉??
      */
     private void renderWithTexture(GuiGraphics guiGraphics) {
         // 纭繚璐村浘宸插姞杞?
@@ -143,7 +143,7 @@ public class WindowButton extends AbstractButton {
         if (texture == null) {
             // 灏濊瘯瑙﹀彂璐村浘鑷姩鍔犺浇
             try {
-                // 浣跨敤 setShaderTexture 瑙﹀彂璐村浘鍔犺浇
+                // 浣跨??setShaderTexture 瑙﹀彂璐村浘鍔犺??
                 RenderSystem.setShaderTexture(0, textureLocation);
 
                 // 鍐嶆灏濊瘯鑾峰彇璐村浘
@@ -162,7 +162,7 @@ public class WindowButton extends AbstractButton {
             }
         }
 
-        // 鏍规嵁鎮仠鐘舵€侀€夋嫨涓嶅悓鐨勮创鍥惧尯鍩燂紙琚鐩栫獥鍙ｅ己鍒朵娇鐢ㄩ潪鎮仠璐村浘锛?
+        // 鏍规嵁鎮仠鐘舵€侀€夋嫨涓嶅悓鐨勮创鍥惧尯鍩燂紙琚鐩栫獥鍙ｅ己鍒朵娇鐢ㄩ潪鎮仠璐村浘??
         boolean effectiveHovered = isHovered && !globalSkipHover;
         int currentV = effectiveHovered ? hoverTextureV : textureV;
         int currentHeight = effectiveHovered ? hoverTextureHeight : textureHeight;
@@ -180,13 +180,13 @@ public class WindowButton extends AbstractButton {
         RenderSystem.setShaderTexture(0, textureLocation);
 
         // 璁剧疆楂樿川閲忕殑绾圭悊杩囨护鍙傛暟
-        // 缂╁皬杩囨护锛氫笁绾挎€ц繃婊わ紙mipmap + 绾挎€ф彃鍊硷級
+        // 缂╁皬杩囨护锛氫笁绾挎€ц繃婊わ紙mipmap + 绾挎€ф彃鍊硷??
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
             org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR
         );
-        // 鏀惧ぇ杩囨护锛氱嚎鎬ф彃鍊?
+        // 鏀惧ぇ杩囨护锛氱嚎鎬ф彃??
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
@@ -195,7 +195,7 @@ public class WindowButton extends AbstractButton {
         // 灏濊瘯璁剧疆鍚勫悜寮傛€ц繃婊や互鎻愰珮鏂滃悜缂╂斁璐ㄩ噺
         // 娉ㄦ剰锛氬悇鍚戝紓鎬ц繃婊ゆ槸 OpenGL 鎵╁睍锛岄渶瑕佹鏌ユ敮鎸佹儏鍐?
         try {
-            // 浣跨敤 ARB_texture_filter_anisotropic 鎵╁睍甯搁噺
+            // 浣跨??ARB_texture_filter_anisotropic 鎵╁睍甯搁噺
             int GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
             int GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
 
@@ -209,37 +209,37 @@ public class WindowButton extends AbstractButton {
                 );
             }
         } catch (Exception e) {
-            // 蹇界暐涓嶆敮鎸佺殑鍚勫悜寮傛€ц繃婊?
+            // 蹇界暐涓嶆敮鎸佺殑鍚勫悜寮傛€ц繃??
         }
 
-        // 浣跨敤 PoseStack 鍙樻崲杩涜缂╂斁锛堥伩鍏嶈鍓棶棰橈級
+        // 浣跨??PoseStack 鍙樻崲杩涜缂╂斁锛堥伩鍏嶈鍓棶棰橈??
         guiGraphics.pose().pushPose();
 
         // 璁＄畻缂╂斁姣斾緥锛堜娇鐢ㄦ寜閽疄闄呭昂瀵稿拰瑕佹覆鏌撶殑绾圭悊灏哄锛?
         float scaleX = (float) this.width / textureWidth;
         float scaleY = (float) this.height / textureHeight;
 
-        // 搴旂敤缂╂斁鍙樻崲
+        // 搴旂敤缂╂斁鍙樻??
         guiGraphics.pose().translate(this.getX(), this.getY(), 0);
         guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
 
-        // 缁樺埗鍘熷灏哄鐨勭汗鐞嗭紙blit 浼氳嚜鍔ㄤ娇鐢ㄥ綋鍓嶇粦瀹氱殑绾圭悊锛?
+        // 缁樺埗鍘熷灏哄鐨勭汗鐞嗭紙blit 浼氳嚜鍔ㄤ娇鐢ㄥ綋鍓嶇粦瀹氱殑绾圭悊??
         guiGraphics.blit(
             textureLocation,
-            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅缃?
-            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅缃?
+            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅??
+            0,  // 鐩稿浜庡彉鎹㈠悗鐨勪綅??
             textureU,
             currentV,      // 浣跨敤瀵瑰簲鐨刅鍧愭爣
-            textureWidth,  // 瑕佹覆鏌撶殑瀹藉害
-            currentHeight, // 瑕佹覆鏌撶殑楂樺害
+            textureWidth,  // 瑕佹覆鏌撶殑瀹藉??
+            currentHeight, // 瑕佹覆鏌撶殑楂樺??
             fullTextureWidth,   // 瀹屾暣璐村浘鐨勬€诲搴?
             fullTextureHeight   // 瀹屾暣璐村浘鐨勬€婚珮搴?
         );
 
-        // 鎭㈠鍙樻崲鐘舵€?
+        // 鎭㈠鍙樻崲鐘舵??
         guiGraphics.pose().popPose();
 
-        // 鎭㈠榛樿璁剧疆
+        // 鎭㈠榛樿璁剧??
         RenderSystem.disableBlend();
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
@@ -254,7 +254,7 @@ public class WindowButton extends AbstractButton {
     }
 
     /**
-     * 浣跨敤绾壊缁樺埗鎸夐挳锛圧TS 娣辫壊椋庢牸锛?
+     * 浣跨敤绾壊缁樺埗鎸夐挳锛圧TS 娣辫壊椋庢牸??
      */
     private void renderWithSolidColor(GuiGraphics guiGraphics) {
         // 纭畾鑳屾櫙棰滆壊锛堣瑕嗙洊绐楀彛寮哄埗浣跨敤闈炴偓鍋滈鑹诧級
