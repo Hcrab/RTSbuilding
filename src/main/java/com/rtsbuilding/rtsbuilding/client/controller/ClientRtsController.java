@@ -46,6 +46,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 import java.util.Set;
@@ -899,6 +900,31 @@ public final class ClientRtsController {
             localPlayer.input.shiftKeyDown = false;
             localPlayer.input.forwardImpulse = 0.0F;
             localPlayer.input.leftImpulse = 0.0F;
+
+            // RTS flight vertical control: when player is flying in RTS mode,
+            // Ctrl+Space = ascend, Shift = descend (direct GLFW key state queries)
+            if (localPlayer.getAbilities().flying) {
+                long window = minecraft.getWindow().getWindow();
+                boolean ctrlHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                        || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+                boolean spaceHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+                boolean shiftHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                        || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
+
+                if (ctrlHeld && spaceHeld) {
+                    double upSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
+                    localPlayer.setDeltaMovement(
+                            localPlayer.getDeltaMovement().x,
+                            upSpeed,
+                            localPlayer.getDeltaMovement().z);
+                } else if (ctrlHeld && shiftHeld) {
+                    double downSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
+                    localPlayer.setDeltaMovement(
+                            localPlayer.getDeltaMovement().x,
+                            -downSpeed,
+                            localPlayer.getDeltaMovement().z);
+                }
+            }
         }
 
         this.cameraOrbitService.syncVisualCameraFrame(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius, this.enabled);

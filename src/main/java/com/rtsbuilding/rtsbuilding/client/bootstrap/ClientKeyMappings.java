@@ -76,12 +76,12 @@ public final class ClientKeyMappings {
     public static final KeyMapping CAMERA_ROTATE_DRAG = new KeyMapping(
             "key.rtsbuilding.camera_rotate_drag",
             InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
+            GLFW.GLFW_MOUSE_BUTTON_MIDDLE,
             "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_PAN_DRAG = new KeyMapping(
             "key.rtsbuilding.camera_pan_drag",
             InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_MIDDLE,
+            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
             "key.categories.rtsbuilding");
     public static final KeyMapping PICK_BLOCK = new KeyMapping(
             "key.rtsbuilding.pick_block",

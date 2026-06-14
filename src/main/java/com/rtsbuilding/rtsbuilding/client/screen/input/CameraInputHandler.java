@@ -28,11 +28,18 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 /**
  * Handles RTS camera and input interaction state management.
  * <p>
- * Manages mouse dragging (right-click rotation, middle-click pan/pick),
+ * Manages mouse dragging (right-click pan, middle-click rotation),
  * mining actions, keyboard camera control, and keyboard pan-drag states.
  * All state is used in BuilderScreen event methods; this class stores and
  * manages these states and provides helper methods for input detection
  * and action execution.
+ * <p>
+ * Key bindings after swap:
+ * <ul>
+ *   <li>Right-click drag → camera pan (movement)</li>
+ *   <li>Middle-click drag → camera rotation</li>
+ *   <li>Middle-click (no drag) → pick block for placement</li>
+ * </ul>
  */
 public final class CameraInputHandler {
     private BuilderScreen screen;
@@ -181,25 +188,43 @@ public final class CameraInputHandler {
         return this.rightPressActive && button == this.rightPressButton;
     }
 
+    /**
+     * Handles right/middle-click drag. After key binding swap:
+     * <ul>
+     *   <li>Right button → camera pan (movement)</li>
+     *   <li>Middle button → camera rotation</li>
+     * </ul>
+     * The specific action is determined dynamically via {@link CameraInputHandler#isPanDragActionMouse(int)}
+     * and {@link CameraInputHandler#isRotateDragActionMouse(int)}.
+     */
     public boolean handleRightDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (this.rightPressActive
                 && button == this.rightPressButton
-                && this.rightPressCanRotate
                 && screen.isWorldArea(mouseX, mouseY)
                 && !isAltDown()) {
             this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
             if (this.rightDragDistance > 1.5D) {
                 this.rightDragRotated = true;
             }
-            this.controller.queueRotateDrag(dragX, dragY);
+            if (CameraInputHandler.isPanDragActionMouse(button)) {
+                // Right button → camera pan (movement)
+                this.controller.queuePanDrag(dragX, dragY);
+            } else if (this.rightPressCanRotate) {
+                // Middle button → camera rotation
+                this.controller.queueRotateDrag(dragX, dragY);
+            }
             return true;
         }
         return false;
     }
 
     /**
-     * 结束右键拖拽，返回 true 表示需要调用 runPrimaryActionAt。
-     * 仅当拖拽未发生旋转且可触发主要动作时返回 true。
+     * Ends right/middle-click press.
+     * <ul>
+     *   <li>If rotation/pan occurred during drag, returns false (no primary action).</li>
+     *   <li>If middle-click (pick block) without drag, triggers {@link #tryPickHoveredBlockForPlacement()}.</li>
+     *   <li>Otherwise returns true iff a primary action should be triggered at the release position.</li>
+     * </ul>
      */
     public boolean endRightPress(double mouseX, double mouseY, int button) {
         if (!this.rightPressActive || button != this.rightPressButton) {
@@ -213,14 +238,20 @@ public final class CameraInputHandler {
         if (this.rightDragRotated) {
             this.rightDragRotated = false;
             this.rightDragDistance = 0.0D;
-            return false; // 已发生旋转，不触发动作
+            return false;
+        }
+        // Middle-click without drag → try pick block for placement (no primary action)
+        if (CameraInputHandler.isPickBlockActionMouse(button) && screen.isWorldArea(mouseX, mouseY)) {
+            this.rightDragDistance = 0.0D;
+            tryPickHoveredBlockForPlacement();
+            return false;
         }
         if (!screen.isWorldArea(mouseX, mouseY) || !canPrimary) {
             this.rightDragDistance = 0.0D;
             return false;
         }
         this.rightDragDistance = 0.0D;
-        return true; // 调用方需执行 runPrimaryActionAt
+        return true;
     }
 
     // ======================== 中键拖拽状态管理 ========================

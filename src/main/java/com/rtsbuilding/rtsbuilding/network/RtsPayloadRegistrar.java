@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
 import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
 import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
+import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
 import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -36,6 +37,7 @@ public final class RtsPayloadRegistrar {
         RtsCraftPackets.register(registrar);
         RtsProgressionPackets.register(registrar);
         RtsFeedbackPackets.register(registrar);
+        RtsPathfindingPackets.register(registrar);
         BlueprintPayloadRegistrar.register(registrar);
     }
 }

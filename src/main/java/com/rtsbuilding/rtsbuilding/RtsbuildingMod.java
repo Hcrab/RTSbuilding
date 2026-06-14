@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPathfindingService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.core.registries.Registries;
@@ -110,6 +111,7 @@ public class RtsbuildingMod {
         static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 RtsCameraManager.stopIfActive(serverPlayer);
+                RtsPathfindingService.cancel(serverPlayer);
                 // Clear stale storage cache entries from the old dimension
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
             }

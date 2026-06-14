@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
@@ -164,6 +165,18 @@ public final class BuilderScreen extends Screen {
      * to bind it to the specified slot. Reset to -1 after binding or on cancel.
      */
     private int pendingGuiBindSlot = -1;
+    /**
+     * 上一次 Ctrl+右键的时刻（ms），用于双击检测以触发「飞到目标上方」。
+     */
+    private long lastCtrlRightClickTime = 0;
+    /**
+     * Ctrl+右键双击时间阈值（ms）。
+     */
+    private static final long CTRL_DOUBLE_CLICK_THRESHOLD_MS = 300;
+    /**
+     * 冷却计数器，防止 Alt+Space 按键重复事件导致飞行开关快速抖动。
+     */
+    private int rtsFlightToggleCooldownTicks = 0;
     /**
      * Constructs the main RTS Builder screen.
      *
@@ -371,6 +384,9 @@ public final class BuilderScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        if (this.rtsFlightToggleCooldownTicks > 0) {
+            this.rtsFlightToggleCooldownTicks--;
+        }
         if (this.controller.getMode() == BuilderMode.FUNNEL && this.controller.isFunnelEnabled()) {
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
             if (hit != null) {
@@ -539,6 +555,13 @@ public final class BuilderScreen extends Screen {
         }
         boolean primaryMouse = CameraInputHandler.isPrimaryActionMouse(button);
         boolean rotateMouse = CameraInputHandler.isRotateDragActionMouse(button);
+        boolean panMouse = CameraInputHandler.isPanDragActionMouse(button);
+        boolean pickMouse = CameraInputHandler.isPickBlockActionMouse(button);
+        /*
+         * After key binding swap:
+         *   Right button → primary action + camera pan (movement)
+         *   Middle button → camera rotation + pick block
+         */
         if (primaryMouse || rotateMouse) {
             if (isSearchFocused()) {
                 blurSearchFocus();
@@ -546,17 +569,37 @@ public final class BuilderScreen extends Screen {
             if (primaryMouse && this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
                 return true;
             }
-            if (primaryMouse && !rotateMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
+            if (primaryMouse && !panMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
                 return true;
             }
             if (primaryMouse && isInsideBottomPanel(mouseX, mouseY)) {
                 return this.bottomPanel.handleRightClick(mouseX, mouseY);
             }
-            if (primaryMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE && !rotateMouse) {
+            if (primaryMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE && !panMouse) {
                 BlockHitResult hit = this.cursorPicker.pickBlockHit();
                 if (hit != null) {
                     clearShapeBuildSession();
                     this.controller.rotateBlock(hit.getBlockPos());
+                }
+                return true;
+            }
+            if (primaryMouse && isWorldArea(mouseX, mouseY) && Screen.hasControlDown()) {
+                // Ctrl + RightClick → 向目标点直线移动
+                // 双击（300ms 内连续两次）→ 飞到目标上方指定高度
+                long now = System.currentTimeMillis();
+                boolean isDoubleClick = (now - this.lastCtrlRightClickTime) < CTRL_DOUBLE_CLICK_THRESHOLD_MS;
+                this.lastCtrlRightClickTime = now;
+
+                BlockHitResult hit = this.cursorPicker.pickBlockHit();
+                if (hit != null) {
+                    if (isDoubleClick) {
+                        this.lastCtrlRightClickTime = 0;
+                        // Ctrl + 双击右键 → 强制降落到目标方块表面（3D到达判定）
+                        RtsClientPathfinding.goToAbove(hit.getBlockPos(), 1);
+                    } else {
+                        // Ctrl + 单次右键 → 普通直线移动（仅 XZ 到达判定）
+                        RtsClientPathfinding.goTo(hit.getBlockPos());
+                    }
                 }
                 return true;
             }
@@ -566,8 +609,6 @@ public final class BuilderScreen extends Screen {
             }
             return true;
         }
-        boolean panMouse = CameraInputHandler.isPanDragActionMouse(button);
-        boolean pickMouse = CameraInputHandler.isPickBlockActionMouse(button);
         if (panMouse || pickMouse) {
             this.cameraInput.beginMiddlePress(isWorldArea(mouseX, mouseY), button, panMouse, pickMouse);
             return true;
@@ -1015,6 +1056,14 @@ public final class BuilderScreen extends Screen {
         if (hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
             return this.shapeController.undoLastPlacementBatch();
         }
+        // Alt+Space: toggle creative flight for the player entity in RTS mode
+        if (!isSearchFocused() && (modifiers & GLFW.GLFW_MOD_ALT) != 0 && keyCode == GLFW.GLFW_KEY_SPACE) {
+            if (this.rtsFlightToggleCooldownTicks <= 0) {
+                this.rtsFlightToggleCooldownTicks = 10;
+                handleRtsFlightToggle();
+            }
+            return true;
+        }
         if (!isSearchFocused() && this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, true)) {
             return true;
         }
@@ -1147,6 +1196,30 @@ public final class BuilderScreen extends Screen {
         }
         return super.keyReleased(keyCode, scanCode, modifiers);
     }
+    /**
+     * Toggles the player's creative flight state while in RTS mode.
+     * Only works if the player has the {@code mayfly} ability (creative/spectator mode).
+     * When enabling flight while on ground, triggers a jump first to lift off,
+     * since vanilla Minecraft requires the player to be airborne to enter
+     * flying state even with {@code abilities.flying = true}.
+     * Called when Alt+Space is pressed in the RTS builder screen.
+     */
+    private void handleRtsFlightToggle() {
+        if (this.minecraft == null || this.minecraft.player == null) return;
+        if (!this.minecraft.player.getAbilities().mayfly) return;
+
+        boolean wasFlying = this.minecraft.player.getAbilities().flying;
+        this.minecraft.player.getAbilities().flying = !wasFlying;
+
+        // When enabling flight while on ground, apply a jump impulse to lift off.
+        // Vanilla MC won't actually start flying if the player stays on ground.
+        if (!wasFlying && this.minecraft.player.onGround()) {
+            this.minecraft.player.jumpFromGround();
+        }
+
+        this.minecraft.player.onUpdateAbilities();
+    }
+
     /**
      * Routes a key press to the appropriate builder mode switch based on keybind matching.
      *

@@ -113,6 +113,7 @@ public final class RtsSessionService {
         RtsStorageSession session = getOrCreate(player);
         RtsMiningStateMachine.stopActiveMining(player, session);
         session.placement.placeBatchJobs.clear();
+        RtsPathfindingService.cancel(player);
         RtsFunnelService.disableAndFlush(player, session);
         RtsMenuRemoteService.closeTracked(player, session);
         RtsMenuRemoteService.clearValidation(player, session);
@@ -128,6 +129,7 @@ public final class RtsSessionService {
     }
 
     public static void onPlayerLogout(ServerPlayer player) {
+        RtsPathfindingService.cancel(player);
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {
             session.placement.placeBatchJobs.clear();
