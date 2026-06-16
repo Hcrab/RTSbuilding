@@ -401,6 +401,7 @@ public final class BuilderScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        enforceBlueprintPlacementModeLock();
         if (this.rtsFlightToggleCooldownTicks > 0) {
             this.rtsFlightToggleCooldownTicks--;
         }
@@ -529,6 +530,7 @@ public final class BuilderScreen extends Screen {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
+        enforceBlueprintPlacementModeLock();
         if (this.topBarPanel.handleClick(mouseX, mouseY)) {
             return true;
         }
@@ -761,6 +763,7 @@ public final class BuilderScreen extends Screen {
      * @return true if the action was consumed
      */
     private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton) {
+        enforceBlueprintPlacementModeLock();
         if (this.pendingGuiBindSlot >= 0) {
             return true;
         }
@@ -1101,6 +1104,11 @@ public final class BuilderScreen extends Screen {
         if (!isSearchFocused() && handleModeKeyPressed(keyCode, scanCode)) {
             return true;
         }
+        if (!isSearchFocused()
+                && isBlueprintPlacementModeLocked()
+                && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
+            return true;
+        }
         if (!isSearchFocused() && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
             activateFunnelHotkey();
             this.funnelHotkeyHeld = true;
@@ -1243,6 +1251,14 @@ public final class BuilderScreen extends Screen {
      * @return true if a mode switch was performed
      */
     private boolean handleModeKeyPressed(int keyCode, int scanCode) {
+        boolean modeKey = ClientKeyMappings.MODE_INTERACT.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_LINK_STORAGE.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_ROTATE.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_FUNNEL.matches(keyCode, scanCode);
+        if (isBlueprintPlacementModeLocked() && modeKey) {
+            enforceBlueprintPlacementModeLock();
+            return true;
+        }
         if (ClientKeyMappings.MODE_INTERACT.matches(keyCode, scanCode)) {
             return switchToModeFromKey(BuilderMode.INTERACT, false);
         }
@@ -1746,6 +1762,10 @@ public final class BuilderScreen extends Screen {
      * saves the current mode, and switches to funnel mode with funnel enabled.
      */
     private void activateFunnelHotkey() {
+        if (isBlueprintPlacementModeLocked()) {
+            enforceBlueprintPlacementModeLock();
+            return;
+        }
         this.cameraInput.stopActiveMining();
         this.shapeController.clearShapeBuildSession();
         if (this.controller.getMode() != BuilderMode.FUNNEL) {
@@ -1766,6 +1786,25 @@ public final class BuilderScreen extends Screen {
                     : this.modeBeforeFunnelHotkey);
         }
     }
+
+    public boolean isBlueprintPlacementModeLocked() {
+        return BlueprintPanel.isPlacementSessionActive();
+    }
+
+    private void enforceBlueprintPlacementModeLock() {
+        if (!isBlueprintPlacementModeLocked()) {
+            return;
+        }
+        if (this.controller.getMode() == BuilderMode.INTERACT && !this.controller.isFunnelEnabled()) {
+            return;
+        }
+        this.cameraInput.stopActiveMining();
+        this.shapeController.clearShapeBuildSession();
+        this.controller.setFunnelEnabled(false);
+        this.controller.setMode(BuilderMode.INTERACT);
+        this.funnelHotkeyHeld = false;
+    }
+
     /**
      * Drops one item of the currently selected item (or the tool slot item) at the
      * cursor's target position in the world. Used by the quick-drop keybind.

@@ -28,7 +28,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     private static final int LEGACY_DEFAULT_W = 300;
     private static final int LEGACY_DEFAULT_H = 286;
     private static final int PLACEMENT_PANEL_W = 248;
-    private static final int PLACEMENT_PANEL_H = 292;
+    private static final int PLACEMENT_PANEL_H = 312;
     private static final int CAPTURE_PANEL_W = 324;
     private static final int CAPTURE_PANEL_H = 160;
     private static final int PLACEMENT_MIN_W = PLACEMENT_PANEL_W;
@@ -47,7 +47,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     private static final int CAPTURE_AXIS_INPUT_W = 36;
     private static final int POSITION_AXIS_INPUT_W = 64;
     private static final int DETAILS_BUTTON_W = 58;
-    private static final int STATUS_H = 22;
+    private static final int STATUS_H = 34;
     private static final int FOOTER_GAP = 8;
 
     private WindowTextBox sizeXInput;
@@ -173,16 +173,16 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 this.posXInput, this.posYInput, this.posZInput,
                 this.posPlusButtons, this.posMinusButtons, pinned, false);
 
-        Component status;
-        int color;
         if (pinned) {
-            status = Component.translatable("screen.rtsbuilding.blueprints.status.ready_to_build");
-            color = 0xFF8EEA9B;
+            renderStatusLines(g, x, statusY, w,
+                    Component.translatable("screen.rtsbuilding.blueprints.status.ready_to_build"),
+                    Component.translatable("screen.rtsbuilding.blueprints.status.ready_to_build_controls"),
+                    0xFF8EEA9B);
         } else {
-            status = Component.translatable("screen.rtsbuilding.blueprints.placement_window_hint");
-            color = 0xFFFFE66D;
+            renderStatusLine(g, x, statusY, w,
+                    Component.translatable("screen.rtsbuilding.blueprints.placement_window_hint"),
+                    0xFFFFE66D);
         }
-        renderStatusLine(g, x, statusY, w, status, color);
         renderStackedActionButtons(g, mouseX, mouseY, partialTick, x, actionY, w,
                 new FooterButton(this.buildButton, pinned, true),
                 new FooterButton(this.clearButton, true, false));
@@ -317,6 +317,24 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         int textX = x + Math.max(6, (w - this.screen.font().width(line)) / 2);
         int textY = y + Math.max(1, (STATUS_H - this.screen.font().lineHeight) / 2);
         g.drawString(this.screen.font(), line, textX, textY, color, false);
+    }
+
+    private void renderStatusLines(GuiGraphics g, int x, int y, int w,
+            Component firstLine, Component secondLine, int color) {
+        g.fill(x, y, x + w, y + STATUS_H, 0x66111821);
+        g.fill(x, y, x + w, y + 1, 0x44344555);
+        int firstY = y + Math.max(2, (STATUS_H - this.screen.font().lineHeight * 2 - 3) / 2);
+        drawCenteredStatusLine(g, firstLine, x, firstY, w, color);
+        drawCenteredStatusLine(g, secondLine, x, firstY + this.screen.font().lineHeight + 3, w, 0xFFB7CDE2);
+    }
+
+    private void drawCenteredStatusLine(GuiGraphics g, Component text, int x, int y, int w, int color) {
+        if (text == null) {
+            return;
+        }
+        String line = RtsClientUiUtil.trimToWidth(this.screen.font(), text.getString(), w - 12);
+        int textX = x + Math.max(6, (w - this.screen.font().width(line)) / 2);
+        g.drawString(this.screen.font(), line, textX, y, color, false);
     }
 
     private void renderFooterButtons(GuiGraphics g, int mouseX, int mouseY, float partialTick,
@@ -499,7 +517,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         if (BlueprintPanel.isCaptureModeActive()) {
             return handleCaptureKey(keyCode);
         }
-        return handlePlacementKey(keyCode);
+        return handlePlacementKey(keyCode, scanCode);
     }
 
     @Override
@@ -577,7 +595,10 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         return false;
     }
 
-    private boolean handlePlacementKey(int keyCode) {
+    private boolean handlePlacementKey(int keyCode, int scanCode) {
+        if (BlueprintPanel.isBlueprintRotateKey(keyCode, scanCode)) {
+            return BlueprintPanel.rotateSelectedBlueprintY(isShiftDown() ? -1 : 1);
+        }
         if (!BlueprintPanel.hasPinnedPreview()) {
             return false;
         }
@@ -897,6 +918,12 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         long window = this.screen.getMinecraft().getWindow().getWindow();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+    }
+
+    private boolean isShiftDown() {
+        long window = this.screen.getMinecraft().getWindow().getWindow();
+        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
     }
 
     private record FooterButton(WindowButton button, boolean enabled, boolean primary) {

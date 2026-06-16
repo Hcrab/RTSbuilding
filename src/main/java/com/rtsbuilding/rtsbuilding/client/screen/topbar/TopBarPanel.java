@@ -137,6 +137,11 @@ public final class TopBarPanel {
             if (!inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
                 continue;
             }
+            if (screen.isBlueprintPlacementModeLocked() && isModeButton(button.id())) {
+                this.controller.setMode(BuilderMode.INTERACT);
+                this.controller.setFunnelEnabled(false);
+                return true;
+            }
             switch (button.id()) {
                 case INTERACT -> {
                     this.controller.setMode(BuilderMode.INTERACT);
@@ -354,6 +359,9 @@ public final class TopBarPanel {
      * @return the resolved {@link TopAction} (defaults to {@link TopAction#INTERACT})
      */
     public TopAction topActionForMode() {
+        if (screen.isBlueprintPlacementModeLocked()) {
+            return TopAction.INTERACT;
+        }
         return switch (this.controller.getMode()) {
             case INTERACT -> TopAction.INTERACT;
             case LINK_STORAGE -> TopAction.LINK;
@@ -371,6 +379,13 @@ public final class TopBarPanel {
         return ModList.get().isLoaded("ftbquests")
                 || ModList.get().isLoaded("ftb_quests")
                 || ModList.get().isLoaded("ftblibrary");
+    }
+
+    private static boolean isModeButton(TopBarTypes.TopBarButtonId id) {
+        return id == TopBarTypes.TopBarButtonId.INTERACT
+                || id == TopBarTypes.TopBarButtonId.LINK
+                || id == TopBarTypes.TopBarButtonId.FUNNEL
+                || id == TopBarTypes.TopBarButtonId.ROTATE;
     }
 
     /**
