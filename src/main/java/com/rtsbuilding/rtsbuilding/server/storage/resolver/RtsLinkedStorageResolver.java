@@ -103,6 +103,10 @@ public final class RtsLinkedStorageResolver {
     /**
      * Linked refs are world targets, so resolver owns the shared camera, chunk,
      * interaction, and home-radius gate used before resolving them.
+     * <p>
+     * Also enforces the bedrock-layer boundary: any position at or below the
+     * world's minimum build height (bedrock floor) is rejected, preventing RTS
+     * operations in the void below the world.
      */
     public static boolean canAccessWorldTarget(ServerPlayer player, BlockPos pos) {
         if (!RtsCameraManager.isActive(player) || pos == null) {
@@ -111,6 +115,10 @@ public final class RtsLinkedStorageResolver {
 
         ServerLevel level = player.serverLevel();
         if (!level.hasChunkAt(pos)) {
+            return false;
+        }
+        // ── Bedrock-layer boundary: reject positions below the world floor ──
+        if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
             return false;
         }
         if (!level.mayInteract(player, pos)) {

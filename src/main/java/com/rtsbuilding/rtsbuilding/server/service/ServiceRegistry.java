@@ -14,19 +14,33 @@ public final class ServiceRegistry {
 
     private static ServiceRegistry INSTANCE;
 
-    private final PathfindingService pathfindingService;
-    private final BindingService bindingService;
-    private final FunnelService funnelService;
-    private final PageService pageService;
-    private final CraftingService craftingService;
-    private final TransferService transferService;
-    private final InteractionService interactionService;
-    private final MiningService miningService;
-    private final PlacementService placementService;
-    private final FluidService fluidService;
-    private final SessionService sessionService;
+    private PathfindingService pathfindingService;
+    private BindingService bindingService;
+    private FunnelService funnelService;
+    private PageService pageService;
+    private CraftingService craftingService;
+    private TransferService transferService;
+    private InteractionService interactionService;
+    private MiningService miningService;
+    private PlacementService placementService;
+    private FluidService fluidService;
+    private SessionService sessionService;
 
-    private ServiceRegistry(/* future: MinecraftServer server */) {
+    private ServiceRegistry() {
+    }
+
+    /**
+     * 初始化服务注册中心。应在服务器启动时调用一次。
+     */
+    public static ServiceRegistry init() {
+        if (INSTANCE == null) {
+            INSTANCE = new ServiceRegistry();
+            INSTANCE.initializeServices();
+        }
+        return INSTANCE;
+    }
+
+    private void initializeServices() {
         this.pathfindingService = new RtsPathfindingServiceImpl();
         this.bindingService = new RtsBindingServiceImpl();
         this.funnelService = new RtsFunnelServiceImpl();
@@ -38,16 +52,6 @@ public final class ServiceRegistry {
         this.placementService = new RtsPlacementServiceImpl();
         this.fluidService = new RtsFluidServiceImpl();
         this.sessionService = new RtsSessionServiceImpl();
-    }
-
-    /**
-     * 初始化服务注册中心。应在服务器启动时调用一次。
-     */
-    public static ServiceRegistry init() {
-        if (INSTANCE == null) {
-            INSTANCE = new ServiceRegistry();
-        }
-        return INSTANCE;
     }
 
     /**
