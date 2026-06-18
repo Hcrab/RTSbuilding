@@ -57,6 +57,7 @@ public final class RtsModConfigScreen extends Screen {
     private boolean placeWireframeAnimation = Config.isPlaceWireframeAnimationEnabled();
     private boolean destroyWireframeAnimation = Config.isDestroyWireframeAnimationEnabled();
     private boolean rangeDestroySkeleton = Config.isRangeDestroySkeletonEnabled();
+    private boolean showStorageReadyPopup = Config.isShowStorageReadyPopupEnabled();
     private String draftMaxRadius = Integer.toString(Config.maxActionRadiusBlocks());
     private String draftMaxBlueprintBlocks = Integer.toString(Config.maxBlueprintBlocks());
     private EditBox maxRadiusBox;
@@ -296,6 +297,16 @@ public final class RtsModConfigScreen extends Screen {
                 rebuildConfigWidgets();
             }).bounds(controlX, y + 9, controlW, 20).build());
         }
+        y += OPTION_ROW_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.showStorageReadyPopup
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.showStorageReadyPopup = !this.showStorageReadyPopup;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
     }
 
     private void addSkillWidgets() {
@@ -371,6 +382,7 @@ public final class RtsModConfigScreen extends Screen {
                     this.placeWireframeAnimation,
                     this.destroyWireframeAnimation,
                     this.rangeDestroySkeleton,
+                    this.showStorageReadyPopup,
                     costOverrides);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
@@ -458,6 +470,9 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H;
         drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.range_destroy_skeleton"),
                 Component.translatable("config.rtsbuilding.option.range_destroy_skeleton.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.show_storage_ready_popup"),
+                Component.translatable("config.rtsbuilding.option.show_storage_ready_popup.hint"));
         g.disableScissor();
     }
 
@@ -476,7 +491,7 @@ public final class RtsModConfigScreen extends Screen {
 
     private int contentHeight(Page target) {
         if (target == Page.GENERAL) {
-            return SECTION_H * 3 + OPTION_ROW_H * 12 + 12;
+            return SECTION_H * 3 + OPTION_ROW_H * 13 + 12;
         }
         return SECTION_H + COST_ROW_H + this.nodes.size() * COST_ROW_H;
     }

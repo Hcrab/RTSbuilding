@@ -28,17 +28,17 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 /**
  * Handles RTS camera and input interaction state management.
  * <p>
- * Manages mouse dragging (right-click pan, middle-click rotation),
+ * Manages mouse dragging (right-click rotation, middle-click pan),
  * mining actions, keyboard camera control, and keyboard pan-drag states.
  * All state is used in BuilderScreen event methods; this class stores and
  * manages these states and provides helper methods for input detection
  * and action execution.
  * <p>
- * Key bindings after swap:
+ * Default mouse bindings:
  * <ul>
- *   <li>Right-click drag → camera pan (movement)</li>
- *   <li>Middle-click drag → camera rotation</li>
- *   <li>Middle-click (no drag) → pick block for placement</li>
+ *   <li>Right-click drag -> camera rotation</li>
+ *   <li>Middle-click drag -> camera pan (movement)</li>
+ *   <li>Middle-click without drag -> pick block for placement</li>
  * </ul>
  */
 public final class CameraInputHandler {
@@ -189,10 +189,10 @@ public final class CameraInputHandler {
     }
 
     /**
-     * Handles right/middle-click drag. After key binding swap:
+     * Handles right/middle-click drag.
      * <ul>
-     *   <li>Right button → camera pan (movement)</li>
-     *   <li>Middle button → camera rotation</li>
+     *   <li>Right button -> camera rotation by default</li>
+     *   <li>Middle button -> camera pan by default</li>
      * </ul>
      * The specific action is determined dynamically via {@link CameraInputHandler#isPanDragActionMouse(int)}
      * and {@link CameraInputHandler#isRotateDragActionMouse(int)}.
@@ -207,10 +207,10 @@ public final class CameraInputHandler {
                 this.rightDragRotated = true;
             }
             if (CameraInputHandler.isPanDragActionMouse(button)) {
-                // Right button → camera pan (movement)
+                // Default middle button: camera pan (movement)
                 this.controller.queuePanDrag(dragX, dragY);
             } else if (this.rightPressCanRotate) {
-                // Middle button → camera rotation
+                // Default right button: camera rotation
                 this.controller.queueRotateDrag(dragX, dragY);
             }
             return true;

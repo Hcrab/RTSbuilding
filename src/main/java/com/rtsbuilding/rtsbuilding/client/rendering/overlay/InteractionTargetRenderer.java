@@ -55,8 +55,8 @@ public final class InteractionTargetRenderer {
     /** Small outward offset applied to block brackets to prevent z-fighting. */
     private static final double LINE_OFFSET = 0.01D;
 
-    /** Distance at which a targeted block should read mostly as the old bright skeleton. */
-    private static final double NEAR_SKELETON_DISTANCE = 6.0D;
+    /** Distance at which a targeted block should read fully as the old bright skeleton. */
+    private static final double NEAR_SKELETON_DISTANCE = 10.0D;
 
     /** Distance at which a targeted block should keep the current face-cover clarity. */
     private static final double FAR_COVER_DISTANCE = 20.0D;

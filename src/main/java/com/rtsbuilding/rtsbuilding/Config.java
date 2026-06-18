@@ -77,6 +77,11 @@ public class Config {
             .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
             .define("useRangeDestroySkeleton", true);
 
+    public static final ModConfigSpec.BooleanValue SHOW_STORAGE_READY_POPUP = BUILDER
+            .comment("Show the brief 'Storage ready' popup after a storage scan finishes. Storage scan progress remains visible while scanning.")
+            .translation("rtsbuilding.configuration.showStorageReadyPopup")
+            .define("showStorageReadyPopup", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static void setSurvivalProgressionEnabled(boolean enabled) {
@@ -116,6 +121,7 @@ public class Config {
                 isPlaceWireframeAnimationEnabled(),
                 isDestroyWireframeAnimationEnabled(),
                 isRangeDestroySkeletonEnabled(),
+                isShowStorageReadyPopupEnabled(),
                 costOverrides);
     }
 
@@ -123,6 +129,7 @@ public class Config {
             boolean blueprintsEnabled, int maxBlueprintBlocks, boolean placementBlockGhostPreview,
             boolean placeBlockGhostAnimation, boolean destroyBlockGhostAnimation, boolean placementWireframePreview,
             boolean placeWireframeAnimation, boolean destroyWireframeAnimation, boolean rangeDestroySkeleton,
+            boolean showStorageReadyPopup,
             Map<String, String> costOverrides) {
         ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
         SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
@@ -136,6 +143,7 @@ public class Config {
         USE_PLACE_WIREFRAME_ANIMATION.set(placeWireframeAnimation);
         USE_DESTROY_WIREFRAME_ANIMATION.set(destroyWireframeAnimation);
         USE_RANGE_DESTROY_SKELETON.set(rangeDestroySkeleton);
+        SHOW_STORAGE_READY_POPUP.set(showStorageReadyPopup);
         setProgressionCostOverrides(costOverrides);
         SPEC.save();
     }
@@ -219,6 +227,15 @@ public class Config {
 
     public static void setRangeDestroySkeletonEnabled(boolean enabled) {
         USE_RANGE_DESTROY_SKELETON.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean isShowStorageReadyPopupEnabled() {
+        return SHOW_STORAGE_READY_POPUP.getAsBoolean();
+    }
+
+    public static void setShowStorageReadyPopupEnabled(boolean enabled) {
+        SHOW_STORAGE_READY_POPUP.set(enabled);
         SPEC.save();
     }
 

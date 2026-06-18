@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
@@ -212,6 +213,9 @@ public final class RtsScreenOverlayRenderer {
 
     public void renderStorageScanPopup(GuiGraphics g) {
         if (!this.controller.isStorageScanPopupVisible()) {
+            return;
+        }
+        if (!this.controller.isStorageScanRunning() && !Config.isShowStorageReadyPopupEnabled()) {
             return;
         }
         BottomPanelLayoutTypes.BottomPanelLayout layout = this.bottomPanel.resolveBottomPanelLayout();
