@@ -238,11 +238,10 @@ public final class RtsMiningStateMachine {
             if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
                 RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
             }
-            // 存储页刷新等到整批挖掘收尾时统一执行，避免第一块之后阻塞后续批量破坏。
+            // 第一块完成后只切换到批处理状态，剩余目标留到下一 tick 处理，避免同一帧突发破坏。
             session.mining.miningPos = null;
             session.mining.miningProgress = 0.0F;
             session.mining.miningStage = -1;
-            RtsUltimineProcessor.processUltimineTargets(player, session);
             return;
         }
 

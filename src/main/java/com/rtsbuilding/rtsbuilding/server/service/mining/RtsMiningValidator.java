@@ -94,9 +94,10 @@ public final class RtsMiningValidator {
      *   <li>In mode 0, its block type matches the seed block.</li>
      *   <li>The player can access the world target.</li>
      *   <li>Creative mode bypasses further checks.</li>
-     *   <li>Survival: the block has a valid destroy speed, is not
-     *       significantly harder than the seed block, and the tool can make
-     *       progress on it.</li>
+     *   <li>Survival: the block has a valid destroy speed and is not
+     *       significantly harder than the seed block. Tool progress is checked
+     *       once on the seed before collection, then again before each queued
+     *       target is actually destroyed.</li>
      * </ol>
      */
     public static boolean isUltimineCandidate(
@@ -129,8 +130,7 @@ public final class RtsMiningValidator {
         if (seedDestroySpeed >= 0.0F && candidateDestroySpeed > seedDestroySpeed * 1.5F) {
             return false;
         }
-        return RtsMiningStateMachine.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool,
-                selectedToolRequested) > 0.0F;
+        return true;
     }
 
     // =========================================================================
@@ -236,16 +236,31 @@ public final class RtsMiningValidator {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, seed)) {
             return new java.util.ArrayDeque<>();
         }
+        BlockState seedState = player.serverLevel().getBlockState(seed);
+        if (!isBreakableBlock(seedState)) {
+            return new java.util.ArrayDeque<>();
+        }
+        if (!creative) {
+            if (!hasValidDestroySpeed(seedState, player.serverLevel(), seed)) {
+                return new java.util.ArrayDeque<>();
+            }
+            // 连锁收集阶段只验证种子块能开挖；后续候选的工具判定留给批处理，
+            // 避免像范围挖掘已经优化过的路径那样重复计算整批候选的工具速度。
+            if (RtsMiningStateMachine.computeRemoteDestroyStep(player, seedState, seed, toolSlot, linkedTool,
+                    selectedToolRequested) <= 0.0F) {
+                return new java.util.ArrayDeque<>();
+            }
+        }
 
         java.util.List<BlockPos> targets = RtsUltimineCollector.collect(
                 player.serverLevel(),
                 seed,
                 limit,
-                (candidatePos, state, seedState) -> isUltimineCandidate(
+                (candidatePos, state, seedBlockState) -> isUltimineCandidate(
                         player,
                         candidatePos,
                         state,
-                        seedState,
+                        seedBlockState,
                         toolSlot,
                         linkedTool,
                         selectedToolRequested,
