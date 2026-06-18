@@ -238,11 +238,7 @@ public final class RtsMiningStateMachine {
             if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
                 RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
             }
-            // 连锁挖掘中途进度：触发储存页面刷新以保证GUI实时更新
-            RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                    session.browser.category, session.browser.sort, session.browser.ascending);
+            // 存储页刷新等到整批挖掘收尾时统一执行，避免第一块之后阻塞后续批量破坏。
             session.mining.miningPos = null;
             session.mining.miningProgress = 0.0F;
             session.mining.miningStage = -1;
@@ -683,11 +679,13 @@ public final class RtsMiningStateMachine {
         cleanupPipes.add(new HistoryRecordPipe());
         WorkflowPipeline.runCleanupSequence(ctx, cleanupPipes);
 
-        // 触发储存页面刷新以保证GUI实时更新
-        RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.transfer.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                session.browser.category, session.browser.sort, session.browser.ascending);
+        // 只在没有后续排队挖掘时重建存储页，避免连续作业之间被页面刷新卡住。
+        if (!hasQueuedJobs) {
+            RtsStorageTickService.INSTANCE.forceRefresh(player);
+            session.transfer.pageDataVersion.incrementAndGet();
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search,
+                    session.browser.category, session.browser.sort, session.browser.ascending);
+        }
         resetMiningState(session, hasQueuedJobs);
     }
 

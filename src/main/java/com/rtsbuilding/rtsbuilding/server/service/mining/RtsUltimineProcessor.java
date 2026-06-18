@@ -5,8 +5,6 @@ import com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -474,7 +472,6 @@ public final class RtsUltimineProcessor {
 
         ServerLevel level = player.serverLevel();
         int processedThisTick = 0;
-        int brokenBeforeThisTick = session.mining.ultimineBrokenTargets;
 
         while (RtsMiningTargetQueue.canProcessAnotherTargetThisTick(processedThisTick, session.mining.ultimineTargets)) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
@@ -521,18 +518,6 @@ public final class RtsUltimineProcessor {
                 finishUltimineBatch(player, session);
                 return;
             }
-        }
-
-        // Report per-tick broken block delta to the workflow manager so the
-        // progress bar updates in real time instead of staying at 0 until
-        // the entire batch finishes.
-        int brokenDelta = session.mining.ultimineBrokenTargets - brokenBeforeThisTick;
-        if (brokenDelta > 0) {
-            // 连锁挖掘中途进度：触发储存页面刷新以保证GUI实时更新
-            RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                    session.browser.category, session.browser.sort, session.browser.ascending);
         }
 
         RtsMiningNetworkHelper.sendUltimineBatchProgress(player, session);
