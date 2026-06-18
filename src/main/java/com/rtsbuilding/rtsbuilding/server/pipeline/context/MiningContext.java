@@ -3,17 +3,20 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.context;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.MiningExecutePipe;
+import com.rtsbuilding.rtsbuilding.server.pipeline.mining.UltimineExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,8 +43,17 @@ public class MiningContext extends PipelineContext {
      * @param player the server-side player executing the operation
      * @param args   immutable input arguments (a defensive copy is taken)
      */
-    public MiningContext(ServerPlayer player, Map<String, Object> args) {
+    private MiningContext(ServerPlayer player, Map<String, Object> args) {
         super(player, args);
+    }
+
+    /**
+     * Creates a new {@link Builder} for constructing a {@link MiningContext}
+     * with type-safe fluent setters, eliminating {@code Map<String, Object>}
+     * boilerplate.
+     */
+    public static Builder builder(ServerPlayer player) {
+        return new Builder(player);
     }
 
     /**
@@ -125,6 +137,153 @@ public class MiningContext extends PipelineContext {
     public boolean isToolProtectionEnabled() {
         return !hasArg(MiningExecutePipe.ARG_TOOL_PROTECTION_ENABLED)
                 || getArg(MiningExecutePipe.ARG_TOOL_PROTECTION_ENABLED);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Builder
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Type-safe fluent builder for {@link MiningContext}.
+     *
+     * <p>Usage:</p>
+     * <pre>{@code
+     * MiningContext ctx = MiningContext.builder(player)
+     *     .toolSlot(toolSlot)
+     *     .toolItemId(toolItemId)
+     *     .pos(pos)
+     *     .face(face)
+     *     .build();
+     *
+     * PipelineRegistry.execute(type, ctx);
+     * }</pre>
+     */
+    public static final class Builder {
+        private final ServerPlayer player;
+        private final Map<String, Object> args = new HashMap<>();
+
+        private Builder(ServerPlayer player) {
+            this.player = player;
+        }
+
+        /** Tool slot index. */
+        public Builder toolSlot(int toolSlot) {
+            args.put(ToolBorrowPipe.ARG_TOOL_SLOT.name(), toolSlot);
+            return this;
+        }
+
+        /** Tool item ID. */
+        public Builder toolItemId(String toolItemId) {
+            args.put(ToolBorrowPipe.ARG_TOOL_ITEM_ID.name(), toolItemId);
+            return this;
+        }
+
+        /** Tool prototype stack. */
+        public Builder toolPrototype(ItemStack toolPrototype) {
+            args.put(ToolBorrowPipe.ARG_TOOL_PROTOTYPE.name(), toolPrototype);
+            return this;
+        }
+
+        /** Target block position. */
+        public Builder pos(BlockPos pos) {
+            args.put(MiningExecutePipe.ARG_POS.name(), pos);
+            return this;
+        }
+
+        /** Mining face direction. */
+        public Builder face(Direction face) {
+            args.put(MiningExecutePipe.ARG_FACE.name(), face);
+            return this;
+        }
+
+        /** Allow placed-block recovery. */
+        public Builder allowPlacedBlockRecovery(boolean allow) {
+            args.put(MiningExecutePipe.ARG_ALLOW_PLACED_BLOCK_RECOVERY.name(), allow);
+            return this;
+        }
+
+        /** Tool protection enabled. */
+        public Builder toolProtectionEnabled(boolean enabled) {
+            args.put(MiningExecutePipe.ARG_TOOL_PROTECTION_ENABLED.name(), enabled);
+            return this;
+        }
+
+        /** Total blocks for the workflow. */
+        public Builder totalBlocks(int total) {
+            args.put(WorkflowStartPipe.ARG_TOTAL_BLOCKS.name(), total);
+            return this;
+        }
+
+        /** Requested limit for ultimine operations. */
+        public Builder requestedLimit(int limit) {
+            args.put(UltimineExecutePipe.ARG_REQUESTED_LIMIT.name(), limit);
+            return this;
+        }
+
+        /** Ultimine mode. */
+        public Builder mode(byte mode) {
+            args.put(UltimineExecutePipe.ARG_MODE.name(), mode);
+            return this;
+        }
+
+        /** Minimum X for area operations. */
+        public Builder minX(int minX) {
+            args.put(UltimineExecutePipe.ARG_MIN_X.name(), minX);
+            return this;
+        }
+
+        /** Maximum X for area operations. */
+        public Builder maxX(int maxX) {
+            args.put(UltimineExecutePipe.ARG_MAX_X.name(), maxX);
+            return this;
+        }
+
+        /** Minimum Y for area operations. */
+        public Builder minY(int minY) {
+            args.put(UltimineExecutePipe.ARG_MIN_Y.name(), minY);
+            return this;
+        }
+
+        /** Maximum Y for area operations. */
+        public Builder maxY(int maxY) {
+            args.put(UltimineExecutePipe.ARG_MAX_Y.name(), maxY);
+            return this;
+        }
+
+        /** Minimum Z for area operations. */
+        public Builder minZ(int minZ) {
+            args.put(UltimineExecutePipe.ARG_MIN_Z.name(), minZ);
+            return this;
+        }
+
+        /** Maximum Z for area operations. */
+        public Builder maxZ(int maxZ) {
+            args.put(UltimineExecutePipe.ARG_MAX_Z.name(), maxZ);
+            return this;
+        }
+
+        /** Shape type for area operations. */
+        public Builder shapeType(byte shapeType) {
+            args.put(UltimineExecutePipe.ARG_SHAPE_TYPE.name(), shapeType);
+            return this;
+        }
+
+        /** Fill type for area operations. */
+        public Builder fillType(byte fillType) {
+            args.put(UltimineExecutePipe.ARG_FILL_TYPE.name(), fillType);
+            return this;
+        }
+
+        /** Positions for AREA_DESTROY. */
+        public Builder positions(List<BlockPos> positions) {
+            args.put(UltimineExecutePipe.ARG_POSITIONS.name(), positions);
+            return this;
+        }
+
+        /** Builds the {@link MiningContext}. */
+        public MiningContext build() {
+            return new MiningContext(player, args);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────

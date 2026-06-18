@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
-import com.rtsbuilding.rtsbuilding.server.storage.RtsMiningState;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningState;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;

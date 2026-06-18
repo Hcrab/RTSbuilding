@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
 import com.rtsbuilding.rtsbuilding.server.api.RtsMiningAPI;
-import com.rtsbuilding.rtsbuilding.server.service.RtsMiningService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,11 +10,14 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 public final class RtsMiningAPIImpl implements RtsMiningAPI {
+
+    private static final ServiceRegistry REGISTRY = ServiceRegistry.getInstance();
+
     @Override
     public void mine(ServerPlayer player, Object pos, Direction face, boolean start,
                      byte toolSlot, String toolItemId, ItemStack toolPrototype,
                      boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
-        RtsMiningService.mine(player, (BlockPos) pos, face, start, toolSlot,
+        REGISTRY.mining().mine(player, (BlockPos) pos, face, start, toolSlot,
                 toolItemId, toolPrototype, allowPlacedBlockRecovery, toolProtectionEnabled);
     }
 
@@ -22,7 +25,7 @@ public final class RtsMiningAPIImpl implements RtsMiningAPI {
     public void startUltimine(ServerPlayer player, Object pos, Direction face,
                               byte toolSlot, String toolItemId, ItemStack toolPrototype,
                               int requestedLimit, byte mode, boolean toolProtectionEnabled) {
-        RtsMiningService.startUltimine(player, (BlockPos) pos, face, toolSlot,
+        REGISTRY.mining().startUltimine(player, (BlockPos) pos, face, toolSlot,
                 toolItemId, toolPrototype, requestedLimit, mode, toolProtectionEnabled);
     }
 
@@ -30,7 +33,7 @@ public final class RtsMiningAPIImpl implements RtsMiningAPI {
     public void areaMine(ServerPlayer player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
                          byte toolSlot, String toolItemId, ItemStack toolPrototype,
                          byte shapeType, byte fillType, boolean toolProtectionEnabled) {
-        RtsMiningService.areaMine(player, minX, maxX, minY, maxY, minZ, maxZ,
+        REGISTRY.mining().areaMine(player, minX, maxX, minY, maxY, minZ, maxZ,
                 toolSlot, toolItemId, toolPrototype, shapeType, fillType, toolProtectionEnabled);
     }
 
@@ -39,25 +42,25 @@ public final class RtsMiningAPIImpl implements RtsMiningAPI {
                             byte toolSlot, String toolItemId, ItemStack toolPrototype,
                             boolean toolProtectionEnabled) {
         List<BlockPos> posList = positions.stream().map(p -> (BlockPos) p).toList();
-        RtsMiningService.areaDestroy(player, posList, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled);
+        REGISTRY.mining().areaDestroy(player, posList, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled);
     }
 
     // ======================================================================
-    //  Area Destroy Progress Queries
+    //  区域破坏进度查询
     // ======================================================================
 
     @Override
     public int getAreaDestroyTotalBlocks(ServerPlayer player) {
-        return RtsMiningService.getAreaDestroyTotalBlocks(player);
+        return REGISTRY.mining().getAreaDestroyTotalBlocks(player);
     }
 
     @Override
     public int getAreaDestroyCompletedBlocks(ServerPlayer player) {
-        return RtsMiningService.getAreaDestroyCompletedBlocks(player);
+        return REGISTRY.mining().getAreaDestroyCompletedBlocks(player);
     }
 
     @Override
     public int getAreaDestroyRemainingBlocks(ServerPlayer player) {
-        return RtsMiningService.getAreaDestroyRemainingBlocks(player);
+        return REGISTRY.mining().getAreaDestroyRemainingBlocks(player);
     }
 }

@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.data.RtsWorkflowStore;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventListener;
@@ -12,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
+import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -96,7 +96,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
         if (timeoutService == null) {
-            timeoutService = new RtsWorkflowTimeoutService(this, playerSlots);
+            timeoutService = new RtsWorkflowTimeoutService(playerSlots, playerRefs, eventBus, syncService);
             timeoutService.start(checkInterval, maxIdleTime);
         }
     }
@@ -458,77 +458,22 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsbuildingMod.LOGGER.info("[Workflow] Cleared all workflow data ({} players)", totalPlayers);
     }
 
-    @Override
-    public int cleanupStaleWorkflows(Duration maxIdleTime) {
-        int total = 0;
-        long maxIdleMs = maxIdleTime.toMillis();
-
-        for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry : playerSlots.entrySet()) {
-            UUID playerId = playerEntry.getKey();
-
-            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimEntry : playerEntry.getValue().entrySet()) {
-                RtsWorkflowSlotManager slots = dimEntry.getValue();
-
-                List<Integer> staleIds = slots.removeStaleEntries(maxIdleMs);
-                for (int staleId : staleIds) {
-                    fireEvent(WorkflowEventType.TIMEOUT, playerId, staleId, null);
-                    total++;
-                }
-
-                if (!staleIds.isEmpty()) {
-                    // Notify the player if they're still online
-                    ServerPlayer player = findPlayerByUUID(playerId);
-                    if (player != null) {
-                        if (slots.occupiedCount() > 0) {
-                            syncService.notifyPlayer(player, slots);
-                        } else {
-                            syncService.sendIdle(player);
-                        }
-                    }
-                }
-            }
-
-            // Remove empty dimension maps
-            playerEntry.getValue().entrySet().removeIf(e -> e.getValue().occupiedCount() == 0 && e.getValue().size() == 0);
-        }
-
-        // Remove players with no dimensions
-        playerSlots.values().removeIf(Map::isEmpty);
-        return total;
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  Persistence — save / load workflow entries
-    // ──────────────────────────────────────────────────────────────────
-
     /**
-     * Saves all workflow entries for all players to the world save file.
-     * Call before server stop or periodically to persist workflow state.
-     *
-     * @param server the Minecraft server (used to derive the world save path)
+     * 将持久化委托给 {@link WorkflowPersistenceService}。
      */
     public void saveAll(MinecraftServer server) {
-        if (server == null) return;
-        RtsWorkflowStore.saveAll(server, playerSlots);
+        WorkflowPersistenceService.getInstance().saveAll(server, playerSlots);
     }
 
     /**
-     * Loads workflow entries for a specific player from the world save file
-     * and merges them into the in-memory slot managers.
-     *
-     * <p>Loaded entries are restored with their original state (suspended/paused),
-     * so the player will see their previous threads. The player is notified
-     * immediately so their UI reflects the restored entries.</p>
-     *
-     * @param server   the Minecraft server
-     * @param player the player whose entries to load
+     * 从世界存档加载玩家工作流并合并到内存。
      */
     public void loadPlayerFromStore(MinecraftServer server, ServerPlayer player) {
         if (server == null || player == null) return;
         UUID playerId = player.getUUID();
 
         Map<ResourceKey<Level>, RtsWorkflowSlotManager> loaded =
-                RtsWorkflowStore.loadPlayer(server, playerId);
+                WorkflowPersistenceService.getInstance().loadPlayerFromStore(server, playerId);
 
         if (loaded.isEmpty()) return;
 
@@ -541,9 +486,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             if (!dimMap.containsKey(dimension)) {
                 dimMap.put(dimension, entry.getValue());
             }
-            // If a slot manager already exists for this dimension (e.g. the
-            // player had active workflows when they disconnected), skip merging
-            // to avoid duplicating entries.
         }
 
         // Notify the client so the UI shows the restored entries

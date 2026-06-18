@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -101,7 +103,8 @@ public final class RtsStorageRecentEntries {
                 Math.max(0L, entry.capacity()),
                 entry.kind());
         RecentEntry merged = normalized;
-        for (RecentEntry existing : session.recentEntries) {
+        var recentEntries = session.uiMemory.getRecentEntries();
+        for (RecentEntry existing : recentEntries) {
             if (!sameRecentKey(existing, normalized)) {
                 continue;
             }
@@ -111,10 +114,10 @@ public final class RtsStorageRecentEntries {
             break;
         }
         final RecentEntry mergedEntry = merged;
-        session.recentEntries.removeIf(existing -> sameRecentKey(existing, mergedEntry));
-        session.recentEntries.addFirst(mergedEntry);
-        while (session.recentEntries.size() > RECENT_ENTRY_LIMIT) {
-            session.recentEntries.removeLast();
+        recentEntries.removeIf(existing -> sameRecentKey(existing, mergedEntry));
+        recentEntries.addFirst(mergedEntry);
+        while (recentEntries.size() > RECENT_ENTRY_LIMIT) {
+            recentEntries.removeLast();
         }
     }
 

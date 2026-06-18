@@ -10,11 +10,11 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.sync.HistoryRecordPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceOperationTemplate;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -54,7 +54,7 @@ public final class RtsMiningStateMachine {
 
     /**
      * Per-player workflow entry ID tracking, decoupled from
-     * {@link com.rtsbuilding.rtsbuilding.server.storage.RtsMiningState}.
+     * {@link com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningState}.
      *
      * <p>Pipes write via {@link #setWorkflowEntryId(UUID, int)} during
      * pipeline execution; async mining completion reads via
@@ -239,10 +239,7 @@ public final class RtsMiningStateMachine {
                 RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
             }
             // 连锁挖掘中途进度：触发储存页面刷新以保证GUI实时更新
-            RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                    session.browser.category, session.browser.sort, session.browser.ascending);
+            ServiceOperationTemplate.afterModification(player, session);
             session.mining.miningPos = null;
             session.mining.miningProgress = 0.0F;
             session.mining.miningStage = -1;
@@ -328,7 +325,7 @@ public final class RtsMiningStateMachine {
 
         RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
         if (hadMiningState) {
-            RtsPageService.markStorageViewDirty(player, session);
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
         }
         resetMiningState(session);
     }
@@ -684,10 +681,7 @@ public final class RtsMiningStateMachine {
         WorkflowPipeline.runCleanupSequence(ctx, cleanupPipes);
 
         // 触发储存页面刷新以保证GUI实时更新
-        RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.transfer.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceOperationTemplate.afterModification(player, session);
         resetMiningState(session, hasQueuedJobs);
     }
 

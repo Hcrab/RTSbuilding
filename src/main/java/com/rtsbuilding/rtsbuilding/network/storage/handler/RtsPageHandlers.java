@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -19,7 +19,7 @@ public final class RtsPageHandlers {
     public static void handleRequestStoragePage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsPageService.requestPage(
+                ServiceRegistry.getInstance().page().requestPage(
                         serverPlayer,
                         payload.page(),
                         payload.search(),

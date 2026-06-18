@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 
 import javax.annotation.Nullable;
@@ -100,23 +100,7 @@ public class PipelineContext {
         return key.type().cast(value);
     }
 
-    /**
-     * Retrieves a typed input argument by raw {@code String} key.
-     *
-     * @deprecated Use {@link #getArg(TypedKey)} for compile-time + runtime
-     *             type safety.  This method performs no runtime checked cast
-     *             and may silently return a value of the wrong type.
-     */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    @Nullable
-    public <T> T getArg(String key) {
-        return (T) args.get(key);
-    }
-
-    /**
-     * Returns {@code true} if the args map contains the given key.
-     */
+    /** Returns {@code true} if the args map contains the given key. */
     public boolean hasArg(TypedKey<?> key) {
         return args.containsKey(key.name());
     }
@@ -152,8 +136,6 @@ public class PipelineContext {
         return data.containsKey(key.name());
     }
 
-    // ── Deprecated String-based overloads ───────────────────────────
-
     /**
      * Removes all shared data except the specified keys.
      * Called after the sync phase completes to free intermediate data
@@ -176,37 +158,6 @@ public class PipelineContext {
         }
         data.clear();
         data.putAll(retained);
-    }
-
-    // ── Deprecated String-based overloads ───────────────────────────
-
-    /**
-     * @deprecated Use {@link #setData(TypedKey, Object)} for compile-time
-     *             type safety.  This method accepts any {@code Object} and
-     *             will not validate the type at runtime.
-     */
-    @Deprecated
-    public void setData(String key, Object value) {
-        data.put(key, value);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(TypedKey)} for compile-time + runtime
-     *             type safety.  This method performs no runtime checked cast.
-     */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    @Nullable
-    public <T> T getData(String key) {
-        return (T) data.get(key);
-    }
-
-    /**
-     * @deprecated Use {@link #hasData(TypedKey)} for type-safe key usage.
-     */
-    @Deprecated
-    public boolean hasData(String key) {
-        return data.containsKey(key);
     }
 
     // ──────────────────────────────────────────────────────────────────

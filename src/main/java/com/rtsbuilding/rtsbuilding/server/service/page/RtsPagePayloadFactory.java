@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedStorageRef;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
@@ -52,7 +51,7 @@ public final class RtsPagePayloadFactory {
                 0, 1, 0,
                 session.browser.search, session.browser.category,
                 (byte) session.browser.sort.ordinal(), session.browser.ascending,
-                session.autoStoreMinedDrops, session.useBdNetwork,
+                session.sessionFlags.autoStoreMinedDrops, session.sessionFlags.useBdNetwork,
                 List.of(RtsPageSharedHelpers.CATEGORY_ALL),
                 List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
@@ -72,19 +71,20 @@ public final class RtsPagePayloadFactory {
      * the target block is currently loaded and visible in-world.
      */
     public static LinkedRefPayload buildLinkedRefPayload(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.linkedStorages.isEmpty()) {
+        if (player == null || session == null || session.linkedStorageInfo.isEmpty()) {
             return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
         ResourceKey<Level> currentDimension = player.serverLevel().dimension();
         ServerLevel level = player.serverLevel();
-        List<Long> positions = new ArrayList<>(session.linkedStorages.size());
-        List<String> names = new ArrayList<>(session.linkedStorages.size());
-        List<Byte> modes = new ArrayList<>(session.linkedStorages.size());
-        List<Integer> priorities = new ArrayList<>(session.linkedStorages.size());
-        List<String> iconItemIds = new ArrayList<>(session.linkedStorages.size());
-        List<Boolean> worldAvailable = new ArrayList<>(session.linkedStorages.size());
-        for (LinkedStorageRef ref : session.linkedStorages) {
-            boolean backpackLink = ref != null && session.linkedBackpackUuids.containsKey(ref);
+        List<LinkedStorageRef> storageRefs = session.linkedStorageInfo.getAll();
+        List<Long> positions = new ArrayList<>(storageRefs.size());
+        List<String> names = new ArrayList<>(storageRefs.size());
+        List<Byte> modes = new ArrayList<>(storageRefs.size());
+        List<Integer> priorities = new ArrayList<>(storageRefs.size());
+        List<String> iconItemIds = new ArrayList<>(storageRefs.size());
+        List<Boolean> worldAvailable = new ArrayList<>(storageRefs.size());
+        for (LinkedStorageRef ref : storageRefs) {
+            boolean backpackLink = ref != null && session.linkedStorageInfo.hasBackpackUuid(ref);
             if (ref == null || ref.pos() == null || (!backpackLink && !currentDimension.equals(ref.dimension()))) {
                 continue;
             }
@@ -92,9 +92,9 @@ public final class RtsPagePayloadFactory {
             boolean visible = RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref);
             positions.add(pos.asLong());
             names.add(resolveLinkedRefName(level, session, ref, visible));
-            modes.add(session.linkedModes.getOrDefault(ref, C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL));
+            modes.add(session.linkedStorageInfo.getMode(ref));
             priorities.add(RtsLinkedStorageResolver.sanitizeLinkedStoragePriority(
-                    session.linkedPriorities.getOrDefault(ref, 0)));
+                    session.linkedStorageInfo.getPriority(ref)));
             iconItemIds.add(resolveLinkedRefIconItemId(level, session, ref, visible));
             worldAvailable.add(visible);
         }
@@ -106,14 +106,14 @@ public final class RtsPagePayloadFactory {
         if (worldVisible && level != null && ref != null && ref.pos() != null && level.hasChunkAt(ref.pos())) {
             return RtsLinkedStorageResolver.resolveDisplayName(level, ref.pos());
         }
-        String cached = session == null || ref == null ? "" : session.linkedNames.get(ref);
+        String cached = session == null || ref == null ? "" : session.linkedStorageInfo.getName(ref);
         return cached == null || cached.isBlank() ? "Linked Storage" : cached;
     }
 
     private static String resolveLinkedRefIconItemId(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref,
             boolean worldVisible) {
         if (!worldVisible) {
-            String backpackItemId = session == null || ref == null ? "" : session.linkedBackpackItemIds.get(ref);
+            String backpackItemId = session == null || ref == null ? "" : session.linkedStorageInfo.getBackpackItemId(ref);
             return backpackItemId == null ? "" : backpackItemId;
         }
         BlockPos pos = ref.pos();

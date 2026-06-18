@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.benchmark.recententry;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
@@ -121,7 +121,7 @@ public class RtsStorageRecentEntriesJmhBenchmark {
             RtsStorageRecentEntries.recordRecentItem(
                     s, "minecraft:item_" + i, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
         }
-        bh.consume(s.recentEntries.size());
+        bh.consume(s.uiMemory.getRecentEntries().size());
     }
 
     // ======================================================================
@@ -142,7 +142,7 @@ public class RtsStorageRecentEntriesJmhBenchmark {
             RtsStorageRecentEntries.recordRecentItem(s, "  ",
                     S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 0L);
         }
-        bh.consume(s.recentEntries.size());
+        bh.consume(s.uiMemory.getRecentEntries().size());
     }
 
     // ======================================================================
@@ -157,10 +157,10 @@ public class RtsStorageRecentEntriesJmhBenchmark {
         RtsStorageSession s = new RtsStorageSession();
         // Fill to capacity first
         for (int i = 0; i < 24; i++) {
-            s.recentEntries.addLast(new com.rtsbuilding.rtsbuilding.server.storage.RecentEntry(
+            s.uiMemory.getRecentEntries().addLast(new com.rtsbuilding.rtsbuilding.server.storage.RecentEntry(
                     "minecraft:item_" + i, 1L, 0L, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED));
         }
-        s.recentEntries.clear();
+        s.uiMemory.clearRecentEntries();
         bh.consume(s);
     }
 }

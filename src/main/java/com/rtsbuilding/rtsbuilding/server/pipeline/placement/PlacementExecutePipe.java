@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.placement;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.*;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
@@ -33,25 +33,44 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
 
     // ── Arg key constants (used by PlaceContext accessors) ──
 
-    public static final String ARG_CLICKED_POSITIONS = "clickedPositions";
-    public static final String ARG_FACE = "face";
-    public static final String ARG_HIT_OFFSET_X = "hitOffsetX";
-    public static final String ARG_HIT_OFFSET_Y = "hitOffsetY";
-    public static final String ARG_HIT_OFFSET_Z = "hitOffsetZ";
-    public static final String ARG_ROTATE_STEPS = "rotateSteps";
-    public static final String ARG_FORCE_PLACE = "forcePlace";
-    public static final String ARG_SKIP_IF_OCCUPIED = "skipIfOccupied";
-    public static final String ARG_ITEM_ID = "itemId";
-    public static final String ARG_ITEM_PROTOTYPE = "itemPrototype";
-    public static final String ARG_RAY_ORIGIN_X = "rayOriginX";
-    public static final String ARG_RAY_ORIGIN_Y = "rayOriginY";
-    public static final String ARG_RAY_ORIGIN_Z = "rayOriginZ";
-    public static final String ARG_RAY_DIR_X = "rayDirX";
-    public static final String ARG_RAY_DIR_Y = "rayDirY";
-    public static final String ARG_RAY_DIR_Z = "rayDirZ";
-    public static final String ARG_QUICK_BUILD = "quickBuild";
-    public static final String ARG_FORCE_EMPTY_HAND = "forceEmptyHand";
-    public static final String ARG_SEND_REMOTE_HINT = "sendRemoteHint";
+    public static final TypedKey<List<BlockPos>> ARG_CLICKED_POSITIONS =
+            new TypedKey<>("clickedPositions", (Class) List.class);
+    public static final TypedKey<Direction> ARG_FACE =
+            new TypedKey<>("face", Direction.class);
+    public static final TypedKey<Double> ARG_HIT_OFFSET_X =
+            new TypedKey<>("hitOffsetX", Double.class);
+    public static final TypedKey<Double> ARG_HIT_OFFSET_Y =
+            new TypedKey<>("hitOffsetY", Double.class);
+    public static final TypedKey<Double> ARG_HIT_OFFSET_Z =
+            new TypedKey<>("hitOffsetZ", Double.class);
+    public static final TypedKey<Integer> ARG_ROTATE_STEPS =
+            new TypedKey<>("rotateSteps", Integer.class);
+    public static final TypedKey<Boolean> ARG_FORCE_PLACE =
+            new TypedKey<>("forcePlace", Boolean.class);
+    public static final TypedKey<Boolean> ARG_SKIP_IF_OCCUPIED =
+            new TypedKey<>("skipIfOccupied", Boolean.class);
+    public static final TypedKey<String> ARG_ITEM_ID =
+            new TypedKey<>("itemId", String.class);
+    public static final TypedKey<ItemStack> ARG_ITEM_PROTOTYPE =
+            new TypedKey<>("itemPrototype", ItemStack.class);
+    public static final TypedKey<Double> ARG_RAY_ORIGIN_X =
+            new TypedKey<>("rayOriginX", Double.class);
+    public static final TypedKey<Double> ARG_RAY_ORIGIN_Y =
+            new TypedKey<>("rayOriginY", Double.class);
+    public static final TypedKey<Double> ARG_RAY_ORIGIN_Z =
+            new TypedKey<>("rayOriginZ", Double.class);
+    public static final TypedKey<Double> ARG_RAY_DIR_X =
+            new TypedKey<>("rayDirX", Double.class);
+    public static final TypedKey<Double> ARG_RAY_DIR_Y =
+            new TypedKey<>("rayDirY", Double.class);
+    public static final TypedKey<Double> ARG_RAY_DIR_Z =
+            new TypedKey<>("rayDirZ", Double.class);
+    public static final TypedKey<Boolean> ARG_QUICK_BUILD =
+            new TypedKey<>("quickBuild", Boolean.class);
+    public static final TypedKey<Boolean> ARG_FORCE_EMPTY_HAND =
+            new TypedKey<>("forceEmptyHand", Boolean.class);
+    public static final TypedKey<Boolean> ARG_SEND_REMOTE_HINT =
+            new TypedKey<>("sendRemoteHint", Boolean.class);
 
     public static final TypedKey<Integer> KEY_WORKFLOW_ENTRY_ID = PipelineContext.KEY_WORKFLOW_ENTRY_ID;
 

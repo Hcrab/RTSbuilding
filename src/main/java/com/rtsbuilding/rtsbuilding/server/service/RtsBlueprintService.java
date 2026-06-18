@@ -3,7 +3,11 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,7 +42,7 @@ public final class RtsBlueprintService {
         if (player == null || item == null || item == Items.AIR) {
             return 0L;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
             return 0L;
         }
@@ -72,7 +76,7 @@ public final class RtsBlueprintService {
         if (player == null || item == null || item == Items.AIR || count <= 0) {
             return ItemStack.EMPTY;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
             return ItemStack.EMPTY;
         }
@@ -88,7 +92,7 @@ public final class RtsBlueprintService {
         if (player == null || fluid == null) {
             return 0L;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
             return 0L;
         }
@@ -102,7 +106,7 @@ public final class RtsBlueprintService {
         if (player == null || fluid == null || amountMb <= 0) {
             return false;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
             return false;
         }
@@ -121,7 +125,7 @@ public final class RtsBlueprintService {
         if (player == null || stack == null || stack.isEmpty()) {
             return;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         List<IItemHandler> handlers = session == null
                 ? List.of()
                 : RtsLinkedStorageResolver.resolveLinkedHandlers(player, session).stream().map(LinkedHandler::handler).toList();
@@ -135,22 +139,22 @@ public final class RtsBlueprintService {
         if (player == null || pos == null) {
             return;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
             return;
         }
         RtsPlacementSound.playRemotePlacedBlockSound(player, player.serverLevel(), pos);
-        RtsPageService.recordRecentItem(session, itemId, (byte) 1, 1L);
+        ServiceRegistry.getInstance().page().recordRecentItem(session, itemId, (byte) 1, 1L);
     }
 
     /**
      * 刷新蓝图对应的存储页面。
      */
     public static void refreshBlueprintStoragePage(ServerPlayer player) {
-        RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = player == null ? null : ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
             return;
         }
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceRegistry.getInstance().page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
     }
 }

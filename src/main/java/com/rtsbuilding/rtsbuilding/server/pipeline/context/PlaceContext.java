@@ -5,13 +5,14 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,8 +40,17 @@ public class PlaceContext extends PipelineContext {
      * @param player the server-side player executing the operation
      * @param args   immutable input arguments (a defensive copy is taken)
      */
-    public PlaceContext(ServerPlayer player, Map<String, Object> args) {
+    private PlaceContext(ServerPlayer player, Map<String, Object> args) {
         super(player, args);
+    }
+
+    /**
+     * Creates a new {@link Builder} for constructing a {@link PlaceContext}
+     * with type-safe fluent setters, eliminating {@code Map<String, Object>}
+     * boilerplate.
+     */
+    public static Builder builder(ServerPlayer player) {
+        return new Builder(player);
     }
 
     /**
@@ -84,17 +94,20 @@ public class PlaceContext extends PipelineContext {
 
     /** Returns the X hit offset. */
     public double getHitOffsetX() {
-        return getArg(PlacementExecutePipe.ARG_HIT_OFFSET_X);
+        Double val = getArg(PlacementExecutePipe.ARG_HIT_OFFSET_X);
+        return val != null ? val : 0.0D;
     }
 
     /** Returns the Y hit offset. */
     public double getHitOffsetY() {
-        return getArg(PlacementExecutePipe.ARG_HIT_OFFSET_Y);
+        Double val = getArg(PlacementExecutePipe.ARG_HIT_OFFSET_Y);
+        return val != null ? val : 0.0D;
     }
 
     /** Returns the Z hit offset. */
     public double getHitOffsetZ() {
-        return getArg(PlacementExecutePipe.ARG_HIT_OFFSET_Z);
+        Double val = getArg(PlacementExecutePipe.ARG_HIT_OFFSET_Z);
+        return val != null ? val : 0.0D;
     }
 
     /**
@@ -111,8 +124,8 @@ public class PlaceContext extends PipelineContext {
      * Defaults to {@code false} if the argument is absent.
      */
     public boolean isForcePlace() {
-        return args().containsKey(PlacementExecutePipe.ARG_FORCE_PLACE)
-                && (Boolean) getArg(PlacementExecutePipe.ARG_FORCE_PLACE);
+        return hasArg(PlacementExecutePipe.ARG_FORCE_PLACE)
+                && getArg(PlacementExecutePipe.ARG_FORCE_PLACE);
     }
 
     /**
@@ -120,8 +133,8 @@ public class PlaceContext extends PipelineContext {
      * Defaults to {@code false} if the argument is absent.
      */
     public boolean isSkipIfOccupied() {
-        return args().containsKey(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED)
-                && (Boolean) getArg(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED);
+        return hasArg(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED)
+                && getArg(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED);
     }
 
     /** Returns the item ID to place. */
@@ -169,8 +182,8 @@ public class PlaceContext extends PipelineContext {
      * Defaults to {@code false} if the argument is absent.
      */
     public boolean isQuickBuild() {
-        return args().containsKey(PlacementExecutePipe.ARG_QUICK_BUILD)
-                && (Boolean) getArg(PlacementExecutePipe.ARG_QUICK_BUILD);
+        return hasArg(PlacementExecutePipe.ARG_QUICK_BUILD)
+                && getArg(PlacementExecutePipe.ARG_QUICK_BUILD);
     }
 
     /**
@@ -178,8 +191,8 @@ public class PlaceContext extends PipelineContext {
      * Defaults to {@code false} if the argument is absent.
      */
     public boolean isForceEmptyHand() {
-        return args().containsKey(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND)
-                && (Boolean) getArg(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND);
+        return hasArg(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND)
+                && getArg(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND);
     }
 
     /**
@@ -187,8 +200,160 @@ public class PlaceContext extends PipelineContext {
      * Defaults to {@code true} if the argument is absent.
      */
     public boolean isSendRemoteHint() {
-        return !args().containsKey(PlacementExecutePipe.ARG_SEND_REMOTE_HINT)
-                || (Boolean) getArg(PlacementExecutePipe.ARG_SEND_REMOTE_HINT);
+        return !hasArg(PlacementExecutePipe.ARG_SEND_REMOTE_HINT)
+                || getArg(PlacementExecutePipe.ARG_SEND_REMOTE_HINT);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Builder
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Type-safe fluent builder for {@link PlaceContext}.
+     *
+     * <p>Usage:</p>
+     * <pre>{@code
+     * PlaceContext ctx = PlaceContext.builder(player)
+     *     .clickedPositions(positions)
+     *     .face(face)
+     *     .itemId(itemId)
+     *     .build();
+     *
+     * PipelineRegistry.execute(type, ctx);
+     * }</pre>
+     */
+    public static final class Builder {
+        private final ServerPlayer player;
+        private final Map<String, Object> args = new HashMap<>();
+
+        private Builder(ServerPlayer player) {
+            this.player = player;
+        }
+
+        /** Clicked block positions. */
+        public Builder clickedPositions(List<BlockPos> positions) {
+            args.put(PlacementExecutePipe.ARG_CLICKED_POSITIONS.name(), positions);
+            return this;
+        }
+
+        /** Placement face direction. */
+        public Builder face(Direction face) {
+            args.put(PlacementExecutePipe.ARG_FACE.name(), face);
+            return this;
+        }
+
+        /** Hit offset X. */
+        public Builder hitOffsetX(double hitOffsetX) {
+            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_X.name(), hitOffsetX);
+            return this;
+        }
+
+        /** Hit offset Y. */
+        public Builder hitOffsetY(double hitOffsetY) {
+            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_Y.name(), hitOffsetY);
+            return this;
+        }
+
+        /** Hit offset Z. */
+        public Builder hitOffsetZ(double hitOffsetZ) {
+            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_Z.name(), hitOffsetZ);
+            return this;
+        }
+
+        /** Rotate steps. */
+        public Builder rotateSteps(byte rotateSteps) {
+            args.put(PlacementExecutePipe.ARG_ROTATE_STEPS.name(), (int) rotateSteps);
+            return this;
+        }
+
+        /** Force place flag. */
+        public Builder forcePlace(boolean forcePlace) {
+            args.put(PlacementExecutePipe.ARG_FORCE_PLACE.name(), forcePlace);
+            return this;
+        }
+
+        /** Skip if occupied flag. */
+        public Builder skipIfOccupied(boolean skipIfOccupied) {
+            args.put(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED.name(), skipIfOccupied);
+            return this;
+        }
+
+        /** Item ID to place. */
+        public Builder itemId(String itemId) {
+            args.put(PlacementExecutePipe.ARG_ITEM_ID.name(), itemId);
+            return this;
+        }
+
+        /** Item prototype stack. */
+        public Builder itemPrototype(ItemStack itemPrototype) {
+            args.put(PlacementExecutePipe.ARG_ITEM_PROTOTYPE.name(), itemPrototype);
+            return this;
+        }
+
+        /** Ray origin X. */
+        public Builder rayOriginX(double rayOriginX) {
+            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_X.name(), rayOriginX);
+            return this;
+        }
+
+        /** Ray origin Y. */
+        public Builder rayOriginY(double rayOriginY) {
+            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_Y.name(), rayOriginY);
+            return this;
+        }
+
+        /** Ray origin Z. */
+        public Builder rayOriginZ(double rayOriginZ) {
+            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_Z.name(), rayOriginZ);
+            return this;
+        }
+
+        /** Ray direction X. */
+        public Builder rayDirX(double rayDirX) {
+            args.put(PlacementExecutePipe.ARG_RAY_DIR_X.name(), rayDirX);
+            return this;
+        }
+
+        /** Ray direction Y. */
+        public Builder rayDirY(double rayDirY) {
+            args.put(PlacementExecutePipe.ARG_RAY_DIR_Y.name(), rayDirY);
+            return this;
+        }
+
+        /** Ray direction Z. */
+        public Builder rayDirZ(double rayDirZ) {
+            args.put(PlacementExecutePipe.ARG_RAY_DIR_Z.name(), rayDirZ);
+            return this;
+        }
+
+        /** Quick build flag. */
+        public Builder quickBuild(boolean quickBuild) {
+            args.put(PlacementExecutePipe.ARG_QUICK_BUILD.name(), quickBuild);
+            return this;
+        }
+
+        /** Force empty hand flag. */
+        public Builder forceEmptyHand(boolean forceEmptyHand) {
+            args.put(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND.name(), forceEmptyHand);
+            return this;
+        }
+
+        /** Send remote hint flag. */
+        public Builder sendRemoteHint(boolean sendRemoteHint) {
+            args.put(PlacementExecutePipe.ARG_SEND_REMOTE_HINT.name(), sendRemoteHint);
+            return this;
+        }
+
+        /** Total blocks for the workflow. */
+        public Builder totalBlocks(int total) {
+            args.put(WorkflowStartPipe.ARG_TOTAL_BLOCKS.name(), total);
+            return this;
+        }
+
+        /** Builds the {@link PlaceContext}. */
+        public PlaceContext build() {
+            return new PlaceContext(player, args);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────

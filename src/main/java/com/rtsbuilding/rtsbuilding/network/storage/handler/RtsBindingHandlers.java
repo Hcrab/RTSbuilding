@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
-import com.rtsbuilding.rtsbuilding.server.service.RtsBindingService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -18,7 +18,7 @@ public final class RtsBindingHandlers {
     public static void handleSetFunnel(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetFunnelPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.setFunnelEnabled(serverPlayer, payload.enabled());
+                ServiceRegistry.getInstance().binding().setFunnelEnabled(serverPlayer, payload.enabled());
             }
         });
     }
@@ -26,7 +26,7 @@ public final class RtsBindingHandlers {
     public static void handleSetAutoStore(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetAutoStorePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.setAutoStoreMinedDrops(serverPlayer, payload.enabled());
+                ServiceRegistry.getInstance().binding().setAutoStoreMinedDrops(serverPlayer, payload.enabled());
             }
         });
     }
@@ -34,7 +34,7 @@ public final class RtsBindingHandlers {
     public static void handleSetBdNetwork(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetBdNetworkPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.setBdNetworkEnabled(serverPlayer, payload.enabled());
+                ServiceRegistry.getInstance().binding().setBdNetworkEnabled(serverPlayer, payload.enabled());
             }
         });
     }
@@ -42,7 +42,7 @@ public final class RtsBindingHandlers {
     public static void handleLinkStorage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.linkStorage(serverPlayer, payload.pos(), payload.linkMode());
+                ServiceRegistry.getInstance().binding().linkStorage(serverPlayer, payload.pos(), payload.linkMode());
             }
         });
     }
@@ -50,7 +50,7 @@ public final class RtsBindingHandlers {
     public static void handleUnlinkStorage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUnlinkStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.unlinkStorage(serverPlayer, payload.pos());
+                ServiceRegistry.getInstance().binding().unlinkStorage(serverPlayer, payload.pos());
             }
         });
     }
@@ -58,7 +58,7 @@ public final class RtsBindingHandlers {
     public static void handleUpdateLinkedStorage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUpdateLinkedStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.updateLinkedStorageSettings(
+                ServiceRegistry.getInstance().binding().updateLinkedStorageSettings(
                         serverPlayer,
                         payload.pos(),
                         payload.linkMode(),
@@ -70,7 +70,7 @@ public final class RtsBindingHandlers {
     public static void handleStoreHotbarSlot(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.storeHotbarSlot(serverPlayer, payload.slot());
+                ServiceRegistry.getInstance().binding().storeHotbarSlot(serverPlayer, payload.slot());
             }
         });
     }
@@ -78,7 +78,7 @@ public final class RtsBindingHandlers {
     public static void handleSetQuickSlot(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetQuickSlotPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.setQuickSlot(serverPlayer, payload.slot(), payload.itemId(), payload.previewStack());
+                ServiceRegistry.getInstance().binding().setQuickSlot(serverPlayer, payload.slot(), payload.itemId(), payload.previewStack());
             }
         });
     }
@@ -86,7 +86,7 @@ public final class RtsBindingHandlers {
     public static void handleSetGuiBinding(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetGuiBindingPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.setGuiBinding(
+                ServiceRegistry.getInstance().binding().setGuiBinding(
                         serverPlayer,
                         payload.slot(),
                         payload.clear(),
@@ -100,7 +100,7 @@ public final class RtsBindingHandlers {
     public static void handleOpenGuiBinding(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsOpenGuiBindingPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.openGuiBinding(serverPlayer, payload.slot());
+                ServiceRegistry.getInstance().binding().openGuiBinding(serverPlayer, payload.slot());
             }
         });
     }
@@ -108,7 +108,7 @@ public final class RtsBindingHandlers {
     public static void handleFunnelTarget(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFunnelTargetPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.updateFunnelTarget(serverPlayer, payload.target());
+                ServiceRegistry.getInstance().binding().updateFunnelTarget(serverPlayer, payload.target());
             }
         });
     }
@@ -116,7 +116,7 @@ public final class RtsBindingHandlers {
     public static void handleCloseRemoteMenu(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsCloseRemoteMenuPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsBindingService.closeRemoteMenu(serverPlayer);
+                ServiceRegistry.getInstance().binding().closeRemoteMenu(serverPlayer);
             }
         });
     }

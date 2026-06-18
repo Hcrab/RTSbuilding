@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.storage.OverflowOutcome;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedHandlerViews;
+import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
+import com.rtsbuilding.rtsbuilding.server.storage.view.RtsLinkedHandlerViews;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;

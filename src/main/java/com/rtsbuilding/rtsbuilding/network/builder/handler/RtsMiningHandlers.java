@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
-import com.rtsbuilding.rtsbuilding.server.service.RtsMiningService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -25,7 +25,7 @@ public final class RtsMiningHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
-                RtsMiningService.mine(
+                ServiceRegistry.getInstance().mining().mine(
                         serverPlayer,
                         payload.pos(),
                         face,
@@ -43,7 +43,7 @@ public final class RtsMiningHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
-                RtsMiningService.startUltimine(
+                ServiceRegistry.getInstance().mining().startUltimine(
                         serverPlayer,
                         payload.pos(),
                         face,
@@ -60,7 +60,7 @@ public final class RtsMiningHandlers {
     public static void handleAreaMine(C2SRtsAreaMinePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsMiningService.areaMine(
+                ServiceRegistry.getInstance().mining().areaMine(
                         serverPlayer,
                         payload.minX(), payload.maxX(),
                         payload.minY(), payload.maxY(),
@@ -78,7 +78,7 @@ public final class RtsMiningHandlers {
     public static void handleAreaDestroy(C2SRtsAreaDestroyPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsMiningService.areaDestroy(
+                ServiceRegistry.getInstance().mining().areaDestroy(
                         serverPlayer,
                         payload.positions(),
                         payload.toolSlot(),

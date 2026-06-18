@@ -290,11 +290,11 @@ public final class BuilderScreen extends Screen {
     }
     /** Returns whether the quick-build panel is currently open. */
     public boolean isQuickBuildOpen() {
-        return this.quickBuildPanel.isQuickBuildOpen();
+        return this.quickBuildPanel.isOpen();
     }
     /** Opens or closes the quick-build panel. */
     public void setQuickBuildOpen(boolean open) {
-        this.quickBuildPanel.setQuickBuildOpen(open);
+        this.quickBuildPanel.setOpen(open);
     }
     /** Returns the Minecraft client instance for access by sub-panels and utilities. */
     public net.minecraft.client.Minecraft getMinecraft() {
@@ -1613,11 +1613,11 @@ public final class BuilderScreen extends Screen {
 
     /** Returns true when quick-build is showing the range-destroy workflow. */
     public boolean isQuickBuildRangeDestroyMode() {
-        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyMode();
+        return this.quickBuildPanel.isOpen() && this.quickBuildPanel.isRangeDestroyMode();
     }
     /** Returns true when Quick Build range-destroy is using the connected-chain shape. */
     public boolean isQuickBuildRangeDestroyChainMode() {
-        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
+        return this.quickBuildPanel.isOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
     }
     /** Player-facing shape label for the top status row. */
     public String activeQuickBuildShapeLabel() {
@@ -1857,7 +1857,7 @@ public final class BuilderScreen extends Screen {
                 .append(" uiScale=").append(rtsGuiScaleLabel()).append('\n');
         out.append("mode=").append(this.controller.getMode())
                 .append(" topAction=").append(this.topBarPanel.topActionForMode())
-                .append(" quickBuild=").append(this.quickBuildPanel.isQuickBuildOpen())
+                .append(" quickBuild=").append(this.quickBuildPanel.isOpen())
                 .append(" quickDestroy=").append(isQuickBuildRangeDestroyMode())
                 .append(" debugButton=").append(this.uiStateManager.isDebugButtonVisible())
                 .append(" invertPanDragX=").append(this.controller.isInvertPanDragX())

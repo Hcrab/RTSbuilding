@@ -2,7 +2,13 @@ package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
+import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
+import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -79,9 +85,9 @@ public final class RtsStorageSessionCodec {
         session.browser.category = RtsStoragePageBuilder.normalizeCategory(root.getString(NBT_CATEGORY));
         session.browser.sort = parseSavedSort(root.getInt(NBT_SORT));
         session.browser.ascending = root.contains(NBT_ASCENDING, Tag.TAG_BYTE) && root.getBoolean(NBT_ASCENDING);
-        session.autoStoreMinedDrops = !root.contains(NBT_AUTO_STORE_MINED_DROPS, Tag.TAG_BYTE)
+        session.sessionFlags.autoStoreMinedDrops = !root.contains(NBT_AUTO_STORE_MINED_DROPS, Tag.TAG_BYTE)
                 || root.getBoolean(NBT_AUTO_STORE_MINED_DROPS);
-        session.useBdNetwork = !root.contains(NBT_USE_BD_NETWORK, Tag.TAG_BYTE)
+        session.sessionFlags.useBdNetwork = !root.contains(NBT_USE_BD_NETWORK, Tag.TAG_BYTE)
                 || root.getBoolean(NBT_USE_BD_NETWORK);
         session.browser.craftSearch = sanitizeSavedText(root.getString(NBT_CRAFT_SEARCH), 128);
         session.browser.craftShowUnavailable = root.contains(NBT_CRAFT_SHOW_UNAVAILABLE, Tag.TAG_BYTE)
@@ -106,8 +112,8 @@ public final class RtsStorageSessionCodec {
         root.putString(NBT_CATEGORY, RtsStoragePageBuilder.normalizeCategory(session.browser.category));
         root.putInt(NBT_SORT, (session.browser.sort == null ? RtsStorageSort.QUANTITY : session.browser.sort).ordinal());
         root.putBoolean(NBT_ASCENDING, session.browser.ascending);
-        root.putBoolean(NBT_AUTO_STORE_MINED_DROPS, session.autoStoreMinedDrops);
-        root.putBoolean(NBT_USE_BD_NETWORK, session.useBdNetwork);
+        root.putBoolean(NBT_AUTO_STORE_MINED_DROPS, session.sessionFlags.autoStoreMinedDrops);
+        root.putBoolean(NBT_USE_BD_NETWORK, session.sessionFlags.useBdNetwork);
         root.putString(NBT_CRAFT_SEARCH, sanitizeSavedText(session.browser.craftSearch, 128));
         root.putBoolean(NBT_CRAFT_SHOW_UNAVAILABLE, session.browser.craftShowUnavailable);
         root.putInt(NBT_CRAFT_REQUESTED_COUNT,
@@ -128,7 +134,7 @@ public final class RtsStorageSessionCodec {
     // ======================================================================
 
     private static void loadInternalFluids(RtsStorageSession session, CompoundTag root) {
-        session.internalFluidMb.clear();
+        session.sessionFlags.internalFluidMb.clear();
         ListTag fluidEntries = root.getList(NBT_INTERNAL_FLUIDS, Tag.TAG_COMPOUND);
         for (int i = 0; i < fluidEntries.size(); i++) {
             CompoundTag fluidTag = fluidEntries.getCompound(i);
@@ -141,13 +147,13 @@ public final class RtsStorageSessionCodec {
             if (key == null || !BuiltInRegistries.FLUID.containsKey(key)) {
                 continue;
             }
-            session.internalFluidMb.put(fluidId, amount);
+            session.sessionFlags.internalFluidMb.put(fluidId, amount);
         }
     }
 
     private static void saveInternalFluids(RtsStorageSession session, CompoundTag root) {
         ListTag fluidEntries = new ListTag();
-        for (var entry : session.internalFluidMb.entrySet()) {
+        for (var entry : session.sessionFlags.internalFluidMb.entrySet()) {
             String fluidId = entry.getKey();
             long amount = entry.getValue() == null ? 0L : entry.getValue();
             if (fluidId == null || fluidId.isBlank() || amount <= 0L) {
@@ -166,7 +172,7 @@ public final class RtsStorageSessionCodec {
     // ======================================================================
 
     private static void loadRecentEntries(RtsStorageSession session, CompoundTag root) {
-        session.recentEntries.clear();
+        session.uiMemory.getRecentEntries().clear();
         ListTag recentEntries = root.getList(NBT_RECENT_ENTRIES, Tag.TAG_COMPOUND);
         for (int i = 0; i < recentEntries.size(); i++) {
             CompoundTag recentTag = recentEntries.getCompound(i);
@@ -177,8 +183,8 @@ public final class RtsStorageSessionCodec {
             if (entryId == null || entryId.isBlank() || amount <= 0L) {
                 continue;
             }
-            session.recentEntries.addLast(new RecentEntry(entryId, amount, Math.max(0L, capacity), kind));
-            if (session.recentEntries.size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) {
+            session.uiMemory.addRecentEntryLast(new RecentEntry(entryId, amount, Math.max(0L, capacity), kind));
+            if (session.uiMemory.getRecentEntries().size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) {
                 break;
             }
         }
@@ -186,7 +192,7 @@ public final class RtsStorageSessionCodec {
 
     private static void saveRecentEntries(RtsStorageSession session, CompoundTag root) {
         ListTag recentEntries = new ListTag();
-        for (RecentEntry recentEntry : session.recentEntries) {
+        for (RecentEntry recentEntry : session.uiMemory.getRecentEntries()) {
             if (recentEntry == null || recentEntry.id() == null || recentEntry.id().isBlank()) {
                 continue;
             }
@@ -205,8 +211,8 @@ public final class RtsStorageSessionCodec {
     // ======================================================================
 
     private static void loadQuickSlots(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        Arrays.fill(session.quickSlotItemIds, "");
-        Arrays.fill(session.quickSlotPreviews, ItemStack.EMPTY);
+        Arrays.fill(session.uiMemory.getQuickSlotItemIds(), "");
+        Arrays.fill(session.uiMemory.getQuickSlotPreviews(), ItemStack.EMPTY);
         ListTag quickSlots = root.getList(NBT_QUICK_SLOTS, Tag.TAG_COMPOUND);
         for (int i = 0; i < quickSlots.size(); i++) {
             CompoundTag quickSlotTag = quickSlots.getCompound(i);
@@ -219,7 +225,7 @@ public final class RtsStorageSessionCodec {
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 continue;
             }
-            session.quickSlotItemIds[slot] = itemId;
+            session.uiMemory.setQuickSlotItemId(slot, itemId);
             ItemStack preview = ItemStack.EMPTY;
             if (quickSlotTag.contains(NBT_QUICK_SLOT_STACK, Tag.TAG_COMPOUND)) {
                 preview = ItemStack.parseOptional(player.registryAccess(), quickSlotTag.getCompound(NBT_QUICK_SLOT_STACK));
@@ -227,16 +233,16 @@ public final class RtsStorageSessionCodec {
                     preview = ItemStack.EMPTY;
                 }
             }
-            session.quickSlotPreviews[slot] = preview.isEmpty()
+            session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
                     ? new ItemStack(BuiltInRegistries.ITEM.get(key))
-                    : preview.copyWithCount(1);
+                    : preview.copyWithCount(1));
         }
     }
 
     private static void saveQuickSlots(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         ListTag quickSlots = new ListTag();
-        for (int i = 0; i < session.quickSlotItemIds.length; i++) {
-            String itemId = session.quickSlotItemIds[i];
+        for (int i = 0; i < session.uiMemory.getQuickSlotCount(); i++) {
+            String itemId = session.uiMemory.getQuickSlotItemId(i);
             if (itemId == null || itemId.isBlank()) {
                 continue;
             }
@@ -247,8 +253,8 @@ public final class RtsStorageSessionCodec {
             CompoundTag quickSlotTag = new CompoundTag();
             quickSlotTag.putInt(NBT_QUICK_SLOT_INDEX, i);
             quickSlotTag.putString(NBT_QUICK_SLOT_ITEM_ID, itemId);
-            ItemStack preview = i < session.quickSlotPreviews.length && session.quickSlotPreviews[i] != null
-                    ? session.quickSlotPreviews[i]
+            ItemStack preview = i < session.uiMemory.getQuickSlotPreviews().length && session.uiMemory.getQuickSlotPreview(i) != null
+                    ? session.uiMemory.getQuickSlotPreview(i)
                     : ItemStack.EMPTY;
             if (!preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.get(key))) {
                 quickSlotTag.put(NBT_QUICK_SLOT_STACK, preview.copyWithCount(1).save(player.registryAccess()));
@@ -263,7 +269,7 @@ public final class RtsStorageSessionCodec {
     // ======================================================================
 
     private static void loadGuiBindings(RtsStorageSession session, CompoundTag root) {
-        Arrays.fill(session.guiBindings, null);
+        Arrays.fill(session.uiMemory.getGuiBindings(), null);
         ListTag guiBindings = root.getList(NBT_GUI_BINDINGS, Tag.TAG_COMPOUND);
         for (int i = 0; i < guiBindings.size(); i++) {
             CompoundTag bindingTag = guiBindings.getCompound(i);
@@ -288,19 +294,19 @@ public final class RtsStorageSessionCodec {
                     face = Direction.from3DDataValue(faceId);
                 }
             }
-            session.guiBindings[slot] = new GuiBinding(
+            session.uiMemory.setGuiBinding(slot, new GuiBinding(
                     BlockPos.of(bindingTag.getLong(NBT_GUI_BINDING_POS)).immutable(),
                     ResourceKey.create(Registries.DIMENSION, key),
                     label == null ? "" : label,
                     normalizedItemId,
-                    face);
+                    face));
         }
     }
 
     private static void saveGuiBindings(RtsStorageSession session, CompoundTag root) {
         ListTag guiBindings = new ListTag();
-        for (int i = 0; i < session.guiBindings.length; i++) {
-            GuiBinding binding = session.guiBindings[i];
+        for (int i = 0; i < session.uiMemory.getGuiBindingCount(); i++) {
+            GuiBinding binding = session.uiMemory.getGuiBinding(i);
             if (binding == null || binding.pos() == null || binding.dimension() == null) {
                 continue;
             }

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -26,7 +26,7 @@ final class RtsTransferUtils {
         if (player == null || player.containerMenu instanceof RtsCraftTerminalMenu) {
             return false;
         }
-        if (session != null && session.linkedStorages.isEmpty() && !hasPrimaryBdNetwork(player)) {
+        if (session != null && session.linkedStorageInfo.isEmpty() && !hasPrimaryBdNetwork(player)) {
             return true;
         }
         return player.containerMenu == player.inventoryMenu;

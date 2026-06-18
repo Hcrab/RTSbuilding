@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -21,7 +21,7 @@ public final class QuestService {
     }
 
     public static void detectQuests(ServerPlayer player, byte mode) {
-        RtsStorageSession session = RtsSessionService.getOrCreate(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getOrCreate(player);
         if (session == null) {
             return;
         }

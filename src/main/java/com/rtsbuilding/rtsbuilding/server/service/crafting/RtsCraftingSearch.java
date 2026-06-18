@@ -1,8 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -37,7 +41,7 @@ public final class RtsCraftingSearch {
         int batchOffset = Math.max(0, offset);
         int batchLimit = Math.max(1, limit);
         session.browser.craftRequestedCount = Math.max(RtsBrowserState.CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
-        RtsSessionService.saveToPlayerNbt(player, session);
+        ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
 
         if (session.browser.craftSearch.isBlank()) {
             sendCraftables(player, session, List.of(), 0, false, false);
@@ -149,7 +153,7 @@ public final class RtsCraftingSearch {
     private static List<AvailableCraftItem> snapshotAvailableCraftItems(
             ServerPlayer player, RtsStorageSession session, List<LinkedHandler> activeLinked) {
         boolean includePlayerMainInventory = session != null
-                && !session.linkedStorages.isEmpty()
+                && !session.linkedStorageInfo.isEmpty()
                 && player != null
                 && !(player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu);
         return snapshotAvailableCraftItemsFromHandlers(

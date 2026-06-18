@@ -7,8 +7,12 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsPlacementState.PlacedRecoveryJob;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -51,7 +55,7 @@ public final class RtsPlacedRecoveryService {
         if (undoRecovery && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return;
         }
@@ -96,13 +100,10 @@ public final class RtsPlacedRecoveryService {
         enqueueRecoveryJob(player, session, targetPos, droppedEntities);
 
         LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
-        if (session.linkedStorages.remove(targetRef)) {
-            session.linkedNames.remove(targetRef);
-            session.linkedModes.remove(targetRef);
-            session.linkedPriorities.remove(targetRef);
-            RtsSessionService.saveToPlayerNbt(player, session);
+        if (session.linkedStorageInfo.remove(targetRef)) {
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
         }
-        RtsPageService.markStorageViewDirty(player, session);
+        ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
         // 破坏已放置方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsPendingPlacementService.refreshWorkflowProgress(player, session);
     }
@@ -167,7 +168,7 @@ public final class RtsPlacedRecoveryService {
             }
         }
         if (processedAny) {
-            RtsPageService.markStorageViewDirty(player, session);
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
             QuestService.runQuestDetect(player, session, false);
         }
     }

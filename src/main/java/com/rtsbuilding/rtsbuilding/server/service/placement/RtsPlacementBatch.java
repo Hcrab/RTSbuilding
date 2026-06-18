@@ -4,17 +4,15 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -259,8 +257,8 @@ public final class RtsPlacementBatch {
         if (!fullyCompletedJobs.isEmpty()) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);
             session.transfer.pageDataVersion.incrementAndGet();
-            RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search,
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().page().requestPage(player, session.browser.page, session.browser.search,
                     session.browser.category, session.browser.sort, session.browser.ascending);
         }
 
@@ -273,7 +271,7 @@ public final class RtsPlacementBatch {
                 // 中途进度：放置方块消耗了储存物品，触发页面刷新以保证GUI实时更新
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
                 session.transfer.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
+                ServiceRegistry.getInstance().page().requestPage(player, session.browser.page, session.browser.search,
                         session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }

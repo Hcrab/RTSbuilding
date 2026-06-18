@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -10,11 +10,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Unit tests for {@link RtsSessionService} — focuses on session-query methods
- * and null-guard behavior that do NOT reach {@code ItemStack.EMPTY} or
- * require a bootstrapped Minecraft environment.
+ * Unit tests for session-query methods and null-guard behavior.
  *
- * <p>Methods that internally create a {@code new RtsStorageSession()} (e.g.
+ * <p>Uses {@link ServiceRegistry#init()} to instantiate services;
+ * methods that internally create a {@code new RtsStorageSession()} (e.g.
  * {@code getOrCreate}, {@code onRtsEnabled}, {@code onRtsDisabled}) cannot
  * be tested here because the constructor touches {@code ItemStack.EMPTY}.
  * Likewise, methods calling {@code RtsProgressionManager}, {@code
@@ -29,7 +28,8 @@ class RtsSessionServiceTest {
 
     @Test
     void allSessionsReturnsUnmodifiableMap() {
-        Map<UUID, RtsStorageSession> sessions = RtsSessionService.allSessions();
+        ServiceRegistry.init();
+        Map<UUID, RtsStorageSession> sessions = ServiceRegistry.getInstance().session().allSessions();
         assertThrows(UnsupportedOperationException.class,
                 () -> sessions.put(UUID.randomUUID(), null));
     }
@@ -40,6 +40,6 @@ class RtsSessionServiceTest {
 
     @Test
     void markStorageViewDirtyNullPlayerDoesNotThrow() {
-        assertDoesNotThrow(() -> RtsSessionService.markStorageViewDirty(null, null));
+        assertDoesNotThrow(() -> ServiceRegistry.getInstance().page().markStorageViewDirty(null, null));
     }
 }

@@ -1,15 +1,18 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
 import com.rtsbuilding.rtsbuilding.server.api.RtsFluidAPI;
-import com.rtsbuilding.rtsbuilding.server.service.RtsFluidService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class RtsFluidAPIImpl implements RtsFluidAPI {
+
+    private static final ServiceRegistry REGISTRY = ServiceRegistry.getInstance();
+
     @Override
     public void storeFromContainer(ServerPlayer player, byte sourceType, byte toolSlot, String itemId) {
-        RtsFluidService.storeFluidFromContainer(player, sourceType, toolSlot, itemId);
+        REGISTRY.fluid().storeFluidFromContainer(player, sourceType, toolSlot, itemId);
     }
 
     @Override
@@ -18,7 +21,7 @@ public final class RtsFluidAPIImpl implements RtsFluidAPI {
                            boolean forcePlace, String fluidId,
                            double rayOriginX, double rayOriginY, double rayOriginZ,
                            double rayDirX, double rayDirY, double rayDirZ) {
-        RtsFluidService.placeFluid(player, (BlockPos) clickedPos, face,
+        REGISTRY.fluid().placeFluid(player, (BlockPos) clickedPos, face,
                 hitX, hitY, hitZ, forcePlace, fluidId,
                 rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
     }

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.benchmark.recententry;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.storage.RecentEntry;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,21 +39,21 @@ class RtsStorageRecentEntriesBenchmark {
         }
 
         // Warm up same-key dedupe + merge
-        s.recentEntries.clear();
+        s.uiMemory.clearRecentEntries();
         for (int i = 0; i < 5_000; i++) {
             RtsStorageRecentEntries.recordRecentItem(
                     s, "minecraft:diamond", S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
         }
 
         // Warm up fluid entries
-        s.recentEntries.clear();
+        s.uiMemory.clearRecentEntries();
         for (int i = 0; i < 5_000; i++) {
             RtsStorageRecentEntries.recordRecentItem(
                     s, "minecraft:water_" + (i % 500), S2CRtsStoragePagePayload.RECENT_FLUID_PLACED, 1000L);
         }
 
         // Warm up mixed-kind entries (item vs fluid sharing same id pattern)
-        s.recentEntries.clear();
+        s.uiMemory.clearRecentEntries();
         for (int i = 0; i < 5_000; i++) {
             byte kind = (i % 2 == 0)
                     ? S2CRtsStoragePagePayload.RECENT_ITEM_PLACED
@@ -63,7 +63,7 @@ class RtsStorageRecentEntriesBenchmark {
         }
 
         // Warm up with null/blank/invalid entries (fast-path null checks)
-        s.recentEntries.clear();
+        s.uiMemory.clearRecentEntries();
         for (int i = 0; i < 100_000; i++) {
             RtsStorageRecentEntries.recordRecentItem(s, (String) null, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
             RtsStorageRecentEntries.recordRecentItem(s, "", S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
@@ -88,7 +88,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         // Warmup
         for (int w = 0; w < WARMUP; w++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
                         session, ids[i], S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 42L);
@@ -97,7 +97,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         long totalNanos = 0;
         for (int iter = 0; iter < ITERATIONS; iter++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             long start = System.nanoTime();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
@@ -121,7 +121,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         // Warmup
         for (int w = 0; w < WARMUP; w++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
                         session, "minecraft:diamond", S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
@@ -130,7 +130,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         long totalNanos = 0;
         for (int iter = 0; iter < ITERATIONS; iter++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             long start = System.nanoTime();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
@@ -140,8 +140,8 @@ class RtsStorageRecentEntriesBenchmark {
             totalNanos += (end - start);
         }
         long avgTotal = totalNanos / ITERATIONS;
-        System.out.println(String.format("[RtsStorageRecentEntries] push same item (%,d ops): avg %,d ns total, ~%,d ns/op",
-                count, avgTotal, avgTotal / count));
+        System.out.printf("[RtsStorageRecentEntries] push same item (%,d ops): avg %,d ns total, ~%,d ns/op%n",
+                count, avgTotal, avgTotal / count);
     }
 
     // ======================================================================
@@ -156,7 +156,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         // Warmup
         for (int w = 0; w < WARMUP; w++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
                         session, ids[i % uniqueIds], S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
@@ -165,7 +165,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         long totalNanos = 0;
         for (int iter = 0; iter < ITERATIONS; iter++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             long start = System.nanoTime();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
@@ -175,8 +175,8 @@ class RtsStorageRecentEntriesBenchmark {
             totalNanos += (end - start);
         }
         long avgTotal = totalNanos / ITERATIONS;
-        System.out.println(String.format("[RtsStorageRecentEntries] push mixed (%,d ops, %,d unique): avg %,d ns total, ~%,d ns/op",
-                count, uniqueIds, avgTotal, avgTotal / count));
+        System.out.printf("[RtsStorageRecentEntries] push mixed (%,d ops, %,d unique): avg %,d ns total, ~%,d ns/op%n",
+                count, uniqueIds, avgTotal, avgTotal / count);
     }
 
     // ======================================================================
@@ -190,7 +190,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         // Warmup
         for (int w = 0; w < WARMUP; w++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
                         session, ids[i % ids.length], S2CRtsStoragePagePayload.RECENT_FLUID_PLACED, 1000L);
@@ -199,7 +199,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         long totalNanos = 0;
         for (int iter = 0; iter < ITERATIONS; iter++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             long start = System.nanoTime();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
@@ -225,7 +225,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         // Warmup
         for (int w = 0; w < WARMUP; w++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
                         session, "minecraft:nether_star", kinds[i % 2], 1L);
@@ -234,7 +234,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         long totalNanos = 0;
         for (int iter = 0; iter < ITERATIONS; iter++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             long start = System.nanoTime();
             for (int i = 0; i < count; i++) {
                 RtsStorageRecentEntries.recordRecentItem(
@@ -258,7 +258,7 @@ class RtsStorageRecentEntriesBenchmark {
 
         long totalNanos = 0;
         for (int iter = 0; iter < ITERATIONS * 1000; iter++) {
-            session.recentEntries.clear();
+            session.uiMemory.clearRecentEntries();
             long start = System.nanoTime();
             for (int i = 0; i < FILL_COUNT; i++) {
                 RtsStorageRecentEntries.recordRecentItem(

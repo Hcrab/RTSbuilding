@@ -4,7 +4,13 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -47,7 +53,7 @@ public final class RtsPageCore {
         boolean includePlayerMainInventory = RtsPageSharedHelpers.shouldIncludePlayerMainInventoryInStorageView(player, session);
         LinkedRefPayload linkedRefs = RtsPagePayloadFactory.buildLinkedRefPayload(player, session);
         List<Long> linkedPackedPositions = linkedRefs.positions();
-        if (session.linkedStorages.isEmpty()
+        if (session.linkedStorageInfo.isEmpty()
                 && itemHandlers.isEmpty()
                 && fluidHandlers.isEmpty()
                 && !hasPositiveInternalFluid(session)
@@ -131,7 +137,7 @@ public final class RtsPageCore {
             // Build fluid entries
             Map<String, Long> fluidAmounts = new HashMap<>();
             Map<String, Long> fluidCapacities = new HashMap<>();
-            for (var entry : session.internalFluidMb.entrySet()) {
+            for (var entry : session.sessionFlags.internalFluidMb.entrySet()) {
                 if (entry.getValue() == null || entry.getValue() <= 0L) continue;
                 mergeCount(fluidAmounts, entry.getKey(), entry.getValue());
             }
@@ -272,11 +278,12 @@ public final class RtsPageCore {
         int qSlotCount = RtsStorageBindings.QUICK_SLOT_COUNT;
         int gbSlotCount = RtsStorageBindings.GUI_BINDING_SLOT_COUNT;
 
-        List<String> recentIds = new ArrayList<>(session.recentEntries.size());
-        List<Long> recentAmounts = new ArrayList<>(session.recentEntries.size());
-        List<Long> recentCapacities = new ArrayList<>(session.recentEntries.size());
-        List<Byte> recentKinds = new ArrayList<>(session.recentEntries.size());
-        for (var recent : session.recentEntries) {
+        var recentEntries = session.uiMemory.getRecentEntries();
+        List<String> recentIds = new ArrayList<>(recentEntries.size());
+        List<Long> recentAmounts = new ArrayList<>(recentEntries.size());
+        List<Long> recentCapacities = new ArrayList<>(recentEntries.size());
+        List<Byte> recentKinds = new ArrayList<>(recentEntries.size());
+        for (var recent : recentEntries) {
             recentIds.add(recent.id());
             recentAmounts.add(recent.amount());
             recentCapacities.add(recent.capacity());
@@ -300,7 +307,7 @@ public final class RtsPageCore {
                 safePage, totalPages, totalEntries,
                 session.browser.search, session.browser.category,
                 (byte) session.browser.sort.ordinal(), session.browser.ascending,
-                session.autoStoreMinedDrops, session.useBdNetwork,
+                session.sessionFlags.autoStoreMinedDrops, session.sessionFlags.useBdNetwork,
                 categories,
                 itemStacks, itemCounts,
                 totalItemIds, totalItemCounts,
@@ -407,7 +414,7 @@ public final class RtsPageCore {
         if (session == null) {
             return false;
         }
-        for (Long amount : session.internalFluidMb.values()) {
+        for (Long amount : session.sessionFlags.internalFluidMb.values()) {
             if (amount != null && amount > 0L) {
                 return true;
             }

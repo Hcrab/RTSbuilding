@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -119,7 +119,7 @@ public final class PendingJobScanner {
         final ItemStack finalTemplate = template;
         long availableItems = 0;
         if (!finalTemplate.isEmpty()) {
-            availableItems = RtsTransferService.countLinkedItemsMatching(player,
+            availableItems = ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
                     stack -> ItemStack.isSameItemSameComponents(stack, finalTemplate));
             boolean includePlayerInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
             if (includePlayerInventory) {

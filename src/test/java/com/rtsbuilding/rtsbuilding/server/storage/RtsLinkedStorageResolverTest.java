@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
+import com.rtsbuilding.rtsbuilding.server.storage.session.LinkedStorageInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -8,8 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -34,30 +33,17 @@ class RtsLinkedStorageResolverTest {
     // ======================================================================
 
     /**
-     * Creates a mock {@link RtsStorageSession} with real collection fields
-     * wired in via reflection, so tests can populate {@code linkedStorages},
-     * {@code linkedNames}, {@code linkedModes}, and {@code linkedPriorities}
-     * without triggering the real constructor (which accesses
+     * Creates a mock {@link RtsStorageSession} with a real {@link LinkedStorageInfo}
+     * wired in via reflection, so tests can populate storage refs, modes, and
+     * names without triggering the real constructor (which accesses
      * {@code ItemStack.EMPTY}).
      */
     private static RtsStorageSession createMockSession() {
         RtsStorageSession session = mock(RtsStorageSession.class);
         try {
-            Field storagesField = RtsStorageSession.class.getDeclaredField("linkedStorages");
-            storagesField.setAccessible(true);
-            storagesField.set(session, new ArrayList<LinkedStorageRef>());
-
-            Field namesField = RtsStorageSession.class.getDeclaredField("linkedNames");
-            namesField.setAccessible(true);
-            namesField.set(session, new HashMap<LinkedStorageRef, String>());
-
-            Field modesField = RtsStorageSession.class.getDeclaredField("linkedModes");
-            modesField.setAccessible(true);
-            modesField.set(session, new HashMap<LinkedStorageRef, Byte>());
-
-            Field prioritiesField = RtsStorageSession.class.getDeclaredField("linkedPriorities");
-            prioritiesField.setAccessible(true);
-            prioritiesField.set(session, new HashMap<LinkedStorageRef, Integer>());
+            Field infoField = RtsStorageSession.class.getDeclaredField("linkedStorageInfo");
+            infoField.setAccessible(true);
+            infoField.set(session, new LinkedStorageInfo());
         } catch (Exception e) {
             throw new RuntimeException("Failed to wire session fields", e);
         }
@@ -151,7 +137,7 @@ class RtsLinkedStorageResolverTest {
     void isExtractOnlyLinkBidirectionalModeReturnsFalse() {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef ref = createRef();
-        session.linkedModes.put(ref, RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        session.linkedStorageInfo.setMode(ref, RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
         assertFalse(RtsLinkedStorageResolver.isExtractOnlyLink(session, ref));
     }
 
@@ -159,7 +145,7 @@ class RtsLinkedStorageResolverTest {
     void isExtractOnlyLinkExtractOnlyModeReturnsTrue() {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef ref = createRef();
-        session.linkedModes.put(ref, (byte) 1); // MODE_EXTRACT_ONLY
+        session.linkedStorageInfo.setMode(ref, (byte) 1); // MODE_EXTRACT_ONLY
         assertTrue(RtsLinkedStorageResolver.isExtractOnlyLink(session, ref));
     }
 
@@ -168,7 +154,7 @@ class RtsLinkedStorageResolverTest {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef knownRef = createRef();
         LinkedStorageRef otherRef = createRef();
-        session.linkedModes.put(knownRef, (byte) 1); // EXTRACT_ONLY for knownRef
+        session.linkedStorageInfo.setMode(knownRef, (byte) 1); // EXTRACT_ONLY for knownRef
         assertFalse(RtsLinkedStorageResolver.isExtractOnlyLink(session, otherRef));
     }
 
@@ -186,8 +172,8 @@ class RtsLinkedStorageResolverTest {
     void buildLinkedSummarySingleBidirectionalReturnsName() {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef ref = createRef();
-        session.linkedStorages.add(ref);
-        session.linkedNames.put(ref, "Chest");
+        session.linkedStorageInfo.add(ref, (byte) 0, 0);
+        session.linkedStorageInfo.setName(ref, "Chest");
         assertEquals("Chest", RtsLinkedStorageResolver.buildLinkedSummary(session));
     }
 
@@ -195,9 +181,8 @@ class RtsLinkedStorageResolverTest {
     void buildLinkedSummarySingleExtractOnlyReturnsExtractSuffix() {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef ref = createRef();
-        session.linkedStorages.add(ref);
-        session.linkedNames.put(ref, "Barrel");
-        session.linkedModes.put(ref, (byte) 1); // MODE_EXTRACT_ONLY
+        session.linkedStorageInfo.add(ref, (byte) 1, 0);
+        session.linkedStorageInfo.setName(ref, "Barrel");
         assertEquals("Barrel [Extract]", RtsLinkedStorageResolver.buildLinkedSummary(session));
     }
 
@@ -205,7 +190,7 @@ class RtsLinkedStorageResolverTest {
     void buildLinkedSummarySingleWithDefaultNameWhenMissing() {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef ref = createRef();
-        session.linkedStorages.add(ref);
+        session.linkedStorageInfo.add(ref, (byte) 0, 0);
         // No linkedNames entry for this ref
         assertEquals("Linked Storage", RtsLinkedStorageResolver.buildLinkedSummary(session));
     }
@@ -213,9 +198,9 @@ class RtsLinkedStorageResolverTest {
     @Test
     void buildLinkedSummaryMultipleBidirectionalReturnsCount() {
         RtsStorageSession session = createMockSession();
-        session.linkedStorages.add(createRef());
-        session.linkedStorages.add(createRef());
-        session.linkedStorages.add(createRef());
+        session.linkedStorageInfo.add(createRef(), (byte) 0, 0);
+        session.linkedStorageInfo.add(createRef(), (byte) 0, 0);
+        session.linkedStorageInfo.add(createRef(), (byte) 0, 0);
         assertEquals("3 linked storages", RtsLinkedStorageResolver.buildLinkedSummary(session));
     }
 
@@ -225,10 +210,10 @@ class RtsLinkedStorageResolverTest {
         LinkedStorageRef refA = createRef();
         LinkedStorageRef refB = createRef();
         LinkedStorageRef refC = createRef();
-        session.linkedStorages.add(refA);
-        session.linkedStorages.add(refB);
-        session.linkedStorages.add(refC);
-        session.linkedModes.put(refA, (byte) 1); // EXTRACT_ONLY
+        session.linkedStorageInfo.add(refA, (byte) 0, 0);
+        session.linkedStorageInfo.add(refB, (byte) 0, 0);
+        session.linkedStorageInfo.add(refC, (byte) 0, 0);
+        session.linkedStorageInfo.setMode(refA, (byte) 1); // EXTRACT_ONLY
         // refB and refC are bidirectional (default)
         assertEquals("3 linked storages (1 extract-only)",
                 RtsLinkedStorageResolver.buildLinkedSummary(session));
@@ -239,10 +224,10 @@ class RtsLinkedStorageResolverTest {
         RtsStorageSession session = createMockSession();
         LinkedStorageRef refA = createRef();
         LinkedStorageRef refB = createRef();
-        session.linkedStorages.add(refA);
-        session.linkedStorages.add(refB);
-        session.linkedModes.put(refA, (byte) 1);
-        session.linkedModes.put(refB, (byte) 1);
+        session.linkedStorageInfo.add(refA, (byte) 0, 0);
+        session.linkedStorageInfo.add(refB, (byte) 0, 0);
+        session.linkedStorageInfo.setMode(refA, (byte) 1);
+        session.linkedStorageInfo.setMode(refB, (byte) 1);
         assertEquals("2 linked storages (2 extract-only)",
                 RtsLinkedStorageResolver.buildLinkedSummary(session));
     }

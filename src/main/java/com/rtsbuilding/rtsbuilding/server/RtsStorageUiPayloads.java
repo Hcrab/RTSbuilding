@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsStorageSessionCodec;
-import com.rtsbuilding.rtsbuilding.server.storage.GuiBinding;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -39,7 +39,7 @@ public final class RtsStorageUiPayloads {
      */
     public static List<String> buildQuickSlotPayload(RtsStorageSession session, int quickSlotCount) {
         List<String> quickSlotItemIds = new ArrayList<>(quickSlotCount);
-        String[] source = session == null ? null : session.quickSlotItemIds;
+        String[] source = session == null ? null : session.uiMemory.getQuickSlotItemIds();
         for (int i = 0; i < quickSlotCount; i++) {
             String itemId = source == null || i >= source.length ? "" : source[i];
             quickSlotItemIds.add(itemId == null || itemId.isEmpty() ? "" : itemId);
@@ -54,8 +54,8 @@ public final class RtsStorageUiPayloads {
      */
     public static List<ItemStack> buildQuickSlotPreviewPayload(RtsStorageSession session, int quickSlotCount) {
         List<ItemStack> previews = new ArrayList<>(quickSlotCount);
-        String[] itemIds = session == null ? null : session.quickSlotItemIds;
-        ItemStack[] source = session == null ? null : session.quickSlotPreviews;
+        String[] itemIds = session == null ? null : session.uiMemory.getQuickSlotItemIds();
+        ItemStack[] source = session == null ? null : session.uiMemory.getQuickSlotPreviews();
         for (int i = 0; i < quickSlotCount; i++) {
             String itemId = itemIds == null || i >= itemIds.length ? "" : itemIds[i];
             ItemStack preview = source == null || i >= source.length || source[i] == null ? ItemStack.EMPTY : source[i];
@@ -86,7 +86,7 @@ public final class RtsStorageUiPayloads {
      */
     public static List<String> buildGuiBindingLabelPayload(RtsStorageSession session, int guiBindingSlotCount) {
         List<String> guiBindingLabels = new ArrayList<>(guiBindingSlotCount);
-        GuiBinding[] source = session == null ? null : session.guiBindings;
+        GuiBinding[] source = session == null ? null : session.uiMemory.getGuiBindings();
         for (int i = 0; i < guiBindingSlotCount; i++) {
             GuiBinding guiBinding = source == null || i >= source.length ? null : source[i];
             String label = guiBinding == null ? "" : guiBinding.label();
@@ -103,7 +103,7 @@ public final class RtsStorageUiPayloads {
      */
     public static List<String> buildGuiBindingItemIdPayload(RtsStorageSession session, int guiBindingSlotCount) {
         List<String> guiBindingItemIds = new ArrayList<>(guiBindingSlotCount);
-        GuiBinding[] source = session == null ? null : session.guiBindings;
+        GuiBinding[] source = session == null ? null : session.uiMemory.getGuiBindings();
         for (int i = 0; i < guiBindingSlotCount; i++) {
             GuiBinding guiBinding = source == null || i >= source.length ? null : source[i];
             String itemId = guiBinding == null ? "" : guiBinding.itemId();

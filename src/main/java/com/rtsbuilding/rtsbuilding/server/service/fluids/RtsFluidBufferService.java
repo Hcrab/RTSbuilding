@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -55,7 +55,7 @@ public final class RtsFluidBufferService {
         if (id == null) {
             return 0L;
         }
-        return Math.max(0L, session.internalFluidMb.getOrDefault(id.toString(), 0L));
+        return Math.max(0L, session.sessionFlags.internalFluidMb.getOrDefault(id.toString(), 0L));
     }
 
     /**
@@ -72,11 +72,11 @@ public final class RtsFluidBufferService {
             return 0;
         }
         String fluidId = id.toString();
-        long stored = session.internalFluidMb.getOrDefault(fluidId, 0L);
+        long stored = session.sessionFlags.internalFluidMb.getOrDefault(fluidId, 0L);
         long space = Math.max(0L, internalFluidCapacityMb(player) - stored);
         int toInternal = (int) Math.min((long) fluidStack.getAmount(), space);
         if (toInternal > 0 && execute) {
-            session.internalFluidMb.put(fluidId, stored + toInternal);
+            session.sessionFlags.internalFluidMb.put(fluidId, stored + toInternal);
         }
         return toInternal;
     }
@@ -94,14 +94,14 @@ public final class RtsFluidBufferService {
             return 0;
         }
         String fluidId = id.toString();
-        long internal = session.internalFluidMb.getOrDefault(fluidId, 0L);
+        long internal = session.sessionFlags.internalFluidMb.getOrDefault(fluidId, 0L);
         int drained = (int) Math.min((long) amount, Math.max(0L, internal));
         if (drained > 0 && execute) {
             long left = internal - drained;
             if (left > 0L) {
-                session.internalFluidMb.put(fluidId, left);
+                session.sessionFlags.internalFluidMb.put(fluidId, left);
             } else {
-                session.internalFluidMb.remove(fluidId);
+                session.sessionFlags.internalFluidMb.remove(fluidId);
             }
         }
         return drained;

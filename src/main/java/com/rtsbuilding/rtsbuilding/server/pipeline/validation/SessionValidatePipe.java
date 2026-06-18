@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 
 /**
  * Resolves the player's {@link RtsStorageSession} and stores it in the
@@ -25,7 +25,7 @@ public final class SessionValidatePipe implements PipelinePipe<PipelineContext> 
 
     @Override
     public PipelineResult execute(PipelineContext ctx) {
-        RtsStorageSession session = RtsSessionService.getIfPresent(ctx.player());
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(ctx.player());
         if (session == null) {
             return PipelineResult.failure("No storage session found for player");
         }

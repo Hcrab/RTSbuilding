@@ -690,7 +690,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 && screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE);
     }
 
-    // ======================== 向后兼容 ========================
+    // ======================== 抽象方法实现 & API ========================
 
     @Override
     protected void onClose() {
@@ -758,18 +758,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         };
     }
 
-    /** @deprecated 改用 {@link #isOpen()} */
-    @Deprecated
-    public boolean isQuickBuildOpen() {
-        return isOpen();
-    }
-
-    /** @deprecated 改用 {@link #setOpen(boolean)} */
-    @Deprecated
-    public void setQuickBuildOpen(boolean open) {
-        setOpen(open);
-    }
-
     @Override
     public void setOpen(boolean open) {
         boolean wasOpen = isOpen();
@@ -782,12 +770,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 screen.persistUiState();
             }
         }
-    }
-
-    /** @deprecated 改用 {@link #toggleOpen()} */
-    @Deprecated
-    public void toggleOpen() {
-        super.toggleOpen();
     }
 
     /** 返回当前布局信息，供其他面板计算相对位置。 */

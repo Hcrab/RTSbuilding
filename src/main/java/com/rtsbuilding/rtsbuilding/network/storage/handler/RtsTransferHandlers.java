@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
-import com.rtsbuilding.rtsbuilding.server.service.RtsTransferService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -18,7 +18,7 @@ public final class RtsTransferHandlers {
     public static void handleFillInventory(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFillInventoryPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTransferService.fillPlayerInventoryFromLinked(serverPlayer);
+                ServiceRegistry.getInstance().transfer().fillPlayerInventoryFromLinked(serverPlayer);
             }
         });
     }
@@ -26,7 +26,7 @@ public final class RtsTransferHandlers {
     public static void handleLinkedPickup(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTransferService.pickupLinkedToCarried(serverPlayer, payload.prototype(), payload.amount());
+                ServiceRegistry.getInstance().transfer().pickupLinkedToCarried(serverPlayer, payload.prototype(), payload.amount());
             }
         });
     }
@@ -34,7 +34,7 @@ public final class RtsTransferHandlers {
     public static void handleLinkedQuickMove(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedQuickMovePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTransferService.quickMoveLinkedItem(serverPlayer, payload.prototype());
+                ServiceRegistry.getInstance().transfer().quickMoveLinkedItem(serverPlayer, payload.prototype());
             }
         });
     }
@@ -42,7 +42,7 @@ public final class RtsTransferHandlers {
     public static void handleReturnCarried(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTransferService.returnCarriedToLinked(serverPlayer, payload.itemId(), payload.amount());
+                ServiceRegistry.getInstance().transfer().returnCarriedToLinked(serverPlayer, payload.itemId(), payload.amount());
             }
         });
     }
@@ -50,7 +50,7 @@ public final class RtsTransferHandlers {
     public static void handleImportMenuSlot(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTransferService.importMenuSlotToLinked(serverPlayer, payload.menuSlot());
+                ServiceRegistry.getInstance().transfer().importMenuSlotToLinked(serverPlayer, payload.menuSlot());
             }
         });
     }

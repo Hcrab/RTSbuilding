@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 
 /**
  * Refreshes the storage/UI page after a workflow operation completes.
@@ -35,7 +35,7 @@ public final class UiRefreshPipe implements PipelinePipe<PipelineContext> {
                 ? ctx.getData(ARG_PAGE_NUMBER)
                 : session.browser.page;
 
-        RtsPageService.requestPage(ctx.player(), page,
+        ServiceRegistry.getInstance().page().requestPage(ctx.player(), page,
                 session.browser.search, session.browser.category,
                 session.browser.sort, session.browser.ascending);
 

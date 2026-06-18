@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.menu;
 
-import com.rtsbuilding.rtsbuilding.server.service.RtsCraftingService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -48,9 +48,9 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         if (slotId == 0 && player instanceof ServerPlayer serverPlayer && blueprint != null) {
             ItemStack carried = serverPlayer.containerMenu.getCarried();
             if (!carried.isEmpty()) {
-                RtsCraftingService.recordCraftedOutput(serverPlayer, carried.copy());
+                ServiceRegistry.getInstance().crafting().recordCraftedOutput(serverPlayer, carried.copy());
             }
-            RtsCraftingService.refillCraftGridFromLinked(serverPlayer, this, blueprint, recipe);
+            ServiceRegistry.getInstance().crafting().refillCraftGridFromLinked(serverPlayer, this, blueprint, recipe);
         }
     }
 

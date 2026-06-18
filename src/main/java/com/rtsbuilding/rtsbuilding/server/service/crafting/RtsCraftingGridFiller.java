@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceOperationTemplate;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -62,7 +62,7 @@ public final class RtsCraftingGridFiller {
         Ingredient[] ingredients = recipe == null ? null : RtsCraftingUtils.mapCraftingIngredients(recipe);
         refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceOperationTemplate.refreshPage(player, session);
     }
 
     // ---- refill from ids / stacks (network packets) ------------------------------
@@ -85,7 +85,7 @@ public final class RtsCraftingGridFiller {
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
             RtsStorageRecentEntries.recordRecentItem(session, craftedItemId,
                     com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
@@ -122,7 +122,7 @@ public final class RtsCraftingGridFiller {
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
             RtsStorageRecentEntries.recordRecentItem(session, craftedItemId,
                     com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
@@ -256,7 +256,7 @@ public final class RtsCraftingGridFiller {
         }
         RtsCraftingUtils.refreshCraftingResult(craftingMenu);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceOperationTemplate.refreshPage(player, session);
         if (anyInserted) {
             QuestService.runQuestDetect(player, session, false);
         }

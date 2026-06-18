@@ -4,8 +4,11 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsMiningService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -49,10 +52,10 @@ final class RtsGuiBindingHelper {
         }
 
         if (clear) {
-            if (session.guiBindings[slot] == null) {
+            if (session.uiMemory.getGuiBinding(slot) == null) {
                 return RtsStorageBindings.UpdateResult.none();
             }
-            session.guiBindings[slot] = null;
+            session.uiMemory.setGuiBinding(slot, null);
             return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
         }
 
@@ -73,12 +76,12 @@ final class RtsGuiBindingHelper {
         }
         String iconItemId = resolveGuiBindingIconItemId(level, pos, face, itemIdHint, label);
 
-        session.guiBindings[slot] = new GuiBinding(
+        session.uiMemory.setGuiBinding(slot, new GuiBinding(
                 pos.immutable(),
                 level.dimension(),
                 label,
                 iconItemId,
-                face);
+                face));
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
@@ -100,7 +103,7 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        GuiBinding binding = session.guiBindings[slot];
+        GuiBinding binding = session.uiMemory.getGuiBinding(slot);
         if (binding == null || binding.pos() == null || binding.dimension() == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -213,8 +216,8 @@ final class RtsGuiBindingHelper {
         }
 
         boolean changed = false;
-        for (int i = 0; i < session.guiBindings.length; i++) {
-            GuiBinding binding = session.guiBindings[i];
+        for (int i = 0; i < session.uiMemory.getGuiBindingCount(); i++) {
+            GuiBinding binding = session.uiMemory.getGuiBinding(i);
             if (binding == null || binding.pos() == null || binding.dimension() == null) {
                 continue;
             }
@@ -237,12 +240,12 @@ final class RtsGuiBindingHelper {
                 continue;
             }
 
-            session.guiBindings[i] = new GuiBinding(
+            session.uiMemory.setGuiBinding(i, new GuiBinding(
                     binding.pos(),
                     binding.dimension(),
                     binding.label(),
                     resolvedItemId,
-                    binding.face());
+                    binding.face()));
             changed = true;
         }
         return changed;
@@ -259,7 +262,7 @@ final class RtsGuiBindingHelper {
                 interactionPos,
                 hitLocation,
                 remotePovBlockReach,
-                () -> RtsMiningService.withTemporaryMainHandItem(
+                () -> ServiceRegistry.getInstance().mining().withTemporaryMainHandItem(
                         player,
                         ItemStack.EMPTY,
                         () -> TemporaryContextSwitcher.withTemporaryShiftKey(player, forceSecondaryUse, () -> player.gameMode.useItemOn(

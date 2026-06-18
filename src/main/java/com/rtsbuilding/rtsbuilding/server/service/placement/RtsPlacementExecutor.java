@@ -4,15 +4,14 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
@@ -132,7 +131,7 @@ public final class RtsPlacementExecutor {
         }
 
         if (emptyUse.result().consumesAction()) {
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
             return true;
         }
 
@@ -150,7 +149,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
         if (emptyFallback.result().consumesAction()) {
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
             return true;
         }
         return false;
@@ -243,10 +242,10 @@ public final class RtsPlacementExecutor {
             } else {
                 SoundService.playRemoteUseSound(player, level, null, placedPos, selectedSoundStack);
             }
-            RtsPageService.recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
+            ServiceRegistry.getInstance().page().recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
         } else {
             SoundService.playRemoteUseSound(player, level, null, clickedPos, selectedSoundStack);
-            RtsPageService.recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
+            ServiceRegistry.getInstance().page().recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
         }
 
         RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);

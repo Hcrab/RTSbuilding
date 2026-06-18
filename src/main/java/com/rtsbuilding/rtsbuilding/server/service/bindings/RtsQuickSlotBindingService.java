@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -51,16 +51,14 @@ public final class RtsQuickSlotBindingService {
             }
         }
 
-        ItemStack previousPreview = session.quickSlotPreviews[slot] == null
-                ? ItemStack.EMPTY
-                : session.quickSlotPreviews[slot];
-        if (normalized.equals(session.quickSlotItemIds[slot])
+        ItemStack previousPreview = session.uiMemory.getQuickSlotPreview(slot);
+        if (normalized.equals(session.uiMemory.getQuickSlotItemId(slot))
                 && ItemStack.isSameItemSameComponents(previousPreview, normalizedPreview)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        session.quickSlotItemIds[slot] = normalized;
-        session.quickSlotPreviews[slot] = normalizedPreview;
+        session.uiMemory.setQuickSlotItemId(slot, normalized);
+        session.uiMemory.setQuickSlotPreview(slot, normalizedPreview);
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 

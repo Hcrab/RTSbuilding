@@ -10,9 +10,9 @@ import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPathfindingService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.ServerTickOrchestrator;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -69,6 +69,9 @@ public class RtsbuildingMod {
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
+        // Initialise the central service registry first
+        ServiceRegistry.init();
+
         // Initialise the RTS API so addons can access it via RtsAPI.get()
         RtsAPIImpl.init();
 
@@ -103,7 +106,7 @@ public class RtsbuildingMod {
 
         @SubscribeEvent
         static void onServerStarted(ServerStartedEvent event) {
-            RtsSessionService.warmCreativeTabCaches(event.getServer());
+            ServerTickOrchestrator.getInstance().warmCreativeTabCaches(event.getServer());
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
         }
 
@@ -126,7 +129,7 @@ public class RtsbuildingMod {
                 RtsCameraManager.stopIfActive(serverPlayer);
                 BlueprintPlacementService.clear(serverPlayer);
                 RtsDamageFeedbackManager.forget(serverPlayer);
-                RtsSessionService.onPlayerLogout(serverPlayer);
+                ServiceRegistry.getInstance().session().onPlayerLogout(serverPlayer);
                 RtsProgressionManager.onPlayerLogout(serverPlayer);
                 // Clear this player's undo history to prevent stale BlockPos entries when switching worlds
                 ServerHistoryManager.clear(serverPlayer.getUUID());
@@ -137,23 +140,16 @@ public class RtsbuildingMod {
         static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 RtsCameraManager.stopIfActive(serverPlayer);
-                RtsPathfindingService.cancel(serverPlayer);
+                ServiceRegistry.getInstance().pathfinding().cancel(serverPlayer);
                 // Clear stale storage cache entries from the old dimension
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
             }
         }
 
         @SubscribeEvent
-        static void onPlayerTickPre(PlayerTickEvent.Pre event) {
-            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                RtsSessionService.onPlayerTickPre(serverPlayer);
-            }
-        }
-
-        @SubscribeEvent
         static void onPlayerTickPost(PlayerTickEvent.Post event) {
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                RtsSessionService.onPlayerTickPost(serverPlayer);
+                ServerTickOrchestrator.getInstance().onPlayerTickPost(serverPlayer);
                 RtsDamageFeedbackManager.tick(serverPlayer);
                 BlueprintPlacementService.tick(serverPlayer);
             }
@@ -161,7 +157,7 @@ public class RtsbuildingMod {
 
         @SubscribeEvent
         static void onServerTick(ServerTickEvent.Post event) {
-            RtsSessionService.tickMining(event.getServer());
+            ServerTickOrchestrator.getInstance().tickMining(event.getServer());
         }
     }
 }

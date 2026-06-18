@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
@@ -136,7 +136,7 @@ public final class RtsPendingPlacementService {
         final ItemStack finalTemplate = template;
         long availableItems = 0;
         if (!finalTemplate.isEmpty()) {
-            availableItems = RtsTransferService.countLinkedItemsMatching(player,
+            availableItems = ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
                     stack -> ItemStack.isSameItemSameComponents(stack, finalTemplate));
             // 也统计玩家主背包中的物品（placement 可以从背包取物）
             boolean includePlayerInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
@@ -213,7 +213,7 @@ public final class RtsPendingPlacementService {
                 RtsWorkflowEngine.getInstance().from(player, rj.workflowEntryId()).ifPresent(token -> token.resume());
             }
             // 通知客户端刷新页面
-            RtsPageService.markStorageViewDirty(player, session);
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
         }
         return count;
     }
@@ -241,7 +241,7 @@ public final class RtsPendingPlacementService {
             return false;
         }
         // 统计链接存储中该物品的数量
-        long available = RtsTransferService.countLinkedItemsMatching(player,
+        long available = ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
                 stack -> ItemStack.isSameItemSameComponents(stack, finalTemplate));
         // 也统计玩家主背包中的物品
         boolean includePlayerInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
@@ -267,7 +267,7 @@ public final class RtsPendingPlacementService {
         if (player == null) {
             return;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null || session.placement.pendingJobs.isEmpty()) {
             return;
         }
@@ -308,7 +308,7 @@ public final class RtsPendingPlacementService {
         RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
         // 覆盖策略不刷新界面，由 tick 自然推进放置无需刷新页面
         if (strategy == 0) {
-            RtsPageService.markStorageViewDirty(player, session);
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
         }
 
         RtsbuildingMod.LOGGER.info("[PendingPlacement] {} 使用策略 {} 重启了搁置放置作业",

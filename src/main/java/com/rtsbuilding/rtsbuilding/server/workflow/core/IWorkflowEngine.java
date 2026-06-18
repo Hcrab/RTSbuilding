@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -167,14 +166,4 @@ public interface IWorkflowEngine {
      * @param entryId   the immutable workflow entry ID
      */
     boolean isEntryPaused(UUID playerId, ResourceKey<Level> dimension, int entryId);
-
-    /**
-     * Cleans up workflows that have been idle (no updates) beyond the
-     * specified duration.  Useful for garbage-collecting zombie workflows
-     * left behind by disconnected players or failed operations.
-     *
-     * @param maxIdleTime maximum allowed idle time before cleanup
-     * @return number of workflows cleaned up
-     */
-    int cleanupStaleWorkflows(Duration maxIdleTime);
 }

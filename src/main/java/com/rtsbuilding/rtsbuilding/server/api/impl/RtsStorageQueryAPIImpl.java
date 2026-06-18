@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
 import com.rtsbuilding.rtsbuilding.server.api.RtsStorageQueryAPI;
-import com.rtsbuilding.rtsbuilding.server.service.RtsTransferService;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -10,9 +10,12 @@ import net.minecraft.world.item.ItemStack;
 import java.util.function.Predicate;
 
 public final class RtsStorageQueryAPIImpl implements RtsStorageQueryAPI {
+
+    private static final ServiceRegistry REGISTRY = ServiceRegistry.getInstance();
+
     @Override
     public long countItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate) {
-        return RtsTransferService.countLinkedItemsMatching(player, predicate);
+        return REGISTRY.transfer().countLinkedItemsMatching(player, predicate);
     }
 
     @Override

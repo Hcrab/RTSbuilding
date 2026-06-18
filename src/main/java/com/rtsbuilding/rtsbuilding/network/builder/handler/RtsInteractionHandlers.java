@@ -3,8 +3,11 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.server.service.*;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsResumeScanResult;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.Direction;
@@ -29,7 +32,7 @@ public final class RtsInteractionHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
-                RtsInteractionService.interactTarget(
+                ServiceRegistry.getInstance().interaction().interactTarget(
                         serverPlayer,
                         payload.entityId(),
                         payload.clickedPos(),
@@ -53,7 +56,7 @@ public final class RtsInteractionHandlers {
     public static void handleQuickDrop(C2SRtsQuickDropPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTransferService.quickDropLinkedItem(
+                ServiceRegistry.getInstance().transfer().quickDropLinkedItem(
                         serverPlayer,
                         payload.itemId(),
                         payload.amount(),
@@ -86,7 +89,7 @@ public final class RtsInteractionHandlers {
     public static void handleSubmitPending(C2SRtsSubmitPendingPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsPlacementService.submitPendingPlacement(serverPlayer);
+                ServiceRegistry.getInstance().placement().submitPendingPlacement(serverPlayer);
             }
         });
     }
@@ -103,7 +106,7 @@ public final class RtsInteractionHandlers {
     public static void handleScanResumePlacement(C2SRtsScanResumePlacementPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsStorageSession session = RtsSessionService.getIfPresent(serverPlayer);
+                RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(serverPlayer);
                 if (session != null) {
                     RtsResumeScanResult result = RtsPendingPlacementService.scanPendingJob(serverPlayer, session, payload.workflowEntryId());
                     if (result != null) {
@@ -122,7 +125,7 @@ public final class RtsInteractionHandlers {
     public static void handleResumePlacementAction(C2SRtsResumePlacementActionPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsStorageSession session = RtsSessionService.getIfPresent(serverPlayer);
+                RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(serverPlayer);
                 if (session != null) {
                     RtsPendingPlacementService.resumeWithStrategy(serverPlayer, session, payload.strategy(), payload.workflowEntryId());
                 }

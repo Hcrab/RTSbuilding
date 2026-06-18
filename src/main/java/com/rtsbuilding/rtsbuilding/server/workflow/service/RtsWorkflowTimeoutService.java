@@ -1,12 +1,18 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.service;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
-import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
+import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
+import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
+import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
+import javax.annotation.Nullable;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -28,20 +34,29 @@ import java.util.concurrent.TimeUnit;
  */
 public final class RtsWorkflowTimeoutService {
 
-    private final IWorkflowEngine engine;
     private final Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers;
+    private final Map<UUID, ServerPlayer> playerRefs;
+    private final RtsWorkflowEventBus eventBus;
+    private final RtsWorkflowSyncService syncService;
 
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> task;
 
     /**
-     * @param engine       the workflow engine to clean up
-     * @param slotManagers the slot managers to scan (same map the engine uses)
+     * @param slotManagers 引擎的 slot 管理器映射
+     * @param playerRefs   引擎的玩家引用缓存
+     * @param eventBus     工作流事件总线
+     * @param syncService  网络同步服务
      */
-    public RtsWorkflowTimeoutService(IWorkflowEngine engine,
-                                     Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers) {
-        this.engine = engine;
+    public RtsWorkflowTimeoutService(
+            Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
+            Map<UUID, ServerPlayer> playerRefs,
+            RtsWorkflowEventBus eventBus,
+            RtsWorkflowSyncService syncService) {
         this.slotManagers = slotManagers;
+        this.playerRefs = playerRefs;
+        this.eventBus = eventBus;
+        this.syncService = syncService;
     }
 
     /**
@@ -90,15 +105,63 @@ public final class RtsWorkflowTimeoutService {
      *
      * <p>{@code slotManagers} is a {@link ConcurrentHashMap} whose
      * {@code keySet().toArray()} already provides a safe snapshot without
-     * external synchronization.  The actual cleanup is delegated to
-     * {@link IWorkflowEngine#cleanupStaleWorkflows(Duration)} which iterates
-     * all slot managers internally.</p>
+     * external synchronization.  The cleanup iterates all slot managers
+     * internally and fires TIMEOUT events for stale entries.</p>
      */
     private void scanAndCleanup(long maxIdleMs) {
-        int totalRemoved = engine.cleanupStaleWorkflows(Duration.ofMillis(maxIdleMs));
+        int total = 0;
 
-        if (totalRemoved > 0) {
-            RtsbuildingMod.LOGGER.info("[WorkflowTimeout] Cleaned up {} stale workflow(s)", totalRemoved);
+        for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry : slotManagers.entrySet()) {
+            UUID playerId = playerEntry.getKey();
+
+            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimEntry : playerEntry.getValue().entrySet()) {
+                RtsWorkflowSlotManager slots = dimEntry.getValue();
+
+                List<Integer> staleIds = slots.removeStaleEntries(maxIdleMs);
+                for (int staleId : staleIds) {
+                    eventBus.fire(new WorkflowEvent(WorkflowEventType.TIMEOUT, playerId, staleId, null));
+                    total++;
+                }
+
+                if (!staleIds.isEmpty()) {
+                    ServerPlayer player = findPlayerByUUID(playerId);
+                    if (player != null) {
+                        if (slots.occupiedCount() > 0) {
+                            syncService.notifyPlayer(player, slots);
+                        } else {
+                            syncService.sendIdle(player);
+                        }
+                    }
+                }
+            }
+
+            // Remove empty dimension maps
+            playerEntry.getValue().entrySet().removeIf(e -> e.getValue().occupiedCount() == 0 && e.getValue().size() == 0);
         }
+
+        // Remove players with no dimensions
+        slotManagers.values().removeIf(Map::isEmpty);
+
+        if (total > 0) {
+            RtsbuildingMod.LOGGER.info("[WorkflowTimeout] Cleaned up {} stale workflow(s)", total);
+        }
+    }
+
+    @Nullable
+    private ServerPlayer findPlayerByUUID(UUID playerId) {
+        ServerPlayer cached = playerRefs.get(playerId);
+        if (cached != null && cached.level() != null && !cached.level().isClientSide()) {
+            return cached;
+        }
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            ServerPlayer online = server.getPlayerList().getPlayer(playerId);
+            if (online != null) {
+                playerRefs.put(playerId, online);
+                return online;
+            }
+        }
+        playerRefs.remove(playerId);
+        return null;
     }
 }

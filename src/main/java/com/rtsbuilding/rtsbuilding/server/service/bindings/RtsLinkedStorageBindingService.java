@@ -1,7 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -58,36 +62,33 @@ public final class RtsLinkedStorageBindingService {
         String backpackItemId = readBackpackItemId(player.serverLevel(), pos);
         byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
 
-        if (session.linkedStorages.contains(ref)) {
-            byte existingMode = session.linkedModes.getOrDefault(ref, RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        if (session.linkedStorageInfo.contains(ref)) {
+            byte existingMode = session.linkedStorageInfo.getMode(ref);
             if (existingMode == normalizedMode) {
-                removeLinkedRef(session, ref);
+                session.linkedStorageInfo.remove(ref);
             } else {
-                session.linkedModes.put(ref, normalizedMode);
-                session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+                session.linkedStorageInfo.setMode(ref, normalizedMode);
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
                 applyBackpackMetadata(session, ref, backpackUuid, backpackItemId);
             }
         } else {
             // 大箱子检查：如果点击的是双箱子中未链接的一半，且另一半已链接，则执行解绑
             LinkedStorageRef existingRef = findDoubleChestLinkedRef(player, session, pos);
             if (existingRef != null) {
-                removeLinkedRef(session, existingRef);
+                session.linkedStorageInfo.remove(existingRef);
             } else {
-                if (session.linkedStorages.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
+                if (session.linkedStorageInfo.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
                     return RtsStorageBindings.UpdateResult.none();
                 }
-                session.linkedStorages.add(ref);
-                session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
-                session.linkedModes.put(ref, normalizedMode);
-                session.linkedPriorities.put(ref, 0);
-                applyBackpackMetadata(session, ref, backpackUuid, backpackItemId);
+                session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
             }
         }
         // Mark BD network caches as stale so the resolver re-resolves them
         // instead of using the old cached handler (which may reference blocks
         // that were unlinked or changed).
-        session.bdHandlerStale = true;
-        session.bdFluidHandlerStale = true;
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
         return RtsStorageBindings.UpdateResult.refreshFirst(true);
     }
 
@@ -104,19 +105,19 @@ public final class RtsLinkedStorageBindingService {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
-        if (!session.linkedStorages.contains(ref)) {
+        if (!session.linkedStorageInfo.contains(ref)) {
             return RtsStorageBindings.UpdateResult.none();
         }
         byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
         int normalizedPriority = RtsLinkedStorageResolver.sanitizeLinkedStoragePriority(priority);
-        byte oldMode = session.linkedModes.getOrDefault(ref, RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
-        int oldPriority = session.linkedPriorities.getOrDefault(ref, 0);
+        byte oldMode = session.linkedStorageInfo.getMode(ref);
+        int oldPriority = session.linkedStorageInfo.getPriority(ref);
         if (oldMode == normalizedMode && oldPriority == normalizedPriority) {
             return RtsStorageBindings.UpdateResult.none();
         }
-        session.linkedModes.put(ref, normalizedMode);
-        session.linkedPriorities.put(ref, normalizedPriority);
-        session.linkedNames.put(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        session.linkedStorageInfo.setMode(ref, normalizedMode);
+        session.linkedStorageInfo.setPriority(ref, normalizedPriority);
+        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
@@ -125,30 +126,20 @@ public final class RtsLinkedStorageBindingService {
     // ======================================================================
 
     private static void removeLinkedRef(RtsStorageSession session, LinkedStorageRef ref) {
-        session.linkedStorages.remove(ref);
-        session.linkedNames.remove(ref);
-        session.linkedModes.remove(ref);
-        session.linkedPriorities.remove(ref);
-        session.linkedBackpackUuids.remove(ref);
-        session.linkedBackpackItemIds.remove(ref);
-        session.detachedBackpackRefs.remove(ref);
+        session.linkedStorageInfo.remove(ref);
     }
 
     private static void applyBackpackMetadata(RtsStorageSession session, LinkedStorageRef ref,
             UUID backpackUuid, String backpackItemId) {
         if (backpackUuid == null) {
-            session.linkedBackpackUuids.remove(ref);
-            session.linkedBackpackItemIds.remove(ref);
-            session.detachedBackpackRefs.remove(ref);
+            session.linkedStorageInfo.setBackpackUuid(ref, null);
+            session.linkedStorageInfo.setBackpackItemId(ref, null);
+            session.linkedStorageInfo.removeDetached(ref);
             return;
         }
-        session.linkedBackpackUuids.put(ref, backpackUuid);
-        if (backpackItemId == null || backpackItemId.isBlank()) {
-            session.linkedBackpackItemIds.remove(ref);
-        } else {
-            session.linkedBackpackItemIds.put(ref, backpackItemId);
-        }
-        session.detachedBackpackRefs.remove(ref);
+        session.linkedStorageInfo.setBackpackUuid(ref, backpackUuid);
+        session.linkedStorageInfo.setBackpackItemId(ref, backpackItemId);
+        session.linkedStorageInfo.removeDetached(ref);
     }
 
     private static UUID readBackpackUuid(ServerLevel level, BlockPos pos) {
@@ -190,7 +181,7 @@ public final class RtsLinkedStorageBindingService {
         Direction connectedDirection = ChestBlock.getConnectedDirection(state);
         BlockPos connectedPos = pos.relative(connectedDirection);
         LinkedStorageRef connectedRef = new LinkedStorageRef(level.dimension(), connectedPos);
-        return session.linkedStorages.contains(connectedRef);
+        return session.linkedStorageInfo.contains(connectedRef);
     }
 
     /**
@@ -216,7 +207,7 @@ public final class RtsLinkedStorageBindingService {
         Direction connectedDirection = ChestBlock.getConnectedDirection(state);
         BlockPos connectedPos = pos.relative(connectedDirection);
         LinkedStorageRef connectedRef = new LinkedStorageRef(level.dimension(), connectedPos);
-        if (session.linkedStorages.contains(connectedRef)) {
+        if (session.linkedStorageInfo.contains(connectedRef)) {
             return connectedRef;
         }
         return null;

@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedFluidHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -99,7 +99,7 @@ public final class RtsFluidNetworkOperator {
      * buffer as overflow). Returns the amount (in mb) actually stored.
      */
     public static int insertFluidIntoNetwork(net.minecraft.server.level.ServerPlayer player,
-            com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session,
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             List<LinkedFluidHandler> fluidHandlers, FluidStack fluidStack, boolean execute) {
         if (fluidStack.isEmpty() || fluidStack.getAmount() <= 0) {
             return 0;

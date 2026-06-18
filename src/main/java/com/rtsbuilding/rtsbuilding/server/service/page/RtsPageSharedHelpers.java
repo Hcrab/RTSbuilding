@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -214,7 +214,7 @@ public final class RtsPageSharedHelpers {
         if (player == null || player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu) {
             return false;
         }
-        if (session != null && session.linkedStorages.isEmpty() && !com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat.hasPrimaryNetwork(player)) {
+        if (session != null && session.linkedStorageInfo.isEmpty() && !com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat.hasPrimaryNetwork(player)) {
             return true;
         }
         return player.containerMenu == player.inventoryMenu;

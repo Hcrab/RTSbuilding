@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.benchmark.link;
 
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedStorageRef;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.LinkedStorageInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -152,29 +153,16 @@ public class RtsLinkedStorageResolverJmhBenchmark {
     private static RtsStorageSession createMockSession(int refCount) {
         RtsStorageSession session = mock(RtsStorageSession.class);
         try {
-            Field storagesField = RtsStorageSession.class.getDeclaredField("linkedStorages");
-            storagesField.setAccessible(true);
-            List<LinkedStorageRef> refs = new ArrayList<>(refCount);
+            Field infoField = RtsStorageSession.class.getDeclaredField("linkedStorageInfo");
+            infoField.setAccessible(true);
+            LinkedStorageInfo info = new LinkedStorageInfo();
+            infoField.set(session, info);
+
+            Random rng = ThreadLocalRandom.current();
             for (int i = 0; i < refCount; i++) {
-                refs.add(createRef());
-            }
-            storagesField.set(session, refs);
-
-            if (refCount > 0) {
-                Field namesField = RtsStorageSession.class.getDeclaredField("linkedNames");
-                namesField.setAccessible(true);
-                Map<LinkedStorageRef, String> names = new HashMap<>();
-                Map<LinkedStorageRef, Byte> modes = new HashMap<>();
-                Random rng = ThreadLocalRandom.current();
-                for (LinkedStorageRef ref : refs) {
-                    names.put(ref, "Chest_" + rng.nextInt(10000));
-                    modes.put(ref, rng.nextBoolean() ? (byte) 0 : (byte) 1);
-                }
-                namesField.set(session, names);
-
-                Field modesField = RtsStorageSession.class.getDeclaredField("linkedModes");
-                modesField.setAccessible(true);
-                modesField.set(session, modes);
+                LinkedStorageRef ref = createRef();
+                info.add(ref, rng.nextBoolean() ? (byte) 0 : (byte) 1, 0);
+                info.setName(ref, "Chest_" + rng.nextInt(10000));
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to create mock session", e);
@@ -190,12 +178,6 @@ public class RtsLinkedStorageResolverJmhBenchmark {
 
     @SuppressWarnings("unchecked")
     private static List<LinkedStorageRef> getSessionRefs(RtsStorageSession session) {
-        try {
-            Field f = RtsStorageSession.class.getDeclaredField("linkedStorages");
-            f.setAccessible(true);
-            return (List<LinkedStorageRef>) f.get(session);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return session.linkedStorageInfo.getAll();
     }
 }

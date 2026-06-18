@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service.resolver;
 
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedStorageRef;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -46,17 +45,17 @@ public final class RtsLinkedStorageBlockEventHandler {
             return;
         }
         ResourceKey<Level> dimension = level.dimension();
-        for (var entry : RtsSessionService.allSessions().entrySet()) {
+        for (var entry : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
             if (player == null) {
                 continue;
             }
             RtsStorageSession session = entry.getValue();
             if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
-                RtsSessionService.saveToPlayerNbt(player, session);
+                ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
                 session.transfer.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
+                ServiceRegistry.getInstance().page().requestPage(player, session.browser.page, session.browser.search,
                         session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
@@ -78,17 +77,17 @@ public final class RtsLinkedStorageBlockEventHandler {
         String backpackItemId = RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
         LinkedStorageRef newRef = new LinkedStorageRef(level.dimension(), pos.immutable());
         String displayName = RtsLinkedStorageResolver.resolveDisplayName(level, pos);
-        for (var entry : RtsSessionService.allSessions().entrySet()) {
+        for (var entry : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
             if (player == null) {
                 continue;
             }
             RtsStorageSession session = entry.getValue();
             if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
-                RtsSessionService.saveToPlayerNbt(player, session);
+                ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
                 session.transfer.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
+                ServiceRegistry.getInstance().page().requestPage(player, session.browser.page, session.browser.search,
                         session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
@@ -100,88 +99,85 @@ public final class RtsLinkedStorageBlockEventHandler {
 
     private static boolean markOrRemoveBrokenLinkedStorageRef(RtsStorageSession session, ServerLevel level,
             ResourceKey<Level> dimension, BlockPos pos) {
-        if (session == null || dimension == null || pos == null || session.linkedStorages.isEmpty()) {
+        if (session == null || dimension == null || pos == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
         LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.immutable());
-        if (!session.linkedStorages.contains(ref)) {
+        if (!session.linkedStorageInfo.contains(ref)) {
             return false;
         }
-        UUID backpackUuid = session.linkedBackpackUuids.get(ref);
+        UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
             UUID breakingUuid = level == null ? null
                     : RtsBackpackCompat.getBackpackUuid(level.getBlockEntity(pos)).orElse(null);
             if (!backpackUuid.equals(breakingUuid)) {
                 return false;
             }
-            return session.detachedBackpackRefs.add(ref);
+            return session.linkedStorageInfo.markDetached(ref);
         }
         return removeLinkedStorageRef(session, dimension, pos);
     }
 
     public static boolean moveBackpackLinkedStorageRef(RtsStorageSession session, UUID backpackUuid,
             String backpackItemId, LinkedStorageRef newRef, String displayName) {
-        if (session == null || backpackUuid == null || newRef == null || session.linkedStorages.isEmpty()) {
+        if (session == null || backpackUuid == null || newRef == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
         boolean changed = false;
-        for (LinkedStorageRef oldRef : List.copyOf(session.linkedStorages)) {
-            if (!backpackUuid.equals(session.linkedBackpackUuids.get(oldRef))) {
+        for (LinkedStorageRef oldRef : List.copyOf(session.linkedStorageInfo.getAll())) {
+            if (!backpackUuid.equals(session.linkedStorageInfo.getBackpackUuid(oldRef))) {
                 continue;
             }
             if (oldRef.equals(newRef)) {
-                session.detachedBackpackRefs.remove(oldRef);
-                session.linkedNames.put(oldRef, displayName);
+                session.linkedStorageInfo.removeDetached(oldRef);
+                session.linkedStorageInfo.setName(oldRef, displayName);
                 if (backpackItemId != null && !backpackItemId.isBlank()) {
-                    session.linkedBackpackItemIds.put(oldRef, backpackItemId);
+                    session.linkedStorageInfo.setBackpackItemId(oldRef, backpackItemId);
                 }
                 changed = true;
                 continue;
             }
-            if (session.linkedStorages.contains(newRef)
-                    && !backpackUuid.equals(session.linkedBackpackUuids.get(newRef))) {
+            if (session.linkedStorageInfo.contains(newRef)
+                    && !backpackUuid.equals(session.linkedStorageInfo.getBackpackUuid(newRef))) {
                 continue;
             }
-            byte mode = session.linkedModes.getOrDefault(oldRef,
-                    RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
-            int priority = session.linkedPriorities.getOrDefault(oldRef, 0);
-            int index = session.linkedStorages.indexOf(oldRef);
+            byte mode = session.linkedStorageInfo.getMode(oldRef);
+            int priority = session.linkedStorageInfo.getPriority(oldRef);
+            int index = session.linkedStorageInfo.indexOf(oldRef);
             if (index < 0) {
                 continue;
             }
-            if (session.linkedStorages.contains(newRef)) {
-                removeLinkedStorageRef(session, oldRef.dimension(), oldRef.pos());
+            if (session.linkedStorageInfo.contains(newRef)) {
+                session.linkedStorageInfo.remove(oldRef);
             } else {
-                session.linkedStorages.set(index, newRef);
-                session.linkedNames.remove(oldRef);
-                session.linkedModes.remove(oldRef);
-                session.linkedPriorities.remove(oldRef);
-                session.linkedBackpackUuids.remove(oldRef);
-                session.linkedBackpackItemIds.remove(oldRef);
-                session.detachedBackpackRefs.remove(oldRef);
+                session.linkedStorageInfo.set(index, newRef);
             }
-            session.linkedNames.put(newRef, displayName);
-            session.linkedModes.put(newRef, mode);
-            session.linkedPriorities.put(newRef,
-                    RtsLinkedStorageResolver.sanitizeLinkedStoragePriority(priority));
-            session.linkedBackpackUuids.put(newRef, backpackUuid);
+            session.linkedStorageInfo.setName(newRef, displayName);
+            session.linkedStorageInfo.setMode(newRef, mode);
+            session.linkedStorageInfo.setPriority(newRef, priority);
+            session.linkedStorageInfo.setBackpackUuid(newRef, backpackUuid);
             if (backpackItemId != null && !backpackItemId.isBlank()) {
-                session.linkedBackpackItemIds.put(newRef, backpackItemId);
+                session.linkedStorageInfo.setBackpackItemId(newRef, backpackItemId);
             }
-            session.detachedBackpackRefs.remove(newRef);
+            session.linkedStorageInfo.removeDetached(newRef);
             changed = true;
         }
         return changed;
     }
 
     private static boolean removeLinkedStorageRef(RtsStorageSession session, ResourceKey<Level> dimension, BlockPos pos) {
-        if (session == null || dimension == null || pos == null || session.linkedStorages.isEmpty()) {
+        if (session == null || dimension == null || pos == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
-        boolean removed = session.linkedStorages.removeIf(ref ->
-                ref != null && dimension.equals(ref.dimension()) && pos.equals(ref.pos()));
+        boolean removed = false;
+        for (LinkedStorageRef ref : List.copyOf(session.linkedStorageInfo.getAll())) {
+            if (ref != null && dimension.equals(ref.dimension()) && pos.equals(ref.pos())) {
+                session.linkedStorageInfo.remove(ref);
+                removed = true;
+            }
+        }
         if (removed) {
-            cleanupOrphanRefs(session);
+            session.linkedStorageInfo.cleanupOrphans();
         }
         return removed;
     }
@@ -200,11 +196,6 @@ public final class RtsLinkedStorageBlockEventHandler {
      * operation that removes refs from the list.
      */
     public static void cleanupOrphanRefs(RtsStorageSession session) {
-        session.linkedNames.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
-        session.linkedModes.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
-        session.linkedPriorities.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
-        session.linkedBackpackUuids.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
-        session.linkedBackpackItemIds.keySet().removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
-        session.detachedBackpackRefs.removeIf(ref -> ref == null || !session.linkedStorages.contains(ref));
+        session.linkedStorageInfo.cleanupOrphans();
     }
 }

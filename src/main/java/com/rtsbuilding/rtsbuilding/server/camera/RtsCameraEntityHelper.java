@@ -23,6 +23,13 @@ final class RtsCameraEntityHelper {
     //  查找
     // ======================================================================
 
+    /**
+     * 在所有维度中查找指定 UUID 的相机实体。
+     *
+     * @param server     Minecraft 服务器实例
+     * @param cameraUuid 相机实体的 UUID
+     * @return 找到的实体，若未找到则返回 {@code null}
+     */
     static Entity findCameraEntity(MinecraftServer server, UUID cameraUuid) {
         if (server == null || cameraUuid == null) {
             return null;
@@ -40,6 +47,12 @@ final class RtsCameraEntityHelper {
     //  丢弃
     // ======================================================================
 
+    /**
+     * 丢弃指定玩家拥有的所有相机实体（除 keepUuid 指定的以外）。
+     *
+     * @param player   目标玩家
+     * @param keepUuid 需要保留的相机 UUID，为 {@code null} 则丢弃全部
+     */
     static void discardOwnedCameras(ServerPlayer player, UUID keepUuid) {
         if (player == null || player.getServer() == null) {
             return;
@@ -60,6 +73,18 @@ final class RtsCameraEntityHelper {
     //  创建
     // ======================================================================
 
+    /**
+     * 创建并生成一个 RTS 相机实体。
+     *
+     * @param level     目标服务端维度
+     * @param ownerUuid 所属玩家 UUID
+     * @param x         X 坐标
+     * @param y         Y 坐标
+     * @param z         Z 坐标
+     * @param yaw       偏航角
+     * @param pitch     俯仰角
+     * @return 创建的相机实体
+     */
     static RtsCameraEntity createAndSpawnCamera(ServerLevel level, UUID ownerUuid,
             double x, double y, double z, float yaw, float pitch) {
         RtsCameraEntity camera = new RtsCameraEntity(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), level);
@@ -73,6 +98,13 @@ final class RtsCameraEntityHelper {
     //  孤儿清理（需要外部传入活跃相机判断）
     // ======================================================================
 
+    /**
+     * 清理不再活跃的"孤儿"相机实体。
+     * <p>遍历所有维度，丢弃那些不在活跃会话中的相机实体。</p>
+     *
+     * @param server         Minecraft 服务器实例
+     * @param isActiveCamera 判断相机 UUID 是否仍处于活跃会话中的谓词
+     */
     static void cleanupOrphanCameras(MinecraftServer server, Predicate<UUID> isActiveCamera) {
         if (server == null) {
             return;
