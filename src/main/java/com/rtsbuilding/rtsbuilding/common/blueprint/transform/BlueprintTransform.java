@@ -140,13 +140,13 @@ public final class BlueprintTransform {
         }
         // 遍历所有属性，更新 Direction 和 Axis 类型
         for (Property<?> property : out.getProperties()) {
-            Comparable<?> value = out.getValue(property);
+            Object value = out.getValue(property);
             if (value instanceof Direction direction) {
                 Direction rotated = rotateDirection(direction, x, z);
-                out = setIfAllowed(out, property, rotated);
+                out = setValueUnsafe(out, property, rotated);
             } else if (value instanceof Axis axis) {
                 Axis rotated = rotateAxis(axis, x, z);
-                out = setIfAllowed(out, property, rotated);
+                out = setValueUnsafe(out, property, rotated);
             }
         }
         return out;
@@ -245,6 +245,16 @@ public final class BlueprintTransform {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static <T extends Comparable<T>> BlockState setIfAllowed(BlockState state, Property<T> property, T value) {
+        return property.getPossibleValues().contains(value)
+                ? state.setValue(property, value)
+                : state;
+    }
+
+    /**
+     * 原始类型版本的 {@link #setIfAllowed}，避开泛型通配符捕获问题。
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static BlockState setValueUnsafe(BlockState state, Property property, Comparable value) {
         return property.getPossibleValues().contains(value)
                 ? state.setValue(property, value)
                 : state;
