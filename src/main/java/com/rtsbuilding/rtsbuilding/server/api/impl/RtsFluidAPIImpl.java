@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
-import com.rtsbuilding.rtsbuilding.server.api.RtsFluidAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsFluidAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
-import com.rtsbuilding.rtsbuilding.server.api.RtsCraftingAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsCraftingAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;

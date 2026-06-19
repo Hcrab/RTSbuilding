@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import com.rtsbuilding.rtsbuilding.server.api.RtsSessionQueryAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsSessionQueryAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
 

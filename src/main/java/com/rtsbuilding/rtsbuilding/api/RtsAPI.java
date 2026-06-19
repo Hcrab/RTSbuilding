@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.server.api;
+package com.rtsbuilding.rtsbuilding.api;
 
 /**
  * RTS 建筑模组的主 API 入口。

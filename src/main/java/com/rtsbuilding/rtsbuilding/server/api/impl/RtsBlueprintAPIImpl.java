@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
-import com.rtsbuilding.rtsbuilding.server.api.RtsBlueprintAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsBlueprintAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BlueprintService;
 import net.minecraft.core.BlockPos;

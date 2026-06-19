@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.server.api;
+package com.rtsbuilding.rtsbuilding.api;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

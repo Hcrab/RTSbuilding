@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.server.api;
+package com.rtsbuilding.rtsbuilding.api;
 
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.server.level.ServerPlayer;

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
-import com.rtsbuilding.rtsbuilding.server.api.*;
+import com.rtsbuilding.rtsbuilding.api.*;
 
 /**
  * {@link RtsAPI} 的默认实现——将所有调用委托给领域服务层。

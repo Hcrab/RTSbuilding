@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
-import com.rtsbuilding.rtsbuilding.server.api.RtsStorageQueryAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsStorageQueryAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import net.minecraft.core.BlockPos;
