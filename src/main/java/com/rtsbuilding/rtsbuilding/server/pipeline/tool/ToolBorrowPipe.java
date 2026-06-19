@@ -8,24 +8,23 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.mining.StopPreviousPipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLeaseManager;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Borrows a mining tool from the player's inventory or linked storage for
- * the operation.
+ * 从玩家的物品栏或链接存储中借用挖掘工具用于操作。
  *
- * <p>Expected context args:</p>
+ * <p>预期的上下文参数：</p>
  * <ul>
- *   <li>{@code "toolSlot"} — {@code byte/Integer} hotbar slot index</li>
- *   <li>{@code "toolItemId"} — {@link String} tool item ID (may be empty)</li>
- *   <li>{@code "toolPrototype"} — {@link ItemStack} tool prototype</li>
+ *   <li>{@code "toolSlot"} —— {@code byte/Integer} 快捷栏槽索引</li>
+ *   <li>{@code "toolItemId"} —— {@link String} 工具物品 ID（可能为空）</li>
+ *   <li>{@code "toolPrototype"} —— {@link ItemStack} 工具原型</li>
  * </ul>
  *
- * <p>Stores the following in shared data:</p>
+ * <p>在共享数据中存储以下内容：</p>
  * <ul>
- *   <li>{@code "toolLease"} — {@link RtsToolLease} the borrowed tool lease</li>
- *   <li>{@code "selectedToolRequested"} — {@code boolean} whether a specific tool was requested</li>
+ *   <li>{@code "toolLease"} —— {@link RtsToolLease} 借用的工具租约</li>
+ *   <li>{@code "selectedToolRequested"} —— {@code boolean} 是否请求了特定工具</li>
  * </ul>
  */
 public final class ToolBorrowPipe implements PipelinePipe<MiningContext> {
@@ -44,7 +43,7 @@ public final class ToolBorrowPipe implements PipelinePipe<MiningContext> {
 
     @Override
     public PipelineResult execute(MiningContext ctx) {
-        // Queue mode: the tool is already borrowed from the currently active operation
+        // 队列模式：工具已从当前活跃操作中借用
         if (Boolean.TRUE.equals(ctx.getData(StopPreviousPipe.KEY_QUEUE_MODE))) {
             return PipelineResult.success();
         }

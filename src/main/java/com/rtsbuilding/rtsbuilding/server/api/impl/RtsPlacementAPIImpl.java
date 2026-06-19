@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.api.impl;
 
 import com.rtsbuilding.rtsbuilding.server.api.RtsPlacementAPI;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,7 +9,13 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
+/**
+ * {@link RtsPlacementAPI} 的实现——委托给放置服务层。
+ */
 public final class RtsPlacementAPIImpl implements RtsPlacementAPI {
+
+    private static final ServiceRegistry REGISTRY = ServiceRegistry.getInstance();
+
     @Override
     public void placeSelected(ServerPlayer player, Object clickedPos, Direction face,
                               double hitX, double hitY, double hitZ,
@@ -18,7 +24,7 @@ public final class RtsPlacementAPIImpl implements RtsPlacementAPI {
                               double rayOriginX, double rayOriginY, double rayOriginZ,
                               double rayDirX, double rayDirY, double rayDirZ,
                               boolean quickBuild, boolean forceEmptyHand) {
-        RtsPlacementService.placeSelected(player, (BlockPos) clickedPos, face,
+        REGISTRY.placement().placeSelected(player, (BlockPos) clickedPos, face,
                 hitX, hitY, hitZ, rotateSteps, forcePlace, skipIfOccupied,
                 itemId, itemPrototype, rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ, quickBuild, forceEmptyHand);
@@ -32,33 +38,33 @@ public final class RtsPlacementAPIImpl implements RtsPlacementAPI {
                              double rayOriginX, double rayOriginY, double rayOriginZ,
                              double rayDirX, double rayDirY, double rayDirZ) {
         List<BlockPos> positions = clickedPositions.stream().map(p -> (BlockPos) p).toList();
-        RtsPlacementService.enqueuePlaceBatch(player, positions, face,
+        REGISTRY.placement().enqueuePlaceBatch(player, positions, face,
                 hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps,
                 forcePlace, skipIfOccupied, itemId, itemPrototype,
                 rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
     }
 
     // ======================================================================
-    //  Placement Progress Queries
+    //  放置进度查询
     // ======================================================================
 
     @Override
     public int getPlaceBatchTotalBlocks(ServerPlayer player) {
-        return RtsPlacementService.getPlaceBatchTotalBlocks(player);
+        return REGISTRY.placement().getPlaceBatchTotalBlocks(player);
     }
 
     @Override
     public int getPlaceBatchCompletedBlocks(ServerPlayer player) {
-        return RtsPlacementService.getPlaceBatchCompletedBlocks(player);
+        return REGISTRY.placement().getPlaceBatchCompletedBlocks(player);
     }
 
     @Override
     public int getPlaceBatchRemainingBlocks(ServerPlayer player) {
-        return RtsPlacementService.getPlaceBatchRemainingBlocks(player);
+        return REGISTRY.placement().getPlaceBatchRemainingBlocks(player);
     }
 
     @Override
     public String getPlaceBatchItemId(ServerPlayer player) {
-        return RtsPlacementService.getPlaceBatchItemId(player);
+        return REGISTRY.placement().getPlaceBatchItemId(player);
     }
 }

@@ -11,61 +11,56 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 /**
- * Manages the fixed-size workflow slot pool for a single player.
+ * 管理单个玩家的固定大小工作流槽位池。
  *
- * <p>Each player has up to {@link #MAX_SLOTS} workflow slots.  Entries are
- * stored as a priority-ordered list: higher-priority entries appear before
- * lower-priority ones.  Within the same priority level, insertion order
- * (FIFO) is preserved.  When an entry is removed, later entries shift
- * forward — but the immutable {@link RtsWorkflowEntry#id()} survives
- * these shifts.</p>
+ * <p>每个玩家最多有 {@link #MAX_SLOTS} 个工作流槽位。条目以优先级顺序存储：
+ * 高优先级条目排在低优先级条目之前。相同优先级内保持 FIFO 插入顺序。
+ * 当条目被移除时，后面的条目会向前移动——
+ * 但不可变的 {@link RtsWorkflowEntry#id()} 在索引偏移后仍然有效。</p>
  *
- * <p>This class is intentionally a simple container; all coordination logic
- * lives in {@link IWorkflowEngine}.</p>
+ * <p>本类有意保持为简单的容器；所有协调逻辑位于 {@link IWorkflowEngine} 中。</p>
  */
 public final class RtsWorkflowSlotManager {
 
-    /** Maximum number of concurrent workflow entries per player. */
+    /** 每个玩家的最大并发工作流条目数。 */
     public static final int MAX_SLOTS = 8;
 
     /**
-     * Lock for all mutations and reads of {@link #entries} and
-     * {@link #entryIndex}.  The lock is reentrant so that internal
-     * calls (e.g. {@code isFull()} from {@code addEntry()}) work
-     * correctly.
+     * {@link #entries} 和 {@link #entryIndex} 所有读写操作的锁。
+     * 锁是可重入的，因此内部调用（例如 {@code addEntry()} 中的 {@code isFull()}）
+     * 可以正常工作。
      */
     private final Object lock = new Object();
 
     /**
-     * Priority-ordered list of entries.  The list is the single source of
-     * truth for ordering and iteration; the {@link #entryIndex} map provides
-     * O(1) lookups by immutable entry ID.
+     * 按优先级排序的条目列表。该列表是排序和迭代的唯一数据源；
+     * {@link #entryIndex} 映射提供按不可变条目 ID 的 O(1) 查找。
      *
-     * <p><b>Access must be guarded by {@link #lock}.</b></p>
+     * <p><b>访问必须通过 {@link #lock} 加锁。</b></p>
      */
     private final List<RtsWorkflowEntry> entries = new ArrayList<>(MAX_SLOTS);
 
     /**
-     * O(1) entry lookup by immutable ID, kept in sync with {@link #entries}.
+     * 按不可变 ID 进行 O(1) 条目查找，与 {@link #entries} 保持同步。
      *
-     * <p><b>Access must be guarded by {@link #lock}.</b></p>
+     * <p><b>访问必须通过 {@link #lock} 加锁。</b></p>
      */
     private final Map<Integer, RtsWorkflowEntry> entryIndex = new HashMap<>();
 
     private int nextId;
 
     // ──────────────────────────────────────────────────────────────────
-    //  Capacity
+    //  容量
     // ──────────────────────────────────────────────────────────────────
 
-    /** Returns {@code true} if all slots are occupied. */
+    /** 返回 {@code true} 表示所有槽位均已占用。 */
     public boolean isFull() {
         synchronized (lock) {
             return entries.size() >= MAX_SLOTS;
         }
     }
 
-    /** Returns the number of occupied slots (active + suspended). */
+    /** 返回已占用的槽位数（活动 + 挂起）。 */
     public int occupiedCount() {
         synchronized (lock) {
             int count = 0;
@@ -76,7 +71,7 @@ public final class RtsWorkflowSlotManager {
         }
     }
 
-    /** Returns the number of active (non-suspended) entries. */
+    /** 返回活动（非挂起）的条目数。 */
     public int activeCount() {
         synchronized (lock) {
             int count = 0;
@@ -87,7 +82,7 @@ public final class RtsWorkflowSlotManager {
         }
     }
 
-    /** Returns the total number of entries in the list (including empty slots). */
+    /** 返回列表中的条目总数（包括空闲槽位）。 */
     public int size() {
         synchronized (lock) {
             return entries.size();
@@ -95,23 +90,22 @@ public final class RtsWorkflowSlotManager {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Entry management
+    //  条目管理
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Creates and adds a new workflow entry, inserting it in priority order.
-     * <p>Higher-priority entries are placed before lower-priority ones.
-     * Within the same priority, FIFO order is preserved.</p>
+     * 创建并添加一个新的工作流条目，按优先级顺序插入。
+     * <p>高优先级条目放在低优先级条目之前。相同优先级内保持 FIFO 顺序。</p>
      *
-     * @param priority the priority level for the new entry
-     * @return the newly created entry, or {@code null} if at capacity
+     * @param priority 新条目的优先级
+     * @return 新创建的条目，若已达上限则返回 {@code null}
      */
     public @Nullable RtsWorkflowEntry addEntry(RtsWorkflowPriority priority) {
         synchronized (lock) {
             if (isFull()) return null;
             RtsWorkflowEntry entry = new RtsWorkflowEntry(nextId++);
             entry.setPriority(priority);
-            // Insert in priority order: find the first entry with strictly lower priority
+            // 按优先级插入：找到第一个优先级严格更低的条目位置
             int insertIndex = entries.size();
             for (int i = 0; i < entries.size(); i++) {
                 if (entries.get(i).priority().rank() < priority.rank()) {
@@ -126,9 +120,9 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Removes the entry at the given index.
+     * 移除指定索引处的条目。
      *
-     * @param index the 0-based positional index
+     * @param index 基于 0 的位置索引
      */
     public void removeEntry(int index) {
         synchronized (lock) {
@@ -140,10 +134,10 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Removes the entry identified by its immutable ID.
+     * 根据不可变 ID 移除条目。
      *
-     * @param entryId the immutable entry ID
-     * @return {@code true} if an entry was removed
+     * @param entryId 不可变的条目 ID
+     * @return {@code true} 表示有条目被移除
      */
     public boolean removeEntryById(int entryId) {
         synchronized (lock) {
@@ -155,7 +149,7 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Returns the entry at the given positional index.
+     * 返回指定位置索引处的条目。
      */
     public @Nullable RtsWorkflowEntry getEntry(int index) {
         synchronized (lock) {
@@ -167,9 +161,9 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Finds the current positional index of an entry by its immutable ID.
+     * 根据不可变 ID 查找条目的当前位置索引。
      *
-     * @return the 0-based index, or -1 if not found
+     * @return 基于 0 的索引，未找到则返回 -1
      */
     public int findIndexByEntryId(int entryId) {
         synchronized (lock) {
@@ -183,9 +177,9 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Finds an entry by its immutable ID.
+     * 根据不可变 ID 查找条目。
      *
-     * @return the entry, or {@code null} if not found
+     * @return 条目，未找到则返回 {@code null}
      */
     public @Nullable RtsWorkflowEntry findEntryById(int entryId) {
         synchronized (lock) {
@@ -194,7 +188,7 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Returns the most recent active (non-suspended) entry.
+     * 返回最近的活动（非挂起）条目。
      */
     public @Nullable RtsWorkflowEntry lastActive() {
         synchronized (lock) {
@@ -207,7 +201,7 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Returns the most recent suspended entry.
+     * 返回最近的挂起条目。
      */
     public @Nullable RtsWorkflowEntry lastSuspended() {
         synchronized (lock) {
@@ -220,7 +214,7 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Returns {@code true} if any entry is active (non-suspended).
+     * 返回 {@code true} 表示存在活动（非挂起）条目。
      */
     public boolean hasActiveWorkflow() {
         synchronized (lock) {
@@ -232,7 +226,7 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Returns {@code true} if any entry is suspended.
+     * 返回 {@code true} 表示存在已挂起的条目。
      */
     public boolean hasSuspendedWorkflow() {
         synchronized (lock) {
@@ -244,14 +238,14 @@ public final class RtsWorkflowSlotManager {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  NBT serialisation
+    //  NBT 序列化
     // ──────────────────────────────────────────────────────────────────
 
     private static final String NBT_NEXT_ID = "next_id";
     private static final String NBT_ENTRIES = "entries";
 
     /**
-     * Serialises this slot manager (all entries + nextId) into a {@link CompoundTag}.
+     * 将此槽位管理器（所有条目 + nextId）序列化为 {@link CompoundTag}。
      */
     public CompoundTag saveToNbt() {
         synchronized (lock) {
@@ -269,10 +263,10 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Restores a slot manager from a previously serialised {@link CompoundTag}.
+     * 从之前序列化的 {@link CompoundTag} 恢复槽位管理器。
      *
-     * @param tag the NBT tag previously produced by {@link #saveToNbt()}
-     * @return a new slot manager with all entries restored
+     * @param tag 之前由 {@link #saveToNbt()} 生成的 NBT 标签
+     * @return 恢复了所有条目的新槽位管理器
      */
     public static RtsWorkflowSlotManager loadFromNbt(CompoundTag tag) {
         RtsWorkflowSlotManager manager = new RtsWorkflowSlotManager();
@@ -291,10 +285,10 @@ public final class RtsWorkflowSlotManager {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Bulk operations
+    //  批量操作
     // ──────────────────────────────────────────────────────────────────
 
-    /** Returns a snapshot list of all occupied entries. */
+    /** 返回所有已占用条目的快照列表。 */
     public List<RtsWorkflowEntry> occupiedEntries() {
         synchronized (lock) {
             List<RtsWorkflowEntry> result = new ArrayList<>();
@@ -305,14 +299,14 @@ public final class RtsWorkflowSlotManager {
         }
     }
 
-    /** Returns an unmodifiable view of all entries (including idle slots). */
+    /** 返回所有条目的不可变视图（包括空闲槽位）。 */
     public List<RtsWorkflowEntry> allEntries() {
         synchronized (lock) {
             return List.copyOf(entries);
         }
     }
 
-    /** Removes all entries. */
+    /** 移除所有条目。 */
     public void clear() {
         synchronized (lock) {
             entries.clear();
@@ -321,10 +315,10 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
-     * Removes entries that have been idle beyond the given timeout.
+     * 移除超过指定超时时间的空闲条目。
      *
-     * @param maxIdleMillis maximum allowed idle time in milliseconds
-     * @return list of removed entry IDs
+     * @param maxIdleMillis 最大允许空闲时间（毫秒）
+     * @return 被移除的条目 ID 列表
      */
     public List<Integer> removeStaleEntries(long maxIdleMillis) {
         synchronized (lock) {

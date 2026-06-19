@@ -4,71 +4,30 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.context.MiningContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 
 /**
- * Tickable pipe that monitors ultimine/area-mine/area-destroy batch progress
+ * Tickable pipe that monitors ultimine/area-mine/area-destroy batch completion
  * across multiple server ticks.
  *
- * <p>This pipe replaces the previous pattern where
- * {@code session.mining.workflowToken} was injected directly into the session
- * and accessed from business logic code.  Instead, this pipe:</p>
+ * <p><b>进度汇报职责已移交：</b>
+ * 实际的进度汇报（{@code token.updateProgress()}）改由
+ * {@code processUltimineTargets()} 在每个 tick 的批量处理中直接完成。
+ * 本 pipe 仅负责：</p>
  * <ol>
- *   <li>Monitors {@code session.mining} state each tick to detect progress.</li>
- *   <li>Reports completed-block deltas to the workflow engine via
- *       the entry ID stored in {@link PipelineContext} shared data.</li>
- *   <li>When mining is fully done (no active targets), completes the
- *       workflow entry and returns {@link TickResult#done()}.</li>
+ *   <li>检测挖掘是否仍在进行中，若仍在进行则返回 {@link TickResult#running()}。</li>
+ *   <li>检测排队模式的等待状态，防止将属于前一个 pipeline 的进度错误记入。</li>
+ *   <li>挖掘完毕后返回 {@link TickResult#done()}，触发
+ *       {@code ActivePipeline} 内部安全网关闭工作流条目。</li>
  * </ol>
- *
- * <p>All mutable per-execution state is stored in {@link PipelineContext}
- * shared data rather than instance fields, so a single instance can safely
- * serve multiple players concurrently.</p>
- *
- * <p>Workflow completion responsibility:
- * <ul>
- *   <li><b>Normal path (survival)</b> — business logic
- *       ({@code tickActiveMining → processUltimineTargets → finishUltimineBatch
- *       → finalizeMiningOperation → WorkflowCompletePipe}) completes the
- *       workflow entry <em>before</em> this pipe detects that mining is done.
- *       Since {@code token.complete()} is idempotent, our {@code done()} is a
- *       safe no-op for the entry itself.</li>
- *   <li><b>Edge cases</b> (creative mode, empty targets) — business logic
- *       does not call {@code finalizeMiningOperation}, so the workflow entry
- *       as a safety net when this pipe returns {@link TickResult#done()}.</li>
- * </ul></p>
  *
  * <p><b>Preconditions:</b> The pipeline context must contain a resolved session
  * ({@link SessionValidatePipe#KEY_SESSION}) and a workflow entry ID
  * ({@link PipelineContext#KEY_WORKFLOW_ENTRY_ID}).</p>
  */
 public final class UltimineTickPipe implements TickablePipe {
-
-    /**
-     * Throttle interval: only flush accumulated progress to the engine
-     * (and thus send a network sync to the client) every N ticks.
-     *
-     * <p>At 20 TPS, 5 ticks ≈ 250ms — a good balance between UI responsiveness
-     * and network/CPU overhead.  The accumulated delta is always flushed
-     * immediately when mining finishes ({@link TickResult#done()}).</p>
-     */
-    static final int NOTIFY_INTERVAL = 5;
-
-    /** Key for tracking the last observed broken-block count in shared data. */
-    private static final TypedKey<Integer> KEY_LAST_REPORTED =
-            new TypedKey<>("ultimineTick_lastReportedBroken", Integer.class);
-
-    /** Key for accumulating unreported progress deltas (throttle buffer). */
-    private static final TypedKey<Integer> KEY_ACCUMULATED_DELTA =
-            new TypedKey<>("ultimineTick_accumulatedDelta", Integer.class);
-
-    /** Key for counting ticks since the last flush. */
-    private static final TypedKey<Integer> KEY_TICK_COUNTER =
-            new TypedKey<>("ultimineTick_tickCounter", Integer.class);
 
     @Override
     public TickResult tick(PipelineContext ctx) {
@@ -78,127 +37,37 @@ public final class UltimineTickPipe implements TickablePipe {
             return TickResult.error("No session in context");
         }
 
-        // ── Check if mining is still active ──────────────────────────────
+        // ── 检查挖掘是否仍在进行 ──────────────────────────────
         boolean miningActive = session.mining.miningPos != null
                 || !session.mining.ultimineTargets.isEmpty()
                 || session.mining.ultimineProgressPos != null
                 || !session.mining.ultimineJobQueue.isEmpty();
 
         if (miningActive) {
-            // ── Queue mode: targets still waiting, don't accumulate ─────
-            //    Pipeline 2 is registered while Pipeline 1 is still running,
-            //    and ultimineBrokenTargets at this point reflects Pipeline 1's
-            //    progress.  If we accumulated that, the progress bar for entry
-            //    #2 would jump to 100 % before the queued job even starts.
-            //
-            //    The reliable way to detect queue-waiting mode: compare our
-            //    workflow entry ID with the currently active workflow entry ID
-            //    (from RtsMiningStateMachine.WORKFLOW_ENTRY_IDS).
+            // ── 队列模式检测 ────────────────────────────────────
+            //    Pipeline 2 在 Pipeline 1 仍在运行时注册。
+            //    如果我们的条目 ID 不是 RtsMiningStateMachine.WORKFLOW_ENTRY_IDS
+            //    当前追踪的那个，则我们正在队列中等待——
+            //    直接返回 running，不做任何操作。
             boolean inQueueWait = !mctx.hasWorkflowEntryId()
                     || RtsMiningStateMachine.getWorkflowEntryId(mctx.player().getUUID()) != mctx.getWorkflowEntryId();
             if (inQueueWait) {
-                setLastReported(ctx, session.mining.ultimineBrokenTargets);
-                // Also reset accumulated delta to prevent stale progress
-                // leaking when we finally become the active pipeline.
-                setAccumulatedDelta(ctx, 0);
                 return TickResult.running();
             }
 
-            // ── Accumulate progress delta (throttled, not reported yet) ──
-            int currentBroken = session.mining.ultimineBrokenTargets;
-            int lastReported = getLastReported(ctx);
-            if (currentBroken > lastReported) {
-                int delta = currentBroken - lastReported;
-                accumulateDelta(ctx, delta);
-                setLastReported(ctx, currentBroken);
-            } else if (currentBroken < lastReported) {
-                // ultimineBrokenTargets was reset (activateNextJob resets it
-                // to 0 when loading a queued job).  Reset our tracking too so
-                // we detect progress on the new batch.
-                setLastReported(ctx, currentBroken);
-            }
-
-            // ── Throttled flush: batch-report accumulated delta ───────
-            int accumulated = getAccumulatedDelta(ctx);
-            if (accumulated > 0) {
-                int tickCount = getTickCounter(ctx) + 1;
-                setTickCounter(ctx, tickCount);
-                if (tickCount >= NOTIFY_INTERVAL) {
-                    reportProgress(ctx, accumulated);
-                    setAccumulatedDelta(ctx, 0);
-                    setTickCounter(ctx, 0);
-                }
-            }
-
+            // 挖掘正在活动——进度由
+            // tickActiveMining() 调用中的 processUltimineTargets() 直接报告。
             return TickResult.running();
         }
 
-        // ── Mining is done — flush all remaining accumulated progress. ──
-        //    The workflow completion is handled by ActivePipeline.completeWorkflow()
-        //    as a safety net.  In the normal survival path the business
-        //    logic (finishUltimineBatch → finalizeMiningOperation) already
-        //    completed the entry via WorkflowCompletePipe before this pipe
-        //    detects done() — since token.complete() is idempotent, our
-        //    safety-net call is harmless.  In edge cases (creative mode,
-        //    empty targets) the safety net is the ONLY completion call,
-        //    preventing a dangling workflow entry.
-
-        int accumulated = getAccumulatedDelta(ctx);
-        if (accumulated > 0) {
-            reportProgress(ctx, accumulated);
-            setAccumulatedDelta(ctx, 0);
-        }
-
+        // ── 挖掘完成——返回 done 以触发安全网清理。──
+        //    在正常生存路径中，业务逻辑
+        //    （finishUltimineBatch → finalizeMiningOperation）已经在此 Pipe
+        //    检测到 done() 之前通过 WorkflowCompletePipe 完成了条目——
+        //    因为 token.complete() 是幂等的，ActivePipeline.completeWorkflow()
+        //    中的安全网调用是无害的。
+        //    在边缘情况（创造模式、空目标）下，安全网是唯一的完成调用，
+        //    防止悬空的工作流条目。
         return TickResult.done();
-    }
-
-    /**
-     * Reports completed-block progress to the workflow engine via the
-     * entry ID stored in the pipeline context.
-     */
-    private static void reportProgress(PipelineContext ctx, int delta) {
-        MiningContext mctx = MiningContext.require(ctx);
-        if (!mctx.hasWorkflowEntryId()) {
-            return;
-        }
-        int entryId = mctx.getWorkflowEntryId();
-        RtsWorkflowEngine.getInstance().from(mctx.player(), entryId)
-                .ifPresent(token -> token.updateProgress(delta, null));
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  Per-execution state (stored in PipelineContext.shared data)
-    // ──────────────────────────────────────────────────────────────────
-
-    private static int getLastReported(PipelineContext ctx) {
-        Integer val = ctx.getData(KEY_LAST_REPORTED);
-        return val != null ? val : 0;
-    }
-
-    private static void setLastReported(PipelineContext ctx, int value) {
-        ctx.setData(KEY_LAST_REPORTED, value);
-    }
-
-    private static int getAccumulatedDelta(PipelineContext ctx) {
-        Integer val = ctx.getData(KEY_ACCUMULATED_DELTA);
-        return val != null ? val : 0;
-    }
-
-    private static void setAccumulatedDelta(PipelineContext ctx, int value) {
-        ctx.setData(KEY_ACCUMULATED_DELTA, value);
-    }
-
-    private static void accumulateDelta(PipelineContext ctx, int delta) {
-        int current = getAccumulatedDelta(ctx);
-        setAccumulatedDelta(ctx, current + delta);
-    }
-
-    private static int getTickCounter(PipelineContext ctx) {
-        Integer val = ctx.getData(KEY_TICK_COUNTER);
-        return val != null ? val : 0;
-    }
-
-    private static void setTickCounter(PipelineContext ctx, int value) {
-        ctx.setData(KEY_TICK_COUNTER, value);
     }
 }

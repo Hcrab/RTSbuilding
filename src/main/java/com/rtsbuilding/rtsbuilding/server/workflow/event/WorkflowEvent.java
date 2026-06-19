@@ -5,12 +5,12 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import java.util.UUID;
 
 /**
- * An immutable event payload fired by the workflow engine.
+ * 由工作流引擎触发的不可变事件负载。
  *
- * @param type     the type of event
- * @param playerId the UUID of the player who owns the workflow
- * @param entryId  the immutable entry ID of the affected workflow
- * @param status   a snapshot of the workflow state at the time of the event
+ * @param type     事件类型
+ * @param playerId 拥有该工作流的玩家的 UUID
+ * @param entryId  受影响工作流的不可变条目 ID
+ * @param status   事件发生时工作流状态的快照
  */
 public record WorkflowEvent(
         WorkflowEventType type,

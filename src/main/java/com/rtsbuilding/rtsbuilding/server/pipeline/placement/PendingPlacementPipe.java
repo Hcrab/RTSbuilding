@@ -5,21 +5,19 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 
 /**
- * Attempts to resume any pending (suspended) placement jobs after a new
- * placement batch has been enqueued.
+ * 在新放置批处理入队后，尝试恢复任何挂起（已暂停）的放置作业。
  *
- * <p>This pipe is typically included after {@link PlacementExecutePipe} in
- * the {@link RtsWorkflowType#PLACE_BATCH}
- * pipeline.  It is a no-op if no pending jobs exist or if no session is
- * present in the context.</p>
+ * <p>此 Pipe 通常包含在 {@link PlacementExecutePipe} 之后，
+ * 位于 {@link RtsWorkflowType#PLACE_BATCH}
+ * 管道中。如果没有挂起的作业或上下文中没有会话，则为空操作。</p>
  *
- * <p>Reads from shared data:</p>
+ * <p>从共享数据中读取：</p>
  * <ul>
- *   <li>{@code "session"} — resolved by {@link SessionValidatePipe}</li>
+ *   <li>{@code "session"} —— 由 {@link SessionValidatePipe} 解析</li>
  * </ul>
  */
 public final class PendingPlacementPipe implements PipelinePipe<PipelineContext> {

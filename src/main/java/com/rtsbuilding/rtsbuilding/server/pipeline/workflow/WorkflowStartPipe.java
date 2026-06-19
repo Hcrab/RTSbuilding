@@ -11,22 +11,22 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 
 /**
- * Starts a new workflow entry in the engine and stores the entry ID in
- * shared data for downstream pipes.
+ * 在引擎中启动一个新的工作流条目，并将条目 ID 存储在
+ * 共享数据中供下游 Pipe 使用。
  *
- * <p>Expected context args:</p>
+ * <p>预期的上下文参数：</p>
  * <ul>
- *   <li>{@code "workflowType"} — {@link RtsWorkflowType} (optional; defaults to the pipeline's type)</li>
- *   <li>{@code "workflowPriority"} — {@link RtsWorkflowPriority} (optional; defaults to NORMAL)</li>
- *   <li>{@code "totalBlocks"} — {@code int} total blocks to process (0 if unknown)</li>
+ *   <li>{@code "workflowType"} —— {@link RtsWorkflowType}（可选；默认为管道的类型）</li>
+ *   <li>{@code "workflowPriority"} —— {@link RtsWorkflowPriority}（可选；默认为 NORMAL）</li>
+ *   <li>{@code "totalBlocks"} —— {@code int} 要处理的总方块数（0 表示未知）</li>
  * </ul>
  *
- * <p>Stores the following in shared data:</p>
+ * <p>在共享数据中存储以下内容：</p>
  * <ul>
- *   <li>{@code "workflowEntryId"} — {@code int} the immutable entry ID</li>
+ *   <li>{@code "workflowEntryId"} —— {@code int} 不可变的条目 ID</li>
  * </ul>
  */
-public final class WorkflowStartPipe implements PipelinePipe<PipelineContext> {
+public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority defaultPriority) implements PipelinePipe<PipelineContext> {
 
     public static final TypedKey<RtsWorkflowType> ARG_WORKFLOW_TYPE =
             new TypedKey<>("workflowType", RtsWorkflowType.class);
@@ -36,18 +36,6 @@ public final class WorkflowStartPipe implements PipelinePipe<PipelineContext> {
             new TypedKey<>("totalBlocks", Integer.class);
 
     public static final TypedKey<Integer> KEY_WORKFLOW_ENTRY_ID = PipelineContext.KEY_WORKFLOW_ENTRY_ID;
-
-    private final RtsWorkflowType defaultType;
-    private final RtsWorkflowPriority defaultPriority;
-
-    /**
-     * @param defaultType     the workflow type to use if not specified in args
-     * @param defaultPriority the priority to use if not specified in args
-     */
-    public WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority defaultPriority) {
-        this.defaultType = defaultType;
-        this.defaultPriority = defaultPriority;
-    }
 
     @Override
     public PipelineResult execute(PipelineContext ctx) {
@@ -72,7 +60,7 @@ public final class WorkflowStartPipe implements PipelinePipe<PipelineContext> {
             return PipelineResult.failure("Workflow queue full (" + RtsWorkflowSlotManager.MAX_SLOTS + "/" + RtsWorkflowSlotManager.MAX_SLOTS + ")");
         }
 
-        ctx.setData(KEY_WORKFLOW_ENTRY_ID, token.getEntryId());
+        ctx.setData(KEY_WORKFLOW_ENTRY_ID, token.entryId());
         return PipelineResult.success();
     }
 }

@@ -11,28 +11,27 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Immutable token representing a single active workflow.
+ * 不可变令牌，代表单个活动工作流。
  *
- * <p>This is the <b>primary consumer-facing API</b> for interacting with the
- * workflow system.  Instead of manually juggling sessions, indices, and entry
- * IDs, callers obtain a token via one of the engine's factory methods and then
- * simply call lifecycle methods on it.</p>
+ * <p>这是与工作流系统交互的<b>主要面向消费者的 API</b>。
+ * 调用者无需手动管理会话、索引和条目 ID，而是通过引擎的工厂方法获取令牌，
+ * 然后直接在令牌上调用生命周期方法即可。</p>
  *
- * <p>The token internally holds the player's UUID and the immutable entry ID,
- * so it survives index shifts caused by earlier entries being removed.
- * All methods delegate to the engine that created this token.</p>
+ * <p>令牌内部持有玩家的 UUID 和不可变的条目 ID，
+ * 因此即使早期条目被删除导致索引偏移，令牌仍然有效。
+ * 所有方法委托给创建此令牌的引擎。</p>
  *
- * <h3>Usage</h3>
+ * <h3>用法</h3>
  * <pre>{@code
- * // Start a workflow and get a token
+ * // 启动工作流并获取令牌
  * var token = engine.startMining(player, 100)
  *         .orElse(null);
  * if (token == null) {
- *     // Workflow queue was full
+ *     // 工作流队列已满
  *     return;
  * }
  *
- * // During processing
+ * // 处理过程中
  * for (BlockPos pos : targets) {
  *     if (processBlock(pos)) {
  *         token.markProgress();
@@ -41,10 +40,10 @@ import java.util.UUID;
  *     }
  * }
  *
- * // When done
+ * // 完成后
  * token.complete();
  *
- * // From a different code location, reconstruct:
+ * // 从其他代码位置重建：
  * var token2 = engine.from(player, savedEntryId)
  *         .orElse(null);
  * if (token2 != null) {
@@ -52,61 +51,47 @@ import java.util.UUID;
  * }
  * }</pre>
  *
- * <p>Tokens are <b>not</b> thread-safe — they are designed for single-threaded
- * server tick usage.  Create a new token for each distinct workflow.</p>
+ * <p>令牌<b>不是</b>线程安全的——它们设计用于单线程的服务端 tick 处理。
+ * 为每个不同的工作流创建新的令牌。</p>
  */
-public final class RtsWorkflowToken {
-
-    private final UUID playerId;
-    private final int entryId;
-    private final ResourceKey<Level> dimension;
-    private final RtsWorkflowEngine engine;
+public record RtsWorkflowToken(
+        UUID playerId,
+        int entryId,
+        ResourceKey<Level> dimension,
+        RtsWorkflowEngine engine
+) {
 
     // ──────────────────────────────────────────────────────────────────
-    //  Construction (package-private — only engine creates tokens)
+    //  构造（紧凑构造器——由 record 自动生成，仅做验证）
     // ──────────────────────────────────────────────────────────────────
 
-    RtsWorkflowToken(UUID playerId, int entryId, ResourceKey<Level> dimension, RtsWorkflowEngine engine) {
-        this.playerId = Objects.requireNonNull(playerId, "playerId");
-        this.entryId = entryId;
-        this.dimension = Objects.requireNonNull(dimension, "dimension");
-        this.engine = Objects.requireNonNull(engine, "engine");
+    public RtsWorkflowToken {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(dimension, "dimension");
+        Objects.requireNonNull(engine, "engine");
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Identity
+    //  标识
     // ──────────────────────────────────────────────────────────────────
 
-    /** Returns the immutable entry ID for this workflow. */
-    public int getEntryId() {
-        return entryId;
-    }
-
-    /** Returns the UUID of the player who owns this workflow. */
-    public UUID getPlayerId() {
-        return playerId;
-    }
-
-    /** Returns the dimension this workflow belongs to. */
-    public ResourceKey<Level> getDimension() {
-        return dimension;
-    }
+    // 访问器由 record 自动生成：playerId()、entryId()、dimension()
 
     /**
-     * Returns {@code true} if this token still refers to a valid workflow
-     * entry (i.e. it has not been completed, cancelled, or timed out).
+     * 返回 {@code true} 表示此令牌仍指向一个有效的工作流条目
+     *（即尚未完成、取消或超时）。
      */
     public boolean isValid() {
         return resolveEntry() != null;
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Lifecycle
+    //  生命周期
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Marks one unit of progress.
-     * Equivalent to {@code updateProgress(1, null)}.
+     * 标记一个单位的进度。
+     * 等同于 {@code updateProgress(1, null)}。
      */
     public void markProgress() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -117,10 +102,10 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Updates progress by the given delta and optionally reports missing items.
+     * 按指定增量更新进度，并可选择报告缺失物品。
      *
-     * @param completedDelta number of units completed since last update
-     * @param missingItems   (nullable) item IDs that were missing
+     * @param completedDelta 自上次更新以来完成的单位数
+     * @param missingItems   （可空）缺失的物品 ID
      */
     public void updateProgress(int completedDelta, @Nullable List<String> missingItems) {
         RtsWorkflowEntry entry = resolveEntry();
@@ -132,9 +117,9 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Sets the completed block count to an absolute value (used for world-scan refresh).
-     * <p>This is the only "set" method on the token; all other mutations are delta-based.
-     * Use with caution — prefer {@link #updateProgress(int, List)} for normal progress.</p>
+     * 将已完成方块数设置为绝对值（用于世界扫描刷新）。
+     * <p>这是令牌上唯一的「设置」方法；所有其他修改都是基于增量的。
+     * 谨慎使用——正常进度请优先使用 {@link #updateProgress(int, List)}。</p>
      */
     public void setCompletedBlocks(int absoluteValue) {
         RtsWorkflowEntry entry = resolveEntry();
@@ -145,9 +130,9 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Sets the total block count to an absolute value (used after target collection).
-     * <p>Use this when the total number of blocks is only known after the execute
-     * phase completes (e.g. ultimine/area-mine target scanning).</p>
+     * 将总方块数设置为绝对值（在目标收集完成后使用）。
+     * <p>当执行阶段完成后才知道总方块数时使用此方法
+     *（例如 ultimine/area-mine 目标扫描）。</p>
      */
     public void setTotalBlocks(int totalBlocks) {
         RtsWorkflowEntry entry = resolveEntry();
@@ -158,7 +143,7 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Records a single failure for this workflow.
+     * 记录此工作流的一次失败。
      */
     public void recordFailure() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -169,7 +154,7 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Sets a human-readable detail message for this workflow.
+     * 为此工作流设置一条人类可读的详情消息。
      */
     public void setDetailMessage(String message) {
         RtsWorkflowEntry entry = resolveEntry();
@@ -180,7 +165,7 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Suspends this workflow (marks it as waiting for items).
+     * 挂起此工作流（标记为等待物品）。
      */
     public void suspend() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -193,7 +178,7 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Pauses this workflow (stops tick processing for this entry only).
+     * 暂停此工作流（仅停止此条目的 tick 处理）。
      */
     public void pause() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -205,9 +190,9 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Unpauses this workflow (resumes tick processing for this entry).
+     * 取消暂停此工作流（恢复此条目的 tick 处理）。
      *
-     * @return {@code true} if the workflow was successfully unpaused
+     * @return {@code true} 表示工作流成功取消暂停
      */
     public boolean unpause() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -221,7 +206,7 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Returns {@code true} if this workflow entry is paused.
+     * 返回 {@code true} 表示此工作流条目已暂停。
      */
     public boolean isPaused() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -229,9 +214,9 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Resumes this workflow if it was suspended.
+     * 如果工作流已被挂起则恢复它。
      *
-     * @return {@code true} if the workflow was successfully resumed
+     * @return {@code true} 表示工作流成功恢复
      */
     public boolean resume() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -246,11 +231,10 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Completes this workflow — removes the entry and notifies the client.
+     * 完成此工作流——移除条目并通知客户端。
      *
-     * <p>Network notification is handled internally by
-     * {@link RtsWorkflowEngine#removeEntry(UUID, ResourceKey, int)}, so there is no
-     * need to call {@code engine.notifyPlayer()} here.</p>
+     * <p>网络通知由 {@link RtsWorkflowEngine#removeEntry(UUID, ResourceKey, int)}
+     * 内部处理，因此此处无需调用 {@code engine.notifyPlayer()}。</p>
      */
     public void complete() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -261,12 +245,10 @@ public final class RtsWorkflowToken {
     }
 
     /**
-     * Cancels this workflow — removes the entry without recording it as
-     * completed.
+     * 取消此工作流——移除条目且不标记为已完成。
      *
-     * <p>Network notification is handled internally by
-     * {@link RtsWorkflowEngine#removeEntry(UUID, ResourceKey, int)}, so there is no
-     * need to call {@code engine.notifyPlayer()} here.</p>
+     * <p>网络通知由 {@link RtsWorkflowEngine#removeEntry(UUID, ResourceKey, int)}
+     * 内部处理，因此此处无需调用 {@code engine.notifyPlayer()}。</p>
      */
     public void cancel() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -277,14 +259,13 @@ public final class RtsWorkflowToken {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Queries
+    //  查询
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Returns an immutable snapshot of the current progress for this workflow.
+     * 返回此工作流当前进度的不可变快照。
      *
-     * @return the workflow status, or {@link RtsWorkflowStatus#idle()} if
-     *         the entry no longer exists
+     * @return 工作流状态，若条目已不存在则返回 {@link RtsWorkflowStatus#idle()}
      */
     public RtsWorkflowStatus getProgress() {
         RtsWorkflowEntry entry = resolveEntry();
@@ -295,7 +276,7 @@ public final class RtsWorkflowToken {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Internal
+    //  内部方法
     // ──────────────────────────────────────────────────────────────────
 
     private RtsWorkflowEntry resolveEntry() {

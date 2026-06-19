@@ -4,16 +4,13 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
-import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningNetworkHelper;
 
 /**
- * Sends network progress updates to the client for mining operations.
+ * 已废弃：进度同步已统一由 RtsWorkflowEngine.notifyPlayer 驱动。
  *
- * <p>Expected context args:</p>
- * <ul>
- *   <li>{@code "totalBlocks"} — {@code int} total blocks to process</li>
- *   <li>{@code "processedBlocks"} — {@code int} blocks processed so far (optional, default 0)</li>
- * </ul>
+ * <p>原 NetworkSyncPipe 负责发送独立的 S2CRtsUltimineProgressPayload，
+ * 现进度条已迁移至 workflowStatuses 数据源，此 pipe 保留为空实现以维护
+ * 管道注册表的兼容性。</p>
  */
 public final class NetworkSyncPipe implements PipelinePipe<PipelineContext> {
 
@@ -24,16 +21,6 @@ public final class NetworkSyncPipe implements PipelinePipe<PipelineContext> {
 
     @Override
     public PipelineResult execute(PipelineContext ctx) {
-        int totalBlocks = ctx.hasData(ARG_TOTAL_BLOCKS)
-                ? ctx.getData(ARG_TOTAL_BLOCKS)
-                : 0;
-        int processedBlocks = ctx.hasData(ARG_PROCESSED_BLOCKS)
-                ? ctx.getData(ARG_PROCESSED_BLOCKS)
-                : 0;
-
-        RtsMiningNetworkHelper.sendUltimineProgress(
-                ctx.player(), processedBlocks, totalBlocks);
-
         return PipelineResult.success();
     }
 }

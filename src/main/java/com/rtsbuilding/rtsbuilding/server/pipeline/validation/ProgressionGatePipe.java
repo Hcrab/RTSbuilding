@@ -8,24 +8,14 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 
 /**
- * Checks that the player has unlocked the required progression feature.
+ * 检查玩家是否已解锁所需的进度功能。
  *
- * <p>The required feature is injected via the constructor; no context args
- * are consulted at runtime.  This constant is provided for any pipe that
- * <em>writes</em> a feature into context args for downstream consumption.</p>
+ * <p>所需功能通过 record 组件注入；运行时不会查询上下文参数。
+ * 此常量提供给需要<b>写入</b>功能到上下文参数供下游消费的 Pipe。</p>
  */
-public final class ProgressionGatePipe implements PipelinePipe<PipelineContext> {
+public record ProgressionGatePipe(RtsFeature feature) implements PipelinePipe<PipelineContext> {
 
     public static final TypedKey<RtsFeature> ARG_FEATURE = new TypedKey<>("feature", RtsFeature.class);
-
-    private final RtsFeature feature;
-
-    /**
-     * @param feature the progression feature required to proceed
-     */
-    public ProgressionGatePipe(RtsFeature feature) {
-        this.feature = feature;
-    }
 
     @Override
     public PipelineResult execute(PipelineContext ctx) {

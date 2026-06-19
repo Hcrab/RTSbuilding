@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
@@ -17,10 +18,9 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * An ordered sequence of {@link PipelinePipe} stages, keyed by
- * {@link RtsWorkflowType}.
+ * 按 {@link RtsWorkflowType} 键索引的有序 {@link PipelinePipe} 阶段序列。
  *
- * <p>Usage:</p>
+ * <p>用法：</p>
  * <pre>{@code
  * Pipeline.of(WorkflowType.MINE_SINGLE)
  *     .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_BREAK))
@@ -32,10 +32,10 @@ import java.util.Objects;
  *     .register();
  * }</pre>
  *
- * <p>Execution follows a <b>fail-fast</b> strategy: if any pipe returns
- * {@link PipelineResult.Failure}, the pipeline stops immediately and the
- * remaining pipes are not executed.  {@link PipelineResult.Skip} also stops
- * the pipeline but is logged as a normal early exit, not an error.</p>
+ * <p>执行遵循<b>快速失败</b>策略：如果任何 Pipe 返回
+ * {@link PipelineResult.Failure}，管道立即停止，
+ * 剩余的 Pipe 不会被执行。{@link PipelineResult.Skip} 也会停止管道，
+ * 但会记录为正常的提前退出，而非错误。</p>
  */
 public final class WorkflowPipeline<C extends PipelineContext> {
 
@@ -45,21 +45,21 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     private boolean asyncCompletion;
 
     /**
-     * Package-private — use {@link PipelineRegistry#register(RtsWorkflowType)}.
+     * 包级私有——使用 {@link PipelineRegistry#register(RtsWorkflowType)}。
      */
     WorkflowPipeline(RtsWorkflowType type) {
         this.type = Objects.requireNonNull(type, "type");
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Builder
+    //  构建器
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Appends a sync pipe to this pipeline.
+     * 向此管道追加一个同步 Pipe。
      *
-     * @param pipe the pipe to add (must not be null)
-     * @return this pipeline instance (fluent)
+     * @param pipe 要添加的 Pipe（不能为 null）
+     * @return 此管道实例（流式）
      */
     public WorkflowPipeline<C> pipe(PipelinePipe<? super C> pipe) {
         pipes.add(Objects.requireNonNull(pipe, "pipe"));
@@ -67,15 +67,15 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     /**
-     * Appends a tickable pipe to this pipeline.
+     * 向此管道追加一个可 Tick 的 Pipe。
      *
-     * <p>Tickable pipes run <b>after</b> all sync pipes complete successfully.
-     * They are invoked once per server tick until they signal completion or
-     * failure.  Registration with {@link TickablePipelineRegistry} happens
-     * automatically inside {@link #execute(PipelineContext)}.</p>
+     * <p>可 Tick 的 Pipe 在<b>所有</b>同步 Pipe 成功完成后<b>之后</b>运行。
+     * 它们每个服务器 Tick 被调用一次，直到发出完成或失败信号。
+     * 在 {@link #execute(PipelineContext)} 内部自动完成
+     * 向 {@link TickablePipelineRegistry} 的注册。</p>
      *
-     * @param pipe the tickable pipe to add (must not be null)
-     * @return this pipeline instance (fluent)
+     * @param pipe 要添加的可 Tick Pipe（不能为 null）
+     * @return 此管道实例（流式）
      */
     public WorkflowPipeline<C> tickable(TickablePipe pipe) {
         tickablePipes.add(Objects.requireNonNull(pipe, "tickablePipe"));
@@ -83,22 +83,21 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     /**
-     * Marks this pipeline as having asynchronous completion.
+     * 将此管道标记为具有异步完成。
      *
-     * <p>Pipelines whose actual operation completes <b>outside</b> the sync
-     * phase (e.g. mining that waits for block-break ticks) should call this
-     * to prevent the pipeline from firing a premature
-     * {@link WorkflowEventType#SYNC_PHASE_COMPLETED} event at the end of the sync phase.
-     * The COMPLETED event will instead be fired by the async completion path
-     * (e.g. {@link WorkflowCompletePipe} inside
-     * {@code finalizeMiningOperation}).</p>
+     * <p>实际操作在<b>同步阶段之外</b>完成的管道
+     *（例如等待方块破坏 Tick 的挖掘）应调用此方法，
+     * 以防止管道在同步阶段结束时触发过早的
+     * {@link WorkflowEventType#SYNC_PHASE_COMPLETED} 事件。
+     * COMPLETED 事件将由异步完成路径触发
+     *（例如在 {@code finalizeMiningOperation} 中的 {@link WorkflowCompletePipe}）。</p>
      *
-     * <p>Sync-only pipelines (e.g. placement) fire
-     * {@link WorkflowEventType#SYNC_PHASE_COMPLETED} when all pipes succeed.
-     * The actual {@link WorkflowEventType#COMPLETED} is fired later when
-     * the async work finishes (e.g. placement batch processing).</p>
+     * <p>纯同步管道（例如放置）在所有 Pipe 成功时触发
+     * {@link WorkflowEventType#SYNC_PHASE_COMPLETED}。
+     * 实际的 {@link WorkflowEventType#COMPLETED} 稍后异步工作完成时触发
+     *（例如放置批处理）。</p>
      *
-     * @return this pipeline instance (fluent)
+     * @return 此管道实例（流式）
      */
     public WorkflowPipeline<C> asyncCompletion() {
         this.asyncCompletion = true;
@@ -106,22 +105,23 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Execution — registered pipelines
+    //  执行 — 注册的管道
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Executes all registered sync pipes in order.
+     * 按顺序执行所有注册的同步 Pipe。
      *
-     * <p>Execution stops on the first {@link PipelineResult.Failure} or {@link PipelineResult.Skip} result.
-     * On failure, remaining pipes are skipped and the failure is logged.</p>
+     * <p>在第一个 {@link PipelineResult.Failure} 或
+     * {@link PipelineResult.Skip} 结果处停止。
+     * 失败时，跳过剩余的 Pipe 并记录失败。</p>
      *
-     * <p>If all sync pipes succeed and this pipeline has tickable pipes, they are
-     * registered with the {@link TickablePipelineRegistry} for per-tick execution.
-     * The pipeline result returned here is still {@link PipelineResult.Success};
-     * the tickable phase runs asynchronously.</p>
+     * <p>如果所有同步 Pipe 成功且此管道有可 Tick 的 Pipe，
+     * 它们会被注册到 {@link TickablePipelineRegistry} 进行逐 Tick 执行。
+     * 此处返回的管道结果仍是 {@link PipelineResult.Success}；
+     * 可 Tick 阶段异步运行。</p>
      *
-     * @param ctx the pipeline context (player, session, args)
-     * @return the final result of the sync phase
+     * @param ctx 管道上下文（玩家、会话、参数）
+     * @return 同步阶段的最终结果
      */
     public PipelineResult execute(C ctx) {
         Objects.requireNonNull(ctx, "ctx");
@@ -134,7 +134,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
 
                 switch (result) {
                     case PipelineResult.Success s -> {
-                        // Continue to next pipe
+                        // 继续执行下一个 Pipe
                     }
                     case PipelineResult.Failure f -> {
                         RtsbuildingMod.LOGGER.warn("[Pipeline] Pipe[{}] '{}' failed: {}",
@@ -163,25 +163,33 @@ public final class WorkflowPipeline<C extends PipelineContext> {
             }
         }
 
-        // Fire SYNC_PHASE_COMPLETED event for sync-only pipelines.
-        // For async-completion pipelines (mining with tickable phase or
-        // explicitly marked), the COMPLETED event is fired by the async
-        // completion path (WorkflowCompletePipe in finalizeMiningOperation
-        // or the tickable pipe). Firing SYNC_PHASE_COMPLETED here would
-        // be misleading since the actual work is not done yet.
+        // 为纯同步管道触发 SYNC_PHASE_COMPLETED 事件。
+        // 对于异步完成管道（具有可 Tick 阶段或显式标记的），
+        // COMPLETED 事件由异步完成路径触发
+        //（在 finalizeMiningOperation 中的 WorkflowCompletePipe
+        // 或可 Tick Pipe）。在此处触发 SYNC_PHASE_COMPLETED
+        // 会产生误导，因为实际工作尚未完成。
         if (tickablePipes.isEmpty() && !asyncCompletion) {
             firePipelineResultEvent(ctx, PipelineResult.success());
         }
 
-        // If this pipeline has tickable pipes, register them for per-tick execution.
-        // Before registering, strip transient sync-phase data from the context to
-        // free memory (queue mode flags, intermediate results, etc.) — only core
-        // data needed by the tickable phase and eventual cleanup is preserved.
+        // 如果此管道有可 Tick 的 Pipe，注册它们进行逐 Tick 执行。
+        // 在注册之前，从上下文中剥离瞬态同步阶段数据以
+        // 释放内存（队列模式标志、中间结果等）——仅保留
+        // 可 Tick 阶段和最终清理所需的核心数据。
         if (!tickablePipes.isEmpty()) {
             ctx.retainOnly(
                     PipelineContext.KEY_WORKFLOW_ENTRY_ID,
                     SessionValidatePipe.KEY_SESSION,
-                    ToolBorrowPipe.KEY_TOOL_LEASE
+                    ToolBorrowPipe.KEY_TOOL_LEASE,
+                    BlueprintContext.KEY_PLACEMENT_PLANS,
+                    BlueprintContext.KEY_REMAINING_QUEUE,
+                    BlueprintContext.KEY_CENTER_OFFSET,
+                    BlueprintContext.KEY_PLACED_COUNT,
+                    BlueprintContext.KEY_SKIPPED_MISSING,
+                    BlueprintContext.KEY_SKIPPED_UNSUPPORTED,
+                    BlueprintContext.KEY_SKIPPED_MISSING_BLOCKS,
+                    BlueprintContext.KEY_SKIPPED_BLOCKED
             );
             TickablePipelineRegistry.register(ctx.player(), ctx, tickablePipes.get(0));
         }
@@ -190,9 +198,9 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     /**
-     * Registers this pipeline with the {@link PipelineRegistry}.
+     * 向 {@link PipelineRegistry} 注册此管道。
      *
-     * @return this pipeline instance (fluent)
+     * @return 此管道实例（流式）
      */
     public WorkflowPipeline<C> register() {
         PipelineRegistry.register(this);
@@ -200,24 +208,23 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Execution — ad-hoc cleanup sequences
+    //  执行 — 即席清理序列
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Executes an ad-hoc sequence of pipes with <b>best-effort</b> semantics.
+     * 以<b>尽力而为</b>语义执行即席 Pipe 序列。
      *
-     * <p>Each pipe is tried independently; failures are logged but do not
-     * prevent subsequent pipes from running.  This is designed for cleanup
-     * and async completion paths (e.g. {@code finalizeMiningOperation})
-     * where all steps should be attempted even if one fails.</p>
+     * <p>每个 Pipe 独立尝试；失败会被记录但不会阻止
+     * 后续 Pipe 运行。这是为清理和异步完成路径设计的
+     *（例如 {@code finalizeMiningOperation}），
+     * 其中即使某个步骤失败也应尝试所有步骤。</p>
      *
-     * <p>Uses the same rollback logic as {@link #execute(PipelineContext)}
-     * when a pipe returns {@link PipelineResult.Failure} or throws.
-     * {@link PipelineResult.Skip} is treated as a non-error and logged at
-     * info level.</p>
+     * <p>当 Pipe 返回 {@link PipelineResult.Failure} 或抛出异常时，
+     * 使用与 {@link #execute(PipelineContext)} 相同的回滚逻辑。
+     * {@link PipelineResult.Skip} 被视为非错误，在 info 级别记录。</p>
      *
-     * @param ctx   the pipeline context (player, args, shared data)
-     * @param pipes the pipes to execute in order (best-effort)
+     * @param ctx   管道上下文（玩家、参数、共享数据）
+     * @param pipes 按顺序执行的 Pipe（尽力而为）
      */
     @SafeVarargs
     public static void runCleanupSequence(PipelineContext ctx, PipelinePipe<? super PipelineContext>... pipes) {
@@ -225,7 +232,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     /**
-     * Executes an ad-hoc sequence of pipes with best-effort semantics.
+     * 以尽力而为语义执行即席 Pipe 序列。
      *
      * @see #runCleanupSequence(PipelineContext, PipelinePipe[])
      */
@@ -257,55 +264,56 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Accessors
+    //  访问器
     // ──────────────────────────────────────────────────────────────────
 
-    /** Returns the workflow type this pipeline handles. */
+    /** 返回此管道处理的工作流类型。 */
     public RtsWorkflowType type() {
         return type;
     }
 
-    /** Returns an unmodifiable view of the registered sync pipes. */
+    /** 返回已注册同步 Pipe 的不可修改视图。 */
     public List<PipelinePipe<? super C>> pipes() {
         return Collections.unmodifiableList(pipes);
     }
 
     /**
-     * Returns {@code true} if this pipeline has tickable (per-tick) pipes.
+     * 返回此管道是否具有可 Tick（逐 Tick）的 Pipe。
      */
     public boolean hasTickablePhase() {
         return !tickablePipes.isEmpty();
     }
 
     /**
-     * Returns an unmodifiable view of the registered tickable pipes.
+     * 返回已注册可 Tick Pipe 的不可修改视图。
      */
     public List<TickablePipe> tickablePipes() {
         return Collections.unmodifiableList(tickablePipes);
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Internal helpers
+    //  内部辅助方法
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Rolls back the workflow entry and borrowed tool if present.
+     * 如果存在则回滚工作流条目和已借用的工具。
      *
-     * <p>Called when the pipeline exits early due to failure, skip, or
-     * exception <b>after</b> {@link WorkflowStartPipe} has already created
-     * a workflow entry and/or {@link ToolBorrowPipe} has borrowed a tool.
-     * Without this rollback, the entry would remain in the slot manager
-     * and/or the tool would remain borrowed indefinitely (resource leak).</p>
+     * <p>当管道在 {@link WorkflowStartPipe} 已经创建了工作流条目
+     * 和/或 {@link ToolBorrowPipe} 已借用了工具<b>之后</b>
+     * 因失败、跳过或异常提前退出时调用。
+     * 没有此回滚，条目将留在槽管理器中
+     * 和/或工具将无限期地保持借用状态（资源泄漏）。</p>
      *
-     * <p>This is safe to call even when no entry or tool exists — each check
-     * is gated by {@code hasData()}, making it a no-op if nothing was set.</p>
+     * <p>即使不存在条目或工具，此方法也是安全的——
+     * 每个检查都由 {@code hasData()} 守卫，
+     * 如果未设置任何内容则为空操作。</p>
      */
     private static void rollbackIfNeeded(PipelineContext ctx) {
-        // Rollback in reverse order of pipe execution:
-        // tool lease first (non-critical, no side-effect if skipped),
-        // then workflow entry (critical, removes slot).
+        // 按 Pipe 执行顺序的逆序回滚：
+        // 先工具租约（非关键，跳过无副作用），
+        // 后工作流条目（关键，移除槽位）。
 
-        // 1. Return borrowed tool first (prevents tool leak)
+        // 1. 先归还借用的工具（防止工具泄漏）
         if (ctx.hasData(ToolBorrowPipe.KEY_TOOL_LEASE)) {
             try {
                 new ToolReturnPipe().execute(ctx);
@@ -313,7 +321,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 RtsbuildingMod.LOGGER.error("[Pipeline] ToolReturnPipe rollback failed", e);
             }
         }
-        // 2. Cancel workflow entry (prevents slot leak)
+        // 2. 取消工作流条目（防止槽位泄漏）
         if (ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             RtsWorkflowEngine.getInstance().from(ctx.player(), entryId)
@@ -322,15 +330,14 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     }
 
     /**
-     * Fires a {@link WorkflowEvent} based on the pipeline sync-phase result.
+     * 根据管道的同步阶段结果触发 {@link WorkflowEvent}。
      *
-     * <p>If the context does not carry a workflow entry ID (no
-     * {@link WorkflowStartPipe} was executed), this is a no-op.
-     * Exceptions from the engine event bus are caught and logged so they
-     * do not interfere with the pipeline caller.</p>
+     * <p>如果上下文不携带工作流条目 ID
+     *（未执行 {@link WorkflowStartPipe}），则为空操作。
+     * 引擎事件总线的异常会被捕获并记录，以免干扰管道调用者。</p>
      *
-     * @param ctx    the pipeline context (may carry workflowEntryId)
-     * @param result the pipeline sync-phase result
+     * @param ctx    管道上下文（可能携带 workflowEntryId）
+     * @param result 管道同步阶段的结果
      */
     private void firePipelineResultEvent(PipelineContext ctx, PipelineResult result) {
         if (!ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {

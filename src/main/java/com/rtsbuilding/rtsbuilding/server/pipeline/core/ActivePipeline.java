@@ -2,27 +2,26 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * A single active (ticking) pipeline instance wrapping a {@link PipelineContext}
- * and its {@link TickablePipe}.
+ * 单个活跃（正在 Tick）的管道实例，包装了一个 {@link PipelineContext}
+ * 及其 {@link TickablePipe}。
  *
- * <p>Created by {@link TickablePipelineRegistry} after the synchronous phase
- * of a pipeline completes successfully.  Each server tick, the registry calls
- * {@link #tick()} on all active instances.  When the tickable pipe signals
- * completion ({@link TickResult.Done} or {@link TickResult.Error}), this
- * instance is marked as completed and removed from the registry.</p>
+ * <p>由 {@link TickablePipelineRegistry} 在管道同步阶段成功完成后创建。
+ * 每个服务器 Tick，注册表在所有活跃实例上调用 {@link #tick()}。
+ * 当可 Tick Pipe 发出完成信号（{@link TickResult.Done} 或
+ * {@link TickResult.Error}）时，此实例被标记为已完成并从注册表中移除。</p>
  *
- * <p>On failure ({@link TickResult.Error} or exception), the pipeline
- * automatically rolls back the associated workflow entry to prevent slot
- * leaks — mirroring the fail-fast rollback behaviour of
- * {@link WorkflowPipeline}.</p>
+ * <p>失败时（{@link TickResult.Error} 或异常），管道自动回滚关联的
+ * 工作流条目以防止槽泄漏——镜像了 {@link WorkflowPipeline} 的
+ * 快速失败回滚行为。</p>
  *
- * <p>Instances are <b>not</b> thread-safe — they are designed for
- * single-threaded server tick usage.</p>
+ * <p>实例<b>不</b>是线程安全的——它们是为单线程服务器 Tick 使用而设计的。</p>
  */
 public final class ActivePipeline {
 
@@ -32,9 +31,9 @@ public final class ActivePipeline {
     private boolean completed;
 
     /**
-     * @param player the server-side player
-     * @param ctx    the pipeline context (includes shared data with entry ID)
-     * @param pipe   the tickable pipe to invoke each tick
+     * @param player 服务器端玩家
+     * @param ctx    管道上下文（包含带有条目 ID 的共享数据）
+     * @param pipe   每个 Tick 调用的可 Tick Pipe
      */
     public ActivePipeline(ServerPlayer player, PipelineContext ctx, TickablePipe pipe) {
         this.player = player;
@@ -43,20 +42,20 @@ public final class ActivePipeline {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Accessors
+    //  访问器
     // ──────────────────────────────────────────────────────────────────
 
-    /** Returns the server-side player. */
+    /** 返回服务器端玩家。 */
     public ServerPlayer player() {
         return player;
     }
 
-    /** Returns the pipeline context. */
+    /** 返回管道上下文。 */
     public PipelineContext context() {
         return ctx;
     }
 
-    /** Returns {@code true} if this pipeline has finished ticking. */
+    /** 返回此管道是否已完成 Tick。 */
     public boolean isCompleted() {
         return completed;
     }
@@ -66,15 +65,13 @@ public final class ActivePipeline {
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Invokes the tickable pipe once.  Call every server tick until this
-     * method returns a non-empty result.
+     * 调用可 Tick Pipe 一次。每个服务器 Tick 调用，直到此
+     * 方法返回非空结果。
      *
-     * <p>On failure, the workflow entry (if any) is automatically cancelled
-     * to prevent slot leaks.</p>
+     * <p>失败时，工作流条目（如果有）会自动取消以防止槽泄漏。</p>
      *
-     * @return an empty {@link Optional} if the pipe is still working (call
-     *         again next tick), or a {@link PipelineResult} if the pipe
-     *         has finished (success or failure)
+     * @return 如果 Pipe 仍在工作中则返回空的 {@link Optional}（下次 Tick 再次调用），
+     *         如果 Pipe 已完成（成功或失败）则返回 {@link PipelineResult}
      */
     public Optional<PipelineResult> tick() {
         if (completed) {
@@ -108,44 +105,42 @@ public final class ActivePipeline {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Rollback
+    //  回滚
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Completes the workflow entry (if one was created) when the tickable
-     * pipe signals normal completion.
+     * 当可 Tick Pipe 发出正常完成信号时，完成工作流条目（如果已创建）。
      *
-     * <p>This ensures the workflow entry is properly closed even in edge
-     * cases where the business logic did not complete it (e.g. creative-mode
-     * ultimine where targets are broken instantly without going through
-     * {@code finalizeMiningOperation}).  Since {@code token.complete()} is
-     * idempotent — it becomes a no-op if the entry was already removed —
-     * this is safe to call even after business logic has already completed
-     * the workflow.</p>
+     * <p>这确保即使在业务逻辑未完成它的边缘情况下
+     *（例如创造模式连锁挖掘，目标被立即破坏而无需经过
+     * {@code finalizeMiningOperation}），工作流条目也能正确关闭。
+     * 由于 {@code token.complete()} 是幂等的——
+     * 如果条目已被移除则变为空操作——
+     * 即使在业务逻辑已完成工作流后调用此方法也是安全的。</p>
      */
     private void completeWorkflow() {
         if (!ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             return;
         }
-        int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
+        int entryId = Objects.requireNonNull(
+                ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID));
         RtsWorkflowEngine.getInstance().from(player, entryId)
-                .ifPresent(token -> {
-                    token.complete();
-                });
+                .ifPresent(RtsWorkflowToken::complete);
     }
 
     /**
-     * Cancels the workflow entry (if one was created) to prevent slot leaks
-     * when the tickable phase fails or throws.
+     * 当可 Tick 阶段失败或抛出异常时，取消工作流条目（如果已创建）
+     * 以防止槽泄漏。
      *
-     * <p>Mirrors the fail-fast rollback in {@link WorkflowPipeline}.
-     * Safe to call even when no entry ID is present — it becomes a no-op.</p>
+     * <p>镜像 {@link WorkflowPipeline} 中的快速失败回滚。
+     * 即使没有条目 ID 也是安全的——它会变为空操作。</p>
      */
     private void rollbackWorkflow() {
         if (!ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             return;
         }
-        int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
+        int entryId = Objects.requireNonNull(
+                ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID));
         RtsWorkflowEngine.getInstance().from(player, entryId)
                 .ifPresent(token -> {
                     token.cancel();

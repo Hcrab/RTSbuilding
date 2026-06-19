@@ -3,11 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.api.impl;
 import com.rtsbuilding.rtsbuilding.server.api.*;
 
 /**
- * Default implementation of {@link RtsAPI} — delegates all calls to the
- * domain service layer.
+ * {@link RtsAPI} 的默认实现——将所有调用委托给领域服务层。
  *
- * <p>Third-party addons should NOT reference this class directly.
- * <p>Each sub-API implementation lives in its own file under {@code api/impl/}.
+ * <p>第三方附加模组不应直接引用此类。
+ * <p>每个子 API 的实现都位于 {@code api/impl/} 目录下的各自文件中。
  */
 public final class RtsAPIImpl implements RtsAPI {
 
@@ -27,7 +26,7 @@ public final class RtsAPIImpl implements RtsAPI {
     private RtsAPIImpl() {
     }
 
-    /** Initialises the API and registers it via {@link RtsAPI#setImplementation(RtsAPI)}. */
+    /** 初始化 API 并通过 {@link RtsAPI#setImplementation(RtsAPI)} 注册它。 */
     public static void init() {
         RtsAPI.setImplementation(INSTANCE);
     }

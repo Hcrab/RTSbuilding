@@ -3,29 +3,31 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.context;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.MiningExecutePipe;
+import com.rtsbuilding.rtsbuilding.server.pipeline.mining.UltimineExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Strongly-typed pipeline context for mining operations.
+ * 挖掘操作的强类型管道上下文。
  *
- * <p>Provides type-safe accessors for mining-specific arguments and shared
- * data, eliminating {@code ctx.<BlockPos>getArg(ARG_POS)} casts throughout
- * mining pipe implementations.</p>
+ * <p>提供对挖掘特定参数和共享数据的类型安全访问器，
+ * 消除了整个挖掘管道实现中的 {@code ctx.<BlockPos>getArg(ARG_POS)} 强制转换。</p>
  *
- * <p>Pipes that are part of a mining pipeline (MINE_SINGLE, ULTIMINE,
- * AREA_MINE, AREA_DESTROY) should call {@link #require(PipelineContext)}
- * at the start of {@link PipelinePipe#execute(PipelineContext)}:</p>
+ * <p>属于挖掘管道（MINE_SINGLE、ULTIMINE、
+ * AREA_MINE、AREA_DESTROY）的 Pipe 应在
+ * {@link PipelinePipe#execute(PipelineContext)} 开头调用 {@link #require(PipelineContext)}:</p>
  * <pre>{@code
  * MiningContext mctx = MiningContext.require(ctx);
  * BlockPos pos = mctx.getPos();
@@ -35,28 +37,36 @@ import java.util.Map;
 public class MiningContext extends PipelineContext {
 
     /**
-     * Creates a new mining pipeline context.
+     * 创建新的挖掘管道上下文。
      *
-     * @param player the server-side player executing the operation
-     * @param args   immutable input arguments (a defensive copy is taken)
+     * @param player 执行操作的服务器端玩家
+     * @param args   不可变输入参数（会创建防御性副本）
      */
-    public MiningContext(ServerPlayer player, Map<String, Object> args) {
+    private MiningContext(ServerPlayer player, Map<String, Object> args) {
         super(player, args);
     }
 
     /**
-     * Safely casts a {@link PipelineContext} to {@link MiningContext}.
+     * 创建一个新的 {@link Builder}，用于构建 {@link MiningContext}，
+     * 提供类型安全的流式 setter，消除 {@code Map<String, Object>}
+     * 样板代码。
+     */
+    public static Builder builder(ServerPlayer player) {
+        return new Builder(player);
+    }
+
+    /**
+     * 安全地将 {@link PipelineContext} 转换为 {@link MiningContext}。
      *
-     * <p>Use this instead of a raw {@code (MiningContext) ctx} cast.  If the
-     * context is not a {@code MiningContext}, an
-     * {@link IllegalArgumentException} with a descriptive message is thrown,
-     * making it far easier to diagnose misconfigured pipelines than a
-     * bare {@link ClassCastException}.</p>
+     * <p>使用此方法代替原始的 {@code (MiningContext) ctx} 转换。
+     * 如果上下文不是 {@code MiningContext}，会抛出携带描述性消息的
+     * {@link IllegalArgumentException}，这比裸的
+     * {@link ClassCastException} 更容易诊断配置错误的管道。</p>
      *
-     * @param ctx  the pipeline context to cast
-     * @return the same context, typed as {@code MiningContext}
-     * @throws IllegalArgumentException if {@code ctx} is not a
-     *         {@code MiningContext} instance
+     * @param ctx  要转换的管道上下文
+     * @return 相同的上下文，类型化为 {@code MiningContext}
+     * @throws IllegalArgumentException 如果 {@code ctx} 不是
+     *         {@code MiningContext} 实例
      */
     public static MiningContext require(PipelineContext ctx) {
         if (ctx instanceof MiningContext mc) {
@@ -70,39 +80,39 @@ public class MiningContext extends PipelineContext {
     }
 
     // ──────────────────────────────────────────────────────────────
-    //  Tool args
+    //  工具参数
     // ──────────────────────────────────────────────────────────────
 
-    /** Returns the hotbar slot index for the borrowed tool. */
+    /** 返回借用工具的快捷栏槽索引。 */
     public int getToolSlot() {
         Integer val = getArg(ToolBorrowPipe.ARG_TOOL_SLOT);
         return val != null ? val : -1;
     }
 
-    /** Returns the tool item ID (may be empty). */
+    /** 返回工具物品 ID（可能为空）。 */
     public String getToolItemId() {
         return getArg(ToolBorrowPipe.ARG_TOOL_ITEM_ID);
     }
 
-    /** Returns the tool prototype stack. */
+    /** 返回工具原型堆栈。 */
     public ItemStack getToolPrototype() {
         return getArg(ToolBorrowPipe.ARG_TOOL_PROTOTYPE);
     }
 
     // ──────────────────────────────────────────────────────────────
-    //  Mining args
+    //  挖掘参数
     // ──────────────────────────────────────────────────────────────
 
-    /** Returns the target block position. */
+    /** 返回目标方块位置。 */
     public BlockPos getPos() {
         return getArg(MiningExecutePipe.ARG_POS);
     }
 
     /**
-     * Returns the mining face.
+     * 返回挖掘面。
      *
-     * @return the face direction, or {@code null} if not provided
-     *         (defaults to {@link Direction#DOWN})
+     * @return 面方向，如果未提供则返回 {@code null}
+     *         （默认为 {@link Direction#DOWN}）
      */
     @Nullable
     public Direction getFace() {
@@ -110,8 +120,8 @@ public class MiningContext extends PipelineContext {
     }
 
     /**
-     * Returns {@code true} if placed-block recovery is enabled.
-     * Defaults to {@code false} if the argument is absent.
+     * 返回是否启用了已放置方块恢复。
+     * 如果参数不存在则默认为 {@code false}。
      */
     public boolean isAllowPlacedBlockRecovery() {
         return hasArg(MiningExecutePipe.ARG_ALLOW_PLACED_BLOCK_RECOVERY)
@@ -119,8 +129,8 @@ public class MiningContext extends PipelineContext {
     }
 
     /**
-     * Returns {@code true} if tool protection is enabled.
-     * Defaults to {@code true} if the argument is absent.
+     * 返回是否启用了工具保护。
+     * 如果参数不存在则默认为 {@code true}。
      */
     public boolean isToolProtectionEnabled() {
         return !hasArg(MiningExecutePipe.ARG_TOOL_PROTECTION_ENABLED)
@@ -128,12 +138,159 @@ public class MiningContext extends PipelineContext {
     }
 
     // ──────────────────────────────────────────────────────────────
-    //  Shared data accessors
+    //  构建器
     // ──────────────────────────────────────────────────────────────
 
     /**
-     * Returns the resolved storage session from {@link SessionValidatePipe},
-     * or {@code null} if it has not been set yet.
+     * {@link MiningContext} 的类型安全流式构建器。
+     *
+     * <p>用法：</p>
+     * <pre>{@code
+     * MiningContext ctx = MiningContext.builder(player)
+     *     .toolSlot(toolSlot)
+     *     .toolItemId(toolItemId)
+     *     .pos(pos)
+     *     .face(face)
+     *     .build();
+     *
+     * PipelineRegistry.execute(type, ctx);
+     * }</pre>
+     */
+    public static final class Builder {
+        private final ServerPlayer player;
+        private final Map<String, Object> args = new HashMap<>();
+
+        private Builder(ServerPlayer player) {
+            this.player = player;
+        }
+
+        /** 工具槽索引。 */
+        public Builder toolSlot(int toolSlot) {
+            args.put(ToolBorrowPipe.ARG_TOOL_SLOT.name(), toolSlot);
+            return this;
+        }
+
+        /** 工具物品 ID。 */
+        public Builder toolItemId(String toolItemId) {
+            args.put(ToolBorrowPipe.ARG_TOOL_ITEM_ID.name(), toolItemId);
+            return this;
+        }
+
+        /** 工具原型堆栈。 */
+        public Builder toolPrototype(ItemStack toolPrototype) {
+            args.put(ToolBorrowPipe.ARG_TOOL_PROTOTYPE.name(), toolPrototype);
+            return this;
+        }
+
+        /** 目标方块位置。 */
+        public Builder pos(BlockPos pos) {
+            args.put(MiningExecutePipe.ARG_POS.name(), pos);
+            return this;
+        }
+
+        /** 挖掘面方向。 */
+        public Builder face(Direction face) {
+            args.put(MiningExecutePipe.ARG_FACE.name(), face);
+            return this;
+        }
+
+        /** 允许已放置方块恢复。 */
+        public Builder allowPlacedBlockRecovery(boolean allow) {
+            args.put(MiningExecutePipe.ARG_ALLOW_PLACED_BLOCK_RECOVERY.name(), allow);
+            return this;
+        }
+
+        /** 启用工具保护。 */
+        public Builder toolProtectionEnabled(boolean enabled) {
+            args.put(MiningExecutePipe.ARG_TOOL_PROTECTION_ENABLED.name(), enabled);
+            return this;
+        }
+
+        /** 工作流的总方块数。 */
+        public Builder totalBlocks(int total) {
+            args.put(WorkflowStartPipe.ARG_TOTAL_BLOCKS.name(), total);
+            return this;
+        }
+
+        /** 连锁挖掘操作的请求限制。 */
+        public Builder requestedLimit(int limit) {
+            args.put(UltimineExecutePipe.ARG_REQUESTED_LIMIT.name(), limit);
+            return this;
+        }
+
+        /** 连锁挖掘模式。 */
+        public Builder mode(byte mode) {
+            args.put(UltimineExecutePipe.ARG_MODE.name(), mode);
+            return this;
+        }
+
+        /** 区域操作的最小 X。 */
+        public Builder minX(int minX) {
+            args.put(UltimineExecutePipe.ARG_MIN_X.name(), minX);
+            return this;
+        }
+
+        /** 区域操作的最大 X。 */
+        public Builder maxX(int maxX) {
+            args.put(UltimineExecutePipe.ARG_MAX_X.name(), maxX);
+            return this;
+        }
+
+        /** 区域操作的最小 Y。 */
+        public Builder minY(int minY) {
+            args.put(UltimineExecutePipe.ARG_MIN_Y.name(), minY);
+            return this;
+        }
+
+        /** 区域操作的最大 Y。 */
+        public Builder maxY(int maxY) {
+            args.put(UltimineExecutePipe.ARG_MAX_Y.name(), maxY);
+            return this;
+        }
+
+        /** 区域操作的最小 Z。 */
+        public Builder minZ(int minZ) {
+            args.put(UltimineExecutePipe.ARG_MIN_Z.name(), minZ);
+            return this;
+        }
+
+        /** 区域操作的最大 Z。 */
+        public Builder maxZ(int maxZ) {
+            args.put(UltimineExecutePipe.ARG_MAX_Z.name(), maxZ);
+            return this;
+        }
+
+        /** 区域操作的形状类型。 */
+        public Builder shapeType(byte shapeType) {
+            args.put(UltimineExecutePipe.ARG_SHAPE_TYPE.name(), shapeType);
+            return this;
+        }
+
+        /** 区域操作的填充类型。 */
+        public Builder fillType(byte fillType) {
+            args.put(UltimineExecutePipe.ARG_FILL_TYPE.name(), fillType);
+            return this;
+        }
+
+        /** AREA_DESTROY 的位置列表。 */
+        public Builder positions(List<BlockPos> positions) {
+            args.put(UltimineExecutePipe.ARG_POSITIONS.name(), positions);
+            return this;
+        }
+
+        /** 构建 {@link MiningContext}。 */
+        public MiningContext build() {
+            return new MiningContext(player, args);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  共享数据访问器
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * 返回来自 {@link SessionValidatePipe} 解析的存储会话，
+     * 如果尚未设置则返回 {@code null}。
      */
     @Nullable
     public RtsStorageSession getResolvedSession() {
@@ -141,36 +298,36 @@ public class MiningContext extends PipelineContext {
     }
 
     /**
-     * Returns the borrowed tool lease from {@link ToolBorrowPipe},
-     * or {@code null} if not set (creative-mode fast path).
+     * 返回来自 {@link ToolBorrowPipe} 的借用工具租约，
+     * 如果未设置（创造模式快速路径）则返回 {@code null}。
      */
     @Nullable
     public RtsToolLease getToolLease() {
         return getData(ToolBorrowPipe.KEY_TOOL_LEASE);
     }
 
-    /** Returns {@code true} if a tool lease is available in shared data. */
+    /** 如果共享数据中存在工具租约则返回 {@code true}。 */
     public boolean hasToolLease() {
         return hasData(ToolBorrowPipe.KEY_TOOL_LEASE);
     }
 
     /**
-     * Returns the workflow entry ID from {@link WorkflowStartPipe},
-     * or {@code -1} if not set.
+     * 返回来自 {@link WorkflowStartPipe} 的工作流条目 ID，
+     * 如果未设置则返回 {@code -1}。
      */
     public int getWorkflowEntryId() {
         Integer val = getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
         return val != null ? val : -1;
     }
 
-    /** Returns {@code true} if a workflow entry ID is present in shared data. */
+    /** 如果共享数据中存在工作流条目 ID 则返回 {@code true}。 */
     public boolean hasWorkflowEntryId() {
         return hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
     }
 
     /**
-     * Returns {@code true} if a specific tool was requested
-     * (as opposed to free-form / any-tool mode).
+     * 返回是否请求了特定的工具
+     *（相对于自由形式/任意工具模式）。
      */
     public boolean isSelectedToolRequested() {
         Boolean val = getData(ToolBorrowPipe.KEY_SELECTED_TOOL_REQUESTED);

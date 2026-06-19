@@ -2,52 +2,76 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsAggregateStorage;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
 
 /**
- * Tick-driven cache-refresh service for all active RTS storage sessions.
+ * Tick 驱动的自适应缓存刷新服务，管理所有活跃 RTS 存储会话的缓存。
  *
- * <p>Inspired by AE2's {@code TickManagerService}: each player's storage is
- * refreshed on an <b>adaptive</b> schedule instead of a fixed interval:
+ * <p>受 AE2 的 {@code TickManagerService} 启发，每个玩家的存储以<b>自适应</b>
+ * 计划刷新，而非固定间隔：物品频繁变化时加速到每 tick 刷新以最小化响应时间，
+ * 长时间无变化时逐渐减速以减少 CPU 负载。外部可通过 {@link #alert(UUID)} 立即唤醒。
+ *
+ * <p><b>核心数据：</b>
  * <ul>
- *   <li>Items keep changing → speed up to every tick (min responsiveness)</li>
- *   <li>Nothing changes for a while → gradually slow down to reduce CPU load</li>
- *   <li>{@link #alert(UUID)} can be called externally to wake up immediately</li>
+ *   <li>{@link #playerStorage} — 每玩家的 {@link RtsAggregateStorage} 聚合缓存实例</li>
+ *   <li>{@link #playerHandlers} — 每玩家的 {@link IItemHandler} → {@link RtsHandlerCache} 映射</li>
+ *   <li>{@link #tickTrackers} — 每玩家的 {@link TickTracker} 自适应 tick 状态</li>
  * </ul>
  *
- * <p>This avoids trashing the server with per-tick capability lookups for idle
- * players while still providing near-instant updates when storage is active.
+ * <p><b>生命周期方法：</b>
+ * <ul>
+ *   <li>{@link #registerPlayer(ServerPlayer, List)} — 注册玩家，挂载处理器、
+ *       重用现有缓存或创建新缓存、计算初始刷新率</li>
+ *   <li>{@link #unregisterPlayer(ServerPlayer)} — 完全移除玩家，释放缓存数据、
+ *       释放 AE2/BD 网络处理器引用以加速 GC 回收</li>
+ * </ul>
+ *
+ * <p><b>自适应 tick 方法：</b>
+ * <ul>
+ *   <li>{@link #tick()} — 每服务器 tick 调用，检查每个玩家的定时器，
+ *       检测到变化时加速（currentRate / 2），空闲超过 IDLE_THRESHOLD 时减速（+1）</li>
+ *   <li>{@link #alert(UUID)} — 立即将玩家速率设为 MIN_TICK_RATE，
+ *       强制在下个 tick 刷新（等效 AE2 的 alertDevice）</li>
+ *   <li>{@link #forceRefresh(ServerPlayer)} — 强制立即刷新并返回变更集</li>
+ * </ul>
+ *
+ * <p><b>初始速率计算：</b>使用对数公式 {@code rate = ceil(log2(slots / 27 + 1))}，
+ * 1 个箱子（27 槽位）→ 每 tick，10 个箱子 → 每 4 tick，100 个箱子 → 每 7 tick。
+ * 确保少槽位即时响应，多槽位优雅退避。
+ *
+ * <p><b>内部记录：</b>{@link TickTracker} 跟踪当前速率、自上次刷新以来的 tick 数、
+ * 连续空闲次数。{@link HandlerCachePair} 记录处理器和缓存的配对关系。
  */
 public final class RtsStorageTickService {
 
     public static final RtsStorageTickService INSTANCE = new RtsStorageTickService();
 
-    // ---- adaptive rate constants (see RtsServiceConstants) -------------------
+    // ---- 自适应速率常量（见 RtsServiceConstants）---------------------------
 
     // ---- state ---------------------------------------------------------------
 
-    /** Per-player aggregate storage instance. */
+    /** 每玩家的聚合存储实例。 */
     private final Map<UUID, RtsAggregateStorage> playerStorage = new HashMap<>();
 
-    /** Per-player handler → cache mappings. */
+    /** 每玩家的处理器 → 缓存映射。 */
     private final Map<UUID, List<HandlerCachePair>> playerHandlers = new HashMap<>();
 
-    /** Per-player adaptive tick trackers (replaces old fixed counter). */
+    /** 每玩家的自适应 tick 跟踪器（替换旧的固定计数器）。 */
     private final Map<UUID, TickTracker> tickTrackers = new HashMap<>();
 
     private RtsStorageTickService() {
     }
 
-    // ---- lifecycle -------------------------------------------------------------
+    // ---- 生命周期 -------------------------------------------------------------
 
     /**
-     * Registers or updates a player's aggregate storage with the given handlers.
-     * Existing caches are reused if the handler identity matches.
+     * 注册或更新玩家的聚合存储以及给定的处理器。
+     * 如果处理器身份匹配，则重用现有缓存。
      */
     public RtsAggregateStorage registerPlayer(ServerPlayer player, List<IItemHandler> handlers) {
         UUID uuid = player.getUUID();
@@ -94,8 +118,7 @@ public final class RtsStorageTickService {
     }
 
     /**
-     * Removes a player's storage cache entirely and releases
-     * all cached data for immediate GC.
+     * 完全移除玩家的存储缓存，释放所有缓存数据以便立即 GC。
      */
     public void unregisterPlayer(ServerPlayer player) {
         UUID uuid = player.getUUID();
@@ -121,13 +144,13 @@ public final class RtsStorageTickService {
         this.tickTrackers.remove(uuid);
     }
 
-    // ---- tick (adaptive) -------------------------------------------------------
+    // ---- tick（自适应）------------------------------------------------------
 
     /**
-     * Called on every server tick for all active players.
-     * Uses AE2-style adaptive scheduling: speeds up when busy, slows when idle.
+     * 每个服务器 tick 对所有活跃玩家调用。
+     * 使用 AE2 风格的自适应调度：繁忙时加速，空闲时减速。
      *
-     * @return map of player UUID → set of changed item IDs since last refresh
+     * @return 玩家 UUID → 自上次刷新以来变化的物品 ID 集合的映射
      */
     public Map<UUID, Set<String>> tick() {
         Map<UUID, Set<String>> allChanges = new HashMap<>();
@@ -165,14 +188,15 @@ public final class RtsStorageTickService {
         return allChanges;
     }
 
-    // ---- alert (like AE2's alertDevice) ----------------------------------------
+    // ---- alert（类似 AE2 的 alertDevice）--------------------------------------
 
     /**
-     * Wakes up a player's storage ticker immediately, forcing the next refresh
-     * to happen without delay. Equivalent to AE2's {@code alertDevice()}.
+     * 立即唤醒玩家的存储 tick 器，强制下一次刷新
+     * 无延迟地发生。相当于 AE2 的 {@code alertDevice()}。
      * <p>
-     * Call this after RTS system insert/extract operations so the GUI reflects
-     * changes on the very next tick instead of waiting for the adaptive timer.
+     * 在 RTS 系统插入/提取操作后调用此方法，
+     * 以便 GUI 在下一个 tick 就反映更改，
+     * 而不是等待自适应定时器。
      */
     public void alert(UUID playerUuid) {
         TickTracker tracker = this.tickTrackers.get(playerUuid);
@@ -184,8 +208,8 @@ public final class RtsStorageTickService {
     }
 
     /**
-     * Forces an immediate cache refresh for a specific player and returns
-     * the changes. Also resets the adaptive timer to run again next tick.
+     * 强制立即为特定玩家刷新缓存并返回更改。
+     * 同时重置自适应定时器，以便在下一个 tick 再次运行。
      */
     public Set<String> forceRefresh(ServerPlayer player) {
         UUID uuid = player.getUUID();
@@ -199,27 +223,27 @@ public final class RtsStorageTickService {
         return storage.tickUpdate();
     }
 
-    // ---- accessors -------------------------------------------------------------
+    // ---- 访问器 -------------------------------------------------------------
 
     /**
-     * Returns the aggregate storage for a player, or {@code null} if not registered.
+     * 返回玩家的聚合存储，如果未注册则返回 {@code null}。
      */
     public RtsAggregateStorage getStorage(ServerPlayer player) {
         return this.playerStorage.get(player.getUUID());
     }
 
     /**
-     * Calculates the initial refresh rate based on total slot count.
+     * 基于总槽位数计算初始刷新率。
      * <p>
-     * Uses a logarithmic formula: {@code rate = ceil(log2(slots / 27 + 1))}.
+     * 使用对数公式：{@code rate = ceil(log2(slots / 27 + 1))}。
      * <ul>
-     *   <li>1 chest (27 slots) → rate=1 (every tick)</li>
-     *   <li>5 chests (135 slots) → rate=3</li>
-     *   <li>10 chests (270 slots) → rate=4</li>
-     *   <li>100 chests (2700 slots) → rate=7</li>
+     *   <li>1 个箱子（27 槽位）→ rate=1（每 tick）</li>
+     *   <li>5 个箱子（135 槽位）→ rate=3</li>
+     *   <li>10 个箱子（270 槽位）→ rate=4</li>
+     *   <li>100 个箱子（2700 槽位）→ rate=7</li>
      * </ul>
-     * This ensures smooth scaling: few slots = instant response,
-     * many slots = graceful back-off without abrupt threshold jumps.
+     * 这确保了平滑的缩放：少槽位=即时响应，
+     * 多槽位=优雅的后退，没有突变的阈值跳跃。
      */
     private static int calculateInitialRate(List<IItemHandler> handlers) {
         if (handlers == null || handlers.isEmpty()) return RtsServiceConstants.DEFAULT_TICK_RATE;
@@ -238,13 +262,13 @@ public final class RtsStorageTickService {
         return Math.max(RtsServiceConstants.MIN_TICK_RATE, Math.min(RtsServiceConstants.MAX_INITIAL_RATE, rate));
     }
 
-    // ---- value types -----------------------------------------------------------
+    // ---- 值类型 -----------------------------------------------------------
 
     record HandlerCachePair(IItemHandler handler, RtsHandlerCache cache) {
     }
 
     /**
-     * Per-player adaptive tick state, analogous to AE2's {@code TickTracker}.
+     * 每玩家自适应 tick 状态，类似于 AE2 的 {@code TickTracker}。
      */
     private static final class TickTracker {
         /** Current adaptive rate (ticks between refreshes). */

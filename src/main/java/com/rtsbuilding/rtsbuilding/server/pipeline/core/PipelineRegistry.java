@@ -14,21 +14,21 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Thread-safe registry for all {@link WorkflowPipeline} instances.
+ * 所有 {@link WorkflowPipeline} 实例的线程安全注册表。
  *
- * <p>Pipelines are registered once at mod initialisation and then looked up
- * by {@link RtsWorkflowType} at runtime.  The registry is a simple key-value
- * store backed by {@link ConcurrentHashMap}.</p>
+ * <p>管道在模组初始化时一次性注册，然后在运行时
+ * 通过 {@link RtsWorkflowType} 查找。该注册表是一个
+ * 由 {@link ConcurrentHashMap} 支持的简单键值存储。</p>
  *
- * <p>Usage:</p>
+ * <p>用法：</p>
  * <pre>{@code
- * // Registration (mod init):
+ * // 注册（模组初始化）：
  * PipelineRegistry.register(RtsWorkflowType.MINE_SINGLE)
  *     .pipe(new SessionValidatePipe())
  *     .pipe(new WorkflowStartPipe())
  *     ...;
  *
- * // Execution (at runtime):
+ * // 执行（运行时）：
  * PipelineRegistry.execute(RtsWorkflowType.MINE_SINGLE, ctx);
  * }</pre>
  */
@@ -40,34 +40,33 @@ public final class PipelineRegistry {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Registration
+    //  注册
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Creates a new builder pipeline for the given workflow type,
-     * expecting a standard {@link PipelineContext}.
-     * The pipeline is <b>not</b> registered yet — call
-     * {@link WorkflowPipeline#register()} after adding pipes to complete
-     * registration.
+     * 为给定的工作流类型创建一个新的构建器管道，
+     * 期望标准 {@link PipelineContext}。
+     * 管道<b>尚未</b>注册——在添加 Pipe 后调用
+     * {@link WorkflowPipeline#register()} 以完成注册。
      *
-     * @param type the workflow type
-     * @return a new, empty pipeline ready to be configured
+     * @param type 工作流类型
+     * @return 一个新的、空的、等待配置的管道
      */
     public static WorkflowPipeline<PipelineContext> register(RtsWorkflowType type) {
         return new WorkflowPipeline<>(type);
     }
 
     /**
-     * Creates a new builder pipeline for the given workflow type,
-     * expecting a {@link MiningContext}.
+     * 为给定的工作流类型创建一个新的构建器管道，
+     * 期望 {@link MiningContext}。
      *
-     * <p>Mining-specific pipes ({@link MiningExecutePipe},
-     * {@link ToolBorrowPipe}, {@link UltimineExecutePipe}) declare their
-     * context type as {@code PipelinePipe<MiningContext>}, so the compiler
-     * will reject them if you try to add them to a pipeline built by
-     * {@link #register(RtsWorkflowType)}.  Use this factory instead.</p>
+     * <p>挖掘特定的 Pipe（{@link MiningExecutePipe}、
+     * {@link ToolBorrowPipe}、{@link UltimineExecutePipe}）
+     * 将它们的上下文类型声明为 {@code PipelinePipe<MiningContext>}，
+     * 因此如果你尝试将它们添加到由 {@link #register(RtsWorkflowType)}
+     * 构建的管道中，编译器会拒绝。请改用此工厂方法。</p>
      *
-     * <p>Usage:</p>
+     * <p>用法：</p>
      * <pre>{@code
      * PipelineRegistry.miningPipeline(RtsWorkflowType.MINE_SINGLE)
      *     .pipe(new MiningExecutePipe())    // ✓ PipelinePipe<MiningContext>
@@ -75,23 +74,23 @@ public final class PipelineRegistry {
      *     .register();
      * }</pre>
      *
-     * @param type the workflow type
-     * @return a new, empty mining pipeline ready to be configured
+     * @param type 工作流类型
+     * @return 一个新的、空的、等待配置的挖掘管道
      */
     public static WorkflowPipeline<MiningContext> miningPipeline(RtsWorkflowType type) {
         return new WorkflowPipeline<>(type);
     }
 
     /**
-     * Creates a new builder pipeline for the given workflow type,
-     * expecting a {@link PlaceContext}.
+     * 为给定的工作流类型创建一个新的构建器管道，
+     * 期望 {@link PlaceContext}。
      *
-     * <p>Placement-specific pipes ({@link PlacementExecutePipe}) declare
-     * their context type as {@code PipelinePipe<PlaceContext>}, so the
-     * compiler will reject them if you try to add them to a pipeline built
-     * by {@link #register(RtsWorkflowType)}.  Use this factory instead.</p>
+     * <p>放置特定的 Pipe（{@link PlacementExecutePipe}）
+     * 将它们的上下文类型声明为 {@code PipelinePipe<PlaceContext>}，
+     * 因此如果你尝试将它们添加到由 {@link #register(RtsWorkflowType)}
+     * 构建的管道中，编译器会拒绝。请改用此工厂方法。</p>
      *
-     * <p>Usage:</p>
+     * <p>用法：</p>
      * <pre>{@code
      * PipelineRegistry.placementPipeline(RtsWorkflowType.PLACE_SINGLE)
      *     .pipe(new PlacementExecutePipe())  // ✓ PipelinePipe<PlaceContext>
@@ -99,16 +98,15 @@ public final class PipelineRegistry {
      *     .register();
      * }</pre>
      *
-     * @param type the workflow type
-     * @return a new, empty placement pipeline ready to be configured
+     * @param type 工作流类型
+     * @return 一个新的、空的、等待配置的放置管道
      */
     public static WorkflowPipeline<PlaceContext> placementPipeline(RtsWorkflowType type) {
         return new WorkflowPipeline<>(type);
     }
 
     /**
-     * Registers a pre-built pipeline.  Used internally by
-     * {@link WorkflowPipeline#register()}.
+     * 注册一个预构建的管道。由 {@link WorkflowPipeline#register()} 内部使用。
      */
     static void register(WorkflowPipeline<?> pipeline) {
         RtsWorkflowType type = pipeline.type();
@@ -121,10 +119,10 @@ public final class PipelineRegistry {
     }
 
     /**
-     * Replaces an existing pipeline.  Useful for testing or dynamic reconfiguration.
+     * 替换现有管道。用于测试或动态重新配置。
      *
-     * @param pipeline the new pipeline to replace with
-     * @return the previous pipeline, or {@code null} if none was registered
+     * @param pipeline 用于替换的新管道
+     * @return 先前的管道，如果未注册则返回 {@code null}
      */
     @Nullable
     public static WorkflowPipeline<?> replace(WorkflowPipeline<?> pipeline) {
@@ -132,15 +130,15 @@ public final class PipelineRegistry {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Lookup
+    //  查找
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Returns the pipeline for the given workflow type.
+     * 返回给定工作流类型的管道。
      *
-     * @param type the workflow type
-     * @return the registered pipeline
-     * @throws IllegalArgumentException if no pipeline is registered for this type
+     * @param type 工作流类型
+     * @return 已注册的管道
+     * @throws IllegalArgumentException 如果该类型没有注册的管道
      */
     public static WorkflowPipeline<?> of(RtsWorkflowType type) {
         WorkflowPipeline<?> pipeline = pipelines.get(type);
@@ -153,12 +151,12 @@ public final class PipelineRegistry {
     }
 
     /**
-     * Looks up and executes the pipeline for the given workflow type.
+     * 查找并执行给定工作流类型的管道。
      *
-     * @param type the workflow type
-     * @param ctx  the pipeline context
-     * @param <C>  the context type (inferred from the argument)
-     * @return the pipeline execution result
+     * @param type 工作流类型
+     * @param ctx  管道上下文
+     * @param <C>  上下文类型（从参数推断）
+     * @return 管道执行结果
      */
     @SuppressWarnings("unchecked")
     public static <C extends PipelineContext> PipelineResult execute(RtsWorkflowType type, C ctx) {
@@ -167,11 +165,11 @@ public final class PipelineRegistry {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Admin
+    //  管理
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Removes all registered pipelines.  Useful for testing or mod reload.
+     * 移除所有已注册的管道。用于测试或模组重载。
      */
     public static void clear() {
         pipelines.clear();
@@ -179,7 +177,7 @@ public final class PipelineRegistry {
     }
 
     /**
-     * Returns the number of registered pipelines.
+     * 返回已注册管道的数量。
      */
     public static int size() {
         return pipelines.size();

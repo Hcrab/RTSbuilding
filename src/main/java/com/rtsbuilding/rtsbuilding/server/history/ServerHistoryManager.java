@@ -228,7 +228,7 @@ public final class ServerHistoryManager {
     //  内部数据结构
     // ======================================================================
 
-    /** Per-player undo stack. All access is single-threaded (server game thread). */
+    /** 每个玩家独立的撤回栈。所有访问均为单线程（服务端游戏主线程）。 */
     private static final class PlayerHistory {
         final ArrayDeque<HistoryEntry> undoStack = new ArrayDeque<>();
     }

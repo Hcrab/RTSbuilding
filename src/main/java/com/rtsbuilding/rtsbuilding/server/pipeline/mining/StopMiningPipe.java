@@ -5,18 +5,17 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 
 /**
- * Stops any active mining/ultimine operation for the player.
+ * 停止玩家任何活跃的挖掘/连锁挖掘操作。
  *
- * <p>Unlike {@link StopPreviousPipe} (which is part of a "start new
- * operation" pipeline), this pipe is designed as a standalone stop
- * operation — e.g. when the player clicks the "stop" button or disables
- * RTS mode.</p>
+ * <p>与 {@link StopPreviousPipe}（属于"启动新操作"管道的一部分）不同，
+ * 此 Pipe 被设计为独立的停止操作——
+ * 例如当玩家点击"停止"按钮或禁用 RTS 模式时。</p>
  *
- * <p>This pipe requires that a session has already been stored in shared
- * data under {@link SessionValidatePipe#KEY_SESSION}.</p>
+ * <p>此 Pipe 要求会话已存储在共享数据中，
+ * 键为 {@link SessionValidatePipe#KEY_SESSION}。</p>
  */
 public final class StopMiningPipe implements PipelinePipe<PipelineContext> {
 

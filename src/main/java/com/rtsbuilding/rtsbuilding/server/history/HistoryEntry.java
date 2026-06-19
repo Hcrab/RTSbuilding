@@ -46,7 +46,7 @@ public class HistoryEntry {
         this.dimension = dimension;
     }
 
-    // ===== Getters =====
+    // ===== 获取器 =====
 
     public UUID getEntryId() {
         return entryId;

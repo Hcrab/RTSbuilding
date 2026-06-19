@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintPayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
 import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;

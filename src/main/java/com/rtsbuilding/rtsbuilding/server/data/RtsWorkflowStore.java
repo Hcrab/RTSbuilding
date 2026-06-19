@@ -20,15 +20,15 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * World-save level persistence for workflow entries.
+ * 工作流条目在世界存档级别的持久化存储。
  *
- * <p>Stores all players' workflow slot managers as a single compressed NBT file
- * in the world save directory ({@code rtsbuilding/workflow_data.dat}).
- * Follows the same file I/O pattern as {@link RtsStorageSessionStore}.</p>
+ * <p>将所有玩家的工作流槽位管理器以单个压缩 NBT 文件的形式
+ * 存储在存档目录（{@code rtsbuilding/workflow_data.dat}）中。
+ * 遵循与 {@link RtsStorageSessionStore} 相同的文件 I/O 模式。
  *
- * <p>This is a standalone store — callers (typically {@code RtsWorkflowEngine})
- * manage the slots in memory and invoke {@link #saveAll(MinecraftServer, Map)}
- * / {@link #loadPlayer(MinecraftServer, UUID)} at lifecycle boundaries.</p>
+ * <p>这是一个独立的存储层——调用方（通常是 {@code RtsWorkflowEngine}）
+ * 在内存中管理槽位，并在生命周期边界调用
+ * {@link #saveAll(MinecraftServer, Map)} / {@link #loadPlayer(MinecraftServer, UUID)}。
  */
 public final class RtsWorkflowStore {
     private static final String DIRECTORY = "rtsbuilding";
@@ -38,23 +38,25 @@ public final class RtsWorkflowStore {
     private static final String KEY_PLAYERS = "players";
     private static final int DATA_VERSION = 1;
 
-    // Per-player keys
+    // 每个玩家数据的内部键名
     private static final String KEY_NEXT_ID = "next_id";
+    /** NBT 键名：维度数据映射 */
     private static final String KEY_DIMENSIONS = "dimensions";
+    /** NBT 键名：槽位管理器数据 */
     private static final String KEY_SLOT_MANAGER = "slots";
 
     private RtsWorkflowStore() {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Save — persist all players' workflow data
+    //  保存 — 持久化所有玩家的工作流数据
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Saves all workflow slot managers for all players to the world save file.
+     * 保存所有玩家在所有维度上的工作流槽位管理器到世界存档文件。
      *
-     * @param server     the Minecraft server (used to derive the world save path)
-     * @param allSlots   the map of player UUID → dimension → slot managers
+     * @param server   Minecraft 服务器实例（用于获取存档路径）
+     * @param allSlots 玩家 UUID → 维度 → 槽位管理器的映射
      */
     public static synchronized void saveAll(MinecraftServer server,
                                             Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> allSlots) {
@@ -101,15 +103,15 @@ public final class RtsWorkflowStore {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Load — restore a single player's workflow data
+    //  加载 — 恢复单个玩家的工作流数据
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Loads workflow slot managers for a specific player from the world save file.
+     * 从世界存档文件中加载指定玩家的工作流槽位管理器。
      *
-     * @param server   the Minecraft server
-     * @param playerId the player's UUID
-     * @return a map of dimension → slot manager (empty map if none saved)
+     * @param server   Minecraft 服务器实例
+     * @param playerId 玩家的 UUID
+     * @return 维度 → 槽位管理器的映射（没有保存的数据则返回空映射）
      */
     public static synchronized Map<ResourceKey<Level>, RtsWorkflowSlotManager> loadPlayer(
             MinecraftServer server, UUID playerId) {
@@ -154,13 +156,13 @@ public final class RtsWorkflowStore {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  File I/O
+    //  文件 I/O
     // ──────────────────────────────────────────────────────────────────
 
     private static final String KEY_REGISTRY = "minecraft:dimension_type";
 
     /**
-     * Returns the {@link ResourceKey} for a dimension from its string representation.
+     * 从维度字符串表示解析出对应的 {@link ResourceKey}。
      */
     private static ResourceKey<Level> parseDimensionKey(String dimKey) {
         ResourceLocation location = ResourceLocation.tryParse(dimKey);
@@ -170,6 +172,7 @@ public final class RtsWorkflowStore {
         return ResourceKey.create(Registries.DIMENSION, location);
     }
 
+    /** 从世界存档文件加载所有工作流数据 */
     private static CompoundTag loadAll(MinecraftServer server) {
         Path path = storagePath(server);
         if (!Files.isRegularFile(path)) {
@@ -189,6 +192,7 @@ public final class RtsWorkflowStore {
         }
     }
 
+    /** 创建空的根标签，包含默认数据版本和空的玩家映射 */
     private static CompoundTag emptyRoot() {
         CompoundTag root = new CompoundTag();
         root.putInt(KEY_DATA_VERSION, DATA_VERSION);
@@ -196,6 +200,10 @@ public final class RtsWorkflowStore {
         return root;
     }
 
+    /**
+     * 将所有工作流数据写入文件。
+     * 使用先写临时文件再原子移动的方式，防止写入过程中崩溃导致数据损坏。
+     */
     private static void writeAll(MinecraftServer server, CompoundTag root) {
         Path path = storagePath(server);
         Path tempPath = path.resolveSibling(TEMP_FILE_NAME);
@@ -211,11 +219,12 @@ public final class RtsWorkflowStore {
         } catch (IOException | RuntimeException ignored) {
             try {
                 Files.deleteIfExists(tempPath);
-            } catch (IOException deleteIgnored) {
+            } catch (IOException ignored1) {
             }
         }
     }
 
+    /** 获取工作流数据文件的存储路径 */
     private static Path storagePath(MinecraftServer server) {
         return server.getWorldPath(LevelResource.ROOT).resolve(DIRECTORY).resolve(FILE_NAME);
     }

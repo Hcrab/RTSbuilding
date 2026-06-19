@@ -1,8 +1,15 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
+import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
+import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -18,22 +25,19 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Arrays;
 
 /**
- * NBT codec for {@link RtsStorageSession}.
+ * {@link RtsStorageSession} 的 NBT 编解码器。
  *
- * <p>This class owns the saved field names, default values, validation, and old
- * save migration for the RTS storage session. It deliberately does not resolve
- * block entities, query capabilities, refresh storage pages, send packets, or
- * decide whether a player may use a linked block. Those runtime decisions still
- * belong to the service/storage modules.
+ * <p>本类负责 RTS 存储会话的所有存档字段名称、默认值、校验以及旧存档迁移。
+ * 本类有意不解析方块实体、查询能力、刷新存储页面、发送数据包或判断玩家
+ * 是否可以使用某个链接方块——那些运行时决策仍归属于 service/storage 模块。
  *
- * <p>Linked storage serialisation has been extracted to
- * {@link RtsLinkedStorageCodec}. This class retains the top-level orchestration
- * and the remaining smaller codec sections (internal fluids, recent entries,
- * quick slots, GUI bindings, and browser state). Keep backward compatibility
- * here — the modern format stores each linked storage as a dimension+position
- * compound in {@code linked_entries}; older saves used {@code linked_positions}
- * plus one {@code linked_dimension}. Both must keep loading until a deliberate
- * save-format migration says otherwise.
+ * <p>链接存储的序列化已提取到 {@link RtsLinkedStorageCodec} 中。
+ * 本类保留顶层编排以及剩余较小的编解码部分（内部流体、近期条目、
+ * 快速槽位、GUI 绑定和浏览状态）。请在此保持向后兼容性——
+ * 现代格式将每个链接存储以维度+位置的复合形式存储在
+ * {@code linked_entries} 中；旧存档使用 {@code linked_positions}
+ * 加一个 {@code linked_dimension}。两者都必须持续加载，直到故意执行
+ * 存档格式迁移为止。
  */
 public final class RtsStorageSessionCodec {
     public static final String ROOT_KEY = "rtsbuilding_storage_session";
@@ -68,9 +72,14 @@ public final class RtsStorageSessionCodec {
     private static final String NBT_CRAFT_SHOW_UNAVAILABLE = "craft_show_unavailable";
     private static final String NBT_CRAFT_REQUESTED_COUNT = "craft_requested_count";
 
+    /** 工具类，私有构造防止实例化 */
     private RtsStorageSessionCodec() {
     }
 
+    /**
+     * 从 NBT 根节点加载存储会话的全部状态。
+     * 依次加载：链接存储、浏览状态、会话标志、内部流体、近期条目、快速槽位、GUI 绑定和放置任务。
+     */
     public static void load(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         RtsLinkedStorageCodec.load(player, session, root);
 
@@ -79,9 +88,9 @@ public final class RtsStorageSessionCodec {
         session.browser.category = RtsStoragePageBuilder.normalizeCategory(root.getString(NBT_CATEGORY));
         session.browser.sort = parseSavedSort(root.getInt(NBT_SORT));
         session.browser.ascending = root.contains(NBT_ASCENDING, Tag.TAG_BYTE) && root.getBoolean(NBT_ASCENDING);
-        session.autoStoreMinedDrops = !root.contains(NBT_AUTO_STORE_MINED_DROPS, Tag.TAG_BYTE)
+        session.sessionFlags.autoStoreMinedDrops = !root.contains(NBT_AUTO_STORE_MINED_DROPS, Tag.TAG_BYTE)
                 || root.getBoolean(NBT_AUTO_STORE_MINED_DROPS);
-        session.useBdNetwork = !root.contains(NBT_USE_BD_NETWORK, Tag.TAG_BYTE)
+        session.sessionFlags.useBdNetwork = !root.contains(NBT_USE_BD_NETWORK, Tag.TAG_BYTE)
                 || root.getBoolean(NBT_USE_BD_NETWORK);
         session.browser.craftSearch = sanitizeSavedText(root.getString(NBT_CRAFT_SEARCH), 128);
         session.browser.craftShowUnavailable = root.contains(NBT_CRAFT_SHOW_UNAVAILABLE, Tag.TAG_BYTE)
@@ -96,8 +105,13 @@ public final class RtsStorageSessionCodec {
         loadQuickSlots(player, session, root);
         loadGuiBindings(session, root);
         loadPlacementJobs(player, session, root);
+        loadDestroyJobs(player, session, root);
     }
 
+    /**
+     * 将存储会话的全部状态序列化为 NBT 根节点。
+     * 依次保存：浏览状态、会话标志、链接存储、内部流体、近期条目、快速槽位、GUI 绑定和放置任务。
+     */
     public static CompoundTag serialize(ServerPlayer player, RtsStorageSession session) {
         CompoundTag root = new CompoundTag();
 
@@ -106,8 +120,8 @@ public final class RtsStorageSessionCodec {
         root.putString(NBT_CATEGORY, RtsStoragePageBuilder.normalizeCategory(session.browser.category));
         root.putInt(NBT_SORT, (session.browser.sort == null ? RtsStorageSort.QUANTITY : session.browser.sort).ordinal());
         root.putBoolean(NBT_ASCENDING, session.browser.ascending);
-        root.putBoolean(NBT_AUTO_STORE_MINED_DROPS, session.autoStoreMinedDrops);
-        root.putBoolean(NBT_USE_BD_NETWORK, session.useBdNetwork);
+        root.putBoolean(NBT_AUTO_STORE_MINED_DROPS, session.sessionFlags.autoStoreMinedDrops);
+        root.putBoolean(NBT_USE_BD_NETWORK, session.sessionFlags.useBdNetwork);
         root.putString(NBT_CRAFT_SEARCH, sanitizeSavedText(session.browser.craftSearch, 128));
         root.putBoolean(NBT_CRAFT_SHOW_UNAVAILABLE, session.browser.craftShowUnavailable);
         root.putInt(NBT_CRAFT_REQUESTED_COUNT,
@@ -119,35 +133,38 @@ public final class RtsStorageSessionCodec {
         saveQuickSlots(player, session, root);
         saveGuiBindings(session, root);
         savePlacementJobs(player, session, root);
+        saveDestroyJobs(player, session, root);
 
         return root;
     }
 
     // ======================================================================
-    //  Internal fluids
+    //  内部流体
     // ======================================================================
 
+    /** 从 NBT 加载内部流体数据 */
     private static void loadInternalFluids(RtsStorageSession session, CompoundTag root) {
-        session.internalFluidMb.clear();
+        session.sessionFlags.internalFluidMb.clear();
         ListTag fluidEntries = root.getList(NBT_INTERNAL_FLUIDS, Tag.TAG_COMPOUND);
         for (int i = 0; i < fluidEntries.size(); i++) {
             CompoundTag fluidTag = fluidEntries.getCompound(i);
             String fluidId = fluidTag.getString(NBT_FLUID_ID);
             long amount = fluidTag.getLong(NBT_FLUID_AMOUNT);
-            if (fluidId == null || fluidId.isBlank() || amount <= 0L) {
+            if (fluidId.isBlank() || amount <= 0L) {
                 continue;
             }
             ResourceLocation key = ResourceLocation.tryParse(fluidId);
             if (key == null || !BuiltInRegistries.FLUID.containsKey(key)) {
                 continue;
             }
-            session.internalFluidMb.put(fluidId, amount);
+            session.sessionFlags.internalFluidMb.put(fluidId, amount);
         }
     }
 
+    /** 将内部流体数据保存到 NBT */
     private static void saveInternalFluids(RtsStorageSession session, CompoundTag root) {
         ListTag fluidEntries = new ListTag();
-        for (var entry : session.internalFluidMb.entrySet()) {
+        for (var entry : session.sessionFlags.internalFluidMb.entrySet()) {
             String fluidId = entry.getKey();
             long amount = entry.getValue() == null ? 0L : entry.getValue();
             if (fluidId == null || fluidId.isBlank() || amount <= 0L) {
@@ -162,11 +179,12 @@ public final class RtsStorageSessionCodec {
     }
 
     // ======================================================================
-    //  Recent entries
+    //  近期条目
     // ======================================================================
 
+    /** 从 NBT 加载近期条目列表 */
     private static void loadRecentEntries(RtsStorageSession session, CompoundTag root) {
-        session.recentEntries.clear();
+        session.uiMemory.getRecentEntries().clear();
         ListTag recentEntries = root.getList(NBT_RECENT_ENTRIES, Tag.TAG_COMPOUND);
         for (int i = 0; i < recentEntries.size(); i++) {
             CompoundTag recentTag = recentEntries.getCompound(i);
@@ -174,19 +192,20 @@ public final class RtsStorageSessionCodec {
             long amount = recentTag.getLong(NBT_RECENT_ENTRY_AMOUNT);
             long capacity = recentTag.getLong(NBT_RECENT_ENTRY_CAPACITY);
             byte kind = recentTag.getByte(NBT_RECENT_ENTRY_KIND);
-            if (entryId == null || entryId.isBlank() || amount <= 0L) {
+            if (entryId.isBlank() || amount <= 0L) {
                 continue;
             }
-            session.recentEntries.addLast(new RecentEntry(entryId, amount, Math.max(0L, capacity), kind));
-            if (session.recentEntries.size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) {
+            session.uiMemory.addRecentEntryLast(new RecentEntry(entryId, amount, Math.max(0L, capacity), kind));
+            if (session.uiMemory.getRecentEntries().size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) {
                 break;
             }
         }
     }
 
+    /** 将近期条目列表保存到 NBT */
     private static void saveRecentEntries(RtsStorageSession session, CompoundTag root) {
         ListTag recentEntries = new ListTag();
-        for (RecentEntry recentEntry : session.recentEntries) {
+        for (RecentEntry recentEntry : session.uiMemory.getRecentEntries()) {
             if (recentEntry == null || recentEntry.id() == null || recentEntry.id().isBlank()) {
                 continue;
             }
@@ -201,25 +220,26 @@ public final class RtsStorageSessionCodec {
     }
 
     // ======================================================================
-    //  Quick slots
+    //  快速槽位
     // ======================================================================
 
+    /** 从 NBT 加载快速槽位配置 */
     private static void loadQuickSlots(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        Arrays.fill(session.quickSlotItemIds, "");
-        Arrays.fill(session.quickSlotPreviews, ItemStack.EMPTY);
+        Arrays.fill(session.uiMemory.getQuickSlotItemIds(), "");
+        Arrays.fill(session.uiMemory.getQuickSlotPreviews(), ItemStack.EMPTY);
         ListTag quickSlots = root.getList(NBT_QUICK_SLOTS, Tag.TAG_COMPOUND);
         for (int i = 0; i < quickSlots.size(); i++) {
             CompoundTag quickSlotTag = quickSlots.getCompound(i);
             int slot = quickSlotTag.getInt(NBT_QUICK_SLOT_INDEX);
             String itemId = quickSlotTag.getString(NBT_QUICK_SLOT_ITEM_ID);
-            if (slot < 0 || slot >= RtsStorageBindings.QUICK_SLOT_COUNT || itemId == null || itemId.isBlank()) {
+            if (slot < 0 || slot >= RtsStorageBindings.QUICK_SLOT_COUNT || itemId.isBlank()) {
                 continue;
             }
             ResourceLocation key = ResourceLocation.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 continue;
             }
-            session.quickSlotItemIds[slot] = itemId;
+            session.uiMemory.setQuickSlotItemId(slot, itemId);
             ItemStack preview = ItemStack.EMPTY;
             if (quickSlotTag.contains(NBT_QUICK_SLOT_STACK, Tag.TAG_COMPOUND)) {
                 preview = ItemStack.parseOptional(player.registryAccess(), quickSlotTag.getCompound(NBT_QUICK_SLOT_STACK));
@@ -227,17 +247,18 @@ public final class RtsStorageSessionCodec {
                     preview = ItemStack.EMPTY;
                 }
             }
-            session.quickSlotPreviews[slot] = preview.isEmpty()
+            session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
                     ? new ItemStack(BuiltInRegistries.ITEM.get(key))
-                    : preview.copyWithCount(1);
+                    : preview.copyWithCount(1));
         }
     }
 
+    /** 将快速槽位配置保存到 NBT */
     private static void saveQuickSlots(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         ListTag quickSlots = new ListTag();
-        for (int i = 0; i < session.quickSlotItemIds.length; i++) {
-            String itemId = session.quickSlotItemIds[i];
-            if (itemId == null || itemId.isBlank()) {
+        for (int i = 0; i < session.uiMemory.getQuickSlotCount(); i++) {
+            String itemId = session.uiMemory.getQuickSlotItemId(i);
+            if (itemId.isBlank()) {
                 continue;
             }
             ResourceLocation key = ResourceLocation.tryParse(itemId);
@@ -247,8 +268,8 @@ public final class RtsStorageSessionCodec {
             CompoundTag quickSlotTag = new CompoundTag();
             quickSlotTag.putInt(NBT_QUICK_SLOT_INDEX, i);
             quickSlotTag.putString(NBT_QUICK_SLOT_ITEM_ID, itemId);
-            ItemStack preview = i < session.quickSlotPreviews.length && session.quickSlotPreviews[i] != null
-                    ? session.quickSlotPreviews[i]
+            ItemStack preview = i < session.uiMemory.getQuickSlotPreviews().length && session.uiMemory.getQuickSlotPreview(i) != null
+                    ? session.uiMemory.getQuickSlotPreview(i)
                     : ItemStack.EMPTY;
             if (!preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.get(key))) {
                 quickSlotTag.put(NBT_QUICK_SLOT_STACK, preview.copyWithCount(1).save(player.registryAccess()));
@@ -259,11 +280,12 @@ public final class RtsStorageSessionCodec {
     }
 
     // ======================================================================
-    //  GUI bindings
+    //  GUI 绑定
     // ======================================================================
 
+    /** 从 NBT 加载 GUI 绑定配置 */
     private static void loadGuiBindings(RtsStorageSession session, CompoundTag root) {
-        Arrays.fill(session.guiBindings, null);
+        Arrays.fill(session.uiMemory.getGuiBindings(), null);
         ListTag guiBindings = root.getList(NBT_GUI_BINDINGS, Tag.TAG_COMPOUND);
         for (int i = 0; i < guiBindings.size(); i++) {
             CompoundTag bindingTag = guiBindings.getCompound(i);
@@ -288,19 +310,20 @@ public final class RtsStorageSessionCodec {
                     face = Direction.from3DDataValue(faceId);
                 }
             }
-            session.guiBindings[slot] = new GuiBinding(
+            session.uiMemory.setGuiBinding(slot, new GuiBinding(
                     BlockPos.of(bindingTag.getLong(NBT_GUI_BINDING_POS)).immutable(),
                     ResourceKey.create(Registries.DIMENSION, key),
-                    label == null ? "" : label,
+                    label,
                     normalizedItemId,
-                    face);
+                    face));
         }
     }
 
+    /** 将 GUI 绑定配置保存到 NBT */
     private static void saveGuiBindings(RtsStorageSession session, CompoundTag root) {
         ListTag guiBindings = new ListTag();
-        for (int i = 0; i < session.guiBindings.length; i++) {
-            GuiBinding binding = session.guiBindings[i];
+        for (int i = 0; i < session.uiMemory.getGuiBindingCount(); i++) {
+            GuiBinding binding = session.uiMemory.getGuiBinding(i);
             if (binding == null || binding.pos() == null || binding.dimension() == null) {
                 continue;
             }
@@ -319,12 +342,15 @@ public final class RtsStorageSessionCodec {
     }
 
     // ======================================================================
-    //  Placement jobs (active + pending)
+    //  放置任务（待处理 + 进行中）
     // ======================================================================
 
+    /** 待处理放置任务列表的 NBT 键名 */
     private static final String NBT_PENDING_PLACEMENT_JOBS = "pending_placement_jobs";
+    /** 进行中放置任务列表的 NBT 键名 */
     private static final String NBT_ACTIVE_PLACEMENT_JOBS = "active_placement_jobs";
 
+    /** 从 NBT 加载放置任务（待处理 + 进行中） */
     private static void loadPlacementJobs(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         session.placement.pendingJobs.clear();
         session.placement.placeBatchJobs.clear();
@@ -333,21 +359,18 @@ public final class RtsStorageSessionCodec {
         for (int i = 0; i < pendingList.size(); i++) {
             RtsPlacementBatch.PlaceBatchJob job =
                     RtsPlacementBatch.PlaceBatchJob.fromNbt(pendingList.getCompound(i), player.registryAccess());
-            if (job != null) {
-                session.placement.pendingJobs.addLast(job);
-            }
+            session.placement.pendingJobs.addLast(job);
         }
 
         ListTag activeList = root.getList(NBT_ACTIVE_PLACEMENT_JOBS, Tag.TAG_COMPOUND);
         for (int i = 0; i < activeList.size(); i++) {
             RtsPlacementBatch.PlaceBatchJob job =
                     RtsPlacementBatch.PlaceBatchJob.fromNbt(activeList.getCompound(i), player.registryAccess());
-            if (job != null) {
-                session.placement.placeBatchJobs.addLast(job);
-            }
+            session.placement.placeBatchJobs.addLast(job);
         }
     }
 
+    /** 将放置任务保存到 NBT（待处理 + 进行中） */
     private static void savePlacementJobs(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         ListTag pendingList = new ListTag();
         for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobs) {
@@ -367,9 +390,64 @@ public final class RtsStorageSessionCodec {
     }
 
     // ======================================================================
-    //  Utilities
+    //  破坏任务（待处理 + 挂起）
     // ======================================================================
 
+    /** 待处理破坏任务列表的 NBT 键名 */
+    private static final String NBT_ACTIVE_DESTROY_JOBS = "active_destroy_jobs";
+    /** 挂起破坏任务列表的 NBT 键名 */
+    private static final String NBT_PENDING_DESTROY_JOBS = "pending_destroy_jobs";
+
+    /** 从 NBT 加载破坏任务（待处理 + 挂起） */
+    private static void loadDestroyJobs(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
+        session.destruction.destroyJobs.clear();
+        session.destruction.pendingDestroyJobs.clear();
+
+        ListTag activeList = root.getList(NBT_ACTIVE_DESTROY_JOBS, Tag.TAG_COMPOUND);
+        for (int i = 0; i < activeList.size(); i++) {
+            RtsDestructionBatch.DestructionJob job =
+                    RtsDestructionBatch.DestructionJob.fromNbt(activeList.getCompound(i));
+            session.destruction.destroyJobs.addLast(job);
+        }
+
+        ListTag pendingList = root.getList(NBT_PENDING_DESTROY_JOBS, Tag.TAG_COMPOUND);
+        for (int i = 0; i < pendingList.size(); i++) {
+            RtsDestructionBatch.DestructionJob job =
+                    RtsDestructionBatch.DestructionJob.fromNbt(pendingList.getCompound(i));
+            session.destruction.pendingDestroyJobs.addLast(job);
+        }
+    }
+
+    /** 将破坏任务保存到 NBT（待处理 + 挂起） */
+    private static void saveDestroyJobs(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
+        ListTag activeList = new ListTag();
+        for (RtsDestructionBatch.DestructionJob job : session.destruction.destroyJobs) {
+            if (job != null) {
+                activeList.add(job.toNbt());
+            }
+        }
+        root.put(NBT_ACTIVE_DESTROY_JOBS, activeList);
+
+        ListTag pendingList = new ListTag();
+        for (RtsDestructionBatch.DestructionJob job : session.destruction.pendingDestroyJobs) {
+            if (job != null) {
+                pendingList.add(job.toNbt());
+            }
+        }
+        root.put(NBT_PENDING_DESTROY_JOBS, pendingList);
+    }
+
+    // ======================================================================
+    //  工具方法
+    // ======================================================================
+
+    /**
+     * 清理并截断保存的文本，去除前后空白。
+     *
+     * @param value    原始文本
+     * @param maxLength 最大允许长度
+     * @return 清理后的文本，长度不超过 maxLength
+     */
     private static String sanitizeSavedText(String value, int maxLength) {
         if (value == null || value.isBlank()) {
             return "";
@@ -379,6 +457,12 @@ public final class RtsStorageSessionCodec {
         return clean.length() <= limit ? clean : clean.substring(0, limit);
     }
 
+    /**
+     * 从存储的序数值解析排序方式。
+     *
+     * @param ordinal 存储的排序枚举序数
+     * @return 对应的排序方式，如果超出范围则返回默认排序（数量）
+     */
     private static RtsStorageSort parseSavedSort(int ordinal) {
         RtsStorageSort[] values = RtsStorageSort.values();
         if (ordinal < 0 || ordinal >= values.length) {

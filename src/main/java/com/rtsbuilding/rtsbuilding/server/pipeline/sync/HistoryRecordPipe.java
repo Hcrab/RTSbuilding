@@ -11,28 +11,30 @@ import net.minecraft.core.Direction;
 
 import java.util.List;
 
-// ── TypedKey in same package, explicit import for incremental compiler ──
+// ── TypedKey 同包内，显式导入以供增量编译器使用 ──
 
 
 /**
- * Records a batch of block-break operations in the player's history.
+ * 在玩家的历史中记录一批方块破坏操作。
  *
- * <p>Supports two mutually exclusive input modes:</p>
+ * <p>支持两种互斥的输入模式：</p>
  * <ul>
- *   <li><b>Rich records</b> — {@link #ARG_HISTORY_RECORDS} as
- *       {@code List<HistoryBlockRecord>} (before-state captured by caller),
- *       delegates to {@link ServerHistoryManager#recordBreakWithRecords}.</li>
- *   <li><b>Simple positions</b> — {@link #ARG_HISTORY_POSITIONS} as
- *       {@code List<BlockPos>}, captures current state internally,
- *       delegates to {@link ServerHistoryManager#recordBreak}.</li>
+ *   <li><b>丰富记录</b> —— {@link #ARG_HISTORY_RECORDS} 作为
+ *       {@code List<HistoryBlockRecord>}（由调用者捕获破坏前状态），
+ *       委托给 {@link ServerHistoryManager#recordBreakWithRecords}。</li>
+ *   <li><b>简单位置</b> —— {@link #ARG_HISTORY_POSITIONS} 作为
+ *       {@code List<BlockPos>}，内部捕获当前状态，
+ *       委托给 {@link ServerHistoryManager#recordBreak}。</li>
  * </ul>
  *
- * <p>If both keys are absent, this pipe is a no-op.</p>
+ * <p>如果两个键都不存在，此 Pipe 为空操作。</p>
  */
 public final class HistoryRecordPipe implements PipelinePipe<PipelineContext> {
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static final TypedKey<List<BlockPos>> ARG_HISTORY_POSITIONS =
             new TypedKey<>("historyPositions", (Class) List.class);
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static final TypedKey<List<HistoryBlockRecord>> ARG_HISTORY_RECORDS =
             new TypedKey<>("historyRecords", (Class) List.class);
     public static final TypedKey<Direction> ARG_HISTORY_FACE =

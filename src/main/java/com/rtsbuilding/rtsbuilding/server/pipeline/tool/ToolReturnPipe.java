@@ -7,19 +7,18 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLeaseManager;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 
 /**
- * Returns the borrowed mining tool (if any) to the player's inventory or
- * linked storage.
+ * 将借用的挖掘工具（如果有）归还到玩家的物品栏或链接存储。
  *
- * <p>Reads from shared data:</p>
+ * <p>从共享数据中读取：</p>
  * <ul>
- *   <li>{@code "toolLease"} — {@link RtsToolLease} previously borrowed (may be absent)</li>
+ *   <li>{@code "toolLease"} —— {@link RtsToolLease} 先前借用的（可能不存在）</li>
  * </ul>
  *
- * <p>This pipe is safe to include even when no tool was borrowed — it simply
- * skips if no lease data is present.</p>
+ * <p>即使未借用工具，包含此 Pipe 也是安全的——
+ * 如果不存在租约数据则直接跳过。</p>
  */
 public final class ToolReturnPipe implements PipelinePipe<PipelineContext> {
 

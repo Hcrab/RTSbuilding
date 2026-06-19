@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers;
+import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
@@ -76,8 +77,6 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handlePlaceAnimation(p, ctx);
             case S2CRtsBreakAnimationPayload p ->
                     RtsClientNetworkHandlers.handleBreakAnimation(p, ctx);
-            case S2CRtsUltimineProgressPayload p ->
-                    RtsClientNetworkHandlers.handleUltimineProgress(p, ctx);
             case S2CRtsHistorySyncPayload p ->
                     RtsClientNetworkHandlers.handleHistorySync(p, ctx);
             case S2CRtsWorkflowProgressPayload p ->
@@ -86,6 +85,8 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleWorkflowProgressBatch(p, ctx);
             case S2CRtsResumePlacementScanPayload p ->
                     RtsClientNetworkHandlers.handleResumePlacementScan(p, ctx);
+            case S2CRtsBlueprintResumeScanPayload p ->
+                    RtsClientNetworkHandlers.handleBlueprintResumeScan(p, ctx);
             default -> {}
         }
     }
@@ -129,6 +130,19 @@ public final class ClientPayloadDispatcher {
         switch (payload) {
             case S2CRtsDamageFeedbackPayload p ->
                     RtsClientNetworkHandlers.handleDamageFeedback(p, ctx);
+            default -> {}
+        }
+    }
+
+    // ======================================================================
+    //  Blueprint domain
+    // ======================================================================
+
+    public static void dispatchBlueprintStatus(Object payload, IPayloadContext ctx) {
+        if (!IS_CLIENT) return;
+        switch (payload) {
+            case S2CBlueprintStatusPayload p ->
+                    RtsClientNetworkHandlers.handleBlueprintStatus(p, ctx);
             default -> {}
         }
     }

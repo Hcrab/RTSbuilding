@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.data.RtsWorkflowStore;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventListener;
@@ -12,6 +11,8 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
+import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -28,26 +29,24 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Central workflow engine — the single implementation of {@link IWorkflowEngine}.
+ * 工作流引擎核心——{@link IWorkflowEngine} 的唯一实现。
  *
- * <p>This engine manages workflow state internally using a per-player
- * {@link RtsWorkflowSlotManager}.  All lifecycle operations go through
- * {@link RtsWorkflowToken} instances that are created by this engine.
- * Events are dispatched to registered listeners via the event bus.</p>
+ * <p>本引擎使用每个玩家的 {@link RtsWorkflowSlotManager} 在内部管理工作流状态。
+ * 所有生命周期操作都通过本引擎创建的 {@link RtsWorkflowToken} 实例进行。
+ * 事件通过事件总线分发到已注册的监听器。</p>
  *
- * <p>The engine is designed as a top-level singleton service.  Obtain the
- * instance via {@link #getInstance()}.</p>
+ * <p>引擎设计为顶层单例服务。通过 {@link #getInstance()} 获取实例。</p>
  *
- * <h3>Key design decisions</h3>
+ * <h3>关键设计决策</h3>
  * <ul>
- *   <li><b>Token-only consumer API:</b> External code never touches entries
- *       directly.  All interactions go through {@link RtsWorkflowToken}.</li>
- *   <li><b>Event-driven:</b> Subsystems react to workflow lifecycle events
- *       instead of being wired through explicit callbacks.</li>
- *   <li><b>EntryId-based:</b> All internal lookups use the immutable entry ID,
- *       not the positional index (which shifts on removal).</li>
- *   <li><b>Timeout-safe:</b> {@link RtsWorkflowTimeoutService} periodically
- *       cleans up stale entries to prevent slot exhaustion.</li>
+ *   <li><b>仅通过令牌的消费者 API：</b>外部代码绝不直接触碰条目。
+ *       所有交互通过 {@link RtsWorkflowToken} 进行。</li>
+ *   <li><b>事件驱动：</b>子系统通过响应工作流生命周期事件来工作，
+ *       而非通过显式回调串联。</li>
+ *   <li><b>基于条目 ID：</b>所有内部查找使用不可变的条目 ID，
+ *       而非位置索引（索引会在删除时偏移）。</li>
+ *   <li><b>超时安全：</b>{@link RtsWorkflowTimeoutService} 定期清理
+ *       过时条目以防止槽位耗尽。</li>
  * </ul>
  */
 public final class RtsWorkflowEngine implements IWorkflowEngine {
@@ -55,54 +54,71 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     private static final RtsWorkflowEngine INSTANCE = new RtsWorkflowEngine();
 
     // ──────────────────────────────────────────────────────────────────
-    //  State
+    //  状态
     // ──────────────────────────────────────────────────────────────────
 
-    /** Per-player, per-dimension slot managers, lazily created. */
+    /** 每个玩家每个维度的槽位管理器，懒加载创建。 */
     private final Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerSlots = new ConcurrentHashMap<>();
 
     /**
-     * Tracks the most recent valid {@link ServerPlayer} reference per UUID.
-     * Updated on every {@code start()}, {@code from()}, and {@code lastActive()} call.
+     * 追踪每个 UUID 最近的有效 {@link ServerPlayer} 引用。
+     * 每次调用 {@code start()}、{@code from()} 和 {@code lastActive()} 时更新。
      */
     private final Map<UUID, ServerPlayer> playerRefs = new ConcurrentHashMap<>();
 
-    /** Event bus for lifecycle events. */
+    /** 生命周期事件的事件总线。 */
     private final RtsWorkflowEventBus eventBus = new RtsWorkflowEventBus();
 
-    /** Network sync service. */
+    /** 网络同步服务。 */
     private final RtsWorkflowSyncService syncService = new RtsWorkflowSyncService();
 
-    /** Optional timeout service (started separately). */
+    /** 可选的超时服务（单独启动）。 */
     private RtsWorkflowTimeoutService timeoutService;
 
+    /**
+     * 蓝图工作流重载处理器——服务端重启后自动恢复蓝图的 Tick 管道。
+     * 由蓝图模块在初始化时注册，避免引擎直接依赖蓝图类型。
+     */
+    @Nullable
+    private static BlueprintRestoreHandler blueprintRestoreHandler;
+
+    /** 注册蓝图重载处理器。 */
+    public static void setBlueprintRestoreHandler(@Nullable BlueprintRestoreHandler handler) {
+        blueprintRestoreHandler = handler;
+    }
+
+    @FunctionalInterface
+    public interface BlueprintRestoreHandler {
+        void restore(ServerPlayer player, RtsWorkflowEntry entry);
+    }
+
     // ──────────────────────────────────────────────────────────────────
-    //  Singleton
+    //  单例
     // ──────────────────────────────────────────────────────────────────
 
     private RtsWorkflowEngine() {
     }
 
-    /** Returns the singleton engine instance. */
+    /** 返回单例引擎实例。 */
     public static RtsWorkflowEngine getInstance() {
         return INSTANCE;
     }
 
     /**
-     * Starts the timeout service.  Call once during mod initialisation.
+     * 启动超时服务。在模组初始化期间调用一次。
      *
-     * @param checkInterval how often to scan for stale workflows
-     * @param maxIdleTime   maximum idle time before cleanup
+     * @param checkInterval 扫描过期工作流的间隔
+     * @param maxIdleTime   清理前的最大空闲时间
      */
     public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
         if (timeoutService == null) {
-            timeoutService = new RtsWorkflowTimeoutService(this, playerSlots);
+            timeoutService = new RtsWorkflowTimeoutService(playerSlots, playerRefs, eventBus, syncService);
             timeoutService.start(checkInterval, maxIdleTime);
         }
     }
 
     /**
-     * Stops the timeout service.  Call during mod shutdown.
+     * 停止超时服务。在模组关闭时调用。
      */
     public void stopTimeoutService() {
         if (timeoutService != null) {
@@ -112,12 +128,12 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Internal API (package-private, called by RtsWorkflowToken)
+    //  内部 API（包级私有，由 RtsWorkflowToken 调用）
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Finds an entry by player UUID, dimension, and entry ID.
-     * Package-private — called by {@link RtsWorkflowToken}.
+     * 根据玩家 UUID、维度和条目 ID 查找条目。
+     * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
     @Nullable
     RtsWorkflowEntry findEntry(UUID playerId, ResourceKey<Level> dimension, int entryId) {
@@ -127,15 +143,13 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
-     * Removes an entry by player UUID, dimension, and entry ID, then notifies the
-     * client and fires an event.
-     * Package-private — called by {@link RtsWorkflowToken}.
+     * 根据玩家 UUID、维度和条目 ID 移除条目，然后通知客户端并触发事件。
+     * 包级私有——由 {@link RtsWorkflowToken} 调用。
      *
-     * <p>Uses {@link RtsWorkflowSlotManager#removeEntryById(int)} to find
-     * and remove in a single pass, avoiding a separate index lookup.
-     * {@link RtsWorkflowSyncService#notifyPlayer} internally dispatches
-     * {@code idle()} when no entries remain, so the caller does not need
-     * to check {@code occupiedCount()} beforehand.</p>
+     * <p>使用 {@link RtsWorkflowSlotManager#removeEntryById(int)} 在一次遍历中
+     * 完成查找和移除，避免额外的索引查找。
+     * 当没有剩余条目时，{@link RtsWorkflowSyncService#notifyPlayer} 内部会
+     * 自动分发 {@code idle()}，因此调用者无需提前检查 {@code occupiedCount()}。</p>
      */
     void removeEntry(UUID playerId, ResourceKey<Level> dimension, int entryId) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
@@ -144,7 +158,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         boolean removed = slots.removeEntryById(entryId);
         if (!removed) return;
 
-        // Notify the player via network (notifyPlayer handles idle case internally)
+        // 通过网络通知玩家（notifyPlayer 内部处理 idle 的情况）
         ServerPlayer player = findPlayerByUUID(playerId);
         if (player != null) {
             syncService.notifyPlayer(player, slots);
@@ -152,8 +166,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
-     * Sends a full workflow state update to the player for the given dimension.
-     * Package-private — called by {@link RtsWorkflowToken}.
+     * 向指定维度的玩家发送完整的工作流状态更新。
+     * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
     void notifyPlayer(UUID playerId, ResourceKey<Level> dimension) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
@@ -166,15 +180,15 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
-     * Fires a lifecycle event.
-     * Package-private — called by {@link RtsWorkflowToken}.
+     * 触发生命周期事件。
+     * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
     void fireEvent(WorkflowEventType type, UUID playerId, int entryId, RtsWorkflowEntry entry) {
         eventBus.fire(new WorkflowEvent(type, playerId, entryId, entry.snapshot()));
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  IWorkflowEngine — Starters
+    //  IWorkflowEngine — 启动器
     // ──────────────────────────────────────────────────────────────────
 
     @Override
@@ -198,7 +212,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         entry.setType(type);
         entry.setTotalBlocks(totalBlocks);
 
-        // Track the player reference for later notification
+        // 追踪玩家引用，供后续通知使用
         playerRefs.put(player.getUUID(), player);
 
         ResourceKey<Level> dimension = player.level().dimension();
@@ -212,7 +226,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  IWorkflowEngine — Token reconstruction
+    //  IWorkflowEngine — 令牌重建
     // ──────────────────────────────────────────────────────────────────
 
     @Override
@@ -240,7 +254,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  IWorkflowEngine — Event subscription
+    //  IWorkflowEngine — 事件订阅
     // ──────────────────────────────────────────────────────────────────
 
     @Override
@@ -254,7 +268,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  IWorkflowEngine — Queries
+    //  IWorkflowEngine — 查询
     // ──────────────────────────────────────────────────────────────────
 
     @Override
@@ -317,25 +331,24 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Pipeline integration — fire events without modifying entry
+    //  管道集成——触发事件但不修改条目
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Fires a lifecycle event for an existing workflow entry without
-     * modifying the entry itself.
+     * 为已有的工作流条目触发生命周期事件，但不修改条目本身。
      *
-     * <p>Used by the pipeline system to notify listeners when the sync
-     * phase of a pipeline completes (success → {@link WorkflowEventType#SYNC_PHASE_COMPLETED}
-     * or failure → {@link WorkflowEventType#CANCELLED}).
-     * Unlike calling {@link RtsWorkflowToken#complete()} or
-     * {@link RtsWorkflowToken#cancel()}, this method does <b>not</b>
-     * remove the entry, so the async work (mining batch, placement jobs,
-     * etc.) can continue after the pipeline fires SYNC_PHASE_COMPLETED.</p>
+     * <p>由管道系统使用，在管道的同步阶段完成时通知监听器
+     *（成功 → {@link WorkflowEventType#SYNC_PHASE_COMPLETED}
+     * 或失败 → {@link WorkflowEventType#CANCELLED}）。
+     * 与调用 {@link RtsWorkflowToken#complete()} 或
+     * {@link RtsWorkflowToken#cancel()} 不同，本方法<b>不会</b>
+     * 移除条目，因此异步作业（挖掘批次、放置任务等）可以在管道触发
+     * SYNC_PHASE_COMPLETED 后继续执行。</p>
      *
-     * @param player  the player who owns the workflow
-     * @param entryId the immutable entry ID
-     * @param type    the event type (typically {@link WorkflowEventType#SYNC_PHASE_COMPLETED}
-     *                or {@link WorkflowEventType#CANCELLED})
+     * @param player  工作流的拥有者玩家
+     * @param entryId 不可变的条目 ID
+     * @param type    事件类型（通常为 {@link WorkflowEventType#SYNC_PHASE_COMPLETED}
+     *                或 {@link WorkflowEventType#CANCELLED}）
      */
     public void firePipelineEvent(ServerPlayer player, int entryId, WorkflowEventType type) {
         if (player == null) return;
@@ -348,11 +361,11 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  IWorkflowEngine — Admin
+    //  IWorkflowEngine — 管理
     // ──────────────────────────────────────────────────────────────────
 
     // ──────────────────────────────────────────────────────────────────
-    //  Pause / Resume — per-entry valve
+    //  暂停/恢复——逐条目阀门
     // ──────────────────────────────────────────────────────────────────
 
     @Override
@@ -364,16 +377,48 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         return entry != null && entry.paused();
     }
 
+    @Override
+    public boolean isEntrySuspended(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+        if (playerId == null || dimension == null) return false;
+        RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
+        if (slots == null) return false;
+        RtsWorkflowEntry entry = slots.findEntryById(entryId);
+        return entry != null && entry.suspended();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  工作流条目额外数据（类型特定持久化）
+    // ──────────────────────────────────────────────────────────────────
+
+    @Override
+    public void setWorkflowExtraData(ServerPlayer player, int entryId, @Nullable CompoundTag data) {
+        if (player == null) return;
+        ResourceKey<Level> dimension = player.level().dimension();
+        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        if (slots == null) return;
+        RtsWorkflowEntry entry = slots.findEntryById(entryId);
+        if (entry == null) return;
+        entry.setExtraData(data);
+    }
+
+    @Override
+    public @Nullable CompoundTag getWorkflowExtraData(ServerPlayer player, int entryId) {
+        if (player == null) return null;
+        ResourceKey<Level> dimension = player.level().dimension();
+        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        if (slots == null) return null;
+        RtsWorkflowEntry entry = slots.findEntryById(entryId);
+        return entry == null ? null : entry.getExtraData();
+    }
+
     /**
-     * Pauses all active (non-suspended, non-paused) workflow entries for the
-     * given player across all dimensions.
+     * 暂停指定玩家在所有维度中的所有活动（非挂起、非已暂停）工作流条目。
      *
-     * <p>Used when the player disables RTS mode or disconnects without manually
-     * pausing their threads. Already-paused and suspended entries are left
-     * untouched.</p>
+     * <p>当玩家禁用 RTS 模式或未手动暂停线程就断开连接时使用。
+     * 已暂停和已挂起的条目保持不变。</p>
      *
-     * @param playerId the player's UUID
-     * @param notify   whether to send a network sync to the player (no-op if offline)
+     * @param playerId 玩家的 UUID
+     * @param notify   是否向玩家发送网络同步（离线时无操作）
      */
     public void pauseAllActive(UUID playerId, boolean notify) {
         if (playerId == null) return;
@@ -440,7 +485,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  IWorkflowEngine — World-switch cleanup
+    //  IWorkflowEngine — 世界切换清理
     // ──────────────────────────────────────────────────────────────────
 
     @Override
@@ -455,84 +500,29 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         int totalPlayers = playerSlots.size();
         playerSlots.clear();
         playerRefs.clear();
-        RtsbuildingMod.LOGGER.info("[Workflow] Cleared all workflow data ({} players)", totalPlayers);
+        RtsbuildingMod.LOGGER.info("[Workflow] 已清理所有工作流数据（共 {} 名玩家）", totalPlayers);
     }
-
-    @Override
-    public int cleanupStaleWorkflows(Duration maxIdleTime) {
-        int total = 0;
-        long maxIdleMs = maxIdleTime.toMillis();
-
-        for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry : playerSlots.entrySet()) {
-            UUID playerId = playerEntry.getKey();
-
-            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimEntry : playerEntry.getValue().entrySet()) {
-                RtsWorkflowSlotManager slots = dimEntry.getValue();
-
-                List<Integer> staleIds = slots.removeStaleEntries(maxIdleMs);
-                for (int staleId : staleIds) {
-                    fireEvent(WorkflowEventType.TIMEOUT, playerId, staleId, null);
-                    total++;
-                }
-
-                if (!staleIds.isEmpty()) {
-                    // Notify the player if they're still online
-                    ServerPlayer player = findPlayerByUUID(playerId);
-                    if (player != null) {
-                        if (slots.occupiedCount() > 0) {
-                            syncService.notifyPlayer(player, slots);
-                        } else {
-                            syncService.sendIdle(player);
-                        }
-                    }
-                }
-            }
-
-            // Remove empty dimension maps
-            playerEntry.getValue().entrySet().removeIf(e -> e.getValue().occupiedCount() == 0 && e.getValue().size() == 0);
-        }
-
-        // Remove players with no dimensions
-        playerSlots.values().removeIf(Map::isEmpty);
-        return total;
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  Persistence — save / load workflow entries
-    // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Saves all workflow entries for all players to the world save file.
-     * Call before server stop or periodically to persist workflow state.
-     *
-     * @param server the Minecraft server (used to derive the world save path)
+     * 将持久化委托给 {@link WorkflowPersistenceService}。
      */
     public void saveAll(MinecraftServer server) {
-        if (server == null) return;
-        RtsWorkflowStore.saveAll(server, playerSlots);
+        WorkflowPersistenceService.getInstance().saveAll(server, playerSlots);
     }
 
     /**
-     * Loads workflow entries for a specific player from the world save file
-     * and merges them into the in-memory slot managers.
-     *
-     * <p>Loaded entries are restored with their original state (suspended/paused),
-     * so the player will see their previous threads. The player is notified
-     * immediately so their UI reflects the restored entries.</p>
-     *
-     * @param server   the Minecraft server
-     * @param player the player whose entries to load
+     * 从世界存档加载玩家工作流并合并到内存。
      */
     public void loadPlayerFromStore(MinecraftServer server, ServerPlayer player) {
         if (server == null || player == null) return;
         UUID playerId = player.getUUID();
 
         Map<ResourceKey<Level>, RtsWorkflowSlotManager> loaded =
-                RtsWorkflowStore.loadPlayer(server, playerId);
+                WorkflowPersistenceService.getInstance().loadPlayerFromStore(server, playerId);
 
         if (loaded.isEmpty()) return;
 
-        // Merge loaded slot managers into the engine's in-memory map
+        // 将加载的槽位管理器合并到引擎的内存映射中
         Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimMap = playerSlots
                 .computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
 
@@ -541,29 +531,42 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             if (!dimMap.containsKey(dimension)) {
                 dimMap.put(dimension, entry.getValue());
             }
-            // If a slot manager already exists for this dimension (e.g. the
-            // player had active workflows when they disconnected), skip merging
-            // to avoid duplicating entries.
         }
 
-        // Notify the client so the UI shows the restored entries
+        // 通知客户端，使 UI 显示恢复的条目
         ResourceKey<Level> currentDim = player.level().dimension();
         RtsWorkflowSlotManager currentSlots = getSlots(playerId, currentDim);
         if (currentSlots != null && currentSlots.occupiedCount() > 0) {
             syncService.notifyPlayer(player, currentSlots);
         }
 
-        RtsbuildingMod.LOGGER.info("[Workflow] Loaded {} workflow entries for player {} from store",
+        // 尝试恢复蓝图工作流的 Tick 管道
+        if (blueprintRestoreHandler != null) {
+            int restored = 0;
+            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> entry : loaded.entrySet()) {
+                for (RtsWorkflowEntry we : entry.getValue().occupiedEntries()) {
+                    if (we.type() == RtsWorkflowType.BLUEPRINT_BUILD && we.getExtraData() != null) {
+                        blueprintRestoreHandler.restore(player, we);
+                        restored++;
+                    }
+                }
+            }
+            if (restored > 0) {
+                RtsbuildingMod.LOGGER.info("[Workflow] 已恢复 {} 个蓝图工作流管道", restored);
+            }
+        }
+
+        RtsbuildingMod.LOGGER.info("[Workflow] 已从存储加载玩家 {} 的 {} 个工作流条目",
                 loaded.values().stream().mapToInt(RtsWorkflowSlotManager::occupiedCount).sum(),
                 playerId);
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Internal helpers
+    //  内部辅助方法
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Gets or creates a slot manager for the given player in the player's current dimension.
+     * 获取或创建指定玩家在当前维度的槽位管理器。
      */
     private RtsWorkflowSlotManager getOrCreateSlots(ServerPlayer player) {
         playerRefs.put(player.getUUID(), player);
@@ -574,7 +577,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
-     * Gets the slot manager for the given player and dimension, or {@code null} if none exists.
+     * 获取指定玩家和维度的槽位管理器，若不存在则返回 {@code null}。
      */
     @Nullable
     private RtsWorkflowSlotManager getSlots(UUID playerId, ResourceKey<Level> dimension) {
@@ -584,18 +587,18 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
-     * Finds a ServerPlayer by UUID.  First checks the tracked player refs,
-     * then falls back to scanning the Minecraft server's player list.
-     * Returns null if the player is offline or not found.
+     * 根据 UUID 查找 ServerPlayer。
+     * 先检查缓存的玩家引用，然后回退到扫描 Minecraft 服务器的玩家列表。
+     * 如果玩家离线或未找到则返回 null。
      */
     @Nullable
     private ServerPlayer findPlayerByUUID(UUID playerId) {
-        // Check our tracked reference first
+        // 先检查缓存的引用
         ServerPlayer cached = playerRefs.get(playerId);
         if (cached != null && cached.level() != null && !cached.level().isClientSide()) {
             return cached;
         }
-        // Fallback: scan the server's player list
+        // 回退：扫描服务器的玩家列表
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
             ServerPlayer online = server.getPlayerList().getPlayer(playerId);
@@ -604,7 +607,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
                 return online;
             }
         }
-        // Player is offline — remove stale reference
+        // 玩家已离线——移除过期引用
         playerRefs.remove(playerId);
         return null;
     }

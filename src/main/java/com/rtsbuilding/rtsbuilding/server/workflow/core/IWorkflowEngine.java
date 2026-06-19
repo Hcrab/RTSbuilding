@@ -5,176 +5,185 @@ import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
-import java.time.Duration;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Central workflow engine interface — the single entry point for all workflow
- * lifecycle management.
+ * 工作流引擎核心接口——所有工作流生命周期的统一入口。
  *
- * <p>This interface defines the contract for starting, tracking, and querying
- * workflows. Every consumer <b>must</b> go through this interface rather than
- * accessing internal state directly. The recommended usage pattern is:</p>
+ * <p>本接口定义了启动、跟踪和查询工作流的契约。所有消费者<b>必须</b>通过本接口操作，
+ * 而非直接访问内部状态。推荐的使用模式如下：</p>
  *
  * <ol>
- *   <li>Obtain an {@link RtsWorkflowToken} via one of the {@code start*}
- *       methods.</li>
- *   <li>During processing, call token methods ({@link RtsWorkflowToken#markProgress()}
- *       etc.).</li>
- *   <li>When done, call {@link RtsWorkflowToken#complete()} or
- *       {@link RtsWorkflowToken#cancel()}.</li>
- *   <li>From a different code location, reconstruct the token via
- *       {@link #from(ServerPlayer, int)} using the previously saved
- *       {@code entryId}.</li>
+ *   <li>通过某个 {@code start*} 方法获取 {@link RtsWorkflowToken}。</li>
+ *   <li>在处理过程中，调用令牌的方法（{@link RtsWorkflowToken#markProgress()} 等）。</li>
+ *   <li>完成后，调用 {@link RtsWorkflowToken#complete()} 或
+ *       {@link RtsWorkflowToken#cancel()}。</li>
+ *   <li>从其他代码位置，通过之前保存的 {@code entryId} 使用
+ *       {@link #from(ServerPlayer, int)} 重建令牌。</li>
  * </ol>
  *
- * <p>All workflow state is managed internally by the engine implementation.
- * Consumers never touch {@code RtsStorageSession.workflow} directly.</p>
+ * <p>所有工作流状态由引擎实现内部管理。消费者不要直接触碰
+ * {@code RtsStorageSession.workflow}。</p>
  */
 public interface IWorkflowEngine {
 
     // ======================================================================
-    //  Workflow starters — 创建新工作流，返回令牌
+    //  工作流启动器
     // ======================================================================
 
     /**
-     * Starts a new workflow of the given type and priority.
+     * 启动一个指定类型和优先级的新工作流。
      *
-     * @param player      the server-side player
-     * @param type        the workflow type
-     * @param priority    the priority level
-     * @param totalBlocks total blocks to process; 0 if unknown
-     * @return a token representing the workflow, or empty if at capacity
+     * @param player      服务端玩家
+     * @param type        工作流类型
+     * @param priority    优先级
+     * @param totalBlocks 待处理的总方块数，未知则为 0
+     * @return 表示该工作流的令牌，若已达上限则返回空
      */
     Optional<RtsWorkflowToken> start(
             ServerPlayer player,
             RtsWorkflowType type, RtsWorkflowPriority priority, int totalBlocks);
 
     // ======================================================================
-    //  Token reconstruction — 从已有 entryId 重建令牌
+    //  令牌重建
     // ======================================================================
 
     /**
-     * Reconstructs a token for an existing workflow entry by its immutable entry ID.
-     * Useful when an entry ID was stored in a job record and needs to be updated
-     * from a different code location.
+     * 根据不可变的条目 ID 为已有的工作流条目重建令牌。
+     * 当条目 ID 已存储在任务记录中，需要从其他代码位置更新时使用。
      *
-     * @return the token, or empty if the entry no longer exists
+     * @return 令牌，若条目已不存在则返回空
      */
     Optional<RtsWorkflowToken> from(ServerPlayer player, int entryId);
 
     /**
-     * Creates a token for the most recent active (non-suspended) workflow entry.
-     * Best-effort; prefer using {@link #from(ServerPlayer, int)} with a stored entryId.
+     * 为最近的活动（非挂起）工作流条目创建令牌。
+     * 尽力而为；建议优先使用 {@link #from(ServerPlayer, int)} 配合已存储的 entryId。
      *
-     * @return the token, or empty if no active workflow exists
+     * @return 令牌，若没有活动工作流则返回空
      */
     Optional<RtsWorkflowToken> lastActive(ServerPlayer player);
 
     // ======================================================================
-    //  Event subscription
+    //  事件订阅
     // ======================================================================
 
     /**
-     * Registers a listener for workflow lifecycle events.
-     * Listeners are notified for all players' workflows.
+     * 注册一个工作流生命周期事件监听器。
+     * 监听器会收到所有玩家工作流的事件通知。
      */
     void addListener(WorkflowEventListener listener);
 
-    /** Removes a previously registered listener. */
+    /** 移除之前注册的监听器。 */
     void removeListener(WorkflowEventListener listener);
 
     // ======================================================================
-    //  Queries
+    //  查询
     // ======================================================================
 
     /**
-     * Returns structured progress data for the workflow identified by the token.
+     * 返回令牌对应工作流的结构化进度数据。
      *
-     * @return the workflow status, or {@link RtsWorkflowStatus#idle()} if invalid
+     * @return 工作流状态，若无效则返回 {@link RtsWorkflowStatus#idle()}
      */
     RtsWorkflowStatus getProgress(RtsWorkflowToken token);
 
     /**
-     * Returns structured progress data for a specific entry by its ID.
+     * 返回指定条目 ID 对应的结构化进度数据。
      *
-     * @return the workflow status, or {@link RtsWorkflowStatus#idle()} if not found
+     * @return 工作流状态，若未找到则返回 {@link RtsWorkflowStatus#idle()}
      */
     RtsWorkflowStatus getProgress(ServerPlayer player, int entryId);
 
-    /** Returns progress data for all occupied workflow entries of a player. */
+    /** 返回玩家所有已占用工作流条目的进度数据。 */
     List<RtsWorkflowStatus> getAllProgress(ServerPlayer player);
 
-    /** Returns true if the player has any active (non-suspended) workflows. */
+    /** 返回玩家是否有任何活动（非挂起）的工作流。 */
     boolean hasActiveWorkflow(ServerPlayer player);
 
-    /** Returns the number of active workflow entries for the player. */
+    /** 返回玩家的活动工作流条目数。 */
     int activeWorkflowCount(ServerPlayer player);
 
-    /** Returns the total number of occupied slots (active + suspended). */
+    /** 返回已占用的槽位总数（活动 + 挂起）。 */
     int occupiedSlotCount(ServerPlayer player);
 
-    /** Returns true if all workflow slots are occupied. */
+    /** 返回是否所有工作流槽位均已占用。 */
     boolean isFull(ServerPlayer player);
 
+    /**
+     * 设置工作流条目的额外持久化数据（工作流类型特定的上下文）。
+     *
+     * @param player   拥有者玩家
+     * @param entryId  目标条目 ID
+     * @param data     额外数据（可为 null 以清除）
+     */
+    void setWorkflowExtraData(ServerPlayer player, int entryId, @Nullable CompoundTag data);
+
+    /**
+     * 返回工作流条目的额外持久化数据。
+     *
+     * @return 额外数据，不存在时返回 null
+     */
+    @Nullable CompoundTag getWorkflowExtraData(ServerPlayer player, int entryId);
+
     // ======================================================================
-    //  Admin operations
+    //  管理操作
     // ======================================================================
 
     /**
-     * Deletes a workflow by its entry ID.  Notifies the client and fires
-     * a {@link WorkflowEventType#CANCELLED} event.
+     * 根据条目 ID 删除工作流。通知客户端并触发
+     * {@link WorkflowEventType#CANCELLED} 事件。
      */
     void deleteWorkflow(ServerPlayer player, int entryId);
 
-    /** Cancels all workflows for the given player in the current dimension. */
+    /** 取消当前维度中指定玩家的所有工作流。 */
     void cancelAll(ServerPlayer player);
 
     // ======================================================================
-    //  World-switch cleanup
+    //  世界切换清理
     // ======================================================================
 
     /**
-     * Removes all workflow data for a player across all dimensions.
-     * Called on player logout to prevent stale workflow entries from
-     * carrying over when the player joins a different world (save).
+     * 移除玩家在所有维度的工作流数据。
+     * 在玩家登出时调用，防止过时的工作流条目在玩家加入不同世界（存档）时残留。
      *
-     * @param playerId the player's UUID
+     * @param playerId 玩家的 UUID
      */
     void clearPlayerData(UUID playerId);
 
     /**
-     * Removes all workflow data for all players.
-     * Called on server stopped to fully reset the engine state.
+     * 移除所有玩家的工作流数据。
+     * 在服务器停止时调用，完全重置引擎状态。
      */
     void clearAllData();
 
     // ======================================================================
-    //  Pause / Resume — per-entry valve
+    //  暂停/恢复——逐条目阀门
     // ======================================================================
 
     /**
-     * Returns {@code true} if the specific workflow entry is paused.
+     * 返回指定工作流条目是否处于暂停状态。
      *
-     * @param playerId  the player's UUID
-     * @param dimension the dimension where the workflow was created
-     * @param entryId   the immutable workflow entry ID
+     * @param playerId  玩家的 UUID
+     * @param dimension 工作流创建时的维度
+     * @param entryId   不可变的工作流条目 ID
      */
     boolean isEntryPaused(UUID playerId, ResourceKey<Level> dimension, int entryId);
 
     /**
-     * Cleans up workflows that have been idle (no updates) beyond the
-     * specified duration.  Useful for garbage-collecting zombie workflows
-     * left behind by disconnected players or failed operations.
+     * 返回指定工作流条目是否处于挂起（等待物品）状态。
      *
-     * @param maxIdleTime maximum allowed idle time before cleanup
-     * @return number of workflows cleaned up
+     * @param playerId  玩家的 UUID
+     * @param dimension 工作流创建时的维度
+     * @param entryId   不可变的工作流条目 ID
      */
-    int cleanupStaleWorkflows(Duration maxIdleTime);
+    boolean isEntrySuspended(UUID playerId, ResourceKey<Level> dimension, int entryId);
 }

@@ -1,43 +1,27 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
-import java.util.Objects;
-
 /**
- * A key that carries its expected value type at both compile time and
- * runtime.
+ * 一个同时携带编译期和运行时期望类型的键。
  *
- * <p>Use with {@link PipelineContext#getArg(TypedKey)} /
- * {@link PipelineContext#getData(TypedKey)} to obtain type-safe access to
- * pipeline context arguments and shared data.</p>
+ * <p>配合 {@link PipelineContext#getArg(TypedKey)} /
+ * {@link PipelineContext#getData(TypedKey)} 使用，
+ * 实现对管道上下文参数和共享数据的类型安全访问。</p>
  *
- * <p>Usage:</p>
+ * <p>用法示例：</p>
  * <pre>{@code
  * public static final TypedKey<Integer> KEY_WORKFLOW_ENTRY_ID =
  *         new TypedKey<>("workflowEntryId", Integer.class);
  *
- * int id = ctx.getData(KEY_WORKFLOW_ENTRY_ID);  // no unchecked cast
+ * int id = ctx.getData(KEY_WORKFLOW_ENTRY_ID);  // 无需 unchecked 强制转换
  * }</pre>
  *
- * @param <T> the expected value type
+ * @param <T> 期望的值类型
  */
-public final class TypedKey<T> {
+public record TypedKey<T>(String name, Class<T> type) {
 
-    private final String name;
-    private final Class<T> type;
-
-    public TypedKey(String name, Class<T> type) {
-        this.name = Objects.requireNonNull(name, "name");
-        this.type = Objects.requireNonNull(type, "type");
-    }
-
-    /** Returns the underlying map key string. */
-    public String name() {
-        return name;
-    }
-
-    /** Returns the expected value type for runtime checked casts. */
-    public Class<T> type() {
-        return type;
+    public TypedKey {
+        java.util.Objects.requireNonNull(name, "name");
+        java.util.Objects.requireNonNull(type, "type");
     }
 
     @Override

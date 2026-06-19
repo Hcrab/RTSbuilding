@@ -3,16 +3,15 @@ package com.rtsbuilding.rtsbuilding.server.workflow.event;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
 
 /**
- * Functional interface for workflow lifecycle event listeners.
+ * 工作流生命周期事件监听器的函数式接口。
  *
- * <p>Register an instance via {@link IWorkflowEngine#addListener(WorkflowEventListener)}
- * to react to workflow state changes.  Implementations must be thread-safe
- * and should not block.</p>
+ * <p>通过 {@link IWorkflowEngine#addListener(WorkflowEventListener)}
+ * 注册实例，以响应工作流状态变更。实现必须是线程安全的，且不应阻塞。</p>
  *
  * <pre>{@code
  * engine.addListener(event -> {
  *     if (event.type() == WorkflowEventType.COMPLETED) {
- *         // Refresh storage page
+ *         // 刷新存储页面
  *     }
  * });
  * }</pre>

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 
 import javax.annotation.Nullable;
@@ -11,54 +11,52 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Mutable context object passed through every {@link PipelinePipe} in a
- * {@link WorkflowPipeline} execution.
+ * 可变上下文对象，在 {@link WorkflowPipeline} 执行的每个 {@link PipelinePipe} 中传递。
  *
- * <p>The context carries:</p>
+ * <p>上下文携带：</p>
  * <ul>
- *   <li><b>Immutable inputs</b> ({@code args}) — set once at pipeline creation,
- *       never modified.  Access via {@link #getArg(String)}.</li>
- *   <li><b>Mutable shared data</b> ({@code data}) — pipes can read/write here to
- *       pass intermediate results (e.g. workflow entry ID, tool lease, history
- *       records) to downstream pipes.  Access via
- *       {@link #getData(String)} / {@link #setData(String, Object)}.</li>
- *   <li><b>Player and session</b> — the fundamental execution context.</li>
+ *   <li><b>不可变输入</b>（{@code args}）—— 在管道创建时一次性设置，永不修改。
+ *       通过 {@link #getArg(TypedKey)} 访问。</li>
+ *   <li><b>可变共享数据</b>（{@code data}）—— 管道可在此读写，用于向下游管道传递
+ *       中间结果（如工作流条目 ID、工具租约、历史记录）。
+ *       通过 {@link #getData(TypedKey)} / {@link #setData(TypedKey, Object)} 访问。</li>
+ *   <li><b>玩家和会话</b> —— 基本的执行上下文。</li>
  * </ul>
  *
- * <p>All keys are defined as {@link TypedKey} constants so the compiler (and
- * runtime via {@link Class#cast(Object)}) can verify type safety.  Prefer
- * the typed {@link #getArg(TypedKey)} / {@link #getData(TypedKey)} overloads
- * over the raw {@code String}-based methods.</p>
+ * <p>所有键均定义为 {@link TypedKey} 常量，以便编译器（以及运行时通过
+ * {@link Class#cast(Object)}）验证类型安全。
+ * 优先使用类型化的 {@link #getArg(TypedKey)} / {@link #getData(TypedKey)} 重载
+ * 而非原始的基于 {@code String} 的方法。</p>
  */
 public class PipelineContext {
 
-    /** Key for the workflow entry ID stored in shared data. */
+    /** 共享数据中工作流条目 ID 的键。 */
     public static final TypedKey<Integer> KEY_WORKFLOW_ENTRY_ID =
             new TypedKey<>("workflowEntryId", Integer.class);
 
     // ──────────────────────────────────────────────────────────────────
-    //  Immutable fields
+    //  不可变字段
     // ──────────────────────────────────────────────────────────────────
 
     private final ServerPlayer player;
     private final Map<String, Object> args;
 
     // ──────────────────────────────────────────────────────────────────
-    //  Mutable shared data
+    //  可变共享数据
     // ──────────────────────────────────────────────────────────────────
 
     private final Map<String, Object> data = new HashMap<>();
     private PipelineResult result;
 
     // ──────────────────────────────────────────────────────────────────
-    //  Construction
+    //  构造
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Creates a new pipeline context.
+     * 创建管道上下文。
      *
-     * @param player the server-side player executing the operation
-     * @param args   immutable input arguments (a defensive copy is taken)
+     * @param player 执行操作的服务器端玩家
+     * @param args   不可变输入参数（会创建防御性副本）
      */
     public PipelineContext(ServerPlayer player, Map<String, Object> args) {
         this.player = Objects.requireNonNull(player, "player");
@@ -66,32 +64,32 @@ public class PipelineContext {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Getters
+    //  获取器
     // ──────────────────────────────────────────────────────────────────
 
-    /** Returns the server-side player. */
+    /** 返回服务器端玩家。 */
     public ServerPlayer player() {
         return player;
     }
 
     /**
-     * Returns the player's storage session from shared data, or {@code null}
-     * if {@link SessionValidatePipe} has not run yet.
+     * 从共享数据中返回玩家的存储会话，如果 {@link SessionValidatePipe}
+     * 尚未运行则返回 {@code null}。
      */
     @Nullable
     public RtsStorageSession session() {
         return getData(SessionValidatePipe.KEY_SESSION);
     }
 
-    /** Returns an immutable view of the input arguments. */
+    /** 返回输入参数的不可变视图。 */
     public Map<String, Object> args() {
         return args;
     }
 
     /**
-     * Retrieves a typed input argument by {@link TypedKey}.
+     * 通过 {@link TypedKey} 获取类型化的输入参数。
      *
-     * @throws ClassCastException if the value is not of the expected type
+     * @throws ClassCastException 如果值不是期望的类型
      */
     @Nullable
     public <T> T getArg(TypedKey<T> key) {
@@ -100,43 +98,27 @@ public class PipelineContext {
         return key.type().cast(value);
     }
 
-    /**
-     * Retrieves a typed input argument by raw {@code String} key.
-     *
-     * @deprecated Use {@link #getArg(TypedKey)} for compile-time + runtime
-     *             type safety.  This method performs no runtime checked cast
-     *             and may silently return a value of the wrong type.
-     */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    @Nullable
-    public <T> T getArg(String key) {
-        return (T) args.get(key);
-    }
-
-    /**
-     * Returns {@code true} if the args map contains the given key.
-     */
+    /** 如果 args 映射包含指定键则返回 {@code true}。 */
     public boolean hasArg(TypedKey<?> key) {
         return args.containsKey(key.name());
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  Shared data (mutable — pipes communicate through this)
+    //  共享数据（可变 — 管道间通过此通信）
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Stores a value in the shared data map using a {@link TypedKey}.
-     * The value type is checked by the compiler against the key's type parameter.
+     * 使用 {@link TypedKey} 将值存入共享数据映射。
+     * 编译器会根据键的类型参数检查值类型。
      */
     public <T> void setData(TypedKey<T> key, T value) {
         data.put(key.name(), value);
     }
 
     /**
-     * Retrieves a typed value from the shared data map by {@link TypedKey}.
+     * 通过 {@link TypedKey} 从共享数据映射中获取类型化的值。
      *
-     * @throws ClassCastException if the value is not of the expected type
+     * @throws ClassCastException 如果值不是期望的类型
      */
     @Nullable
     public <T> T getData(TypedKey<T> key) {
@@ -146,25 +128,22 @@ public class PipelineContext {
     }
 
     /**
-     * Returns {@code true} if the shared data map contains the given key.
+     * 如果共享数据映射包含指定键则返回 {@code true}。
      */
     public boolean hasData(TypedKey<?> key) {
         return data.containsKey(key.name());
     }
 
-    // ── Deprecated String-based overloads ───────────────────────────
-
     /**
-     * Removes all shared data except the specified keys.
-     * Called after the sync phase completes to free intermediate data
-     * before the tickable phase begins.
+     * 移除除指定键之外的所有共享数据。
+     * 在同步阶段完成后调用，以在可 Tick 阶段开始前释放中间数据。
      *
-     * <p>Only values associated with the given keys are preserved; all
-     * other entries in the shared data map are discarded.  This prevents
-     * transient sync-phase data (queue mode flags, intermediate results)
-     * from lingering in memory for the duration of a long tickable phase.</p>
+     * <p>仅保留与给定键关联的值；共享数据映射中
+     * 的所有其他条目均被丢弃。这防止了瞬态同步阶段数据
+     *（队列模式标志、中间结果）在长时间的可 Tick 阶段中
+     * 持续占用内存。</p>
      *
-     * @param keys the keys whose values should be retained
+     * @param keys 应保留其值的键
      */
     public void retainOnly(TypedKey<?>... keys) {
         Map<String, Object> retained = new HashMap<>();
@@ -178,44 +157,12 @@ public class PipelineContext {
         data.putAll(retained);
     }
 
-    // ── Deprecated String-based overloads ───────────────────────────
-
-    /**
-     * @deprecated Use {@link #setData(TypedKey, Object)} for compile-time
-     *             type safety.  This method accepts any {@code Object} and
-     *             will not validate the type at runtime.
-     */
-    @Deprecated
-    public void setData(String key, Object value) {
-        data.put(key, value);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(TypedKey)} for compile-time + runtime
-     *             type safety.  This method performs no runtime checked cast.
-     */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    @Nullable
-    public <T> T getData(String key) {
-        return (T) data.get(key);
-    }
-
-    /**
-     * @deprecated Use {@link #hasData(TypedKey)} for type-safe key usage.
-     */
-    @Deprecated
-    public boolean hasData(String key) {
-        return data.containsKey(key);
-    }
-
     // ──────────────────────────────────────────────────────────────────
-    //  Pipeline result
+    //  管道结果
     // ──────────────────────────────────────────────────────────────────
 
     /**
-     * Returns the pipeline result, or {@code null} if the pipeline has not
-     * completed yet.
+     * 返回管道结果，如果管道尚未完成则返回 {@code null}。
      */
     @Nullable
     public PipelineResult result() {
@@ -223,8 +170,8 @@ public class PipelineContext {
     }
 
     /**
-     * Sets the pipeline result.  Called internally by
-     * {@link WorkflowPipeline#execute(PipelineContext)}.
+     * 设置管道结果。由 {@link WorkflowPipeline#execute(PipelineContext)}
+     * 内部调用。
      */
     public void setResult(PipelineResult result) {
         this.result = result;

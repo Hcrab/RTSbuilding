@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -23,13 +24,37 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
- * 远程菜单管理服务——处理 RTS 模式下远程打开菜单的校验绕过和状态追踪。
+ * 远程菜单管理服务——处理 RTS 模式下远程打开容器菜单的校验绕过和状态追踪。
  *
- * <p>职责范围：
+ * <p>RTS 相机模式下玩家与世界中的容器方块距离很远，
+ * 原版的 {@code Container.stillValid()} 和 {@code ContainerLevelAccess.evaluate()}
+ * 会因距离校验失败而关闭菜单。此服务通过反射替换这些校验组件，
+ * 使远程菜单能够保持打开状态。
+ *
+ * <p><b>核心方法：</b>
  * <ul>
- *   <li>远程菜单校验绕过（反射替换 Container / ContainerLevelAccess）</li>
- *   <li>远程菜单打开状态记录与包装</li>
- *   <li>远程菜单打开提示包发送</li>
+ *   <li>{@link #relaxOpenedMenuValidation(AbstractContainerMenu)} —
+ *       通过反射扫描菜单的 {@link Container} 和 {@link ContainerLevelAccess} 字段，
+ *       替换为始终有效的包装器（{@link AlwaysValidContainer}、{@link RelaxedContainerLevelAccess}）</li>
+ *   <li>{@link #markRemoteMenuOpen(ServerPlayer, RtsStorageSession, AbstractContainerMenu, BlockPos)} —
+ *       记录远程菜单的容器 ID 和位置，标记服务端远程菜单状态</li>
+ *   <li>{@link #clearValidation(ServerPlayer, RtsStorageSession)} — 清除远程菜单状态</li>
+ *   <li>{@link #closeTracked(ServerPlayer, RtsStorageSession)} — 关闭跟踪的远程菜单</li>
+ *   <li>{@link #sendRemoteMenuOpenHint(ServerPlayer, BlockPos)} —
+ *       发送远程菜单打开提示包，刷新客户端的方块状态和方块实体数据</li>
+ * </ul>
+ *
+ * <p><b>内部包装器：</b>
+ * <ul>
+ *   <li>{@link AlwaysValidContainer} — {@code stillValid()} 始终返回 {@code true}</li>
+ *   <li>{@link RelaxedContainerLevelAccess} — {@code evaluate()} 对 {@code Boolean} 结果强制返回 {@code true}</li>
+ * </ul>
+ *
+ * <p><b>设计特点：</b>
+ * <ul>
+ *   <li>通过反射遍历菜单类及其所有父类的字段，兼容各种模组菜单</li>
+ *   <li>ChestMenu 保留其原始 Container 身份（preserveContainerIdentity=true）</li>
+ *   <li>反射访问不可访问或 final 字段时静默忽略，不破坏菜单功能</li>
  * </ul>
  */
 public final class RtsRemoteMenuService {
@@ -92,6 +117,25 @@ public final class RtsRemoteMenuService {
         } else {
             RtsRemoteMenuCompat.clearServerRemoteMenu(player);
         }
+    }
+
+    public static void clearValidation(ServerPlayer player, RtsStorageSession session) {
+        if (session != null) {
+            session.transfer.remoteMenuContainerId = -1;
+            session.transfer.remoteMenuPos = null;
+        }
+        RtsRemoteMenuCompat.clearServerRemoteMenu(player);
+    }
+
+    public static void closeTracked(ServerPlayer player, RtsStorageSession session) {
+        if (player == null || session == null || session.transfer.remoteMenuContainerId < 0) return;
+        if (player.containerMenu != null
+                && player.containerMenu.containerId == session.transfer.remoteMenuContainerId
+                && !(player.containerMenu instanceof InventoryMenu)) {
+            player.closeContainer();
+        }
+        session.transfer.remoteMenuContainerId = -1;
+        session.transfer.remoteMenuPos = null;
     }
 
     public static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {

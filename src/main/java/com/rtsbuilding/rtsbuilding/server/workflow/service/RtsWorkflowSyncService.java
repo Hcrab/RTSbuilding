@@ -11,24 +11,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Handles network synchronisation of workflow state from server to client.
+ * 处理工作流状态从服务端到客户端的网络同步。
  *
- * <p>This service encapsulates all {@link S2CRtsWorkflowProgressPayload}
- * creation and dispatch logic so that the engine does not need to deal
- * with wire-format details directly.</p>
+ * <p>本服务封装了所有 {@link S2CRtsWorkflowProgressPayload}
+ * 创建和分发逻辑，引擎无需直接处理有线格式细节。</p>
  *
- * <p>Uses the positional index for payloads (as the client expects), but
- * the engine always identifies entries by their immutable entry ID.</p>
+ * <p>对于负载使用位置索引（客户端期望的格式），
+ * 但引擎始终通过不可变的条目 ID 来标识条目。</p>
  */
 public final class RtsWorkflowSyncService {
 
     private static final int MAX_WORKFLOWS = 8;
 
     /**
-     * Sends all occupied workflow entries to the client as individual payloads.
+     * 将所有已占用的工作流条目作为独立负载发送给客户端。
      *
-     * @param player the server-side player to notify
-     * @param slots  the player's slot manager
+     * @param player 要通知的服务端玩家
+     * @param slots  该玩家的槽位管理器
      */
     public void notifyPlayer(ServerPlayer player, RtsWorkflowSlotManager slots) {
         if (player == null || slots == null) return;
@@ -41,7 +40,7 @@ public final class RtsWorkflowSyncService {
             return;
         }
 
-        // Collect all entries and send as a single batch packet
+        // 收集所有条目，作为单个批次包发送
         List<S2CRtsWorkflowProgressPayload> entries = new ArrayList<>(totalCount);
         int entryCount = Math.min(slots.size(), MAX_WORKFLOWS);
         for (int i = 0; i < entryCount; i++) {
@@ -67,14 +66,14 @@ public final class RtsWorkflowSyncService {
     }
 
     /**
-     * Sends a single-entry final snapshot to the client and then notifies
-     * with the updated state.  Called when a workflow completes.
+     * 向客户端发送单个条目的最终快照，然后通知更新后的状态。
+     * 在工作流完成时调用。
      */
     public void notifyCompletion(ServerPlayer player, RtsWorkflowSlotManager slots,
                                   RtsWorkflowEntry entry, int removedAtIndex) {
         if (player == null || entry == null) return;
 
-        // Send final snapshot for this entry before removing it
+        // 在移除前发送此条目的最终快照
         RtsWorkflowStatus status = entry.snapshot();
         int remainingCount = slots.occupiedCount() - 1;
         PacketDistributor.sendToPlayer(player, new S2CRtsWorkflowProgressPayload(
@@ -91,12 +90,12 @@ public final class RtsWorkflowSyncService {
                 (byte) 0,
                 entry.id()));
 
-        // Notify with updated state if any entries remain
+        // 如果还有剩余条目，通知更新后的状态
         notifyPlayer(player, slots);
     }
 
     /**
-     * Sends an idle (no active workflows) payload to the client.
+     * 向客户端发送空闲（无活动工作流）负载。
      */
     public void sendIdle(ServerPlayer player) {
         if (player != null) {

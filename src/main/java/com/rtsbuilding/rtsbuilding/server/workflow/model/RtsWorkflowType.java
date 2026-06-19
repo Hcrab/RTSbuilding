@@ -1,42 +1,44 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.model;
 
 /**
- * Types of workflows that can be tracked by the workflow system.
+ * 可由工作流系统跟踪的工作流类型。
  *
- * <p>Each enum constant represents a distinct category of remote operation:
- * single or batch, mining or placement.  This type is used to identify the
- * active workflow in the UI and to decide which progress/reporting format
- * to use.</p>
+ * <p>每个枚举常量代表远程操作的一个不同类别：
+ * 单次或批量、挖掘或放置。此类型用于在 UI 中标识活动工作流，
+ * 并决定使用哪种进度/报告格式。</p>
  */
 public enum RtsWorkflowType {
 
-    /** Single-block remote mining. */
+    /** 单方块远程挖掘。 */
     MINE_SINGLE,
 
-    /** Connected-block (ultimine) batch mining. */
+    /** 连锁（ultimine）批量挖掘。 */
     ULTIMINE,
 
-    /** Area-mine operation within a defined 3D volume. */
+    /** 在定义的 3D 体积内进行区域挖掘操作。 */
     AREA_MINE,
 
-    /** Shape-destroy operation from Quick-Build preview. */
+    /** 快速建造预览中的形状摧毁操作。 */
     AREA_DESTROY,
 
-    /** Single-block remote placement. */
+    /** 单方块远程放置。 */
     PLACE_SINGLE,
 
-    /** Multi-block batch placement (interactive per-position placement). */
+    /** 多方块批量放置（交互式逐位置放置）。 */
     PLACE_BATCH,
 
-    /** Quick-build (pre-resolved state) shape placement. */
+    /** 快速建造（预解析状态）形状放置。 */
     QUICK_BUILD,
 
+    /** 蓝图文件远程放置构建。 */
+    BLUEPRINT_BUILD,
+
     /**
-     * Standalone stop-mining operation (no new mining started afterwards).
+     * 独立的停止挖掘操作（之后不会启动新的挖掘）。
      *
-     * <p>Used when the player explicitly cancels a mining operation or
-     * disables RTS mode.  Unlike the implicit stop inside
-     * {@code StopPreviousPipe}, this is a user-initiated stop.</p>
+     * <p>当玩家显式取消挖掘操作或禁用 RTS 模式时使用。
+     * 与 {@code StopPreviousPipe} 内部的隐式停止不同，
+     * 这是由用户发起的停止。</p>
      */
     STOP_MINING
 }

@@ -7,15 +7,15 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 
 /**
- * Completes the workflow entry identified by the entry ID in shared data.
+ * 完成由共享数据中的条目 ID 标识的工作流条目。
  *
- * <p>Reads from shared data:</p>
+ * <p>从共享数据中读取：</p>
  * <ul>
- *   <li>{@code "workflowEntryId"} — {@code int} the entry ID to complete</li>
+ *   <li>{@code "workflowEntryId"} —— {@code int} 要完成的条目 ID</li>
  * </ul>
  *
- * <p>This pipe is safe to include even when no workflow was started — it
- * simply skips if no entry ID is present.</p>
+ * <p>即使未启动工作流，包含此 Pipe 也是安全的——
+ * 如果不存在条目 ID 则直接跳过。</p>
  */
 public final class WorkflowCompletePipe implements PipelinePipe<PipelineContext> {
 

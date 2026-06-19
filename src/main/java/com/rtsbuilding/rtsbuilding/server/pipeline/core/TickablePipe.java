@@ -1,34 +1,32 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 /**
- * A pipeline pipe that executes across multiple server ticks.
+ * 跨多个服务器 Tick 执行的管道 Pipe。
  *
- * <p>Unlike a regular {@link PipelinePipe} which runs once synchronously,
- * a {@code TickablePipe} is invoked every server tick until it signals
- * completion.  This makes it ideal for operations whose lifecycle spans
- * several ticks — ultimine batch processing, area mining, etc.</p>
+ * <p>与一次性同步执行的常规 {@link PipelinePipe} 不同，
+ * {@code TickablePipe} 每个服务器 Tick 被调用一次，直到它发出完成信号。
+ * 这使得它非常适合生命周期跨越多个 Tick 的操作——
+ * 连锁挖掘批处理、区域挖掘等。</p>
  *
- * <p>Implementations should be <b>stateless</b> where possible, storing
- * intermediate state in the shared data of {@link PipelineContext}.  If
- * instance state is needed, create a new instance per pipeline execution
- * (the {@link TickablePipelineRegistry} handles this).</p>
+ * <p>实现应尽可能<b>无状态</b>，将中间状态存储在 {@link PipelineContext}
+ * 的共享数据中。如果需要实例状态，每次管道执行应创建新实例
+ *（{@link TickablePipelineRegistry} 会处理这一点）。</p>
  *
- * <h3>Contract</h3>
+ * <h3>契约</h3>
  * <ul>
- *   <li>Return {@link TickResult#running()} to keep ticking next frame.</li>
- *   <li>Return {@link TickResult#done()} to signal normal completion.</li>
- *   <li>Return {@link TickResult#error(String)} to signal failure.</li>
- *   <li>Exceptions thrown by {@code tick()} are caught and treated as
- *       {@link TickResult.Error}.</li>
+ *   <li>返回 {@link TickResult#running()} 以在下一帧继续 Tick。</li>
+ *   <li>返回 {@link TickResult#done()} 以信号正常完成。</li>
+ *   <li>返回 {@link TickResult#error(String)} 以信号失败。</li>
+ *   <li>{@code tick()} 抛出的异常会被捕获并视为 {@link TickResult.Error}。</li>
  * </ul>
  *
- * <h3>Example</h3>
+ * <h3>示例</h3>
  * <pre>{@code
- * // Monitor ultimine batch progress
+ * // 监控连锁挖掘批处理进度
  * PipelineRegistry.register(RtsWorkflowType.ULTIMINE)
  *     .pipe(new ProgressionGatePipe(RtsFeature.ULTIMINE))
  *     .pipe(new SessionValidatePipe())
- *     // ... sync pipes ...
+ *     // ... 同步管道 ...
  *     .tickable(new UltimineTickPipe())
  *     .register();
  * }</pre>
@@ -37,13 +35,13 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 public interface TickablePipe {
 
     /**
-     * Called every server tick while this pipe is registered in the
-     * {@link TickablePipelineRegistry}.
+     * 每个服务器 Tick 调用一次，只要此 Pipe 在
+     * {@link TickablePipelineRegistry} 中注册。
      *
-     * @param ctx the pipeline context (player, session, args, shared data)
-     * @return the tick result — {@link TickResult#running()} to continue,
-     *         {@link TickResult#done()} to finish, or
-     *         {@link TickResult#error(String)} to fail
+     * @param ctx 管道上下文（玩家、会话、参数、共享数据）
+     * @return Tick 结果——返回 {@link TickResult#running()} 以继续，
+     *         {@link TickResult#done()} 以完成，或
+     *         {@link TickResult#error(String)} 以失败
      */
     TickResult tick(PipelineContext ctx);
 }

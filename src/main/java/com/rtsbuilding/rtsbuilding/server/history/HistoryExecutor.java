@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceOperationTemplate;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -182,7 +181,7 @@ public final class HistoryExecutor {
                 ItemStack stack = new ItemStack(expectedState.getBlock().asItem());
                 if (!stack.isEmpty()) {
                     boolean refunded = false;
-                    RtsStorageSession session = RtsSessionService.getIfPresent(player);
+                    RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
                     if (session != null) {
                         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
                         List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
@@ -205,11 +204,9 @@ public final class HistoryExecutor {
 
         // 撤回后强制刷新 RTS 页面，确保退还到链接储存后的数量正确显示
         if (!isCreative) {
-            RtsStorageSession session = RtsSessionService.getIfPresent(player);
+            RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
             if (session != null) {
-                RtsStorageTickService.INSTANCE.forceRefresh(player);
-                session.transfer.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+                ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }
 
