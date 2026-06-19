@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
-import com.rtsbuilding.rtsbuilding.common.blueprint.BlueprintReplaceRules;
+import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;

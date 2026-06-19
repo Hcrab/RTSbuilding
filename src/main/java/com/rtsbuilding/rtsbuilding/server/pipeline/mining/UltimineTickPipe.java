@@ -46,11 +46,11 @@ public final class UltimineTickPipe implements TickablePipe {
         if (miningActive) {
             // ── 队列模式检测 ────────────────────────────────────
             //    Pipeline 2 在 Pipeline 1 仍在运行时注册。
-            //    如果我们的条目 ID 不是 RtsMiningStateMachine.WORKFLOW_ENTRY_IDS
+            //    如果我们的条目 ID 不是 session.mining.workflowEntryId
             //    当前追踪的那个，则我们正在队列中等待——
             //    直接返回 running，不做任何操作。
             boolean inQueueWait = !mctx.hasWorkflowEntryId()
-                    || RtsMiningStateMachine.getWorkflowEntryId(mctx.player().getUUID()) != mctx.getWorkflowEntryId();
+                    || session.mining.workflowEntryId != mctx.getWorkflowEntryId();
             if (inQueueWait) {
                 return TickResult.running();
             }

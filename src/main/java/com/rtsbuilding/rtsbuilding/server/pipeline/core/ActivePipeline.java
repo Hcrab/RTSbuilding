@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -28,6 +27,7 @@ public final class ActivePipeline {
     private final ServerPlayer player;
     private final PipelineContext ctx;
     private final TickablePipe pipe;
+    private final int workflowEntryId;
     private boolean completed;
 
     /**
@@ -39,6 +39,9 @@ public final class ActivePipeline {
         this.player = player;
         this.ctx = ctx;
         this.pipe = pipe;
+        // 在构造时缓存工作流条目 ID，避免后续每 tick 从 data map 中 hasData + getData 两次查找
+        Integer cached = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
+        this.workflowEntryId = cached != null ? cached : -1;
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -58,6 +61,14 @@ public final class ActivePipeline {
     /** 返回此管道是否已完成 Tick。 */
     public boolean isCompleted() {
         return completed;
+    }
+
+    /**
+     * 返回缓存的工作流条目 ID，若未关联工作流则返回 -1。
+     * 消除每 tick 通过 ctx.hasData + ctx.getData 两次 HashMap 查找的开销。
+     */
+    public int entryId() {
+        return workflowEntryId;
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -119,12 +130,10 @@ public final class ActivePipeline {
      * 即使在业务逻辑已完成工作流后调用此方法也是安全的。</p>
      */
     private void completeWorkflow() {
-        if (!ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
+        if (workflowEntryId < 0) {
             return;
         }
-        int entryId = Objects.requireNonNull(
-                ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID));
-        RtsWorkflowEngine.getInstance().from(player, entryId)
+        RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
                 .ifPresent(RtsWorkflowToken::complete);
     }
 
@@ -136,16 +145,14 @@ public final class ActivePipeline {
      * 即使没有条目 ID 也是安全的——它会变为空操作。</p>
      */
     private void rollbackWorkflow() {
-        if (!ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
+        if (workflowEntryId < 0) {
             return;
         }
-        int entryId = Objects.requireNonNull(
-                ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID));
-        RtsWorkflowEngine.getInstance().from(player, entryId)
+        RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
                 .ifPresent(token -> {
                     token.cancel();
                     RtsbuildingMod.LOGGER.info("[ActivePipeline] Rolled back workflow #{} for player {}",
-                            entryId, player.getGameProfile().getName());
+                            workflowEntryId, player.getGameProfile().getName());
                 });
     }
 }

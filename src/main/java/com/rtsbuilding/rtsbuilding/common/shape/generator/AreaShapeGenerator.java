@@ -1,5 +1,7 @@
-package com.rtsbuilding.rtsbuilding.common.shape;
+package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
+import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
+import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -11,48 +13,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Area shape generator — abstract base for shape-based coordinate generation.
+ * 区域形状生成器抽象基类 —— 形状坐标生成的基础。
  * <p>
- * Inspired by {@code BaseMode} from Building Gadgets 2.  Each concrete
- * subclass knows how to generate a set of {@link BlockPos} coordinates for
- * one geometric shape (box, wall, line, circle, etc.) given an
- * {@link AreaShapeInput}.
- * <p>
- * Generators produce <b>relative</b> offsets from the anchor position and
- * items, tools, energy, or network state.  The executor layer
- * ({@link com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor}) owns
- * the actual block-state manipulation and item extraction.
+ * 每个具体子类负责为一种几何形状（长方体、墙体、直线、圆形等）
+ * 根据 {@link AreaShapeInput} 生成一组 {@link BlockPos} 坐标。
+ * 生成器产生的坐标相对于锚点位置，不涉及方块状态操作或物品提取。
+ * 实际的方块操作由上层执行器 {@link com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor} 负责。
  */
 public abstract class AreaShapeGenerator {
 
     /**
-     * Generates block positions for this shape.
+     * 生成该形状的方块位置列表。
      *
-     * @param input    shape input parameters (anchor, bounds, face, etc.)
-     * @param fillMode fill strategy (FILL / HOLLOW / SKELETON)
-     * @return ordered list of absolute world positions
+     * @param input    形状输入参数（锚点、边界、面等）
+     * @param fillMode 填充策略（FILL / HOLLOW / SKELETON）
+     * @return 有序的绝对世界坐标列表
      */
     public abstract List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode);
 
     /**
-     * Returns the human-readable / translation key suffix for this shape.
+     * 返回该形状的可读名称 / 翻译键后缀。
      */
     public abstract String getName();
 
     // ======================================================================
-    // Shared validation helpers
+    // 共享验证辅助方法
     // ======================================================================
 
     /**
-     * Shared base check: build-height range and world-interaction permission.
+     * 基础位置校验：检查建筑高度范围和世界交互权限。
      * <p>
-     * Both {@link #validatePlacementPosition} and {@link #validateDestroyPosition}
-     * start with the same two checks — this method consolidates them.
+     * {@link #validatePlacementPosition} 和 {@link #validateDestroyPosition}
+     * 都以同样的两个检查开始——此方法统一了它们。
      *
-     * @param level  the world
-     * @param pos    target position
-     * @param player the player performing the action
-     * @return true if the position is within build height and the player may interact
+     * @param level  世界
+     * @param pos    目标位置
+     * @param player 执行操作的玩家
+     * @return true 如果位置在建筑高度内且玩家可与之交互
      */
     private static boolean validatePositionBase(Level level, BlockPos pos, Player player) {
         if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
@@ -62,17 +59,15 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Validates that a block position is valid for placement.
+     * 验证方块位置是否可以放置方块。
      * <p>
-     * Equivalent to {@code BaseMode.isPosValid()} — checks build height,
-     * world interaction permission, and whether the existing block can be
-     * replaced.
+     * 检查建筑高度、交互权限以及现有方块是否可被替换。
      *
-     * @param level   the world
-     * @param pos     target position
-     * @param state   the block state to place
-     * @param player  the player performing the action
-     * @return true if this position may be used for placement
+     * @param level  世界
+     * @param pos    目标位置
+     * @param state  要放置的方块状态
+     * @param player 执行操作的玩家
+     * @return true 如果此处可以放置方块
      */
     public static boolean validatePlacementPosition(Level level, BlockPos pos, BlockState state, Player player) {
         if (!validatePositionBase(level, pos, player)) {
@@ -85,15 +80,14 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Validates that a block position is valid for destruction.
+     * 验证方块位置是否可以被破坏。
      * <p>
-     * Checks build-height range, world-interaction permission, and whether
-     * the existing block is air or unbreakable.
+     * 检查建筑高度、交互权限以及目标方块是否为空或不可破坏。
      *
-     * @param level  the world
-     * @param pos    target position
-     * @param player the player performing the action
-     * @return true if the block at this position may be destroyed
+     * @param level  世界
+     * @param pos    目标位置
+     * @param player 执行操作的玩家
+     * @return true 如果此处的方块可以被破坏
      */
     public static boolean validateDestroyPosition(ServerLevel level, BlockPos pos, Player player) {
         if (!validatePositionBase(level, pos, player)) {
@@ -107,7 +101,7 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Clamps a shape offset to the maximum allowed range.
+     * 将形状偏移量限制在最大允许范围内（±64 格）。
      */
     protected static int clampOffset(int value) {
         int max = 64;
@@ -115,14 +109,14 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Computes the dot product of a delta vector against one axis.
+     * 计算向量 (dx, dy, dz) 在指定轴上的投影（点积）。
      */
     protected static int dotDelta(int dx, int dy, int dz, Direction axis) {
         return (dx * axis.getStepX()) + (dy * axis.getStepY()) + (dz * axis.getStepZ());
     }
 
     /**
-     * Generates a straight line of connected blocks between two positions (inclusive, Bresenham-style).
+     * 在两个位置之间生成一条直线（包含两端，Bresenham 风格）。
      */
     protected static List<BlockPos> generateLinePositions(BlockPos start, BlockPos end) {
         int dx = end.getX() - start.getX();
@@ -145,7 +139,7 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Resolves the two plane axes for a 2D shape based on the clicked face.
+     * 根据点击面确定 2D 形状的两个平面轴。
      */
     protected static Direction[] resolvePlaneAxes(Direction face) {
         return switch (face.getAxis()) {
@@ -156,7 +150,7 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Builds positions from start to end along two plane axes.
+     * 沿两个平面轴从起点生成所有方块位置。
      */
     protected static List<BlockPos> buildPlanePositions(BlockPos start, Direction axisA, Direction axisB,
                                                          int aMin, int aMax, int bMin, int bMax) {
@@ -173,7 +167,9 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * Filters a position list to keep only boundary positions (for HOLLOW / SKELETON modes).
+     * 过滤位置列表，仅保留边界位置（用于 HOLLOW / SKELETON 模式）。
+     * <p>
+     * 原理：如果一个方块在 X、Y、Z 中任一方向上的邻居不在集合中，则为边界方块。
      */
     protected static List<BlockPos> filterBoundary(List<BlockPos> full, int minY, int maxY) {
         java.util.Set<BlockPos> set = new java.util.HashSet<>(full);

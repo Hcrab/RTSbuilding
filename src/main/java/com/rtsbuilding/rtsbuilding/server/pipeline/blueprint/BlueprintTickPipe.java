@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.blueprint;
 
+import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
@@ -47,7 +48,12 @@ import java.util.List;
  */
 public final class BlueprintTickPipe implements TickablePipe {
 
-    private static final BlueprintService BLUEPRINT = ServiceRegistry.getInstance().blueprint();
+    /**
+     * 懒加载 BLUEPRINT 服务引用，避免类加载时 ServiceRegistry 尚未初始化导致 IllegalStateException。
+     */
+    private static BlueprintService getBlueprint() {
+        return ServiceRegistry.getInstance().blueprint();
+    }
 
     @Override
     public TickResult tick(PipelineContext ctx) {
@@ -192,7 +198,7 @@ public final class BlueprintTickPipe implements TickablePipe {
 
             BlueprintPersistence.clearFromEntry(player, entryId);
         }
-        BLUEPRINT.refreshPage(player);
+        getBlueprint().refreshPage(player);
         send(player, S2CBlueprintStatusPayload.SUCCESS,
                 "screen.rtsbuilding.blueprints.status.complete_partial",
                 completionSummary(
@@ -214,19 +220,20 @@ public final class BlueprintTickPipe implements TickablePipe {
                                                 BlueprintContext bctx, PlacementPlan plan) {
         List<ItemStack> extractedMaterials = new ArrayList<>(plan.items().size());
 
+        var bp = getBlueprint();
         if (!player.isCreative()) {
             if (plan.items().isEmpty()) {
                 if (plan.fluidCost() == Fluids.WATER) {
                     if (!hasReusableWater(player)) return PlaceResult.UNSUPPORTED;
                 } else if (plan.fluidCost() == Fluids.LAVA) {
-                    if (BLUEPRINT.countFluidMb(player, Fluids.LAVA)
+                    if (bp.countFluidMb(player, Fluids.LAVA)
                             < FluidType.BUCKET_VOLUME) return PlaceResult.UNSUPPORTED;
                 } else {
                     return PlaceResult.UNSUPPORTED;
                 }
             } else {
                 for (Item item : plan.items()) {
-                    ItemStack extracted = BLUEPRINT.extractMaterial(player, item, 1);
+                    ItemStack extracted = bp.extractMaterial(player, item, 1);
                     if (extracted.isEmpty()) {
                         refundExtractedMaterials(player, extractedMaterials);
                         return PlaceResult.MISSING_MATERIALS;
@@ -243,7 +250,7 @@ public final class BlueprintTickPipe implements TickablePipe {
         }
 
         if (!player.isCreative() && plan.fluidCost() == Fluids.LAVA
-                && !BLUEPRINT.extractFluid(player, Fluids.LAVA,
+                && !bp.extractFluid(player, Fluids.LAVA,
                         FluidType.BUCKET_VOLUME)) {
             level.removeBlock(plan.target(), false);
             refundExtractedMaterials(player, extractedMaterials);
@@ -255,7 +262,7 @@ public final class BlueprintTickPipe implements TickablePipe {
         for (Item item : plan.items()) {
             ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
             if (itemId != null) {
-                BLUEPRINT.noteBlockPlaced(player, plan.target(), itemId.toString());
+                bp.noteBlockPlaced(player, plan.target(), itemId.toString());
             }
         }
         return PlaceResult.PLACED;
@@ -263,8 +270,9 @@ public final class BlueprintTickPipe implements TickablePipe {
 
     private static void refundExtractedMaterials(ServerPlayer player, List<ItemStack> stacks) {
         if (player == null || stacks == null || stacks.isEmpty()) return;
+        var bp = getBlueprint();
         for (ItemStack stack : stacks) {
-            if (!stack.isEmpty()) BLUEPRINT.refundMaterial(player, stack);
+            if (!stack.isEmpty()) bp.refundMaterial(player, stack);
         }
     }
 
@@ -273,7 +281,7 @@ public final class BlueprintTickPipe implements TickablePipe {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) return false;
         if (level.getBlockEntity(target) != null) return false;
         BlockState current = level.getBlockState(target);
-        if (!com.rtsbuilding.rtsbuilding.common.blueprint.BlueprintReplaceRules.canBlueprintReplace(current)) {
+        if (!BlueprintReplaceRules.canBlueprintReplace(current)) {
             return false;
         }
         // 对齐范围放置：碰撞检测 + 方块能否存活
@@ -297,23 +305,25 @@ public final class BlueprintTickPipe implements TickablePipe {
      * @return true 如果所有材料都充足
      */
     private static boolean hasAllMaterialsForPlan(ServerPlayer player, PlacementPlan plan) {
+        var bp = getBlueprint();
         if (plan.items().isEmpty()) {
             if (plan.fluidCost() == Fluids.WATER) {
                 return hasReusableWater(player);
             } else if (plan.fluidCost() == Fluids.LAVA) {
-                return BLUEPRINT.countFluidMb(player, Fluids.LAVA) >= FluidType.BUCKET_VOLUME;
+                return bp.countFluidMb(player, Fluids.LAVA) >= FluidType.BUCKET_VOLUME;
             }
             return false;
         }
         for (Item item : plan.items()) {
-            if (BLUEPRINT.countMaterial(player, item) <= 0) return false;
+            if (bp.countMaterial(player, item) <= 0) return false;
         }
         return true;
     }
 
     private static boolean hasReusableWater(ServerPlayer player) {
-        long waterBuckets = BLUEPRINT.countMaterial(player, Items.WATER_BUCKET);
-        long storedWaterBuckets = BLUEPRINT.countFluidMb(player, Fluids.WATER)
+        var bp = getBlueprint();
+        long waterBuckets = bp.countMaterial(player, Items.WATER_BUCKET);
+        long storedWaterBuckets = bp.countFluidMb(player, Fluids.WATER)
                 / FluidType.BUCKET_VOLUME;
         return waterBuckets + storedWaterBuckets >= 2L;
     }

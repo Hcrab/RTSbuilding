@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.network.blueprint;
 
-import com.rtsbuilding.rtsbuilding.common.blueprint.BlueprintParseException;
-import com.rtsbuilding.rtsbuilding.common.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.common.blueprint.format.BlueprintReaders;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintParseException;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;

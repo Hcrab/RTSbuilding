@@ -132,13 +132,13 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] Executing {} for player={}, queueMode={}, toolSlot={}",
                 type, mctx.player().getGameProfile().getName(), queueMode, toolSlot);
 
-        // ── 在状态机追踪映射中存储工作流条目 ID ────────
+        // ── 在会话的 RtsMiningState 中存储工作流条目 ID ──
         //    在队列模式下，条目存储在 MiningJob 记录中
         //    并由 activateNextJob() 恢复；我们绝不能覆盖当前
         //    活跃的条目，否则 finalizeMiningOperation 将完成错误的
         //    工作流条目，导致排队的作业被强制停止。
         if (!queueMode && mctx.hasWorkflowEntryId()) {
-            RtsMiningStateMachine.setWorkflowEntryId(mctx.player().getUUID(), mctx.getWorkflowEntryId());
+            session.mining.workflowEntryId = mctx.getWorkflowEntryId();
         }
 
         switch (type) {

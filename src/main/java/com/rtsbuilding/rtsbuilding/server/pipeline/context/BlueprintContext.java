@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.context;
 
-import com.rtsbuilding.rtsbuilding.common.blueprint.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;

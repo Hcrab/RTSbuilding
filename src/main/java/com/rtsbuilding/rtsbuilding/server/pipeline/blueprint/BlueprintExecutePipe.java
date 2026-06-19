@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.blueprint;
 
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.common.blueprint.BlueprintTransform;
-import com.rtsbuilding.rtsbuilding.common.blueprint.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;

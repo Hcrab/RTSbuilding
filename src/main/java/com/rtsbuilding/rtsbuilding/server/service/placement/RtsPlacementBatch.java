@@ -4,13 +4,13 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsBatchJobTickOps;
+import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -131,7 +131,7 @@ public final class RtsPlacementBatch {
             return;
         }
         int totalBlocks = 0;
-        int pausedJobsSkipped = 0; // 连续暂停计数，防止无限循环
+        var pausedJobsSkipped = new RtsBatchJobTickOps.MutableInt(0); // 连续暂停计数，防止无限循环
         for (PlaceBatchJob j : session.placement.placeBatchJobs) {
             totalBlocks += j.totalCount();
         }
@@ -148,25 +148,17 @@ public final class RtsPlacementBatch {
         while (remaining > 0 && !session.placement.placeBatchJobs.isEmpty()) {
             PlaceBatchJob job = session.placement.placeBatchJobs.peekFirst();
             // Per-entry pause valve: 检查工作流是否存在或已暂停
-            boolean hasWorkflowEntry = hasWorkflowEntry(job);
-            Optional<RtsWorkflowToken> tokenOpt = workflowToken(player, job);
-            if (hasWorkflowEntry && tokenOpt.isEmpty()) {
-                // 工作流已被关闭（删除），从队列中移除该 job
-                session.placement.placeBatchJobs.removeFirst();
-                pausedJobsSkipped = 0;
-                continue;
+            var checkResult = RtsBatchJobTickOps.checkPausedOrCancelled(
+                    session.placement.placeBatchJobs, job, player,
+                    PlaceBatchJob::workflowEntryId, pausedJobsSkipped);
+            if (checkResult == null) {
+                break; // 所有剩余 job 都已暂停
             }
-            if (hasWorkflowEntry && tokenOpt.get().isPaused()) {
-                // 暂停：将 job 移到队尾，跳过此 tick
-                session.placement.placeBatchJobs.removeFirst();
-                session.placement.placeBatchJobs.addLast(job);
-                pausedJobsSkipped++;
-                if (pausedJobsSkipped >= session.placement.placeBatchJobs.size()) {
-                    break; // 所有剩余 job 都已暂停
-                }
-                continue;
+            if (checkResult.isEmpty()) {
+                continue; // 此 job 被跳过（已取消或暂停中）
             }
-            pausedJobsSkipped = 0;
+            var tokenOpt = Optional.ofNullable(checkResult.get().token());
+            boolean hasWorkflowEntry = tokenOpt.isPresent();
             boolean madeProgress = false;
             while (remaining > 0 && job.hasNext()) {
                 BlockPos clickedPos = job.next();
@@ -259,58 +251,30 @@ public final class RtsPlacementBatch {
         }
 
         // 处理所有此 tick 内完成的 job
-        for (PlaceBatchJob completedJob : fullyCompletedJobs) {
-            int before = placedBeforeTick.getOrDefault(completedJob.workflowEntryId(), 0);
-            int delta = completedJob.placedPositions.size() - before;
-            if (!completedJob.placedPositions.isEmpty()) {
-                ServerHistoryManager.recordPlacement(player, completedJob.placedPositions, completedJob.face());
-            }
-            if (delta > 0) {
-                workflowToken(player, completedJob).ifPresent(token -> token.updateProgress(delta, null));
-            }
-            // 报告失败（keepGoing=true 但方块未被实际放置）
-            int failed = completedJob.skippedWhileProcessing;
-            if (failed > 0) {
-                var token = RtsWorkflowEngine.getInstance().from(player, completedJob.workflowEntryId());
-                for (int i = 0; i < failed; i++) {
-                    token.ifPresent(t -> t.recordFailure());
-                }
-            }
-            // 每个job独立complete自己的workflow entry，避免已完成job的entry泄漏
-            workflowToken(player, completedJob).ifPresent(token -> token.complete());
-        }
-        // 只要此 tick 有 job 完成，就刷新一次储存页面（合并刷新）
-        if (!fullyCompletedJobs.isEmpty()) {
-            var reg = ServiceRegistry.getInstance();
-            reg.serviceOp().afterModification(player, session);
-        }
+        RtsBatchJobTickOps.processCompletedJobs(
+                player, session,
+                fullyCompletedJobs, placedBeforeTick,
+                PlaceBatchJob::workflowEntryId,
+                j -> j.placedPositions.size(),
+                j -> j.skippedWhileProcessing,
+                (p, job) -> {
+                    if (!job.placedPositions.isEmpty()) {
+                        ServerHistoryManager.recordPlacement(p, job.placedPositions, job.face());
+                    }
+                },
+                null); // Placement 无需额外完成回调
 
         // 更新仍在活跃队列中的 job 的中途进度（尚未完成但此 tick 有放置进展）
-        for (PlaceBatchJob j : session.placement.placeBatchJobs) {
-            int before = placedBeforeTick.getOrDefault(j.workflowEntryId(), 0);
-            int delta = j.placedPositions.size() - before;
-            if (delta > 0) {
-                workflowToken(player, j).ifPresent(token -> token.updateProgress(delta, null));
-                // 中途进度：放置方块消耗了储存物品，触发页面刷新以保证GUI实时更新
-                var reg = ServiceRegistry.getInstance();
-                reg.serviceOp().markDirty(player, session);
-                reg.serviceOp().refreshPage(player, session);
-            }
-        }
+        RtsBatchJobTickOps.updateMidProgress(
+                player, session,
+                session.placement.placeBatchJobs, placedBeforeTick,
+                PlaceBatchJob::workflowEntryId,
+                j -> j.placedPositions.size());
 
         // 放置完成后扫描世界实际状态，刷新所有工作流进度（不依赖事件触发）
-        RtsPendingPlacementService.refreshWorkflowProgress(player, session);
+        RtsProgressRefresher.refreshWorkflowProgress(player, session);
     }
 
-    private static boolean hasWorkflowEntry(PlaceBatchJob job) {
-        return job.workflowEntryId() >= 0;
-    }
-
-    private static Optional<RtsWorkflowToken> workflowToken(ServerPlayer player, PlaceBatchJob job) {
-        return hasWorkflowEntry(job)
-                ? RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId())
-                : Optional.empty();
-    }
 
     /**
      * 单个批处理放置作业，持有共享的放置参数和有序的目标位置列表。

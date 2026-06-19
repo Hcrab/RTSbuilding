@@ -74,4 +74,16 @@ public class RtsMiningState {
      */
     public final Deque<RtsMiningStateMachine.MiningJob> ultimineJobQueue = new ArrayDeque<>();
 
+    // ======================================================================
+    // 工作流条目 ID（替代旧的 RtsMiningStateMachine.WORKFLOW_ENTRY_IDS 静态映射）
+    // ======================================================================
+
+    /**
+     * 当前活跃挖掘操作对应的工作流条目 ID。
+     * -1 = 未关联工作流。
+     * 由 MiningExecutePipe / UltimineExecutePipe 在管道执行时写入，
+     * 由 RtsMiningStateMachine.tickActiveMining / stopActiveMining 读取，
+     * 在 finalizeMiningOperation 中读取并重置。
+     */
+    public int workflowEntryId = -1;
 }

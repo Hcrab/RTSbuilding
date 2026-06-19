@@ -249,7 +249,7 @@ public final class RtsMiningValidator {
             }
             // 连锁收集阶段只验证种子块能开挖；后续候选的工具判定留给批处理，
             // 避免铺开一片候选时重复计算整批工具速度。
-            if (RtsMiningStateMachine.computeRemoteDestroyStep(player, seedState, seed, toolSlot, linkedTool,
+            if (MiningSpeedCalculator.computeRemoteDestroyStep(player, seedState, seed, toolSlot, linkedTool,
                     selectedToolRequested) <= 0.0F) {
                 return new java.util.ArrayDeque<>();
             }

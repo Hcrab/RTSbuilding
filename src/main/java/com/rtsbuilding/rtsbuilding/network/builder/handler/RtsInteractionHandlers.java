@@ -3,10 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsResumeScanResult;
-import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -131,7 +128,7 @@ public final class RtsInteractionHandlers {
                 // 检查是否是蓝图工作流——蓝图没有 PlaceBatchJob，需走独立恢复路径
                 RtsWorkflowStatus status = RtsWorkflowEngine.getInstance().getProgress(serverPlayer, entryId);
                 if (status.isActive() && status.type() == RtsWorkflowType.BLUEPRINT_BUILD) {
-                    RtsPendingPlacementService.resumeBlueprintWorkflow(serverPlayer, entryId);
+                    RtsBlueprintJobService.resumeBlueprintWorkflow(serverPlayer, entryId);
                     return;
                 }
                 // 范围放置：使用 session 中的 PlaceBatchJob 恢复
@@ -178,7 +175,7 @@ public final class RtsInteractionHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 int entryId = payload.workflowEntryId();
-                var scan = RtsPendingPlacementService.scanBlueprintMaterials(serverPlayer, entryId);
+                var scan = RtsBlueprintJobService.scanBlueprintMaterials(serverPlayer, entryId);
                 if (scan != null) {
                     PacketDistributor.sendToPlayer(serverPlayer, new S2CRtsBlueprintResumeScanPayload(
                             scan.itemIds(), scan.itemLabels(),

@@ -11,21 +11,17 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
-import com.rtsbuilding.rtsbuilding.server.service.ServiceOperationTemplate;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 
 import javax.annotation.Nullable;
@@ -53,39 +49,10 @@ import java.util.function.Supplier;
 public final class RtsMiningStateMachine {
 
     /**
-     * Per-player workflow entry ID tracking, decoupled from
-     * {@link com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningState}.
-     *
-     * <p>Pipes write via {@link #setWorkflowEntryId(UUID, int)} during
-     * pipeline execution; async mining completion reads via
-     * {@link #getWorkflowEntryId(UUID)}.</p>
+     * 工作流条目 ID 现在存储在 {@link com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningState#workflowEntryId}
+     * 中，而非使用独立的静态 WORKFLOW_ENTRY_IDS 映射。
+     * 消除了两套平行追踪系统导致的不一致风险。
      */
-    private static final Map<UUID, Integer> WORKFLOW_ENTRY_IDS = new ConcurrentHashMap<>();
-
-    /**
-     * Records a workflow entry ID for the given player, replacing any
-     * previous value.
-     */
-    public static void setWorkflowEntryId(UUID playerUuid, int entryId) {
-        if (entryId >= 0) {
-            WORKFLOW_ENTRY_IDS.put(playerUuid, entryId);
-        }
-    }
-
-    /**
-     * Returns the workflow entry ID for the given player, or -1 if none.
-     */
-    public static int getWorkflowEntryId(UUID playerUuid) {
-        return WORKFLOW_ENTRY_IDS.getOrDefault(playerUuid, -1);
-    }
-
-    /**
-     * Removes and returns the workflow entry ID for the given player.
-     */
-    public static int removeWorkflowEntryId(UUID playerUuid) {
-        Integer removed = WORKFLOW_ENTRY_IDS.remove(playerUuid);
-        return removed != null ? removed : -1;
-    }
 
     private RtsMiningStateMachine() {
     }
@@ -127,7 +94,7 @@ public final class RtsMiningStateMachine {
         session.mining.ultimineProcessedPositions.clear();
         session.mining.ultimineAbsorbedDrops = false;
         // Point the active workflow tracking to this job's entry
-        setWorkflowEntryId(player.getUUID(), job.workflowEntryId());
+        session.mining.workflowEntryId = job.workflowEntryId();
         // 队列模式激活走批处理路径 (processUltimineTargets)，
         // 不要设置 miningPos —— beginRemoteMining 会设 miningPos = target，
         // 但 processUltimineTargets 在同一 tick 立即销毁首个目标，
@@ -156,7 +123,7 @@ public final class RtsMiningStateMachine {
      */
     public static void tickActiveMining(ServerPlayer player, RtsStorageSession session) {
         // 工作流状态检查：已关闭则停止挖掘，已暂停则跳过此 tick
-        int entryId = getWorkflowEntryId(player.getUUID());
+        int entryId = session.mining.workflowEntryId;
         if (entryId >= 0) {
             var tokenOpt = RtsWorkflowEngine.getInstance().from(player, entryId);
             if (tokenOpt.isEmpty()) {
@@ -201,7 +168,7 @@ public final class RtsMiningStateMachine {
             return;
         }
 
-        float step = computeRemoteDestroyStep(player, state, pos, session.mining.miningToolSlot,
+        float step = MiningSpeedCalculator.computeRemoteDestroyStep(player, state, pos, session.mining.miningToolSlot,
                 session.mining.miningToolLease.stack(), session.mining.miningSelectedToolRequested);
         if (step <= 0.0F) {
             return;
@@ -223,7 +190,7 @@ public final class RtsMiningStateMachine {
         // Capture before-state for history (must be done before destroy)
         HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.serverLevel(), pos);
         // Also capture neighbor states for multi-block tracking
-        List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(player.serverLevel(), pos);
+        List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(player.serverLevel(), pos);
 
         MiningBreakResult result = destroyMinedBlock(player, session, pos, session.mining.miningToolSlot);
         level.destroyBlockProgress(player.getId(), pos, -1);
@@ -235,12 +202,13 @@ public final class RtsMiningStateMachine {
             session.mining.ultimineBrokenTargets++;
             session.mining.ultimineProcessedPositions.add(preRecord);
             // Record any collateral blocks (multi-block structures)
-            recordCollateralBlocks(session, neighborRecords, pos);
+            MultiBlockTracker.recordCollateralBlocks(player.serverLevel(), session, neighborRecords, pos);
             if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
                 RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
             }
-            // 连锁挖掘中途进度：触发储存页面刷新以保证GUI实时更新
-            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            // 连锁挖掘中途进度：markDirty 只更新版本号，避免每方块一次完整 afterModification（含 requestPage + saveToPlayerNbt）
+            // 完整的 afterModification（含页面刷新和持久化）在 finalizeMiningOperation 中执行
+            ServiceRegistry.getInstance().serviceOp().markDirty(player, session);
             session.mining.miningPos = null;
             session.mining.miningProgress = 0.0F;
             session.mining.miningStage = -1;
@@ -310,7 +278,8 @@ public final class RtsMiningStateMachine {
 
         if (!preserveEntry) {
             // Cancel the workflow entry (if any) before returning tool
-            int entryId = removeWorkflowEntryId(player.getUUID());
+            int entryId = session.mining.workflowEntryId;
+            session.mining.workflowEntryId = -1;
             if (entryId >= 0) {
                 RtsWorkflowEngine.getInstance().from(player, entryId)
                         .ifPresent(token -> token.cancel());
@@ -435,7 +404,7 @@ public final class RtsMiningStateMachine {
             broken = false;
             remainder = ItemStack.EMPTY;
         } else {
-            broken = withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
+            broken = TemporaryContextSwitcher.withTemporarySelectedSlot(player, toolSlot, () -> player.gameMode.destroyBlock(pos));
             remainder = ItemStack.EMPTY;
         }
         if (broken) {
@@ -447,29 +416,14 @@ public final class RtsMiningStateMachine {
     }
 
     // =========================================================================
-    //  Progress Calculation
+    //  Progress Calculation — 已迁移至 MiningSpeedCalculator
     // =========================================================================
 
-    /**
-     * Computes the per-tick destroy progress for the given block/tool
-     * combination, applying underwater penalty cancellation.
-     *
-     * @return a float in (0.0, 1.0] representing progress per tick, or
-     *         ≤ 0.0 if the block cannot be mined
-     */
+    /** @deprecated 使用 {@link MiningSpeedCalculator#computeRemoteDestroyStep} */
+    @Deprecated
     public static float computeRemoteDestroyStep(ServerPlayer player, BlockState state, BlockPos pos, int toolSlot,
             ItemStack linkedTool, boolean selectedToolRequested) {
-        if (linkedTool != null && !linkedTool.isEmpty()) {
-            return withTemporaryOnGround(player, true, () -> removeMiningSpeedPenalty(player,
-                    computeDestroyStepForTool(player, state, pos, linkedTool)));
-        }
-        if (selectedToolRequested) {
-            return 0.0F;
-        }
-        return withTemporaryOnGround(player, true, () -> withTemporarySelectedSlot(
-                player,
-                toolSlot,
-                () -> removeMiningSpeedPenalty(player, state.getDestroyProgress(player, player.serverLevel(), pos))));
+        return MiningSpeedCalculator.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool, selectedToolRequested);
     }
 
     // =========================================================================
@@ -493,130 +447,6 @@ public final class RtsMiningStateMachine {
             player.setItemInHand(InteractionHand.MAIN_HAND, previousMainHand);
         }
         return new MiningBreakResult(broken, remainder);
-    }
-
-    // =========================================================================
-    //  Tool-Speed Calculation (avoids item-swap sync storms)
-    // =========================================================================
-
-    /**
-     * Computes the per-tick destroy progress for the given block/tool
-     * combination using the tool stack <b>directly</b>, without swapping
-     * the player's main hand item.
-     *
-     * <p>This replicates the logic of
-     * {@code state.getDestroyProgress(player, level, pos)} but uses the
-     * provided tool stack instead of {@code player.getMainHandItem()},
-     * avoiding costly {@code player.setItemInHand()} calls that trigger
-     * a {@code ClientboundContainerSetSlotPacket} every tick.
-     *
-     * @return a float in (0.0, 1.0] representing progress per tick, or
-     *         ≤ 0.0 if the block cannot be mined
-     */
-    private static float computeDestroyStepForTool(ServerPlayer player, BlockState state, BlockPos pos, ItemStack tool) {
-        float destroySpeed = state.getDestroySpeed(player.serverLevel(), pos);
-        if (destroySpeed == -1.0F) {
-            return 0.0F;
-        }
-        float digSpeed = getToolDigSpeed(player, state, tool);
-        int divisor = tool.isCorrectToolForDrops(state) ? 30 : 100;
-        return digSpeed / destroySpeed / (float) divisor;
-    }
-
-    /**
-     * Replicates {@code Player.getDigSpeed(BlockState, BlockPos)} using
-     * the given {@code tool} stack instead of the player's main hand item.
-     *
-     * <p>Water penalty and on-ground checks are omitted here — they are
-     * handled separately by {@link #removeMiningSpeedPenalty} and
-     * {@link #withTemporaryOnGround} respectively.
-     */
-    private static float getToolDigSpeed(ServerPlayer player, BlockState state, ItemStack tool) {
-        float f = tool.getDestroySpeed(state);
-        if (f > 1.0F) {
-            int efficiency = getEfficiencyLevel(tool);
-            if (efficiency > 0 && !tool.isEmpty()) {
-                f += (float) (efficiency * efficiency + 1);
-            }
-        }
-        if (player.hasEffect(MobEffects.DIG_SPEED)) {
-            f *= 1.0F + (float) (player.getEffect(MobEffects.DIG_SPEED).getAmplifier() + 1) * 0.2F;
-        }
-        if (player.hasEffect(MobEffects.DIG_SLOWDOWN)) {
-            f *= 1.0F - (float) (player.getEffect(MobEffects.DIG_SLOWDOWN).getAmplifier() + 1) * 0.2F;
-        }
-        return f;
-    }
-
-    /**
-     * Returns the Efficiency enchantment level on the given ItemStack
-     * by iterating its enchantment components directly.
-     */
-    private static int getEfficiencyLevel(ItemStack stack) {
-        for (var entry : stack.getEnchantments().entrySet()) {
-            if (entry.getKey().is(Enchantments.EFFICIENCY)) {
-                return entry.getValue();
-            }
-        }
-        return 0;
-    }
-
-    // =========================================================================
-    //  Underwater Speed Penalty
-    // =========================================================================
-
-    /**
-     * Cancels the underwater mining speed penalty ({@code SUBMERGED_MINING_SPEED})
-     * while preserving any positive modifier from enchantments or mods.
-     */
-    static float removeMiningSpeedPenalty(ServerPlayer player, float destroyStep) {
-        if (destroyStep <= 0.0F) {
-            return destroyStep;
-        }
-        float adjusted = destroyStep;
-        if (player.isEyeInFluid(FluidTags.WATER)) {
-            double submergedMiningSpeed = player.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED);
-            if (submergedMiningSpeed > 0.0D && submergedMiningSpeed < 1.0D) {
-                adjusted *= (float) (1.0D / submergedMiningSpeed);
-            }
-        }
-        return adjusted;
-    }
-
-    // =========================================================================
-    //  Temporary Context Switchers
-    // =========================================================================
-
-    public static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
-        ItemStack previousMainHand = player.getMainHandItem();
-        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-        try {
-            return action.get();
-        } finally {
-            player.setItemInHand(InteractionHand.MAIN_HAND, previousMainHand);
-        }
-    }
-
-    public static <T> T withTemporaryOnGround(ServerPlayer player, boolean onGround, Supplier<T> action) {
-        boolean previous = player.onGround();
-        player.setOnGround(onGround);
-        try {
-            return action.get();
-        } finally {
-            player.setOnGround(previous);
-        }
-    }
-
-    static <T> T withTemporarySelectedSlot(ServerPlayer player, int toolSlot, Supplier<T> action) {
-        int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        int prevSelected = player.getInventory().selected;
-
-        player.getInventory().selected = slot;
-        try {
-            return action.get();
-        } finally {
-            player.getInventory().selected = prevSelected;
-        }
     }
 
     // =========================================================================
@@ -649,8 +479,9 @@ public final class RtsMiningStateMachine {
         // Session (required by ToolReturnPipe and HistoryRecordPipe)
         ctx.setData(SessionValidatePipe.KEY_SESSION, session);
 
-        // Workflow entry ID (from dedicated tracking map, not from session)
-        int wfEntryId = removeWorkflowEntryId(player.getUUID());
+        // Workflow entry ID (from session.mining)
+        int wfEntryId = session.mining.workflowEntryId;
+        session.mining.workflowEntryId = -1;
         if (wfEntryId >= 0) {
             ctx.setData(PipelineContext.KEY_WORKFLOW_ENTRY_ID, wfEntryId);
         }
@@ -681,7 +512,6 @@ public final class RtsMiningStateMachine {
         cleanupPipes.add(new HistoryRecordPipe());
         WorkflowPipeline.runCleanupSequence(ctx, cleanupPipes);
 
-        // 只在没有后续排队挖掘时重建存储页，避免连续作业之间被页面刷新卡住。
         // 触发储存页面刷新以保证GUI实时更新
         ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
         resetMiningState(session, hasQueuedJobs);
@@ -718,49 +548,10 @@ public final class RtsMiningStateMachine {
             session.mining.miningToolLease = RtsToolLease.empty();
             session.mining.miningSelectedToolRequested = false;
             session.mining.miningToolProtectionEnabled = true;
-        }
-        // workflowEntryId no longer lives here — see WORKFLOW_ENTRY_IDS in RtsMiningStateMachine
-    }
-
-    // =========================================================================
-    //  Multi-Block Collateral Tracking
-    // =========================================================================
-
-    /**
-     * Captures the before-break state of all 6 neighbors for multi-block
-     * structure tracking (doors, beds, double plants, etc.).
-     */
-    private static List<HistoryBlockRecord> captureNeighborRecords(ServerLevel level, BlockPos pos) {
-        List<HistoryBlockRecord> records = new ArrayList<>(6);
-        for (Direction dir : Direction.values()) {
-            BlockPos neighbor = pos.relative(dir);
-            BlockState state = level.getBlockState(neighbor);
-            if (!state.isAir()) {
-                records.add(new HistoryBlockRecord(neighbor.immutable(), state));
-            }
-        }
-        return records;
-    }
-
-    /**
-     * After a block is broken, checks which neighbor positions changed to air
-     * and adds them to the session's ultimine processed positions so they are
-     * included in the batch history record.
-     */
-    private static void recordCollateralBlocks(RtsStorageSession session, List<HistoryBlockRecord> neighborRecords,
-            BlockPos brokenPos) {
-        for (HistoryBlockRecord nr : neighborRecords) {
-            if (nr.pos().equals(brokenPos)) {
-                continue;
-            }
-            // If the neighbor was solid before but is now air, it was collateral
-            // destroyed by vanilla (e.g. the other half of a door or bed).
-            // We rely on the caller to check current state since we don't have
-            // a ServerLevel reference here — the caller's history recording
-            // handles this.
-            session.mining.ultimineProcessedPositions.add(nr);
+            session.mining.workflowEntryId = -1;
         }
     }
+
 
     /**
      * Removes a specific position from the ultimine target queue.

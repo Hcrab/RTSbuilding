@@ -143,6 +143,27 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     /**
+     * 根据 {@link ServerPlayer} 和条目 ID 查找条目。
+     * 公开方法——供 {@link com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry}
+     * 等跨包组件使用，避免重复的 engine.from() → token.isPaused() 两次独立 lookup。
+     */
+    @Nullable
+    public RtsWorkflowEntry findEntryByPlayer(ServerPlayer player, int entryId) {
+        if (player == null) return null;
+        return findEntry(player.getUUID(), player.level().dimension(), entryId);
+    }
+
+    /**
+     * 根据玩家 UUID、维度和条目 ID 查找条目，无需 {@link ServerPlayer} 对象。
+     * <p>供调用方已有 UUID 和维度时的 hot path 使用，避免 {@code player.level().dimension()} 额外开销。
+     */
+    @Nullable
+    public RtsWorkflowEntry findEntryByPlayer(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+        if (playerId == null || dimension == null) return null;
+        return findEntry(playerId, dimension, entryId);
+    }
+
+    /**
      * 根据玩家 UUID、维度和条目 ID 移除条目，然后通知客户端并触发事件。
      * 包级私有——由 {@link RtsWorkflowToken} 调用。
      *
@@ -232,7 +253,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public Optional<RtsWorkflowToken> from(ServerPlayer player, int entryId) {
         if (player == null) return Optional.empty();
-        playerRefs.put(player.getUUID(), player);
+        playerRefs.putIfAbsent(player.getUUID(), player);
         ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null || slots.findEntryById(entryId) == null) {
@@ -244,7 +265,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public Optional<RtsWorkflowToken> lastActive(ServerPlayer player) {
         if (player == null) return Optional.empty();
-        playerRefs.put(player.getUUID(), player);
+        playerRefs.putIfAbsent(player.getUUID(), player);
         ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return Optional.empty();

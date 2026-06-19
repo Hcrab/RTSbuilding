@@ -9,6 +9,8 @@ import net.minecraft.nbt.Tag;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * 管理单个玩家的固定大小工作流槽位池。
@@ -26,11 +28,12 @@ public final class RtsWorkflowSlotManager {
     public static final int MAX_SLOTS = 8;
 
     /**
-     * {@link #entries} 和 {@link #entryIndex} 所有读写操作的锁。
-     * 锁是可重入的，因此内部调用（例如 {@code addEntry()} 中的 {@code isFull()}）
-     * 可以正常工作。
+     * {@link #entries} 和 {@link #entryIndex} 的读写锁。
+     * 读操作（查询、遍历）使用 readLock，写操作（增删改）使用 writeLock。
+     * 读操作可并行，写操作互斥，提升多线程下的吞吐量。
+     * 持有 writeLock 时可降级获取 readLock（如 addEntry 内部调用 isFull）。
      */
-    private final Object lock = new Object();
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     /**
      * 按优先级排序的条目列表。该列表是排序和迭代的唯一数据源；
@@ -55,37 +58,49 @@ public final class RtsWorkflowSlotManager {
 
     /** 返回 {@code true} 表示所有槽位均已占用。 */
     public boolean isFull() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             return entries.size() >= MAX_SLOTS;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     /** 返回已占用的槽位数（活动 + 挂起）。 */
     public int occupiedCount() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             int count = 0;
             for (RtsWorkflowEntry e : entries) {
                 if (e.isOccupied()) count++;
             }
             return count;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     /** 返回活动（非挂起）的条目数。 */
     public int activeCount() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             int count = 0;
             for (RtsWorkflowEntry e : entries) {
                 if (e.hasActiveWorkflow()) count++;
             }
             return count;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     /** 返回列表中的条目总数（包括空闲槽位）。 */
     public int size() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             return entries.size();
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -101,8 +116,10 @@ public final class RtsWorkflowSlotManager {
      * @return 新创建的条目，若已达上限则返回 {@code null}
      */
     public @Nullable RtsWorkflowEntry addEntry(RtsWorkflowPriority priority) {
-        synchronized (lock) {
-            if (isFull()) return null;
+        rwLock.writeLock().lock();
+        try {
+            // 内联检查：writeLock 已独占，无需再调 isFull() 获取 readLock
+            if (entries.size() >= MAX_SLOTS) return null;
             RtsWorkflowEntry entry = new RtsWorkflowEntry(nextId++);
             entry.setPriority(priority);
             // 按优先级插入：找到第一个优先级严格更低的条目位置
@@ -116,6 +133,8 @@ public final class RtsWorkflowSlotManager {
             entries.add(insertIndex, entry);
             entryIndex.put(entry.id(), entry);
             return entry;
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -125,11 +144,14 @@ public final class RtsWorkflowSlotManager {
      * @param index 基于 0 的位置索引
      */
     public void removeEntry(int index) {
-        synchronized (lock) {
+        rwLock.writeLock().lock();
+        try {
             if (index >= 0 && index < entries.size()) {
                 RtsWorkflowEntry removed = entries.remove(index);
                 entryIndex.remove(removed.id());
             }
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -140,11 +162,14 @@ public final class RtsWorkflowSlotManager {
      * @return {@code true} 表示有条目被移除
      */
     public boolean removeEntryById(int entryId) {
-        synchronized (lock) {
+        rwLock.writeLock().lock();
+        try {
             RtsWorkflowEntry entry = entryIndex.remove(entryId);
             if (entry == null) return false;
             entries.remove(entry);
             return true;
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -152,11 +177,14 @@ public final class RtsWorkflowSlotManager {
      * 返回指定位置索引处的条目。
      */
     public @Nullable RtsWorkflowEntry getEntry(int index) {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             if (index >= 0 && index < entries.size()) {
                 return entries.get(index);
             }
             return null;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -166,13 +194,16 @@ public final class RtsWorkflowSlotManager {
      * @return 基于 0 的索引，未找到则返回 -1
      */
     public int findIndexByEntryId(int entryId) {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             for (int i = 0; i < entries.size(); i++) {
                 if (entries.get(i).id() == entryId) {
                     return i;
                 }
             }
             return -1;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -182,8 +213,11 @@ public final class RtsWorkflowSlotManager {
      * @return 条目，未找到则返回 {@code null}
      */
     public @Nullable RtsWorkflowEntry findEntryById(int entryId) {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             return entryIndex.get(entryId);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -191,12 +225,15 @@ public final class RtsWorkflowSlotManager {
      * 返回最近的活动（非挂起）条目。
      */
     public @Nullable RtsWorkflowEntry lastActive() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             for (int i = entries.size() - 1; i >= 0; i--) {
                 RtsWorkflowEntry e = entries.get(i);
                 if (e.hasActiveWorkflow()) return e;
             }
             return null;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -204,12 +241,15 @@ public final class RtsWorkflowSlotManager {
      * 返回最近的挂起条目。
      */
     public @Nullable RtsWorkflowEntry lastSuspended() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             for (int i = entries.size() - 1; i >= 0; i--) {
                 RtsWorkflowEntry e = entries.get(i);
                 if (e.isOccupied() && e.suspended()) return e;
             }
             return null;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -217,11 +257,14 @@ public final class RtsWorkflowSlotManager {
      * 返回 {@code true} 表示存在活动（非挂起）条目。
      */
     public boolean hasActiveWorkflow() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             for (RtsWorkflowEntry e : entries) {
                 if (e.hasActiveWorkflow()) return true;
             }
             return false;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -229,11 +272,14 @@ public final class RtsWorkflowSlotManager {
      * 返回 {@code true} 表示存在已挂起的条目。
      */
     public boolean hasSuspendedWorkflow() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             for (RtsWorkflowEntry e : entries) {
                 if (e.isOccupied() && e.suspended()) return true;
             }
             return false;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -248,7 +294,8 @@ public final class RtsWorkflowSlotManager {
      * 将此槽位管理器（所有条目 + nextId）序列化为 {@link CompoundTag}。
      */
     public CompoundTag saveToNbt() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             CompoundTag tag = new CompoundTag();
             tag.putInt(NBT_NEXT_ID, nextId);
             ListTag entriesList = new ListTag();
@@ -259,11 +306,14 @@ public final class RtsWorkflowSlotManager {
             }
             tag.put(NBT_ENTRIES, entriesList);
             return tag;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     /**
      * 从之前序列化的 {@link CompoundTag} 恢复槽位管理器。
+     * 新创建的实例不需要加锁（外部无引用）。
      *
      * @param tag 之前由 {@link #saveToNbt()} 生成的 NBT 标签
      * @return 恢复了所有条目的新槽位管理器
@@ -290,27 +340,36 @@ public final class RtsWorkflowSlotManager {
 
     /** 返回所有已占用条目的快照列表。 */
     public List<RtsWorkflowEntry> occupiedEntries() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             List<RtsWorkflowEntry> result = new ArrayList<>();
             for (RtsWorkflowEntry e : entries) {
                 if (e.isOccupied()) result.add(e);
             }
             return result;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     /** 返回所有条目的不可变视图（包括空闲槽位）。 */
     public List<RtsWorkflowEntry> allEntries() {
-        synchronized (lock) {
+        rwLock.readLock().lock();
+        try {
             return List.copyOf(entries);
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
     /** 移除所有条目。 */
     public void clear() {
-        synchronized (lock) {
+        rwLock.writeLock().lock();
+        try {
             entries.clear();
             entryIndex.clear();
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -321,7 +380,8 @@ public final class RtsWorkflowSlotManager {
      * @return 被移除的条目 ID 列表
      */
     public List<Integer> removeStaleEntries(long maxIdleMillis) {
-        synchronized (lock) {
+        rwLock.writeLock().lock();
+        try {
             List<Integer> removed = new ArrayList<>();
             long now = System.currentTimeMillis();
             Iterator<RtsWorkflowEntry> it = entries.iterator();
@@ -334,6 +394,8 @@ public final class RtsWorkflowSlotManager {
                 }
             }
             return removed;
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 }

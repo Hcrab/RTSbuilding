@@ -37,7 +37,7 @@ public record StopPreviousPipe(boolean mergeable) implements PipelinePipe<Pipeli
         }
 
         if (mergeable) {
-            int existingEntryId = RtsMiningStateMachine.getWorkflowEntryId(ctx.player().getUUID());
+            int existingEntryId = session.mining.workflowEntryId;
             if (existingEntryId >= 0) {
                 var tokenOpt = RtsWorkflowEngine.getInstance().from(ctx.player(), existingEntryId);
                 if (tokenOpt.isPresent()) {

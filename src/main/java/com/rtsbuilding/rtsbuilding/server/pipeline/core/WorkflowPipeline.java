@@ -12,10 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * 按 {@link RtsWorkflowType} 键索引的有序 {@link PipelinePipe} 阶段序列。
@@ -43,6 +40,24 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     private final List<PipelinePipe<? super C>> pipes = new ArrayList<>();
     private final List<TickablePipe> tickablePipes = new ArrayList<>();
     private boolean asyncCompletion;
+
+    /**
+     * 预计算的可 Tick 管道保留键集，避免每管道执行时分配 HashSet。
+     * 这些是保留在可 Tick 阶段的共享数据键——仅在管道有可 Tick Pipe 时使用。
+     */
+    private static final Set<String> TICKABLE_RETAIN_KEYS = Set.of(
+            PipelineContext.KEY_WORKFLOW_ENTRY_ID.name(),
+            SessionValidatePipe.KEY_SESSION.name(),
+            ToolBorrowPipe.KEY_TOOL_LEASE.name(),
+            BlueprintContext.KEY_PLACEMENT_PLANS.name(),
+            BlueprintContext.KEY_REMAINING_QUEUE.name(),
+            BlueprintContext.KEY_CENTER_OFFSET.name(),
+            BlueprintContext.KEY_PLACED_COUNT.name(),
+            BlueprintContext.KEY_SKIPPED_MISSING.name(),
+            BlueprintContext.KEY_SKIPPED_UNSUPPORTED.name(),
+            BlueprintContext.KEY_SKIPPED_MISSING_BLOCKS.name(),
+            BlueprintContext.KEY_SKIPPED_BLOCKED.name()
+    );
 
     /**
      * 包级私有——使用 {@link PipelineRegistry#register(RtsWorkflowType)}。
@@ -178,19 +193,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         // 释放内存（队列模式标志、中间结果等）——仅保留
         // 可 Tick 阶段和最终清理所需的核心数据。
         if (!tickablePipes.isEmpty()) {
-            ctx.retainOnly(
-                    PipelineContext.KEY_WORKFLOW_ENTRY_ID,
-                    SessionValidatePipe.KEY_SESSION,
-                    ToolBorrowPipe.KEY_TOOL_LEASE,
-                    BlueprintContext.KEY_PLACEMENT_PLANS,
-                    BlueprintContext.KEY_REMAINING_QUEUE,
-                    BlueprintContext.KEY_CENTER_OFFSET,
-                    BlueprintContext.KEY_PLACED_COUNT,
-                    BlueprintContext.KEY_SKIPPED_MISSING,
-                    BlueprintContext.KEY_SKIPPED_UNSUPPORTED,
-                    BlueprintContext.KEY_SKIPPED_MISSING_BLOCKS,
-                    BlueprintContext.KEY_SKIPPED_BLOCKED
-            );
+            // 使用预计算键集，避免每管道执行分配 HashSet
+            ctx.retainOnly(TICKABLE_RETAIN_KEYS);
             TickablePipelineRegistry.register(ctx.player(), ctx, tickablePipes.get(0));
         }
 

@@ -457,7 +457,7 @@ public final class RtsUltimineProcessor {
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
                 continue;
             }
-            if (!creative && RtsMiningStateMachine.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool,
+            if (!creative && MiningSpeedCalculator.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool,
                     selectedToolRequested) <= 0.0F) {
                 continue;
             }
@@ -503,14 +503,14 @@ public final class RtsUltimineProcessor {
                     || !RtsMiningValidator.hasValidDestroySpeed(targetState, level, target)) {
                 continue;
             }
-            if (RtsMiningStateMachine.computeRemoteDestroyStep(player, targetState, target, session.mining.miningToolSlot,
+            if (MiningSpeedCalculator.computeRemoteDestroyStep(player, targetState, target, session.mining.miningToolSlot,
                     session.mining.miningToolLease.stack(), session.mining.miningSelectedToolRequested) <= 0.0F) {
                 continue;
             }
 
             // Capture before state for history (including neighbors for multi-block tracking)
             HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.serverLevel(), target);
-            List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(level, target);
+            List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(level, target);
 
             RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(
                     player, session, target, session.mining.miningToolSlot);
@@ -519,7 +519,7 @@ public final class RtsUltimineProcessor {
                 session.mining.ultimineProcessedPositions.add(preRecord);
                 session.mining.ultimineBrokenTargets++;
                 // Record any collateral multi-block destruction
-                recordCollateralBlocks(level, session, neighborRecords, target);
+                MultiBlockTracker.recordCollateralBlocks(level, session, neighborRecords, target);
             }
             if (result.broken() && RtsMiningValidator.canAutoStoreDrops(player, session)) {
                 RtsDropAbsorber.absorbMinedDropsImmediately(player, session, target);
@@ -535,7 +535,7 @@ public final class RtsUltimineProcessor {
         // 累计破坏数达到阈值或挖掘结束时，一次性向 workflow engine 汇报
         if (brokenDelta > 0) {
             session.mining.ultimineNotifyAccumulator += brokenDelta;
-            int entryId = RtsMiningStateMachine.getWorkflowEntryId(player.getUUID());
+            int entryId = session.mining.workflowEntryId;
             if (entryId >= 0
                     && (session.mining.ultimineTargets.isEmpty()
                         || session.mining.ultimineNotifyAccumulator >= 5)) {
@@ -595,39 +595,4 @@ public final class RtsUltimineProcessor {
         }
     }
 
-    // =========================================================================
-    //  多方块附属追踪
-    // =========================================================================
-
-    /**
-     * 捕获所有 6 个邻居的破坏前状态，用于多方块结构追踪。
-     */
-    private static List<HistoryBlockRecord> captureNeighborRecords(ServerLevel level, BlockPos pos) {
-        List<HistoryBlockRecord> records = new ArrayList<>(6);
-        for (Direction dir : Direction.values()) {
-            BlockPos neighbor = pos.relative(dir);
-            BlockState state = level.getBlockState(neighbor);
-            if (!state.isAir()) {
-                records.add(new HistoryBlockRecord(neighbor.immutable(), state));
-            }
-        }
-        return records;
-    }
-
-    /**
-     * 方块被破坏后，检查哪些邻居位置变成了空气并将会话中记录为附属破坏。
-     */
-    private static void recordCollateralBlocks(ServerLevel level, RtsStorageSession session,
-            List<HistoryBlockRecord> neighborRecords, BlockPos brokenPos) {
-        for (HistoryBlockRecord nr : neighborRecords) {
-            if (nr.pos().equals(brokenPos)) {
-                continue;
-            }
-            // If the neighbor was solid before but is now air, it was collateral-destroyed
-            BlockState currentState = level.getBlockState(nr.pos());
-            if (currentState.isAir() && !nr.state().isAir()) {
-                session.mining.ultimineProcessedPositions.add(nr);
-            }
-        }
-    }
 }

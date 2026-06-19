@@ -146,23 +146,24 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             ItemStack worldStack = drop.getItem();
             if (worldStack.isEmpty()) continue;
 
-            int remainingBudget = RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems;
-            int iterations = Math.min(worldStack.getCount(), remainingBudget);
-            for (int i = 0; i < iterations; i++) {
-                ItemStack one = worldStack.copy();
-                one.setCount(1);
-                ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, one);
-                if (!remain.isEmpty()) {
-                    remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
-                }
-                if (!remain.isEmpty()) {
-                    remain = addToBuffer(session, remain);
-                }
-                if (!remain.isEmpty()) break;
-                worldStack.shrink(1);
-                processedItems++;
+            int batchSize = Math.min(worldStack.getCount(),
+                    RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems);
+            if (batchSize <= 0) break;
+            // 批量插入：一次传入整个 batch，减少存储调用次数
+            ItemStack batch = worldStack.copy();
+            batch.setCount(batchSize);
+            ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, batch);
+            if (!remain.isEmpty()) {
+                remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
+            }
+            if (!remain.isEmpty()) {
+                remain = addToBuffer(session, remain);
+            }
+            int inserted = batchSize - (remain.isEmpty() ? 0 : remain.getCount());
+            if (inserted > 0) {
+                worldStack.shrink(inserted);
+                processedItems += inserted;
                 changed = true;
-                if (worldStack.isEmpty()) break;
             }
             if (worldStack.isEmpty()) {
                 drop.discard();

@@ -111,9 +111,9 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         }
         session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
 
-        // ── 在状态机追踪映射中存储工作流条目 ID ────────
+        // ── 在会话的 RtsMiningState 中存储工作流条目 ID ────
         if (mctx.hasWorkflowEntryId()) {
-            RtsMiningStateMachine.setWorkflowEntryId(player.getUUID(), mctx.getWorkflowEntryId());
+            session.mining.workflowEntryId = mctx.getWorkflowEntryId();
         }
 
         RtsMiningStateMachine.beginRemoteMining(player, session, pos, face, toolSlot);

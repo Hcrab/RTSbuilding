@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tick 驱动的自适应缓存刷新服务，管理所有活跃 RTS 存储会话的缓存。
@@ -56,13 +57,13 @@ public final class RtsStorageTickService {
     // ---- state ---------------------------------------------------------------
 
     /** 每玩家的聚合存储实例。 */
-    private final Map<UUID, RtsAggregateStorage> playerStorage = new HashMap<>();
+    private final Map<UUID, RtsAggregateStorage> playerStorage = new ConcurrentHashMap<>();
 
     /** 每玩家的处理器 → 缓存映射。 */
-    private final Map<UUID, List<HandlerCachePair>> playerHandlers = new HashMap<>();
+    private final Map<UUID, List<HandlerCachePair>> playerHandlers = new ConcurrentHashMap<>();
 
     /** 每玩家的自适应 tick 跟踪器（替换旧的固定计数器）。 */
-    private final Map<UUID, TickTracker> tickTrackers = new HashMap<>();
+    private final Map<UUID, TickTracker> tickTrackers = new ConcurrentHashMap<>();
 
     private RtsStorageTickService() {
     }

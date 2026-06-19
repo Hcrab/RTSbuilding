@@ -5,10 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 可变上下文对象，在 {@link WorkflowPipeline} 执行的每个 {@link PipelinePipe} 中传递。
@@ -145,16 +143,20 @@ public class PipelineContext {
      *
      * @param keys 应保留其值的键
      */
+    /**
+     * 使用预计算的键集合保留指定的共享数据键。
+     * 比 varargs 版本少一次 HashSet 分配——由调用方在 hot path 上预计算。
+     */
+    public void retainOnly(Set<String> retainKeys) {
+        data.keySet().removeIf(k -> !retainKeys.contains(k));
+    }
+
     public void retainOnly(TypedKey<?>... keys) {
-        Map<String, Object> retained = new HashMap<>();
+        Set<String> retain = new HashSet<>(keys.length);
         for (TypedKey<?> key : keys) {
-            Object value = data.get(key.name());
-            if (value != null) {
-                retained.put(key.name(), value);
-            }
+            retain.add(key.name());
         }
-        data.clear();
-        data.putAll(retained);
+        data.keySet().removeIf(k -> !retain.contains(k));
     }
 
     // ──────────────────────────────────────────────────────────────────

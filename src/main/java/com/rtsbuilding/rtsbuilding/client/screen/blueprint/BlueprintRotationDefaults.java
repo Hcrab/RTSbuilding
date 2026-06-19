@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.common.blueprint.BlueprintTransform;
+import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -58,7 +58,8 @@ public final class ServerTickOrchestrator {
      * 玩家 Post-Tick——处理远程菜单验证和批量放置 tick。
      */
     public void onPlayerTickPost(ServerPlayer player) {
-        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        var registry = ServiceRegistry.getInstance();
+        RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null) {
             return;
         }
@@ -82,6 +83,11 @@ public final class ServerTickOrchestrator {
      * 全局 tick——存储缓存刷新 + 每玩家 tick（挖掘、漏斗、放置恢复）+ Pipeline tick。
      */
     public void tickMining(MinecraftServer server) {
+        var registry = ServiceRegistry.getInstance();
+        var sessionService = registry.session();
+        var funnelService = registry.funnel();
+        var serviceOp = registry.serviceOp();
+
         // Tick storage cache refresh (every N ticks per player)
         var changes = RtsStorageTickService.INSTANCE.tick();
 
@@ -90,13 +96,13 @@ public final class ServerTickOrchestrator {
             for (var entry : changes.entrySet()) {
                 ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
                 if (player == null) continue;
-                RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+                RtsStorageSession session = sessionService.getIfPresent(player);
                 if (session == null) continue;
                 // Increment data version so the page cache in RtsPageCore
                 // knows the storage data has changed and should rebuild.
                 session.transfer.pageDataVersion.incrementAndGet();
                 if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
-                ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
+                serviceOp.refreshPage(player, session);
                 // 存储变化后自动尝试恢复挂起放置作业
                 RtsPendingPlacementService.tryResumeAfterStorageChange(player);
                 // 存储变化后也尝试恢复挂起的破坏作业（新工具可能已存入存储）
@@ -104,14 +110,12 @@ public final class ServerTickOrchestrator {
             }
         }
 
-        for (var entry : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null) {
-                continue;
-            }
-            RtsStorageSession session = entry.getValue();
+        // 遍历在线玩家而非 allSessions()，避免遍历已离线的过期 session
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            RtsStorageSession session = sessionService.getIfPresent(player);
+            if (session == null) continue;
             RtsMiningStateMachine.tickActiveMining(player, session);
-            ServiceRegistry.getInstance().funnel().tick(player, session);
+            funnelService.tick(player, session);
             RtsPlacedRecoveryService.tick(player, session);
         }
 

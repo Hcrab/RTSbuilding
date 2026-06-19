@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.blueprint;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.common.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.common.blueprint.format.BlueprintWriters;
-import com.rtsbuilding.rtsbuilding.common.blueprint.format.VanillaStructureNbtReader;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
+import com.rtsbuilding.rtsbuilding.common.blueprint.io.VanillaStructureNbtReader;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;

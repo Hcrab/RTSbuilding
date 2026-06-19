@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.tracking;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -44,7 +44,7 @@ public final class RtsBlockTrackingEvents {
         // 手动放置方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session != null) {
-            RtsPendingPlacementService.refreshWorkflowProgress(player, session);
+            RtsProgressRefresher.refreshWorkflowProgress(player, session);
         }
     }
 
@@ -71,7 +71,7 @@ public final class RtsBlockTrackingEvents {
         // 多方块放置后刷新放置工作流进度
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session != null) {
-            RtsPendingPlacementService.refreshWorkflowProgress(player, session);
+            RtsProgressRefresher.refreshWorkflowProgress(player, session);
         }
     }
 
@@ -95,7 +95,7 @@ public final class RtsBlockTrackingEvents {
         // 手动破坏方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent((ServerPlayer) event.getPlayer());
         if (session != null) {
-            RtsPendingPlacementService.refreshWorkflowProgress((ServerPlayer) event.getPlayer(), session);
+            RtsProgressRefresher.refreshWorkflowProgress((ServerPlayer) event.getPlayer(), session);
         }
     }
 }
