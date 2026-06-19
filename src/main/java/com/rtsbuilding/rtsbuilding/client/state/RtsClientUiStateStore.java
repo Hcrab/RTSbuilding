@@ -210,7 +210,7 @@ public final class RtsClientUiStateStore {
         public boolean storageRefreshQuietEnabled = false;
         public boolean storageAutoRefreshEnabled = true;
         public boolean showStorageReadyPopup = false;
-        public boolean showWorkflowPanel = false;
+        public boolean showWorkflowPanel = true;
         /** List of dismissed intro reminder keys */
         public List<String> dismissedIntroReminderKeys = new ArrayList<>();
         /** Persistent mapping of window panel bounds (key → bounds) */

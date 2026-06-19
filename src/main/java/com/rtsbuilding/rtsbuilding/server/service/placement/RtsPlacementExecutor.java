@@ -202,7 +202,7 @@ public final class RtsPlacementExecutor {
         if (mainHandUse.consumesAction()) {
             recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                     sourceSnapshot, sourcePlacesBlock);
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
             return true;
         }
 
@@ -228,14 +228,14 @@ public final class RtsPlacementExecutor {
                 SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
                 ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
                 if (sourceId != null) {
-                    RtsPageService.recordRecentItem(
+                    ServiceRegistry.getInstance().page().recordRecentItem(
                             session,
                             sourceId.toString(),
                             S2CRtsStoragePagePayload.RECENT_ITEM_USED,
                             1L);
                 }
             }
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
             return true;
         }
 
@@ -353,7 +353,7 @@ public final class RtsPlacementExecutor {
             }
             ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
             if (sourceId != null) {
-                RtsPageService.recordRecentItem(
+                ServiceRegistry.getInstance().page().recordRecentItem(
                         session,
                         sourceId.toString(),
                         S2CRtsStoragePagePayload.RECENT_ITEM_PLACED,
@@ -363,7 +363,7 @@ public final class RtsPlacementExecutor {
             SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
             ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
             if (sourceId != null) {
-                RtsPageService.recordRecentItem(
+                ServiceRegistry.getInstance().page().recordRecentItem(
                         session,
                         sourceId.toString(),
                         S2CRtsStoragePagePayload.RECENT_ITEM_USED,

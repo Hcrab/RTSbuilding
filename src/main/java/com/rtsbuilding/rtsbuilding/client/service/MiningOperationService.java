@@ -53,6 +53,11 @@ public final class MiningOperationService {
     /** System timestamp of the most recent mine progress completion */
     private long mineProgressCompletedAtMs;
 
+    /** Ultimine progress: how many targets have been processed */
+    private int ultimineProgressProcessed = -1;
+    /** Ultimine progress: total number of targets */
+    private int ultimineProgressTotal;
+
     // =========================================================================
     //  Area mine state
     // =========================================================================
@@ -376,6 +381,23 @@ public final class MiningOperationService {
         return this.mineProgressCompletedAtMs;
     }
 
+    public int getUltimineProgressProcessed() {
+        return this.ultimineProgressProcessed;
+    }
+
+    public int getUltimineProgressTotal() {
+        return this.ultimineProgressTotal;
+    }
+
+    /**
+     * Applies an ultimine progress update from the server.
+     * See {@link com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload}.
+     */
+    public void applyUltimineProgress(int processed, int total) {
+        this.ultimineProgressProcessed = processed;
+        this.ultimineProgressTotal = total;
+    }
+
     // =========================================================================
     //  Shape access
     // =========================================================================
@@ -398,6 +420,8 @@ public final class MiningOperationService {
         this.activeMineFace = -1;
         this.mineRenderPos = null;
         this.mineRenderStage = -1;
+        this.ultimineProgressProcessed = -1;
+        this.ultimineProgressTotal = 0;
     }
 
     /** Clears mining render (including destroyBlockProgress) and resets all mining state. */

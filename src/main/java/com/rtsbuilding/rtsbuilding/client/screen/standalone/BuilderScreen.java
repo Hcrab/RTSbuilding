@@ -2,10 +2,10 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialWindowPanel;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintNameWindowPanel;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintMaterialWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintNameWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
@@ -38,6 +38,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
@@ -150,6 +151,8 @@ public final class BuilderScreen extends Screen {
     private final RtsWorkflowPanel workflowPanel = new RtsWorkflowPanel();
     /** Panel for reviewing and resuming suspended placement jobs. */
     private final RtsResumePlacementPanel resumePlacementPanel = new RtsResumePlacementPanel();
+    /** Panel for reviewing and resuming suspended blueprint placement jobs. */
+    private final RtsBlueprintResumePanel blueprintResumePanel = new RtsBlueprintResumePanel();
     /** Whether the user is currently dragging the input sensitivity slider. */
     private boolean draggingInputSensitivity = false;
     /** Whether the funnel hotkey (quick-activate funnel mode) is currently held down. */
@@ -207,7 +210,8 @@ public final class BuilderScreen extends Screen {
                 this.guidePanel,
                 this.quickBuildPanel,
                 this.workflowPanel,
-                this.resumePlacementPanel);
+                this.resumePlacementPanel,
+                this.blueprintResumePanel);
         this.uiStateManager.registerWindowPanel("settings", this.gearMenuPanel);
         this.uiStateManager.registerWindowPanel("blueprints", this.blueprintWindowPanel);
         this.uiStateManager.registerWindowPanel("guide", this.guidePanel);
@@ -226,6 +230,7 @@ public final class BuilderScreen extends Screen {
         this.quickBuildPanel.init(this, this.controller);
         this.workflowPanel.init(this, this.controller);
         this.resumePlacementPanel.init(this, this.controller);
+        this.blueprintResumePanel.init(this, this.controller);
         this.linkedStoragePanel.init(this, this.controller);
         this.topBarPanel.init(this, this.controller);
         this.bottomPanel.init(this, this.controller);
@@ -291,11 +296,11 @@ public final class BuilderScreen extends Screen {
     }
     /** Returns whether the quick-build panel is currently open. */
     public boolean isQuickBuildOpen() {
-        return this.quickBuildPanel.isQuickBuildOpen();
+        return this.quickBuildPanel.isOpen();
     }
     /** Opens or closes the quick-build panel. */
     public void setQuickBuildOpen(boolean open) {
-        this.quickBuildPanel.setQuickBuildOpen(open);
+        this.quickBuildPanel.setOpen(open);
     }
     /** Returns the Minecraft client instance for access by sub-panels and utilities. */
     public net.minecraft.client.Minecraft getMinecraft() {
@@ -307,6 +312,10 @@ public final class BuilderScreen extends Screen {
      */
     public RtsResumePlacementPanel getResumePlacementPanel() {
         return this.resumePlacementPanel;
+    }
+    /** Returns the blueprint resume panel, so external handlers can open it. */
+    public RtsBlueprintResumePanel getBlueprintResumePanel() {
+        return this.blueprintResumePanel;
     }
     /** Returns the last recorded mouse X position (updated each render frame). */
     public double getCurrentMouseX() {
@@ -1600,11 +1609,11 @@ public final class BuilderScreen extends Screen {
 
     /** Returns true when quick-build is showing the range-destroy workflow. */
     public boolean isQuickBuildRangeDestroyMode() {
-        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyMode();
+        return this.quickBuildPanel.isOpen() && this.quickBuildPanel.isRangeDestroyMode();
     }
     /** Returns true when Quick Build range-destroy is using the connected-chain shape. */
     public boolean isQuickBuildRangeDestroyChainMode() {
-        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
+        return this.quickBuildPanel.isOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
     }
     /** Player-facing shape label for the top status row. */
     public String activeQuickBuildShapeLabel() {
@@ -1844,7 +1853,7 @@ public final class BuilderScreen extends Screen {
                 .append(" uiScale=").append(rtsGuiScaleLabel()).append('\n');
         out.append("mode=").append(this.controller.getMode())
                 .append(" topAction=").append(this.topBarPanel.topActionForMode())
-                .append(" quickBuild=").append(this.quickBuildPanel.isQuickBuildOpen())
+                .append(" quickBuild=").append(this.quickBuildPanel.isOpen())
                 .append(" quickDestroy=").append(isQuickBuildRangeDestroyMode())
                 .append(" debugButton=").append(this.uiStateManager.isDebugButtonVisible())
                 .append(" invertPanDragX=").append(this.controller.isInvertPanDragX())

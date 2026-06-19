@@ -4,13 +4,12 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
-import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
@@ -21,9 +20,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 放置服务——管理方块放置、批量放置和方块旋转。
@@ -53,35 +50,31 @@ public final class RtsPlacementService {
         double hitOffsetX = clickedPos == null ? 0.5D : hitX - clickedPos.getX();
         double hitOffsetY = clickedPos == null ? 0.5D : hitY - clickedPos.getY();
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
-        RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = player == null ? null : ServiceRegistry.getInstance().session().getIfPresent(player);
 
-        boolean selectedStoragePlacement = itemId != null && !itemId.isBlank();
-        boolean workflowPlacement = !forceEmptyHand && (quickBuild || selectedStoragePlacement);
-        if (player != null && session != null && workflowPlacement) {
-            Map<String, Object> args = new HashMap<>();
-            args.put(PlacementExecutePipe.ARG_CLICKED_POSITIONS,
-                    clickedPos == null ? List.of() : List.of(clickedPos));
-            args.put(PlacementExecutePipe.ARG_FACE, face);
-            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_X, hitOffsetX);
-            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_Y, hitOffsetY);
-            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_Z, hitOffsetZ);
-            args.put(PlacementExecutePipe.ARG_ROTATE_STEPS, (int) rotateSteps);
-            args.put(PlacementExecutePipe.ARG_FORCE_PLACE, forcePlace);
-            args.put(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED, skipIfOccupied);
-            args.put(PlacementExecutePipe.ARG_ITEM_ID, itemId);
-            args.put(PlacementExecutePipe.ARG_ITEM_PROTOTYPE, itemPrototype);
-            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_X, rayOriginX);
-            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_Y, rayOriginY);
-            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_Z, rayOriginZ);
-            args.put(PlacementExecutePipe.ARG_RAY_DIR_X, rayDirX);
-            args.put(PlacementExecutePipe.ARG_RAY_DIR_Y, rayDirY);
-            args.put(PlacementExecutePipe.ARG_RAY_DIR_Z, rayDirZ);
-            args.put(PlacementExecutePipe.ARG_QUICK_BUILD, quickBuild);
-            args.put(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND, false);
-            args.put(WorkflowStartPipe.ARG_TOTAL_BLOCKS.name(), 1);
-
+        if (player != null && session != null && !forceEmptyHand) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
-                    new PlaceContext(player, args));
+                    PlaceContext.builder(player)
+                            .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
+                            .face(face)
+                            .hitOffsetX(hitOffsetX)
+                            .hitOffsetY(hitOffsetY)
+                            .hitOffsetZ(hitOffsetZ)
+                            .rotateSteps(rotateSteps)
+                            .forcePlace(forcePlace)
+                            .skipIfOccupied(skipIfOccupied)
+                            .itemId(itemId)
+                            .itemPrototype(itemPrototype)
+                            .rayOriginX(rayOriginX)
+                            .rayOriginY(rayOriginY)
+                            .rayOriginZ(rayOriginZ)
+                            .rayDirX(rayDirX)
+                            .rayDirY(rayDirY)
+                            .rayDirZ(rayDirZ)
+                            .quickBuild(quickBuild)
+                            .forceEmptyHand(false)
+                            .totalBlocks(1)
+                            .build());
             return;
         }
 
@@ -119,11 +112,9 @@ public final class RtsPlacementService {
             boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ) {
-        RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = player == null ? null : ServiceRegistry.getInstance().session().getIfPresent(player);
 
         if (player != null && session != null && clickedPositions != null && !clickedPositions.isEmpty()) {
-            // Pre-filter positions to match what RtsPlacementBatch.enqueuePlaceBatch would do,
-            // so we can pass the correct totalBlocks to WorkflowStartPipe.
             List<BlockPos> sanitized = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
             for (BlockPos pos : clickedPositions) {
                 if (pos != null && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
@@ -134,30 +125,29 @@ public final class RtsPlacementService {
                 }
             }
 
-            Map<String, Object> args = new HashMap<>();
-            args.put(PlacementExecutePipe.ARG_CLICKED_POSITIONS, sanitized);
-            args.put(PlacementExecutePipe.ARG_FACE, face);
-            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_X, hitOffsetX);
-            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_Y, hitOffsetY);
-            args.put(PlacementExecutePipe.ARG_HIT_OFFSET_Z, hitOffsetZ);
-            args.put(PlacementExecutePipe.ARG_ROTATE_STEPS, (int) rotateSteps);
-            args.put(PlacementExecutePipe.ARG_FORCE_PLACE, forcePlace);
-            args.put(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED, skipIfOccupied);
-            args.put(PlacementExecutePipe.ARG_ITEM_ID, itemId == null ? "" : itemId);
-            args.put(PlacementExecutePipe.ARG_ITEM_PROTOTYPE, itemPrototype);
-            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_X, rayOriginX);
-            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_Y, rayOriginY);
-            args.put(PlacementExecutePipe.ARG_RAY_ORIGIN_Z, rayOriginZ);
-            args.put(PlacementExecutePipe.ARG_RAY_DIR_X, rayDirX);
-            args.put(PlacementExecutePipe.ARG_RAY_DIR_Y, rayDirY);
-            args.put(PlacementExecutePipe.ARG_RAY_DIR_Z, rayDirZ);
-            args.put(PlacementExecutePipe.ARG_QUICK_BUILD, false);
-            args.put(PlacementExecutePipe.ARG_FORCE_EMPTY_HAND, false);
-            args.put(PlacementExecutePipe.ARG_SEND_REMOTE_HINT, true);
-            args.put(WorkflowStartPipe.ARG_TOTAL_BLOCKS.name(), sanitized.size());
-
             PipelineRegistry.execute(RtsWorkflowType.PLACE_BATCH,
-                    new PlaceContext(player, args));
+                    PlaceContext.builder(player)
+                            .clickedPositions(sanitized)
+                            .face(face)
+                            .hitOffsetX(hitOffsetX)
+                            .hitOffsetY(hitOffsetY)
+                            .hitOffsetZ(hitOffsetZ)
+                            .rotateSteps(rotateSteps)
+                            .forcePlace(forcePlace)
+                            .skipIfOccupied(skipIfOccupied)
+                            .itemId(itemId == null ? "" : itemId)
+                            .itemPrototype(itemPrototype)
+                            .rayOriginX(rayOriginX)
+                            .rayOriginY(rayOriginY)
+                            .rayOriginZ(rayOriginZ)
+                            .rayDirX(rayDirX)
+                            .rayDirY(rayDirY)
+                            .rayDirZ(rayDirZ)
+                            .quickBuild(false)
+                            .forceEmptyHand(false)
+                            .sendRemoteHint(true)
+                            .totalBlocks(sanitized.size())
+                            .build());
             return;
         }
 
@@ -199,7 +189,7 @@ public final class RtsPlacementService {
         if (player == null) {
             return 0;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null || session.placement.pendingJobs.isEmpty()) {
             return 0;
         }
@@ -221,7 +211,7 @@ public final class RtsPlacementService {
         if (!RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
             return;
         }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return;
         }
@@ -270,7 +260,7 @@ public final class RtsPlacementService {
      */
     public static String getPlaceBatchItemId(ServerPlayer player) {
         if (player == null) return "";
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) return "";
         if (!session.placement.placeBatchJobs.isEmpty()) {
             return session.placement.placeBatchJobs.peekFirst().itemId();

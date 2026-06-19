@@ -69,6 +69,10 @@ public final class RtsClientNetworkHandlers {
         context.enqueueWork(() -> ClientRtsController.get().applyMineProgress(payload));
     }
 
+    public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
+    }
+
     public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             PlacementAnimationRenderer.confirmPlacement(payload.pos(), payload.state());

@@ -1765,6 +1765,18 @@ public final class ClientRtsController {
         return this.miningOperationService.getMineProgressCompletedAtMs();
     }
 
+    public int getUltimineProgressProcessed() {
+        return this.miningOperationService.getUltimineProgressProcessed();
+    }
+
+    public int getUltimineProgressTotal() {
+        return this.miningOperationService.getUltimineProgressTotal();
+    }
+
+    public void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
+        this.miningOperationService.applyUltimineProgress(payload.processed(), payload.total());
+    }
+
     private void beginRemoteMenuOpenGrace() {
         this.pendingRemoteMenuOpenTicks = Math.max(this.pendingRemoteMenuOpenTicks, REMOTE_MENU_OPEN_GRACE_TICKS);
         this.screenlessRemoteMenuTicks = 0;

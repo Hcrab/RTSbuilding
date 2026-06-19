@@ -77,15 +77,14 @@ public final class BlueprintTickPipe implements TickablePipe {
         int skippedBlocked = bctx.getSkippedBlocked();
         int placedBeforeTick = placed;
 
-        // ── 每 tick 处理 limit 个方块（对齐范围放置速度公式）───────
+        // ── 每 tick 尝试放置最多 limit 个方块，缺材料的跳过不计入配额 ──
         int limit = Math.min(64, Math.max(1, total / 10));
-        int processed = 0;
+        int attemptedThisTick = 0;
         boolean hadMissingThisTick = false;
         LinkedList<Integer> deferredMissing = new LinkedList<>();
 
-        while (!remaining.isEmpty() && processed < limit) {
-            int idx = remaining.pollFirst(); // 先取出，后续处理
-            processed++;
+        while (!remaining.isEmpty() && attemptedThisTick < limit) {
+            int idx = remaining.pollFirst();
             PlacementPlan plan = plans.get(idx);
 
             if (plan == null) {
@@ -105,14 +104,15 @@ public final class BlueprintTickPipe implements TickablePipe {
                 continue;
             }
 
-            // ── 两阶段放置：先检索材料是否充足，不足则跳过 ──
+            // ── 材料不足：不占用 limit 配额，延迟到队尾继续扫描后续方块 ──
             if (!player.isCreative() && !hasAllMaterialsForPlan(player, plan)) {
                 deferredMissing.add(idx);
                 hadMissingThisTick = true;
                 continue;
             }
 
-            // ── 材料充足，尝试放置 ──
+            // ── 材料充足，尝试放置，计入 limit 配额 ──
+            attemptedThisTick++;
             switch (attemptPlaceOne(player, level, bctx, plan)) {
                 case PLACED -> placed++;
                 case MISSING_MATERIALS -> {
@@ -149,8 +149,11 @@ public final class BlueprintTickPipe implements TickablePipe {
                     .ifPresent(token -> token.updateProgress(delta, List.of()));
         }
 
-        // ── 扫描完成后统一判断：若本轮有方块缺材料则挂起线程 ──
-        if (hadMissingThisTick && bctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
+        // ── 判断是否需要挂起：先放完所有可放置的方块，只剩缺材料的再挂起 ──
+        // 旧逻辑：只要本轮有缺材料就立刻挂起，导致材料充足的方块也没机会放
+        // 新逻辑：只有本轮没有任何放置进展（没放任何方块）时，说明队列已卡死，才挂起等待补料
+        if (hadMissingThisTick && delta == 0
+                && bctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             int entryId = bctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             RtsWorkflowEngine.getInstance().from(player, entryId)
                     .ifPresent(token -> token.suspend());

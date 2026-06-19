@@ -21,7 +21,7 @@ record SkeletonScene(String name, String source, List<BlockPos> blocks, Map<Long
         blockIds = Map.copyOf(blockIds);
     }
 
-    String blockId(BlockPos pos) {
+    String blockId(BlockPos  pos) {
         if (pos == null) {
             return "minecraft:unknown";
         }

@@ -10,11 +10,11 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.sync.HistoryRecordPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceOperationTemplate;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -54,7 +54,7 @@ public final class RtsMiningStateMachine {
 
     /**
      * Per-player workflow entry ID tracking, decoupled from
-     * {@link com.rtsbuilding.rtsbuilding.server.storage.RtsMiningState}.
+     * {@link com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningState}.
      *
      * <p>Pipes write via {@link #setWorkflowEntryId(UUID, int)} during
      * pipeline execution; async mining completion reads via
@@ -123,6 +123,7 @@ public final class RtsMiningStateMachine {
         session.mining.ultimineProgressPos = job.targets().peekFirst();
         session.mining.ultimineProcessedTargets = 0;
         session.mining.ultimineBrokenTargets = 0;
+        session.mining.ultimineNotifyAccumulator = 0;
         session.mining.ultimineProcessedPositions.clear();
         session.mining.ultimineAbsorbedDrops = false;
         // Point the active workflow tracking to this job's entry
@@ -238,10 +239,12 @@ public final class RtsMiningStateMachine {
             if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
                 RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
             }
-            // 第一块完成后只切换到批处理状态，剩余目标留到下一 tick 处理，避免同一帧突发破坏。
+            // 连锁挖掘中途进度：触发储存页面刷新以保证GUI实时更新
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             session.mining.miningPos = null;
             session.mining.miningProgress = 0.0F;
             session.mining.miningStage = -1;
+            RtsUltimineProcessor.processUltimineTargets(player, session);
             return;
         }
 
@@ -323,7 +326,7 @@ public final class RtsMiningStateMachine {
 
         RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
         if (hadMiningState) {
-            RtsPageService.markStorageViewDirty(player, session);
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
         }
         resetMiningState(session);
     }
@@ -679,12 +682,8 @@ public final class RtsMiningStateMachine {
         WorkflowPipeline.runCleanupSequence(ctx, cleanupPipes);
 
         // 只在没有后续排队挖掘时重建存储页，避免连续作业之间被页面刷新卡住。
-        if (!hasQueuedJobs) {
-            RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                    session.browser.category, session.browser.sort, session.browser.ascending);
-        }
+        // 触发储存页面刷新以保证GUI实时更新
+        ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
         resetMiningState(session, hasQueuedJobs);
     }
 
@@ -710,6 +709,7 @@ public final class RtsMiningStateMachine {
         session.mining.ultimineTotalTargets = 0;
         session.mining.ultimineProcessedTargets = 0;
         session.mining.ultimineBrokenTargets = 0;
+        session.mining.ultimineNotifyAccumulator = 0;
         session.mining.ultimineAbsorbedDrops = false;
         session.mining.miningFace = Direction.DOWN;
         session.mining.miningProgress = 0.0F;
