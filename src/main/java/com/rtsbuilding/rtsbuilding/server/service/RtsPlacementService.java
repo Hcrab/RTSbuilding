@@ -55,7 +55,9 @@ public final class RtsPlacementService {
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
 
-        if (player != null && session != null && !forceEmptyHand) {
+        boolean selectedStoragePlacement = itemId != null && !itemId.isBlank();
+        boolean workflowPlacement = !forceEmptyHand && (quickBuild || selectedStoragePlacement);
+        if (player != null && session != null && workflowPlacement) {
             Map<String, Object> args = new HashMap<>();
             args.put(PlacementExecutePipe.ARG_CLICKED_POSITIONS,
                     clickedPos == null ? List.of() : List.of(clickedPos));

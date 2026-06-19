@@ -14,6 +14,7 @@
   "key.rtsbuilding.mode_rotate": "RTS Mode: Rotate",
   "key.rtsbuilding.mode_funnel": "RTS Mode: Funnel",
   "key.rtsbuilding.action_primary": "RTS Action: Interact / Place",
+  "key.rtsbuilding.move_player": "RTS Action: Move Player",
   "key.rtsbuilding.action_break": "RTS Action: Break / Mine",
   "key.rtsbuilding.camera_rotate_drag": "RTS Camera: Rotate Drag",
   "key.rtsbuilding.camera_pan_drag": "RTS Camera: Pan Drag",

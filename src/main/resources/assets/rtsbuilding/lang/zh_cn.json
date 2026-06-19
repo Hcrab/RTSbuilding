@@ -14,6 +14,7 @@
   "key.rtsbuilding.mode_rotate": "RTS 模式：旋转",
   "key.rtsbuilding.mode_funnel": "RTS 模式：漏斗",
   "key.rtsbuilding.action_primary": "RTS 操作：交互 / 放置",
+  "key.rtsbuilding.move_player": "RTS 操作：移动玩家",
   "key.rtsbuilding.action_break": "RTS 操作：破坏 / 挖掘",
   "key.rtsbuilding.camera_rotate_drag": "RTS 镜头：拖拽旋转",
   "key.rtsbuilding.camera_pan_drag": "RTS 镜头：拖拽平移",

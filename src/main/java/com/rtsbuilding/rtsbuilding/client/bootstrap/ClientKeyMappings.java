@@ -7,6 +7,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.settings.KeyConflictContext;
+import net.neoforged.neoforge.client.settings.KeyModifier;
 import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
@@ -77,6 +79,13 @@ public final class ClientKeyMappings {
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_RIGHT,
             "key.categories.rtsbuilding");
+    public static final KeyMapping MOVE_PLAYER = new KeyMapping(
+            "key.rtsbuilding.move_player",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.MOUSE,
+            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
+            "key.categories.rtsbuilding");
     public static final KeyMapping ACTION_BREAK = new KeyMapping(
             "key.rtsbuilding.action_break",
             InputConstants.Type.MOUSE,
@@ -129,6 +138,7 @@ public final class ClientKeyMappings {
         event.register(MODE_ROTATE);
         event.register(MODE_FUNNEL);
         event.register(ACTION_PRIMARY);
+        event.register(MOVE_PLAYER);
         event.register(ACTION_BREAK);
         event.register(CAMERA_ROTATE_DRAG);
         event.register(CAMERA_PAN_DRAG);

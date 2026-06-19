@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintMaterialWindowPanel;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintNameWindowPanel;
 import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
@@ -602,25 +603,8 @@ public final class BuilderScreen extends Screen {
                 }
                 return true;
             }
-            if (primaryMouse && isWorldArea(mouseX, mouseY) && Screen.hasControlDown()) {
-                // Ctrl + RightClick → 向目标点直线移动
-                // 双击（300ms 内连续两次）→ 飞到目标上方指定高度
-                long now = System.currentTimeMillis();
-                boolean isDoubleClick = (now - this.lastCtrlRightClickTime) < CTRL_DOUBLE_CLICK_THRESHOLD_MS;
-                this.lastCtrlRightClickTime = now;
-
-                BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                if (hit != null) {
-                    if (isDoubleClick) {
-                        this.lastCtrlRightClickTime = 0;
-                        // Ctrl + 双击右键 → 强制降落到目标方块表面（3D到达判定）
-                        RtsClientPathfinding.goToAbove(hit.getBlockPos(), 1);
-                    } else {
-                        // Ctrl + 单次右键 → 普通直线移动（仅 XZ 到达判定）
-                        RtsClientPathfinding.goTo(hit.getBlockPos());
-                    }
-                }
-                return true;
+            if (isMovePlayerActionMouse(button) && isWorldArea(mouseX, mouseY)) {
+                return handleMovePlayerActionAt(mouseX, mouseY);
             }
             if (isWorldArea(mouseX, mouseY)) {
                 this.cameraInput.beginRightPress(mouseX, mouseY, button, primaryMouse, rotateMouse);
@@ -1097,6 +1081,9 @@ public final class BuilderScreen extends Screen {
                 this.cameraInput.tryPickHoveredBlockForPlacement();
             }
             return true;
+        }
+        if (!isSearchFocused() && isMovePlayerActionKey(keyCode, scanCode)) {
+            return handleMovePlayerActionAt(currentMouseX(), currentMouseY());
         }
         if (!isSearchFocused() && ClientKeyMappings.ACTION_PRIMARY.matches(keyCode, scanCode)) {
             return runPrimaryActionAt(currentMouseX(), currentMouseY());
@@ -2188,32 +2175,34 @@ public final class BuilderScreen extends Screen {
         double renderScale = this.uiStateManager.fixedRtsGuiScale() / currentScale;
         return renderScale > 0.0D && Double.isFinite(renderScale) ? renderScale : 1.0D;
     }
-    /**
-     * Performs a direct tool interaction (interact entity or block) using the
-     * currently selected tool slot, without shape building.
-     *
-     * @return true if the interaction was performed
-     */
-    private boolean tryDirectToolInteraction() {
-        InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
-        if (target == null) {
-            return false;
-        }
-        int slot = getSelectedToolSlot();
-        if (target.isEntityTarget()) {
-            this.controller.interactEntityWithToolSlot(
-                    target.entityId(),
-                    target.hitLocation(),
-                    slot,
-                    target.rayOrigin(),
-                    target.rayDir());
+
+    private boolean isMovePlayerActionMouse(int button) {
+        return ClientKeyMappings.MOVE_PLAYER.isActiveAndMatches(InputConstants.Type.MOUSE.getOrCreate(button));
+    }
+
+    private boolean isMovePlayerActionKey(int keyCode, int scanCode) {
+        return ClientKeyMappings.MOVE_PLAYER.isActiveAndMatches(InputConstants.getKey(keyCode, scanCode));
+    }
+
+    private boolean handleMovePlayerActionAt(double mouseX, double mouseY) {
+        if (!isWorldArea(mouseX, mouseY)) {
             return true;
         }
-        if (target.blockHit() != null) {
-            this.controller.interactBlockWithToolSlot(target.blockHit(), slot, target.rayOrigin(), target.rayDir());
-            return true;
+        // 移动玩家键位默认是 Ctrl+右键；双击仍保留“飞到目标上方”的精确落点。
+        long now = System.currentTimeMillis();
+        boolean isDoubleClick = (now - this.lastCtrlRightClickTime) < CTRL_DOUBLE_CLICK_THRESHOLD_MS;
+        this.lastCtrlRightClickTime = now;
+
+        BlockHitResult hit = this.cursorPicker.pickBlockHit();
+        if (hit != null) {
+            if (isDoubleClick) {
+                this.lastCtrlRightClickTime = 0;
+                RtsClientPathfinding.goToAbove(hit.getBlockPos(), 1);
+            } else {
+                RtsClientPathfinding.goTo(hit.getBlockPos());
+            }
         }
-        return false;
+        return true;
     }
     /** Retired interaction-wheel hook kept so older extracted callers remain harmless. */
     public void closeInteractionWheel() {
