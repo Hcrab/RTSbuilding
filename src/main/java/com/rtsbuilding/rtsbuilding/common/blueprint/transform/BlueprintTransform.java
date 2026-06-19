@@ -140,7 +140,7 @@ public final class BlueprintTransform {
         }
         // 遍历所有属性，更新 Direction 和 Axis 类型
         for (Property<?> property : out.getProperties()) {
-            Object value = out.getValue(property);
+            Comparable<?> value = out.getValue(property);
             if (value instanceof Direction direction) {
                 Direction rotated = rotateDirection(direction, x, z);
                 out = setIfAllowed(out, property, rotated);
@@ -244,10 +244,9 @@ public final class BlueprintTransform {
      * 防止旋转产生不合法的方块状态属性值。
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static <T extends Comparable<T>> BlockState setIfAllowed(BlockState state, Property<?> property, T value) {
-        Property<T> typed = (Property<T>) property;
-        return typed.getPossibleValues().contains(value)
-                ? state.setValue(typed, value)
+    private static <T extends Comparable<T>> BlockState setIfAllowed(BlockState state, Property<T> property, T value) {
+        return property.getPossibleValues().contains(value)
+                ? state.setValue(property, value)
                 : state;
     }
 }
