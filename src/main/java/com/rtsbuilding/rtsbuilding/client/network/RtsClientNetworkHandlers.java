@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
@@ -78,6 +79,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleProgressionState(S2CRtsProgressionStatePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyProgressionState(payload));
+    }
+
+    public static void handlePluginState(S2CRtsPluginStatePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyPluginState(payload));
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {

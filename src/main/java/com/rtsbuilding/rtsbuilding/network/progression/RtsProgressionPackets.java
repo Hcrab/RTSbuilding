@@ -5,10 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.progression.handler.RtsProgressionNet
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 
 /**
- * Registers survival-progression, quest-detect, and RTS-home packets.
- *
- * This class groups packet registration only; payload ids, codecs, and packet
- * directions stay in the payload records.
+ * Registers quest-detect and RTS-home packets.
  */
 public final class RtsProgressionPackets {
     private RtsProgressionPackets() {
@@ -21,19 +18,9 @@ public final class RtsProgressionPackets {
                 RtsProgressionNetworkHandlers::handleQuestDetect);
 
         registrar.playToServer(
-                C2SRtsUnlockProgressionNodePayload.TYPE,
-                C2SRtsUnlockProgressionNodePayload.STREAM_CODEC,
-                RtsProgressionNetworkHandlers::handleUnlockProgressionNode);
-
-        registrar.playToServer(
                 C2SRtsSetSurvivalProgressionPayload.TYPE,
                 C2SRtsSetSurvivalProgressionPayload.STREAM_CODEC,
                 RtsProgressionNetworkHandlers::handleSetSurvivalProgression);
-
-        registrar.playToServer(
-                C2SRtsSetProgressionCostPayload.TYPE,
-                C2SRtsSetProgressionCostPayload.STREAM_CODEC,
-                RtsProgressionNetworkHandlers::handleSetProgressionCost);
 
         registrar.playToServer(
                 C2SRtsSetHomePayload.TYPE,

@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -88,12 +87,6 @@ public final class RtsHomeScreen extends Screen {
         y += ROW_H + 4;
         drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home.radius_label"),
                 Component.translatable("screen.rtsbuilding.home.radius", this.controller.getProgressionRadiusBlocks()), 0xFFD8E6F5);
-        y += ROW_H + 4;
-        drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.home.relocation_label"),
-                Component.translatable(hasFieldDeployment()
-                        ? "screen.rtsbuilding.home.relocation_unlocked"
-                        : "screen.rtsbuilding.home.relocation_locked"),
-                hasFieldDeployment() ? 0xFFAEE8AE : 0xFFFFB0B0);
         y += ROW_H + 10;
 
         Component warning = Component.translatable("screen.rtsbuilding.home.warning");
@@ -113,12 +106,8 @@ public final class RtsHomeScreen extends Screen {
     protected void renderBlurredBackground(float partialTick) {
     }
 
-    private boolean hasFieldDeployment() {
-        return this.controller.getUnlockedProgressionNodes().contains(RtsProgressionNodes.FIELD_DEPLOYMENT.toString());
-    }
-
     private boolean canChangeHome() {
-        return hasFieldDeployment() || this.controller.getProgressionHomeCooldownTicks() <= 0L;
+        return this.controller.getProgressionHomeCooldownTicks() <= 0L;
     }
 
     private boolean canUseHomeButton() {

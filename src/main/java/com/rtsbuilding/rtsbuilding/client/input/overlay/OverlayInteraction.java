@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsProgressionScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
@@ -439,10 +438,7 @@ public final class OverlayInteraction {
         if (!ClientRtsController.get().isProgressionEnabled()) {
             return;
         }
-        OverlayLayoutHelper.ButtonLayout progression = inventoryProgressionButton(screen);
         OverlayLayoutHelper.ButtonLayout home = inventoryHomeButton(screen);
-        drawMiniButton(g, font, progression.x(), progression.y(), progression.w(), progression.h(),
-                Component.translatable("screen.rtsbuilding.inventory.progression_button").getString());
         drawMiniButton(g, font, home.x(), home.y(), home.w(), home.h(),
                 Component.translatable("screen.rtsbuilding.inventory.home_button").getString());
     }
@@ -452,11 +448,6 @@ public final class OverlayInteraction {
             return false;
         }
         Minecraft minecraft = Minecraft.getInstance();
-        OverlayLayoutHelper.ButtonLayout progression = inventoryProgressionButton(screen);
-        if (inside(mouseX, mouseY, progression.x(), progression.y(), progression.w(), progression.h())) {
-            minecraft.setScreen(new RtsProgressionScreen(screen));
-            return true;
-        }
         OverlayLayoutHelper.ButtonLayout home = inventoryHomeButton(screen);
         if (inside(mouseX, mouseY, home.x(), home.y(), home.w(), home.h())) {
             minecraft.setScreen(new RtsHomeScreen(screen));
@@ -465,20 +456,10 @@ public final class OverlayInteraction {
         return false;
     }
 
-    public static OverlayLayoutHelper.ButtonLayout inventoryProgressionButton(Screen screen) {
-        int totalW = INVENTORY_RTS_BUTTON_W * 2 + INVENTORY_RTS_BUTTON_GAP;
-        int x = Math.max(4, (screen.width - totalW) / 2);
+    public static OverlayLayoutHelper.ButtonLayout inventoryHomeButton(Screen screen) {
+        int x = Math.max(4, (screen.width - INVENTORY_RTS_BUTTON_W) / 2);
         int y = 4;
         return new OverlayLayoutHelper.ButtonLayout(x, y, INVENTORY_RTS_BUTTON_W, INVENTORY_RTS_BUTTON_H);
-    }
-
-    public static OverlayLayoutHelper.ButtonLayout inventoryHomeButton(Screen screen) {
-        OverlayLayoutHelper.ButtonLayout progression = inventoryProgressionButton(screen);
-        return new OverlayLayoutHelper.ButtonLayout(
-                progression.x() + progression.w() + INVENTORY_RTS_BUTTON_GAP,
-                progression.y(),
-                INVENTORY_RTS_BUTTON_W,
-                INVENTORY_RTS_BUTTON_H);
     }
 
     // =========================================================================

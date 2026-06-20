@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {"item": "minecraft:amethyst_shard"},
+    "C": {"item": "minecraft:copper_ingot"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "pattern": [
+    " C ",
+    "RAR",
+    " C "
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:range_extension_i"}
+}

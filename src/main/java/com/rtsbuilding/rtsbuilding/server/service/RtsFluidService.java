@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsFluidTransferGateImpl;
@@ -119,3 +119,4 @@ public final class RtsFluidService {
                 && RtsProgressionManager.canAccessHomeRadius(player, pos);
     }
 }
+

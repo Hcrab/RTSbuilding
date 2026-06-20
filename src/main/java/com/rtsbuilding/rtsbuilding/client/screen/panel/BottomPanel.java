@@ -13,12 +13,12 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsPluginManagementScreen;
 import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -109,6 +109,7 @@ public final class BottomPanel {
         boolean guideHover = inside(mouseX, mouseY, guideX, guideY, 12, 12);
         g.fill(guideX, guideY, guideX + 12, guideY + 12, guideHover ? 0xCC41576F : 0xAA2B3542);
         g.drawCenteredString(screen.font(), "i", guideX + 6, guideY + 2, 0xEAF4FF);
+        drawPluginManagementButton(g, layout, mouseX, mouseY);
 
         if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
             int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
@@ -309,7 +310,7 @@ public final class BottomPanel {
     }
 
     private boolean hasBlueprintAccess() {
-        return Config.areBlueprintsEnabled() && screen.hasProgressionNode(RtsProgressionNodes.BLUEPRINTS);
+        return Config.areBlueprintsEnabled();
     }
 
     private boolean isCreativePlayer() {
@@ -857,16 +858,11 @@ public final class BottomPanel {
 
     private void drawCraftDock(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
-        if (screen.hasProgressionNode(RtsProgressionNodes.CRAFT_TERMINAL)) {
-            boolean craftHovered = inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE);
-            int craftFill = craftHovered ? 0xCC385465 : 0xAA24303A;
-            RtsClientUiUtil.drawPanelFrame(g, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE, craftFill, 0xFF6E8799, 0xFF111821);
-            g.drawCenteredString(screen.font(), "C", dock.cX() + CRAFT_DOCK_C_SIZE / 2, dock.cY() + 5, 0xFFFFFF);
-        }
+        boolean craftHovered = inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE);
+        int craftFill = craftHovered ? 0xCC385465 : 0xAA24303A;
+        RtsClientUiUtil.drawPanelFrame(g, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE, craftFill, 0xFF6E8799, 0xFF111821);
+        g.drawCenteredString(screen.font(), "C", dock.cX() + CRAFT_DOCK_C_SIZE / 2, dock.cY() + 5, 0xFFFFFF);
 
-        if (!screen.hasProgressionNode(RtsProgressionNodes.REMOTE_GUI)) {
-            return;
-        }
         for (int slot = 0; slot < this.controller.getGuiBindingCount(); slot++) {
             int slotX = dock.slotX(slot);
             int slotY = dock.slotY(slot);
@@ -917,6 +913,11 @@ public final class BottomPanel {
         }
         if (inside(mouseX, mouseY, bottomGuideButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
             screen.openBottomGuide(bottomGuideButtonX(layout) + 6, bottomGuideButtonY(layout));
+            return true;
+        }
+        if (isInsidePluginManagementButton(layout, mouseX, mouseY)) {
+            this.controller.requestPluginState();
+            Minecraft.getInstance().setScreen(new RtsPluginManagementScreen(this.screen));
             return true;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
@@ -1198,15 +1199,12 @@ public final class BottomPanel {
 
     private boolean handleCraftDockClick(double mouseX, double mouseY, int button, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
-        if (screen.hasProgressionNode(RtsProgressionNodes.CRAFT_TERMINAL)
-                && inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE)) {
+        if (inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE)) {
+            screen.persistUiState();
             this.controller.openCraftTerminal();
             return true;
         }
 
-        if (!screen.hasProgressionNode(RtsProgressionNodes.REMOTE_GUI)) {
-            return false;
-        }
         for (int slot = 0; slot < this.controller.getGuiBindingCount(); slot++) {
             int slotX = dock.slotX(slot);
             int slotY = dock.slotY(slot);
@@ -1620,6 +1618,39 @@ public final class BottomPanel {
 
     private int bottomGuideButtonY(BottomPanelLayoutTypes.BottomPanelLayout layout) {
         return layout.panelY() + 3;
+    }
+
+    private void drawPluginManagementButton(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout,
+            int mouseX, int mouseY) {
+        if (!hasPluginManagementButtonSpace(layout)) {
+            return;
+        }
+        int x = pluginManagementButtonX(layout);
+        int y = bottomGuideButtonY(layout);
+        int w = pluginManagementButtonW();
+        boolean hover = inside(mouseX, mouseY, x, y, w, 12);
+        RtsClientUiUtil.drawPanelFrame(g, x, y, w, 12,
+                hover ? 0xCC3A4D60 : 0xAA273441, 0xFF5D7287, 0xFF0D1015);
+        String label = screen.trimToWidth(Component.translatable("screen.rtsbuilding.plugins.short").getString(), w - 8);
+        g.drawCenteredString(screen.font(), label, x + w / 2, y + 2, 0xFFEAF2FF);
+    }
+
+    private boolean isInsidePluginManagementButton(BottomPanelLayoutTypes.BottomPanelLayout layout, double mouseX, double mouseY) {
+        return hasPluginManagementButtonSpace(layout)
+                && inside(mouseX, mouseY, pluginManagementButtonX(layout), bottomGuideButtonY(layout),
+                        pluginManagementButtonW(), 12);
+    }
+
+    private boolean hasPluginManagementButtonSpace(BottomPanelLayoutTypes.BottomPanelLayout layout) {
+        return pluginManagementButtonX(layout) > selectedPlacementStatusX(layout) + 72;
+    }
+
+    private int pluginManagementButtonX(BottomPanelLayoutTypes.BottomPanelLayout layout) {
+        return bottomRefreshButtonX(layout) - pluginManagementButtonW() - 6;
+    }
+
+    private int pluginManagementButtonW() {
+        return 72;
     }
 
     // ── Category building ──

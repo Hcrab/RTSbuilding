@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": {"item": "minecraft:ender_pearl"},
+    "N": {"item": "minecraft:nether_star"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "pattern": [
+    "ERE",
+    "RNR",
+    "ERE"
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:field_deployment_plugin"}
+}

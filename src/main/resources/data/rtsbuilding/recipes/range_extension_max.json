@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "N": {"item": "minecraft:netherite_ingot"},
+    "P": {"item": "rtsbuilding:range_extension_iii"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "pattern": [
+    " N ",
+    "RPR",
+    " N "
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:range_extension_max"}
+}

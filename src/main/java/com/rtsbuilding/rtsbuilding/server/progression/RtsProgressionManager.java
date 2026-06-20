@@ -2,22 +2,12 @@ package com.rtsbuilding.rtsbuilding.server.progression;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.progression.RtsIngredientCost;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
-import com.rtsbuilding.rtsbuilding.progression.resolver.RtsCapabilityResolver;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
-
-import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.List;
 
 public final class RtsProgressionManager {
     public static final int DEFAULT_MAX_ACTION_RADIUS_BLOCKS = 128;
@@ -29,85 +19,36 @@ public final class RtsProgressionManager {
     public static final long HOME_RELOCATION_COOLDOWN_TICKS =
             HOME_RELOCATION_COOLDOWN_DAYS * TICKS_PER_GAME_DAY;
 
-    private static final RtsCapabilityResolver RESOLVER =
-            new RtsCapabilityResolver(RtsProgressionNodes.tree());
-
     private RtsProgressionManager() {
     }
-
-    // ======================================================================
-    //  启用状??
-    // ======================================================================
 
     public static boolean isEnabled() {
         return Config.ENABLE_SURVIVAL_PROGRESSION.get();
     }
 
-    // ======================================================================
-    //  能力派生（保持原????使用 RESOLVER??
-    // ======================================================================
-
-    private static DerivedCapabilities derive(ServerPlayer player) {
-        LinkedHashSet<ResourceLocation> unlocked = RtsProgressionPersistence.unlockedNodes(player);
-        RtsProgressionPersistence.ensureStarterUnlocked(unlocked);
-
-        RtsCapabilityResolver.DerivedCapabilities caps = RESOLVER.resolve(unlocked);
-
-        int radius = caps.actionRadius();
-        if (unlocked.contains(RtsProgressionNodes.RADIUS_MAX)) {
-            radius = Math.max(radius, Config.maxActionRadiusBlocks());
-        }
-
-        return new DerivedCapabilities(
-                caps.features(),
-                Math.max(16, radius),
-                caps.fluidCapacityBuckets(),
-                caps.ultimineLimit(),
-                caps.bypassHomeRadius());
-    }
-
-    // ======================================================================
-    //  特征 / 能力查询
-    // ======================================================================
-
     public static boolean canUse(ServerPlayer player, RtsFeature feature) {
-        if (!isEnabled()) {
-            return true;
-        }
-        if (player == null || feature == null) {
-            return false;
-        }
-        return derive(player).features().contains(feature);
+        return RtsPluginService.canUse(player, feature);
     }
 
     public static double getActionRadius(ServerPlayer player) {
-        if (!isEnabled()) {
-            return Config.maxActionRadiusBlocks();
-        }
-        return Math.max(1.0D, derive(player).radiusBlocks());
+        return RtsPluginService.actionRadius(player);
     }
 
     public static int getFluidCapacityBuckets(ServerPlayer player) {
-        if (!isEnabled()) {
-            return DEFAULT_FLUID_CAPACITY_BUCKETS;
-        }
-        return Math.max(0, derive(player).fluidCapacityBuckets());
+        return DEFAULT_FLUID_CAPACITY_BUCKETS;
     }
 
     public static int getUltimineLimit(ServerPlayer player) {
-        if (!isEnabled()) {
-            return DEFAULT_ULTIMINE_LIMIT;
-        }
-        return Math.max(0, derive(player).ultimineLimit());
+        return DEFAULT_ULTIMINE_LIMIT;
     }
 
     public static boolean canBypassHomeRadius(ServerPlayer player) {
-        return !isEnabled() || derive(player).bypassHomeRadius();
+        return RtsPluginService.canBypassHomeRadius(player);
     }
 
-    // ======================================================================
-    //  ????委托??RtsHomeManager
-    // ======================================================================
+    public static String sharedProgressionKey(ServerPlayer player) {
+        return RtsProgressionPersistence.sharedProgressionKey(player);
+    }
 
     public static boolean hasHome(ServerPlayer player) {
         return RtsHomeManager.hasHome(player);
@@ -126,7 +67,7 @@ public final class RtsProgressionManager {
     }
 
     public static boolean shouldStartHomeSelection(ServerPlayer player) {
-        return isEnabled() && player != null && !RtsHomeManager.hasHome(player) && canUse(player, RtsFeature.CAMERA);
+        return isEnabled() && player != null && !RtsHomeManager.hasHome(player);
     }
 
     public static void beginHomeSelection(ServerPlayer player) {
@@ -165,48 +106,10 @@ public final class RtsProgressionManager {
         return false;
     }
 
-    // ======================================================================
-    //  节点解锁
-    // ======================================================================
-
-    public static UnlockResult unlockNode(ServerPlayer player, ResourceLocation nodeId) {
-        if (!isEnabled()) {
-            return UnlockResult.disabledResult();
-        }
-        RtsProgressionNode node = RtsProgressionNodes.get(nodeId);
-        if (node == null) {
-            return UnlockResult.failure("Unknown RTS node.");
-        }
-        LinkedHashSet<ResourceLocation> unlocked = RtsProgressionPersistence.unlockedNodes(player);
-        RtsProgressionPersistence.ensureStarterUnlocked(unlocked);
-        if (unlocked.contains(nodeId)) {
-            return UnlockResult.failure("Already unlocked.");
-        }
-        for (ResourceLocation dependency : node.dependencies()) {
-            if (!unlocked.contains(dependency)) {
-                return UnlockResult.failure("Missing prerequisite.");
-            }
-        }
-        List<RtsIngredientCost> costs = RtsProgressionNodes.costsFor(node);
-        if (!RtsProgressionPersistence.hasCosts(player, costs)) {
-            return UnlockResult.failure("Missing materials.");
-        }
-        RtsProgressionPersistence.consumeCosts(player, costs);
-        unlocked.add(nodeId);
-        RtsProgressionPersistence.saveUnlockedNodes(player, unlocked);
-        syncRelatedPlayers(player);
-        return UnlockResult.ok();
-    }
-
-    // ======================================================================
-    //  玩家生命周期
-    // ======================================================================
-
     public static void onPlayerLogin(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        LinkedHashSet<ResourceLocation> unlocked = RtsProgressionPersistence.unlockedNodes(player);
         String sharedKey = RtsProgressionPersistence.sharedProgressionKey(player);
         if (!sharedKey.isBlank()
                 && RtsProgressionPersistence.sharedProgressionData(player).home(sharedKey) == null) {
@@ -219,9 +122,6 @@ public final class RtsProgressionManager {
                         personalHome.setGameTime());
             }
         }
-        if (RtsProgressionPersistence.ensureStarterUnlocked(unlocked) || !sharedKey.isBlank()) {
-            RtsProgressionPersistence.saveUnlockedNodes(player, unlocked);
-        }
         syncToPlayer(player);
     }
 
@@ -229,46 +129,11 @@ public final class RtsProgressionManager {
         RtsHomeManager.endHomeSelection(player);
     }
 
-    // ======================================================================
-    //  同步
-    // ======================================================================
-
     public static void syncToPlayer(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        List<String> costOverrides = Config.progressionCostOverrides().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .toList();
-        if (!isEnabled()) {
-            PacketDistributor.sendToPlayer(player, new S2CRtsProgressionStatePayload(
-                    false,
-                    false,
-                    BlockPos.ZERO,
-                    "",
-                    0L,
-                    Config.maxActionRadiusBlocks(),
-                    DEFAULT_FLUID_CAPACITY_BUCKETS,
-                    DEFAULT_ULTIMINE_LIMIT,
-                    true,
-                    List.of(),
-                    List.of(),
-                    costOverrides));
-            return;
-        }
-        DerivedCapabilities derived = derive(player);
         HomeAnchor home = RtsHomeManager.getHome(player);
-        LinkedHashSet<ResourceLocation> unlockedSet = RtsProgressionPersistence.unlockedNodes(player);
-        if (RtsProgressionPersistence.ensureStarterUnlocked(unlockedSet)) {
-            RtsProgressionPersistence.saveUnlockedNodes(player, unlockedSet);
-        }
-        List<String> unlocked = unlockedSet.stream().map(ResourceLocation::toString).toList();
-        List<String> unlockable = RtsProgressionNodes.all().stream()
-                .filter(node -> !unlockedSet.contains(node.id()))
-                .filter(node -> RtsProgressionPersistence.dependenciesMet(unlockedSet, node))
-                .filter(node -> RtsProgressionPersistence.hasCosts(player, RtsProgressionNodes.costsFor(node)))
-                .map(node -> node.id().toString())
-                .toList();
         PacketDistributor.sendToPlayer(player, new S2CRtsProgressionStatePayload(
                 isEnabled(),
                 home != null,
@@ -276,12 +141,9 @@ public final class RtsProgressionManager {
                 home == null ? "" : home.dimension().location().toString(),
                 RtsHomeManager.remainingHomeCooldownTicks(player),
                 (int) Math.round(getActionRadius(player)),
-                derived.fluidCapacityBuckets(),
-                derived.ultimineLimit(),
-                derived.bypassHomeRadius(),
-                unlocked,
-                unlockable,
-                costOverrides));
+                getFluidCapacityBuckets(player),
+                getUltimineLimit(player),
+                canBypassHomeRadius(player)));
     }
 
     private static void syncRelatedPlayers(ServerPlayer player) {
@@ -300,38 +162,6 @@ public final class RtsProgressionManager {
         }
     }
 
-    // ======================================================================
-    //  内部记录
-    // ======================================================================
-
     public record HomeAnchor(BlockPos pos, ResourceKey<Level> dimension, long setGameTime) {
-    }
-
-    private record DerivedCapabilities(
-            EnumSet<RtsFeature> features,
-            int radiusBlocks,
-            int fluidCapacityBuckets,
-            int ultimineLimit,
-            boolean bypassHomeRadius) {
-    }
-
-    public record UnlockResult(boolean success, boolean disabled, String message) {
-        private static UnlockResult ok() {
-            return new UnlockResult(true, false, "");
-        }
-
-        private static UnlockResult disabledResult() {
-            return new UnlockResult(false, true, "Survival progression is disabled.");
-        }
-
-        private static UnlockResult failure(String message) {
-            return new UnlockResult(false, false, message);
-        }
-
-        public void notifyPlayer(ServerPlayer player) {
-            if (!success && player != null && message != null && !message.isBlank()) {
-                player.displayClientMessage(Component.literal(message), true);
-            }
-        }
     }
 }

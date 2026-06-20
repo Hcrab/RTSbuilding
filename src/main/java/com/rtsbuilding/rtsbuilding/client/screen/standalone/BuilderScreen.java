@@ -44,7 +44,6 @@ import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.shape.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -371,6 +370,7 @@ public final class BuilderScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        enforceBlueprintPlacementModeLock();
         if (this.controller.getMode() == BuilderMode.FUNNEL && this.controller.isFunnelEnabled()) {
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
             if (hit != null) {
@@ -496,6 +496,7 @@ public final class BuilderScreen extends Screen {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
+        enforceBlueprintPlacementModeLock();
         if (this.topBarPanel.handleClick(mouseX, mouseY)) {
             return true;
         }
@@ -703,6 +704,7 @@ public final class BuilderScreen extends Screen {
      * @return true if the action was consumed
      */
     private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton) {
+        enforceBlueprintPlacementModeLock();
         if (this.pendingGuiBindSlot >= 0) {
             return true;
         }
@@ -1035,6 +1037,11 @@ public final class BuilderScreen extends Screen {
         if (!isSearchFocused() && handleModeKeyPressed(keyCode, scanCode)) {
             return true;
         }
+        if (!isSearchFocused()
+                && isBlueprintPlacementModeLocked()
+                && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
+            return true;
+        }
         if (!isSearchFocused() && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
             activateFunnelHotkey();
             this.funnelHotkeyHeld = true;
@@ -1053,8 +1060,8 @@ public final class BuilderScreen extends Screen {
         }
         if (!isSearchFocused()
                 && ClientKeyMappings.OPEN_CRAFT_TERMINAL.matches(keyCode, scanCode)
-                && !hasControlDown()
-                && hasProgressionNode(RtsProgressionNodes.CRAFT_TERMINAL)) {
+                && !hasControlDown()) {
+            persistUiState();
             this.controller.openCraftTerminal();
             return true;
         }
@@ -1153,6 +1160,14 @@ public final class BuilderScreen extends Screen {
      * @return true if a mode switch was performed
      */
     private boolean handleModeKeyPressed(int keyCode, int scanCode) {
+        boolean modeKey = ClientKeyMappings.MODE_INTERACT.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_LINK_STORAGE.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_ROTATE.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_FUNNEL.matches(keyCode, scanCode);
+        if (isBlueprintPlacementModeLocked() && modeKey) {
+            enforceBlueprintPlacementModeLock();
+            return true;
+        }
         if (ClientKeyMappings.MODE_INTERACT.matches(keyCode, scanCode)) {
             return switchToModeFromKey(BuilderMode.INTERACT, false);
         }
@@ -1458,15 +1473,6 @@ public final class BuilderScreen extends Screen {
         RtsClientUiUtil.drawPanelFrame(g, x, y, CRAFT_DOCK_SLOT_SIZE, CRAFT_DOCK_SLOT_SIZE, 0xCC2D6B47, 0xFF78B28C, 0xFF0F151C);
         g.drawCenteredString(this.font, "+", x + CRAFT_DOCK_SLOT_SIZE / 2, y + 1, 0xFFFFFF);
     }
-    /**
-     * Checks whether the given progression node has been unlocked by the player.
-     * If progression is disabled, all nodes are considered unlocked.
-     */
-    public boolean hasProgressionNode(ResourceLocation nodeId) {
-        return !this.controller.isProgressionEnabled()
-                || nodeId == null
-                || this.controller.getUnlockedProgressionNodes().contains(nodeId.toString());
-    }
     /** Returns true if any recipe viewer mod (JEI, EMI, REI) is loaded. */
     private static boolean hasRecipeViewerLoaded() {
         return ModList.get().isLoaded("jei")
@@ -1654,6 +1660,10 @@ public final class BuilderScreen extends Screen {
      * saves the current mode, and switches to funnel mode with funnel enabled.
      */
     private void activateFunnelHotkey() {
+        if (isBlueprintPlacementModeLocked()) {
+            enforceBlueprintPlacementModeLock();
+            return;
+        }
         this.cameraInput.stopActiveMining();
         this.shapeController.clearShapeBuildSession();
         if (this.controller.getMode() != BuilderMode.FUNNEL) {
@@ -1662,6 +1672,25 @@ public final class BuilderScreen extends Screen {
         this.controller.setMode(BuilderMode.FUNNEL);
         this.controller.setFunnelEnabled(true);
     }
+
+    public boolean isBlueprintPlacementModeLocked() {
+        return BlueprintPanel.isPlacementSessionActive();
+    }
+
+    private void enforceBlueprintPlacementModeLock() {
+        if (!isBlueprintPlacementModeLocked()) {
+            return;
+        }
+        if (this.controller.getMode() == BuilderMode.INTERACT && !this.controller.isFunnelEnabled()) {
+            return;
+        }
+        this.cameraInput.stopActiveMining();
+        this.shapeController.clearShapeBuildSession();
+        this.controller.setFunnelEnabled(false);
+        this.controller.setMode(BuilderMode.INTERACT);
+        this.funnelHotkeyHeld = false;
+    }
+
     /**
      * Deactivates the funnel hotkey: disables funnel and restores the mode that was
      * active before the hotkey was pressed.

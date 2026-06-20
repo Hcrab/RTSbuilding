@@ -614,6 +614,9 @@ public final class BlueprintPanel {
             }
             return true;
         }
+        if (!searchFocused && hasSelectedBlueprint() && isBlueprintRotateKey(keyCode, scanCode)) {
+            return rotateSelectedBlueprintY(isShiftDown() ? -1 : 1);
+        }
         if (hasPinnedPreview()) {
             if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_4
                     || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT) {
@@ -660,6 +663,15 @@ public final class BlueprintPanel {
             return true;
         }
         return false;
+    }
+
+    public static boolean isPlacementSessionActive() {
+        return Config.areBlueprintsEnabled() && (CAPTURE.isActive() || hasSelectedBlueprint());
+    }
+
+    public static boolean isBlueprintRotateKey(int keyCode, int scanCode) {
+        return ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode)
+                || ClientKeyMappings.MODE_ROTATE.matches(keyCode, scanCode);
     }
 
     public static boolean charTyped(char codePoint) {
@@ -1105,14 +1117,15 @@ public final class BlueprintPanel {
         return true;
     }
 
-    static void rotateSelectedBlueprintY(int step) {
+    static boolean rotateSelectedBlueprintY(int step) {
         if (!hasSelectedBlueprint()) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
-            return;
+            return true;
         }
         yRotationSteps = BlueprintTransform.normalizeSteps(yRotationSteps + step);
         rememberCurrentRotationAsDefault();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
+        return true;
     }
 
     static void resetSelectedBlueprintRotation() {
@@ -1159,6 +1172,18 @@ public final class BlueprintPanel {
         int dx = forward.getStepX() * forwardSteps + right.getStepX() * rightSteps;
         int dz = forward.getStepZ() * forwardSteps + right.getStepZ() * rightSteps;
         return nudgePinnedAnchor(dx, upSteps, dz, controller);
+    }
+
+    private static boolean isShiftDown() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.getWindow() == null) {
+            return false;
+        }
+        long window = minecraft.getWindow().getWindow();
+        return org.lwjgl.glfw.GLFW.glfwGetKey(window, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
+                == org.lwjgl.glfw.GLFW.GLFW_PRESS
+                || org.lwjgl.glfw.GLFW.glfwGetKey(window, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT)
+                == org.lwjgl.glfw.GLFW.GLFW_PRESS;
     }
 
     private static Direction currentHorizontalFacingDirection() {

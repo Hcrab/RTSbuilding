@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.RtsStorageSessionStore;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -239,3 +239,4 @@ public final class RtsSessionService {
         PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
     }
 }
+

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
@@ -383,3 +383,4 @@ public final class RtsCraftingGridFiller {
         return sanitized;
     }
 }
+

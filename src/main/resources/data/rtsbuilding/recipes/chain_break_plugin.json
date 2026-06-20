@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "tools",
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "minecraft:iron_pickaxe"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "pattern": [
+    " I ",
+    "RPR",
+    " I "
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:chain_break_plugin"}
+}

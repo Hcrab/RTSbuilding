@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageCrafting;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
@@ -168,3 +168,4 @@ public final class RtsCraftingService {
         return session == null ? List.of() : List.copyOf(session.browser.craftLocalizedSearchMatches);
     }
 }
+

@@ -1,11 +1,5 @@
 package com.rtsbuilding.rtsbuilding;
 
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import net.minecraftforge.common.ForgeConfigSpec;
 
 public final class Config {
@@ -20,12 +14,8 @@ public final class Config {
             .define("shareSurvivalProgressionWithTeams", false);
 
     public static final ForgeConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = BUILDER
-            .comment("Maximum RTS action radius in blocks. Used directly when survival progression is disabled, and by the Radius Max skill when survival progression is enabled.")
+            .comment("Maximum RTS action radius in blocks.")
             .defineInRange("maxActionRadiusBlocks", 128, 48, 512);
-
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> PROGRESSION_COST_OVERRIDES = BUILDER
-            .comment("Skill material overrides. Format: node_path=minecraft:item:count,minecraft:item2:count. Example: ultimine=minecraft:diamond_pickaxe:1,minecraft:redstone_block:1")
-            .defineListAllowEmpty("progressionCostOverrides", List.of(), obj -> obj instanceof String);
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_BLUEPRINTS = BUILDER
             .comment("Enable the experimental RTS blueprint panel and direct blueprint placement.")
@@ -82,29 +72,10 @@ public final class Config {
         SPEC.save();
     }
 
-    public static void saveProgressionSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
-            boolean blueprintsEnabled, int maxBlueprintBlocks, Map<String, String> costOverrides) {
-        saveGeneralSettings(
-                survivalEnabled,
-                shareWithTeams,
-                radiusBlocks,
-                blueprintsEnabled,
-                maxBlueprintBlocks,
-                isPlacementBlockGhostPreviewEnabled(),
-                isPlaceBlockGhostAnimationEnabled(),
-                isDestroyBlockGhostAnimationEnabled(),
-                isPlacementWireframePreviewEnabled(),
-                isPlaceWireframeAnimationEnabled(),
-                isDestroyWireframeAnimationEnabled(),
-                isRangeDestroySkeletonEnabled(),
-                costOverrides);
-    }
-
     public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
             boolean blueprintsEnabled, int maxBlueprintBlocks, boolean placementBlockGhostPreview,
             boolean placeBlockGhostAnimation, boolean destroyBlockGhostAnimation, boolean placementWireframePreview,
-            boolean placeWireframeAnimation, boolean destroyWireframeAnimation, boolean rangeDestroySkeleton,
-            Map<String, String> costOverrides) {
+            boolean placeWireframeAnimation, boolean destroyWireframeAnimation, boolean rangeDestroySkeleton) {
         ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
         SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
         MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
@@ -117,7 +88,6 @@ public final class Config {
         USE_PLACE_WIREFRAME_ANIMATION.set(placeWireframeAnimation);
         USE_DESTROY_WIREFRAME_ANIMATION.set(destroyWireframeAnimation);
         USE_RANGE_DESTROY_SKELETON.set(rangeDestroySkeleton);
-        setProgressionCostOverrides(costOverrides);
         SPEC.save();
     }
 
@@ -208,51 +178,5 @@ public final class Config {
         SPEC.save();
     }
 
-    public static Map<String, String> progressionCostOverrides() {
-        Map<String, String> out = new LinkedHashMap<>();
-        for (String raw : PROGRESSION_COST_OVERRIDES.get()) {
-            if (raw == null) {
-                continue;
-            }
-            int split = raw.indexOf('=');
-            if (split <= 0) {
-                continue;
-            }
-            String node = raw.substring(0, split).trim();
-            String costs = raw.substring(split + 1).trim();
-            if (!node.isBlank()) {
-                out.put(node, costs);
-            }
-        }
-        return out;
-    }
-
-    public static void setProgressionCostOverride(String nodePath, String costsText) {
-        if (nodePath == null || nodePath.isBlank()) {
-            return;
-        }
-        Map<String, String> current = progressionCostOverrides();
-        String clean = costsText == null ? "" : costsText.trim();
-        if (clean.isBlank()) {
-            current.remove(nodePath);
-        } else {
-            current.put(nodePath, clean);
-        }
-        setProgressionCostOverrides(current);
-        SPEC.save();
-    }
-
-    private static void setProgressionCostOverrides(Map<String, String> overrides) {
-        Map<String, String> current = overrides == null ? Map.of() : overrides;
-        List<String> encoded = new ArrayList<>(current.size());
-        for (var entry : current.entrySet()) {
-            String node = entry.getKey() == null ? "" : entry.getKey().trim();
-            String costs = entry.getValue() == null ? "" : entry.getValue().trim();
-            if (!node.isBlank() && !costs.isBlank()) {
-                encoded.add(node + "=" + costs);
-            }
-        }
-        PROGRESSION_COST_OVERRIDES.set(encoded);
-    }
 }
 

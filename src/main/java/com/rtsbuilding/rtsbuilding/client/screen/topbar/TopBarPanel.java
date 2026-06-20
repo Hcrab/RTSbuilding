@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -102,8 +101,8 @@ public final class TopBarPanel {
         String row2 = linked + (this.controller.isAutoStoreMinedDrops()
                 ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
                 : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
-                + (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL) ? "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off")) : "")
-                + (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE) ? "    " + screen.text("screen.rtsbuilding.status.shape", screen.activeQuickBuildShapeLabel()) : "")
+                + "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"))
+                + "    " + screen.text("screen.rtsbuilding.status.shape", screen.activeQuickBuildShapeLabel())
                 + "    " + screen.text("screen.rtsbuilding.status.fill", screen.fillModeLabel(screen.getShapeFillMode()))
                 + "    " + screen.text("screen.rtsbuilding.status.rotation", screen.getShapeRotateDegrees())
                 + "    " + screen.text("screen.rtsbuilding.status.undo", screen.getShapeUndoSize())
@@ -136,6 +135,11 @@ public final class TopBarPanel {
         for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts()) {
             if (!inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
                 continue;
+            }
+            if (screen.isBlueprintPlacementModeLocked() && isModeButton(button.id())) {
+                this.controller.setMode(BuilderMode.INTERACT);
+                this.controller.setFunnelEnabled(false);
+                return true;
             }
             switch (button.id()) {
                 case INTERACT -> {
@@ -189,7 +193,7 @@ public final class TopBarPanel {
      * Builds the ordered list of all top bar button layouts for the current frame.
      * <p>
      * Buttons are arranged left-to-right: mode buttons first (INTERACT, LINK,
-     * FUNNEL, ROTATE — each gated by progression), then a separator, then action
+     * FUNNEL, ROTATE), then a separator, then action
      * buttons (QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GUIDE, optionally
      * DEBUG), then a right-aligned GEAR button.
      * <p>
@@ -205,25 +209,17 @@ public final class TopBarPanel {
         // ---- Mode buttons (left group) ----
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.INTERACT, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.INTERACT));
         x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        if (screen.hasProgressionNode(RtsProgressionNodes.STORAGE_LINK)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
-            x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        if (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
-            x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        if (screen.hasProgressionNode(RtsProgressionNodes.ROTATE_BLOCK)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
-            x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        }
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
+        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
+        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
+        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
         x += 8;
 
         // ---- Action buttons (center group) ----
-        if (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        }
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
+        x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
         if (isFtbQuestIntegrationLoaded()) {
             layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUEST_DETECT, x, TOP_ICON_BUTTON_W, "", true, this.controller.isQuestDetectPopupVisible()));
             x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
@@ -354,6 +350,9 @@ public final class TopBarPanel {
      * @return the resolved {@link TopAction} (defaults to {@link TopAction#INTERACT})
      */
     public TopAction topActionForMode() {
+        if (screen.isBlueprintPlacementModeLocked()) {
+            return TopAction.INTERACT;
+        }
         return switch (this.controller.getMode()) {
             case INTERACT -> TopAction.INTERACT;
             case LINK_STORAGE -> TopAction.LINK;
@@ -371,6 +370,13 @@ public final class TopBarPanel {
         return ModList.get().isLoaded("ftbquests")
                 || ModList.get().isLoaded("ftb_quests")
                 || ModList.get().isLoaded("ftblibrary");
+    }
+
+    private static boolean isModeButton(TopBarTypes.TopBarButtonId id) {
+        return id == TopBarTypes.TopBarButtonId.INTERACT
+                || id == TopBarTypes.TopBarButtonId.LINK
+                || id == TopBarTypes.TopBarButtonId.FUNNEL
+                || id == TopBarTypes.TopBarButtonId.ROTATE;
     }
 
     /**
