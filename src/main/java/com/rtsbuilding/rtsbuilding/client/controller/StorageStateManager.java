@@ -959,7 +959,6 @@ public final class StorageStateManager {
         this.storagePageReceivedAtMs = 0L;
         this.bdNetworkEnabled = true;
         this.autoStoreMinedDrops = true;
-        this.funnelEnabled = false;
         this.funnelBufferEntries.clear();
         clearCraftablesState();
         clearQuickSlotsLocal();

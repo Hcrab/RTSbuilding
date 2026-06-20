@@ -18,11 +18,15 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>核心职责：
  * <ul>
- *   <li>按玩家 UUID 管理对应的 DataCluster</li>
+ *   <li>按玩家 UUID + 作用域管理对应的 DataCluster</li>
  *   <li>按 tick 间隔批量刷盘（默认每 200 tick ≈ 10 秒）</li>
  *   <li>在关键事件（保存世界、玩家登出、服务器关闭）时强制刷盘</li>
  *   <li>零闲置开销——无脏数据时 flush 是空操作</li>
  * </ul>
+ *
+ * <p><b>统一生命周期管理</b>：所有持久化组件（会话、工作流等）统一
+ * 由此调度器管理 DataCluster 缓存，避免各子系统各自维护独立缓存
+ * 导致的「分裂」问题。
  *
  * <p>使用方式：
  * <pre>{@code
@@ -30,10 +34,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * DataCluster cluster = SaveScheduler.INSTANCE.player(player);
  * cluster.set(SessionComponents.BROWSER, browserState);
  *
+ * // 获取玩家工作流数据簇
+ * DataCluster wf = SaveScheduler.INSTANCE.dataCluster(server, player.getUUID(), "workflow");
+ * wf.set(WorkflowComponents.FULL_WORKFLOW, data);
+ *
  * // 在服务器 tick 事件中调用
  * SaveScheduler.INSTANCE.onTick(server);
  *
- * // 玩家登出时
+ * // 玩家登出时（自动清理所有作用域的数据）
  * SaveScheduler.INSTANCE.onPlayerLogout(player);
  * }</pre>
  */
@@ -43,7 +51,10 @@ public enum SaveScheduler {
     /** 默认刷盘间隔（tick 数），200 tick ≈ 10 秒 */
     private static final int DEFAULT_FLUSH_INTERVAL = 200;
 
-    private final Map<UUID, DataCluster> clusters = new ConcurrentHashMap<>();
+    /** 缓存键分隔符 */
+    private static final String KEY_SEPARATOR = "::";
+
+    private final Map<String, DataCluster> clusters = new ConcurrentHashMap<>();
     private int tickCounter;
     private int flushInterval = DEFAULT_FLUSH_INTERVAL;
 
@@ -62,18 +73,36 @@ public enum SaveScheduler {
         if (server == null) {
             throw new IllegalStateException("无法在服务器未就绪时获取 DataCluster");
         }
-        return clusters.computeIfAbsent(player.getUUID(), uuid -> {
-            var store = new RtsAtomicNbtStore(server, "rtsbuilding/players/" + uuid, "session.dat");
-            return new DataCluster(store);
-        });
+        return dataCluster(server, player.getUUID(), "session");
     }
 
     /**
      * 获取指定 UUID 的玩家会话 {@link DataCluster}（服务端引用可用时）。
      */
     public DataCluster player(MinecraftServer server, UUID playerId) {
-        return clusters.computeIfAbsent(playerId, uuid -> {
-            var store = new RtsAtomicNbtStore(server, "rtsbuilding/players/" + uuid, "session.dat");
+        return dataCluster(server, playerId, "session");
+    }
+
+    /**
+     * 获取指定 UUID 和作用域的 {@link DataCluster}。
+     *
+     * <p>每个 scope 对应一个独立的 NBT 文件：
+     * <ul>
+     *   <li>{@code "session"} → {@code rtsbuilding/players/{uuid}/session.dat}（会话数据）</li>
+     *   <li>{@code "workflow"} → {@code rtsbuilding/players/{uuid}/workflow.dat}（工作流数据）</li>
+     * </ul>
+     *
+     * <p>所有 scope 的 DataCluster 统一由本调度器管理生命周期，
+     * 确保玩家登出/服务器关闭时所有数据都能正确刷盘，
+     * 避免各子系统各自维护独立缓存导致的「分裂」问题。
+     *
+     * @param server   Minecraft 服务器实例
+     * @param playerId 玩家 UUID
+     * @param scope    数据用途标识，用于区分不同文件
+     */
+    public DataCluster dataCluster(MinecraftServer server, UUID playerId, String scope) {
+        return clusters.computeIfAbsent(cacheKey(playerId, scope), key -> {
+            var store = new RtsAtomicNbtStore(server, "rtsbuilding/players/" + playerId, scope + ".dat");
             return new DataCluster(store);
         });
     }
@@ -96,14 +125,19 @@ public enum SaveScheduler {
     }
 
     /**
-     * 玩家登出时调用——刷盘并释放内存。
+     * 玩家登出时调用——刷盘并释放该玩家所有作用域的数据。
      * 建议在 {@code PlayerLoggedOutEvent} 中调用。
      */
     public void onPlayerLogout(ServerPlayer player) {
-        DataCluster cluster = clusters.remove(player.getUUID());
-        if (cluster != null) {
-            cluster.flushAndClose();
-        }
+        UUID playerId = player.getUUID();
+        String prefix = playerId + KEY_SEPARATOR;
+        clusters.entrySet().removeIf(entry -> {
+            if (entry.getKey().startsWith(prefix)) {
+                entry.getValue().flushAndClose();
+                return true;
+            }
+            return false;
+        });
     }
 
     /**
@@ -116,13 +150,21 @@ public enum SaveScheduler {
 
     /** 立即刷新所有玩家的数据。 */
     public void flushAll() {
-        for (Map.Entry<UUID, DataCluster> entry : clusters.entrySet()) {
+        for (Map.Entry<String, DataCluster> entry : clusters.entrySet()) {
             try {
                 entry.getValue().flush();
             } catch (Exception e) {
-                RtsbuildingMod.LOGGER.error("保存玩家 {} 的数据失败: {}", entry.getKey(), e.getMessage());
+                RtsbuildingMod.LOGGER.error("保存数据失败（缓存键 {}）: {}", entry.getKey(), e.getMessage());
             }
         }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  内部辅助方法
+    // ──────────────────────────────────────────────────────────────────
+
+    private static String cacheKey(UUID playerId, String scope) {
+        return playerId.toString() + KEY_SEPARATOR + scope;
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -176,8 +218,8 @@ public enum SaveScheduler {
         this.flushInterval = Math.max(20, ticks); // 最少 1 秒
     }
 
-    /** 返回当前缓存的玩家数量（用于诊断）。 */
-    public int cachedPlayerCount() {
+    /** 返回当前缓存的集群数量（用于诊断）。 */
+    public int cachedClusterCount() {
         return clusters.size();
     }
 }

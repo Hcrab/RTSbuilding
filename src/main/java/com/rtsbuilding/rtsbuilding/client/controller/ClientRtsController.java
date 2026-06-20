@@ -921,13 +921,11 @@ public final class ClientRtsController {
             this.cameraOrbitService.applyEnabledPose(
                     payload.anchorX(), payload.anchorY(), payload.anchorZ(),
                     payload.heightOffset(), payload.yawDeg(), payload.pitchDeg());
-            this.mode = BuilderMode.INTERACT;
             this.storageStateManager.clearStorageState();
             this.buildPlacementService.clearPlacementSelectionPreserveMode();
             this.miningOperationService.clearMiningState();
             this.lastFunnelTarget = null;
             this.funnelTargetCooldownTicks = 0;
-            this.storageStateManager.setFunnelWithoutPacket(false);
             this.pendingCraftTerminalOpen = false;
             this.pendingCraftTerminalOpenTicks = 0;
             this.pendingRemoteMenuOpenTicks = 0;
@@ -950,7 +948,6 @@ public final class ClientRtsController {
         this.homeSelectionMode = false;
         this.closeRangeAllowed = false;
         this.cameraOrbitService.clearState();
-        this.storageStateManager.clearStorageStateOnDisable();
         this.lastFunnelTarget = null;
         this.funnelTargetCooldownTicks = 0;
         this.pendingCraftTerminalOpen = false;
@@ -963,7 +960,6 @@ public final class ClientRtsController {
 
         this.buildPlacementService.clearPlacementSelectionPreserveMode();
         this.miningOperationService.clearMiningRenderState();
-        this.buildPlacementService.setBuildShape(BuildShape.BLOCK);
         this.storageStateManager.clearQuickSlotsLocal();
         this.storageStateManager.clearGuiBindingsLocal();
         this.storageStateManager.clearStorageScanState();

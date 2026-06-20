@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.common.persist;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
 import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 /**
@@ -21,7 +23,7 @@ import java.util.*;
  * {@code config/rts_building/rtsbuilding-client-ui.json} 文件。
  *
  * <p>此层只做 I/O 和数据校验，不含业务逻辑。
- * 批量的加载/保存协调由 {@link com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager} 负责。
+ * 批量的加载/保存协调由 {@link RtsScreenUiStateManager} 负责。
  * {@link UiStateCache} 提供内存缓存以避免冗余的文件读写。
  *
  * <h3>架构</h3>
@@ -31,7 +33,7 @@ import java.util.*;
  *   <li><b>校验</b> — {@link UiState#sanitized()} 在每次写入前清理非法值</li>
  * </ul>
  *
- * @see com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager
+ * @see RtsScreenUiStateManager
  * @see UiStateCache
  * @see UiState
  */
@@ -85,32 +87,48 @@ public final class RtsClientUiStateStore {
 
     /**
      * 将 UI 状态写入持久化配置文件。
+     * <p>使用临时文件 + 原子移动方式写入，防止写入中途崩溃导致文件损坏。
      * <p>调用前请确保状态已通过 {@link UiState#sanitized()} 校验。
      */
     static void writeToFile(UiState state) {
         if (state == null) {
             return;
         }
+        Path tempPath = CONFIG_PATH.resolveSibling(CONFIG_PATH.getFileName() + ".tmp");
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
-            try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
+            try (Writer writer = Files.newBufferedWriter(tempPath)) {
                 GSON.toJson(state, writer);
+            }
+            try {
+                Files.move(tempPath, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException e) {
+                // 文件系统可能不支持原子移动（如某些网络文件系统），回退到普通移动
+                Files.move(tempPath, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
             LOG.warn("写入 UI 状态文件失败，旧文件将保留: {}", CONFIG_PATH, e);
+            try {
+                Files.deleteIfExists(tempPath);
+            } catch (IOException ignored) {
+            }
         }
     }
 
     /**
      * 执行版本迁移，确保旧格式文件能被加载。
      * <p>旧文件没有 {@code _storeVersion} 字段时默认为 0。
+     * <p>仅在当前版本旧于最新版本时才执行版本提升，
+     * 防止用户降级模组后数据被标记为不可兼容的版本号。
      */
     private static UiState migrate(UiState state) {
         int version = state._storeVersion;
         // 未来在此添加逐版本迁移逻辑：
         // if (version < 1) { /* v0 → v1 */ version = 1; }
         // if (version < 2) { /* v1 → v2 */ version = 2; }
-        state._storeVersion = CURRENT_STORE_VERSION;
+        if (version < CURRENT_STORE_VERSION) {
+            state._storeVersion = CURRENT_STORE_VERSION;
+        }
         return state;
     }
 
@@ -142,59 +160,59 @@ public final class RtsClientUiStateStore {
 
     /** 容器覆盖层是否启用。 */
     public static synchronized boolean isContainerOverlayEnabled() {
-        return CACHE.get().containerOverlayEnabled;
+        return CACHE.get().overlay.containerOverlayEnabled;
     }
 
     /** 设置容器覆盖层启用状态（仅标记脏，延迟写入）。 */
     public static synchronized void setContainerOverlayEnabled(boolean enabled) {
-        CACHE.get().containerOverlayEnabled = enabled;
+        CACHE.get().overlay.containerOverlayEnabled = enabled;
         CACHE.markDirty();
     }
 
     /** 覆盖层 Shift+点击快速导入是否启用。 */
     public static synchronized boolean isOverlayShiftImportEnabled() {
-        return CACHE.get().overlayShiftImportEnabled;
+        return CACHE.get().overlay.overlayShiftImportEnabled;
     }
 
     /** 设置覆盖层 Shift 导入启用状态（仅标记脏）。 */
     public static synchronized void setOverlayShiftImportEnabled(boolean enabled) {
-        CACHE.get().overlayShiftImportEnabled = enabled;
+        CACHE.get().overlay.overlayShiftImportEnabled = enabled;
         CACHE.markDirty();
     }
 
     public static synchronized boolean isStorageRefreshQuietEnabled() {
-        return CACHE.get().storageRefreshQuietEnabled;
+        return CACHE.get().storage.storageRefreshQuietEnabled;
     }
 
     public static synchronized void setStorageRefreshQuietEnabled(boolean enabled) {
-        CACHE.get().storageRefreshQuietEnabled = enabled;
+        CACHE.get().storage.storageRefreshQuietEnabled = enabled;
         CACHE.markDirty();
     }
 
     public static synchronized boolean isStorageAutoRefreshEnabled() {
-        return CACHE.get().storageAutoRefreshEnabled;
+        return CACHE.get().storage.storageAutoRefreshEnabled;
     }
 
     public static synchronized void setStorageAutoRefreshEnabled(boolean enabled) {
-        CACHE.get().storageAutoRefreshEnabled = enabled;
+        CACHE.get().storage.storageAutoRefreshEnabled = enabled;
         CACHE.markDirty();
     }
 
     public static synchronized boolean isShowStorageReadyPopupEnabled() {
-        return CACHE.get().showStorageReadyPopup;
+        return CACHE.get().storage.showStorageReadyPopup;
     }
 
     public static synchronized void setShowStorageReadyPopupEnabled(boolean enabled) {
-        CACHE.get().showStorageReadyPopup = enabled;
+        CACHE.get().storage.showStorageReadyPopup = enabled;
         CACHE.markDirty();
     }
 
     public static synchronized boolean isShowWorkflowPanelEnabled() {
-        return CACHE.get().showWorkflowPanel;
+        return CACHE.get().storage.showWorkflowPanel;
     }
 
     public static synchronized void setShowWorkflowPanelEnabled(boolean enabled) {
-        CACHE.get().showWorkflowPanel = enabled;
+        CACHE.get().storage.showWorkflowPanel = enabled;
         CACHE.markDirty();
     }
 
@@ -210,37 +228,108 @@ public final class RtsClientUiStateStore {
         /** 数据版本号，用于向前兼容的迁移检测 */
         public int _storeVersion = CURRENT_STORE_VERSION;
 
-        public String buildShape = "BLOCK";
-        public String fillMode = "FILL";
-        public int rotationDegrees = 0;
-        public boolean quickBuildOpen = true;
-        public String quickBuildMode = "BUILD";
-        public int ultimineLimit = 64;
-        public String areaMineShape = "CHAIN";
-        public boolean chunkCurtainVisible = false;
-        public double rtsGuiScale = 2.0D;
-        public int inputSensitivityIndex = 2;
-        public boolean startCameraAtPlayerHead = false;
-        public boolean allowPlacedBlockRecovery = false;
-        public boolean toolProtectionEnabled = true;
-        public boolean playerStatusOverlayEnabled = true;
-        public boolean invertPanDragX = false;
-        public boolean invertPanDragY = false;
-        public boolean smoothCamera = true;
-        public boolean damageSoundEnabled = true;
-        public boolean damageAutoReturnEnabled = true;
-        public boolean debugButtonVisible = false;
-        public boolean lineConnected = false;
-        public boolean containerOverlayEnabled = false;
-        public boolean overlayShiftImportEnabled = false;
-        public boolean storageRefreshQuietEnabled = false;
-        public boolean storageAutoRefreshEnabled = true;
-        public boolean showStorageReadyPopup = false;
-        public boolean showWorkflowPanel = true;
+        // ===== 面板分组状态 =====
+
+        /** 快速建造面板 */
+        public QuickBuildState quickBuild = new QuickBuildState();
+        /** 连锁挖掘 / 范围破坏面板 */
+        public MiningState mining = new MiningState();
+        /** 相机 / 视觉面板 */
+        public CameraState camera = new CameraState();
+        /** 覆盖层面板 */
+        public OverlayState overlay = new OverlayState();
+        /** 存储面板 */
+        public StorageState storage = new StorageState();
+        /** 战斗 / 工具面板 */
+        public CombatState combat = new CombatState();
+        /** 调试面板 */
+        public DebugState debug = new DebugState();
+        /** 设置菜单 */
+        public SettingsState settings = new SettingsState();
+
+        // ===== 顶层通用字段 =====
+
         /** 已关闭的引导提醒键列表 */
         public List<String> dismissedIntroReminderKeys = new ArrayList<>();
+
         /** 窗口面板边界持久化映射（键 → 边界） */
         public Map<String, PanelBounds> windowPanelBounds = new LinkedHashMap<>();
+
+        // ================================================================
+        //  面板分组内嵌状态类
+        // ================================================================
+
+        /** 快速建造面板状态。 */
+        public static final class QuickBuildState {
+            public String buildShape = "BLOCK";
+            public boolean quickBuildOpen = true;
+            public String quickBuildMode = "BUILD";
+
+            // ===== BUILD 模式独立状态 =====
+            public String buildFillMode = "FILL";
+            public int buildRotationDegrees = 0;
+            public boolean buildLineConnected = false;
+        }
+
+        /** 连锁挖掘 / 范围破坏状态。 */
+        public static final class MiningState {
+            public int ultimineLimit = 64;
+            public String areaMineShape = "CHAIN";
+
+            // ===== 范围破坏模式独立状态 =====
+            public String destroyFillMode = "FILL";
+            public int destroyRotationDegrees = 0;
+            public boolean destroyLineConnected = false;
+        }
+
+        /** 相机 / 视觉状态。 */
+        public static final class CameraState {
+            public double rtsGuiScale = 2.0D;
+            public int inputSensitivityIndex = 2;
+            public boolean startCameraAtPlayerHead = false;
+            public boolean invertPanDragX = false;
+            public boolean invertPanDragY = false;
+            public boolean smoothCamera = true;
+        }
+
+        /** 覆盖层状态。 */
+        public static final class OverlayState {
+            public boolean containerOverlayEnabled = false;
+            public boolean overlayShiftImportEnabled = false;
+            public boolean chunkCurtainVisible = false;
+            public boolean playerStatusOverlayEnabled = true;
+        }
+
+        /** 存储面板状态。 */
+        public static final class StorageState {
+            public boolean storageRefreshQuietEnabled = false;
+            public boolean storageAutoRefreshEnabled = true;
+            public boolean showStorageReadyPopup = false;
+            public boolean showWorkflowPanel = true;
+        }
+
+        /** 战斗 / 工具保护状态。 */
+        public static final class CombatState {
+            public boolean toolProtectionEnabled = true;
+            public boolean damageSoundEnabled = true;
+            public boolean damageAutoReturnEnabled = true;
+        }
+
+        /** 调试状态。 */
+        public static final class DebugState {
+            public boolean debugButtonVisible = false;
+            public boolean lineConnected = false;
+            public boolean allowPlacedBlockRecovery = false;
+        }
+
+        /** 设置菜单状态。 */
+        public static final class SettingsState {
+            public boolean controlsExpanded;
+            public boolean displayExpanded;
+            public boolean helpersExpanded;
+            public boolean animationExpanded;
+            public List<String> expandedHintKeys = new ArrayList<>();
+        }
 
         /** 窗口面板位置/大小的不可变记录。 */
         public static final class PanelBounds {
@@ -273,33 +362,51 @@ public final class RtsClientUiStateStore {
         UiState sanitized() {
             UiState clean = new UiState();
             clean._storeVersion = CURRENT_STORE_VERSION;
-            clean.buildShape = sanitizeEnum(this.buildShape, "BLOCK");
-            clean.fillMode = sanitizeEnum(this.fillMode, "FILL");
-            clean.rotationDegrees = Math.floorMod(this.rotationDegrees, 360);
-            clean.quickBuildOpen = this.quickBuildOpen;
-            clean.quickBuildMode = sanitizeEnum(this.quickBuildMode, "BUILD");
-            clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
-            clean.areaMineShape = sanitizeEnum(this.areaMineShape, "CHAIN");
-            clean.chunkCurtainVisible = this.chunkCurtainVisible;
-            clean.rtsGuiScale = sanitizeScale(this.rtsGuiScale);
-            clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));
-            clean.startCameraAtPlayerHead = this.startCameraAtPlayerHead;
-            clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
-            clean.toolProtectionEnabled = this.toolProtectionEnabled;
-            clean.playerStatusOverlayEnabled = this.playerStatusOverlayEnabled;
-            clean.invertPanDragX = this.invertPanDragX;
-            clean.invertPanDragY = this.invertPanDragY;
-            clean.smoothCamera = this.smoothCamera;
-            clean.damageSoundEnabled = this.damageSoundEnabled;
-            clean.damageAutoReturnEnabled = this.damageAutoReturnEnabled;
-            clean.debugButtonVisible = this.debugButtonVisible;
-            clean.lineConnected = this.lineConnected;
-            clean.containerOverlayEnabled = this.containerOverlayEnabled;
-            clean.overlayShiftImportEnabled = this.overlayShiftImportEnabled;
-            clean.storageRefreshQuietEnabled = this.storageRefreshQuietEnabled;
-            clean.storageAutoRefreshEnabled = this.storageAutoRefreshEnabled;
-            clean.showStorageReadyPopup = this.showStorageReadyPopup;
-            clean.showWorkflowPanel = this.showWorkflowPanel;
+            // quickBuild
+            clean.quickBuild.buildShape = sanitizeEnum(this.quickBuild.buildShape, "BLOCK");
+            clean.quickBuild.quickBuildOpen = this.quickBuild.quickBuildOpen;
+            clean.quickBuild.quickBuildMode = sanitizeEnum(this.quickBuild.quickBuildMode, "BUILD");
+            clean.quickBuild.buildFillMode = sanitizeEnum(this.quickBuild.buildFillMode, "FILL");
+            clean.quickBuild.buildRotationDegrees = Math.floorMod(this.quickBuild.buildRotationDegrees, 360);
+            clean.quickBuild.buildLineConnected = this.quickBuild.buildLineConnected;
+            // mining
+            clean.mining.ultimineLimit = Math.max(1, Math.min(256, this.mining.ultimineLimit));
+            clean.mining.areaMineShape = sanitizeEnum(this.mining.areaMineShape, "CHAIN");
+            clean.mining.destroyFillMode = sanitizeEnum(this.mining.destroyFillMode, "FILL");
+            clean.mining.destroyRotationDegrees = Math.floorMod(this.mining.destroyRotationDegrees, 360);
+            clean.mining.destroyLineConnected = this.mining.destroyLineConnected;
+            // camera
+            clean.camera.rtsGuiScale = sanitizeScale(this.camera.rtsGuiScale);
+            clean.camera.inputSensitivityIndex = Math.max(0, Math.min(32, this.camera.inputSensitivityIndex));
+            clean.camera.startCameraAtPlayerHead = this.camera.startCameraAtPlayerHead;
+            clean.camera.invertPanDragX = this.camera.invertPanDragX;
+            clean.camera.invertPanDragY = this.camera.invertPanDragY;
+            clean.camera.smoothCamera = this.camera.smoothCamera;
+            // overlay
+            clean.overlay.containerOverlayEnabled = this.overlay.containerOverlayEnabled;
+            clean.overlay.overlayShiftImportEnabled = this.overlay.overlayShiftImportEnabled;
+            clean.overlay.chunkCurtainVisible = this.overlay.chunkCurtainVisible;
+            clean.overlay.playerStatusOverlayEnabled = this.overlay.playerStatusOverlayEnabled;
+            // storage
+            clean.storage.storageRefreshQuietEnabled = this.storage.storageRefreshQuietEnabled;
+            clean.storage.storageAutoRefreshEnabled = this.storage.storageAutoRefreshEnabled;
+            clean.storage.showStorageReadyPopup = this.storage.showStorageReadyPopup;
+            clean.storage.showWorkflowPanel = this.storage.showWorkflowPanel;
+            // combat
+            clean.combat.toolProtectionEnabled = this.combat.toolProtectionEnabled;
+            clean.combat.damageSoundEnabled = this.combat.damageSoundEnabled;
+            clean.combat.damageAutoReturnEnabled = this.combat.damageAutoReturnEnabled;
+            // debug
+            clean.debug.debugButtonVisible = this.debug.debugButtonVisible;
+            clean.debug.lineConnected = this.debug.lineConnected;
+            clean.debug.allowPlacedBlockRecovery = this.debug.allowPlacedBlockRecovery;
+            // settings
+            clean.settings.controlsExpanded = this.settings.controlsExpanded;
+            clean.settings.displayExpanded = this.settings.displayExpanded;
+            clean.settings.helpersExpanded = this.settings.helpersExpanded;
+            clean.settings.animationExpanded = this.settings.animationExpanded;
+            clean.settings.expandedHintKeys = sanitizeKeys(this.settings.expandedHintKeys);
+            // top-level
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             if (this.windowPanelBounds != null) {
                 clean.windowPanelBounds.putAll(this.windowPanelBounds);

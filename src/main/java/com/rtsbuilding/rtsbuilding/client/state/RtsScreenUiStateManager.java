@@ -64,6 +64,9 @@ public final class RtsScreenUiStateManager {
 
     /** 调试按钮可见性（运行时状态，仅由此类管理） */
     private boolean debugButtonVisible = false;
+
+    /** 是否正在执行 applyStoredUiState（加载中），在此期间禁止 persistUiState 写入缓存 */
+    private boolean applyingStoredState = false;
     /** 缓存的固定 RTS GUI 缩放值 */
     private double fixedRtsGuiScale = DEFAULT_RTS_GUI_SCALE;
 
@@ -94,76 +97,108 @@ public final class RtsScreenUiStateManager {
         // ===== 声明式控制器绑定 =====
         this.ctrlBindings = List.of(
                 // ---- 简单布尔：直接 controller ↔ UiState ----
+                // overlay
                 CtrlBind.bool(controller::isChunkCurtainVisible, controller::setChunkCurtainVisible,
-                        s -> s.chunkCurtainVisible, (s, v) -> s.chunkCurtainVisible = v),
+                        s -> s.overlay.chunkCurtainVisible, (s, v) -> s.overlay.chunkCurtainVisible = v),
+                // camera
                 CtrlBind.bool(controller::isStartCameraAtPlayerHead, controller::setStartCameraAtPlayerHead,
-                        s -> s.startCameraAtPlayerHead, (s, v) -> s.startCameraAtPlayerHead = v),
+                        s -> s.camera.startCameraAtPlayerHead, (s, v) -> s.camera.startCameraAtPlayerHead = v),
+                // debug
                 CtrlBind.bool(controller::isAllowPlacedBlockRecovery, controller::setAllowPlacedBlockRecovery,
-                        s -> s.allowPlacedBlockRecovery, (s, v) -> s.allowPlacedBlockRecovery = v),
+                        s -> s.debug.allowPlacedBlockRecovery, (s, v) -> s.debug.allowPlacedBlockRecovery = v),
+                // combat
                 CtrlBind.bool(controller::isToolProtectionEnabled, controller::setToolProtectionEnabled,
-                        s -> s.toolProtectionEnabled, (s, v) -> s.toolProtectionEnabled = v),
+                        s -> s.combat.toolProtectionEnabled, (s, v) -> s.combat.toolProtectionEnabled = v),
+                // overlay
                 CtrlBind.bool(controller::isPlayerStatusOverlayEnabled, controller::setPlayerStatusOverlayEnabled,
-                        s -> s.playerStatusOverlayEnabled, (s, v) -> s.playerStatusOverlayEnabled = v),
+                        s -> s.overlay.playerStatusOverlayEnabled, (s, v) -> s.overlay.playerStatusOverlayEnabled = v),
+                // camera
                 CtrlBind.bool(controller::isInvertPanDragX, v -> controller.setInvertPanDragX(v),
-                        s -> s.invertPanDragX, (s, v) -> s.invertPanDragX = v),
+                        s -> s.camera.invertPanDragX, (s, v) -> s.camera.invertPanDragX = v),
                 CtrlBind.bool(controller::isInvertPanDragY, v -> controller.setInvertPanDragY(v),
-                        s -> s.invertPanDragY, (s, v) -> s.invertPanDragY = v),
+                        s -> s.camera.invertPanDragY, (s, v) -> s.camera.invertPanDragY = v),
                 CtrlBind.bool(controller::isSmoothCamera, controller::setSmoothCamera,
-                        s -> s.smoothCamera, (s, v) -> s.smoothCamera = v),
+                        s -> s.camera.smoothCamera, (s, v) -> s.camera.smoothCamera = v),
+                // combat
                 CtrlBind.bool(controller::isDamageSoundEnabled, controller::setDamageSoundEnabled,
-                        s -> s.damageSoundEnabled, (s, v) -> s.damageSoundEnabled = v),
+                        s -> s.combat.damageSoundEnabled, (s, v) -> s.combat.damageSoundEnabled = v),
                 CtrlBind.bool(controller::isDamageAutoReturnEnabled, controller::setDamageAutoReturnEnabled,
-                        s -> s.damageAutoReturnEnabled, (s, v) -> s.damageAutoReturnEnabled = v),
-                // lineConnected 走 shapeController 而非 controller
-                CtrlBind.bool(shapeController::isLineConnected, shapeController::setLineConnected,
-                        s -> s.lineConnected, (s, v) -> s.lineConnected = v),
+                        s -> s.combat.damageAutoReturnEnabled, (s, v) -> s.combat.damageAutoReturnEnabled = v),
                 // debugButtonVisible 是本地字段
+                // debug
                 CtrlBind.bool(() -> this.debugButtonVisible, v -> this.debugButtonVisible = v,
-                        s -> s.debugButtonVisible, (s, v) -> s.debugButtonVisible = v),
+                        s -> s.debug.debugButtonVisible, (s, v) -> s.debug.debugButtonVisible = v),
 
                 // ---- 覆盖层与存储 UI 偏好（本地字段 ↔ UiState） ----
+                // overlay
                 CtrlBind.bool(() -> this.containerOverlayEnabled, v -> this.containerOverlayEnabled = v,
-                        s -> s.containerOverlayEnabled, (s, v) -> s.containerOverlayEnabled = v),
+                        s -> s.overlay.containerOverlayEnabled, (s, v) -> s.overlay.containerOverlayEnabled = v),
                 CtrlBind.bool(() -> this.overlayShiftImportEnabled, v -> this.overlayShiftImportEnabled = v,
-                        s -> s.overlayShiftImportEnabled, (s, v) -> s.overlayShiftImportEnabled = v),
+                        s -> s.overlay.overlayShiftImportEnabled, (s, v) -> s.overlay.overlayShiftImportEnabled = v),
+                // storage
                 CtrlBind.bool(() -> this.showStorageReadyPopup, v -> this.showStorageReadyPopup = v,
-                        s -> s.showStorageReadyPopup, (s, v) -> s.showStorageReadyPopup = v),
+                        s -> s.storage.showStorageReadyPopup, (s, v) -> s.storage.showStorageReadyPopup = v),
                 CtrlBind.bool(() -> this.showWorkflowPanel, v -> this.showWorkflowPanel = v,
-                        s -> s.showWorkflowPanel, (s, v) -> s.showWorkflowPanel = v),
+                        s -> s.storage.showWorkflowPanel, (s, v) -> s.storage.showWorkflowPanel = v),
                 CtrlBind.bool(() -> this.storageRefreshQuietEnabled, v -> this.storageRefreshQuietEnabled = v,
-                        s -> s.storageRefreshQuietEnabled, (s, v) -> s.storageRefreshQuietEnabled = v),
+                        s -> s.storage.storageRefreshQuietEnabled, (s, v) -> s.storage.storageRefreshQuietEnabled = v),
                 CtrlBind.bool(() -> this.storageAutoRefreshEnabled, v -> this.storageAutoRefreshEnabled = v,
-                        s -> s.storageAutoRefreshEnabled, (s, v) -> s.storageAutoRefreshEnabled = v),
+                        s -> s.storage.storageAutoRefreshEnabled, (s, v) -> s.storage.storageAutoRefreshEnabled = v),
 
                 // ---- 建造形状（collect 取 QuickBuildPanel，apply 连带加载和兜底） ----
+                // quickBuild
                 new CtrlBind(
-                        state -> state.buildShape = this.quickBuildPanel.getBuildModeShape().name(),
+                        state -> state.quickBuild.buildShape = this.quickBuildPanel.getBuildModeShape().name(),
                         state -> {
-                            parseAndSetBuildShape(state.buildShape);
+                            parseAndSetBuildShape(state.quickBuild.buildShape);
                             this.quickBuildPanel.loadStoredShapes(
                                     this.controller.getBuildShape(), this.controller.getAreaMineShape());
                             this.shapeController.ensureFillModeForShape(this.controller.getBuildShape());
                         }
                 ),
-                // ---- 填充模式 ----
+                // ---- BUILD 填充模式 ----
                 new CtrlBind(
-                        state -> state.fillMode = this.shapeController.getShapeFillMode().name(),
-                        state -> parseAndSetFillMode(state.fillMode)
+                        state -> state.quickBuild.buildFillMode = this.shapeController.getBuildShapeFillMode().name(),
+                        state -> parseAndSetBuildFillMode(state.quickBuild.buildFillMode)
                 ),
-                // ---- 旋转角度 ----
+                // ---- BUILD 旋转角度 ----
                 new CtrlBind(
-                        state -> state.rotationDegrees = this.shapeController.getShapeRotateDegrees(),
-                        state -> this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360))
+                        state -> state.quickBuild.buildRotationDegrees = this.shapeController.getBuildRotateDegrees(),
+                        state -> this.shapeController.setBuildRotateDegrees(
+                                Math.floorMod(state.quickBuild.buildRotationDegrees, 360))
+                ),
+                // ---- BUILD 直线连接 ----
+                new CtrlBind(
+                        state -> state.quickBuild.buildLineConnected = this.shapeController.isBuildLineConnected(),
+                        state -> this.shapeController.setBuildLineConnected(state.quickBuild.buildLineConnected)
+                ),
+                // ---- 范围破坏填充模式 ----
+                new CtrlBind(
+                        state -> state.mining.destroyFillMode = this.shapeController.getDestroyShapeFillMode().name(),
+                        state -> parseAndSetDestroyFillMode(state.mining.destroyFillMode)
+                ),
+                // ---- 范围破坏旋转角度 ----
+                new CtrlBind(
+                        state -> state.mining.destroyRotationDegrees = this.shapeController.getDestroyRotateDegrees(),
+                        state -> this.shapeController.setDestroyRotateDegrees(
+                                Math.floorMod(state.mining.destroyRotationDegrees, 360))
+                ),
+                // ---- 范围破坏直线连接 ----
+                new CtrlBind(
+                        state -> state.mining.destroyLineConnected = this.shapeController.isDestroyLineConnected(),
+                        state -> this.shapeController.setDestroyLineConnected(state.mining.destroyLineConnected)
                 ),
                 // ---- GUI 缩放（带 sanitize 兜底） ----
+                // camera
                 new CtrlBind(
-                        state -> state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale),
-                        state -> this.fixedRtsGuiScale = sanitizeRtsGuiScale(state.rtsGuiScale)
+                        state -> state.camera.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale),
+                        state -> this.fixedRtsGuiScale = sanitizeRtsGuiScale(state.camera.rtsGuiScale)
                 ),
                 // ---- 输入灵敏度（int → fraction 转换） ----
+                // camera
                 new CtrlBind(
-                        state -> state.inputSensitivityIndex = this.controller.getInputSensitivityIndex(),
-                        state -> applyInputSensitivity(state.inputSensitivityIndex)
+                        state -> state.camera.inputSensitivityIndex = this.controller.getInputSensitivityIndex(),
+                        state -> applyInputSensitivity(state.camera.inputSensitivityIndex)
                 )
         );
 
@@ -261,9 +296,14 @@ public final class RtsScreenUiStateManager {
     public void applyStoredUiState() {
         RtsClientUiStateStore.UiState state = this.cache.get();
         // 先遍历面板自声明属性（含 BoundsProperty），再遍历控制器绑定
-        applyPanelProperties(state);
-        for (var bind : this.ctrlBindings) {
-            bind.apply.accept(state);
+        this.applyingStoredState = true;
+        try {
+            applyPanelProperties(state);
+            for (var bind : this.ctrlBindings) {
+                bind.apply.accept(state);
+            }
+        } finally {
+            this.applyingStoredState = false;
         }
     }
 
@@ -273,6 +313,11 @@ public final class RtsScreenUiStateManager {
      * 实际的 I/O 将在下次 tick 通过 {@link #flush()} 执行。
      */
     public void persistUiState() {
+        // 加载过程中禁止写入——CtrlBind apply 中可能触发 ensureFillModeForShape → persistUiState，
+        // 此时部分独立字段尚未加载完毕，收集到的值是错误的，会污染缓存
+        if (this.applyingStoredState) {
+            return;
+        }
         RtsClientUiStateStore.UiState state = this.cache.get();
         // 遍历控制器绑定（收集运行时值到 UiState）
         for (var bind : this.ctrlBindings) {
@@ -328,12 +373,21 @@ public final class RtsScreenUiStateManager {
         }
     }
 
-    /** 尝试解析并设置填充模式字符串。 */
-    private void parseAndSetFillMode(String name) {
+    /** 尝试解析并设置 BUILD 填充模式字符串。 */
+    private void parseAndSetBuildFillMode(String name) {
         try {
-            this.shapeController.setShapeFillMode(ShapeFillMode.valueOf(name));
+            this.shapeController.setBuildShapeFillMode(ShapeFillMode.valueOf(name));
         } catch (IllegalArgumentException ignored) {
-            this.shapeController.setShapeFillMode(ShapeFillMode.FILL);
+            this.shapeController.setBuildShapeFillMode(ShapeFillMode.FILL);
+        }
+    }
+
+    /** 尝试解析并设置范围破坏填充模式字符串。 */
+    private void parseAndSetDestroyFillMode(String name) {
+        try {
+            this.shapeController.setDestroyShapeFillMode(ShapeFillMode.valueOf(name));
+        } catch (IllegalArgumentException ignored) {
+            this.shapeController.setDestroyShapeFillMode(ShapeFillMode.FILL);
         }
     }
 

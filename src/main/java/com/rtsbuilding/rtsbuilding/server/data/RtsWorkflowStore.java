@@ -12,7 +12,6 @@ import net.minecraft.world.level.Level;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 工作流条目的持久化存储。
@@ -20,12 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p><b>新版</b>：通过 {@link DataCluster} + {@link WorkflowComponents#FULL_WORKFLOW}
  * 按玩家拆分文件存储（{@code rtsbuilding/players/{uuid}/workflow.dat}）。
  * 使用脏标记延迟刷盘，仅在玩家有活跃工作流时才写对应文件。
+ * DataCluster 生命周期统一由 {@link SaveScheduler} 管理，本类只负责编解码。
  *
  * <p><b>旧版</b>：将所有玩家数据写入单个 {@code rtsbuilding/workflow_data.dat}。
  * 旧版 API 保留用于加载遗留存档数据时的回退。
- *
- * @deprecated 新版 API 已就绪——请通过 {@link #saveAll(MinecraftServer, Map)} 和
- *             {@link #loadPlayer(MinecraftServer, UUID)} 直接使用，内部已切换到 DataCluster。
  */
 public final class RtsWorkflowStore {
 
@@ -41,25 +38,20 @@ public final class RtsWorkflowStore {
 
     private static final String KEY_DIMENSIONS = "dimensions";
 
-    // ──────────────────────────────────────────────────────────────────
-    //  DataCluster 缓存（新版逐玩家存储）
-    // ──────────────────────────────────────────────────────────────────
-
-    private static final Map<UUID, DataCluster> clusters = new ConcurrentHashMap<>();
-
     private RtsWorkflowStore() {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  新版 API（逐玩家 DataCluster）
+    //  新版 API（逐玩家 DataCluster，通过 SaveScheduler 管理生命周期）
     // ──────────────────────────────────────────────────────────────────
 
     /**
      * 保存所有玩家在所有维度上的工作流槽位管理器。
      *
-     * <p>每个玩家的数据写入选 {@code rtsbuilding/players/{uuid}/workflow.dat}，
-     * 通过 {@link DataCluster#set(DataComponent, Object)} 标记脏，
-     * 由调用方在适当时机刷盘。
+     * <p>每个玩家的数据写入 {@code rtsbuilding/players/{uuid}/workflow.dat}，
+     * 通过 {@link DataCluster#set(DataComponent, Object)} 标记脏。
+     * 写入后通过 {@link SaveScheduler#flushAll()} 立即刷盘以确保数据落盘。
+     * DataCluster 生命周期由 {@link SaveScheduler} 统一管理。
      *
      * @param server   Minecraft 服务器实例
      * @param allSlots 玩家 UUID → 维度 → 槽位管理器的映射
@@ -96,7 +88,7 @@ public final class RtsWorkflowStore {
         }
 
         // 关键事件后立即刷盘，确保数据落盘
-        flushAll();
+        SaveScheduler.INSTANCE.flushAll();
     }
 
     /**
@@ -122,48 +114,13 @@ public final class RtsWorkflowStore {
         return loadPlayerLegacy(server, playerId);
     }
 
-    /**
-     * 强制刷盘指定玩家的工作流数据。
-     */
-    public static void flushPlayer(UUID playerId) {
-        DataCluster dc = clusters.get(playerId);
-        if (dc != null) {
-            dc.flush();
-        }
-    }
-
-    /**
-     * 强制刷盘所有已缓存的工作流数据。
-     */
-    public static void flushAll() {
-        for (Map.Entry<UUID, DataCluster> entry : clusters.entrySet()) {
-            try {
-                entry.getValue().flush();
-            } catch (Exception e) {
-                RtsbuildingMod.LOGGER.error("刷写工作流数据失败（玩家 {}）: {}", entry.getKey(), e.getMessage());
-            }
-        }
-    }
-
-    /**
-     * 移除指定玩家的工作流 DataCluster 缓存。
-     */
-    public static void removePlayer(UUID playerId) {
-        DataCluster dc = clusters.remove(playerId);
-        if (dc != null) {
-            dc.flushAndClose();
-        }
-    }
-
     // ──────────────────────────────────────────────────────────────────
     //  内部方法
     // ──────────────────────────────────────────────────────────────────
 
     private static DataCluster cluster(MinecraftServer server, UUID playerId) {
-        return clusters.computeIfAbsent(playerId, id -> {
-            var store = new RtsAtomicNbtStore(server, "rtsbuilding/players/" + id, "workflow.dat");
-            return new DataCluster(store);
-        });
+        // 通过 SaveScheduler 统一管理生命周期，避免独立缓存导致的分裂
+        return SaveScheduler.INSTANCE.dataCluster(server, playerId, "workflow");
     }
 
     private static Map<ResourceKey<Level>, RtsWorkflowSlotManager> deserializeDimensions(CompoundTag dimensions) {

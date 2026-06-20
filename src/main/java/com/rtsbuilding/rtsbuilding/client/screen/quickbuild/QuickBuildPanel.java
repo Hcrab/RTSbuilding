@@ -136,8 +136,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private WindowSlider chainLimitSlider;
     private int chainDestroyLimit = 64;
 
-    /** 缓存的形状，用于检测 fill mode 是否需要重建 */
+    /** 缓存的形状（BUILD），用于检测 fill mode 是否需要重建 */
     private BuildShape lastFillShape;
+    /** 缓存的形状（DESTROY），解决 CHAIN↔BLOCK 映射到相同 BuildShape 的问题 */
+    private AreaMineShape lastAreaMineShape;
     /** 直线连接模式按钮 */
     private WindowButton connectToggle;
 
@@ -146,28 +148,28 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private final List<PersistableProperty> properties = List.of(
             PersistableProperty.boolField(
                     "quick_build_open",
-                    state -> state.quickBuildOpen,
-                    (state, v) -> state.quickBuildOpen = v,
+                    state -> state.quickBuild.quickBuildOpen,
+                    (state, v) -> state.quickBuild.quickBuildOpen = v,
                     this::isOpen,
                     v -> setOpen(v)),
             PersistableProperty.enumField(
                     "quick_build_mode",
-                    state -> state.quickBuildMode,
-                    (state, v) -> state.quickBuildMode = v,
+                    state -> state.quickBuild.quickBuildMode,
+                    (state, v) -> state.quickBuild.quickBuildMode = v,
                     () -> this.quickBuildMode,
                     v -> this.quickBuildMode = v,
                     QuickBuildMode.BUILD,
                     QuickBuildMode.class),
             PersistableProperty.intField(
                     "chain_destroy_limit",
-                    state -> state.ultimineLimit,
-                    (state, v) -> state.ultimineLimit = v,
+                    state -> state.mining.ultimineLimit,
+                    (state, v) -> state.mining.ultimineLimit = v,
                     () -> this.chainDestroyLimit,
                     v -> this.chainDestroyLimit = v),
             PersistableProperty.enumField(
                     "area_mine_shape",
-                    state -> state.areaMineShape,
-                    (state, v) -> state.areaMineShape = v,
+                    state -> state.mining.areaMineShape,
+                    (state, v) -> state.mining.areaMineShape = v,
                     () -> this.rangeDestroyShape,
                     v -> this.rangeDestroyShape = v,
                     AreaMineShape.CHAIN,
@@ -192,8 +194,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         this.rangeDestroyShape = storedDestroyShape == null ? AreaMineShape.CHAIN : storedDestroyShape;
         ensureChainLimitSlider();
         createShapeButtons();
-        applyActiveShapeToController();
         this.lastFillShape = controller.getBuildShape();
+        this.lastAreaMineShape = this.rangeDestroyShape;
     }
 
     private void createShapeButtons() {
@@ -230,11 +232,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private void rebuildFillModeButtons() {
         if (isRangeDestroyChainMode()) {
             this.lastFillShape = controller.getBuildShape();
+            this.lastAreaMineShape = this.rangeDestroyShape;
             fillModeButtons = new WindowButton[0];
             this.connectToggle = null;
             return;
         }
         this.lastFillShape = controller.getBuildShape();
+        this.lastAreaMineShape = this.rangeDestroyShape;
         List<ShapeFillMode> modes =
                 ShapeGeometryUtil.availableFillModes(controller.getBuildShape());
         fillModeButtons = new WindowButton[modes.size()];
@@ -250,8 +254,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (controller.getBuildShape() == BuildShape.LINE || controller.getBuildShape() == BuildShape.WALL) {
             this.connectToggle = new WindowButton(0, 0, 84, 20,
                     Component.literal(screen.text("screen.rtsbuilding.quick_build.connect")), btn -> {
-                boolean next = !screen.getShapeController().isLineConnected();
-                screen.getShapeController().setLineConnected(next);
+                // 直接读写模式对应的独立字段，避免经过 syncActiveToModeFields 中转
+                if (isDestroyModeActive()) {
+                    boolean next = !screen.getShapeController().isDestroyLineConnected();
+                    screen.getShapeController().setDestroyLineConnected(next);
+                } else {
+                    boolean next = !screen.getShapeController().isBuildLineConnected();
+                    screen.getShapeController().setBuildLineConnected(next);
+                }
                 screen.persistUiState();
             });
         } else {
@@ -320,11 +330,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     public void loadStoredShapes(BuildShape storedBuildShape, AreaMineShape storedDestroyShape) {
         this.buildModeShape = storedBuildShape == null ? BuildShape.BLOCK : storedBuildShape;
-        this.rangeDestroyShape = storedDestroyShape == null ? AreaMineShape.CHAIN : storedDestroyShape;
+        // 注意：不覆盖 rangeDestroyShape——由 area_mine_shape PersistableProperty 统一管理
         if (isOpen()) {
             applyActiveShapeToController();
-        } else {
-            restoreSingleBlockCursor();
         }
         rebuildFillModeButtons();
         rebuildAllShapeButtons();
@@ -500,7 +508,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             // 显示当前值
             String valueStr = Integer.toString(this.chainDestroyLimit);
             g.drawString(screen.font(), valueStr, rightX + sliderW + 6, labelY + 16, 0xFFEAF4FF, false);
-        } else if (fillModeButtons == null || controller.getBuildShape() != lastFillShape) {
+        } else if (fillModeButtons == null || controller.getBuildShape() != lastFillShape
+                || (isDestroyModeActive() && this.rangeDestroyShape != this.lastAreaMineShape)) {
             rebuildFillModeButtons();
         }
         List<ShapeFillMode> modes =
@@ -530,7 +539,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             this.connectToggle.setY(connectRowY);
             this.connectToggle.render(g, mouseX, mouseY, partialTick);
 
-            boolean connected = screen.getShapeController().isLineConnected();
+            boolean connected = isDestroyModeActive()
+                    ? screen.getShapeController().isDestroyLineConnected()
+                    : screen.getShapeController().isBuildLineConnected();
             boolean hovered = this.connectToggle.isHoveredOrFocused();
             int vOffset = connected ? MODE_BUTTON_STATE_H * 2 : (hovered ? MODE_BUTTON_STATE_H : 0);
             RtsTextureRenderer.drawTextureHighPrecision(
@@ -741,8 +752,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     protected void onClose() {
-        restoreSingleBlockCursor();
-        screen.persistUiState();
     }
 
     public QuickBuildMode getMode() {
@@ -764,6 +773,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
         this.quickBuildMode = next;
         if (isOpen()) {
+            // 切换模式时，将 ScreenShapeController 的活跃状态在 BUILD/DESTROY 独立字段间交换
+            if (isDestroyModeActive()) {
+                screen.getShapeController().switchToDestroy();
+            } else {
+                screen.getShapeController().switchToBuild();
+            }
             applyActiveShapeToController();
             screen.clearShapeBuildSession();
             this.controller.clearAreaMineSession();

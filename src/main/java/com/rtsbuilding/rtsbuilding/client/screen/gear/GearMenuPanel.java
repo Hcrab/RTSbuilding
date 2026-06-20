@@ -54,12 +54,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     public void open() {
-        this.scroll = 0;
-        this.controlsExpanded = false;
-        this.displayExpanded = false;
-        this.helpersExpanded = false;
-        this.animationExpanded = false;
-        this.expandedHintKeys.clear();
         setOpen(true);
         markBroughtToFront();
     }
@@ -388,6 +382,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
             this.controlsExpanded = !this.controlsExpanded;
             clampScroll();
+            screen.persistUiState();
             return;
         }
         rowY += SECTION_HEADER_H;
@@ -431,6 +426,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
             this.displayExpanded = !this.displayExpanded;
             clampScroll();
+            screen.persistUiState();
             return;
         }
         rowY += SECTION_HEADER_H;
@@ -514,12 +510,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
             this.helpersExpanded = !this.helpersExpanded;
             clampScroll();
+            screen.persistUiState();
             return;
         }
         rowY += SECTION_HEADER_H;
         if (this.helpersExpanded) {
             if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24, SIMPLE_TOGGLE_ROW_H)) {
                 this.controller.toggleAutoStoreMinedDrops();
+                screen.persistUiState();
                 return;
             }
             rowY += SIMPLE_TOGGLE_ROW_H;
@@ -594,6 +592,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
             if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint"))) {
                 this.controller.toggleBdNetworkEnabled();
+                screen.persistUiState();
                 return;
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint");
@@ -603,6 +602,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
             this.animationExpanded = !this.animationExpanded;
             clampScroll();
+            screen.persistUiState();
             return;
         }
         rowY += SECTION_HEADER_H;
@@ -702,6 +702,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
             this.expandedHintKeys.add(hintKey);
         }
         clampScroll();
+        screen.persistUiState();
         return true;
     }
 
@@ -861,7 +862,31 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("settings", this)
+            PersistableProperty.bounds("settings", this),
+            PersistableProperty.boolField(
+                    "settings_controls_expanded",
+                    state -> state.settings.controlsExpanded,
+                    (state, v) -> state.settings.controlsExpanded = v,
+                    () -> this.controlsExpanded,
+                    v -> this.controlsExpanded = v),
+            PersistableProperty.boolField(
+                    "settings_display_expanded",
+                    state -> state.settings.displayExpanded,
+                    (state, v) -> state.settings.displayExpanded = v,
+                    () -> this.displayExpanded,
+                    v -> this.displayExpanded = v),
+            PersistableProperty.boolField(
+                    "settings_helpers_expanded",
+                    state -> state.settings.helpersExpanded,
+                    (state, v) -> state.settings.helpersExpanded = v,
+                    () -> this.helpersExpanded,
+                    v -> this.helpersExpanded = v),
+            PersistableProperty.boolField(
+                    "settings_animation_expanded",
+                    state -> state.settings.animationExpanded,
+                    (state, v) -> state.settings.animationExpanded = v,
+                    () -> this.animationExpanded,
+                    v -> this.animationExpanded = v)
     );
 
     @Override

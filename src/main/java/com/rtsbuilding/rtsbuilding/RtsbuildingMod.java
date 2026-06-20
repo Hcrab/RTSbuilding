@@ -198,7 +198,8 @@ public class RtsbuildingMod {
          *
          * <p>在服务器完全关闭前触发，确保以下数据安全落地：</p>
          * <ol>
-         *   <li>将当前所有工作流状态持久化到世界存档中</li>
+         *   <li>将所有活跃工作流保存到世界存档</li>
+         *   <li>刷新所有持久化数据并清空缓存</li>
          *   <li>清空工作流引擎的内存数据，防止切换世界时数据泄漏</li>
          * </ol>
          *
@@ -206,10 +207,10 @@ public class RtsbuildingMod {
          */
         @SubscribeEvent
         static void onServerStopped(ServerStoppedEvent event) {
-            // 刷新所有持久化数据
-            SaveScheduler.INSTANCE.onServerStopped();
-            // 将所有活跃工作流保存到世界存档（在清空前执行）
+            // 先保存工作流（此时 SaveScheduler 的缓存仍有效）
             RtsWorkflowEngine.getInstance().saveAll(event.getServer());
+            // 再刷新所有持久化数据并清空缓存
+            SaveScheduler.INSTANCE.onServerStopped();
             // 清空引擎内存，防止切换世界时旧世界的数据残留
             RtsWorkflowEngine.getInstance().clearAllData();
         }

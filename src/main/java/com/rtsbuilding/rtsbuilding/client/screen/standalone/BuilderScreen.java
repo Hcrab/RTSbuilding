@@ -312,6 +312,21 @@ public final class BuilderScreen extends Screen {
     public void setQuickBuildOpen(boolean open) {
         this.quickBuildPanel.setOpen(open);
     }
+
+    /**
+     * 将当前 quick build 模式的独立状态（fillMode/rotation/lineConnected）
+     * 同步到 ScreenShapeController 的活跃字段中。
+     * <p>应在 {@link #init()} 中的 {@code applyStoredUiState()} 完成后调用，
+     * 确保持久化值正确反映到活跃状态。
+     */
+    public void syncQuickBuildActiveState() {
+        if (this.quickBuildPanel.isRangeDestroyMode()) {
+            this.shapeController.applyDestroyStateAsActive();
+        } else {
+            this.shapeController.applyBuildStateAsActive();
+        }
+        ensureFillModeForShape(this.controller.getBuildShape());
+    }
     /** Returns the Minecraft client instance for access by sub-panels and utilities. */
     public net.minecraft.client.Minecraft getMinecraft() {
         return this.minecraft;
@@ -356,6 +371,8 @@ public final class BuilderScreen extends Screen {
                 frame.close();
             }
         }
+        // 持久化加载后，将当前模式的独立状态同步到活跃字段
+        syncQuickBuildActiveState();
         this.searchBox = new EditBox(this.font, 8, this.height - 52, 150, 14, Component.literal("Search"));
         this.searchBox.setMaxLength(128);
         this.searchBox.setBordered(true);
