@@ -92,6 +92,10 @@ public final class RtsRemoteMenuCompat {
         return TRACKER.shouldForceStillValid(menu, player);
     }
 
+    public static boolean isLocalSophisticatedMenu(AbstractContainerMenu menu, Player player) {
+        return isSophisticatedMenu(menu) && !shouldForceStillValid(menu, player);
+    }
+
     private static boolean isInstanceOf(Object instance, String className) {
         try {
             return Class.forName(className).isInstance(instance);

@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
+import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
@@ -225,6 +226,9 @@ public final class OverlayInteraction {
     }
 
     public static boolean tryImportHoveredMenuSlot(AbstractContainerScreen<?> screen, double mouseX, double mouseY, int button) {
+        if (isLocalSophisticatedMenu(screen)) {
+            return false;
+        }
         int menuSlot = resolveHoveredMenuSlot(screen, mouseX, mouseY);
         if (menuSlot < 0) {
             return false;
@@ -279,6 +283,9 @@ public final class OverlayInteraction {
                 || menuSlot < 0 || menuSlot >= screen.getMenu().slots.size()) {
             return false;
         }
+        if (isLocalSophisticatedMenu(screen)) {
+            return false;
+        }
         Slot slot = screen.getMenu().slots.get(menuSlot);
         if (slot == null || !slot.hasItem() || !slot.mayPickup(minecraft.player)) {
             return false;
@@ -298,6 +305,13 @@ public final class OverlayInteraction {
 
     public static boolean isInventoryOrCraftingScreen(Screen screen) {
         return screen instanceof InventoryScreen || screen instanceof CraftingScreen;
+    }
+
+    private static boolean isLocalSophisticatedMenu(AbstractContainerScreen<?> screen) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft.player != null
+                && screen != null
+                && RtsRemoteMenuCompat.isLocalSophisticatedMenu(screen.getMenu(), minecraft.player);
     }
 
     // =========================================================================
