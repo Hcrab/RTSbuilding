@@ -1,8 +1,12 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -15,18 +19,13 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidType;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import static com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanelUi.text;
 
 /**
  * Computes the material, unsupported-block, and missing-mod summaries shown by
  * the blueprint panel.
  */
-final class BlueprintMaterialInspector {
+public final class BlueprintMaterialInspector {
     private static final int WATER_BUCKET_THRESHOLD = 2;
 
     private BlueprintMaterialInspector() {
@@ -133,11 +132,12 @@ final class BlueprintMaterialInspector {
             int percent = (int) Mth.clamp(buildable * 100L / total, 0L, 100L);
             return new BuildStats(percent, buildable, total, 0, 0, missingBlockTypes);
         }
-        long buildable = buildableBlockCount(entry, controller);
+        long buildable = 0L;
         int missingTypes = 0;
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
             int required = Math.max(0, material.getValue());
             long available = availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()));
+            buildable += Math.min((long) required, Math.max(0L, available));
             if (available < required) {
                 missingTypes++;
             }
@@ -145,12 +145,14 @@ final class BlueprintMaterialInspector {
         FluidRequirement fluids = fluidRequirement(entry);
         if (fluids.waterBlocks() > 0) {
             boolean ready = availableWaterBuckets(controller) >= WATER_BUCKET_THRESHOLD;
+            buildable += ready ? fluids.waterBlocks() : 0L;
             if (!ready) {
                 missingTypes++;
             }
         }
         if (fluids.lavaBlocks() > 0) {
             long availableLava = availableFluidBuckets(controller, Fluids.LAVA);
+            buildable += Math.min((long) fluids.lavaBlocks(), availableLava);
             if (availableLava < fluids.lavaBlocks()) {
                 missingTypes++;
             }
@@ -187,58 +189,6 @@ final class BlueprintMaterialInspector {
             return false;
         }
         return true;
-    }
-
-    private static long buildableBlockCount(BlueprintEntry entry, ClientRtsController controller) {
-        if (entry == null || entry.blueprint() == null) {
-            return 0L;
-        }
-        Map<ResourceLocation, Long> remainingItems = new LinkedHashMap<>();
-        for (ResourceLocation id : entry.requiredItems().keySet()) {
-            if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                remainingItems.put(id, availableItemCount(controller, id.toString(), BuiltInRegistries.ITEM.get(id)));
-            }
-        }
-        boolean waterReady = availableWaterBuckets(controller) >= WATER_BUCKET_THRESHOLD;
-        long remainingLava = availableFluidBuckets(controller, Fluids.LAVA);
-        long buildable = 0L;
-        for (var block : entry.blueprint().blocks()) {
-            if (block == null || block.isMissingBlock() || block.state() == null) {
-                continue;
-            }
-            if (block.state().getFluidState().is(FluidTags.WATER)) {
-                if (waterReady) {
-                    buildable++;
-                }
-                continue;
-            }
-            if (block.state().getFluidState().is(FluidTags.LAVA)) {
-                if (remainingLava > 0L) {
-                    remainingLava--;
-                    buildable++;
-                }
-                continue;
-            }
-            List<ResourceLocation> ids = RtsBlueprint.materialItemIds(block);
-            if (ids.isEmpty()) {
-                continue;
-            }
-            boolean ready = true;
-            for (ResourceLocation id : ids) {
-                if (remainingItems.getOrDefault(id, 0L) <= 0L) {
-                    ready = false;
-                    break;
-                }
-            }
-            if (!ready) {
-                continue;
-            }
-            for (ResourceLocation id : ids) {
-                remainingItems.put(id, remainingItems.getOrDefault(id, 0L) - 1L);
-            }
-            buildable++;
-        }
-        return buildable;
     }
 
     static boolean isCreativePlayer() {
@@ -328,7 +278,7 @@ final class BlueprintMaterialInspector {
             return 0L;
         }
         long amount = 0L;
-        for (FluidEntry entry : controller.getFluidEntries()) {
+        for (ClientRtsController.FluidEntry entry : controller.getFluidEntries()) {
             if (id.toString().equals(entry.fluidId())) {
                 amount = saturatedAdd(amount, entry.amount());
             }

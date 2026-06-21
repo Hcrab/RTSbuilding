@@ -1,19 +1,22 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+
 import org.lwjgl.glfw.GLFW;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
+import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.TOP_H;
 
 /**
  * Windowed control surface for blueprint capture and blueprint preview placement.

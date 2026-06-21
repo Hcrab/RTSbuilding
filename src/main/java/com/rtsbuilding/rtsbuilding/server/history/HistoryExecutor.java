@@ -22,10 +22,10 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 /**
- * 历史记录执行器（类似 Ultimine-Rewind ??RewindExecutor）??
+ * 历史记录执行器（类似 Ultimine-Rewind ??RewindExecutor???
  * <p>
  * 负责实际执行撤回/重做操作，包括放置和破坏方块??
- * 所有操作在服务端执行，保证数据一致性??
+ * 所有操作在服务端执行，保证数据一致???
  * <p>
  * 设计要点（基??Ultimine-Rewind 的经验）??
  * <ul>
@@ -43,7 +43,7 @@ public final class HistoryExecutor {
     /**
      * 执行撤回操作??
      * <p>
-     * 放置批次→破坏每个方块；破坏批次→恢复每个方块??
+     * 放置批次→破坏每个方块；破坏批次→恢复每个方???
      *
      * @param player 操作的玩??
      * @param entry  要撤回的历史记录
@@ -66,9 +66,9 @@ public final class HistoryExecutor {
     /**
      * 恢复方块（重新放置）??
      * <p>
-     * 仅在目标位置为空气或可替换方块时才放置??
-     * 跳过已被占用的位置??
-     * 创造模式额外恢复方块实??NBT 数据（类??Ultimine-Rewind ??RewindExecutor）??
+     * 仅在目标位置为空气或可替换方块时才放???
+     * 跳过已被占用的位???
+     * 创造模式额外恢复方块实??NBT 数据（类??Ultimine-Rewind ??RewindExecutor???
      */
     private static int restoreBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks, net.minecraft.core.Direction face) {
         ServerLevel level = player.serverLevel();
@@ -121,8 +121,8 @@ public final class HistoryExecutor {
      * 类似 Ultimine-Rewind ??RewindExecutor 消耗物品逻辑??
      *
      * @param player 操作的玩??
-     * @param state  要放置的方块状??
-     * @return true 如果找到了对应物品并成功消??
+     * @param state  要放置的方块???
+     * @return true 如果找到了对应物品并成功???
      */
     private static boolean consumeItemForBlock(ServerPlayer player, BlockState state) {
         ItemStack required = new ItemStack(state.getBlock().asItem());
@@ -144,11 +144,11 @@ public final class HistoryExecutor {
     }
 
     /**
-     * 破坏方块，并将物品退还到链接储存（而非玩家背包或掉落物实体）??
+     * 破坏方块，并将物品退还到链接储存（而非玩家背包或掉落物实体???
      * <p>
      * 只破坏与记录中类型相同的方块（防止误破坏玩家后来放置的其他方块）??
      * <p>
-     * 退还优先级：链接储存空????玩家背包 ??原地掉落物??
+     * 退还优先级：链接储存空????玩家背包 ??原地掉落???
      * <p>
      * <b>为什么不??{@link net.minecraft.server.level.ServerLevel#destroyBlock}??/b>
      * <ul>
@@ -208,8 +208,8 @@ public final class HistoryExecutor {
             RtsStorageSession session = RtsSessionService.getIfPresent(player);
             if (session != null) {
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
-                session.transfer.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+                session.pageDataVersion.incrementAndGet();
+                RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
             }
         }
 

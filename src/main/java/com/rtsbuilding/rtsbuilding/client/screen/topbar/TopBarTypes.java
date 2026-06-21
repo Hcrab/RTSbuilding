@@ -1,12 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
+
 
 /**
  * Container for top-bar data types.
  * <p>
  * Groups the button identifier enum and the layout parameter record that are
  * always used together by {@link TopBarPanel}, {@link TopBarIconRenderer},
- * {@link com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen},
+ * {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen},
  * and the {@link com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel guide system}.
  * <p>
  * <b>Why combined:</b> {@link TopBarButtonLayout} references {@link TopBarButtonId}
@@ -27,6 +30,7 @@ public final class TopBarTypes {
         FUNNEL,
         ROTATE,
         QUICK_BUILD,
+        ULTIMINE,
         CHUNK_VIEW,
         DEBUG,
         GEAR,

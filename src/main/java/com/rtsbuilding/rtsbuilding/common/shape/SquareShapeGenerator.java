@@ -3,13 +3,14 @@ package com.rtsbuilding.rtsbuilding.common.shape;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Square (2D rectangle) shape generator.
  * <p>
  * Generates a flat rectangular area projected onto a plane determined by the
- * clicked face.  Has no height — just one layer.  Supports FILL and HOLLOW.
+ * clicked face.  Has no height ??just one layer.  Supports FILL and HOLLOW.
  */
 public class SquareShapeGenerator extends AreaShapeGenerator {
 
@@ -41,9 +42,17 @@ public class SquareShapeGenerator extends AreaShapeGenerator {
             return all;
         }
 
-        // HOLLOW / SKELETON: delegate to generic boundary filter
-        int minY = Math.min(0, clampOffset(input.end().getY() - input.start().getY()));
-        int maxY = Math.max(0, clampOffset(input.end().getY() - input.start().getY()));
-        return filterBoundary(all, minY, maxY);
+        // HOLLOW: keep only edge positions
+        List<BlockPos> boundary = new ArrayList<>();
+        for (BlockPos pos : all) {
+            boolean onEdge = pos.getX() == input.start().getX() + (minA == 0 ? 0 : minA * axes[0].getStepX())
+                    || pos.getX() == input.start().getX() + (maxA == 0 ? 0 : maxA * axes[0].getStepX())
+                    || pos.getZ() == input.start().getZ() + (minB == 0 ? 0 : minB * axes[1].getStepZ())
+                    || pos.getZ() == input.start().getZ() + (maxB == 0 ? 0 : maxB * axes[1].getStepZ());
+            if (onEdge) {
+                boundary.add(pos);
+            }
+        }
+        return boundary;
     }
 }

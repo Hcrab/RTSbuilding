@@ -8,7 +8,7 @@ package com.rtsbuilding.rtsbuilding.common.shape;
  * both sides of the system use identical ordinal values for network
  * communication and shape generation.
  * <p>
- * Ordinals must remain stable — they are transmitted over the network as
+ * Ordinals must remain stable ??they are transmitted over the network as
  * bytes in {@code C2SRtsAreaMinePayload}.
  */
 public enum AreaShape {

@@ -1,13 +1,14 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public record S2CRtsCraftablesPayload(
         String search,
@@ -26,8 +27,7 @@ public record S2CRtsCraftablesPayload(
         List<Boolean> optionCraftable,
         List<String> optionSummaries,
         List<String> optionMissingSummaries) implements CustomPacketPayload {
-    public static final Type<S2CRtsCraftablesPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_craftables"), S2CRtsCraftablesPayload.class);
+    public static final Type<S2CRtsCraftablesPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_craftables"), S2CRtsCraftablesPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCraftablesPayload> STREAM_CODEC =
             StreamCodec.of(

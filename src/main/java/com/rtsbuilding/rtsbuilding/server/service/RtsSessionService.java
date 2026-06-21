@@ -3,17 +3,19 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.RtsStorageSessionStore;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageCore;
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.data.RtsStorageSessionCodec;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSessionCodec;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,16 +27,18 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * RTS 会话管理器——会话生命周期与玩家状态的管理核心。
+ * RTS 会话管理器——会话生命周期与玩家状态的管理核心??
  *
- * <p>职责范围：
+ * <p>职责范围??
  * <ul>
  *   <li>玩家 RTS 会话（{@link RtsStorageSession}）的创建、获取、持久化</li>
  *   <li>全局会话映射（SESSIONS）的维护</li>
- *   <li>生命周期钩子的统一调度（启用/停用 RTS、登出、Tick）</li>
+ *   <li>生命周期钩子的统一调度（启??停用 RTS、登出、Tick??/li>
  * </ul>
  */
 public final class RtsSessionService {
+
+    public static final RtsSessionService INSTANCE = new RtsSessionService();
 
     private static final Map<UUID, RtsStorageSession> SESSIONS = new ConcurrentHashMap<>();
 
@@ -46,7 +50,7 @@ public final class RtsSessionService {
     // ======================================================================
 
     /**
-     * 获取或创建玩家的 RTS 会话。
+     * 获取或创建玩家的 RTS 会话??
      */
     public static RtsStorageSession getOrCreate(ServerPlayer player) {
         RtsStorageSession existing = SESSIONS.get(player.getUUID());
@@ -60,21 +64,21 @@ public final class RtsSessionService {
     }
 
     /**
-     * 获取玩家会话但不创建（可能返回 null）。
+     * 获取玩家会话但不创建（可能返??null???
      */
     public static RtsStorageSession getIfPresent(ServerPlayer player) {
         return SESSIONS.get(player.getUUID());
     }
 
     /**
-     * 获取所有活跃会话。
+     * 获取所有活跃会???
      */
     public static Map<UUID, RtsStorageSession> allSessions() {
         return Collections.unmodifiableMap(SESSIONS);
     }
 
     // ======================================================================
-    // 持久化
+    // 持久??
     // ======================================================================
 
     private static void loadFromPersistentStorage(ServerPlayer player, RtsStorageSession session) {
@@ -105,14 +109,14 @@ public final class RtsSessionService {
     public static void onRtsEnabled(ServerPlayer player) {
         RtsStorageSession session = getOrCreate(player);
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
+        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending, false);
         ServerHistoryManager.sendSync(player);
     }
 
     public static void onRtsDisabled(ServerPlayer player) {
         RtsStorageSession session = getOrCreate(player);
         RtsMiningStateMachine.stopActiveMining(player, session);
-        session.placement.placeBatchJobs.clear();
+        RtsWorkflowEngine.getInstance().pauseAllActive(player.getUUID(), true);
         RtsFunnelService.disableAndFlush(player, session);
         RtsMenuRemoteService.closeTracked(player, session);
         RtsMenuRemoteService.clearValidation(player, session);
@@ -130,7 +134,8 @@ public final class RtsSessionService {
     public static void onPlayerLogout(ServerPlayer player) {
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {
-            session.placement.placeBatchJobs.clear();
+            session.placeBatchJobs.clear();
+            session.pendingPlaceBatchJobs.clear();
             RtsFunnelService.disableAndFlush(player, session);
             RtsMenuRemoteService.closeTracked(player, session);
             RtsMenuRemoteService.clearValidation(player, session);
@@ -151,12 +156,12 @@ public final class RtsSessionService {
         if (session == null) {
             return;
         }
-        if (session.transfer.remoteMenuContainerId < 0
+        if (session.remoteMenuContainerId < 0
                 && !RtsRemoteMenuCompat.isSupportedRemoteMenu(player.containerMenu)) {
             RtsMenuRemoteService.clearValidation(player, session);
         }
-        if (session.transfer.remoteMenuContainerId >= 0
-                && (player.containerMenu == null || player.containerMenu.containerId != session.transfer.remoteMenuContainerId)) {
+        if (session.remoteMenuContainerId >= 0
+                && (player.containerMenu == null || player.containerMenu.containerId != session.remoteMenuContainerId)) {
             RtsMenuRemoteService.clearValidation(player, session);
         }
         RtsPlacementBatch.tickPlaceBatchJobs(player, session);
@@ -194,10 +199,10 @@ public final class RtsSessionService {
                 if (session == null) continue;
                 // Increment data version so the page cache in RtsPageCore
                 // knows the storage data has changed and should rebuild.
-                session.transfer.pageDataVersion.incrementAndGet();
+                session.pageDataVersion.incrementAndGet();
                 if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                        session.browser.category, session.browser.sort, session.browser.ascending);
+                RtsPageService.requestPage(player, session.page, session.search,
+                        session.category, session.sort, session.ascending);
             }
         }
 
@@ -223,7 +228,7 @@ public final class RtsSessionService {
     }
 
     /**
-     * 通知存储视图已过期。
+     * 通知存储视图已过???
      */
     public static void markStorageViewDirty(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null) {
@@ -232,11 +237,10 @@ public final class RtsSessionService {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
-        if (session.transfer.storageViewDirty) {
+        if (session.storageViewDirty) {
             return;
         }
-        session.transfer.storageViewDirty = true;
+        session.storageViewDirty = true;
         PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
     }
 }
-

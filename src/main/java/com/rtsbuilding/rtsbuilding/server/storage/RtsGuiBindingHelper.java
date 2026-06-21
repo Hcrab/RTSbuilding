@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsMiningService;
@@ -26,8 +26,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * GUI 绑定：设置绑定、远程打开、菜单提供者解析、图标解析。
- * <p>包私有——仅供 {@link RtsStorageBindings} 内部委托。
+ * GUI 绑定：设置绑定、远程打开、菜单提供者解析、图标解???
+ * <p>包私有——仅??{@link RtsStorageBindings} 内部委托??
  */
 final class RtsGuiBindingHelper {
 
@@ -299,4 +299,3 @@ final class RtsGuiBindingHelper {
     private record GuiBindingInteraction(BlockHitResult hit, Vec3 interactionPos) {
     }
 }
-

@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.tracking;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -24,7 +24,7 @@ public final class RtsBlockTrackingEvents {
             return;
         }
         PlacedBlockTrackerData.get(serverLevel).mark(event.getPos());
-        serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, event.getPos()));
+        serverLevel.getServer().execute(() -> RtsLinkedStorageResolver.onLinkedStorageBlockPlaced(serverLevel, event.getPos()));
     }
 
     @SubscribeEvent
@@ -38,7 +38,7 @@ public final class RtsBlockTrackingEvents {
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(serverLevel);
         for (BlockSnapshot snapshot : event.getReplacedBlockSnapshots()) {
             tracker.mark(snapshot.getPos());
-            serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, snapshot.getPos()));
+            serverLevel.getServer().execute(() -> RtsLinkedStorageResolver.onLinkedStorageBlockPlaced(serverLevel, snapshot.getPos()));
         }
     }
 
@@ -51,6 +51,6 @@ public final class RtsBlockTrackingEvents {
             return;
         }
         PlacedBlockTrackerData.get(serverLevel).clear(event.getPos());
-        RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockBroken(serverLevel, event.getPos());
+        RtsLinkedStorageResolver.onLinkedStorageBlockBroken(serverLevel, event.getPos());
     }
 }

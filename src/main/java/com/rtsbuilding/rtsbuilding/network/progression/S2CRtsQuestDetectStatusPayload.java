@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
@@ -16,8 +17,7 @@ public record S2CRtsQuestDetectStatusPayload(
     public static final byte PHASE_UNAVAILABLE = 2;
     public static final byte PHASE_ERROR = 3;
 
-    public static final Type<S2CRtsQuestDetectStatusPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_quest_detect_status"), S2CRtsQuestDetectStatusPayload.class);
+    public static final Type<S2CRtsQuestDetectStatusPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_quest_detect_status"), S2CRtsQuestDetectStatusPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsQuestDetectStatusPayload> STREAM_CODEC =
             StreamCodec.of(

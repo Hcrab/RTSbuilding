@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
+
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -11,9 +12,9 @@ import java.util.List;
  * <p>
  * Groups immutable data carriers that are passed between components:
  * <ul>
- *   <li>{@link GhostPreview} — block positions shown as in-world ghost
+ *   <li>{@link GhostPreview} ??block positions shown as in-world ghost
  *       preview during shape placement</li>
- *   <li>{@link HistoryBatch} — undo record for one shape placement</li>
+ *   <li>{@link HistoryBatch} ??undo/redo record for one shape placement</li>
  * </ul>
  * <p>
  * These records carry data only and contain no behaviour logic.
@@ -39,7 +40,7 @@ public final class ShapeDataRecords {
             boolean chainDestroyPreview,
             boolean confirmedWorkArea) {
 
-        /** Empty preview sentinel — no blocks, not ready. */
+        /** Empty preview sentinel ??no blocks, not ready. */
         public static final GhostPreview EMPTY = new GhostPreview(List.of(), false, false, List.of(), false, false);
 
         public GhostPreview(List<BlockPos> blocks, boolean readyConfirm) {
@@ -61,30 +62,24 @@ public final class ShapeDataRecords {
     }
 
     /**
-     * History batch for shape undo.
+     * History batch for shape undo/redo.
      * <p>
-     * Records one shape placement or break batch so it can be reversed with Ctrl+Z.
-     * Stores the operation kind, item/tool identifiers, the target face, and
-     * all affected positions.
+     * Records one shape placement batch so it can be reversed with Ctrl+Z
+     * or reapplied with Ctrl+Y. Stores the placement kind, item/tool
+     * identifiers, the target face, and all placed positions.
      *
-     * @param replayKind    kind of replay (pinned item, tool slot, or break)
-     * @param itemId        item registry name (empty for tool-slot placements/breaks)
-     * @param toolSlot      hotbar slot used (0-8, -1 for pinned items)
-     * @param face          the face all positions were placed/clicked against
-     * @param positions     the affected block positions
-     * @param isDestructive true if this batch records a BREAK operation (undo=re-place);
-     *                      false if this batch records a PLACEMENT operation (undo=break)
-     * @param blockStates   full block state strings (e.g. "minecraft:stone" or "minecraft:oak_log[axis=y]")
-     *                      parallel to {@code positions}; empty string for unknown blocks
+     * @param replayKind  kind of replay (pinned item or tool slot)
+     * @param itemId      item registry name (empty for tool-slot placements)
+     * @param toolSlot    hotbar slot used (0-8, -1 for pinned items)
+     * @param face        the face all positions were placed against
+     * @param positions   the placed block positions
      */
     public record HistoryBatch(
             InteractionTypes.PlacementReplayKind replayKind,
             String itemId,
             int toolSlot,
             Direction face,
-            List<BlockPos> positions,
-            boolean isDestructive,
-            List<String> blockStates) {}
+            List<BlockPos> positions) {}
 
     private ShapeDataRecords() {}
 }

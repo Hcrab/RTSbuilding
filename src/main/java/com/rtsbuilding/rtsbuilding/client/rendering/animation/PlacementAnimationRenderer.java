@@ -26,14 +26,14 @@ public final class PlacementAnimationRenderer {
 
     public static void confirmPlacement(BlockPos pos, BlockState state) {
         PendingGhostRenderer.remove(pos);
-        if (shouldRenderPlacementLayers()) {
+        if (shouldRenderPlaceAnimationLayers()) {
             ConfirmedPlacementRenderer.add(pos, state);
         }
     }
 
     public static void addDestroy(BlockPos pos, BlockState state) {
         PendingGhostRenderer.remove(pos);
-        if (shouldRenderPlacementLayers()) {
+        if (shouldRenderDestroyLayers()) {
             DestroyGhostRenderer.add(pos, state);
         }
     }
@@ -43,21 +43,37 @@ public final class PlacementAnimationRenderer {
         if (minecraft == null || minecraft.level == null) {
             return;
         }
-        boolean blockGhost = Config.isBlockGhostPreviewEnabled();
-        boolean wireframe = Config.isWireframePreviewEnabled();
-        if (blockGhost) {
+        boolean previewBlockGhost = Config.isPlacementBlockGhostPreviewEnabled();
+        boolean placeBlockGhost = Config.isPlaceBlockGhostAnimationEnabled();
+        boolean destroyBlockGhost = Config.isDestroyBlockGhostAnimationEnabled();
+        boolean previewWireframe = Config.isPlacementWireframePreviewEnabled();
+        boolean placeWireframe = Config.isPlaceWireframeAnimationEnabled();
+        boolean destroyWireframe = Config.isDestroyWireframeAnimationEnabled();
+        if (previewBlockGhost) {
             PendingGhostRenderer.render(minecraft, poseStack, lineBuffer, fillBuffer);
+        }
+        if (placeBlockGhost) {
             ConfirmedPlacementRenderer.renderModels(minecraft, poseStack, fillBuffer);
+        }
+        if (destroyBlockGhost) {
             DestroyGhostRenderer.renderModels(minecraft, poseStack, fillBuffer);
         }
-        if (wireframe) {
+        if (previewWireframe) {
             PendingGhostRenderer.renderWireframes(poseStack, lineBuffer);
+        }
+        if (placeWireframe) {
             ConfirmedPlacementRenderer.renderWireframes(poseStack, lineBuffer);
+        }
+        if (destroyWireframe) {
             DestroyGhostRenderer.renderWireframes(poseStack, lineBuffer);
         }
     }
 
-    private static boolean shouldRenderPlacementLayers() {
-        return Config.isBlockGhostPreviewEnabled() || Config.isWireframePreviewEnabled();
+    private static boolean shouldRenderPlaceAnimationLayers() {
+        return Config.isPlaceBlockGhostAnimationEnabled() || Config.isPlaceWireframeAnimationEnabled();
+    }
+
+    private static boolean shouldRenderDestroyLayers() {
+        return Config.isDestroyBlockGhostAnimationEnabled() || Config.isDestroyWireframeAnimationEnabled();
     }
 }

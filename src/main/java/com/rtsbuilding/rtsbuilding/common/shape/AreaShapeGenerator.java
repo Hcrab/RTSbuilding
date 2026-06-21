@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Area shape generator — abstract base for shape-based coordinate generation.
+ * Area shape generator ??abstract base for shape-based coordinate generation.
  * <p>
  * Inspired by {@code BaseMode} from Building Gadgets 2.  Each concrete
  * subclass knows how to generate a set of {@link BlockPos} coordinates for
@@ -46,7 +46,7 @@ public abstract class AreaShapeGenerator {
     /**
      * Validates that a block position is valid for placement.
      * <p>
-     * Equivalent to {@code BaseMode.isPosValid()} — checks build height,
+     * Equivalent to {@code BaseMode.isPosValid()} ??checks build height,
      * world interaction permission, and whether the existing block can be
      * replaced.
      *
@@ -107,29 +107,6 @@ public abstract class AreaShapeGenerator {
      */
     protected static int dotDelta(int dx, int dy, int dz, Direction axis) {
         return (dx * axis.getStepX()) + (dy * axis.getStepY()) + (dz * axis.getStepZ());
-    }
-
-    /**
-     * Generates a straight line of connected blocks between two positions (inclusive, Bresenham-style).
-     */
-    protected static List<BlockPos> generateLinePositions(BlockPos start, BlockPos end) {
-        int dx = end.getX() - start.getX();
-        int dy = end.getY() - start.getY();
-        int dz = end.getZ() - start.getZ();
-        int steps = Math.max(Math.abs(dx), Math.max(Math.abs(dy), Math.abs(dz)));
-        List<BlockPos> result = new ArrayList<>(steps + 1);
-        if (steps <= 0) {
-            result.add(start);
-            return result;
-        }
-        for (int i = 0; i <= steps; i++) {
-            double t = i / (double) steps;
-            int x = start.getX() + (int) Math.round(dx * t);
-            int y = start.getY() + (int) Math.round(dy * t);
-            int z = start.getZ() + (int) Math.round(dz * t);
-            result.add(new BlockPos(x, y, z));
-        }
-        return result;
     }
 
     /**

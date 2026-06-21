@@ -1,30 +1,31 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Unified RTS panel interface.
+ * RTS 闈㈡澘缁熶竴鎺ュ彛銆?
  * <p>
- * All RTS UI panels implement this interface, which is orchestrated
- * by {@link BuilderScreen} through the init / tick / render / event dispatch lifecycle.
+ * 鎵€??RTS UI 闈㈡澘瀹炵幇璇ユ帴鍙ｏ紝鐢?{@link BuilderScreen} 缁熶竴璋冨害
+ * ??init / tick / render / 浜嬩欢鍒嗗彂鐢熷懡鍛ㄦ湡??
  */
 public interface RtsPanel {
 
-    /** Initialises the panel, called each time the screen is initted */
+    /** 鍒濆鍖栭潰鏉匡紝姣忔灞忓??init() 鏃惰皟鐢?*/
     default void init(BuilderScreen screen, ClientRtsController controller) {}
 
-    /** Ticks the panel state each tick */
+    /** ??tick 鏇存柊闈㈡澘鐘舵??*/
     default void tick() {}
 
-    /** Renders the panel content */
+    /** 娓叉煋闈㈡澘鍐呭??*/
     default void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 
-    /** Renders tooltips (after hover detection) */
+    /** 娓叉??tooltip锛堝??hover 妫€娴嬩箣鍚庯級 */
     default void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {}
 
-    // --- Input events ---
+    // --- 杈撳叆浜嬩欢 ---
 
     default boolean mouseClicked(double mouseX, double mouseY, int button) { return false; }
 
@@ -42,6 +43,6 @@ public interface RtsPanel {
 
     default boolean charTyped(char codePoint, int modifiers) { return false; }
 
-    /** Called when the panel / screen is closed */
+    /** 闈㈡澘鍏抽棴/灞忓箷鍏抽棴鏃惰皟鐢?*/
     default void close() {}
 }

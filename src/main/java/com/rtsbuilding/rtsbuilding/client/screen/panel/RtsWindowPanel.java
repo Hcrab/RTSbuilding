@@ -1,38 +1,34 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+
 import org.lwjgl.glfw.GLFW;
 
-import java.util.List;
-
 /**
- * Base class for movable RTS window panels.
+ * Shared shell for movable RTS windows.
  *
- * <p>The class owns window chrome, bounds, drag/resize state, close handling,
- * and default input swallowing for the window rectangle. It explicitly does not
- * own gameplay state, networking, storage overlay behavior, or camera controls.
- * That separation lets us migrate visible panels one at a time while the current
- * container overlay and legacy input gate continue to work unchanged.
+ * <p>This class owns only the chrome: bounds, drag/resize state, close handling,
+ * z-order timestamps, and the input swallowing that keeps mouse wheel and
+ * clicks from leaking through to camera controls. The concrete panel owns all
+ * gameplay state and rendering inside the content rectangle, so migrating a
+ * panel to this shell should not change the underlying building, mining, or
+ * storage behavior.
  */
 public abstract class RtsWindowPanel implements RtsPanel {
-    private static final int DEFAULT_TITLE_BAR_H = 20;
-    private static final int DEFAULT_MIN_W = 80;
-    private static final int DEFAULT_MIN_H = 60;
-    private static final int DEFAULT_RESIZE_BORDER = 5;
+    private static final int TITLE_BAR_H = 20;
+    private static final int MIN_W = 80;
+    private static final int MIN_H = 60;
+    private static final int RESIZE_BORDER = 5;
     private static final int SCREEN_MARGIN = 4;
-    private static final int CLOSE_BUTTON_SIZE = 14;
-    private static final int CLOSE_SHEET_W = 450;
-    private static final int CLOSE_SHEET_H = 900;
-    private static final int CLOSE_STATE_H = 450;
-    private static final ResourceLocation CLOSE_BUTTON_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/general/close_button.png");
+    private static final int CLOSE_SIZE = 14;
     private static final int SNAP_THRESHOLD = 6;
 
     protected BuilderScreen screen;
@@ -42,13 +38,10 @@ public abstract class RtsWindowPanel implements RtsPanel {
     protected int windowWidth;
     protected int windowHeight;
     protected boolean open;
-    protected boolean mouseHovering;
     protected boolean draggable = true;
     protected boolean resizable = false;
     protected boolean closable = true;
 
-    private int defaultWidth;
-    private int defaultHeight;
     private boolean positionInitialized;
     private long lastClickTime = System.nanoTime();
     private boolean dragging;
@@ -62,33 +55,8 @@ public abstract class RtsWindowPanel implements RtsPanel {
     private int resizeStartHeight;
     private int resizeStartWindowX;
     private int resizeStartWindowY;
-    private WindowButton closeButton;
-    private boolean boundsDirty;
-    private boolean userBoundsPreference;
-
-    /**
-     * Hysteresis flag: when true, a wider threshold (SNAP_THRESHOLD * 2) is used
-     * to break free from the current snap. Set on mouse click (drag start) and
-     * cleared on mouse release. This prevents small mouse movements from
-     * constantly re-snapping the panel, making separation feel smoother.
-     */
-    private boolean snapEngaged;
-
-    /**
-     * When set, the render() method skips hover detection so the
-     * window frame and content do NOT show hover effects. This is
-     * used by {@link RtsFloatingWindowLayer} to suppress hover on
-     * windows that are covered by a higher overlapping window.
-     */
     private boolean skipHoverDetection;
-
-    public enum ResizeCursor {
-        DEFAULT,
-        RESIZE_EW,
-        RESIZE_NS,
-        RESIZE_NWSE,
-        RESIZE_NESW
-    }
+    private boolean snapEngaged;
 
     protected enum ResizeEdge {
         NONE,
@@ -102,82 +70,19 @@ public abstract class RtsWindowPanel implements RtsPanel {
         BOTTOM_RIGHT
     }
 
-    /**
-     * Draws the panel-specific contents inside the window body. The base class
-     * has already drawn the frame/title bar and applied the content scissor.
-     */
-    protected abstract void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick);
+    public enum ResizeCursor {
+        DEFAULT,
+        RESIZE_EW,
+        RESIZE_NS,
+        RESIZE_NWSE,
+        RESIZE_NESW
+    }
 
-    /**
-     * Handles a click inside the content area. Returning true consumes the
-     * click; returning false still keeps the event inside the window boundary.
-     */
-    protected abstract void handleContentClick(double mouseX, double mouseY, int button);
-
-    /** Returns the localized title shown in the window title bar. */
-    protected abstract Component getTitle();
-
-    /** Default size used the first time the window opens or when reset. */
-    protected abstract int getDefaultWidth();
-
-    /** Default size used the first time the window opens or when reset. */
-    protected abstract int getDefaultHeight();
-
-    /** Computes the default position after {@link #windowWidth} is known. */
-    protected abstract void computeDefaultPosition();
-
-    @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
         this.controller = controller;
-        this.defaultWidth = Math.max(getMinWindowWidth(), getDefaultWidth());
-        this.defaultHeight = Math.max(getMinWindowHeight(), getDefaultHeight());
-        this.closeButton = createCloseButton();
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (!this.open || !canShowWindow()) {
-            this.mouseHovering = false;
-            return;
-        }
-        initializePosition();
-        clampWindowToScreen();
-        this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
-
-        // When the window is covered, globally suppress hover effects on all child buttons
-        // Must be set before renderWindowFrame because the close button renders there
-        if (this.skipHoverDetection) {
-            WindowButton.setGlobalSkipHover(true);
-        }
-        try {
-            renderWindowFrame(g, mouseX, mouseY);
-            // Flush the window frame first (no scissor) so the border is not clipped
-            // by the content scissor that follows.
-            // Must be flushed separately from content because the window border lies
-            // outside the content clipping region.
-            g.flush();
-
-            if (shouldClipContent()) {
-                enableContentScissor(g);
-            }
-            renderContent(g, mouseX, mouseY, partialTick);
-            // Flush content while scissor is still active, so item icons (renderItem) and
-            // text batched vertices are clipped to the content region at rasterisation time,
-            // preventing visual bleed-through to adjacent panels.
-            g.flush();
-        } finally {
-            if (this.skipHoverDetection) {
-                WindowButton.setGlobalSkipHover(false);
-            }
-            if (shouldClipContent()) {
-                g.disableScissor();
-            }
-        }
-    }
-
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
-        render(g, mouseX, mouseY, 0.0F);
+        this.windowWidth = Math.max(getMinWindowWidth(), getDefaultWidth());
+        this.windowHeight = Math.max(getMinWindowHeight(), getDefaultHeight());
     }
 
     public boolean isOpen() {
@@ -185,136 +90,54 @@ public abstract class RtsWindowPanel implements RtsPanel {
     }
 
     public void setOpen(boolean open) {
-        boolean wasOpen = this.open;
-        if (open && !wasOpen) {
-            initializePosition();
+        if (this.open == open) {
+            return;
         }
         this.open = open;
-        if (!open && wasOpen) {
+        if (open) {
+            ensurePosition();
+            markBroughtToFront();
+        } else {
             onClose();
         }
+    }
+
+    public void close() {
+        setOpen(false);
     }
 
     public void toggleOpen() {
         setOpen(!this.open);
     }
 
-    public int getWindowX() {
-        return this.windowX;
-    }
-
-    public int getWindowY() {
-        return this.windowY;
-    }
-
-    public int getWindowWidth() {
-        return this.windowWidth;
-    }
-
-    public int getWindowHeight() {
-        return this.windowHeight;
+    public void setBounds(int x, int y, int width, int height) {
+        this.windowWidth = Math.max(getMinWindowWidth(), width);
+        this.windowHeight = Math.max(getMinWindowHeight(), height);
+        this.windowX = x;
+        this.windowY = y;
+        clampToScreen();
+        this.positionInitialized = true;
+        onBoundsChanged();
     }
 
     public long getLastClickTime() {
-        return lastClickTime;
+        return this.lastClickTime;
     }
 
     public void markBroughtToFront() {
         this.lastClickTime = System.nanoTime();
     }
 
-    public boolean hasInitializedBounds() {
-        return this.positionInitialized;
-    }
-
-    public boolean hasUserBoundsPreference() {
-        return this.userBoundsPreference;
-    }
-
-    public void setPosition(int x, int y) {
-        ensureSizeInitialized();
-        this.windowX = x;
-        this.windowY = y;
-        this.positionInitialized = true;
-        clampWindowToScreen();
-        markUserBoundsDirty();
-    }
-
-    /**
-     * Sets the window position and size in one call, then clamps to screen bounds once.
-     * This avoids intermediate clamp side effects from calling {@link #setSize} and
-     * {@link #setPosition} separately.
-     */
-    public void setBounds(int x, int y, int width, int height) {
-        this.windowX = x;
-        this.windowY = y;
-        this.windowWidth = Math.max(getMinWindowWidth(), width);
-        this.windowHeight = Math.max(getMinWindowHeight(), height);
-        clampWindowSize();
-        this.positionInitialized = true;
-        clampWindowToScreen();
-        markUserBoundsDirty();
-    }
-
-    /**
-     * Sets bounds for anchored/transient windows without marking them as a user
-     * preference. Use this for dropdown-style panels whose position follows a
-     * button, not for movable user-arranged windows.
-     */
-    public void setTransientBounds(int x, int y, int width, int height) {
-        this.windowX = x;
-        this.windowY = y;
-        this.windowWidth = Math.max(getMinWindowWidth(), width);
-        this.windowHeight = Math.max(getMinWindowHeight(), height);
-        clampWindowSize();
-        this.positionInitialized = true;
-        clampWindowToScreen();
-        this.userBoundsPreference = false;
-    }
-
-    public void setSize(int width, int height) {
-        ensureSizeInitialized();
-        this.windowWidth = width;
-        this.windowHeight = height;
-        clampWindowSize();
-        clampWindowToScreen();
-        markUserBoundsDirty();
-    }
-
-    public void resetToDefaultBounds() {
-        this.windowWidth = this.defaultWidth;
-        this.windowHeight = this.defaultHeight;
-        clampWindowSize();
-        computeDefaultPosition();
-        clampWindowToScreen();
-        this.positionInitialized = true;
-        markUserBoundsDirty();
-    }
-
-    public boolean consumeBoundsDirty() {
-        boolean dirty = this.boundsDirty;
-        this.boundsDirty = false;
-        return dirty;
-    }
-
     public boolean isInsideWindow(double mouseX, double mouseY) {
-        return mouseX >= this.windowX && mouseX < this.windowX + this.windowWidth
-                && mouseY >= this.windowY && mouseY < this.windowY + this.windowHeight;
+        return this.open
+                && mouseX >= this.windowX
+                && mouseX <= this.windowX + this.windowWidth
+                && mouseY >= this.windowY
+                && mouseY <= this.windowY + this.windowHeight;
     }
 
-    /**
-     * Suppresses hover detection so the window frame and buttons
-     * do not show hover effects during the next render call.
-     * Used by {@link RtsFloatingWindowLayer} for covered windows.
-     */
-    void setSkipHoverDetection(boolean skip) {
-        this.skipHoverDetection = skip;
-    }
-
-    public boolean isInsideWindowOrResizeBorder(double mouseX, double mouseY) {
-        int border = getResizeBorderWidth();
-        return mouseX >= this.windowX - border && mouseX < this.windowX + this.windowWidth + border
-                && mouseY >= this.windowY - border && mouseY < this.windowY + this.windowHeight + border;
+    public void setSkipHoverDetection(boolean skipHoverDetection) {
+        this.skipHoverDetection = skipHoverDetection;
     }
 
     public boolean isInsideResizableBorder(double mouseX, double mouseY) {
@@ -325,8 +148,7 @@ public abstract class RtsWindowPanel implements RtsPanel {
         if (!this.open || !canShowWindow() || !this.resizable) {
             return ResizeCursor.DEFAULT;
         }
-        initializePosition();
-        ResizeEdge edge = this.resizing ? this.resizeEdge : getResizeEdgeAt((int) mouseX, (int) mouseY);
+        ResizeEdge edge = this.resizing ? this.resizeEdge : resolveResizeEdge(mouseX, mouseY);
         return switch (edge) {
             case LEFT, RIGHT -> ResizeCursor.RESIZE_EW;
             case TOP, BOTTOM -> ResizeCursor.RESIZE_NS;
@@ -336,213 +158,132 @@ public abstract class RtsWindowPanel implements RtsPanel {
         };
     }
 
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return handleClick(mouseX, mouseY, button);
+    public int contentX() {
+        return this.windowX + 4;
     }
 
-    public boolean handleClick(double mouseX, double mouseY, int button) {
+    public int contentY() {
+        return this.windowY + TITLE_BAR_H + 4;
+    }
+
+    public int contentWidth() {
+        return Math.max(1, this.windowWidth - 8);
+    }
+
+    public int contentHeight() {
+        return Math.max(1, this.windowHeight - TITLE_BAR_H - 8);
+    }
+
+    protected GuideRect contentRect() {
+        return new GuideRect(contentX(), contentY(), contentWidth(), contentHeight());
+    }
+
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        if (!this.open || !canShowWindow()) {
+            return;
+        }
+        ensurePosition();
+        clampToScreen();
+        renderFrame(g, mouseX, mouseY);
+        this.screen.enableRtsScissor(g, contentX(), contentY(), contentX() + contentWidth(), contentY() + contentHeight());
+        try {
+            renderContent(g, mouseX, mouseY, partialTick);
+        } finally {
+            g.disableScissor();
+        }
+    }
+
+    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
+    }
+
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!this.open || !canShowWindow()) {
             return false;
         }
-        initializePosition();
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (this.closable && this.closeButton != null && this.closeButton.mouseClicked(mouseX, mouseY, button)) {
-                setOpen(false);
-                return true;
-            }
-            if (this.resizable) {
-                ResizeEdge edge = getResizeEdgeAt((int) mouseX, (int) mouseY);
-                if (edge != ResizeEdge.NONE) {
-                    beginResize(edge, mouseX, mouseY);
-                    return true;
-                }
-            }
-            if (this.draggable && isInsideTitleBar(mouseX, mouseY)) {
-                this.dragging = true;
-                this.dragOffsetX = mouseX - this.windowX;
-                this.dragOffsetY = mouseY - this.windowY;
-                this.snapEngaged = false;
-                return true;
-            }
-            if (isInsideWindow(mouseX, mouseY)) {
-                handleContentClick(mouseX, mouseY, button);
-                return true;
-            }
+        if (!isInsideWindow(mouseX, mouseY)) {
+            return false;
         }
-        return isInsideWindow(mouseX, mouseY);
+        markBroughtToFront();
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return true;
+        }
+        if (this.closable && isInsideClose(mouseX, mouseY)) {
+            close();
+            return true;
+        }
+        ResizeEdge edge = resolveResizeEdge(mouseX, mouseY);
+        if (this.resizable && edge != ResizeEdge.NONE) {
+            this.resizing = true;
+            this.resizeEdge = edge;
+            this.resizeStartMouseX = (int) mouseX;
+            this.resizeStartMouseY = (int) mouseY;
+            this.resizeStartWidth = this.windowWidth;
+            this.resizeStartHeight = this.windowHeight;
+            this.resizeStartWindowX = this.windowX;
+            this.resizeStartWindowY = this.windowY;
+            return true;
+        }
+        if (this.draggable && isInsideTitleBar(mouseX, mouseY)) {
+            this.dragging = true;
+            this.snapEngaged = true;
+            this.dragOffsetX = mouseX - this.windowX;
+            this.dragOffsetY = mouseY - this.windowY;
+            return true;
+        }
+        handleContentClick(mouseX, mouseY, button);
+        return true;
     }
 
-    @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (!this.open || button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
-        if (this.resizing) {
-            int beforeX = this.windowX;
-            int beforeY = this.windowY;
-            int beforeW = this.windowWidth;
-            int beforeH = this.windowHeight;
-            resizeToMouse((int) mouseX, (int) mouseY);
-            if (beforeX != this.windowX || beforeY != this.windowY
-                    || beforeW != this.windowWidth || beforeH != this.windowHeight) {
-                markUserBoundsDirty();
-            }
+        if (this.dragging) {
+            this.windowX = (int) Math.round(mouseX - this.dragOffsetX);
+            this.windowY = (int) Math.round(mouseY - this.dragOffsetY);
+            applyScreenSnap();
+            clampToScreen();
+            onBoundsChanged();
             return true;
         }
-        if (this.dragging) {
-            int beforeX = this.windowX;
-            int beforeY = this.windowY;
-            this.windowX = (int) (mouseX - this.dragOffsetX);
-            this.windowY = (int) (mouseY - this.dragOffsetY);
-            clampWindowToScreen();
-            snapToNearbyPanel();
-            if (beforeX != this.windowX || beforeY != this.windowY) {
-                markUserBoundsDirty();
-            }
+        if (this.resizing) {
+            resizeTo(mouseX, mouseY);
+            clampToScreen();
+            onBoundsChanged();
             return true;
         }
         return false;
     }
 
-    public boolean handleMouseDragged(double mouseX, double mouseY, int button) {
-        return mouseDragged(mouseX, mouseY, button, 0.0D, 0.0D);
-    }
-
-    @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (!this.open) {
-            this.dragging = false;
-            this.resizing = false;
-            this.resizeEdge = ResizeEdge.NONE;
-            return false;
-        }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            boolean boundsChanged = this.dragging || this.resizing;
-            this.dragging = false;
-            this.snapEngaged = false;
-            this.resizing = false;
-            this.resizeEdge = ResizeEdge.NONE;
-            if (boundsChanged) {
-                onBoundsChanged();
-            }
-        }
-        return isInsideWindow(mouseX, mouseY);
+        boolean handled = this.dragging || this.resizing;
+        this.dragging = false;
+        this.resizing = false;
+        this.resizeEdge = ResizeEdge.NONE;
+        this.snapEngaged = false;
+        return handled;
     }
 
-    public void handleMouseReleased(double mouseX, double mouseY, int button) {
-        mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (!this.open || !isInsideWindow(mouseX, mouseY)) {
             return false;
         }
-        handleContentScroll(mouseX, mouseY, scrollX, scrollY);
-        return true;
+        return handleContentScroll(mouseX, mouseY, scrollX, scrollY);
     }
 
-    @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!this.open) {
             return false;
         }
-        if (this.closable && keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            setOpen(false);
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            close();
             return true;
         }
         return handleWindowKeyPressed(keyCode, scanCode, modifiers);
     }
 
-    @Override
     public boolean charTyped(char codePoint, int modifiers) {
         return this.open && handleWindowCharTyped(codePoint, modifiers);
-    }
-
-    @Override
-    public void close() {
-        setOpen(false);
-    }
-
-    protected int getTitleBarHeight() {
-        return DEFAULT_TITLE_BAR_H;
-    }
-
-    protected int getMinWindowWidth() {
-        return DEFAULT_MIN_W;
-    }
-
-    protected int getMinWindowHeight() {
-        return DEFAULT_MIN_H;
-    }
-
-    protected int getResizeBorderWidth() {
-        return DEFAULT_RESIZE_BORDER;
-    }
-
-    protected int getMaxWindowWidth() {
-        return this.screen == null
-                ? this.windowWidth
-                : Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2);
-    }
-
-    protected int getMaxWindowHeight() {
-        return this.screen == null
-                ? this.windowHeight
-                : Math.max(getMinWindowHeight(), this.screen.height - SCREEN_MARGIN * 2);
-    }
-
-    protected int getBackgroundColor() {
-        return 0xFF161C24;
-    }
-
-    protected int getBorderLightColor() {
-        return 0xFF6C839A;
-    }
-
-    protected int getBorderDarkColor() {
-        return 0xFF0D1117;
-    }
-
-    protected int getHoverBorderLightColor() {
-        return 0xFFAAC8E8;
-    }
-
-    protected int getHoverBorderDarkColor() {
-        return 0xFF2A3A4A;
-    }
-
-    protected int getTitleBarColor() {
-        return 0xCC233345;
-    }
-
-    protected int getTitleTextColor() {
-        return 0xF2F7FF;
-    }
-
-    protected boolean canShowWindow() {
-        return true;
-    }
-
-    protected boolean shouldClipContent() {
-        return true;
-    }
-
-    protected int contentX() {
-        return this.windowX + 1;
-    }
-
-    protected int contentY() {
-        return this.windowY + getTitleBarHeight();
-    }
-
-    protected int contentWidth() {
-        return Math.max(0, this.windowWidth - 2);
-    }
-
-    protected int contentHeight() {
-        return Math.max(0, this.windowHeight - getTitleBarHeight() - 1);
     }
 
     protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
@@ -557,14 +298,8 @@ public abstract class RtsWindowPanel implements RtsPanel {
         return false;
     }
 
-    private WindowButton createCloseButton() {
-        return new WindowButton(0, 0, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE,
-                Component.empty(), CLOSE_BUTTON_TEXTURE,
-                0, 0,
-                CLOSE_SHEET_W, CLOSE_STATE_H,
-                CLOSE_STATE_H, CLOSE_STATE_H,
-                CLOSE_SHEET_W, CLOSE_SHEET_H,
-                button -> setOpen(false));
+    protected boolean canShowWindow() {
+        return this.screen != null && this.screen.width > 0 && this.screen.height > 0;
     }
 
     protected void onClose() {
@@ -573,280 +308,156 @@ public abstract class RtsWindowPanel implements RtsPanel {
     protected void onBoundsChanged() {
     }
 
-    private void markUserBoundsDirty() {
-        this.userBoundsPreference = true;
-        this.boundsDirty = true;
-        onBoundsChanged();
+    protected int getMinWindowWidth() {
+        return MIN_W;
     }
 
-    protected void positionBelow(RtsWindowPanel aboveWindow, int gap) {
-        this.windowX = aboveWindow.windowX;
-        this.windowY = aboveWindow.windowY + aboveWindow.windowHeight + gap;
-        clampWindowToScreen();
+    protected int getMinWindowHeight() {
+        return MIN_H;
     }
 
-    private void renderWindowFrame(GuiGraphics g, int mouseX, int mouseY) {
-        int light = this.mouseHovering ? getHoverBorderLightColor() : getBorderLightColor();
-        int dark = this.mouseHovering ? getHoverBorderDarkColor() : getBorderDarkColor();
+    protected int getMaxWindowWidth() {
+        return this.screen == null
+                ? Math.max(getMinWindowWidth(), this.windowWidth)
+                : Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2);
+    }
+
+    protected int getMaxWindowHeight() {
+        return this.screen == null
+                ? Math.max(getMinWindowHeight(), this.windowHeight)
+                : Math.max(getMinWindowHeight(), this.screen.height - BuilderScreenConstants.TOP_H - SCREEN_MARGIN * 2);
+    }
+
+    protected abstract void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick);
+
+    protected abstract void handleContentClick(double mouseX, double mouseY, int button);
+
+    protected abstract Component getTitle();
+
+    protected abstract int getDefaultWidth();
+
+    protected abstract int getDefaultHeight();
+
+    protected abstract void computeDefaultPosition();
+
+    private void ensurePosition() {
+        if (this.positionInitialized) {
+            return;
+        }
+        this.windowWidth = Math.max(getMinWindowWidth(), getDefaultWidth());
+        this.windowHeight = Math.max(getMinWindowHeight(), getDefaultHeight());
+        computeDefaultPosition();
+        clampToScreen();
+        this.positionInitialized = true;
+    }
+
+    private void renderFrame(GuiGraphics g, int mouseX, int mouseY) {
+        boolean hover = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        int border = hover ? 0xFF8FA4BF : 0xFF6D7C90;
         RtsClientUiUtil.drawPanelFrame(g, this.windowX, this.windowY, this.windowWidth, this.windowHeight,
-                getBackgroundColor(), light, dark);
-        int titleH = getTitleBarHeight();
-        if (titleH > 0) {
-            g.fill(this.windowX + 1, this.windowY + 1, this.windowX + this.windowWidth - 1,
-                    this.windowY + titleH, getTitleBarColor());
-            String title = RtsClientUiUtil.trimToWidth(this.screen.font(), getTitle().getString(),
-                    Math.max(8, this.windowWidth - 36));
-            g.drawString(this.screen.font(), title, this.windowX + 8,
-                    this.windowY + Math.max(1, (titleH - this.screen.font().lineHeight) / 2),
-                    getTitleTextColor(), false);
-        }
-        if (this.closable && this.closeButton != null) {
-            this.closeButton.setX(closeButtonX());
-            this.closeButton.setY(closeButtonY());
-            this.closeButton.render(g, mouseX, mouseY, 0.0F);
-        }
-    }
-
-    private void enableContentScissor(GuiGraphics g) {
-        int x1 = contentX();
-        int y1 = contentY();
-        int x2 = x1 + contentWidth();
-        int y2 = y1 + contentHeight();
-        if (this.screen != null) {
-            this.screen.enableRtsScissor(g, x1, y1, x2, y2);
-        } else {
-            g.enableScissor(x1, y1, x2, y2);
+                0xF0181D25, border, 0xFF0A0D12);
+        g.fill(this.windowX + 3, this.windowY + 3, this.windowX + this.windowWidth - 3,
+                this.windowY + TITLE_BAR_H, 0xFF2A303A);
+        String title = RtsClientUiUtil.trimToWidth(this.screen.font(), getTitle().getString(), this.windowWidth - 34);
+        g.drawString(this.screen.font(), title, this.windowX + 8, this.windowY + 8, 0xF4F7FF, false);
+        if (this.closable) {
+            int cx = this.windowX + this.windowWidth - CLOSE_SIZE - 5;
+            int cy = this.windowY + 5;
+            boolean closeHover = !this.skipHoverDetection
+                    && mouseX >= cx && mouseX <= cx + CLOSE_SIZE
+                    && mouseY >= cy && mouseY <= cy + CLOSE_SIZE;
+            RtsClientUiUtil.drawPanelFrame(g, cx, cy, CLOSE_SIZE, CLOSE_SIZE,
+                    closeHover ? 0xCC6D3540 : 0xCC3D516D, closeHover ? 0xFFFF9AA8 : 0xFF8FA4BF, 0xFF0D1218);
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, this.screen.font(), "x",
+                    cx + CLOSE_SIZE / 2, cy + 3, 0xDDE8F4);
         }
     }
 
     private boolean isInsideTitleBar(double mouseX, double mouseY) {
-        return mouseX >= this.windowX && mouseX < this.windowX + this.windowWidth
-                && mouseY >= this.windowY && mouseY < this.windowY + getTitleBarHeight();
+        return mouseX >= this.windowX
+                && mouseX <= this.windowX + this.windowWidth
+                && mouseY >= this.windowY
+                && mouseY <= this.windowY + TITLE_BAR_H;
     }
 
-    private ResizeEdge getResizeEdgeAt(int mouseX, int mouseY) {
-        int border = getResizeBorderWidth();
-        boolean left = mouseX >= this.windowX - border && mouseX < this.windowX + border;
-        boolean right = mouseX >= this.windowX + this.windowWidth - border
-                && mouseX < this.windowX + this.windowWidth + border;
-        boolean top = mouseY >= this.windowY - border && mouseY < this.windowY + border;
-        boolean bottom = mouseY >= this.windowY + this.windowHeight - border
-                && mouseY < this.windowY + this.windowHeight + border;
-        if (top && left) {
-            return ResizeEdge.TOP_LEFT;
-        }
-        if (top && right) {
-            return ResizeEdge.TOP_RIGHT;
-        }
-        if (bottom && left) {
-            return ResizeEdge.BOTTOM_LEFT;
-        }
-        if (bottom && right) {
-            return ResizeEdge.BOTTOM_RIGHT;
-        }
-        if (left) {
-            return ResizeEdge.LEFT;
-        }
-        if (right) {
-            return ResizeEdge.RIGHT;
-        }
-        if (top) {
-            return ResizeEdge.TOP;
-        }
-        if (bottom) {
-            return ResizeEdge.BOTTOM;
-        }
+    private boolean isInsideClose(double mouseX, double mouseY) {
+        int cx = this.windowX + this.windowWidth - CLOSE_SIZE - 5;
+        int cy = this.windowY + 5;
+        return mouseX >= cx && mouseX <= cx + CLOSE_SIZE && mouseY >= cy && mouseY <= cy + CLOSE_SIZE;
+    }
+
+    private ResizeEdge resolveResizeEdge(double mouseX, double mouseY) {
+        boolean left = Math.abs(mouseX - this.windowX) <= RESIZE_BORDER;
+        boolean right = Math.abs(mouseX - (this.windowX + this.windowWidth)) <= RESIZE_BORDER;
+        boolean top = Math.abs(mouseY - this.windowY) <= RESIZE_BORDER;
+        boolean bottom = Math.abs(mouseY - (this.windowY + this.windowHeight)) <= RESIZE_BORDER;
+        if (left && top) return ResizeEdge.TOP_LEFT;
+        if (right && top) return ResizeEdge.TOP_RIGHT;
+        if (left && bottom) return ResizeEdge.BOTTOM_LEFT;
+        if (right && bottom) return ResizeEdge.BOTTOM_RIGHT;
+        if (left) return ResizeEdge.LEFT;
+        if (right) return ResizeEdge.RIGHT;
+        if (top) return ResizeEdge.TOP;
+        if (bottom) return ResizeEdge.BOTTOM;
         return ResizeEdge.NONE;
     }
 
-    private void beginResize(ResizeEdge edge, double mouseX, double mouseY) {
-        this.resizing = true;
-        this.resizeEdge = edge;
-        this.resizeStartMouseX = (int) mouseX;
-        this.resizeStartMouseY = (int) mouseY;
-        this.resizeStartWidth = this.windowWidth;
-        this.resizeStartHeight = this.windowHeight;
-        this.resizeStartWindowX = this.windowX;
-        this.resizeStartWindowY = this.windowY;
-    }
-
-    private void resizeToMouse(int mouseX, int mouseY) {
-        int dx = mouseX - this.resizeStartMouseX;
-        int dy = mouseY - this.resizeStartMouseY;
+    private void resizeTo(double mouseX, double mouseY) {
+        int dx = (int) mouseX - this.resizeStartMouseX;
+        int dy = (int) mouseY - this.resizeStartMouseY;
+        int minW = Math.max(MIN_W, getMinWindowWidth());
+        int minH = Math.max(MIN_H, getMinWindowHeight());
         switch (this.resizeEdge) {
-            case RIGHT -> this.windowWidth = this.resizeStartWidth + dx;
-            case BOTTOM -> this.windowHeight = this.resizeStartHeight + dy;
-            case LEFT -> adjustLeftEdge(dx);
-            case TOP -> adjustTopEdge(dy);
-            case TOP_LEFT -> {
-                adjustLeftEdge(dx);
-                adjustTopEdge(dy);
+            case RIGHT, TOP_RIGHT, BOTTOM_RIGHT -> this.windowWidth = Math.max(minW, this.resizeStartWidth + dx);
+            case LEFT, TOP_LEFT, BOTTOM_LEFT -> {
+                int newW = Math.max(minW, this.resizeStartWidth - dx);
+                this.windowX = this.resizeStartWindowX + (this.resizeStartWidth - newW);
+                this.windowWidth = newW;
             }
-            case TOP_RIGHT -> {
-                this.windowWidth = this.resizeStartWidth + dx;
-                adjustTopEdge(dy);
-            }
-            case BOTTOM_LEFT -> {
-                adjustLeftEdge(dx);
-                this.windowHeight = this.resizeStartHeight + dy;
-            }
-            case BOTTOM_RIGHT -> {
-                this.windowWidth = this.resizeStartWidth + dx;
-                this.windowHeight = this.resizeStartHeight + dy;
-            }
-            case NONE -> {
+            default -> {
             }
         }
-        clampWindowSize();
-        clampWindowToScreen();
-    }
-
-    private void adjustLeftEdge(int dx) {
-        int newWidth = this.resizeStartWidth - dx;
-        int maxRight = this.resizeStartWindowX + this.resizeStartWidth;
-        this.windowWidth = newWidth;
-        clampWindowSize();
-        this.windowX = maxRight - this.windowWidth;
-    }
-
-    private void adjustTopEdge(int dy) {
-        int newHeight = this.resizeStartHeight - dy;
-        int maxBottom = this.resizeStartWindowY + this.resizeStartHeight;
-        this.windowHeight = newHeight;
-        clampWindowSize();
-        this.windowY = maxBottom - this.windowHeight;
-    }
-
-    private void initializePosition() {
-        if (!this.positionInitialized) {
-            initializeDefaultBounds();
+        switch (this.resizeEdge) {
+            case BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT -> this.windowHeight = Math.max(minH, this.resizeStartHeight + dy);
+            case TOP, TOP_LEFT, TOP_RIGHT -> {
+                int newH = Math.max(minH, this.resizeStartHeight - dy);
+                this.windowY = this.resizeStartWindowY + (this.resizeStartHeight - newH);
+                this.windowHeight = newH;
+            }
+            default -> {
+            }
         }
     }
 
-    private void initializeDefaultBounds() {
-        this.windowWidth = this.defaultWidth;
-        this.windowHeight = this.defaultHeight;
-        clampWindowSize();
-        computeDefaultPosition();
-        clampWindowToScreen();
-        this.positionInitialized = true;
-        this.userBoundsPreference = false;
-    }
-
-    private void ensureSizeInitialized() {
-        if (this.windowWidth <= 0 || this.windowHeight <= 0) {
-            this.windowWidth = this.defaultWidth;
-            this.windowHeight = this.defaultHeight;
-            clampWindowSize();
+    private void applyScreenSnap() {
+        int threshold = this.snapEngaged ? SNAP_THRESHOLD * 2 : SNAP_THRESHOLD;
+        if (Math.abs(this.windowX - SCREEN_MARGIN) <= threshold) {
+            this.windowX = SCREEN_MARGIN;
+        }
+        if (Math.abs(this.windowY - (BuilderScreenConstants.TOP_H + SCREEN_MARGIN)) <= threshold) {
+            this.windowY = BuilderScreenConstants.TOP_H + SCREEN_MARGIN;
+        }
+        int right = this.screen.width - this.windowWidth - SCREEN_MARGIN;
+        if (Math.abs(this.windowX - right) <= threshold) {
+            this.windowX = right;
+        }
+        int bottom = this.screen.height - this.windowHeight - SCREEN_MARGIN;
+        if (Math.abs(this.windowY - bottom) <= threshold) {
+            this.windowY = bottom;
         }
     }
 
-    private void clampWindowSize() {
-        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
-        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
-    }
-
-    private void clampWindowToScreen() {
+    private void clampToScreen() {
         if (this.screen == null) {
             return;
         }
-        int maxX = Math.max(SCREEN_MARGIN, this.screen.width - this.windowWidth - SCREEN_MARGIN);
-        int maxY = Math.max(SCREEN_MARGIN, this.screen.height - getTitleBarHeight() - SCREEN_MARGIN);
-        this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, maxX);
-        this.windowY = Mth.clamp(this.windowY, SCREEN_MARGIN, maxY);
+        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
+        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
+        int minY = BuilderScreenConstants.TOP_H + SCREEN_MARGIN;
+        this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, Math.max(SCREEN_MARGIN, this.screen.width - this.windowWidth - SCREEN_MARGIN));
+        this.windowY = Mth.clamp(this.windowY, minY, Math.max(minY, this.screen.height - this.windowHeight - SCREEN_MARGIN));
     }
 
-    /**
-     * Snaps this panel to any nearby open panel's opposite edges if within threshold,
-     * with actual overlapping range (not just infinite extension lines).
-     *
-     * <p>This is a transient drag-time alignment — no permanent relationship is created.
-     * Each drag operation is independent; panels do not follow each other after
-     * the drag ends. This matches real-world window snapping behavior.
-     *
-     * <p>Rules:
-     * <ul>
-     *   <li>Horizontal snap (left↔right, right↔left) requires vertical overlap</li>
-     *   <li>Vertical snap (top↔bottom, bottom↔top) requires horizontal overlap</li>
-     *   <li>This panel's LEFT edge snaps to another panel's RIGHT edge</li>
-     *   <li>This panel's RIGHT edge snaps to another panel's LEFT edge</li>
-     *   <li>This panel's TOP edge snaps to another panel's BOTTOM edge</li>
-     *   <li>This panel's BOTTOM edge snaps to another panel's TOP edge</li>
-     * </ul>
-     */
-    private void snapToNearbyPanel() {
-        if (this.screen == null) return;
-        RtsFloatingWindowLayer layer = this.screen.getFloatingWindowLayer();
-        List<RtsWindowPanel> panels = layer.frontToBackWindows();
-
-        int preSnapX = this.windowX;
-        int preSnapY = this.windowY;
-
-        for (RtsWindowPanel other : panels) {
-            if (other == this || !other.isOpen()) continue;
-
-            // Hysteresis: once snapped, use a wider threshold to break free.
-            // This prevents small slow mouse movements from constantly re-snapping.
-            int threshold = SNAP_THRESHOLD;
-
-            boolean verticalOverlap = overlapY(this, other) > 0;
-            boolean horizontalOverlap = overlapX(this, other) > 0;
-
-            int oL = other.windowX;
-            int oR = other.windowX + other.windowWidth;
-            int oT = other.windowY;
-            int oB = other.windowY + other.windowHeight;
-
-            // Horizontal: snap opposite edges
-            if (verticalOverlap) {
-                int mL = this.windowX;
-                int mR = this.windowX + this.windowWidth;
-                if (Math.abs(mL - oR) < threshold) {
-                    this.windowX = oR + 1;
-                } else if (Math.abs(mR - oL) < threshold) {
-                    this.windowX = oL - this.windowWidth - 1;
-                }
-            }
-
-            // Vertical: snap opposite edges
-            if (horizontalOverlap) {
-                int mT = this.windowY;
-                int mB = this.windowY + this.windowHeight;
-                if (Math.abs(mT - oB) < threshold) {
-                    this.windowY = oB + 1;
-                } else if (Math.abs(mB - oT) < threshold) {
-                    this.windowY = oT - this.windowHeight - 1;
-                }
-            }
-        }
-        // Update snap engagement: if any snap alignment occurred, enable hysteresis
-        // so the next frame uses a wider threshold before releasing.
-        this.snapEngaged = this.windowX != preSnapX || this.windowY != preSnapY;
-    }
-
-    /** Returns the overlapping pixel count in the Y axis between two panels, or 0 if none. */
-    private static int overlapY(RtsWindowPanel a, RtsWindowPanel b) {
-        int aTop = a.windowY;
-        int aBot = a.windowY + a.windowHeight;
-        int bTop = b.windowY;
-        int bBot = b.windowY + b.windowHeight;
-        return Math.max(0, Math.min(aBot, bBot) - Math.max(aTop, bTop));
-    }
-
-    /** Returns the overlapping pixel count in the X axis between two panels, or 0 if none. */
-    private static int overlapX(RtsWindowPanel a, RtsWindowPanel b) {
-        int aL = a.windowX;
-        int aR = a.windowX + a.windowWidth;
-        int bL = b.windowX;
-        int bR = b.windowX + b.windowWidth;
-        return Math.max(0, Math.min(aR, bR) - Math.max(aL, bL));
-    }
-
-    private int closeButtonX() {
-        return this.windowX + this.windowWidth - CLOSE_BUTTON_SIZE - 3;
-    }
-
-    private int closeButtonY() {
-        return this.windowY + 3;
+    protected record GuideRect(int x, int y, int w, int h) {
     }
 }

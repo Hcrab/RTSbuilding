@@ -1,25 +1,28 @@
 package com.rtsbuilding.rtsbuilding.compat.remote;
 
-import com.rtsbuilding.rtsbuilding.compat.RemoteMenuTracker;
+
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 
 public final class RtsRemoteMenuCompat {
-    private static final RemoteMenuTracker TRACKER = new RemoteMenuTracker(RtsRemoteMenuCompat::isSupportedRemoteMenu);
-
-    private static final String STORAGE_MENU_BASE_CLASS =
-            "net.p3pp3rf1y.sophisticatedcore.common.gui.StorageContainerMenuBase";
     private static final String SOPHISTICATED_STORAGE_PKG =
             "net.p3pp3rf1y.sophisticatedstorage.common.gui.";
     private static final String SOPHISTICATED_BACKPACKS_PKG =
             "net.p3pp3rf1y.sophisticatedbackpacks.common.gui.";
+    private static final Map<UUID, Integer> SERVER_REMOTE_MENU_IDS = new ConcurrentHashMap<>();
+    private static volatile int clientRemoteMenuId = -1;
+    private static volatile boolean clientRemoteMenuPending;
 
     private RtsRemoteMenuCompat() {
     }
-
-    // ==================== 容器类型检测 ====================
 
     public static boolean isSupportedRemoteMenu(AbstractContainerMenu menu) {
         return isVanillaChestMenu(menu)
@@ -51,45 +54,55 @@ public final class RtsRemoteMenuCompat {
                 || name.startsWith(SOPHISTICATED_BACKPACKS_PKG);
     }
 
-    // ==================== Sophisticated* 专用工具 ====================
-
-    /**
-     * SophisticatedCore storage screens hard-require the original
-     * StorageContainerMenuBase type, so remote opens must preserve it.
-     * Always returns the same menu instance (no wrapping needed).
-     */
     public static AbstractContainerMenu wrapRemoteMenu(AbstractContainerMenu menu) {
-        return menu;
+        return RtsSophisticatedStorageCompat.wrapRemoteMenu(menu);
     }
-
-    public static boolean isStorageContainerMenuBase(AbstractContainerMenu menu) {
-        return menu != null && isInstanceOf(menu, STORAGE_MENU_BASE_CLASS);
-    }
-
-    // ==================== RemoteMenuTracker 委托 ====================
 
     public static void markServerRemoteMenu(ServerPlayer player, AbstractContainerMenu menu) {
-        TRACKER.markServer(player, menu);
+        if (player == null || !isSupportedRemoteMenu(menu)) {
+            clearServerRemoteMenu(player);
+            return;
+        }
+        SERVER_REMOTE_MENU_IDS.put(player.getUUID(), menu.containerId);
     }
 
     public static void clearServerRemoteMenu(ServerPlayer player) {
-        TRACKER.clearServer(player);
+        if (player == null) {
+            return;
+        }
+        SERVER_REMOTE_MENU_IDS.remove(player.getUUID());
     }
 
     public static void beginClientRemoteMenuOpen() {
-        TRACKER.beginClientOpen();
+        clientRemoteMenuPending = true;
     }
 
     public static void markClientRemoteMenu(AbstractContainerMenu menu) {
-        TRACKER.markClient(menu);
+        if (!isSupportedRemoteMenu(menu)) {
+            clearClientRemoteMenu();
+            return;
+        }
+        clientRemoteMenuId = menu.containerId;
+        clientRemoteMenuPending = false;
     }
 
     public static void clearClientRemoteMenu() {
-        TRACKER.clearClient();
+        clientRemoteMenuId = -1;
+        clientRemoteMenuPending = false;
     }
 
     public static boolean shouldForceStillValid(AbstractContainerMenu menu, Player player) {
-        return TRACKER.shouldForceStillValid(menu, player);
+        if (!isSupportedRemoteMenu(menu) || player == null) {
+            return false;
+        }
+        if (player.level().isClientSide()) {
+            return clientRemoteMenuPending || menu.containerId == clientRemoteMenuId;
+        }
+        if (player instanceof ServerPlayer serverPlayer) {
+            Integer remoteMenuId = SERVER_REMOTE_MENU_IDS.get(serverPlayer.getUUID());
+            return remoteMenuId != null && remoteMenuId == menu.containerId;
+        }
+        return false;
     }
 
     public static boolean isLocalSophisticatedMenu(AbstractContainerMenu menu, Player player) {

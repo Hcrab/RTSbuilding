@@ -59,13 +59,13 @@ public final class RtsMiningNetworkHelper {
      * {@code processed / total} to a break stage (0-9).
      */
     public static void sendUltimineBatchProgress(ServerPlayer player, RtsStorageSession session) {
-        if (session.mining.ultimineProgressPos == null) {
+        if (session.ultimineProgressPos == null) {
             return;
         }
-        int total = Math.max(1, session.mining.ultimineTotalTargets);
-        int processed = session.mining.ultimineProcessedTargets;
+        int total = Math.max(1, session.ultimineTotalTargets);
+        int processed = session.ultimineProcessedTargets;
         int stage = Math.min(9, (int) (processed / (double) total * 10.0D));
-        sendMineProgress(player, session.mining.ultimineProgressPos, stage);
+        sendMineProgress(player, session.ultimineProgressPos, stage);
         sendUltimineProgress(player, processed, total);
     }
 }

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
-import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -15,7 +15,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 服务端历史记录管理器（类??Ultimine-Rewind ??RewindDataManager）??
+ * 服务端历史记录管理器（类??Ultimine-Rewind ??RewindDataManager???
  * <p>
  * 管理所有玩家的撤回栈。历史记录在服务端维护，
  * 客户端通过网络包发??undo 请求，由服务端执行并同步结果??
@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li>服务端权威：所有记录在服务端管理，防止作弊</li>
  *   <li>过期自动清理：超??10 分钟的历史记录自动清??/li>
- *   <li>容量限制：每栈最??{@link RtsHistoryConstants#SHAPE_HISTORY_LIMIT} ??/li>
+ *   <li>容量限制：每栈最??{@link BuilderScreenConstants#SHAPE_HISTORY_LIMIT} ??/li>
  *   <li>线程安全：使??ConcurrentHashMap</li>
  * </ul>
  */
@@ -54,7 +54,7 @@ public final class ServerHistoryManager {
         PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
         synchronized (ph) {
             ph.undoStack.add(entry);
-            if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
+            if (ph.undoStack.size() > BuilderScreenConstants.SHAPE_HISTORY_LIMIT) {
                 ph.undoStack.removeFirst();
             }
         }
@@ -85,7 +85,7 @@ public final class ServerHistoryManager {
         PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
         synchronized (ph) {
             ph.undoStack.add(entry);
-            if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
+            if (ph.undoStack.size() > BuilderScreenConstants.SHAPE_HISTORY_LIMIT) {
                 ph.undoStack.removeFirst();
             }
         }

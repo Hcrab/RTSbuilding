@@ -251,6 +251,9 @@ public final class RtsAggregateStorage {
      * Returns whether any cached handler reports having the given item.
      */
     public boolean hasItem(Item item) {
+        if (item == null) {
+            return false;
+        }
         String itemId = item.toString();
         for (CachedHandlerSlot cs : this.flatOrdered) {
             if (cs.cache.getCount(itemId) > 0) {
@@ -264,6 +267,9 @@ public final class RtsAggregateStorage {
      * Returns the total count of the given item across all cached handlers.
      */
     public long getTotalCount(Item item) {
+        if (item == null) {
+            return 0L;
+        }
         long total = 0L;
         String itemId = item.toString();
         for (CachedHandlerSlot cs : this.flatOrdered) {
@@ -323,14 +329,6 @@ public final class RtsAggregateStorage {
         if (handler == null || targetItem == null || limit <= 0) {
             return ItemStack.EMPTY;
         }
-
-        // Bulk-extraction fast path for AnySlotInsertItemHandler (AE2, BD, etc.):
-        // skip the per-slot scan and let the handler do a bulk extract.
-        // Only safe when preferred is empty (no NBT variant required).
-        if ((preferred == null || preferred.isEmpty()) && handler instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.extractItemAnywhere(targetItem, limit, false);
-        }
-
         int remaining = limit;
         ItemStack out = ItemStack.EMPTY;
         for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {

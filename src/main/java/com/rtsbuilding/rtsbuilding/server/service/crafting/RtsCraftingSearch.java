@@ -5,13 +5,11 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsBrowserState;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraftforge.items.IItemHandler;
@@ -34,17 +32,17 @@ public final class RtsCraftingSearch {
             boolean showUnavailable, int offset, int limit,
             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
         // Search state is written into session fields, then read back for pagination.
-        session.browser.craftSearch = search == null ? "" : search.trim();
-        session.browser.craftShowUnavailable = showUnavailable;
-        session.browser.craftPinyinSearchEnabled = pinyinSearchEnabled;
-        session.browser.craftLocalizedSearchMatches.clear();
-        session.browser.craftLocalizedSearchMatches.addAll(sanitizeLocalizedSearchMatches(localizedSearchMatches));
+        session.craftSearch = search == null ? "" : search.trim();
+        session.craftShowUnavailable = showUnavailable;
+        session.craftPinyinSearchEnabled = pinyinSearchEnabled;
+        session.craftLocalizedSearchMatches.clear();
+        session.craftLocalizedSearchMatches.addAll(sanitizeLocalizedSearchMatches(localizedSearchMatches));
         int batchOffset = Math.max(0, offset);
         int batchLimit = Math.max(1, limit);
-        session.browser.craftRequestedCount = Math.max(RtsBrowserState.CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
+        session.craftRequestedCount = Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
         RtsSessionService.saveToPlayerNbt(player, session);
 
-        if (session.browser.craftSearch.isBlank()) {
+        if (session.craftSearch.isBlank()) {
             sendCraftables(player, session, List.of(), 0, false, false);
             return;
         }
@@ -69,8 +67,8 @@ public final class RtsCraftingSearch {
             }
             CraftableCandidate candidate = buildCraftableCandidate(
                     player, recipeId, craftingRecipe, availableStacks,
-                    session.browser.craftSearch, session.browser.craftPinyinSearchEnabled,
-                    session.browser.craftLocalizedSearchMatches);
+                    session.craftSearch, session.craftPinyinSearchEnabled,
+                    session.craftLocalizedSearchMatches);
             if (candidate == null) {
                 continue;
             }
@@ -84,7 +82,7 @@ public final class RtsCraftingSearch {
             }
             options.sort(CraftableCandidate::compareForRecipeSelection);
             boolean anyCraftable = options.stream().anyMatch(CraftableCandidate::craftable);
-            if (!session.browser.craftShowUnavailable && !anyCraftable) {
+            if (!session.craftShowUnavailable && !anyCraftable) {
                 continue;
             }
             groupedEntries.add(new CraftableGroupEntry(options.get(0), List.copyOf(options)));
@@ -105,10 +103,10 @@ public final class RtsCraftingSearch {
      */
     public static void refreshCraftables(ServerPlayer player, RtsStorageSession session) {
         requestCraftables(player, session,
-                session.browser.craftSearch, session.browser.craftShowUnavailable,
-                0, Math.max(RtsBrowserState.CRAFTABLE_BATCH_SIZE, session.browser.craftRequestedCount),
-                session.browser.craftPinyinSearchEnabled,
-                List.copyOf(session.browser.craftLocalizedSearchMatches));
+                session.craftSearch, session.craftShowUnavailable,
+                0, Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE, session.craftRequestedCount),
+                session.craftPinyinSearchEnabled,
+                List.copyOf(session.craftLocalizedSearchMatches));
     }
 
     // ---- internal helpers -------------------------------------------------------
@@ -148,7 +146,7 @@ public final class RtsCraftingSearch {
             }
         }
         PacketDistributor.sendToPlayer(player, new S2CRtsCraftablesPayload(
-                session.browser.craftSearch, session.browser.craftShowUnavailable,
+                session.craftSearch, session.craftShowUnavailable,
                 Math.max(0, offset), append, hasMore,
                 recipeIds, resultItemIds, resultCounts, craftable, missingSummaries,
                 recipeOptionCounts,
@@ -281,8 +279,7 @@ public final class RtsCraftingSearch {
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        CraftingContainer input = RtsCraftingUtils.createCraftingContainer(player.containerMenu, previewStacks);
-        ItemStack assembled = recipe.assemble(input, player.serverLevel().registryAccess());
+        ItemStack assembled = recipe.assemble(RtsCraftingUtils.createCraftingContainer(player, previewStacks), player.serverLevel().registryAccess());
         return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
     }
 

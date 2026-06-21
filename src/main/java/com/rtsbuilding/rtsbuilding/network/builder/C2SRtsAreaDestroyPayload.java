@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -19,8 +20,7 @@ public record C2SRtsAreaDestroyPayload(
         boolean toolProtectionEnabled) implements CustomPacketPayload {
     public static final int MAX_POSITIONS = 32768;
 
-    public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_destroy"), C2SRtsAreaDestroyPayload.class);
+    public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_destroy"), C2SRtsAreaDestroyPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaDestroyPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

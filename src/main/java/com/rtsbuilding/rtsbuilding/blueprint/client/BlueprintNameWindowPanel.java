@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.blueprint.client;
 
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+
 import org.lwjgl.glfw.GLFW;
 
 /**

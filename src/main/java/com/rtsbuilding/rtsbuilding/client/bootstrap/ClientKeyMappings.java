@@ -1,13 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
-import com.mojang.blaze3d.platform.InputConstants;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.settings.KeyConflictContext;
+import net.minecraftforge.client.settings.KeyModifier;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.lwjgl.glfw.GLFW;
 
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientKeyMappings {
@@ -68,6 +71,13 @@ public final class ClientKeyMappings {
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_RIGHT,
             "key.categories.rtsbuilding");
+    public static final KeyMapping MOVE_PLAYER = new KeyMapping(
+            "key.rtsbuilding.move_player",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.MOUSE,
+            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
+            "key.categories.rtsbuilding");
     public static final KeyMapping ACTION_BREAK = new KeyMapping(
             "key.rtsbuilding.action_break",
             InputConstants.Type.MOUSE,
@@ -105,7 +115,7 @@ public final class ClientKeyMappings {
     }
 
     @SubscribeEvent
-    public static void register(RegisterKeyMappingsEvent event) {
+    public static void register(final RegisterKeyMappingsEvent event) {
         event.register(TOGGLE_RTS);
         event.register(QUICK_FUNNEL);
         event.register(QUICK_DROP);
@@ -120,6 +130,7 @@ public final class ClientKeyMappings {
         event.register(MODE_ROTATE);
         event.register(MODE_FUNNEL);
         event.register(ACTION_PRIMARY);
+        event.register(MOVE_PLAYER);
         event.register(ACTION_BREAK);
         event.register(CAMERA_ROTATE_DRAG);
         event.register(CAMERA_PAN_DRAG);

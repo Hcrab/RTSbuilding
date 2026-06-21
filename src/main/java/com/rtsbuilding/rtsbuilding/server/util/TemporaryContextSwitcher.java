@@ -9,14 +9,14 @@ import net.minecraft.world.phys.Vec3;
 import java.util.function.Supplier;
 
 /**
- * 临时上下文切换工具集。
+ * 临时上下文切换工具集??
  *
- * <p>在 RTS 模式下，玩家处于自由视角而非第一人称，放置/交互时需要临时
- * 切换玩家的位置、朝向、主手物品、Shift 状态等上下文，模拟"在目标位置
- * 以正确姿态执行操作"。所有切换都会在操作完成后自动恢复。
+ * <p>??RTS 模式下，玩家处于自由视角而非第一人称，放??交互时需要临??
+ * 切换玩家的位置、朝向、主手物品、Shift 状态等上下文，模拟"在目标位??
+ * 以正确姿态执行操??。所有切换都会在操作完成后自动恢???
  *
  * <p>每个方法都是纯静态的：临时状态是函数式作用域（try/finally 自动还原），
- * 不会泄漏到玩家实体上。
+ * 不会泄漏到玩家实体上??
  */
 public final class TemporaryContextSwitcher {
 
@@ -28,8 +28,8 @@ public final class TemporaryContextSwitcher {
     // ======================================================================
 
     /**
-     * 从客户端发送的射线原点和方向构造 {@link RayContext}。
-     * 无效输入（NaN、零向量）返回 null。
+     * 从客户端发送的射线原点和方向构??{@link RayContext}??
+     * 无效输入（NaN、零向量）返??null??
      */
     public static RayContext parseRayContext(
             double originX, double originY, double originZ,
@@ -50,8 +50,8 @@ public final class TemporaryContextSwitcher {
     // ======================================================================
 
     /**
-     * 基于客户端射线方向构造虚拟交互上下文（位置 + 注视方向），
-     * 执行 {@code action} 后自动恢复玩家的原始位置和朝向。
+     * 基于客户端射线方向构造虚拟交互上下文（位??+ 注视方向），
+     * 执行 {@code action} 后自动恢复玩家的原始位置和朝???
      */
     public static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
@@ -79,11 +79,11 @@ public final class TemporaryContextSwitcher {
     }
 
     // ======================================================================
-    //  Shift Key 状态
+    //  Shift Key ???
     // ======================================================================
 
     /**
-     * 临时设置玩家的潜行状态，执行 {@code action} 后恢复。
+     * 临时设置玩家的潜行状态，执行 {@code action} 后恢???
      */
     public static <T> T withTemporaryShiftKey(ServerPlayer player, boolean active, Supplier<T> action) {
         boolean previous = player.isShiftKeyDown();
@@ -103,7 +103,7 @@ public final class TemporaryContextSwitcher {
     // ======================================================================
 
     /**
-     * 临时替换玩家的主手物品，执行 {@code action} 后恢复。
+     * 临时替换玩家的主手物品，执行 {@code action} 后恢???
      */
     public static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
         ItemStack previousMainHand = player.getMainHandItem();
@@ -116,11 +116,11 @@ public final class TemporaryContextSwitcher {
     }
 
     // ======================================================================
-    //  OnGround 状态
+    //  OnGround ???
     // ======================================================================
 
     /**
-     * 临时设置玩家的 onGround 状态（影响挖掘速度计算），执行后恢复。
+     * 临时设置玩家??onGround 状态（影响挖掘速度计算），执行后恢???
      */
     public static <T> T withTemporaryOnGround(ServerPlayer player, boolean onGround, Supplier<T> action) {
         boolean previous = player.onGround();
@@ -137,7 +137,7 @@ public final class TemporaryContextSwitcher {
     // ======================================================================
 
     /**
-     * 临时切换玩家的选中快捷栏格，执行 {@code action} 后恢复。
+     * 临时切换玩家的选中快捷栏格，执??{@code action} 后恢???
      */
     public static <T> T withTemporarySelectedSlot(ServerPlayer player, int toolSlot, Supplier<T> action) {
         int slot = Math.max(0, Math.min(8, toolSlot));
@@ -193,13 +193,13 @@ public final class TemporaryContextSwitcher {
     // ======================================================================
 
     /**
-     * 从客户端射线数据解析出的原点和方向向量。
+     * 从客户端射线数据解析出的原点和方向向???
      */
     public record RayContext(Vec3 origin, Vec3 dir) {
     }
 
     /**
-     * 远程使用物品的结果：操作结果 + 剩余物品（可能被消耗或改变）。
+     * 远程使用物品的结果：操作结果 + 剩余物品（可能被消耗或改变???
      */
     public record UseOnOutcome(InteractionResult result, ItemStack remainder) {
     }

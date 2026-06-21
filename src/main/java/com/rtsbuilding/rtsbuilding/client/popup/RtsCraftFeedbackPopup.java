@@ -2,16 +2,15 @@ package com.rtsbuilding.rtsbuilding.client.popup;
 
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.record.CraftFeedbackIngredient;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import java.util.List;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.List;
 
 public final class RtsCraftFeedbackPopup {
     private static final int PANEL_W = 228;
@@ -32,7 +31,7 @@ public final class RtsCraftFeedbackPopup {
 
         ItemStack resultPreview = resolvePreview(controller.getCraftFeedbackItemId());
         String resultLabel = resultPreview.isEmpty() ? controller.getCraftFeedbackItemId() : resultPreview.getHoverName().getString();
-        List<CraftFeedbackIngredient> ingredients = controller.getCraftFeedbackIngredients();
+        List<ClientRtsController.CraftFeedbackIngredient> ingredients = controller.getCraftFeedbackIngredients();
         int visibleRows = Math.min(MAX_ROWS, ingredients.size());
         boolean hasOverflow = ingredients.size() > visibleRows;
         int panelH = 54 + (visibleRows * ROW_H) + (hasOverflow ? 14 : 0);
@@ -60,7 +59,7 @@ public final class RtsCraftFeedbackPopup {
 
         int rowY = y + 54;
         for (int i = 0; i < visibleRows; i++) {
-            CraftFeedbackIngredient ingredient = ingredients.get(i);
+            ClientRtsController.CraftFeedbackIngredient ingredient = ingredients.get(i);
             g.fill(x + 8, rowY - 2, x + PANEL_W - 8, rowY + 14, (alpha << 24) | 0x22303C);
             if (!ingredient.preview().isEmpty()) {
                 g.renderItem(ingredient.preview(), x + 10, rowY - 1);

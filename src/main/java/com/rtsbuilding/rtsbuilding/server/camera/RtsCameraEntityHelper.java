@@ -11,8 +11,8 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
- * 相机实体的创建、查找、丢弃等纯实体操作。
- * <p>包私有——仅供 {@link RtsCameraManager} 内部委托。
+ * 相机实体的创建、查找、丢弃等纯实体操???
+ * <p>包私有——仅??{@link RtsCameraManager} 内部委托??
  */
 final class RtsCameraEntityHelper {
 

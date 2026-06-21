@@ -2,14 +2,15 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -82,16 +83,11 @@ final class RtsCraftingUtils {
         return null;
     }
 
-    /**
-     * Builds the 1.20.1 crafting input object expected by vanilla recipe APIs.
-     */
-    static CraftingContainer createCraftingContainer(AbstractContainerMenu owner, List<ItemStack> stacks) {
-        TransientCraftingContainer input = new TransientCraftingContainer(owner, 3, 3);
-        if (stacks == null) {
-            return input;
-        }
-        for (int i = 0; i < Math.min(9, stacks.size()); i++) {
-            ItemStack stack = stacks.get(i);
+    static CraftingContainer createCraftingContainer(ServerPlayer player, List<ItemStack> stacks) {
+        CraftingMenu dummyMenu = new CraftingMenu(0, player.getInventory(), ContainerLevelAccess.NULL);
+        TransientCraftingContainer input = new TransientCraftingContainer(dummyMenu, 3, 3);
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = stacks != null && i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
             input.setItem(i, stack == null ? ItemStack.EMPTY : stack.copy());
         }
         return input;

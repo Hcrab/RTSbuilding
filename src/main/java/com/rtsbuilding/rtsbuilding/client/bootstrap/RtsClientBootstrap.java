@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsModConfigScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.RtsModConfigScreen;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.fml.ModLoadingContext;
 

@@ -1,6 +1,10 @@
 package com.rtsbuilding.rtsbuilding.blueprint;
 
+
+import java.util.Set;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -8,15 +12,13 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.Set;
-
 public final class BlueprintReplaceRules {
     public static final TagKey<Block> SOFT_REPLACEABLE = TagKey.create(
             Registries.BLOCK,
             new ResourceLocation(RtsbuildingMod.MODID, "blueprint_soft_replaceable"));
 
     private static final Set<ResourceLocation> VANILLA_SOFT_REPLACEABLE = Set.of(
-            vanilla("short_grass"),
+            vanilla("grass"),
             vanilla("tall_grass"),
             vanilla("fern"),
             vanilla("large_fern"),

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
-import com.rtsbuilding.rtsbuilding.network.camera.handler.RtsCameraNetworkHandlers;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 
 /**

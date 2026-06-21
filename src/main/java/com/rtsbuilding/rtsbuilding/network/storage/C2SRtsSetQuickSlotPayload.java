@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
@@ -11,8 +12,7 @@ public record C2SRtsSetQuickSlotPayload(
         byte slot,
         String itemId,
         ItemStack previewStack) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetQuickSlotPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_quick_slot"), C2SRtsSetQuickSlotPayload.class);
+    public static final Type<C2SRtsSetQuickSlotPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_quick_slot"), C2SRtsSetQuickSlotPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetQuickSlotPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

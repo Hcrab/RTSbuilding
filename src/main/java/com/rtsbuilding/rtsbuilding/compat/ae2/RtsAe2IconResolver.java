@@ -1,5 +1,10 @@
 package com.rtsbuilding.rtsbuilding.compat.ae2;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -8,12 +13,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.ModList;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.LinkedHashSet;
-import java.util.Locale;
+import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 
 /**
  * Icon resolution for AE2 GUI binding slots.

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
@@ -16,8 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 public record S2CRtsUltimineProgressPayload(
         int processed,
         int total) implements CustomPacketPayload {
-    public static final Type<S2CRtsUltimineProgressPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_ultimine_progress"), S2CRtsUltimineProgressPayload.class);
+    public static final Type<S2CRtsUltimineProgressPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_ultimine_progress"), S2CRtsUltimineProgressPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsUltimineProgressPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

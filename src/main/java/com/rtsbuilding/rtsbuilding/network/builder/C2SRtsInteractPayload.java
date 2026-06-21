@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -29,8 +30,7 @@ public record C2SRtsInteractPayload(
     public static final byte SOURCE_EMPTY_HAND = 3;
     public static final int NO_ENTITY = -1;
 
-    public static final Type<C2SRtsInteractPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_interact"), C2SRtsInteractPayload.class);
+    public static final Type<C2SRtsInteractPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_interact"), C2SRtsInteractPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsInteractPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

@@ -5,6 +5,12 @@ plugins {
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
 version = mod_version
 group = mod_group_id
 
@@ -14,6 +20,105 @@ base {
 
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+def compatAutomationRunDir = System.getenv('RTSBUILDING_FORGE1201_COMPAT_RUN_DIR')
+def devRunDirectory = compatAutomationRunDir ? file(compatAutomationRunDir) : file('run')
+def runtimeModsDirOverride = System.getenv('RTSBUILDING_FORGE1201_RUNTIME_MODS_DIR')
+def localRuntimeModsDir = runtimeModsDirOverride ? file(runtimeModsDirOverride) : new File(devRunDirectory, 'mods')
+def devRuntimeModsDir = file("${buildDir}/devRunMods")
+
+def shouldStripNestedRuntimeEntry = { String name ->
+    name == 'META-INF/jarjar/metadata.json'
+            || name.startsWith('META-INF/jarjar/')
+            || name.startsWith('META-INF/jars/')
+}
+
+def replacePreparedJar = { File targetJar, Closure writer ->
+    targetJar.parentFile.mkdirs()
+    def tempJar = new File(targetJar.parentFile, "${targetJar.name}.tmp")
+    tempJar.delete()
+    writer(tempJar)
+    try {
+        Files.move(tempJar.toPath(), targetJar.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE)
+    } catch (Exception ignored) {
+        Files.move(tempJar.toPath(), targetJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+
+def copyZipWithoutNestedRuntimeEntries = { File sourceJar, File targetJar ->
+    replacePreparedJar(targetJar) { tempJar ->
+        new ZipFile(sourceJar).withCloseable { zip ->
+            new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(tempJar))).withCloseable { output ->
+                zip.entries().each { entry ->
+                    if (entry.directory || shouldStripNestedRuntimeEntry(entry.name)) {
+                        return
+                    }
+                    def copied = new ZipEntry(entry.name)
+                    copied.time = entry.time
+                    output.putNextEntry(copied)
+                    zip.getInputStream(entry).withCloseable { input ->
+                        input.transferTo(output)
+                    }
+                    output.closeEntry()
+                }
+            }
+        }
+    }
+}
+
+def extractNestedRuntimeJars = { File sourceJar, File targetDir ->
+    def extracted = []
+    new ZipFile(sourceJar).withCloseable { zip ->
+        zip.entries().each { entry ->
+            if (entry.directory || !entry.name.endsWith('.jar')) {
+                return
+            }
+            if (!entry.name.startsWith('META-INF/jarjar/') && !entry.name.startsWith('META-INF/jars/')) {
+                return
+            }
+            def target = new File(targetDir, new File(entry.name).name)
+            replacePreparedJar(target) { tempJar ->
+                zip.getInputStream(entry).withCloseable { input ->
+                    tempJar.withOutputStream { output ->
+                        input.transferTo(output)
+                    }
+                }
+            }
+            extracted.add(target)
+        }
+    }
+    return extracted
+}
+
+def prepareDevRuntimeModJars = {
+    devRuntimeModsDir.mkdirs()
+    if (!localRuntimeModsDir.isDirectory()) {
+        return []
+    }
+
+    def prepared = []
+    def expectedNames = [] as Set
+    localRuntimeModsDir.listFiles()
+            .findAll { it.name.endsWith('.jar') && !it.name.startsWith('rtsbuilding') }
+            .sort { it.name }
+            .each { sourceJar ->
+                def targetJar = new File(devRuntimeModsDir, sourceJar.name)
+                copyZipWithoutNestedRuntimeEntries(sourceJar, targetJar)
+                expectedNames.add(targetJar.name)
+                prepared.add(targetJar)
+                def nestedJars = extractNestedRuntimeJars(sourceJar, devRuntimeModsDir)
+                nestedJars.each { expectedNames.add(it.name) }
+                prepared.addAll(nestedJars)
+            }
+    devRuntimeModsDir.listFiles()
+            ?.findAll { (it.name.endsWith('.jar') || it.name.endsWith('.tmp')) && !expectedNames.contains(it.name) }
+            ?.each { it.delete() }
+    return prepared.unique { it.name }.sort { it.name }
+}
+
+def devRuntimeModJars = prepareDevRuntimeModJars()
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 minecraft {
@@ -60,7 +165,8 @@ minecraft {
     runs {
         // applies to all the run configs below
         configureEach {
-            workingDirectory project.file('run')
+            // 手动测试默认使用 run；自动化兼容测试可以指定独立 gameDir。
+            workingDirectory devRunDirectory
 
             // Recommended logging data for a userdev environment
             // The markers can be added/remove as needed separated by commas.
@@ -73,6 +179,12 @@ minecraft {
             // You can set various levels here.
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
             property 'forge.logging.console.level', 'debug'
+            // 让 run/mods 中的生产版模组 jar 在 Forge userdev 命名环境下正确重映射 mixin refmap。
+            def refMapRemapFile = layout.buildDirectory.file('createSrgToMcp/output.srg').get().asFile.absolutePath
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', refMapRemapFile
+            jvmArg '-Dmixin.env.remapRefMap=true'
+            jvmArg "-Dmixin.env.refMapRemappingFile=${refMapRemapFile}"
 
             mods {
                 "${mod_id}" {
@@ -84,6 +196,12 @@ minecraft {
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (System.getenv('RTSBUILDING_QUICKPLAY_SINGLEPLAYER')) {
+                args '--quickPlaySingleplayer', System.getenv('RTSBUILDING_QUICKPLAY_SINGLEPLAYER')
+            }
+            if (System.getenv('RTSBUILDING_QUICKPLAY_PATH')) {
+                args '--quickPlayPath', System.getenv('RTSBUILDING_QUICKPLAY_PATH')
+            }
         }
 
         server {
@@ -95,6 +213,8 @@ minecraft {
         // By default, the server will crash when no gametests are provided.
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
+            // 基础 GameTest 使用干净目录，避免本地 run/mods 中的测试包模组干扰服务端烟测。
+            workingDirectory project.file('run-gametest')
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
@@ -111,10 +231,30 @@ minecraft {
 // Include resources generated by data generators.
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+tasks.register('verifyPinyinDictionary') {
+    group = 'verification'
+    description = 'Verify the bundled pinyin dictionary resource exists before packaging.'
+
+    def dict = file('src/main/resources/assets/rtsbuilding/pinyin/data.txt')
+    inputs.file(dict)
+
+    doLast {
+        if (!dict.isFile()) {
+            throw new GradleException("Missing pinyin dictionary: ${dict}")
+        }
+        if (dict.length() < 250_000L) {
+            throw new GradleException("Pinyin dictionary looks truncated: ${dict.length()} bytes")
+        }
+    }
+}
+
 repositories {
     // Put repositories for dependencies here
     // ForgeGradle automatically adds the Forge maven and Maven Central for you
     maven { url = 'https://maven.blamejared.com' }
+    flatDir {
+        dirs devRuntimeModsDir
+    }
 
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
@@ -133,7 +273,11 @@ dependencies {
 
     compileOnly fg.deobf("mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}")
     compileOnly fg.deobf("mezz.jei:jei-${jei_minecraft_version}-forge-api:${jei_version}")
-    runtimeOnly fg.deobf("mezz.jei:jei-${jei_minecraft_version}-forge:${jei_version}")
+    // 第三方测试模组只从当前 runDir 的 mods 目录进入开发环境；build/devRunMods 只是清理后的缓存。
+    devRuntimeModJars.each { jarFile ->
+        def moduleName = jarFile.name.substring(0, jarFile.name.length() - 4)
+        runtimeOnly fg.deobf("rtsbuilding.runmods:${moduleName}:unspecified")
+    }
 
     compileOnly "org.spongepowered:mixin:${mixin_version}"
     annotationProcessor "org.spongepowered:mixin:${mixin_version}:processor"
@@ -146,6 +290,11 @@ dependencies {
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+    testImplementation "org.mockito:mockito-core:5.12.0"
+    testImplementation "org.mockito:mockito-junit-jupiter:5.12.0"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -153,6 +302,8 @@ dependencies {
 // When "copyIdeResources" is enabled, this will also run before the game launches in IDE environments.
 // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
 tasks.named('processResources', ProcessResources).configure {
+    dependsOn tasks.named('verifyPinyinDictionary')
+
     var replaceProperties = [
             minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
             forge_version: forge_version, forge_version_range: forge_version_range,
@@ -209,4 +360,21 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.matching { it.name in ['runClient', 'runServer', 'runGameTestServer'] }.configureEach {
+    dependsOn 'createSrgToMcp'
+    doFirst {
+        devRunDirectory.mkdirs()
+    }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    exclude '**/server/benchmark/**'
+    exclude '**/*Benchmark*'
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+    }
 }

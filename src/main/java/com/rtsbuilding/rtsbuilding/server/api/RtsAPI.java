@@ -1,70 +1,79 @@
 package com.rtsbuilding.rtsbuilding.server.api;
 
 /**
- * Main API entry point for the RTS Building module.
+ * RTS Building 模块的主 API 入口???
  *
- * <p>Third-party addons should access all RTS functionality through this interface.
- * Obtain the global singleton via {@link #get()}.
+ * <p>第三方附属模组应通过此接口访问所??RTS 功能??
+ * 通过 {@link #get()} 获取全局单例??
  *
- * <h3>Usage</h3>
+ * <h3>使用方法</h3>
  * <pre>{@code
- * // Obtain API instance
+ * // 获取 API 实例
  * RtsAPI api = RtsAPI.get();
  *
- * // Query the count of a specific item in a player's storage
+ * // 查询玩家存储中的物品数量
  * long count = api.storage().countItems(player, Items.DIAMOND);
+ *
+ * // 从存储中提取物品
+ * ItemStack extracted = api.storage().extractItem(player, Items.DIAMOND, 64);
+ *
+ * // 监听生命周期事件
+ * api.lifecycle().onRtsEnabled(player);
  * }</pre>
  *
- * <p>All methods are thread-safe. Default values are returned when no player session is active.
+ * <p>所有方法均为线程安全的。无玩家会话时返回默认???
  */
 public interface RtsAPI {
 
     /**
-     * Returns the global {@link RtsAPI} instance.
-     * Always available after mod initialisation is complete.
+     * 返回全局 {@link RtsAPI} 实例??
+     * 在模组初始化完成后始终可???
      */
     static RtsAPI get() {
         return Holder.INSTANCE;
     }
 
     // ======================================================================
-    // Sub-APIs
+    // ??API
     // ======================================================================
 
-    /** Storage queries: count, extract, and return items/fluids */
+    /** 存储查询：计数、提取、归还物??流体 */
     RtsStorageQueryAPI storage();
 
-    /** Blueprint material queries and extraction */
+    /** 蓝图材料查询与提??*/
     RtsBlueprintAPI blueprint();
 
-    /** Remote block placement */
+    /** 远程方块放置 */
     RtsPlacementAPI placement();
 
-    /** Remote interaction (right-click containers/entities, etc.) */
+    /** 远程交互（右键容??实体等） */
     RtsInteractionAPI interaction();
 
-    /** Remote mining and vein mining */
+    /** 远程挖掘与连锁挖??*/
     RtsMiningAPI mining();
 
-    /** Item transfer between linked storage and player inventory */
+    /** 物品转移（在链接存储与玩家物品栏之间??*/
     RtsTransferAPI transfer();
 
-    /** Crafting terminal operations */
+    /** 合成终端操作 */
     RtsCraftingAPI crafting();
 
-    /** Fluid operations */
+    /** 流体操作 */
     RtsFluidAPI fluids();
 
-    /** Storage binding management */
+    /** 存储绑定管理 */
     RtsBindingsAPI bindings();
 
-    /** Session queries */
+    /** 服务端生命周期钩??*/
+    RtsLifecycleAPI lifecycle();
+
+    /** 会话查询 */
     RtsSessionQueryAPI sessions();
 
     /**
-     * Sets the internal implementation. Called by the RTS core during mod initialisation.
+     * 设置内部实现。模组初始化时由 RTS 核心调用??
      *
-     * @throws IllegalStateException if the implementation has already been set
+     * @throws IllegalStateException 如果实现已设??
      */
     static void setImplementation(RtsAPI implementation) {
         if (Holder.INSTANCE != null && implementation != null) {

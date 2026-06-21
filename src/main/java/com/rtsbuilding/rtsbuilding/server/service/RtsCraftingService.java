@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageCrafting;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
@@ -13,32 +14,34 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 /**
- * 合成服务——管理合成终端、配方请求、JEI 传输和合成格填充。
+ * 合成服务——管理合成终端、配方请求、JEI 传输和合成格填充??
  *
- * <p>职责范围：
+ * <p>职责范围??
  * <ul>
  *   <li>打开/关闭合成终端</li>
- *   <li>请求可合成物品列表</li>
- *   <li>执行配方合成到链接存储</li>
- *   <li>JEI 一键传输</li>
+ *   <li>请求可合成物品列??/li>
+ *   <li>执行配方合成到链接存??/li>
+ *   <li>JEI 一键传??/li>
  *   <li>合成格快照与填充</li>
  *   <li>记录合成输出</li>
  * </ul>
  */
 public final class RtsCraftingService {
 
+    public static final RtsCraftingService INSTANCE = new RtsCraftingService();
+
     private RtsCraftingService() {
     }
 
     /**
-     * 打开合成终端。
+     * 打开合成终端??
      */
     public static void openCraftTerminal(ServerPlayer player) {
         RtsStorageCrafting.openCraftTerminal(player, RtsSessionService.getIfPresent(player));
     }
 
     /**
-     * 请求可合成物品列表（带拼音搜索支持）。
+     * 请求可合成物品列表（带拼音搜索支持）??
      */
     public static void requestCraftables(ServerPlayer player, String search, boolean showUnavailable, int offset, int limit,
             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
@@ -57,7 +60,7 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 请求可合成物品列表。
+     * 请求可合成物品列???
      */
     public static void requestCraftables(ServerPlayer player, String search, boolean showUnavailable, int offset, int limit,
             boolean pinyinSearchEnabled) {
@@ -65,14 +68,14 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 请求可合成物品列表。
+     * 请求可合成物品列???
      */
     public static void requestCraftables(ServerPlayer player, String search, boolean showUnavailable, int offset, int limit) {
         requestCraftables(player, search, showUnavailable, offset, limit, currentCraftPinyinSearchEnabled(player));
     }
 
     /**
-     * 将配方合成到链接存储。
+     * 将配方合成到链接存储??
      */
     public static void craftRecipeToLinked(ServerPlayer player, String recipeId, int craftCount) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
@@ -82,7 +85,7 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 按物品 ID 填充合成格。
+     * 按物??ID 填充合成???
      */
     public static void refillCurrentCraftGridFromBlueprintIds(ServerPlayer player, List<String> blueprintIds,
             String craftedItemId, int craftedCount) {
@@ -95,7 +98,7 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 按物品栈填充合成格。
+     * 按物品栈填充合成???
      */
     public static void refillCurrentCraftGridFromBlueprintStacks(ServerPlayer player, List<ItemStack> blueprintStacks,
             String craftedItemId, int craftedCount) {
@@ -108,7 +111,7 @@ public final class RtsCraftingService {
     }
 
     /**
-     * JEI 一键传输——填充合成格并执行合成。
+     * JEI 一键传输——填充合成格并执行合???
      */
     public static void applyJeiTransfer(ServerPlayer player, String recipeId, List<ItemStack> ingredientPrototypes,
             boolean maxTransfer, boolean clearGridFirst) {
@@ -125,14 +128,14 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 快照当前合成格的配方蓝图。
+     * 快照当前合成格的配方蓝图??
      */
     public static ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
         return RtsStorageCrafting.snapshotCraftGridBlueprint(menu);
     }
 
     /**
-     * 从蓝图填充合成格。
+     * 从蓝图填充合成格??
      */
     public static void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
@@ -140,7 +143,7 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 从链接存储填充合成格。
+     * 从链接存储填充合成格??
      */
     public static void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu,
             ItemStack[] blueprint, CraftingRecipe recipe) {
@@ -148,7 +151,7 @@ public final class RtsCraftingService {
     }
 
     /**
-     * 记录已合成的产物。
+     * 记录已合成的产物??
      */
     public static void recordCraftedOutput(ServerPlayer player, ItemStack crafted) {
         RtsStorageCrafting.recordCraftedOutput(player, RtsSessionService.getIfPresent(player), crafted);
@@ -160,12 +163,11 @@ public final class RtsCraftingService {
 
     private static boolean currentCraftPinyinSearchEnabled(ServerPlayer player) {
         RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
-        return session != null && session.browser.craftPinyinSearchEnabled;
+        return session != null && session.craftPinyinSearchEnabled;
     }
 
     private static List<String> currentCraftLocalizedSearchMatches(ServerPlayer player) {
         RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
-        return session == null ? List.of() : List.copyOf(session.browser.craftLocalizedSearchMatches);
+        return session == null ? List.of() : List.copyOf(session.craftLocalizedSearchMatches);
     }
 }
-

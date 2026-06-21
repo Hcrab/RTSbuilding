@@ -1,7 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
+import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 
 /**
@@ -56,5 +60,133 @@ public final class RtsLinkedHandlerViews {
             remain = handler.insertItem(slot, remain, simulate);
         }
         return remain;
+    }
+}
+
+/**
+ * Wraps an {@link IItemHandler} to enforce extract-only store rules.
+ *
+ * <p>When {@code allowStore} is false, {@link #insertItem} rejects all
+ * insertions by returning the full stack. Extraction is always delegated.
+ */
+final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHandler {
+    private final IItemHandler delegate;
+    private final boolean allowStore;
+
+    LinkedItemHandlerView(IItemHandler delegate, boolean allowStore) {
+        this.delegate = delegate;
+        this.allowStore = allowStore;
+    }
+
+    @Override
+    public int getSlots() {
+        return this.delegate.getSlots();
+    }
+
+    @Override
+    public ItemStack getStackInSlot(int slot) {
+        return this.delegate.getStackInSlot(slot);
+    }
+
+    @Override
+    public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        return this.allowStore ? this.delegate.insertItem(slot, stack, simulate) : stack;
+    }
+
+    boolean supportsAnySlotInsert() {
+        return this.allowStore && this.delegate instanceof AnySlotInsertItemHandler;
+    }
+
+    /**
+     * Returns the raw underlying handler (used by cache registration).
+     */
+    IItemHandler getRawHandler() {
+        return this.delegate;
+    }
+
+    ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
+        if (!this.allowStore) {
+            return stack == null ? ItemStack.EMPTY : stack.copy();
+        }
+        if (this.delegate instanceof AnySlotInsertItemHandler anySlot) {
+            return anySlot.insertItemAnywhere(stack, simulate);
+        }
+        ItemStack remain = stack == null ? ItemStack.EMPTY : stack.copy();
+        for (int slot = 0; slot < this.delegate.getSlots() && !remain.isEmpty(); slot++) {
+            remain = this.delegate.insertItem(slot, remain, simulate);
+        }
+        return remain;
+    }
+
+    @Override
+    public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        return this.delegate.extractItem(slot, amount, simulate);
+    }
+
+    @Override
+    public int getSlotLimit(int slot) {
+        return this.delegate.getSlotLimit(slot);
+    }
+
+    @Override
+    public boolean isItemValid(int slot, ItemStack stack) {
+        return this.delegate.isItemValid(slot, stack);
+    }
+
+    @Override
+    public long getReportedCount(int slot) {
+        ItemStack stack = this.delegate.getStackInSlot(slot);
+        return RtsAe2Compat.getReportedCount(this.delegate, slot, stack);
+    }
+}
+
+/**
+ * Wraps an {@link IFluidHandler} to enforce extract-only store rules.
+ *
+ * <p>When {@code allowStore} is false, {@link #fill} returns 0 to reject all
+ * fluid insertions. Drain is always delegated.
+ */
+final class LinkedFluidHandlerView implements IFluidHandler {
+    private final IFluidHandler delegate;
+    private final boolean allowStore;
+
+    LinkedFluidHandlerView(IFluidHandler delegate, boolean allowStore) {
+        this.delegate = delegate;
+        this.allowStore = allowStore;
+    }
+
+    @Override
+    public int getTanks() {
+        return this.delegate.getTanks();
+    }
+
+    @Override
+    public FluidStack getFluidInTank(int tank) {
+        return this.delegate.getFluidInTank(tank);
+    }
+
+    @Override
+    public int getTankCapacity(int tank) {
+        return this.delegate.getTankCapacity(tank);
+    }
+
+    @Override
+    public boolean isFluidValid(int tank, FluidStack stack) {
+        return this.delegate.isFluidValid(tank, stack);
+    }
+
+    @Override
+    public int fill(FluidStack resource, FluidAction action) {
+        return this.allowStore ? this.delegate.fill(resource, action) : 0;
+    }
+
+    @Override
+    public FluidStack drain(FluidStack resource, FluidAction action) {
+        return this.delegate.drain(resource, action);
+    }
+
+    @Override
+    public FluidStack drain(int maxDrain, FluidAction action) {
+        return this.delegate.drain(maxDrain, action);
     }
 }

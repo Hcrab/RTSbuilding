@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "rtsbuilding:item/area_destroy_plugin"
-  }
-}

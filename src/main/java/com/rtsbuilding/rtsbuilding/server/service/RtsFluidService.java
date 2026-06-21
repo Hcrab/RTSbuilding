@@ -1,10 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsFluidTransferGateImpl;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,24 +18,23 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 /**
- * 流体服务——管理流体抽取和放置。
+ * 流体服务——管理流体抽取和放置??
  *
- * <p>职责范围：
+ * <p>职责范围??
  * <ul>
- *   <li>从容器抽取流体存入链接网络</li>
+ *   <li>从容器抽取流体存入链接网??/li>
  *   <li>从链接网络放置流体到世界</li>
  * </ul>
  */
-
 public final class RtsFluidService {
 
-    private static final FluidTransferGate FLUID_TRANSFER_GATE = new RtsFluidTransferGateImpl();
+    public static final RtsFluidService INSTANCE = new RtsFluidService();
 
     private RtsFluidService() {
     }
 
     /**
-     * 从容器抽取流体并存入链接网络。
+     * 从容器抽取流体并存入链接网络??
      */
     public static void storeFluidFromContainer(ServerPlayer player, byte sourceType, byte toolSlot, String itemId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.FLUID_HANDLING)) {
@@ -49,7 +52,6 @@ public final class RtsFluidService {
         List<IItemHandler> insertItemHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeItemHandlers);
 
         boolean changed = RtsStorageFluids.storeFluidFromContainer(
-                FLUID_TRANSFER_GATE,
                 player,
                 session,
                 extractItemHandlers,
@@ -60,14 +62,14 @@ public final class RtsFluidService {
                 itemId);
         if (changed) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
+            session.pageDataVersion.incrementAndGet();
             RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         }
     }
 
     /**
-     * 从链接网络放置流体到世界。
+     * 从链接网络放置流体到世界??
      */
     public static void placeFluid(ServerPlayer player, BlockPos clickedPos, Direction face, double hitX, double hitY,
             double hitZ, boolean forcePlace, String fluidId,
@@ -84,9 +86,9 @@ public final class RtsFluidService {
         List<LinkedFluidHandler> activeFluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
         if (RtsStorageFluids.placeFluid(player, session, activeFluidHandlers, clickedPos, face, hitX, hitY, hitZ, fluidId)) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
+            session.pageDataVersion.incrementAndGet();
             RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         }
     }
 
@@ -119,4 +121,3 @@ public final class RtsFluidService {
                 && RtsProgressionManager.canAccessHomeRadius(player, pos);
     }
 }
-

@@ -1,21 +1,21 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public record S2CRtsCraftFeedbackPayload(
         String itemId,
         int craftedCount,
         List<String> consumedItemIds,
         List<Integer> consumedCounts) implements CustomPacketPayload {
-    public static final Type<S2CRtsCraftFeedbackPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_craft_feedback"), S2CRtsCraftFeedbackPayload.class);
+    public static final Type<S2CRtsCraftFeedbackPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_craft_feedback"), S2CRtsCraftFeedbackPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCraftFeedbackPayload> STREAM_CODEC =
             StreamCodec.of(

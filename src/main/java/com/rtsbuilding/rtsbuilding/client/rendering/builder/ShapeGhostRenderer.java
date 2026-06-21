@@ -4,7 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
@@ -110,22 +110,42 @@ public final class ShapeGhostRenderer {
         if (isEmpty(blocks)) {
             return;
         }
+        // 批量建造不提前渲染整片方块虚影，避免库存不足时误导玩家以为所有目标都会放置。
+        if (blocks.size() > 1) {
+            return;
+        }
 
         BlockState blockState = BuildGhostBlockStateResolver.resolve(minecraft, blocks.get(0));
         if (blockState != null && !blockState.isAir() && blockState.getRenderShape() == RenderShape.MODEL) {
-            renderBlockModelGhosts(minecraft, blocks, poseStack, blockState);
-            renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            if (Config.isPlacementBlockGhostPreviewEnabled()) {
+                renderBlockModelGhosts(minecraft, blocks, poseStack, blockState);
+            }
+            if (Config.isPlacementWireframePreviewEnabled()) {
+                renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            }
             return;
         }
         ItemStack spawnEggStack = BuildGhostBlockStateResolver.resolveSpawnEggStack(minecraft);
         if (!spawnEggStack.isEmpty()) {
-            EntityGhostRenderer.renderEntities(minecraft, blocks, poseStack, spawnEggStack);
-            renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            if (Config.isPlacementBlockGhostPreviewEnabled()) {
+                EntityGhostRenderer.renderEntities(minecraft, blocks, poseStack, spawnEggStack);
+            }
+            if (Config.isPlacementWireframePreviewEnabled()) {
+                renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            }
             return;
         }
         if (!BuildGhostBlockStateResolver.resolveEndCrystalStack(minecraft).isEmpty()) {
-            EntityGhostRenderer.renderEndCrystals(minecraft, blocks, poseStack);
-            renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            if (Config.isPlacementBlockGhostPreviewEnabled()) {
+                EntityGhostRenderer.renderEndCrystals(minecraft, blocks, poseStack);
+            }
+            if (Config.isPlacementWireframePreviewEnabled()) {
+                renderBuildGhostWireframes(preview, poseStack, lineBuffer);
+            }
+            return;
+        }
+
+        if (!Config.isPlacementBlockGhostPreviewEnabled() && !Config.isPlacementWireframePreviewEnabled()) {
             return;
         }
 
@@ -144,16 +164,20 @@ public final class ShapeGhostRenderer {
             double maxX = pos.getX() + 0.97D;
             double maxY = pos.getY() + 0.97D;
             double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    fillR, fillG, fillB, fillA);
-            LevelRenderer.renderLineBox(
-                    poseStack, lineBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    lineR, lineG, lineB, 0.95F);
+            if (Config.isPlacementBlockGhostPreviewEnabled()) {
+                LevelRenderer.addChainedFilledBoxVertices(
+                        poseStack, fillBuffer,
+                        minX, minY, minZ,
+                        maxX, maxY, maxZ,
+                        fillR, fillG, fillB, fillA);
+            }
+            if (Config.isPlacementWireframePreviewEnabled()) {
+                LevelRenderer.renderLineBox(
+                        poseStack, lineBuffer,
+                        minX, minY, minZ,
+                        maxX, maxY, maxZ,
+                        lineR, lineG, lineB, 0.95F);
+            }
         }
     }
 

@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
+import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
 
 /**
  * Renders pixel-art icons and texture-based icons for the top bar buttons.
@@ -14,8 +16,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  *   <li>{@link #renderIcon(TopBarTypes.TopBarButtonId, GuiGraphics, int, int, int, boolean, Font)} -
  *       A single dispatch method that selects and draws the correct icon for a given button type.</li>
  *   <li>{@link #topbarModeTexture(TopBarTypes.TopBarButtonId, boolean, boolean, boolean)} -
-     *       Selects a {@link ResourceLocation} for texture-based icons (INTERACT, LINK, FUNNEL, ROTATE,
-     *       QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GEAR).</li>
+ *       Selects a {@link ResourceLocation} for texture-based icons (INTERACT, LINK, FUNNEL, ROTATE,
+ *       QUICK_BUILD, ULTIMINE, QUEST_DETECT, CHUNK_VIEW, GEAR).</li>
  * </ul>
  * <p>
  * All methods are static and side-effect free. Instantiation is not allowed.
@@ -49,6 +51,7 @@ public final class TopBarIconRenderer {
             case FUNNEL -> drawFunnelModeIcon(g, cx, cy, color, active);
             case ROTATE -> drawRotateModeIcon(g, cx, cy, color);
             case QUICK_BUILD -> drawQuickBuildIcon(g, cx, cy, color, active);
+            case ULTIMINE -> drawUltimineIcon(g, cx, cy, color, active);
             case QUEST_DETECT -> drawQuestCheckIcon(g, cx, cy, color);
             case CHUNK_VIEW -> drawChunkCurtainIcon(g, cx, cy, color, active);
             case DEBUG -> drawDebugIcon(g, cx, cy, color, font);
@@ -65,7 +68,7 @@ public final class TopBarIconRenderer {
      * <p>
      * Each button type has four texture variants: inactive, hover, active, and pressed.
      * The method resolves these from the constants defined in
-     * {@link com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants}.
+     * {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants}.
      * <p>
      * Buttons without a texture-based icon (e.g. DEBUG, GUIDE) return {@code null}.
      *
@@ -108,6 +111,12 @@ public final class TopBarIconRenderer {
                 case "pressed" -> TOPBAR_QUICK_BUILD_PRESSED;
                 case "hover" -> TOPBAR_QUICK_BUILD_HOVER;
                 default -> TOPBAR_QUICK_BUILD_INACTIVE;
+            };
+            case ULTIMINE -> switch (state) {
+                case "active" -> TOPBAR_ULTIMINE_ACTIVE;
+                case "pressed" -> TOPBAR_ULTIMINE_PRESSED;
+                case "hover" -> TOPBAR_ULTIMINE_HOVER;
+                default -> TOPBAR_ULTIMINE_INACTIVE;
             };
             case QUEST_DETECT -> switch (state) {
                 case "active" -> TOPBAR_QUEST_DETECT_ACTIVE;
@@ -215,6 +224,20 @@ public final class TopBarIconRenderer {
         g.fill(cx - 4, cy - 2, cx + 2, cy + 2, 0xFF1B222C);
         g.fill(cx + 3, cy - 9, cx + 8, cy - 4, color);
         g.fill(cx + 5, cy - 7, cx + 10, cy - 2, color);
+    }
+
+    /**
+     * Draws the ULTIMINE icon: a pickaxe head shape. When active, the pick head
+     * gets a green tint, and the handle has a yellow accent.
+     */
+    private static void drawUltimineIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
+        int head = active ? 0xFF78B28C : color;
+        g.fill(cx - 8, cy - 7, cx - 1, cy - 5, head);
+        g.fill(cx - 6, cy - 5, cx + 1, cy - 3, head);
+        g.fill(cx + 1, cy - 3, cx + 3, cy - 1, color);
+        g.fill(cx + 2, cy - 1, cx + 5, cy + 7, color);
+        g.fill(cx + 5, cy - 8, cx + 7, cy - 3, 0xFFFFC96B);
+        g.fill(cx + 3, cy - 6, cx + 9, cy - 5, 0xFFFFC96B);
     }
 
     /**

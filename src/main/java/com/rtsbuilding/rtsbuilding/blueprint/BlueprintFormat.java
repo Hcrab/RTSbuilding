@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.blueprint;
 
+
 public enum BlueprintFormat {
     VANILLA_NBT("nbt"),
     SPONGE_SCHEM("schem"),
-    LITEMATIC("litematic"),
-    BUILDING_GADGETS_JSON("json");
+    LITEMATIC("litematic");
 
     private final String extension;
 
@@ -23,9 +23,6 @@ public enum BlueprintFormat {
         }
         if (lower.endsWith(".litematic")) {
             return LITEMATIC;
-        }
-        if (lower.endsWith(".json")) {
-            return BUILDING_GADGETS_JSON;
         }
         return VANILLA_NBT;
     }

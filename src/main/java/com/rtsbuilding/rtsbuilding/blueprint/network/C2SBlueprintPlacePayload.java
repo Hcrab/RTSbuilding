@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.blueprint.network;
 
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
+
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 
 public record C2SBlueprintPlacePayload(
@@ -17,8 +19,7 @@ public record C2SBlueprintPlacePayload(
     public static final int MAX_FILE_NAME_CHARS = 160;
     public static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
 
-    public static final Type<C2SBlueprintPlacePayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_blueprint_place"), C2SBlueprintPlacePayload.class);
+    public static final Type<C2SBlueprintPlacePayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_blueprint_place"), C2SBlueprintPlacePayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SBlueprintPlacePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

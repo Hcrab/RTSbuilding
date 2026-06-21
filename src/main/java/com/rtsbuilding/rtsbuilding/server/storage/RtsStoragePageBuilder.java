@@ -18,14 +18,13 @@ import java.util.Set;
  *
  * <p>All methods delegate to the appropriate sub-module in the
  * {@code page} package.  This class exists solely to preserve the
- * existing call sites in {@link com.rtsbuilding.rtsbuilding.server.RtsStorageManager} and the network
- * layer without import changes.
+ * existing service and network call sites without importing page internals.
  *
  * <p>The actual implementation lives in:
  * <ul>
- *   <li>{@link RtsPageCore}  — page build (count, sort, filter, paginate)</li>
- *   <li>{@link RtsPageCreativeTabIndexer}  — creative-tab index cache</li>
- *   <li>{@link RtsPageSharedHelpers}  — search, sort, category helpers</li>
+ *   <li>{@link RtsPageCore}  ??page build (count, sort, filter, paginate)</li>
+ *   <li>{@link RtsPageCreativeTabIndexer}  ??creative-tab index cache</li>
+ *   <li>{@link RtsPageSharedHelpers}  ??search, sort, category helpers</li>
  * </ul>
  */
 public final class RtsStoragePageBuilder {

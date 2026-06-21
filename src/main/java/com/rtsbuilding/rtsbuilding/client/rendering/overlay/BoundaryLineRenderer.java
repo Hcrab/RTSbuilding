@@ -1,58 +1,104 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
+import org.joml.Matrix4f;
 
 /**
- * RTS寤洪€犺寖鍥磋竟鐣岀嚎娓叉煋??
- * 璐熻矗缁樺埗绾㈣壊鐨勬鏂瑰舰杈圭晫妗嗭紝鏍囪瘑鐜╁鍙搷浣滅殑鏈€澶ц寖鍥?
+ * Renders the RTS build boundary as vertical barrier walls using the same
+ * player-facing shape as main. The wall height follows the highest surface
+ * along the boundary and extends down to the world's minimum build height.
  */
 public final class BoundaryLineRenderer {
+    private static final float TILE_SIZE = 2.0F;
+    private static final float WHITE = 1.0F;
+    private static final float BARRIER_ALPHA = 0.80F;
 
-    /**
-     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
-     */
     private BoundaryLineRenderer() {
     }
 
-    /**
-     * 缁樺埗绾㈣壊杈圭晫绾匡紙鍦ㄩ敋鐐筜楂樺害鐨勬鏂瑰舰杈规锛?
-     *
-     * @param minecraft Minecraft瀹㈡埛绔疄??
-     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻??
-     * @param lineBuffer 绾挎潯缂撳啿??
-     * @param minX X杞存渶灏忓€硷紙閿氱偣X - 鍗婂緞锛?
-     * @param minZ Z杞存渶灏忓€硷紙閿氱偣Z - 鍗婂緞锛?
-     * @param maxX X杞存渶澶у€硷紙閿氱偣X + 鍗婂緞锛?
-     * @param maxZ Z杞存渶澶у€硷紙閿氱偣Z + 鍗婂緞锛?
-     * @param defaultY Y杞撮珮搴︼紙浣跨敤閿氱偣Y鍧愭爣锛?
-     */
-    public static void renderRedBoundary(Minecraft minecraft, PoseStack poseStack,
-            VertexConsumer lineBuffer, double minX, double minZ, double maxX, double maxZ, double defaultY) {
-        if (minecraft.level == null) {
+    public static void renderBarrierBoundary(PoseStack poseStack, VertexConsumer barrierBuffer,
+            double minX, double minZ, double maxX, double maxZ, double defaultY, Level level) {
+        if (level == null || barrierBuffer == null) {
             return;
         }
 
-        float y = (float) defaultY;
+        int highestBlock = findHighestBoundaryBlock(level, minX, minZ, maxX, maxZ);
+        float yMax = highestBlock > Integer.MIN_VALUE ? highestBlock + 5.0F : (float) defaultY + 3.0F;
+        float yMin = level.getMinBuildHeight();
+        float wallHeight = yMax - yMin;
+        float wallWidthX = (float) (maxX - minX);
+        float wallWidthZ = (float) (maxZ - minZ);
+        float scroll = (float) (System.nanoTime() / 1.0e9D * 0.5D);
 
-        // 缁樺埗姝ｆ柟褰㈢殑鍥涙潯??
-        // ??: 鍓嶈??(minX, minZ) -> (maxX, minZ)
-        LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, y, minZ, maxX, y, minZ,
-                1.0F, 0.25F, 0.25F, 1.0F);
+        PoseStack.Pose pose = poseStack.last();
 
-        // ??: 鍙宠??(maxX, minZ) -> (maxX, maxZ)
-        LevelRenderer.renderLineBox(poseStack, lineBuffer, maxX, y, minZ, maxX, y, maxZ,
-                1.0F, 0.25F, 0.25F, 1.0F);
+        addTexturedQuad(pose, barrierBuffer,
+                (float) minX, yMin, (float) minZ,
+                (float) maxX, yMax, (float) minZ,
+                wallWidthX / TILE_SIZE, wallHeight / TILE_SIZE,
+                0.0F, 0.0F, 1.0F, scroll);
+        addTexturedQuad(pose, barrierBuffer,
+                (float) maxX, yMin, (float) maxZ,
+                (float) minX, yMax, (float) maxZ,
+                wallWidthX / TILE_SIZE, wallHeight / TILE_SIZE,
+                0.0F, 0.0F, -1.0F, scroll);
+        addTexturedQuad(pose, barrierBuffer,
+                (float) minX, yMin, (float) minZ,
+                (float) minX, yMax, (float) maxZ,
+                wallWidthZ / TILE_SIZE, wallHeight / TILE_SIZE,
+                1.0F, 0.0F, 0.0F, scroll);
+        addTexturedQuad(pose, barrierBuffer,
+                (float) maxX, yMin, (float) maxZ,
+                (float) maxX, yMax, (float) minZ,
+                wallWidthZ / TILE_SIZE, wallHeight / TILE_SIZE,
+                -1.0F, 0.0F, 0.0F, scroll);
+    }
 
-        // ??: 鍚庤??(maxX, maxZ) -> (minX, maxZ)
-        LevelRenderer.renderLineBox(poseStack, lineBuffer, maxX, y, maxZ, minX, y, maxZ,
-                1.0F, 0.25F, 0.25F, 1.0F);
+    private static int findHighestBoundaryBlock(Level level, double minX, double minZ, double maxX, double maxZ) {
+        int highest = Integer.MIN_VALUE;
+        int x1 = (int) Math.floor(minX);
+        int x2 = (int) Math.floor(maxX);
+        int z1 = (int) Math.floor(minZ);
+        int z2 = (int) Math.floor(maxZ);
 
-        // ??: 宸﹁??(minX, maxZ) -> (minX, minZ)
-        LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, y, maxZ, minX, y, minZ,
-                1.0F, 0.25F, 0.25F, 1.0F);
+        for (int x = x1; x <= x2; x++) {
+            highest = Math.max(highest, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z1));
+            highest = Math.max(highest, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z2));
+        }
+        for (int z = z1 + 1; z < z2; z++) {
+            highest = Math.max(highest, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x1, z));
+            highest = Math.max(highest, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x2, z));
+        }
+
+        return highest;
+    }
+
+    private static void addTexturedQuad(PoseStack.Pose pose, VertexConsumer buffer,
+            float x1, float yMin, float z1,
+            float x2, float yMax, float z2,
+            float tileU, float tileV,
+            float nx, float ny, float nz,
+            float scroll) {
+        Matrix4f matrix = pose.pose();
+        addVertex(buffer, matrix, x1, yMin, z1, scroll, scroll, nx, ny, nz);
+        addVertex(buffer, matrix, x2, yMin, z2, tileU + scroll, scroll, nx, ny, nz);
+        addVertex(buffer, matrix, x2, yMax, z2, tileU + scroll, tileV + scroll, nx, ny, nz);
+        addVertex(buffer, matrix, x1, yMax, z1, scroll, tileV + scroll, nx, ny, nz);
+    }
+
+    private static void addVertex(VertexConsumer buffer, Matrix4f matrix,
+            float x, float y, float z, float u, float v,
+            float nx, float ny, float nz) {
+        buffer.vertex(matrix, x, y, z)
+                .color(WHITE, WHITE, WHITE, BARRIER_ALPHA)
+                .uv(u, v)
+                .overlayCoords(0, 10)
+                .uv2(LightTexture.FULL_BRIGHT & 0xFFFF, LightTexture.FULL_BRIGHT >> 16 & 0xFFFF)
+                .normal(nx, ny, nz)
+                .endVertex();
     }
 }

@@ -1,19 +1,16 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
+import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
+import com.rtsbuilding.rtsbuilding.server.storage.*;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -36,7 +33,7 @@ import java.util.List;
  * Single interactive placement execution for RTS storage builder.
  *
  * <p>This helper owns the core {@link #placeSelectedInternal} state machine
- * that handles a single remote placement — whether from the player's main
+ * that handles a single remote placement ??whether from the player's main
  * hand or from a selected storage item. It manages the full placement flow:
  * skip-if-occupied prechecks, use-on-block attempt, use-item-as-fallback
  * attempt, extraction from network/linked storage, placement detection,
@@ -44,7 +41,7 @@ import java.util.List;
  *
  * <p>It deliberately does not manage batch-job queuing, pre-resolved
  * quick-build placement, item extraction primitives, or sound/effect
- * dispatch — those responsibilities live in their dedicated helpers.
+ * dispatch ??those responsibilities live in their dedicated helpers.
  */
 public final class RtsPlacementExecutor {
     private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
@@ -255,4 +252,3 @@ public final class RtsPlacementExecutor {
 
 
 }
-

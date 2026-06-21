@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
 
 public final class RtsClientUiUtil {
     private static final float SLOT_COUNT_SCALE = 0.65F;
@@ -30,17 +30,6 @@ public final class RtsClientUiUtil {
             cut--;
         }
         return text.substring(0, cut) + ellipsis;
-    }
-
-    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, String text,
-            int centerX, int y, int color) {
-        String safeText = text == null ? "" : text;
-        guiGraphics.drawString(font, safeText, centerX - font.width(safeText) / 2, y, color, false);
-    }
-
-    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, Component text,
-            int centerX, int y, int color) {
-        drawCenteredStringNoShadow(guiGraphics, font, text == null ? "" : text.getString(), centerX, y, color);
     }
 
     public static String compactCount(long value) {
@@ -87,6 +76,14 @@ public final class RtsClientUiUtil {
             return String.format("%.1fK B", buckets / 1_000.0);
         }
         return buckets + " B";
+    }
+
+    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, String text, int centerX, int y, int color) {
+        if (font == null) {
+            return;
+        }
+        String safeText = text == null ? "" : text;
+        guiGraphics.drawString(font, safeText, centerX - font.width(safeText) / 2, y, color, false);
     }
 
     public static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {

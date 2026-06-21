@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -14,8 +15,7 @@ public record C2SRtsSetGuiBindingPayload(
         BlockPos pos,
         byte faceId,
         String itemIdHint) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetGuiBindingPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_gui_binding"), C2SRtsSetGuiBindingPayload.class);
+    public static final Type<C2SRtsSetGuiBindingPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_set_gui_binding"), C2SRtsSetGuiBindingPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetGuiBindingPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

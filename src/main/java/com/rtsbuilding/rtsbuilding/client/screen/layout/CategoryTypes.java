@@ -1,11 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
+import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
+
+
 /**
  * Container for category-browsing data types.
  * <p>
  * Groups the row model and click-result record that drive the category
  * tree rendered inside the bottom panel's category sidebar. Both records
  * are produced and consumed by
+ * {@link com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel}.
  */
 public final class CategoryTypes {
 

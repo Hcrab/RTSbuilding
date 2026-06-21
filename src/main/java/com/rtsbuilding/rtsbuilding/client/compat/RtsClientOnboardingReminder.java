@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.compat;
 
 
+import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import java.util.Locale;
+
 import com.mojang.brigadier.Command;
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.Commands;
@@ -16,8 +19,6 @@ import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-
-import java.util.Locale;
 
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class RtsClientOnboardingReminder {

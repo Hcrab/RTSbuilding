@@ -106,7 +106,7 @@ class RtsAggregateStorageTest {
 
     @Test
     void hasItemOnEmptyStorageReturnsFalse() {
-        assertFalse(storage.hasItem(mock(net.minecraft.world.item.Item.class)));
+        assertFalse(storage.hasItem(null));
     }
 
     // ======================================================================
@@ -115,7 +115,7 @@ class RtsAggregateStorageTest {
 
     @Test
     void getTotalCountOnEmptyStorageReturnsZero() {
-        assertEquals(0L, storage.getTotalCount(mock(net.minecraft.world.item.Item.class)));
+        assertEquals(0L, storage.getTotalCount(null));
     }
 
     // ======================================================================

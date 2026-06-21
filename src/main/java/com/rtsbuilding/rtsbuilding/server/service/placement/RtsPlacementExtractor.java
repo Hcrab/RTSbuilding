@@ -14,7 +14,7 @@ import java.util.List;
  * Extracts items from RTS linked storage / player inventory for placement.
  *
  * <p>This helper owns only the thin extraction boundary for placement
- * operations — resolving preferred prototypes, building creative stacks,
+ * operations ??resolving preferred prototypes, building creative stacks,
  * and selecting from either network-wide (player inventory included) or
  * linked-only sources. It deliberately does not execute placement, manage
  * batch jobs, play sounds, or handle refund logic.

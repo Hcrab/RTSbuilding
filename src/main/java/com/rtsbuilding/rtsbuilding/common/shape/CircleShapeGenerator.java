@@ -1,12 +1,13 @@
 package com.rtsbuilding.rtsbuilding.common.shape;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Circle shape generator (single-layer circle in the XZ plane).
+ * Circle (cylinder) shape generator.
  * <p>
  * Generates a filled or hollow circle in the XZ plane.  The radius is derived
  * from the distance between start and end projected onto the plane.

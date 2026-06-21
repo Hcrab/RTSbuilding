@@ -66,11 +66,11 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         if (player == null || !(player.level() instanceof ServerLevel level)) {
             return null;
         }
+        TransientCraftingContainer input = new TransientCraftingContainer(this, 3, 3);
         List<ItemStack> stacks = new ArrayList<>(9);
         for (int i = 0; i < 9; i++) {
             stacks.add(this.getSlot(1 + i).getItem().copy());
         }
-        TransientCraftingContainer input = new TransientCraftingContainer(this, 3, 3);
         for (int i = 0; i < stacks.size(); i++) {
             input.setItem(i, stacks.get(i));
         }

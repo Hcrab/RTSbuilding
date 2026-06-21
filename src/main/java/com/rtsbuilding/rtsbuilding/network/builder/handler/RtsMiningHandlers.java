@@ -1,9 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.server.service.RtsMiningService;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,7 +17,7 @@ public final class RtsMiningHandlers {
     private RtsMiningHandlers() {
     }
 
-    public static void handleMine(C2SRtsMinePayload payload, IPayloadContext context) {
+    public static void handleMine(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -39,7 +35,7 @@ public final class RtsMiningHandlers {
         });
     }
 
-    public static void handleUltimine(C2SRtsUltiminePayload payload, IPayloadContext context) {
+    public static void handleUltimine(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -57,7 +53,7 @@ public final class RtsMiningHandlers {
         });
     }
 
-    public static void handleAreaMine(C2SRtsAreaMinePayload payload, IPayloadContext context) {
+    public static void handleAreaMine(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsMiningService.areaMine(
@@ -75,7 +71,7 @@ public final class RtsMiningHandlers {
         });
     }
 
-    public static void handleAreaDestroy(C2SRtsAreaDestroyPayload payload, IPayloadContext context) {
+    public static void handleAreaDestroy(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsMiningService.areaDestroy(

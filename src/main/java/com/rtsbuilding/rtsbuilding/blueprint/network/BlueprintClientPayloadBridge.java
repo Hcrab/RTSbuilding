@@ -1,8 +1,11 @@
 package com.rtsbuilding.rtsbuilding.blueprint.network;
 
+
+import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintClientNetworkHandlers;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
+
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.loading.FMLEnvironment;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 
 public final class BlueprintClientPayloadBridge {
     private BlueprintClientPayloadBridge() {

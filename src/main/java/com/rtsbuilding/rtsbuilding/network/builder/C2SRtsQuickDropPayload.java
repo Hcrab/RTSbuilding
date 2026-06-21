@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
@@ -12,8 +13,7 @@ public record C2SRtsQuickDropPayload(
         double dropX,
         double dropY,
         double dropZ) implements CustomPacketPayload {
-    public static final Type<C2SRtsQuickDropPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_quick_drop"), C2SRtsQuickDropPayload.class);
+    public static final Type<C2SRtsQuickDropPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_quick_drop"), C2SRtsQuickDropPayload.class);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsQuickDropPayload> STREAM_CODEC =
             StreamCodec.of(

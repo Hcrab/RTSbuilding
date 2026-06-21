@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.input;
 
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
@@ -21,9 +22,10 @@ public final class ClientInputHandler {
     }
 
     @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
+    public static void onClientTick(final TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
             ClientRtsController.get().preTick();
+            RtsClientPathfinding.tickPre();
             return;
         }
 

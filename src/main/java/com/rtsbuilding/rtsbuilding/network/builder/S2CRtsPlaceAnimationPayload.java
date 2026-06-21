@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
@@ -18,8 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * authoritative on the server-side placement path.
  */
 public record S2CRtsPlaceAnimationPayload(BlockPos pos, BlockState state) implements CustomPacketPayload {
-    public static final Type<S2CRtsPlaceAnimationPayload> TYPE = new Type<>(
-            new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_place_animation"), S2CRtsPlaceAnimationPayload.class);
+    public static final Type<S2CRtsPlaceAnimationPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "s2c_rts_place_animation"), S2CRtsPlaceAnimationPayload.class);
 
     public S2CRtsPlaceAnimationPayload {
         pos = pos == null ? BlockPos.ZERO : pos;

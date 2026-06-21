@@ -1,20 +1,5 @@
 package com.rtsbuilding.rtsbuilding.blueprint.format;
 
-import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -25,6 +10,23 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
+import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
+import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 public final class BlueprintWriters {
     private BlueprintWriters() {
@@ -48,7 +50,6 @@ public final class BlueprintWriters {
         int ySteps = BlueprintTransform.normalizeSteps(yRotationSteps);
         int xSteps = BlueprintTransform.normalizeSteps(xRotationSteps);
         int zSteps = BlueprintTransform.normalizeSteps(zRotationSteps);
-        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(blueprint.size(), ySteps, xSteps, zSteps);
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
         int minZ = Integer.MAX_VALUE;
@@ -57,7 +58,7 @@ public final class BlueprintWriters {
         int maxZ = Integer.MIN_VALUE;
 
         for (RtsBlueprintBlock block : blueprint.blocks()) {
-            BlockPos pos = BlueprintTransform.rotateAroundCenter(block.relativePos(), ySteps, xSteps, zSteps, centerOffset);
+            BlockPos pos = BlueprintTransform.rotate(block.relativePos(), ySteps, xSteps, zSteps);
             if (block.isMissingBlock()) {
                 rotated.add(RtsBlueprintBlock.missing(pos, block.missingBlockId(), new CompoundTag()));
                 minX = Math.min(minX, pos.getX());
@@ -69,7 +70,7 @@ public final class BlueprintWriters {
                 continue;
             }
             BlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
-            rotated.add(new RtsBlueprintBlock(pos, state, blockEntityTagCopy(block), "", block.materialItemId()));
+            rotated.add(new RtsBlueprintBlock(pos, state, new CompoundTag()));
             minX = Math.min(minX, pos.getX());
             minY = Math.min(minY, pos.getY());
             minZ = Math.min(minZ, pos.getZ());
@@ -85,8 +86,7 @@ public final class BlueprintWriters {
                 normalized.add(RtsBlueprintBlock.missing(block.relativePos().offset(offset), block.missingBlockId(), new CompoundTag()));
                 continue;
             }
-            normalized.add(new RtsBlueprintBlock(block.relativePos().offset(offset), block.state(), blockEntityTagCopy(block), "",
-                    block.materialItemId()));
+            normalized.add(new RtsBlueprintBlock(block.relativePos().offset(offset), block.state(), new CompoundTag()));
         }
         Vec3i size = new Vec3i(maxX - minX + 1, maxY - minY + 1, maxZ - minZ + 1);
         return RtsBlueprint.create(name, sourceName, BlueprintFormat.VANILLA_NBT, size, normalized);
@@ -113,12 +113,7 @@ public final class BlueprintWriters {
                     if (state.isAir() || state.is(Blocks.STRUCTURE_VOID)) {
                         continue;
                     }
-                    blocks.add(new RtsBlueprintBlock(
-                            new BlockPos(x - minX, y - captureMinY, z - minZ),
-                            state,
-                            captureBlockEntityTag(level, cursor),
-                            "",
-                            resolveMaterialItemId(level, state, cursor)));
+                    blocks.add(new RtsBlueprintBlock(new BlockPos(x - minX, y - captureMinY, z - minZ), state, new CompoundTag()));
                     if (blocks.size() > maxCaptureBlocks()) {
                         throw new IllegalArgumentException("Blueprint capture contains more than " + maxCaptureBlocks() + " blocks");
                     }
@@ -145,7 +140,7 @@ public final class BlueprintWriters {
         }
     }
 
-    private static CompoundTag toVanillaStructureTag(RtsBlueprint blueprint) {
+    public static CompoundTag toVanillaStructureTag(RtsBlueprint blueprint) {
         CompoundTag root = new CompoundTag();
         Vec3i size = blueprint.size();
         ListTag sizeTag = new ListTag();
@@ -190,46 +185,5 @@ public final class BlueprintWriters {
         }
         root.put("blocks", blocks);
         return root;
-    }
-
-    private static CompoundTag blockEntityTagCopy(RtsBlueprintBlock block) {
-        return block == null || block.blockEntityTag() == null ? new CompoundTag() : block.blockEntityTag().copy();
-    }
-
-    private static CompoundTag captureBlockEntityTag(Level level, BlockPos pos) {
-        if (level == null || pos == null) {
-            return new CompoundTag();
-        }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        if (blockEntity == null) {
-            return new CompoundTag();
-        }
-        try {
-            CompoundTag tag = blockEntity.saveWithFullMetadata();
-            tag.remove("x");
-            tag.remove("y");
-            tag.remove("z");
-            return tag;
-        } catch (RuntimeException ignored) {
-            return new CompoundTag();
-        }
-    }
-
-    private static String resolveMaterialItemId(Level level, BlockState state, BlockPos pos) {
-        if (level == null || state == null || pos == null) {
-            return "";
-        }
-        try {
-            ItemStack cloneStack = state.getBlock().getCloneItemStack(level, pos, state);
-            if (!cloneStack.isEmpty()) {
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
-                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                    return id.toString();
-                }
-            }
-        } catch (RuntimeException ignored) {
-        }
-        ResourceLocation fallback = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
-        return fallback == null || !BuiltInRegistries.ITEM.containsKey(fallback) ? "" : fallback.toString();
     }
 }

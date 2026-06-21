@@ -1,16 +1,13 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -62,7 +59,7 @@ public final class RtsCraftingGridFiller {
         Ingredient[] ingredients = recipe == null ? null : RtsCraftingUtils.mapCraftingIngredients(recipe);
         refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
     }
 
     // ---- refill from ids / stacks (network packets) ------------------------------
@@ -256,7 +253,7 @@ public final class RtsCraftingGridFiller {
         }
         RtsCraftingUtils.refreshCraftingResult(craftingMenu);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
         if (anyInserted) {
             QuestService.runQuestDetect(player, session, false);
         }
@@ -383,4 +380,3 @@ public final class RtsCraftingGridFiller {
         return sanitized;
     }
 }
-
