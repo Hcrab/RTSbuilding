@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.camera.handler;
 
-import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,22 +23,4 @@ public final class RtsCameraNetworkHandlers {
         });
     }
 
-    public static void handleMove(C2SRtsCameraMovePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsCameraManager.move(
-                        serverPlayer,
-                        payload.forward(),
-                        payload.strafe(),
-                        payload.vertical(),
-                        payload.panX(),
-                        payload.panY(),
-                        payload.rotateX(),
-                        payload.rotateY(),
-                        payload.scroll(),
-                        payload.rotateSteps(),
-                        payload.fast());
-            }
-        });
-    }
 }

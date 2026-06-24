@@ -7,6 +7,7 @@ import mezz.jei.api.runtime.IClickableIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,7 +25,7 @@ final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCra
     }
 
     @Override
-    public Optional<IClickableIngredient<?>> getClickableIngredientUnderMouse(
+    public @NotNull Optional<IClickableIngredient<?>> getClickableIngredientUnderMouse(
             RtsCraftTerminalScreen screen,
             double mouseX,
             double mouseY) {

@@ -22,15 +22,9 @@ public final class PanelLayouts {
      *   3   C   4
      *   5   6   7
      * </pre>
-     *
-     * @param cX centre-X of the 3×3 crafting grid
-     * @param cY centre-Y of the 3×3 crafting grid
      */
     public record CraftDockLayout(int cX, int cY) {
 
-        /**
-         * Returns the X coordinate of the given slot.
-         */
         public int slotX(int slot) {
             return switch (slot) {
                 case 0, 5 -> this.cX - CRAFT_DOCK_SLOT_SIZE - CRAFT_DOCK_GAP;
@@ -42,9 +36,6 @@ public final class PanelLayouts {
             };
         }
 
-        /**
-         * Returns the Y coordinate of the given slot.
-         */
         public int slotY(int slot) {
             return switch (slot) {
                 case 0, 1, 2 -> this.cY - CRAFT_DOCK_SLOT_SIZE - CRAFT_DOCK_GAP;
@@ -57,20 +48,9 @@ public final class PanelLayouts {
 
     /**
      * Quick-build panel layout.
-     * <p>
-     * Position and size of the floating quick-build selection panel
-     * (shape picker, fill-mode buttons, and scrollable recipe grid).
-     *
-     * @param x panel left edge
-     * @param y panel top edge
-     * @param w panel width
-     * @param h panel height
      */
     public record QuickBuildPanelLayout(int x, int y, int w, int h) {
 
-        /**
-         * Returns whether the given mouse coordinates are inside the panel.
-         */
         public boolean contains(double mouseX, double mouseY) {
             return mouseX >= this.x && mouseX <= this.x + this.w
                     && mouseY >= this.y && mouseY <= this.y + this.h;

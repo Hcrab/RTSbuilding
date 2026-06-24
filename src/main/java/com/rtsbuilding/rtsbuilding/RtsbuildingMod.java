@@ -16,9 +16,7 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -26,7 +24,6 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -83,9 +80,6 @@ public class RtsbuildingMod {
         RtsCreativeTabs.register(modEventBus);
         NeoForge.EVENT_BUS.register(this);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC, "rts_building/rtsbuilding-common.toml");
-        if (FMLEnvironment.dist == Dist.CLIENT) {
-            com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
-        }
     }
 
     /**
@@ -298,6 +292,8 @@ public class RtsbuildingMod {
                 ServerTickOrchestrator.getInstance().onPlayerTickPost(serverPlayer);
                 // 更新该玩家的伤害反馈显示效果
                 RtsDamageFeedbackManager.tick(serverPlayer);
+                // 更新 RTS 模式锚点（跟随玩家物理移动）
+                RtsCameraManager.updateAnchorForPlayer(serverPlayer);
             }
         }
 

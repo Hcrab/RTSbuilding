@@ -74,11 +74,10 @@ public final class RtsEntities {
      * @param factory 创建 {@link EntityType} 实例的工厂函数
      * @return 实体的 {@link DeferredHolder}
      */
-    @SuppressWarnings("unchecked")
     public static <T extends net.minecraft.world.entity.Entity> DeferredHolder<EntityType<?>, EntityType<T>> registerEntity(
             String id,
             java.util.function.Supplier<EntityType<T>> factory) {
-        return (DeferredHolder<EntityType<?>, EntityType<T>>) (DeferredHolder<?, ?>) ENTITY_TYPES.register(id, factory);
+        return (DeferredHolder<EntityType<?>, EntityType<T>>) ENTITY_TYPES.register(id, factory);
     }
 
     // ============================================================

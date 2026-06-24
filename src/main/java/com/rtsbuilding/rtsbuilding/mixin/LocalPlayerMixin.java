@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.mixin;
 
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,7 +23,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 abstract class LocalPlayerMixin {
     @Inject(method = "isControlledCamera", at = @At("HEAD"), cancellable = true)
     private void rtsbuilding$isControlledCamera(CallbackInfoReturnable<Boolean> cir) {
-        if (ClientRtsController.get().isEnabled()) {
+        CameraModule cam = RtsClientKernel.get().module("camera");
+        if (cam != null && cam.getState().isEnabled()) {
             cir.setReturnValue(true);
         }
     }

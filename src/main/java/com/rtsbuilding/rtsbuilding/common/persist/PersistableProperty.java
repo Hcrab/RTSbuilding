@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.persist;
 
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+
 import java.util.Locale;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -9,7 +11,7 @@ import java.util.function.Supplier;
  * 可持久化属性——由面板自声明，Manager 自动收集/应用。
  * <p>
  * 每个属性封装了一个 {@link RtsClientUiStateStore.UiState} 字段与运行时组件之间的
- * 双向映射。Panel 子类重写 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel#persistableProperties()}
+ * 双向映射。Panel 子类重写 {@link RtsPanel#persistableProperties()}
  * 返回自己的属性列表，Manager 遍历所有面板的属性完成收集与分发，不再硬编码字段。
  */
 public sealed interface PersistableProperty {

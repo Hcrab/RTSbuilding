@@ -13,12 +13,13 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * 物品注册器 —— RTSbuilding 的所有物品在此集中注册。
  * <p>
  * 提供 {@link #simpleItem(String, boolean)}、{@link #pluginItem(String, boolean)}、
- * {@link #registerItem(String, java.util.function.Supplier, boolean)} 和
+ * {@link #registerItem(String, Supplier, boolean)} 和
  * {@link #blockItem(String, DeferredHolder, boolean)} 四种工厂方法，
  * 分别用于普通物品、背包插件物品、自定义物品和方块物品。
  */

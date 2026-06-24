@@ -49,13 +49,19 @@ public class RtsCameraEntity extends Entity {
 
     @Override
     public void tick() {
-        super.tick();
+        // 摄像机实体由 snapTo() 驱动，不做碰撞检测 / 区块更新 / 传送门检测
+        // 不调 super.tick() 避免无意义的实体处理开销
         this.noPhysics = true;
         this.setNoGravity(true);
     }
 
+    /**
+     * 快速设置摄像机实体的位置和旋转——使用 {@link #setPosRaw} 跳过
+     * {@link #setPos(double, double, double)} 中的区块位置重算逻辑，
+     * 因为摄像机实体不参与世界交互，无需更新区块引用。
+     */
     public void snapTo(double x, double y, double z, float yaw, float pitch) {
-        this.setPos(x, y, z);
+        this.setPosRaw(x, y, z);
         this.setYRot(yaw);
         this.setXRot(pitch);
         this.setYHeadRot(yaw);
@@ -63,5 +69,31 @@ public class RtsCameraEntity extends Entity {
         this.setOldPosAndRot();
         this.yRotO = yaw;
         this.xRotO = pitch;
+    }
+
+    /**
+     * 带 partialTick 插值的快照——设置 old 值为上一 tick 姿态、current 值为当前 tick 姿态，
+     * 使 {@link net.minecraft.client.Camera#setup} 中的 {@code lerp(partialTick, old, current)}
+     * 能产生平滑帧间插值效果，类似原版玩家视角的工作方式。
+     *
+     * @param prevX,prevY,prevZ 上一 tick 的位置
+     * @param prevYaw,prevPitch 上一 tick 的角度
+     * @param currX,currY,currZ 当前 tick 的位置
+     * @param currYaw,currPitch 当前 tick 的角度
+     */
+    public void snapInterpolated(double prevX, double prevY, double prevZ, float prevYaw, float prevPitch,
+                                  double currX, double currY, double currZ, float currYaw, float currPitch) {
+        // 设置 old 值 = 上一 tick 姿态（供 lerp 起点）
+        this.xo = prevX;
+        this.yo = prevY;
+        this.zo = prevZ;
+        this.yRotO = prevYaw;
+        this.xRotO = prevPitch;
+        // 设置 current 值 = 当前 tick 姿态（供 lerp 终点）
+        this.setPosRaw(currX, currY, currZ);
+        this.setYRot(currYaw);
+        this.setXRot(currPitch);
+        this.setYHeadRot(currYaw);
+        this.setYBodyRot(currYaw);
     }
 }

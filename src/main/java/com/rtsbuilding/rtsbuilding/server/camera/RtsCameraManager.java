@@ -109,8 +109,8 @@ public final class RtsCameraManager {
         // 偏航角吸附到 90° 倍数，俯仰角固定 70°
         float yaw = snapQuarter(player.getYRot());
         float pitch = 70.0F;
-        // 相机 Y 坐标：从玩家眼部或锚点上方 18 格
-        double cameraY = startAtPlayerHead ? player.getEyeY() : anchor.y + 18.0D;
+        // 相机 Y 坐标：玩家头顶上方 8 格
+        double cameraY = player.getEyeY() + 8.0D;
 
         RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
                 anchor.x, cameraY, anchor.z, yaw, pitch);
@@ -176,7 +176,7 @@ public final class RtsCameraManager {
         float yaw = snapQuarter(player.getYRot());
         float pitch = 70.0F;
         double cameraX = anchor.x;
-        double cameraY = startAtPlayerHead ? player.getEyeY() : anchor.y + 18.0D;
+        double cameraY = player.getEyeY() + 8.0D;
         double cameraZ = anchor.z;
 
         RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
@@ -383,6 +383,33 @@ public final class RtsCameraManager {
                 yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
+        PacketDistributor.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
+                newAnchor.x, newAnchor.y, newAnchor.z, maxRadius(player, session)));
+    }
+
+    /**
+     * 每 Tick 更新锚点——当玩家物理移动时，让建筑边界跟随玩家。<p>
+     * 摄像机视角移动和旋转已改为纯客户端处理，不再经服务端；
+     * 此方法仅负责锚点（building bounds）的跟随。</p>
+     *
+     * @param player 目标玩家
+     */
+    public static void updateAnchorForPlayer(ServerPlayer player) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) return;
+
+        Vec3 playerPos = player.position();
+        Vec3 currentAnchor = session.anchor();
+        Vec3 newAnchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
+
+        // 只有锚点真正变化时才发包
+        if (currentAnchor.distanceToSqr(newAnchor) < 0.01D) return;
+
+        SESSIONS.put(player.getUUID(), new Session(
+                session.cameraUuid(), newAnchor, session.cameraPos(),
+                session.yawDeg(), session.pitchDeg(), session.heightOffset(),
+                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
+
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
                 newAnchor.x, newAnchor.y, newAnchor.z, maxRadius(player, session)));
     }

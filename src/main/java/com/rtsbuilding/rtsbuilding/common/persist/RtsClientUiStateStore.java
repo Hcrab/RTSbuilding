@@ -5,7 +5,6 @@ import com.google.gson.ExclusionStrategy;
 import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
 import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,7 +80,7 @@ public final class RtsClientUiStateStore {
         // 工具类，禁止实例化
     }
 
-    /** 返回内部缓存实例（供 {@link com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager} 使用） */
+    /** 返回内部缓存实例（供 {@link RtsScreenUiStateManager} 使用） */
     public static UiStateCache cache() {
         return CACHE;
     }
@@ -297,6 +296,18 @@ public final class RtsClientUiStateStore {
         /** 窗口面板边界持久化映射（键 → 边界） */
         public Map<String, PanelBounds> windowPanelBounds = new LinkedHashMap<>();
 
+        /** 面板打开状态映射（面板键 → 是否打开） */
+        public Map<String, Boolean> panelOpenStates = new LinkedHashMap<>();
+
+        /** 设置分区展开状态映射（分区键 → 是否展开） */
+        public Map<String, Boolean> sectionExpandedStates = new LinkedHashMap<>();
+
+        /** 面板滚动位置映射（面板键 → 滚动偏移量） */
+        public Map<String, Integer> panelScrollOffsets = new LinkedHashMap<>();
+
+        /** 亮暗主题模式（false=暗色，true=明亮） */
+        public boolean lightMode = false;
+
         // ================================================================
         //  面板分组内嵌状态类
         // ================================================================
@@ -352,6 +363,8 @@ public final class RtsClientUiStateStore {
         public static final class CameraState {
             public double rtsGuiScale = 2.0D;
             public int inputSensitivityIndex = 2;
+            /** 连续灵敏度值（0.1 ~ 2.0，替代 inputSensitivityIndex 的预设方案） */
+            public double inputSensitivity = 1.0D;
             public boolean startCameraAtPlayerHead = false;
             public boolean invertPanDragX = false;
             public boolean invertPanDragY = false;
@@ -444,6 +457,7 @@ public final class RtsClientUiStateStore {
             // camera
             clean.camera.rtsGuiScale = sanitizeScale(this.camera.rtsGuiScale);
             clean.camera.inputSensitivityIndex = Math.max(0, Math.min(32, this.camera.inputSensitivityIndex));
+            clean.camera.inputSensitivity = Math.max(0.1D, Math.min(2.0D, this.camera.inputSensitivity));
             clean.camera.startCameraAtPlayerHead = this.camera.startCameraAtPlayerHead;
             clean.camera.invertPanDragX = this.camera.invertPanDragX;
             clean.camera.invertPanDragY = this.camera.invertPanDragY;
@@ -477,6 +491,17 @@ public final class RtsClientUiStateStore {
             if (this.windowPanelBounds != null) {
                 clean.windowPanelBounds.putAll(this.windowPanelBounds);
             }
+            if (this.panelOpenStates != null) {
+                clean.panelOpenStates.putAll(this.panelOpenStates);
+            }
+            if (this.sectionExpandedStates != null) {
+                clean.sectionExpandedStates.putAll(this.sectionExpandedStates);
+            }
+            if (this.panelScrollOffsets != null) {
+                clean.panelScrollOffsets.putAll(this.panelScrollOffsets);
+            }
+            // 全局状态
+            clean.lightMode = this.lightMode;
             return clean;
         }
 
