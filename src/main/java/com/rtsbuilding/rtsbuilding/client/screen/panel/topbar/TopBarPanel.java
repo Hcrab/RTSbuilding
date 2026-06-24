@@ -182,7 +182,7 @@ public final class TopBarPanel extends RtsPanel {
         logoHoverAnim.tick();
 
         boolean hovering = mouseX >= 0 && mouseX < LOGO_SIZE && mouseY >= 0 && mouseY < LOGO_SIZE;
-        boolean shouldHighlight = hovering || logoPressed || (logoPopup != null && logoPopup.isOpen());
+        boolean shouldHighlight = hovering || logoPressed;
 
         // 状态变化时触发动画
         if (shouldHighlight != prevLogoHighlighted) {
@@ -227,7 +227,7 @@ public final class TopBarPanel extends RtsPanel {
 
     /** 绘制顶部栏背景（九宫格拼接，上半+间隔+下半，支持透明度） */
     private void renderTopBarBackground(GuiGraphics g) {
-        int screenW = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        int screenW = screen.width;
 
         // 启用透明度混合，让贴图半透明区域正确渲染
         RenderSystem.enableBlend();
