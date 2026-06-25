@@ -18,5 +18,11 @@
   "screen.rtsbuilding.settings.theme.light": "浅色",
   "screen.rtsbuilding.settings.theme.dark": "深色",
   "screen.rtsbuilding.settings.ui_scale": "界面缩放",
-  "screen.rtsbuilding.settings.sensitivity": "相机灵敏度"
+  "screen.rtsbuilding.settings.sensitivity": "相机灵敏度",
+
+  "screen.rtsbuilding.debug.chunk_border": "区块显示",
+  "screen.rtsbuilding.debug.collision_box": "碰撞箱显示",
+  "screen.rtsbuilding.debug.axis_lines": "坐标轴正方向（X红/Y绿/Z蓝）",
+  "screen.rtsbuilding.debug.entity_support_block": "实体支撑块显示",
+  "screen.rtsbuilding.debug.block_light_levels": "方块光照等级显示"
 }

@@ -82,6 +82,8 @@ public class BuilderScreen extends Screen {
         this.topBarPanel.init(this);
         // 面板初始化完毕后，从持久化存储加载之前保存的状态
         this.uiStateManager.load();
+        // 加载完毕后恢复之前活跃的调试覆盖层（如区块边框）
+        this.topBarPanel.onPostUiStateLoad();
     }
 
     @Override
@@ -96,7 +98,9 @@ public class BuilderScreen extends Screen {
 
     @Override
     public void onClose() {
-        // 屏幕关闭前先保存所有面板状态
+        // 关闭前先关闭所有实际渲染的调试覆盖层（区块边框等）
+        this.topBarPanel.onRtsExited();
+        // 保存所有面板状态
         this.uiStateManager.save();
         super.onClose();
         restoreDefaultCursor();

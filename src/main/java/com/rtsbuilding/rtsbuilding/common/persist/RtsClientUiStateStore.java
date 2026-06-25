@@ -399,6 +399,18 @@ public final class RtsClientUiStateStore {
             public boolean debugButtonVisible = false;
             public boolean lineConnected = false;
             public boolean allowPlacedBlockRecovery = false;
+            /** 辅助显示模式总开关 */
+            public boolean debugOverlayEnabled = false;
+            /** 区块边框显示 */
+            public boolean chunkBorderVisible = false;
+            /** 碰撞箱显示 */
+            public boolean collisionBoxVisible = false;
+            /** 坐标轴彩色线条显示 */
+            public boolean axisLinesVisible = false;
+            /** 实体支撑块显示 */
+            public boolean entitySupportBlockVisible = false;
+            /** 方块光照等级显示 */
+            public boolean blockLightLevelsVisible = false;
         }
 
         /** 设置菜单状态。 */
@@ -480,6 +492,12 @@ public final class RtsClientUiStateStore {
             clean.debug.debugButtonVisible = this.debug.debugButtonVisible;
             clean.debug.lineConnected = this.debug.lineConnected;
             clean.debug.allowPlacedBlockRecovery = this.debug.allowPlacedBlockRecovery;
+            clean.debug.debugOverlayEnabled = this.debug.debugOverlayEnabled;
+            clean.debug.chunkBorderVisible = this.debug.chunkBorderVisible;
+            clean.debug.collisionBoxVisible = this.debug.collisionBoxVisible;
+            clean.debug.axisLinesVisible = this.debug.axisLinesVisible;
+            clean.debug.entitySupportBlockVisible = this.debug.entitySupportBlockVisible;
+            clean.debug.blockLightLevelsVisible = this.debug.blockLightLevelsVisible;
             // settings
             clean.settings.controlsExpanded = this.settings.controlsExpanded;
             clean.settings.displayExpanded = this.settings.displayExpanded;

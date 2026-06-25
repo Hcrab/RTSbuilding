@@ -18,5 +18,11 @@
   "screen.rtsbuilding.settings.theme.light": "Light",
   "screen.rtsbuilding.settings.theme.dark": "Dark",
   "screen.rtsbuilding.settings.ui_scale": "UI Scale",
-  "screen.rtsbuilding.settings.sensitivity": "camera Sensitivity"
+  "screen.rtsbuilding.settings.sensitivity": "camera Sensitivity",
+
+  "screen.rtsbuilding.debug.chunk_border": "Chunk Border",
+  "screen.rtsbuilding.debug.collision_box": "Collision Box",
+  "screen.rtsbuilding.debug.axis_lines": "Axis Directions (X=Red/Y=Green/Z=Blue)",
+  "screen.rtsbuilding.debug.entity_support_block": "Entity Supporting Block",
+  "screen.rtsbuilding.debug.block_light_levels": "Block Light Levels"
 }
