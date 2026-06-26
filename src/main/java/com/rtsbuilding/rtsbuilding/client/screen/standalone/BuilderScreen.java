@@ -2,9 +2,13 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.gear.GearMenuPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
 import net.minecraft.client.gui.GuiGraphics;
@@ -30,9 +34,12 @@ public class BuilderScreen extends Screen {
 
     private final RtsClientKernel kernel;
     /** 面板实例为 final 字段，存活整个屏幕生命周期——init() 不会重建它们 */
+    private final ScreenBackgroundPanel screenBackgroundPanel;
     private final RtsFloatingWindowLayer floatingWindowLayer;
     private final TopBarPanel topBarPanel;
     private final GearMenuPanel gearMenuPanel;
+    private final RightSidebarPanel rightSidebarPanel;
+    private final DownSidebarPanel downSidebarPanel;
 
     /** UI 状态管理器——统筹面板持久化属性的加载与保存 */
     private final RtsScreenUiStateManager uiStateManager;
@@ -50,6 +57,13 @@ public class BuilderScreen extends Screen {
 
     /** 当前 GLFW 光标样式，避免重复设置 */
     private RtsPanel.ResizeCursor currentCursorStyle = RtsPanel.ResizeCursor.DEFAULT;
+
+    /**
+     * 待应用的鼠标环绕 GLFW 窗口内容区域坐标（逻辑像素）。
+     * 由 `tick()` 设置，在 `render()` 末尾通过 glfwSetCursorPos 执行。
+     */
+    private double[] pendingCursorWrap;
+
     private long resizeEwCursor;
     private long resizeNsCursor;
     private long resizeNwseCursor;
@@ -60,7 +74,10 @@ public class BuilderScreen extends Screen {
         this.kernel = RtsClientKernel.get();
         // 在构造函数中创建面板实例——它们将存活整个屏幕生命周期，
         // 不会因 init() 被多次调用而重建（避免窗口 resize 时状态丢失）
+        this.screenBackgroundPanel = new ScreenBackgroundPanel();
         this.gearMenuPanel = new GearMenuPanel();
+        this.rightSidebarPanel = new RightSidebarPanel();
+        this.downSidebarPanel = new DownSidebarPanel();
         this.topBarPanel = new TopBarPanel();
         this.topBarPanel.setOnGearMenuToggle(() -> {
             gearMenuPanel.toggleOpen();
@@ -69,7 +86,9 @@ public class BuilderScreen extends Screen {
         this.floatingWindowLayer = new RtsFloatingWindowLayer();
         this.uiStateManager = new RtsScreenUiStateManager(List.of(
                 this.topBarPanel,
-                this.gearMenuPanel
+                this.gearMenuPanel,
+                this.rightSidebarPanel,
+                this.downSidebarPanel
         ));
     }
 
@@ -77,8 +96,11 @@ public class BuilderScreen extends Screen {
     protected void init() {
         super.init();
         // 只在 init() 中调用面板的 init() 来更新 screen 引用，不重建实例
+        this.screenBackgroundPanel.init(this);
         this.gearMenuPanel.init(this);
         this.floatingWindowLayer.frontToBackWindows().add(this.gearMenuPanel);
+        this.rightSidebarPanel.init(this);
+        this.downSidebarPanel.init(this);
         this.topBarPanel.init(this);
         // 面板初始化完毕后，从持久化存储加载之前保存的状态
         this.uiStateManager.load();
@@ -115,6 +137,22 @@ public class BuilderScreen extends Screen {
         return this.floatingWindowLayer;
     }
 
+    /**
+     * 返回当前右边框实际宽度，供 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel}
+     * 等组件动态调整布局位置。
+     */
+    public int getRightSidebarWidth() {
+        return this.rightSidebarPanel.getCurrentWidth();
+    }
+
+    /**
+     * 返回当前下边框实际高度，供 {@link ScreenBackgroundPanel} 等组件
+     * 动态调整布局位置。
+     */
+    public int getDownSidebarHeight() {
+        return this.downSidebarPanel.getCurrentHeight();
+    }
+
     // ======================================================================
     //  系统光标（缩放光标）
     // ======================================================================
@@ -133,12 +171,20 @@ public class BuilderScreen extends Screen {
     }
 
     private RtsPanel.ResizeCursor resolveResizeCursor(int mouseX, int mouseY) {
-        if (topBarPanel != null) {
-            RtsPanel.ResizeCursor cursor = topBarPanel.currentResizeCursor(mouseX, mouseY);
-            if (cursor != RtsPanel.ResizeCursor.DEFAULT) return cursor;
-        }
+        // 浮动窗口缩放边框优先
         if (floatingWindowLayer != null) {
-            return floatingWindowLayer.resizeCursorAt(mouseX, mouseY);
+            RtsPanel.ResizeCursor fwCursor = floatingWindowLayer.resizeCursorAt(mouseX, mouseY);
+            if (fwCursor != RtsPanel.ResizeCursor.DEFAULT) {
+                return fwCursor;
+            }
+        }
+        // 右边框左边缘缩放
+        if (rightSidebarPanel != null && rightSidebarPanel.isMouseOverLeftEdge(mouseX, mouseY)) {
+            return RtsPanel.ResizeCursor.RESIZE_EW;
+        }
+        // 下边框上边缘缩放
+        if (downSidebarPanel != null && downSidebarPanel.isMouseOverTopEdge(mouseX, mouseY)) {
+            return RtsPanel.ResizeCursor.RESIZE_NS;
         }
         return RtsPanel.ResizeCursor.DEFAULT;
     }
@@ -333,6 +379,71 @@ public class BuilderScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+
+        // 摄像机拖拽光标环绕：每 tick 检查按钮+光标状态
+        CameraModule cam = kernel.module("camera");
+        if (cam == null || !cam.getState().isEnabled()) return;
+
+        var window = this.minecraft != null ? this.minecraft.getWindow() : null;
+        if (window == null) return;
+        long h = window.getWindow();
+
+        boolean rightDown = GLFW.glfwGetMouseButton(h, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == 1;
+        boolean middleDown = GLFW.glfwGetMouseButton(h, GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == 1;
+        if (!rightDown && !middleDown) return;
+        int button = rightDown ? GLFW.GLFW_MOUSE_BUTTON_RIGHT : GLFW.GLFW_MOUSE_BUTTON_MIDDLE;
+
+        // 获取当前光标在 GLFW 窗口内容区坐标
+        double glfwX, glfwY;
+        try (var stack = org.lwjgl.system.MemoryStack.stackPush()) {
+            var xBuf = stack.mallocDouble(1);
+            var yBuf = stack.mallocDouble(1);
+            GLFW.glfwGetCursorPos(h, xBuf, yBuf);
+            glfwX = xBuf.get(0);
+            glfwY = yBuf.get(0);
+        }
+
+        // 计算虚拟坐标空间尺寸（与 render/input 一致）
+        double virtualW = window.getScreenWidth() / this.fixedRtsGuiScale;
+        double virtualH = window.getScreenHeight() / this.fixedRtsGuiScale;
+
+        // GLFW 内容区坐标 → 虚拟坐标
+        double vx = glfwX * virtualW / window.getWidth();
+        double vy = glfwY * virtualH / window.getHeight();
+
+        // 内容区边界（虚拟坐标，向内缩 2px，让光标在接近边缘处触发环绕）
+        double left = 2;
+        double top = ScreenBackgroundPanel.BACKGROUND_TOP_Y + 2;
+        double right = virtualW - this.getRightSidebarWidth() - 2;
+        double bottom = virtualH - this.getDownSidebarHeight() - 2;
+
+        if (right <= left || bottom <= top) return;
+
+        double wrapX = vx, wrapY = vy;
+        boolean wrap = false;
+
+        if (vx < left) {
+            wrapX = right - 1;
+            wrap = true;
+        } else if (vx >= right) {
+            wrapX = left;
+            wrap = true;
+        }
+        if (vy < top) {
+            wrapY = bottom - 1;
+            wrap = true;
+        } else if (vy >= bottom) {
+            wrapY = top;
+            wrap = true;
+        }
+
+        if (!wrap) return;
+
+        // 将环绕目标从虚拟坐标转回 GLFW 窗口内容区坐标，延迟到 render() 执行
+        this.pendingCursorWrap = new double[]{
+                wrapX * window.getWidth() / virtualW,
+                wrapY * window.getHeight() / virtualH
+        };
     }
 
     // ======================================================================
@@ -350,10 +461,28 @@ public class BuilderScreen extends Screen {
         if (topBarPanel != null) {
             topBarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
         }
+        if (rightSidebarPanel != null) {
+            rightSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
         if (floatingWindowLayer != null) {
             floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
         }
+        if (screenBackgroundPanel != null) {
+            screenBackgroundPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+        if (downSidebarPanel != null) {
+            downSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
         updateResizeCursor(mouseX, mouseY);
+
+        // 在渲染帧末尾应用待处理的鼠标环绕（安全离开事件回调链）
+        if (this.pendingCursorWrap != null) {
+            var w = this.minecraft != null ? this.minecraft.getWindow() : null;
+            if (w != null) {
+                GLFW.glfwSetCursorPos(w.getWindow(), this.pendingCursorWrap[0], this.pendingCursorWrap[1]);
+            }
+            this.pendingCursorWrap = null;
+        }
     }
 
     // ======================================================================
@@ -371,6 +500,12 @@ public class BuilderScreen extends Screen {
             }
         }
         if (topBarPanel != null && topBarPanel.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (rightSidebarPanel != null && rightSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (downSidebarPanel != null && downSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (floatingWindowLayer != null && floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
@@ -392,6 +527,12 @@ public class BuilderScreen extends Screen {
                 endFixedRtsScaleInput(frame);
             }
         }
+        if (rightSidebarPanel != null && rightSidebarPanel.mouseReleased(mouseX, mouseY, button)) {
+            // 不阻止后续分发
+        }
+        if (downSidebarPanel != null && downSidebarPanel.mouseReleased(mouseX, mouseY, button)) {
+            // 不阻止后续分发
+        }
         if (floatingWindowLayer != null && floatingWindowLayer.mouseReleased(mouseX, mouseY, button)) {
             return true;
         }
@@ -411,12 +552,25 @@ public class BuilderScreen extends Screen {
                 endFixedRtsScaleInput(frame);
             }
         }
+
+        // 输入管道：跳过因 glfwSetCursorPos 光标环绕导致的大幅跳变 delta
+        // （正常拖拽 delta < 200px，环绕跳变 delta ≈ 屏幕宽度）
+        double clampedDx = Math.abs(dragX) > 200 ? 0 : dragX;
+        double clampedDy = Math.abs(dragY) > 200 ? 0 : dragY;
+
+        if (rightSidebarPanel != null && rightSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+            return true;
+        }
+        if (downSidebarPanel != null && downSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+            return true;
+        }
         if (floatingWindowLayer != null && floatingWindowLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
-        if (kernel.inputPipeline().onMouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+        if (kernel.inputPipeline().onMouseDragged(mouseX, mouseY, button, clampedDx, clampedDy)) {
             return true;
         }
+
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -458,6 +612,17 @@ public class BuilderScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Ctrl+, → 切换设置面板打开/关闭
+        if (RtsKeyMappings.OPEN_GEAR_MENU_KEY.matches(keyCode, scanCode)) {
+            gearMenuPanel.toggleOpen();
+            topBarPanel.setGearMenuOpen(gearMenuPanel.isOpen());
+            return true;
+        }
+        // Alt+Z → 切换辅助显示模式
+        if (RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY.matches(keyCode, scanCode)) {
+            topBarPanel.toggleDebugOverlay();
+            return true;
+        }
         if (floatingWindowLayer != null && floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }

@@ -305,6 +305,12 @@ public final class RtsClientUiStateStore {
         /** 面板滚动位置映射（面板键 → 滚动偏移量） */
         public Map<String, Integer> panelScrollOffsets = new LinkedHashMap<>();
 
+        /** 右边框宽度（默认 60px，拖拽缩放后动态变更） */
+        public int rightSidebarWidth = 60;
+
+        /** 下边框高度（默认 16px，拖拽缩放后动态变更） */
+        public int downSidebarHeight = 16;
+
         /** 亮暗主题模式（false=暗色，true=明亮） */
         public boolean lightMode = false;
 
@@ -405,12 +411,6 @@ public final class RtsClientUiStateStore {
             public boolean chunkBorderVisible = false;
             /** 碰撞箱显示 */
             public boolean collisionBoxVisible = false;
-            /** 坐标轴彩色线条显示 */
-            public boolean axisLinesVisible = false;
-            /** 实体支撑块显示 */
-            public boolean entitySupportBlockVisible = false;
-            /** 方块光照等级显示 */
-            public boolean blockLightLevelsVisible = false;
         }
 
         /** 设置菜单状态。 */
@@ -495,9 +495,6 @@ public final class RtsClientUiStateStore {
             clean.debug.debugOverlayEnabled = this.debug.debugOverlayEnabled;
             clean.debug.chunkBorderVisible = this.debug.chunkBorderVisible;
             clean.debug.collisionBoxVisible = this.debug.collisionBoxVisible;
-            clean.debug.axisLinesVisible = this.debug.axisLinesVisible;
-            clean.debug.entitySupportBlockVisible = this.debug.entitySupportBlockVisible;
-            clean.debug.blockLightLevelsVisible = this.debug.blockLightLevelsVisible;
             // settings
             clean.settings.controlsExpanded = this.settings.controlsExpanded;
             clean.settings.displayExpanded = this.settings.displayExpanded;
@@ -518,6 +515,10 @@ public final class RtsClientUiStateStore {
             if (this.panelScrollOffsets != null) {
                 clean.panelScrollOffsets.putAll(this.panelScrollOffsets);
             }
+            // 右边框宽度
+            clean.rightSidebarWidth = Math.max(30, Math.min(2000, this.rightSidebarWidth));
+            // 下边框高度
+            clean.downSidebarHeight = Math.max(8, Math.min(2000, this.downSidebarHeight));
             // 全局状态
             clean.lightMode = this.lightMode;
             return clean;

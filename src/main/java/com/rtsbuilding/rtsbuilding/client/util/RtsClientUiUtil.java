@@ -26,6 +26,18 @@ public final class RtsClientUiUtil {
     private static final int PANEL_TEX_HOVER_V_OFFSET = 16;
     private static final int PANEL_BORDER = 4;
 
+    // ======================== 浮窗/悬浮提示贴图 ========================
+    private static final ResourceLocation FLOATING_UI_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/floating_ui.png");
+    /** 贴图宽度（双主题横向翻倍） */
+    private static final int FLOATING_TEX_W = 32;
+    /** 贴图文件总高度 */
+    private static final int FLOATING_TEX_FILE_H = 16;
+    /** 单个状态高度 */
+    private static final int FLOATING_STATE_H = 16;
+    /** 九宫格边框宽度 */
+    private static final int FLOATING_BORDER = 2;
+
     // ======================== 拖拽标题栏贴图 ========================
     /** drag_ui.png 为 16×16，暂无悬浮高亮状态 */
     private static final int DRAG_TEX_FILE_H = 16;
@@ -137,6 +149,28 @@ public final class RtsClientUiUtil {
     public static void drawNineSliceDragPanel(GuiGraphics g, int x, int y, int w, int h, boolean hovered) {
         drawNineSlice(g, DRAG_TEXTURE, x, y, w, h,
                 PANEL_BORDER, PANEL_TEX_W, DRAG_TEX_FILE_H, PANEL_TEX_STATE_H, 0);
+    }
+
+    /**
+     * 使用九宫格贴图绘制浮窗/悬浮提示背景。
+     *
+     * <p>floating_ui.png 贴图为 32×16（左半=暗色，右半=明亮），采用 2px 九宫格布局：
+     * <ul>
+     *   <li>四角各 2×2 像素 → 不拉伸</li>
+     *   <li>上/下边缘 → 水平平铺填充</li>
+     *   <li>左/右边缘 → 垂直平铺填充</li>
+     *   <li>中间区域 → 双向平铺填充</li>
+     * </ul>
+     *
+     * @param g  GuiGraphics
+     * @param x  面板左上角 X
+     * @param y  面板左上角 Y
+     * @param w  面板宽度
+     * @param h  面板高度
+     */
+    public static void drawNineSliceFloatingPanel(GuiGraphics g, int x, int y, int w, int h) {
+        drawNineSlice(g, FLOATING_UI_TEXTURE, x, y, w, h,
+                FLOATING_BORDER, FLOATING_TEX_W, FLOATING_TEX_FILE_H, FLOATING_STATE_H, 0);
     }
 
     /**

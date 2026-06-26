@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.module.camera;
 
+import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.input.layer.CameraInputLayer;
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
@@ -20,7 +21,6 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
 
 
 /**
@@ -485,14 +485,12 @@ public final class CameraModule implements FeatureModule {
         float strafe = 0.0F;
         float vertical = 0.0F;
 
-        long window = mc.getWindow().getWindow();
-
-        if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_W) == GLFW.GLFW_PRESS) forward += 1.0F;
-        if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_S) == GLFW.GLFW_PRESS) forward -= 1.0F;
-        if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_A) == GLFW.GLFW_PRESS) strafe += 1.0F;
-        if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_D) == GLFW.GLFW_PRESS) strafe -= 1.0F;
-        if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS) vertical += 1.0F;
-        if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS) vertical -= 1.0F;
+        if (RtsKeyMappings.CAMERA_FORWARD.isDown()) forward += 1.0F;
+        if (RtsKeyMappings.CAMERA_BACK.isDown()) forward -= 1.0F;
+        if (RtsKeyMappings.CAMERA_LEFT.isDown()) strafe += 1.0F;
+        if (RtsKeyMappings.CAMERA_RIGHT.isDown()) strafe -= 1.0F;
+        if (RtsKeyMappings.CAMERA_UP.isDown()) vertical += 1.0F;
+        if (RtsKeyMappings.CAMERA_DOWN.isDown()) vertical -= 1.0F;
 
         return new CameraInput(forward, strafe, vertical, mc.options.keySprint.isDown());
     }

@@ -1,6 +1,8 @@
 {
   "key.categories.rtsbuilding.function": "RTSBuilding - Functions",
   "key.rtsbuilding.toggleRts": "Toggle RTS Mode",
+  "key.rtsbuilding.open_gear_menu": "Open Settings",
+  "key.rtsbuilding.toggle_debug_overlay": "Toggle Debug Overlay",
 
   "key.categories.rtsbuilding.camera": "RTSBuilding - Camera",
   "key.rtsbuilding.camera_forward": "Camera Forward",
@@ -21,8 +23,5 @@
   "screen.rtsbuilding.settings.sensitivity": "camera Sensitivity",
 
   "screen.rtsbuilding.debug.chunk_border": "Chunk Border",
-  "screen.rtsbuilding.debug.collision_box": "Collision Box",
-  "screen.rtsbuilding.debug.axis_lines": "Axis Directions (X=Red/Y=Green/Z=Blue)",
-  "screen.rtsbuilding.debug.entity_support_block": "Entity Supporting Block",
-  "screen.rtsbuilding.debug.block_light_levels": "Block Light Levels"
+  "screen.rtsbuilding.debug.collision_box": "Collision Box"
 }

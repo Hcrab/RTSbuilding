@@ -1,26 +1,20 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar;
 
+import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.building.BuildingModule;
-import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.RtsButton;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.ArrayList;
-import java.util.HashMap;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup.DebugMenuPopup;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup.LogoMenuPopup;
+import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 顶部栏面板——编排按钮布局、渲染所有按钮（图标和文本）、处理鼠标点击分发。
@@ -28,55 +22,19 @@ import java.util.Map;
  * <p>所有按钮统一使用 {@link RtsButton} 实例，由 {@link RtsButton#render}
  * 管理背景与悬停视觉效果，顶部栏在此之上覆盖绘制图标纹理。</p>
  *
- * <p>状态栏文本渲染委托给 {@link TopBarStatusArea}，按钮动作派发委托给
- * {@link TopBarActionDispatcher}，本类专注于按钮编排与 UI 状态管理。</p>
+ * <p>状态栏文本渲染委托给 {@link TopBarStatusArea}，
+ * 本类专注于按钮编排与 UI 状态管理。</p>
  *
- * <p>继承 {@link RtsPanel}，作为固定面板而非可拖拽窗口，
- * 由 {@link BuilderScreen} 统一调度生命周期。</p>
+ * <p>实现 {@link RtsPanelApi}，由 {@link BuilderScreen} 统一调度生命周期。
+ * 的窗口框架——顶部栏是固定面板，无可拖拽、缩放或关闭行为。</p>
  */
-public final class TopBarPanel extends RtsPanel {
+public final class TopBarPanel implements RtsPanelApi {
 
     private BuildingModule buildingModule;
-    private StorageModule storageModule;
-    private TopBarActionDispatcher actionDispatcher;
-    /** Gear 菜单打开状态（由 BuilderScreen 同步） */
-    private boolean gearMenuOpen;
-    /** Gear 菜单开关回调（由 BuilderScreen 注入，避免直接持有 GearMenuPanel 引用） */
-    private Runnable onGearMenuToggle;
-
-    /** 所有顶部栏按钮实例，按 ID 索引。在 {@link #init(BuilderScreen)} 中创建。 */
-    private final Map<TopBarTypes.TopBarButtonId, RtsButton> buttons = new HashMap<>();
-
+    /** 所属的 BuilderScreen 引用，在 init() 中设置 */
+    private BuilderScreen screen;
     private boolean quickBuildOpen;
     private boolean guideOpen;
-    private boolean chunkBorderVisible;
-    /** 辅助显示模式总开关（由 chunk_display 按钮控制） */
-    private boolean debugOverlayEnabled;
-
-    // ======================== Debug 选项弹出菜单状态 ========================
-
-    /** 碰撞箱显示状态 */
-    private boolean collisionBoxVisible;
-    /** 坐标轴彩色线条显示状态 */
-    private boolean axisLinesVisible;
-    /** 实体支撑块显示状态 */
-    private boolean entitySupportBlockVisible;
-    /** 方块光照等级显示状态 */
-    private boolean blockLightLevelsVisible;
-
-    /**
-     * 是否已调用 switchRenderChunkborder() 开启区块边框渲染。
-     * <p>用于在退出/重新进入 RTS 模式时准确开关区块边框，
-     * 避免对 Minecraft DebugRenderer 的 toggle 重复调用导致状态不同步。</p>
-     */
-    private boolean chunkBorderRenderingActive;
-
-    /**
-     * 是否已通过 {@code EntityRenderDispatcher.setRenderHitBoxes(true)} 开启碰撞箱渲染。
-     * <p>用于在退出/重新进入 RTS 模式时准确开关实体碰撞箱，
-     * 避免与玩家手动按 F3+B 的状态冲突。</p>
-     */
-    private boolean collisionBoxRenderingActive;
 
     /** Logo 悬浮高亮动画器 */
     private final SmoothAnimator logoHoverAnim = AnimationFactory.createHoverAnim();
@@ -93,9 +51,19 @@ public final class TopBarPanel extends RtsPanel {
 
     /** Logo 下拉菜单 */
     private LogoMenuPopup logoPopup;
+    /** 待设置的 Gear 菜单开关回调（init 前存入，logoPopup 创建后应用） */
+    private Runnable pendingOnGearMenuToggle;
 
     /** Debug 选项弹出菜单 */
     private DebugMenuPopup debugPopup;
+
+    /** 区块显示按钮快捷键浮窗（含延迟显示与淡入淡出动画） */
+    private final FloatingTooltip chunkBtnTooltip = new FloatingTooltip();
+
+    /** 区块显示按钮悬浮淡入动画器 */
+    private final SmoothAnimator chunkDisplayHoverAnim = AnimationFactory.createHoverAnim();
+    /** 区块显示按钮上一帧悬浮状态 */
+    private boolean prevChunkDisplayHovered;
 
     /** button_right 悬浮淡入动画器 */
     private final SmoothAnimator btnRightHoverAnim = AnimationFactory.createHoverAnim();
@@ -111,7 +79,7 @@ public final class TopBarPanel extends RtsPanel {
     private static final ResourceLocation LOGO_TEXTURE =
             ResourceLocation.tryParse("rtsbuilding:textures/gui/base/logo.png");
     /** Logo 绘制尺寸 */
-    private static final int LOGO_SIZE = 24;
+    private static final int LOGO_SIZE = TopBarLayoutHelper.LOGO_SIZE;
     /** Logo 源文件宽度（双主题横向翻倍） */
     private static final int LOGO_SHEET_WIDTH = 1024;
     /** Logo 源文件高度（正常+高亮纵向翻倍） */
@@ -141,11 +109,13 @@ public final class TopBarPanel extends RtsPanel {
      * 下半部分源/绘制高度（top_ui_down.png 为 32×16，srcH=16 用满整张贴图高度）。
      * <p>半透明灰色，需要 blend 启用才能正确渲染。</p>
      */
-    private static final int BOTTOM_SRC_H = 16;
+    private static final int BOTTOM_SRC_H = TopBarLayoutHelper.BOTTOM_SRC_H;
     /** 顶部栏上半部分绘制高度 */
-    private static final int TOP_BAR_HEIGHT = 24;
+    private static final int TOP_BAR_HEIGHT = TopBarLayoutHelper.TOP_BAR_HEIGHT;
     /** 顶部栏上下部分间隔 */
-    private static final int TOP_BAR_GAP = 3;
+    private static final int TOP_BAR_GAP = TopBarLayoutHelper.TOP_BAR_GAP;
+    /** 屏幕背景九宫格边框宽度，用于定位下半部分顶部 Y */
+    private static final int SCREEN_BORDER = TopBarLayoutHelper.SCREEN_BORDER;
 
     // ======================== 区块显示按钮 ========================
 
@@ -155,15 +125,15 @@ public final class TopBarPanel extends RtsPanel {
     /** 贴图文件总宽度 */
     private static final int CHUNK_DISPLAY_TEX_W = 1024;
     /** 贴图文件总高度 */
-    private static final int CHUNK_DISPLAY_TEX_H = 1024;
+    private static final int CHUNK_DISPLAY_TEX_H = 1536;
     /** 单主题半区宽度 */
     private static final int CHUNK_DISPLAY_HALF_W = 512;
-    /** 单个状态高度（1024÷2=512，纵向两状态：0=正常，512=启用） */
+    /** 单个状态高度（1536÷3=512，纵向三状态：0=正常，512=悬浮，1024=按下） */
     private static final int CHUNK_DISPLAY_STATE_H = 512;
     /** 区块显示按钮绘制尺寸 */
-    private static final int CHUNK_BTN_SIZE = 14;
+    private static final int CHUNK_BTN_SIZE = TopBarLayoutHelper.BTN_SIZE;
     /** 区块按钮距右边缘间距 */
-    private static final int CHUNK_BTN_MARGIN_R = 4;
+    private static final int CHUNK_BTN_MARGIN_R = TopBarLayoutHelper.BTN_MARGIN_R;
 
     // ======================== 右侧按钮 ========================
 
@@ -179,7 +149,7 @@ public final class TopBarPanel extends RtsPanel {
     /** 单个状态高度（1536÷3=512，三状态：0=正常，512=悬浮，1024=按下） */
     private static final int BTN_RIGHT_STATE_H = 512;
     /** 按钮绘制尺寸（与 chunk_display 一致） */
-    private static final int BTN_RIGHT_SIZE = 14;
+    private static final int BTN_RIGHT_SIZE = TopBarLayoutHelper.BTN_SIZE;
 
     // ======================== 折叠箭头 ========================
 
@@ -199,201 +169,85 @@ public final class TopBarPanel extends RtsPanel {
 
     @Override
     public void init(BuilderScreen screen) {
-        super.init(screen);
+        this.screen = screen;
+        // 从内核获取模块实例
+        this.buildingModule = RtsClientKernel.get().module("building");
         // 创建 Logo 下拉菜单
         this.logoPopup = createLogoPopup();
-        this.logoPopup.setPosition(0, LOGO_SIZE);
+        this.logoPopup.positionFromButton(LOGO_SIZE / 2, LOGO_SIZE, screen.width);
         // 创建 Debug 选项弹出菜单
         this.debugPopup = createDebugPopup();
+        // 应用之前存入的待办回调
+        if (this.pendingOnGearMenuToggle != null) {
+            this.logoPopup.setOnGearMenuToggle(this.pendingOnGearMenuToggle);
+            this.pendingOnGearMenuToggle = null;
+        }
     }
 
     private void createButtons() {
     }
 
     public boolean isQuickBuildOpen() {
-        return false;
+        return quickBuildOpen;
     }
 
     public void toggleQuickBuild() {
+        this.quickBuildOpen = !this.quickBuildOpen;
     }
 
-    public void setGearMenuOpen(boolean open) {
-    }
 
-    public void setOnGearMenuToggle(Runnable toggle) {
-        this.onGearMenuToggle = toggle;
-    }
 
     public boolean isGuideOpen() {
-        return false;
+        return guideOpen;
     }
 
     public void toggleTopGuide() {
+        this.guideOpen = !this.guideOpen;
     }
 
-    public boolean isChunkBorderVisible() {
-        return chunkBorderVisible;
-    }
 
-    public boolean isDebugOverlayEnabled() {
-        return debugOverlayEnabled;
-    }
 
-    public boolean isCollisionBoxVisible() {
-        return collisionBoxVisible;
-    }
-
-    public boolean isAxisLinesVisible() {
-        return axisLinesVisible;
-    }
-
-    public boolean isEntitySupportBlockVisible() {
-        return entitySupportBlockVisible;
-    }
-
-    public boolean isBlockLightLevelsVisible() {
-        return blockLightLevelsVisible;
-    }
-
-    public void toggleChunkBorder() {
-        // 切换本地 UI 状态（控制贴图显示）
-        chunkBorderVisible = !chunkBorderVisible;
-        // 同步切换 F3+G 调试区块边框
-        syncChunkBorder(chunkBorderVisible);
-    }
-
-    /**
-     * 退出 RTS 模式时调用——关闭所有实际渲染的调试覆盖层，
-     * 但不擦除 UI 状态字段（留给下次进入时恢复用）。
-     */
     public void onRtsExited() {
-        // 如果辅助显示功能已启用，关闭所有当前活跃的调试覆盖层
-        if (debugOverlayEnabled) {
-            disableAllDebugFeatures();
+        if (debugPopup != null) {
+            debugPopup.onRtsExited();
         }
     }
 
     /**
-     * UI 状态加载完成后调用——如果辅助显示总开关处于开启状态，
-     * 则重新启用之前已打开的调试覆盖层。
+     * 设置 Gear 菜单开关回调（转发给 LogoMenuPopup）
      */
+    public void setOnGearMenuToggle(Runnable runnable) {
+        this.pendingOnGearMenuToggle = runnable;
+        if (this.logoPopup != null) {
+            this.logoPopup.setOnGearMenuToggle(runnable);
+        }
+    }
+
+    /**
+     * 设置 Gear 菜单打开状态（转发给 LogoMenuPopup）
+     */
+    public void setGearMenuOpen(boolean open) {
+        if (this.logoPopup != null) {
+            this.logoPopup.setGearMenuOpen(open);
+        }
+    }
+
+    /**
+     * 切换辅助显示模式（等同于点击 chunk_display 按钮）。
+     */
+    public void toggleDebugOverlay() {
+        if (this.debugPopup != null) {
+            this.debugPopup.toggleDebugOverlay();
+        }
+    }
+
     public void onPostUiStateLoad() {
-        if (debugOverlayEnabled) {
-            enableAllDebugFeatures();
+        if (debugPopup != null) {
+            debugPopup.onPostUiStateLoad();
         }
     }
 
-    /**
-     * 启用所有已勾选的调试功能（当 debugOverlayEnabled 打开时调用）。
-     * <p>每个功能只有在对应 checkbox 已勾选且未激活时才实际切换渲染。</p>
-     */
-    private void enableAllDebugFeatures() {
-        if (chunkBorderVisible) {
-            syncChunkBorder(true);
-        }
-        if (collisionBoxVisible) {
-            syncCollisionBox(true);
-        }
-        // TODO: 坐标轴/支撑块/光照等级的实际渲染待后续实现
-    }
 
-    /**
-     * 关闭所有当前活跃的调试功能（debugOverlayEnabled 关闭或退出 RTS 模式时调用）。
-     */
-    private void disableAllDebugFeatures() {
-        if (chunkBorderRenderingActive) {
-            syncChunkBorder(false);
-        }
-        if (collisionBoxRenderingActive) {
-            syncCollisionBox(false);
-        }
-        // TODO: 坐标轴/支撑块/光照等级的实际渲染待后续实现
-    }
-
-    /**
-     * 通过反射读取 Minecraft {@code DebugRenderer.renderChunkborder} 的实际状态，
-     * 精确地将区块边框渲染同步到目标状态（只 toggle 一次）。
-     *
-     * <p>由于 {@link net.minecraft.client.renderer.debug.DebugRenderer#switchRenderChunkborder()}
-     * 是 toggle 操作且 {@code renderChunkborder} 字段为 private，无法从外部直接读取当前状态。
-     * 本方法通过反射获取该字段的真实值，仅在 {@code actual != desired} 时执行一次 toggle，
-     * 避免了玩家在 RTS 模式外手动按 F3+G 后状态追踪不同步的问题。</p>
-     *
-     * @param desired true=开启区块边框，false=关闭
-     */
-    private void syncChunkBorder(boolean desired) {
-        if (Minecraft.getInstance().debugRenderer == null) return;
-        try {
-            java.lang.reflect.Field f = net.minecraft.client.renderer.debug.DebugRenderer.class
-                    .getDeclaredField("renderChunkborder");
-            f.setAccessible(true);
-            boolean actual = f.getBoolean(Minecraft.getInstance().debugRenderer);
-            if (actual != desired) {
-                Minecraft.getInstance().debugRenderer.switchRenderChunkborder();
-            }
-            this.chunkBorderRenderingActive = desired;
-        } catch (Exception e) {
-            // 反射失败时的回退方案：使用旧有的追踪标记
-            if (desired != chunkBorderRenderingActive) {
-                Minecraft.getInstance().debugRenderer.switchRenderChunkborder();
-                chunkBorderRenderingActive = desired;
-            }
-        }
-    }
-
-    /**
-     * 通过 {@code EntityRenderDispatcher} 的官方 API 精确开关实体碰撞箱渲染（F3+B）。
-     *
-     * <p>{@link net.minecraft.client.renderer.entity.EntityRenderDispatcher} 提供了
-     * {@code shouldRenderHitBoxes()} 读取当前状态和 {@code setRenderHitBoxes(boolean)}
-     * 设置目标状态，不需要反射。</p>
-     *
-     * @param desired true=开启实体碰撞箱，false=关闭
-     */
-    private void syncCollisionBox(boolean desired) {
-        var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-        if (dispatcher.shouldRenderHitBoxes() != desired) {
-            dispatcher.setRenderHitBoxes(desired);
-        }
-        this.collisionBoxRenderingActive = desired;
-    }
-
-    @Override
-    public void setOpen(boolean open) {
-        super.setOpen(true);
-    }
-
-    @Override
-    protected boolean canShowWindow() {
-        return false;
-    }
-
-    @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-    }
-
-    @Override
-    protected void handleContentClick(double mouseX, double mouseY, int button) {
-    }
-
-    @Override
-    protected Component getTitle() {
-        return Component.empty();
-    }
-
-    @Override
-    protected int getDefaultWidth() {
-        return 0;
-    }
-
-    @Override
-    protected int getDefaultHeight() {
-        return 0;
-    }
-
-    @Override
-    protected void computeDefaultPosition() {
-    }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
@@ -401,11 +255,13 @@ public final class TopBarPanel extends RtsPanel {
         renderChunkDisplayButton(g, mouseX, mouseY);
         renderButtonRight(g, mouseX, mouseY);
 
+        chunkDisplayHoverAnim.tick();
+        chunkBtnTooltip.tick();
         logoHoverAnim.tick();
         btnRightHoverAnim.tick();
         arrowRotateAnim.tick();
 
-        boolean hovering = mouseX >= 0 && mouseX < LOGO_SIZE && mouseY >= 0 && mouseY < LOGO_SIZE;
+        boolean hovering = TopBarLayoutHelper.logoRect().contains(mouseX, mouseY);
         boolean shouldHighlight = hovering || logoPressed;
 
         // 状态变化时触发动画
@@ -430,9 +286,11 @@ public final class TopBarPanel extends RtsPanel {
 
         // 渲染 Debug 选项弹出菜单（位置每帧更新，跟随按钮）
         if (debugPopup != null) {
-            int popupX = screen.width - 260 - CHUNK_BTN_MARGIN_R;
-            int popupY = TOP_BAR_HEIGHT + TOP_BAR_GAP + BOTTOM_SRC_H + 2;
-            debugPopup.setPosition(popupX, popupY);
+            TopBarLayoutHelper.Rect rightBtn = TopBarLayoutHelper.btnRightRect(screen.width, screen.getRightSidebarWidth());
+            debugPopup.positionFromButton(
+                    rightBtn.x() + rightBtn.width() / 2,
+                    rightBtn.y() + rightBtn.height(),
+                    screen.width);
             debugPopup.render(g, mouseX, mouseY);
         }
 
@@ -440,6 +298,9 @@ public final class TopBarPanel extends RtsPanel {
         if (logoPopup != null) {
             logoPopup.render(g, mouseX, mouseY);
         }
+
+        // 关闭 blend——与 renderTopBarBackground() 中 enableBlend 配对
+        RenderSystem.disableBlend();
     }
 
     /**
@@ -472,44 +333,76 @@ public final class TopBarPanel extends RtsPanel {
                 TOP_UI_TEX_W, TOP_UI_TEX_H,
                 0, 0, TOP_UI_HALF_W, TOP_SRC_H);
 
-        // 下半部分：top_ui_down.png，源区域 (0,0, 16,7)，中间空 3px
+        // 下半部分：top_ui_down.png，紧贴屏幕背景上边框底部
+        int bottomY = TOP_BAR_HEIGHT + SCREEN_BORDER;
         RtsClientUiUtil.drawNineSliceRegion(g, TOP_UI_DOWN_TEXTURE,
-                0, TOP_BAR_HEIGHT + TOP_BAR_GAP, screenW, BOTTOM_SRC_H, TOP_UI_BORDER,
+                0, bottomY, screenW, BOTTOM_SRC_H, TOP_UI_BORDER,
                 TOP_UI_TEX_W, TOP_UI_TEX_H,
                 0, 0, TOP_UI_HALF_W, BOTTOM_SRC_H);
 
         // 注：不在此关闭 blend！原因见 render() 末尾的 blend 恢复处理。
     }
 
-    private void drawButtonIcon(GuiGraphics g, TopBarTypes.TopBarButtonLayout layout, int mouseX, int mouseY) {
-    }
-
-    /** 渲染区块显示按钮（底部栏右侧） */
+    /** 渲染区块显示按钮（底部栏右侧），含悬浮淡入动画与快捷键浮窗逻辑 */
     private void renderChunkDisplayButton(GuiGraphics g, int mouseX, int mouseY) {
-        int btnRightX = screen.width - BTN_RIGHT_SIZE - CHUNK_BTN_MARGIN_R;
-        int btnX = btnRightX - CHUNK_BTN_SIZE;
-        int btnY = TOP_BAR_HEIGHT + TOP_BAR_GAP + (BOTTOM_SRC_H - CHUNK_BTN_SIZE) / 2;
+        TopBarLayoutHelper.Rect chunkRect = TopBarLayoutHelper.chunkBtnRect(screen.width, screen.getRightSidebarWidth());
+
+        // 悬浮检测
+        boolean chunkHovered = chunkRect.contains(mouseX, mouseY);
+        if (chunkHovered != prevChunkDisplayHovered) {
+            prevChunkDisplayHovered = chunkHovered;
+            chunkDisplayHoverAnim.start(chunkHovered ? 1.0f : 0.0f);
+        }
 
         int halfW = CHUNK_DISPLAY_HALF_W;
         int stateH = CHUNK_DISPLAY_STATE_H;
         int themeOffset = RtsClientUiUtil.isLightMode() ? halfW : 0;
-        int srcY = debugOverlayEnabled ? stateH : 0;
+        boolean debugOverlayEnabled = debugPopup != null && debugPopup.isDebugOverlayEnabled();
+        float t = chunkDisplayHoverAnim.getValue();
 
-        // 直接绘制当前状态，不使用交叉淡入淡出（避免精灵图区域切换时的闪烁）
-        RtsClientUiUtil.drawScaledImage(g, CHUNK_DISPLAY_TEXTURE,
-                btnX, btnY, CHUNK_BTN_SIZE, CHUNK_BTN_SIZE,
-                themeOffset, srcY, halfW, stateH,
-                CHUNK_DISPLAY_TEX_W, CHUNK_DISPLAY_TEX_H);
+        if (debugOverlayEnabled) {
+            // 辅助显示已启用 → 直接绘制按下态（v=1024），不做悬浮处理
+            RtsClientUiUtil.drawScaledImage(g, CHUNK_DISPLAY_TEXTURE,
+                    chunkRect.x(), chunkRect.y(), chunkRect.width(), chunkRect.height(),
+                    themeOffset, stateH * 2, halfW, stateH,
+                    CHUNK_DISPLAY_TEX_W, CHUNK_DISPLAY_TEX_H);
+        } else if (t > 0.001f) {
+            // 辅助显示关闭，悬浮淡入中 → 正常态（v=0）全不透明 + 悬浮态（v=512）淡入覆盖
+            Runnable baseRenderer = () -> RtsClientUiUtil.drawScaledImage(g, CHUNK_DISPLAY_TEXTURE,
+                    chunkRect.x(), chunkRect.y(), chunkRect.width(), chunkRect.height(),
+                    themeOffset, 0, halfW, stateH,
+                    CHUNK_DISPLAY_TEX_W, CHUNK_DISPLAY_TEX_H);
+            Runnable hoverRenderer = () -> RtsClientUiUtil.drawScaledImage(g, CHUNK_DISPLAY_TEXTURE,
+                    chunkRect.x(), chunkRect.y(), chunkRect.width(), chunkRect.height(),
+                    themeOffset, stateH, halfW, stateH,
+                    CHUNK_DISPLAY_TEX_W, CHUNK_DISPLAY_TEX_H);
+            RtsClientUiUtil.renderCrossFade(t, baseRenderer, hoverRenderer);
+        } else {
+            // 辅助显示关闭，未悬浮 → 直接绘制正常态（v=0）
+            RtsClientUiUtil.drawScaledImage(g, CHUNK_DISPLAY_TEXTURE,
+                    chunkRect.x(), chunkRect.y(), chunkRect.width(), chunkRect.height(),
+                    themeOffset, 0, halfW, stateH,
+                    CHUNK_DISPLAY_TEX_W, CHUNK_DISPLAY_TEX_H);
+        }
+
+        // 悬浮检测与快捷键浮窗（Debug 弹窗打开时不显示浮窗）
+        boolean popupOpen = debugPopup != null && debugPopup.isOpen();
+        chunkBtnTooltip.update(chunkHovered, popupOpen);
+        if (chunkBtnTooltip.shouldRender()) {
+            String keyText = RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY.getTranslatedKeyMessage().getString();
+            int textColor = ThemeManager.getTextColor();
+            int shortcutColor = SmoothAnimator.scaleColor(textColor, 0.6f);
+            chunkBtnTooltip.renderBelowButton(g, chunkRect.x(), chunkRect.y(), chunkRect.width(), chunkRect.height(),
+                    6, 3, "辅助显示\n辅助显示，如显示区块和碰撞箱\n快捷键: " + keyText, textColor, shortcutColor);
+        }
     }
 
     /** 渲染右侧按钮（chunk_display 右边，精灵图） */
     private void renderButtonRight(GuiGraphics g, int mouseX, int mouseY) {
-        int btnRightX = screen.width - BTN_RIGHT_SIZE - CHUNK_BTN_MARGIN_R;
-        int btnY = TOP_BAR_HEIGHT + TOP_BAR_GAP + (BOTTOM_SRC_H - BTN_RIGHT_SIZE) / 2;
+        TopBarLayoutHelper.Rect rightRect = TopBarLayoutHelper.btnRightRect(screen.width, screen.getRightSidebarWidth());
 
         // 悬浮检测
-        btnRightHovered = mouseX >= btnRightX && mouseX < btnRightX + BTN_RIGHT_SIZE
-                && mouseY >= btnY && mouseY < btnY + BTN_RIGHT_SIZE;
+        btnRightHovered = rightRect.contains(mouseX, mouseY);
 
         // 悬浮状态变化 → 触发淡入动画（悬浮态淡入覆盖，正常态始终不透明）
         if (btnRightHovered != prevBtnRightHovered) {
@@ -532,24 +425,24 @@ public final class TopBarPanel extends RtsPanel {
         if (popupOpen) {
             // 弹窗打开 → 直接绘制 state 2（srcY=1024），不做悬浮处理
             RtsClientUiUtil.drawPixelImage(g, BTN_RIGHT_TEXTURE,
-                    btnRightX, btnY, BTN_RIGHT_SIZE, BTN_RIGHT_SIZE,
+                    rightRect.x(), rightRect.y(), rightRect.width(), rightRect.height(),
                     themeOffset, stateH * 2, halfW, stateH,
                     BTN_RIGHT_TEX_W, BTN_RIGHT_TEX_H);
         } else if (t > 0.001f) {
             // 弹窗关闭，悬浮淡入中 → 正常态（srcY=0）全不透明 + 悬浮态（srcY=512）淡入覆盖
             Runnable baseRenderer = () -> RtsClientUiUtil.drawPixelImage(g, BTN_RIGHT_TEXTURE,
-                    btnRightX, btnY, BTN_RIGHT_SIZE, BTN_RIGHT_SIZE,
+                    rightRect.x(), rightRect.y(), rightRect.width(), rightRect.height(),
                     themeOffset, 0, halfW, stateH,
                     BTN_RIGHT_TEX_W, BTN_RIGHT_TEX_H);
             Runnable hoverRenderer = () -> RtsClientUiUtil.drawPixelImage(g, BTN_RIGHT_TEXTURE,
-                    btnRightX, btnY, BTN_RIGHT_SIZE, BTN_RIGHT_SIZE,
+                    rightRect.x(), rightRect.y(), rightRect.width(), rightRect.height(),
                     themeOffset, stateH, halfW, stateH,
                     BTN_RIGHT_TEX_W, BTN_RIGHT_TEX_H);
             RtsClientUiUtil.renderCrossFade(t, baseRenderer, hoverRenderer);
         } else {
             // 弹窗关闭，未悬浮 → 直接绘制正常态（srcY=0）
             RtsClientUiUtil.drawPixelImage(g, BTN_RIGHT_TEXTURE,
-                    btnRightX, btnY, BTN_RIGHT_SIZE, BTN_RIGHT_SIZE,
+                    rightRect.x(), rightRect.y(), rightRect.width(), rightRect.height(),
                     themeOffset, 0, halfW, stateH,
                     BTN_RIGHT_TEX_W, BTN_RIGHT_TEX_H);
         }
@@ -562,8 +455,8 @@ public final class TopBarPanel extends RtsPanel {
         }
 
         // 在按钮中间绘制折叠箭头（参考 CollapsibleSection.renderArrow 的旋转动画）
-        int arrowX = btnRightX + (BTN_RIGHT_SIZE - FOLD_ARROW_SIZE) / 2;
-        int arrowY = btnY + (BTN_RIGHT_SIZE - FOLD_ARROW_SIZE) / 2;
+        int arrowX = rightRect.x() + (rightRect.width() - FOLD_ARROW_SIZE) / 2;
+        int arrowY = rightRect.y() + (rightRect.height() - FOLD_ARROW_SIZE) / 2;
         int arrowThemeOffset = RtsClientUiUtil.isLightMode() ? FOLD_ARROW_HALF_W : 0;
         g.pose().pushPose();
         // 位移至箭头中心 → 绕 Z 轴旋转 → 移回
@@ -586,7 +479,7 @@ public final class TopBarPanel extends RtsPanel {
         int my = (int) mouseY;
 
         // Logo 点击：切换下拉菜单
-        if (mx >= 0 && mx < LOGO_SIZE && my >= 0 && my < LOGO_SIZE) {
+        if (TopBarLayoutHelper.logoRect().contains(mx, my)) {
             logoPressed = true;
             if (logoPopup != null) {
                 logoPopup.toggle();
@@ -595,10 +488,8 @@ public final class TopBarPanel extends RtsPanel {
         }
 
         // 右侧按钮点击 → 切换 Debug 弹出菜单（独立于 chunk_display，互不干扰）
-        int btnRightX = screen.width - BTN_RIGHT_SIZE - CHUNK_BTN_MARGIN_R;
-        int btnRightY = TOP_BAR_HEIGHT + TOP_BAR_GAP + (BOTTOM_SRC_H - BTN_RIGHT_SIZE) / 2;
-        if (mx >= btnRightX && mx < btnRightX + BTN_RIGHT_SIZE
-                && my >= btnRightY && my < btnRightY + BTN_RIGHT_SIZE) {
+        TopBarLayoutHelper.Rect rightRect = TopBarLayoutHelper.btnRightRect(screen.width, screen.getRightSidebarWidth());
+        if (rightRect.contains(mx, my)) {
             btnRightPressed = true;
             if (debugPopup != null) {
                 debugPopup.toggle();
@@ -607,15 +498,9 @@ public final class TopBarPanel extends RtsPanel {
         }
 
         // chunk_display 按钮点击 → 切换辅助显示模式总开关
-        int chunkBtnX = btnRightX - CHUNK_BTN_SIZE;
-        int chunkBtnY = TOP_BAR_HEIGHT + TOP_BAR_GAP + (BOTTOM_SRC_H - CHUNK_BTN_SIZE) / 2;
-        if (mx >= chunkBtnX && mx < chunkBtnX + CHUNK_BTN_SIZE
-                && my >= chunkBtnY && my < chunkBtnY + CHUNK_BTN_SIZE) {
-            debugOverlayEnabled = !debugOverlayEnabled;
-            if (debugOverlayEnabled) {
-                enableAllDebugFeatures();
-            } else {
-                disableAllDebugFeatures();
+        if (TopBarLayoutHelper.chunkBtnRect(screen.width, screen.getRightSidebarWidth()).contains(mx, my)) {
+            if (debugPopup != null) {
+                debugPopup.toggleDebugOverlay();
             }
             return true;
         }
@@ -645,142 +530,25 @@ public final class TopBarPanel extends RtsPanel {
         return false;
     }
 
-    /** 创建 Logo 下拉菜单项列表 */
+    /** 创建 Logo 下拉菜单 */
     private LogoMenuPopup createLogoPopup() {
-        List<LogoMenuPopup.MenuItem> items = new ArrayList<>();
-        items.add(new LogoMenuPopup.MenuItem(
-                Component.translatable("screen.rtsbuilding.settings.title"),
-                this::toggleGearMenuFromPopup));
-        return new LogoMenuPopup(items);
-    }
-
-    /** 从下拉菜单打开/关闭齿轮菜单 */
-    private void toggleGearMenuFromPopup() {
-        if (onGearMenuToggle != null) {
-            onGearMenuToggle.run();
-        }
+        return new LogoMenuPopup();
     }
 
     /** 创建 Debug 选项弹出菜单 */
     private DebugMenuPopup createDebugPopup() {
-        List<DebugMenuPopup.DebugToggleItem> items = new ArrayList<>();
-
-        // 1) 区块显示（默认勾选）
-        items.add(new DebugMenuPopup.DebugToggleItem(
-                Component.translatable("screen.rtsbuilding.debug.chunk_border"),
-                state -> {
-                    boolean was = this.chunkBorderVisible;
-                    this.chunkBorderVisible = state;
-                    // 仅当 debug 总开关开启且状态发生变化时同步实际的区块边框渲染
-                    if (this.debugOverlayEnabled && was != state) {
-                        syncChunkBorder(state);
-                    }
-                }));
-
-        // 2) 碰撞箱显示
-        items.add(new DebugMenuPopup.DebugToggleItem(
-                Component.translatable("screen.rtsbuilding.debug.collision_box"),
-                state -> {
-                    boolean was = this.collisionBoxVisible;
-                    this.collisionBoxVisible = state;
-                    // 仅当 debug 总开关开启且状态发生变化时同步实际渲染
-                    if (this.debugOverlayEnabled && was != state) {
-                        syncCollisionBox(state);
-                    }
-                }));
-
-        // 3) 坐标轴彩色线条（X/红，Y/绿，Z/蓝）
-        items.add(new DebugMenuPopup.DebugToggleItem(
-                Component.translatable("screen.rtsbuilding.debug.axis_lines"),
-                state -> this.axisLinesVisible = state));
-
-        // 4) visualize_entity_supporting_block
-        items.add(new DebugMenuPopup.DebugToggleItem(
-                Component.translatable("screen.rtsbuilding.debug.entity_support_block"),
-                state -> this.entitySupportBlockVisible = state));
-
-        // 5) visualize_block_light_levels
-        items.add(new DebugMenuPopup.DebugToggleItem(
-                Component.translatable("screen.rtsbuilding.debug.block_light_levels"),
-                state -> this.blockLightLevelsVisible = state));
-
-        boolean[] defaultStates = {true, false, false, false, false};
-        DebugMenuPopup popup = new DebugMenuPopup(items, defaultStates);
-
-        return popup;
+        return new DebugMenuPopup();
     }
 
-    private void dispatchButtonAction(TopBarTypes.TopBarButtonId id) {
-    }
 
-    public List<TopBarTypes.TopBarButtonLayout> buildTopBarButtonLayouts() {
-        return List.of();
-    }
 
     @Override
     public List<PersistableProperty> persistableProperties() {
-        return List.of(
-                // 辅助显示模式总开关
-                PersistableProperty.boolField(
-                        "debug.overlayEnabled",
-                        s -> s.debug.debugOverlayEnabled,
-                        (s, v) -> s.debug.debugOverlayEnabled = v,
-                        () -> this.debugOverlayEnabled,
-                        v -> this.debugOverlayEnabled = v),
-                // 区块边框显示
-                PersistableProperty.boolField(
-                        "debug.chunkBorderVisible",
-                        s -> s.debug.chunkBorderVisible,
-                        (s, v) -> s.debug.chunkBorderVisible = v,
-                        () -> this.chunkBorderVisible,
-                        v -> {
-                            this.chunkBorderVisible = v;
-                            if (debugPopup != null) debugPopup.setItemState(0, v);
-                        }),
-                // 碰撞箱显示
-                PersistableProperty.boolField(
-                        "debug.collisionBoxVisible",
-                        s -> s.debug.collisionBoxVisible,
-                        (s, v) -> s.debug.collisionBoxVisible = v,
-                        () -> this.collisionBoxVisible,
-                        v -> {
-                            this.collisionBoxVisible = v;
-                            if (debugPopup != null) debugPopup.setItemState(1, v);
-                        }),
-                // 坐标轴彩色线条显示
-                PersistableProperty.boolField(
-                        "debug.axisLinesVisible",
-                        s -> s.debug.axisLinesVisible,
-                        (s, v) -> s.debug.axisLinesVisible = v,
-                        () -> this.axisLinesVisible,
-                        v -> {
-                            this.axisLinesVisible = v;
-                            if (debugPopup != null) debugPopup.setItemState(2, v);
-                        }),
-                // 实体支撑块显示
-                PersistableProperty.boolField(
-                        "debug.entitySupportBlockVisible",
-                        s -> s.debug.entitySupportBlockVisible,
-                        (s, v) -> s.debug.entitySupportBlockVisible = v,
-                        () -> this.entitySupportBlockVisible,
-                        v -> {
-                            this.entitySupportBlockVisible = v;
-                            if (debugPopup != null) debugPopup.setItemState(3, v);
-                        }),
-                // 方块光照等级显示
-                PersistableProperty.boolField(
-                        "debug.blockLightLevelsVisible",
-                        s -> s.debug.blockLightLevelsVisible,
-                        (s, v) -> s.debug.blockLightLevelsVisible = v,
-                        () -> this.blockLightLevelsVisible,
-                        v -> {
-                            this.blockLightLevelsVisible = v;
-                            if (debugPopup != null) debugPopup.setItemState(4, v);
-                        })
-        );
+        if (debugPopup != null) {
+            return debugPopup.persistableProperties();
+        }
+        return List.of();
     }
 
-    public TopBarTypes.TopAction topActionForMode() {
-        return null;
-    }
+
 }

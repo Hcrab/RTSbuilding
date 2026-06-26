@@ -231,35 +231,35 @@ public final class GearMenuPanel extends RtsPanel {
                         s -> s.panelOpenStates.getOrDefault(pk, false),
                         (s, v) -> { if (v) s.panelOpenStates.put(pk, true); else s.panelOpenStates.remove(pk); },
                         this::isOpen,
-                        v -> setOpen(v)),
+                        this::setOpen),
                 // 滚动位置
                 PersistableProperty.intField(
                         pk + ".scroll",
                         s -> s.panelScrollOffsets.getOrDefault(pk, 0),
                         (s, v) -> { if (v != 0) s.panelScrollOffsets.put(pk, v); else s.panelScrollOffsets.remove(pk); },
-                        () -> scrollBar.getScroll(),
-                        v -> scrollBar.setScroll(v)),
+                        scrollBar::getScroll,
+                        scrollBar::setScroll),
                 // 渲染设置分区展开状态
                 PersistableProperty.boolField(
                         pk + ".renderingExpanded",
                         s -> s.sectionExpandedStates.getOrDefault(pk + ".rendering", false),
                         (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".rendering", true); else s.sectionExpandedStates.remove(pk + ".rendering"); },
-                        () -> renderingSection.isExpanded(),
-                        v -> renderingSection.setExpanded(v)),
+                        renderingSection::isExpanded,
+                        renderingSection::setExpanded),
                 // 个性化设置分区展开状态
                 PersistableProperty.boolField(
                         pk + ".personalizationExpanded",
                         s -> s.sectionExpandedStates.getOrDefault(pk + ".personalization", false),
                         (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".personalization", true); else s.sectionExpandedStates.remove(pk + ".personalization"); },
-                        () -> personalizationSection.isExpanded(),
-                        v -> personalizationSection.setExpanded(v)),
+                        personalizationSection::isExpanded,
+                        personalizationSection::setExpanded),
                 // 操作设置分区展开状态
                 PersistableProperty.boolField(
                         pk + ".operationExpanded",
                         s -> s.sectionExpandedStates.getOrDefault(pk + ".operation", false),
                         (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".operation", true); else s.sectionExpandedStates.remove(pk + ".operation"); },
-                        () -> operationSection.isExpanded(),
-                        v -> operationSection.setExpanded(v))
+                        operationSection::isExpanded,
+                        operationSection::setExpanded)
         );
     }
 

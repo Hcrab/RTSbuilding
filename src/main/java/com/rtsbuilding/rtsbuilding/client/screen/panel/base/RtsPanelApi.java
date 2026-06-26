@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
+
+import java.util.List;
 
 /**
  * 统一的 RTS 面板接口。
@@ -43,4 +46,12 @@ public interface RtsPanelApi {
 
     /** 面板/屏幕关闭时调用 */
     default void close() {}
+
+    // --- 持久化 ---
+
+    /**
+     * 返回需要持久化的属性列表。
+     * <p>默认返回空列表，子类可重写添加自定义持久化属性。</p>
+     */
+    default List<PersistableProperty> persistableProperties() { return List.of(); }
 }

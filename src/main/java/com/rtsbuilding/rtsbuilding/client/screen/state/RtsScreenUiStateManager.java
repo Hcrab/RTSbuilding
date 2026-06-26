@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.state;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
@@ -18,7 +18,7 @@ import java.util.List;
  * <ul>
  *   <li><b>加载</b> — 屏幕初始化时，从 {@link RtsClientUiStateStore} 读取已持久化的
  *       {@link RtsClientUiStateStore.UiState}，遍历所有面板的
- *       {@link RtsPanel#persistableProperties()} 并逐个调用
+ *       {@link RtsPanelApi#persistableProperties()} 并逐个调用
  *       {@link PersistableProperty#applyToRuntime} 恢复到运行时组件。</li>
  *   <li><b>保存</b> — 面板边界变更或关闭时，遍历所有面板的持久化属性，
  *       调用 {@link PersistableProperty#collectFromRuntime} 收集当前值，
@@ -41,12 +41,12 @@ public final class RtsScreenUiStateManager {
     private static final Logger LOG = LoggerFactory.getLogger("RtsScreenUiState");
 
     /** 受管理的所有面板实例（扁平列表） */
-    private final List<RtsPanel> panels;
+    private final List<? extends RtsPanelApi> panels;
 
     /**
      * @param panels 所有需要持久化的面板实例（包括浮动窗口面板和顶部栏面板）
      */
-    public RtsScreenUiStateManager(List<RtsPanel> panels) {
+    public RtsScreenUiStateManager(List<? extends RtsPanelApi> panels) {
         this.panels = List.copyOf(panels);
     }
 
@@ -56,7 +56,7 @@ public final class RtsScreenUiStateManager {
      */
     public void load() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
-        for (RtsPanel panel : panels) {
+        for (RtsPanelApi panel : panels) {
             for (PersistableProperty prop : panel.persistableProperties()) {
                 try {
                     prop.applyToRuntime(state);
@@ -79,7 +79,7 @@ public final class RtsScreenUiStateManager {
      */
     public void save() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
-        for (RtsPanel panel : panels) {
+        for (RtsPanelApi panel : panels) {
             for (PersistableProperty prop : panel.persistableProperties()) {
                 try {
                     prop.collectFromRuntime(state);

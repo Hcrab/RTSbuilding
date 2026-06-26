@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.input;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.settings.KeyConflictContext;
+import net.neoforged.neoforge.client.settings.KeyModifier;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -27,6 +30,26 @@ public final class RtsKeyMappings {
     public static final KeyMapping TOGGLE_RTS_KEY = new KeyMapping(
             "key.rtsbuilding.toggleRts",
             GLFW.GLFW_KEY_G,
+            CATEGORY_FUNCTION
+    );
+
+    /** 打开设置面板（默认 Ctrl+,） */
+    public static final KeyMapping OPEN_GEAR_MENU_KEY = new KeyMapping(
+            "key.rtsbuilding.open_gear_menu",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_COMMA,
+            CATEGORY_FUNCTION
+    );
+
+    /** 切换辅助显示模式（默认 Shift+Alt+Z） */
+    public static final KeyMapping TOGGLE_DEBUG_OVERLAY_KEY = new KeyMapping(
+            "key.rtsbuilding.toggle_debug_overlay",
+            KeyConflictContext.GUI,
+            KeyModifier.ALT,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_Z,
             CATEGORY_FUNCTION
     );
 
@@ -79,6 +102,8 @@ public final class RtsKeyMappings {
      */
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(TOGGLE_RTS_KEY);
+        event.register(OPEN_GEAR_MENU_KEY);
+        event.register(TOGGLE_DEBUG_OVERLAY_KEY);
         event.register(CAMERA_FORWARD);
         event.register(CAMERA_BACK);
         event.register(CAMERA_LEFT);
