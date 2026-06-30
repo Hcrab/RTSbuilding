@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.util;
 
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -51,6 +51,11 @@ public class ScaleSliderComponent {
     private static final int THUMB_W = 8;
     /** 滑条轨道点击检测在 Y 方向向外扩展的像素数，方便点击到窄轨道 */
     private static final int TRACK_CLICK_PADDING = 3;
+
+    private static final NineSliceSource TRACK_SPEC = new NineSliceSource(
+            0, 0, TRACK_SRC_W, TRACK_SRC_H, SLIDER_BORDER);
+    private static final NineSliceSource THUMB_SPEC = new NineSliceSource(
+            0, 5, THUMB_SRC_W, THUMB_SRC_H, SLIDER_BORDER);
 
     // ======================== 平滑动画参数 ========================
 
@@ -110,22 +115,26 @@ public class ScaleSliderComponent {
         }
 
         // 拖拽状态下切换为下层贴图
-        int layerOffset = dragging ? SLIDER_TEX_H / 2 : 0;
+        boolean draggingState = this.dragging;
 
         // 滑条轨道
-        RtsClientUiUtil.drawNineSliceRegion(g, SLIDER_TEXTURE,
-                trackX, trackY, trackW, TRACK_SRC_H, SLIDER_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, SLIDER_TEXTURE,
                 SLIDER_TEX_W, SLIDER_TEX_H,
-                0, layerOffset, TRACK_SRC_W, TRACK_SRC_H);
+                trackX, trackY, trackW, TRACK_SRC_H,
+                draggingState
+                        ? TRACK_SPEC.withYOffset(SLIDER_TEX_H / 2)
+                        : TRACK_SPEC);
 
         // 滑块（使用平滑值计算位置）
         int thumbX = trackX + (int) Math.round((smoothValue - min) / (max - min) * (trackW - THUMB_W));
         this.renderedThumbX = thumbX;
         int thumbY = trackY + (TRACK_SRC_H - THUMB_SRC_H) / 2;
-        RtsClientUiUtil.drawNineSliceRegion(g, SLIDER_TEXTURE,
-                thumbX, thumbY, THUMB_W, THUMB_SRC_H, SLIDER_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, SLIDER_TEXTURE,
                 SLIDER_TEX_W, SLIDER_TEX_H,
-                0, 5 + layerOffset, THUMB_SRC_W, THUMB_SRC_H);
+                thumbX, thumbY, THUMB_W, THUMB_SRC_H,
+                draggingState
+                        ? THUMB_SPEC.withYOffset(SLIDER_TEX_H / 2)
+                        : THUMB_SPEC);
     }
 
     // ======================== 交互 ========================

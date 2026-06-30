@@ -14,6 +14,11 @@ public class PersonalizationSection extends SettingsSection {
     /** 主题开关组件实例 */
     private final ThemeSwitchComponent themeSwitch = new ThemeSwitchComponent();
 
+    /** 缓存的翻译模板文本 */
+    private String cachedThemeTemplate;
+    private String cachedLightLabel;
+    private String cachedDarkLabel;
+
     public PersonalizationSection() {
         super("screen.rtsbuilding.settings.category.personalization");
     }
@@ -24,7 +29,7 @@ public class PersonalizationSection extends SettingsSection {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, String[] lines) {
+    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int lineCount) {
         // 主题标签（左对齐，第一行）
         String label = buildThemeLabel();
         renderLabel(g, label, x, y, 0);
@@ -36,12 +41,14 @@ public class PersonalizationSection extends SettingsSection {
 
     private String buildThemeLabel() {
         boolean lightMode = ThemeManager.getInstance().isLightMode();
-        String modeKey = lightMode
-                ? "screen.rtsbuilding.settings.theme.light"
-                : "screen.rtsbuilding.settings.theme.dark";
-        return Component.translatable(
-                "screen.rtsbuilding.settings.category.personalization.theme",
-                Component.translatable(modeKey)).getString();
+        if (cachedThemeTemplate == null) {
+            cachedThemeTemplate = Component.translatable(
+                    "screen.rtsbuilding.settings.category.personalization.theme", "%s").getString();
+            cachedLightLabel = Component.translatable("screen.rtsbuilding.settings.theme.light").getString();
+            cachedDarkLabel = Component.translatable("screen.rtsbuilding.settings.theme.dark").getString();
+        }
+        String modeLabel = lightMode ? cachedLightLabel : cachedDarkLabel;
+        return cachedThemeTemplate.replace("%s", modeLabel);
     }
 
     @Override

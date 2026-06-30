@@ -26,6 +26,10 @@ public class OperationSection extends SettingsSection {
     /** 灵敏度滑条轨道位置缓存 */
     private final SliderTrack sensTrack = new SliderTrack();
 
+    /** 缓存的翻译文本 */
+    private String cachedSensitivityLabel;
+    private String cachedOrbitLabel;
+
     @Nullable
     private CameraModule cameraModule;
 
@@ -39,40 +43,33 @@ public class OperationSection extends SettingsSection {
 
     @Override
     protected int getContentRowCount() {
-        return 3;
+        return 2;
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, String[] lines) {
+    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int lineCount) {
         double sens = getSensitivity();
 
-        // 灵敏度标签（第一行）
+        // 灵敏度标签 + 滑条（第一行，合并到同一行）
         String labelText = buildSensitivityLabel(sens);
-        RtsClientUiUtil.drawUiText(g, labelText, x + LEFT_PAD, textY(y, 0), getTextColor());
+        renderSlider(g, mouseX, mouseY, x, y, w, 0, labelText, slider, sensTrack,
+                SENS_MIN, SENS_MAX, sens);
 
-        // 灵敏度滑条（第二行，置于标签下方）
-        renderSliderTrack(g, mouseX, x, y, w, 1, slider, sensTrack, sens);
-
-        // 环绕模式开关（第三行）
-        renderLabel(g, Component.translatable("screen.rtsbuilding.settings.orbit_mode").getString(), x, y, 2);
-        renderToggle(g, mouseX, mouseY, x, y, w, 2, orbitToggle, cameraModule != null && cameraModule.isOrbitMode());
-    }
-
-    /** 在指定行渲染滑条轨道（不含标签），轨道占满整行宽度 */
-    private void renderSliderTrack(GuiGraphics g, int mouseX, int x, int y, int w, int row,
-                                    ScaleSliderComponent slider, SliderTrack trackPos, double value) {
-        int lineCenterY = rowY(y, row) + getLineHeight() / 2;
-        trackPos.trackX = x + LEFT_PAD;
-        trackPos.trackY = lineCenterY - 2;
-        trackPos.trackW = w - LEFT_PAD - RIGHT_PAD;
-        trackPos.slider = slider;
-        slider.render(g, mouseX, 0, trackPos.trackX, trackPos.trackY, trackPos.trackW,
-                SENS_MIN, SENS_MAX, value);
+        // 环绕模式开关（第二行）
+        renderLabel(g, getOrbitLabel(), x, y, 1);
+        renderToggle(g, mouseX, mouseY, x, y, w, 1, orbitToggle, cameraModule != null && cameraModule.isOrbitMode());
     }
 
     private String buildSensitivityLabel(double sens) {
-        String label = Component.translatable("screen.rtsbuilding.settings.sensitivity").getString();
-        return label + String.format(java.util.Locale.ROOT, "：x%.2f", sens);
+        if (cachedSensitivityLabel == null) {
+            cachedSensitivityLabel = Component.translatable("screen.rtsbuilding.settings.sensitivity").getString();
+        }
+        return cachedSensitivityLabel + String.format(java.util.Locale.ROOT, "：x%.2f", sens);
+    }
+
+    private String getOrbitLabel() {
+        if (cachedOrbitLabel == null) cachedOrbitLabel = Component.translatable("screen.rtsbuilding.settings.orbit_mode").getString();
+        return cachedOrbitLabel;
     }
 
     // ======================== 点击 ========================

@@ -36,6 +36,9 @@
   "screen.rtsbuilding.settings.smooth_animation": "线框移动平滑动画",
   "screen.rtsbuilding.settings.ui_smooth_animation": "UI平滑动画",
   "screen.rtsbuilding.settings.overlay_alpha": "线框透明度",
+  "screen.rtsbuilding.settings.barrier_color": "屏障颜色",
+  "screen.rtsbuilding.color_picker.title": "调色盘",
+  "screen.rtsbuilding.color_picker.presets": "预设颜色",
   "screen.rtsbuilding.debug.chunk_border": "区块显示",
   "screen.rtsbuilding.debug.collision_box": "碰撞箱显示",
 

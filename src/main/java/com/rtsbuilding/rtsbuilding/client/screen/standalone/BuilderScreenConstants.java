@@ -192,9 +192,9 @@ public final class BuilderScreenConstants {
     /** RTS GUI scale minimum */
     public static final double MIN_RTS_GUI_SCALE = 1.0D;
     /** RTS GUI scale maximum */
-    public static final double MAX_RTS_GUI_SCALE = 4.0D;
+    public static final double MAX_RTS_GUI_SCALE = 6.0D;
     /** RTS GUI scale step */
-    public static final double RTS_GUI_SCALE_STEP = 1.0D;
+    public static final double RTS_GUI_SCALE_STEP = 0.5D;
     /** Search box character limit */
     public static final int SEARCH_MAX_LENGTH = 128;
     /** "All" category token */

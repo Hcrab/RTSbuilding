@@ -131,5 +131,6 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
         }
 
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        RenderSystem.disableBlend();
     }
 }

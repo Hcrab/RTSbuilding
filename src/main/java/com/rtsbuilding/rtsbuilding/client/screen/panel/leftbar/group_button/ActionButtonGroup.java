@@ -173,5 +173,6 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
 
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        RenderSystem.disableBlend();
     }
 }

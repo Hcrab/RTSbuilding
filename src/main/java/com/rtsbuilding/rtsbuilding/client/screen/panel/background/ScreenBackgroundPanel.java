@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -26,6 +26,8 @@ import java.util.List;
 public final class ScreenBackgroundPanel implements RtsPanelApi {
 
     private BuilderScreen screen;
+    /** 九宫格渲染缓存（将平铺拼装结果缓存到纹理，每帧仅需一次 blit） */
+    private final NineSliceCache cache = new NineSliceCache();
 
     // ======================== 贴图资源 ========================
 
@@ -44,6 +46,7 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
     private static final int ACTIVE_V_OFFSET = 128;
     /** 九宫格边框宽度 */
     private static final int BORDER = 8;
+    private static final NineSliceSource SCREEN_SPEC = NineSliceSource.fullTheme(HALF_W, STATE_H, BORDER);
 
     /** 背景起始 Y——顶部栏上半部分底部（与右边框顶部对齐） */
     public static final int BACKGROUND_TOP_Y = TopBarLayoutHelper.TOP_BAR_HEIGHT;
@@ -142,8 +145,6 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
                 renderX, renderY, renderW, renderH,
                 0, 0, capW, capH,
                 capW, capH);
-
-        RenderSystem.disableBlend();
     }
 
     /**
@@ -159,19 +160,13 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
         // 判断鼠标是否在背景内容区域内
         boolean mouseInArea = mouseX >= 0 && mouseX < contentW
                 && mouseY >= BACKGROUND_TOP_Y && mouseY < BACKGROUND_TOP_Y + contentH;
-        int srcY = mouseInArea ? ACTIVE_V_OFFSET : 0;
+        NineSliceSource src = mouseInArea
+                ? SCREEN_SPEC.withYOffset(ACTIVE_V_OFFSET)
+                : SCREEN_SPEC;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        // drawNineSliceRegion 自动根据主题偏移到左半区（暗色）或右半区（亮色）
-        // srcY 根据鼠标位置切换：正常=0，鼠标在区域内=ACTIVE_V_OFFSET（使用下半部分）
-        RtsClientUiUtil.drawNineSliceRegion(g, SCREEN_UI_TEXTURE,
-                0, BACKGROUND_TOP_Y, contentW, contentH, BORDER,
+        cache.drawOrCache(g, SCREEN_UI_TEXTURE,
                 TEX_W, TEX_FILE_H,
-                0, srcY, HALF_W, STATE_H);
-
-        RenderSystem.disableBlend();
+                0, BACKGROUND_TOP_Y, contentW, contentH, src);
     }
 
     /**

@@ -15,6 +15,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -103,6 +105,57 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     private boolean skipHoverDetection;
 
     /**
+     * 父面板引用——由哪个面板通过 {@link #openChild(RtsPanel)} 唤出的。
+     * <p>面板关闭时会从父面板的 {@link #children} 列表中自动移除。</p>
+     */
+    private RtsPanel parentPanel;
+
+    /**
+     * 本面板通过 {@link #openChild(RtsPanel)} 打开的子面板列表。
+     * <p>当本面板关闭时，列表中的子面板会被递归关闭。</p>
+     */
+    private final List<RtsPanel> children = new ArrayList<>();
+
+    /** 返回唤出本面板的父面板，若无则返回 null。 */
+    public RtsPanel getParentPanel() { return parentPanel; }
+
+    /**
+     * 返回本面板打开的直接子面板列表（不可修改）。
+     * <p>当本面板关闭时，列表中的子面板会被自动递归关闭。</p>
+     */
+    public List<RtsPanel> getChildren() { return Collections.unmodifiableList(children); }
+
+    /**
+     * 以本面板为父面板打开一个子面板。
+     * <p>建立双向父子关系：
+     * 本面板的 {@link #children} 列表记录该子面板，
+     * 子面板的 {@link #parentPanel} 指向本面板。
+     * 当本面板关闭时，所有通过此方法打开的子面板会被自动递归关闭。</p>
+     *
+     * <p>如果子面板已被其他面板打开，会先解除旧的父子关系再建立新的。
+     * 如果已是本面板的子面板且已打开，则不做任何事。</p>
+     *
+     * @param child 要作为子面板打开的面板
+     */
+    public void openChild(RtsPanel child) {
+        if (child == null || child == this) return;
+        // 已是我的子面板且已打开 → 不做任何事
+        if (child.parentPanel == this && child.isOpen()) return;
+
+        // 如果子面板已属于其他父面板，先解除旧关系
+        if (child.parentPanel != null) {
+            child.parentPanel.children.remove(child);
+        }
+
+        // 建立双向关系
+        child.parentPanel = this;
+        this.children.add(child);
+
+        // 打开子面板（内含 markBroughtToFront + markSortDirty）
+        child.setOpen(true);
+    }
+
+    /**
      * 设置是否跳过悬浮检测（包内可见，供 {@link RtsFloatingWindowLayer} 调用）。
      * <p>当浮动窗口层中有多个窗口重叠时，上层窗口会抑制下层窗口的悬浮态，
      * 避免下层窗口在被遮挡时仍显示高亮。</p>
@@ -115,6 +168,12 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     private final SmoothAnimator panelHoverAnim = AnimationFactory.createHoverAnim();
     /** 上一帧悬浮状态，用于检测变化 */
     private boolean lastPanelHovered;
+
+    /** 平滑渲染位置的 X 坐标（视觉渲染用，逻辑位置为 windowX） */
+    private float visualX;
+    /** 平滑渲染位置的 Y 坐标（视觉渲染用，逻辑位置为 windowY） */
+    private float visualY;
+
 
     // ======================================================================
     //  光标枚举
@@ -206,16 +265,19 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         if (!this.resizeHandler.isResizing()) {
             clampWindowToScreen();
         }
+        updateVisualPosition();
         updatePanelHoverState(mouseX, mouseY);
 
         if (this.skipHoverDetection) {
             RtsButton.setGlobalSkipHover(true);
         }
+        boolean needScissor = shouldClipContent();
         try {
             renderWindowFrame(g, mouseX, mouseY);
-            g.flush();
 
-            if (shouldClipContent()) {
+            if (needScissor) {
+                // 在不启用 scissors 前 flush，确保 window frame 不会被裁剪
+                g.flush();
                 enableContentScissor(g);
             }
             renderContent(g, mouseX, mouseY, partialTick);
@@ -224,7 +286,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
             if (this.skipHoverDetection) {
                 RtsButton.setGlobalSkipHover(false);
             }
-            if (shouldClipContent()) {
+            if (needScissor) {
                 g.disableScissor();
             }
         }
@@ -248,16 +310,40 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /**
      * 设置窗口打开/关闭状态。
-     * <p>首次打开时会初始化位置；关闭时会回调 {@link #onClose()}。</p>
+     * <p>首次打开时会初始化位置；关闭时会先递归关闭所有子面板、
+     * 从父面板断开，再回调 {@link #onClose()}。</p>
      */
     public void setOpen(boolean open) {
         boolean wasOpen = this.open;
         if (open && !wasOpen) {
             initializePosition();
+            markBroughtToFront();
+            if (this.screen != null) {
+                this.screen.getFloatingWindowLayer().markSortDirty();
+            }
         }
         this.open = open;
         if (!open && wasOpen) {
+            // 关闭时先递归关闭所有子面板
+            closeAllChildren();
+            // 从父面板的 children 列表中移除自己
+            detachFromParent();
             onClose();
+        }
+    }
+
+    /** 递归关闭所有通过 {@link #openChild(RtsPanel)} 打开的子面板。 */
+    private void closeAllChildren() {
+        for (RtsPanel child : List.copyOf(this.children)) {
+            child.setOpen(false);
+        }
+    }
+
+    /** 从父面板的 {@link #children} 列表中移除自己。 */
+    private void detachFromParent() {
+        if (this.parentPanel != null) {
+            this.parentPanel.children.remove(this);
+            this.parentPanel = null;
         }
     }
 
@@ -625,11 +711,11 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     // ------- 内容区域坐标计算 -------
 
-    /** 内容区域左上角 X（窗口内左边框偏移 1px） */
-    protected int contentX() { return this.windowX + 1; }
+    /** 内容区域左上角 X（窗口内左边框偏移 1px，使用平滑渲染位置） */
+    protected int contentX() { return Math.round(this.visualX) + 1; }
 
-    /** 内容区域左上角 Y（标题栏下方偏移 2px） */
-    protected int contentY() { return this.windowY + getTitleBarHeight() + 2; }
+    /** 内容区域左上角 Y（标题栏下方偏移 2px，使用平滑渲染位置） */
+    protected int contentY() { return Math.round(this.visualY) + getTitleBarHeight() + 2; }
 
     /** 内容区域宽度（窗口宽度减去左右边框各 1px） */
     protected int contentWidth() { return Math.max(0, this.windowWidth - 2); }
@@ -707,10 +793,11 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         WindowFrameRenderer.renderFrame(g, mouseX, mouseY, buildWindowFrameContext());
     }
 
-    /** 构建窗口框架渲染上下文 */
+    /** 构建窗口框架渲染上下文（使用平滑渲染位置） */
     private WindowFrameRenderer.Context buildWindowFrameContext() {
         return new WindowFrameRenderer.Context(
-                this.windowX, this.windowY, this.windowWidth, this.windowHeight,
+                Math.round(this.visualX), Math.round(this.visualY),
+                this.windowWidth, this.windowHeight,
                 getTitleBarHeight(),
                 getPanelBgColor(), getPanelHoverBgColor(),
                 getTitleBarBgColor(), getTitleTextColor(),
@@ -746,6 +833,21 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
             this.panelHoverAnim.start(this.mouseHovering ? 1.0f : 0.0f);
         }
         this.panelHoverAnim.tick();
+    }
+
+    // ======================================================================
+    //  视觉位置平滑更新
+    // ======================================================================
+
+    /**
+     * 更新平滑渲染位置，使视觉位置以指数平滑方式跟随逻辑位置。
+     * <p>拖拽时视觉位置直接等于逻辑位置，确保面板跟手响应；
+     * 非拖拽时视觉位置直接归位，避免非交互场景下出现残影。</p>
+     */
+    private void updateVisualPosition() {
+        // 拖拽时直接使用逻辑位置，保证跟手感
+        this.visualX = this.windowX;
+        this.visualY = this.windowY;
     }
 
     // ======================================================================

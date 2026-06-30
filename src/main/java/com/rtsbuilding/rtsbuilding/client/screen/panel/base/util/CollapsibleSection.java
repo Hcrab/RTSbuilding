@@ -1,10 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
 import com.mojang.math.Axis;
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -29,6 +26,8 @@ public class CollapsibleSection {
     private static final int FOLD_TEX_FILE_H = 32;
     private static final int FOLD_TEX_STATE_H = 16;
     private static final int FOLD_BORDER = 4;
+    private static final NineSliceSource FOLD_SPEC = NineSliceSource.fullTheme(
+            FOLD_TEX_W / 2, FOLD_TEX_STATE_H, FOLD_BORDER);
     private static final int FOLD_BTN_SIZE = 16;
 
     // ======================== 折叠箭头贴图 ========================
@@ -54,6 +53,8 @@ public class CollapsibleSection {
 
     private boolean expanded;
     private final String titleKey;
+    /** 缓存的标题翻译文本，避免每帧 Component.translatable() */
+    private String cachedTitle;
 
     /** 箭头旋转平滑动画器 */
     private final SmoothAnimator arrowAnim = AnimationFactory.createHoverAnim();
@@ -148,8 +149,10 @@ public class CollapsibleSection {
         // 折叠条背景九宫格：展开时向下延伸覆盖标题栏+内容区
         // 收起时只绘制标题栏区域
         int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * getContentProgress());
-        RtsClientUiUtil.drawNineSlice(g, FOLD_TEXTURE, x, y, sectionWidth, bgH,
-                FOLD_BORDER, FOLD_TEX_W, FOLD_TEX_FILE_H, FOLD_TEX_STATE_H, vOffset);
+        RtsClientUiUtil.drawNineSlice(g, FOLD_TEXTURE,
+                FOLD_TEX_W, FOLD_TEX_FILE_H,
+                x, y, sectionWidth, bgH,
+                FOLD_SPEC.withYOffset(vOffset));
     }
 
     /**
@@ -178,9 +181,11 @@ public class CollapsibleSection {
      * 渲染分区标题文字。
      */
     private void renderTitle(GuiGraphics g, int x, int y, int sectionWidth) {
-        String title = Component.translatable(this.titleKey).getString();
+        if (cachedTitle == null) {
+            cachedTitle = Component.translatable(this.titleKey).getString();
+        }
         int maxTitleWidth = Math.max(8, sectionWidth - TITLE_WIDTH_SUB);
-        RtsClientUiUtil.drawUiText(g, RtsClientUiUtil.trimToWidth(Minecraft.getInstance().font, title, maxTitleWidth),
+        RtsClientUiUtil.drawUiText(g, RtsClientUiUtil.trimToWidth(Minecraft.getInstance().font, cachedTitle, maxTitleWidth),
                 x + TITLE_X_OFFSET, y + TITLE_Y_OFFSET,
                 ThemeManager.getTextColor());
     }

@@ -32,6 +32,12 @@ public final class BoundaryPass implements RenderPass {
     /** 纯白顶点颜色倍率——纹理提供实际颜色 */
     private static final float WHITE = 1.0F;
 
+    /**
+     * 屏障色调颜色（ABGR 格式，与 Minecraft setColor 一致），默认黄色 0xFFFFCC00。
+     * <p>由 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.gear.RenderingSection} 设置面板控制。
+     */
+    public static int barrierColor = 0xFFFFCC00;
+
     /** 屏障透明度 */
     private static final float BARRIER_ALPHA = 0.80F;
 
@@ -239,6 +245,15 @@ public final class BoundaryPass implements RenderPass {
      * 基于时间的 {@code scroll} 偏移同时叠加到 U 和 V，
      * 产生连续对角线条纹动画，匹配原版世界边界效果。
      */
+    // ======================== 屏障颜色分量 ========================
+
+    /** 从 {@link #barrierColor} 提取红色分量（0..1） */
+    private static float r() { return ((barrierColor >> 16) & 0xFF) / 255.0F; }
+    /** 从 {@link #barrierColor} 提取绿色分量（0..1） */
+    private static float g() { return ((barrierColor >> 8) & 0xFF) / 255.0F; }
+    /** 从 {@link #barrierColor} 提取蓝色分量（0..1） */
+    private static float b() { return (barrierColor & 0xFF) / 255.0F; }
+
     private static void addTexturedQuad(PoseStack.Pose pose, VertexConsumer buffer,
                                          float x1, float yMin, float z1,
                                          float x2, float yMax, float z2,
@@ -249,25 +264,25 @@ public final class BoundaryPass implements RenderPass {
         buffer.addVertex(pose, x1, yMin, z1).setUv(scroll, scroll)
                 .setUv1(0, 10)
                 .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_ALPHA)
+                .setColor(r(), g(), b(), BARRIER_ALPHA)
                 .setNormal(nx, ny, nz);
         // bottom-right
         buffer.addVertex(pose, x2, yMin, z2).setUv(tileU + scroll, scroll)
                 .setUv1(0, 10)
                 .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_ALPHA)
+                .setColor(r(), g(), b(), BARRIER_ALPHA)
                 .setNormal(nx, ny, nz);
         // top-right
         buffer.addVertex(pose, x2, yMax, z2).setUv(tileU + scroll, tileV + scroll)
                 .setUv1(0, 10)
                 .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_ALPHA)
+                .setColor(r(), g(), b(), BARRIER_ALPHA)
                 .setNormal(nx, ny, nz);
         // top-left
         buffer.addVertex(pose, x1, yMax, z1).setUv(scroll, tileV + scroll)
                 .setUv1(0, 10)
                 .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_ALPHA)
+                .setColor(r(), g(), b(), BARRIER_ALPHA)
                 .setNormal(nx, ny, nz);
     }
 

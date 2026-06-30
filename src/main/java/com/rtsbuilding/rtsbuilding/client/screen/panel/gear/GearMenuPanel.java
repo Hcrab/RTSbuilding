@@ -43,6 +43,9 @@ public final class GearMenuPanel extends RtsPanel {
         RtsClientKernel kernel = RtsClientKernel.get();
         this.cameraModule = kernel.module(CameraModule.class);
         this.operationSection.setCameraModule(this.cameraModule);
+        this.renderingSection.setColorPickerPanel(
+                ((BuilderScreen) screen).getColorPickerPanel());
+        this.renderingSection.setColorPickerButtonParent(this);
     }
 
     public void open() {

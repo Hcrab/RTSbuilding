@@ -36,6 +36,9 @@
   "screen.rtsbuilding.settings.smooth_animation": "Wireframe Smooth Movement Animation",
   "screen.rtsbuilding.settings.ui_smooth_animation": "UI Smooth Animation",
   "screen.rtsbuilding.settings.overlay_alpha": "Wireframe Alpha",
+  "screen.rtsbuilding.settings.barrier_color": "Barrier Color",
+  "screen.rtsbuilding.color_picker.title": "Color Picker",
+  "screen.rtsbuilding.color_picker.presets": "Presets",
   "screen.rtsbuilding.debug.chunk_border": "Chunk Border",
   "screen.rtsbuilding.debug.collision_box": "Collision Box",
 

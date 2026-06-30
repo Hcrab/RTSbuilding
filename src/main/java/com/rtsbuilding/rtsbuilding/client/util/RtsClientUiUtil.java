@@ -6,6 +6,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.lwjgl.opengl.GL30;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public final class RtsClientUiUtil {
     private static final float SLOT_COUNT_SCALE = 0.65F;
@@ -41,6 +45,9 @@ public final class RtsClientUiUtil {
     // ======================== 拖拽标题栏贴图 ========================
     /** drag_ui.png 为 16×16，暂无悬浮高亮状态 */
     private static final int DRAG_TEX_FILE_H = 16;
+
+    /** 已生成 mipmap 的纹理集合，避免重复生成 */
+    private static final Set<ResourceLocation> MIPMAP_GENERATED = new HashSet<>();
 
     private RtsClientUiUtil() {
     }
@@ -110,16 +117,114 @@ public final class RtsClientUiUtil {
         RenderSystem.disableBlend();
     }
 
+    // ======================== 预声明规格常量 ========================
+
+    private static final NineSliceSource PANEL_SPEC = NineSliceSource.fullTheme(
+            PANEL_TEX_W / 2, PANEL_TEX_STATE_H, PANEL_BORDER);
+    private static final NineSliceSource FLOATING_SPEC = NineSliceSource.fullTheme(
+            FLOATING_TEX_W / 2, FLOATING_STATE_H, FLOATING_BORDER);
+    private static final NineSliceSource DRAG_SPEC = NineSliceSource.fullTheme(
+            PANEL_TEX_W / 2, PANEL_TEX_STATE_H, PANEL_BORDER);
+
+    // ======================== 统一核心方法 ========================
+
     /**
-     * 使用九宫格贴图绘制面板背景。
+     * 九宫格拼装渲染——唯一核心入口。
      *
-     * <p>ui.png 贴图为 32×32（左半=暗色，右半=明亮，下半部分为悬浮高亮），采用 4px 九宫格布局：
+     * <p>将源贴图按九宫格分割为 9 个区域：四角保持原尺寸渲染，四边和中间区域通过
+     * 循环平铺拼装填充，避免拉伸导致的像素变形。</p>
+     *
+     * <p>自动处理：</p>
      * <ul>
-     *   <li>左上角/右上角/左下角/右下角各 4×4 像素 → 面板四角</li>
-     *   <li>上/下边缘 8×4 像素区域 → 水平平铺填充</li>
-     *   <li>左/右边缘 4×8 像素区域 → 垂直平铺填充</li>
-     *   <li>中间 8×8 像素区域 → 双向平铺填充</li>
+     *   <li><b>双主题偏移</b>——根据 {@link ThemeManager#isLightMode()} 自动偏移到左半或右半</li>
+     *   <li><b>Blend 状态</b>——自动启用半透明混合，无需调用方手动管理</li>
      * </ul>
+     *
+     * @param g          GuiGraphics
+     * @param texture    贴图资源
+     * @param texW       贴图文件总宽度
+     * @param texFileH   贴图文件总高度
+     * @param dstX       目标区域左上 X
+     * @param dstY       目标区域左上 Y
+     * @param dstW       目标区域宽度
+     * @param dstH       目标区域高度
+     * @param src        九宫格源规格（源坐标 + 边框）
+     */
+    public static void drawNineSlice(GuiGraphics g, ResourceLocation texture,
+                                     int texW, int texFileH,
+                                     int dstX, int dstY, int dstW, int dstH,
+                                     NineSliceSource src) {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        // 双主题偏移：暗色=左半区，亮色=右半区
+        int halfW = texW / 2;
+        int themeOffset = isLightMode() ? halfW : 0;
+        int srcLeft = themeOffset + src.srcX();
+        int srcTop = src.srcY();
+
+        int b = src.border();
+        int innerW = dstW - 2 * b;
+        int innerH = dstH - 2 * b;
+        int srcInnerW = src.srcW() - 2 * b;
+        int srcInnerH = src.srcH() - 2 * b;
+
+        // 四角（不拉伸）
+        g.blit(texture, dstX, dstY, b, b, srcLeft, srcTop, b, b, texW, texFileH);
+        g.blit(texture, dstX + dstW - b, dstY, b, b,
+                srcLeft + src.srcW() - b, srcTop, b, b, texW, texFileH);
+        g.blit(texture, dstX, dstY + dstH - b, b, b,
+                srcLeft, srcTop + src.srcH() - b, b, b, texW, texFileH);
+        g.blit(texture, dstX + dstW - b, dstY + dstH - b, b, b,
+                srcLeft + src.srcW() - b, srcTop + src.srcH() - b, b, b, texW, texFileH);
+
+        // 上边缘（水平平铺）
+        if (innerW > 0 && srcInnerW > 0) {
+            for (int dx = dstX + b; dx < dstX + dstW - b; dx += srcInnerW) {
+                int tileW = Math.min(srcInnerW, dstX + dstW - b - dx);
+                g.blit(texture, dx, dstY, tileW, b, srcLeft + b, srcTop, tileW, b, texW, texFileH);
+            }
+        }
+        // 下边缘（水平平铺）
+        if (innerW > 0 && srcInnerW > 0) {
+            for (int dx = dstX + b; dx < dstX + dstW - b; dx += srcInnerW) {
+                int tileW = Math.min(srcInnerW, dstX + dstW - b - dx);
+                g.blit(texture, dx, dstY + dstH - b, tileW, b,
+                        srcLeft + b, srcTop + src.srcH() - b, tileW, b, texW, texFileH);
+            }
+        }
+        // 左边缘（垂直平铺）
+        if (innerH > 0 && srcInnerH > 0) {
+            for (int dy = dstY + b; dy < dstY + dstH - b; dy += srcInnerH) {
+                int tileH = Math.min(srcInnerH, dstY + dstH - b - dy);
+                g.blit(texture, dstX, dy, b, tileH, srcLeft, srcTop + b, b, tileH, texW, texFileH);
+            }
+        }
+        // 右边缘（垂直平铺）
+        if (innerH > 0 && srcInnerH > 0) {
+            for (int dy = dstY + b; dy < dstY + dstH - b; dy += srcInnerH) {
+                int tileH = Math.min(srcInnerH, dstY + dstH - b - dy);
+                g.blit(texture, dstX + dstW - b, dy, b, tileH,
+                        srcLeft + src.srcW() - b, srcTop + b, b, tileH, texW, texFileH);
+            }
+        }
+        // 中心区域（双向平铺）
+        if (innerW > 0 && innerH > 0 && srcInnerW > 0 && srcInnerH > 0) {
+            for (int dy = dstY + b; dy < dstY + dstH - b; dy += srcInnerH) {
+                int tileH = Math.min(srcInnerH, dstY + dstH - b - dy);
+                for (int dx = dstX + b; dx < dstX + dstW - b; dx += srcInnerW) {
+                    int tileW = Math.min(srcInnerW, dstX + dstW - b - dx);
+                    g.blit(texture, dx, dy, tileW, tileH,
+                            srcLeft + b, srcTop + b, tileW, tileH, texW, texFileH);
+                }
+            }
+        }
+    }
+
+    // ======================== 便利方法 ========================
+
+    /**
+     * 使用九宫格贴图绘制面板背景（ui.png 32×32，4px 边框，支持悬浮高亮）。
      *
      * @param g       GuiGraphics
      * @param x       面板左上角 X
@@ -129,38 +234,26 @@ public final class RtsClientUiUtil {
      * @param hovered 是否悬停（切换贴图到下半部分）
      */
     public static void drawNineSlicePanel(GuiGraphics g, int x, int y, int w, int h, boolean hovered) {
-        drawNineSlice(g, PANEL_TEXTURE, x, y, w, h,
-                PANEL_BORDER, PANEL_TEX_W, PANEL_TEX_FILE_H, PANEL_TEX_STATE_H,
-                hovered ? PANEL_TEX_HOVER_V_OFFSET : 0);
+        drawNineSlice(g, PANEL_TEXTURE, PANEL_TEX_W, PANEL_TEX_FILE_H, x, y, w, h,
+                hovered ? PANEL_SPEC.withYOffset(PANEL_TEX_HOVER_V_OFFSET) : PANEL_SPEC);
     }
 
     /**
-     * 使用九宫格贴图绘制拖拽标题栏背景。
-     *
-     * <p>drag_ui.png 为 16×16，与 ui.png 采用相同的 4px 九宫格布局。
+     * 使用九宫格贴图绘制拖拽标题栏背景（drag_ui.png 16×16，4px 边框）。
      *
      * @param g       GuiGraphics
      * @param x       标题栏左上角 X
      * @param y       标题栏左上角 Y
      * @param w       标题栏宽度
      * @param h       标题栏高度
-     * @param hovered 是否悬停（切换贴图到下半部分）
+     * @param hovered 保留参数（当前未使用）
      */
     public static void drawNineSliceDragPanel(GuiGraphics g, int x, int y, int w, int h, boolean hovered) {
-        drawNineSlice(g, DRAG_TEXTURE, x, y, w, h,
-                PANEL_BORDER, PANEL_TEX_W, DRAG_TEX_FILE_H, PANEL_TEX_STATE_H, 0);
+        drawNineSlice(g, DRAG_TEXTURE, PANEL_TEX_W, DRAG_TEX_FILE_H, x, y, w, h, DRAG_SPEC);
     }
 
     /**
-     * 使用九宫格贴图绘制浮窗/悬浮提示背景。
-     *
-     * <p>floating_ui.png 贴图为 32×16（左半=暗色，右半=明亮），采用 2px 九宫格布局：
-     * <ul>
-     *   <li>四角各 2×2 像素 → 不拉伸</li>
-     *   <li>上/下边缘 → 水平平铺填充</li>
-     *   <li>左/右边缘 → 垂直平铺填充</li>
-     *   <li>中间区域 → 双向平铺填充</li>
-     * </ul>
+     * 使用九宫格贴图绘制浮窗/悬浮提示背景（floating_ui.png 32×16，2px 边框）。
      *
      * @param g  GuiGraphics
      * @param x  面板左上角 X
@@ -169,181 +262,7 @@ public final class RtsClientUiUtil {
      * @param h  面板高度
      */
     public static void drawNineSliceFloatingPanel(GuiGraphics g, int x, int y, int w, int h) {
-        drawNineSlice(g, FLOATING_UI_TEXTURE, x, y, w, h,
-                FLOATING_BORDER, FLOATING_TEX_W, FLOATING_TEX_FILE_H, FLOATING_STATE_H, 0);
-    }
-
-    /**
-     * 通用九宫格贴图绘制（平铺拼装）。
-     *
-     * <p>将源贴图按 {@code border} × {@code border} 分割为 9 个区域，四角保持原尺寸渲染，
-     * 四边和中间区域通过循环平铺拼装填充，避免拉伸导致的像素变形。
-     *
-     * <p>支持状态切换：通过 {@code srcYOffset} 控制读取源贴图的起始 Y 位置，
-     * 适用于同一贴图纵向排列多个状态（如正常 + 悬浮高亮）。
-     *
-     * @param g           GuiGraphics
-     * @param tex          贴图资源
-     * @param x            目标区域左上 X
-     * @param y            目标区域左上 Y
-     * @param w            目标区域宽度
-     * @param h            目标区域高度
-     * @param border       边框像素宽度（源贴图边框大小）
-     * @param texW         源贴图总宽度
-     * @param texFileH     源贴图文件总高度（用于 blit UV 计算）
-     * @param stateH       单个状态的高度
-     * @param srcYOffset   源贴图读取 Y 偏移（正常=0，悬浮高亮=16）
-     */
-    public static void drawNineSlice(GuiGraphics g, ResourceLocation tex,
-            int x, int y, int w, int h, int border, int texW, int texFileH,
-            int stateH, int srcYOffset) {
-        // 双主题贴图横向各占一半，用半宽定位源坐标
-        int halfW = texW / 2;
-        int srcXOffset = isLightMode() ? halfW : 0;
-        int innerW = w - 2 * border;
-        int innerH = h - 2 * border;
-        int srcInnerW = halfW - 2 * border;
-        int srcInnerH = stateH - 2 * border;
-
-        // 四角（不拉伸）
-        g.blit(tex, x, y, border, border, srcXOffset, srcYOffset, border, border, texW, texFileH);
-        g.blit(tex, x + w - border, y, border, border,
-                srcXOffset + halfW - border, srcYOffset, border, border, texW, texFileH);
-        g.blit(tex, x, y + h - border, border, border,
-                srcXOffset, srcYOffset + stateH - border, border, border, texW, texFileH);
-        g.blit(tex, x + w - border, y + h - border, border, border,
-                srcXOffset + halfW - border, srcYOffset + stateH - border, border, border, texW, texFileH);
-
-        // 上边缘（水平平铺）
-        if (innerW > 0) {
-            for (int dx = x + border; dx < x + w - border; dx += srcInnerW) {
-                int tileW = Math.min(srcInnerW, x + w - border - dx);
-                g.blit(tex, dx, y, tileW, border, srcXOffset + border, srcYOffset, tileW, border, texW, texFileH);
-            }
-        }
-        // 下边缘（水平平铺）
-        if (innerW > 0) {
-            for (int dx = x + border; dx < x + w - border; dx += srcInnerW) {
-                int tileW = Math.min(srcInnerW, x + w - border - dx);
-                g.blit(tex, dx, y + h - border, tileW, border,
-                        srcXOffset + border, srcYOffset + stateH - border, tileW, border, texW, texFileH);
-            }
-        }
-        // 左边缘（垂直平铺）
-        if (innerH > 0) {
-            for (int dy = y + border; dy < y + h - border; dy += srcInnerH) {
-                int tileH = Math.min(srcInnerH, y + h - border - dy);
-                g.blit(tex, x, dy, border, tileH, srcXOffset, srcYOffset + border, border, tileH, texW, texFileH);
-            }
-        }
-        // 右边缘（垂直平铺）
-        if (innerH > 0) {
-            for (int dy = y + border; dy < y + h - border; dy += srcInnerH) {
-                int tileH = Math.min(srcInnerH, y + h - border - dy);
-                g.blit(tex, x + w - border, dy, border, tileH,
-                        srcXOffset + halfW - border, srcYOffset + border, border, tileH, texW, texFileH);
-            }
-        }
-        // 中心（双向平铺）
-        if (innerW > 0 && innerH > 0) {
-            for (int dy = y + border; dy < y + h - border; dy += srcInnerH) {
-                int tileH = Math.min(srcInnerH, y + h - border - dy);
-                for (int dx = x + border; dx < x + w - border; dx += srcInnerW) {
-                    int tileW = Math.min(srcInnerW, x + w - border - dx);
-                    g.blit(tex, dx, dy, tileW, tileH,
-                            srcXOffset + border, srcYOffset + border, tileW, tileH, texW, texFileH);
-                }
-            }
-        }
-    }
-
-    /**
-     * 从贴图指定矩形区域绘制九宫格拼装（不与现有 {@link #drawNineSlice} 共享半区假设）。
-     *
-     * <p>与 {@link #drawNineSlice} 不同，此方法不假定源区域占满贴图的整个左/右半区，
-     * 而是接受显式的源矩形坐标 {@code (srcX, srcY, srcW, srcH)}，
-     * 适用于贴图内只有一小块区域是九宫格源纹理的场景（如滚动条滑条/滑块）。</p>
-     *
-     * <p>仍支持双主题：自动根据主题偏移源 X 到左半区或右半区。</p>
-     *
-     * @param g          GuiGraphics
-     * @param tex         贴图资源
-     * @param x           目标区域左上 X
-     * @param y           目标区域左上 Y
-     * @param w           目标区域宽度
-     * @param h           目标区域高度
-     * @param border      九宫格边框像素宽度
-     * @param texW        贴图文件总宽度
-     * @param texFileH    贴图文件总高度
-     * @param srcX        源矩形左上 X（在贴图半区内的偏移，不含双主题偏移）
-     * @param srcY        源矩形左上 Y
-     * @param srcW        源矩形宽度（半区内）
-     * @param srcH        源矩形高度
-     */
-    public static void drawNineSliceRegion(GuiGraphics g, ResourceLocation tex,
-            int x, int y, int w, int h, int border,
-            int texW, int texFileH,
-            int srcX, int srcY, int srcW, int srcH) {
-        int halfW = texW / 2;
-        int themeOffset = isLightMode() ? halfW : 0;
-        int srcLeft = themeOffset + srcX;
-        int srcTop = srcY;
-
-        int innerW = w - 2 * border;
-        int innerH = h - 2 * border;
-        int srcInnerW = srcW - 2 * border;
-        int srcInnerH = srcH - 2 * border;
-
-        // 四角（不拉伸）
-        g.blit(tex, x, y, border, border, srcLeft, srcTop, border, border, texW, texFileH);
-        g.blit(tex, x + w - border, y, border, border,
-                srcLeft + srcW - border, srcTop, border, border, texW, texFileH);
-        g.blit(tex, x, y + h - border, border, border,
-                srcLeft, srcTop + srcH - border, border, border, texW, texFileH);
-        g.blit(tex, x + w - border, y + h - border, border, border,
-                srcLeft + srcW - border, srcTop + srcH - border, border, border, texW, texFileH);
-
-        // 上边缘（水平平铺）
-        if (innerW > 0 && srcInnerW > 0) {
-            for (int dx = x + border; dx < x + w - border; dx += srcInnerW) {
-                int tileW = Math.min(srcInnerW, x + w - border - dx);
-                g.blit(tex, dx, y, tileW, border, srcLeft + border, srcTop, tileW, border, texW, texFileH);
-            }
-        }
-        // 下边缘（水平平铺）
-        if (innerW > 0 && srcInnerW > 0) {
-            for (int dx = x + border; dx < x + w - border; dx += srcInnerW) {
-                int tileW = Math.min(srcInnerW, x + w - border - dx);
-                g.blit(tex, dx, y + h - border, tileW, border,
-                        srcLeft + border, srcTop + srcH - border, tileW, border, texW, texFileH);
-            }
-        }
-        // 左边缘（垂直平铺）
-        if (innerH > 0 && srcInnerH > 0) {
-            for (int dy = y + border; dy < y + h - border; dy += srcInnerH) {
-                int tileH = Math.min(srcInnerH, y + h - border - dy);
-                g.blit(tex, x, dy, border, tileH, srcLeft, srcTop + border, border, tileH, texW, texFileH);
-            }
-        }
-        // 右边缘（垂直平铺）
-        if (innerH > 0 && srcInnerH > 0) {
-            for (int dy = y + border; dy < y + h - border; dy += srcInnerH) {
-                int tileH = Math.min(srcInnerH, y + h - border - dy);
-                g.blit(tex, x + w - border, dy, border, tileH,
-                        srcLeft + srcW - border, srcTop + border, border, tileH, texW, texFileH);
-            }
-        }
-        // 中心区域（双向平铺）
-        if (innerW > 0 && innerH > 0 && srcInnerW > 0 && srcInnerH > 0) {
-            for (int dy = y + border; dy < y + h - border; dy += srcInnerH) {
-                int tileH = Math.min(srcInnerH, y + h - border - dy);
-                for (int dx = x + border; dx < x + w - border; dx += srcInnerW) {
-                    int tileW = Math.min(srcInnerW, x + w - border - dx);
-                    g.blit(tex, dx, dy, tileW, tileH,
-                            srcLeft + border, srcTop + border, tileW, tileH, texW, texFileH);
-                }
-            }
-        }
+        drawNineSlice(g, FLOATING_UI_TEXTURE, FLOATING_TEX_W, FLOATING_TEX_FILE_H, x, y, w, h, FLOATING_SPEC);
     }
 
     // ======================== 统一文字渲染 ========================
@@ -406,6 +325,15 @@ public final class RtsClientUiUtil {
             int x, int y, int drawW, int drawH,
             int srcX, int srcY, int srcW, int srcH,
             int texW, int texFileH) {
+        // 绑定并显式设置双线性过滤（确保 OpenGL 状态正确）
+        RenderSystem.setShaderTexture(0, texture);
+        RenderSystem.texParameter(org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
+                org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
+                org.lwjgl.opengl.GL11.GL_LINEAR);
+        RenderSystem.texParameter(org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
+                org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
+                org.lwjgl.opengl.GL11.GL_LINEAR);
+        // 同步更新 AbstractTexture 的状态，避免后续其他绑定覆盖
         var tex = Minecraft.getInstance().getTextureManager().getTexture(texture);
         if (tex != null) {
             tex.setFilter(true, false);
@@ -428,6 +356,81 @@ public final class RtsClientUiUtil {
     public static void drawScaledImage(GuiGraphics g, ResourceLocation texture,
             int x, int y, int drawW, int drawH, int texW, int texH) {
         drawScaledImage(g, texture, x, y, drawW, drawH, 0, 0, texW, texH, texW, texH);
+    }
+
+    /**
+     * 使用三线性过滤的高质量贴图绘制（mipmap + 双线性）。
+     *
+     * <p>与 {@link #drawScaledImage} 使用普通双线性过滤不同，此方法：</p>
+     * <ul>
+     *   <li>首次绘制时自动生成 mipmap（{@link GL30#glGenerateMipmap}）</li>
+     *   <li>缩小过滤器使用 {@code GL_LINEAR_MIPMAP_LINEAR}（三线性过滤），
+     *       大幅减少缩小渲染时的锯齿和闪烁</li>
+     *   <li>放大过滤器使用 {@code GL_LINEAR}，保持放大时边缘平滑</li>
+     * </ul>
+     *
+     * <p><b>注意：</b>此方法适合高分辨率贴图（如照片级纹理），
+     * 对于像素风格的低分辨率贴图应使用 {@link #drawPixelImage}。
+     * mipmap 仅在首次绘制时生成一次，后续调用无额外开销。</p>
+     *
+     * @param g           GuiGraphics
+     * @param texture     贴图资源
+     * @param x           目标区域左上 X
+     * @param y           目标区域左上 Y
+     * @param drawW       目标绘制宽度
+     * @param drawH       目标绘制高度
+     * @param srcX        源贴图起始 X
+     * @param srcY        源贴图起始 Y
+     * @param srcW        源贴图区域宽度
+     * @param srcH        源贴图区域高度
+     * @param texW        源贴图文件总宽度
+     * @param texFileH    源贴图文件总高度
+     */
+    public static void drawHighQualityImage(GuiGraphics g, ResourceLocation texture,
+            int x, int y, int drawW, int drawH,
+            int srcX, int srcY, int srcW, int srcH,
+            int texW, int texFileH) {
+        // 1. 通知 AbstractTexture 使用 mipmap 过滤（确保后续绑定也保持此设置）
+        var tex = Minecraft.getInstance().getTextureManager().getTexture(texture);
+        if (tex != null) {
+            tex.setFilter(true, true);  // blur=true, mipmap=true → GL_LINEAR_MIPMAP_LINEAR
+        }
+
+        // 2. 绑定纹理（setShaderTexture 会触发 AbstractTexture.bind()，应用 filter 设置）
+        RenderSystem.setShaderTexture(0, texture);
+
+        // 3. 首次使用时生成 mipmap
+        if (tex != null && MIPMAP_GENERATED.add(texture)) {
+            GL30.glGenerateMipmap(org.lwjgl.opengl.GL11.GL_TEXTURE_2D);
+        }
+
+        // 4. 显式设置三线性过滤（覆盖 AbstractTexture 可能未正确应用的情况）
+        RenderSystem.texParameter(org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
+                org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
+                org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR);
+        RenderSystem.texParameter(org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
+                org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
+                org.lwjgl.opengl.GL11.GL_LINEAR);
+
+        // 5. 绘制
+        g.blit(texture, x, y, drawW, drawH, srcX, srcY, srcW, srcH, texW, texFileH);
+    }
+
+    /**
+     * 使用三线性过滤绘制整张贴图（从左上角 (0,0) 开始）。
+     *
+     * @param g       GuiGraphics
+     * @param texture 贴图资源
+     * @param x       目标区域左上 X
+     * @param y       目标区域左上 Y
+     * @param drawW   目标绘制宽度
+     * @param drawH   目标绘制高度
+     * @param texW    源贴图总宽度
+     * @param texH    源贴图总高度
+     */
+    public static void drawHighQualityImage(GuiGraphics g, ResourceLocation texture,
+            int x, int y, int drawW, int drawH, int texW, int texH) {
+        drawHighQualityImage(g, texture, x, y, drawW, drawH, 0, 0, texW, texH, texW, texH);
     }
 
     /**

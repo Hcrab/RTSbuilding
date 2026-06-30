@@ -1,10 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -58,6 +57,7 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private static final int STATE_H = 16;
     /** 九宫格边框宽度 */
     private static final int BORDER = 2;
+    private static final NineSliceSource BORDER_SPEC = NineSliceSource.fullTheme(TEX_W / 2, STATE_H, BORDER);
     // ======================== 内嵌层贴图 ========================
 
     /** 右边栏内嵌层贴图（256×256，水平左暗右亮，垂直上正常下激活） */
@@ -75,6 +75,7 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
     /** 九宫格边框宽度 */
     private static final int OVERLAY_BORDER = 8;
+    private static final NineSliceSource OVERLAY_SPEC = NineSliceSource.fullTheme(OVERLAY_HALF_W, OVERLAY_STATE_H, OVERLAY_BORDER);
 
     /** 左边框拖拽缩放处理器 */
     private final RightSidebarResizeHandler resizeHandler = new RightSidebarResizeHandler();
@@ -99,17 +100,11 @@ public final class RightSidebarPanel implements RtsPanelApi {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        int halfW = TEX_W / 2;
         int srcY = resizeHandler.isActive() ? STATE_H : 0;
-        RtsClientUiUtil.drawNineSliceRegion(g, BORDER_TEXTURE,
-                sb.x(), sb.y(), sb.width(), sb.height(), BORDER,
+        RtsClientUiUtil.drawNineSlice(g, BORDER_TEXTURE,
                 TEX_W, TEX_FILE_H,
-                0, srcY, halfW, STATE_H);
-
-        RenderSystem.disableBlend();
+                sb.x(), sb.y(), sb.width(), sb.height(),
+                BORDER_SPEC.withYOffset(srcY));
     }
 
     /**
@@ -153,15 +148,10 @@ public final class RightSidebarPanel implements RtsPanelApi {
                 && mouseY >= oy && mouseY < oy + oh;
         int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        RtsClientUiUtil.drawNineSliceRegion(g, OVERLAY_TEXTURE,
-                ox, oy, ow, oh, OVERLAY_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, OVERLAY_TEXTURE,
                 OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
-                0, srcY, OVERLAY_HALF_W, OVERLAY_STATE_H);
-
-        RenderSystem.disableBlend();
+                ox, oy, ow, oh,
+                OVERLAY_SPEC.withYOffset(srcY));
     }
 
     // ======================== 交互：左边框拖拽缩放 ========================

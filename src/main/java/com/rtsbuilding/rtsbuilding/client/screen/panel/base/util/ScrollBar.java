@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -67,6 +67,11 @@ public class ScrollBar {
 
     /** 上一帧鼠标是否悬浮在滑块上，用于切换下层高亮贴图 */
     private boolean hovering;
+
+    private static final NineSliceSource TRACK_SPEC = new NineSliceSource(
+            0, 0, TRACK_SRC_W, TRACK_SRC_H, SCROLLBAR_BORDER);
+    private static final NineSliceSource THUMB_SPEC = new NineSliceSource(
+            5, 0, THUMB_SRC_W, THUMB_SRC_H, SCROLLBAR_BORDER);
 
     // ======================== 外观配置 ========================
 
@@ -240,20 +245,18 @@ public class ScrollBar {
 
         // 激活状态下切换为下层贴图（拖拽或悬停时显示高亮态）
         boolean active = this.dragging || this.hovering;
-        int trackSrcY = active ? TRACK_SRC_H : 0;
-        int thumbSrcY = active ? THUMB_SRC_H : 0;
 
         // 滑条（4px 宽，垂直平铺填充）
-        RtsClientUiUtil.drawNineSliceRegion(g, SCROLLBAR_TEXTURE,
-                barX, barY, TRACK_SRC_W, barH, SCROLLBAR_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, SCROLLBAR_TEXTURE,
                 SCROLLBAR_TEX_W, SCROLLBAR_TEX_H,
-                0, trackSrcY, TRACK_SRC_W, TRACK_SRC_H);
+                barX, barY, TRACK_SRC_W, barH,
+                active ? TRACK_SPEC.withYOffset(TRACK_SRC_H) : TRACK_SPEC);
 
         // 滑块（6px 宽，以滑条为中心左右各凸出 1px）
-        RtsClientUiUtil.drawNineSliceRegion(g, SCROLLBAR_TEXTURE,
-                barX - 1, thumbY, THUMB_SRC_W, thumbH, SCROLLBAR_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, SCROLLBAR_TEXTURE,
                 SCROLLBAR_TEX_W, SCROLLBAR_TEX_H,
-                5, thumbSrcY, THUMB_SRC_W, THUMB_SRC_H);
+                barX - 1, thumbY, THUMB_SRC_W, thumbH,
+                active ? THUMB_SPEC.withYOffset(THUMB_SRC_H) : THUMB_SPEC);
     }
 
     // ======================== 交互区域检测 ========================

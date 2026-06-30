@@ -26,7 +26,8 @@ public abstract class SettingsSection {
 
     private static final int LEFT_PADDING = 8;
     private static final int CONTENT_TOP_GAP = 0;
-    private static final int LINE_HEIGHT = 16;
+    /** 行高（含行间距），默认 20px */
+    private static final int LINE_HEIGHT = 20;
 
     private static final int HOVER_BG_COLOR = 0x22334455;
 
@@ -70,10 +71,11 @@ public abstract class SettingsSection {
     protected abstract int getContentRowCount();
 
     /**
-     * 获取内容行数组（根据 {@link #getContentRowCount()} 自动生成空行）。
+     * 获取内容行数（替代每帧创建 String[] 数组，避免 GC 压力）。
+     * <p>子类若未覆写 {@link #renderContent}，应直接通过此方法获取行数。</p>
      */
-    private String[] getContentLines() {
-        return new String[getContentRowCount()];
+    protected int getContentLineCount() {
+        return getContentRowCount();
     }
 
     /**
@@ -94,7 +96,7 @@ public abstract class SettingsSection {
         int headerY = contentY + 8;
         int headerW = contentW - LEFT_PADDING * 2;
 
-        String[] lines = getContentLines();
+        int lineCount = getContentLineCount();
         int contentFullH = getEffectiveContentHeight();
         section.drawHeader(g, mouseX, mouseY, headerX, headerY, headerW, contentFullH);
 
@@ -108,7 +110,7 @@ public abstract class SettingsSection {
 
             int contentTop = headerBottom + CONTENT_TOP_GAP;
             enableScissor(g, headerX, contentTop, headerX + headerW, contentTop + animH);
-            renderContent(g, mouseX, mouseY, headerX, contentTop, headerW, lines);
+            renderContent(g, mouseX, mouseY, headerX, contentTop, headerW, lineCount);
             g.disableScissor();
         }
     }
@@ -116,17 +118,10 @@ public abstract class SettingsSection {
     /**
      * 渲染内容行。子类可重写此方法添加自定义绘制（如颜色指示器）。
      */
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, String[] lines) {
+    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int lineCount) {
 
-        for (int i = 0; i < lines.length; i++) {
+        for (int i = 0; i < lineCount; i++) {
             int lineY = y + 4 + i * LINE_HEIGHT;
-            boolean hovered = mouseX >= x + 2 && mouseX < x + w - 2
-                    && mouseY >= lineY && mouseY < lineY + LINE_HEIGHT;
-            if (hovered) {
-                g.fill(x + 1, lineY, x + w - 1, lineY + LINE_HEIGHT, getHoverBgColor());
-            }
-            RtsClientUiUtil.drawUiText(g, lines[i], x + 6, lineY + 2,
-                    hovered ? getHoverTextColor() : getTextColor());
         }
     }
 
@@ -158,14 +153,14 @@ public abstract class SettingsSection {
             return true;
         }
         if (isExpanded()) {
-            String[] lines = getContentLines();
+            int lineCount = getContentLineCount();
             int contentFullH = getEffectiveContentHeight();
             int animH = (int) (contentFullH * section.getContentProgress());
             if (animH > 0) {
                 int contentTop = headerY + CollapsibleSection.headerHeight() + CONTENT_TOP_GAP;
                 if (mouseX >= headerX + 2 && mouseX < headerX + headerW - 2
                         && mouseY >= contentTop && mouseY < contentTop + animH) {
-                    for (int i = 0; i < lines.length; i++) {
+                    for (int i = 0; i < lineCount; i++) {
                         if (onContentLineClick(i, mouseX, mouseY, contentX, contentY, contentW)) {
                             return true;
                         }
@@ -203,9 +198,10 @@ public abstract class SettingsSection {
         return w - ThemeSwitchComponent.SIZE - RIGHT_PAD;
     }
 
-    /** 右对齐开关的 Y（垂直居中于行） */
+    /** 右对齐开关的 Y——开关中心对齐文字中心 */
     protected int toggleY(int y, int row) {
-        return rowY(y, row) - (ThemeSwitchComponent.SIZE - LINE_HEIGHT) / 2;
+        int textCenter = textY(y, row) + Minecraft.getInstance().font.lineHeight / 2;
+        return textCenter - ThemeSwitchComponent.SIZE / 2;
     }
 
     /** 在指定行渲染标签文本（左对齐） */
@@ -233,7 +229,7 @@ public abstract class SettingsSection {
                                  double min, double max, double value) {
         RtsClientUiUtil.drawUiText(g, label, x + LEFT_PAD, textY(y, row), getTextColor());
         int textW = Minecraft.getInstance().font.width(label);
-        int lineCenterY = rowY(y, row) + LINE_HEIGHT / 2;
+        int lineCenterY = textY(y, row) + Minecraft.getInstance().font.lineHeight / 2;
         trackPos.trackX = x + LEFT_PAD + textW + SLIDER_GAP;
         trackPos.trackY = lineCenterY - 2;
         trackPos.trackW = Mth.clamp(w - LEFT_PAD - RIGHT_PAD - textW - SLIDER_GAP, 20, w - LEFT_PAD - RIGHT_PAD);

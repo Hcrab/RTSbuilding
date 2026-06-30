@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,6 +25,12 @@ public final class RtsFloatingWindowLayer {
     private final List<RtsPanel> frontToBackWindows;
     /** 是否需要重新排序（点击窗口时标记，渲染时消费） */
     private boolean sortDirty;
+
+    /** 标记排序为脏，下次渲染时自动重新排序。
+     * 在程序化打开/关闭面板后调用，确保新面板处于正确 z 顺序。 */
+    public void markSortDirty() {
+        this.sortDirty = true;
+    }
 
     public RtsFloatingWindowLayer(RtsPanel... frontToBackWindows) {
         this.frontToBackWindows = new ArrayList<>(List.of(frontToBackWindows));
@@ -60,6 +67,7 @@ public final class RtsFloatingWindowLayer {
 
         for (int i = 0; i < this.frontToBackWindows.size(); i++) {
             RtsPanel window = this.frontToBackWindows.get(i);
+            if (!window.isOpen()) continue;
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);
@@ -68,8 +76,6 @@ public final class RtsFloatingWindowLayer {
             } finally {
                 window.setSkipHoverDetection(false);
             }
-            g.flush();
-            Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
         }
     }
 
@@ -107,10 +113,29 @@ public final class RtsFloatingWindowLayer {
     // ======================== 输入路由 ========================
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 快照所有面板的时间戳，用于检测点击处理过程中是否有面板被程序化打开
+        long[] timestamps = new long[this.frontToBackWindows.size()];
+        for (int j = 0; j < this.frontToBackWindows.size(); j++) {
+            timestamps[j] = this.frontToBackWindows.get(j).getLastClickTime();
+        }
+
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsPanel window = this.frontToBackWindows.get(i);
+            int windowIdx = i;
             if (window.mouseClicked(mouseX, mouseY, button)) {
-                window.markBroughtToFront();
+                // 检查在被点击面板处理点击的过程中，是否有其他面板被程序化打开（时间戳被更新）。
+                // 例如设置面板（GearMenuPanel）点击调色盘按钮打开了调色盘面板（ColorPickerPanel），
+                // 此时调色盘面板的时间戳是更新的，我们不应当再把设置面板置顶。
+                boolean otherPanelBroughtToFront = false;
+                for (int j = 0; j < this.frontToBackWindows.size(); j++) {
+                    if (j != windowIdx && this.frontToBackWindows.get(j).getLastClickTime() > timestamps[j]) {
+                        otherPanelBroughtToFront = true;
+                        break;
+                    }
+                }
+                if (!otherPanelBroughtToFront) {
+                    window.markBroughtToFront();
+                }
                 this.sortDirty = true;
                 return true;
             }
@@ -162,7 +187,17 @@ public final class RtsFloatingWindowLayer {
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).keyPressed(keyCode, scanCode, modifiers)) {
+            RtsPanel window = this.frontToBackWindows.get(i);
+            if (!window.isOpen()) continue;
+
+            // 子类优先级更高——先问子类要不要吃这个事件（如搜索框 ESC 清空）
+            if (window.handleWindowKeyPressed(keyCode, scanCode, modifiers)) {
+                return true;
+            }
+
+            // ESC 关闭（setOpen(false) 内部会递归关闭所有子面板）
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE && window.closable) {
+                window.setOpen(false);
                 return true;
             }
         }

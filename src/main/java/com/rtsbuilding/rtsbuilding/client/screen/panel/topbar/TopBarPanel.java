@@ -100,6 +100,10 @@ public final class TopBarPanel implements RtsPanelApi {
      * <p>半透明灰色，需要 blend 启用才能正确渲染。</p>
      */
     private static final int BOTTOM_SRC_H = TopBarLayoutHelper.BOTTOM_SRC_H;
+    private static final NineSliceSource TOP_UP_SPEC = NineSliceSource.fullTheme(
+            TOP_UI_HALF_W, TOP_SRC_H, TOP_UI_BORDER);
+    private static final NineSliceSource TOP_DOWN_SPEC = NineSliceSource.fullTheme(
+            TOP_UI_HALF_W, BOTTOM_SRC_H, TOP_UI_BORDER);
     /** 顶部栏上半部分绘制高度 */
     private static final int TOP_BAR_HEIGHT = TopBarLayoutHelper.TOP_BAR_HEIGHT;
     /** 屏幕背景九宫格边框宽度，用于定位下半部分顶部 Y */
@@ -212,8 +216,7 @@ public final class TopBarPanel implements RtsPanelApi {
         // 用交叉渐变过渡 Logo 正常态 ↔ 高亮态
         renderLogoCrossFade(g);
 
-        // 恢复 blend 状态
-        RenderSystem.enableBlend();
+        // blend 已在 renderTopBarBackground 中启用，此处只需重置 blend 函数
         RenderSystem.defaultBlendFunc();
 
         // 渲染 Debug 选项弹出菜单（位置每帧更新，跟随右侧按钮）
@@ -262,21 +265,16 @@ public final class TopBarPanel implements RtsPanelApi {
     private void renderTopBarBackground(GuiGraphics g) {
         int screenW = screen.width;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
         // 上半部分
-        RtsClientUiUtil.drawNineSliceRegion(g, TOP_UI_UP_TEXTURE,
-                0, 0, screenW, TOP_BAR_HEIGHT, TOP_UI_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, TOP_UI_UP_TEXTURE,
                 TOP_UI_TEX_W, TOP_UI_TEX_H,
-                0, 0, TOP_UI_HALF_W, TOP_SRC_H);
+                0, 0, screenW, TOP_BAR_HEIGHT, TOP_UP_SPEC);
 
         // 下半部分
         int bottomY = TOP_BAR_HEIGHT + SCREEN_BORDER;
-        RtsClientUiUtil.drawNineSliceRegion(g, TOP_UI_DOWN_TEXTURE,
-                0, bottomY, screenW, BOTTOM_SRC_H, TOP_UI_BORDER,
+        RtsClientUiUtil.drawNineSlice(g, TOP_UI_DOWN_TEXTURE,
                 TOP_UI_TEX_W, TOP_UI_TEX_H,
-                0, 0, TOP_UI_HALF_W, BOTTOM_SRC_H);
+                0, bottomY, screenW, BOTTOM_SRC_H, TOP_DOWN_SPEC);
     }
 
     @Override

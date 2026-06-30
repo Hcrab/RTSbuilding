@@ -14,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsFloatingWindowLay
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPanel;
@@ -52,6 +53,7 @@ public class BuilderScreen extends Screen {
     private final ScreenBackgroundPanel screenBackgroundPanel;
     private final RtsFloatingWindowLayer floatingWindowLayer;
     private final TopBarPanel topBarPanel;
+    private final ColorPickerPanel colorPickerPanel;
     private final GearMenuPanel gearMenuPanel;
     private final RightSidebarPanel rightSidebarPanel;
     private final DownSidebarPanel downSidebarPanel;
@@ -87,6 +89,7 @@ public class BuilderScreen extends Screen {
         // 在构造函数中创建面板实例——它们将存活整个屏幕生命周期，
         // 不会因 init() 被多次调用而重建（避免窗口 resize 时状态丢失）
         this.screenBackgroundPanel = new ScreenBackgroundPanel();
+        this.colorPickerPanel = new ColorPickerPanel();
         this.gearMenuPanel = new GearMenuPanel();
         this.rightSidebarPanel = new RightSidebarPanel();
         this.downSidebarPanel = new DownSidebarPanel();
@@ -119,6 +122,8 @@ public class BuilderScreen extends Screen {
         super.init();
         // 只在 init() 中调用面板的 init() 来更新 screen 引用，不重建实例
         this.screenBackgroundPanel.init(this);
+        this.colorPickerPanel.init(this);
+        this.floatingWindowLayer.frontToBackWindows().add(this.colorPickerPanel);
         this.gearMenuPanel.init(this);
         this.floatingWindowLayer.frontToBackWindows().add(this.gearMenuPanel);
         this.rightSidebarPanel.init(this);
@@ -167,6 +172,10 @@ public class BuilderScreen extends Screen {
      * 返回当前右边框实际宽度，供 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel}
      * 等组件动态调整布局位置。
      */
+    public ColorPickerPanel getColorPickerPanel() {
+        return this.colorPickerPanel;
+    }
+
     public int getRightSidebarWidth() {
         return this.rightSidebarPanel.getCurrentWidth();
     }
@@ -432,11 +441,13 @@ public class BuilderScreen extends Screen {
 
         // 1. 捕获画面——使用固定参考高度做等比缩放（不因下边框拖拽而缩放），
         //    contentY 动态偏移确保画面中心始终与内容区垂直中位线对齐
+        int rightW = getRightSidebarWidth();
+        int downH = getDownSidebarHeight();
         if (screenBackgroundPanel != null && ViewCaptureService.hasValidFrame()) {
             int contentX = 0;
             int contentY = ScreenBackgroundPanel.BACKGROUND_TOP_Y
-                + (DownSidebarLayoutHelper.DOWN_BAR_HEIGHT - getDownSidebarHeight()) / 2;
-            int contentW = this.width - getRightSidebarWidth();
+                + (DownSidebarLayoutHelper.DOWN_BAR_HEIGHT - downH) / 2;
+            int contentW = this.width - rightW;
             // 参考内容高度：使用默认下边框高度计算，不受拖拽影响，确保画面缩放比例恒定
             int refContentH = this.height - ScreenBackgroundPanel.BACKGROUND_TOP_Y - DownSidebarLayoutHelper.DOWN_BAR_HEIGHT;
             if (contentW > 0 && refContentH > 0) {
@@ -488,9 +499,9 @@ public class BuilderScreen extends Screen {
 
         // 6. 更新框选系统的鼠标悬浮位置（仅选择模式 + 鼠标在内容区域内）
         if (leftSidebarPanel != null && !leftSidebarPanel.isClickButtonSelected()
-                && mouseX >= getLeftSidebarWidth() && mouseX < this.width - getRightSidebarWidth()
+                && mouseX >= getLeftSidebarWidth() && mouseX < this.width - rightW
                 && mouseY >= ScreenBackgroundPanel.BACKGROUND_TOP_Y
-                && mouseY < this.height - getDownSidebarHeight()
+                && mouseY < this.height - downH
                 && !isMouseOverUI(mouseX, mouseY)) {
             var bs = kernel.renderPipeline().boxSelector;
             bs.updateHoverFromScreen(Minecraft.getInstance(), this, hasControlDown());
