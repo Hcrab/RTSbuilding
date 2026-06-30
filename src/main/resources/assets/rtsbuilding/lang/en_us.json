@@ -3,6 +3,12 @@
   "key.rtsbuilding.toggleRts": "Toggle RTS Mode",
   "key.rtsbuilding.open_gear_menu": "Open Settings",
   "key.rtsbuilding.toggle_debug_overlay": "Toggle Debug Overlay",
+  "key.rtsbuilding.toggle_camera_mode": "Toggle Camera Mode",
+  "key.rtsbuilding.move_player": "Move Player to Target",
+  "key.rtsbuilding.toggle_select_mode": "Toggle Select Mode",
+  "key.rtsbuilding.toggle_bind_mode": "Toggle Bind Mode",
+  "key.rtsbuilding.toggle_direction_rotate_mode": "Toggle Direction Rotate",
+  "key.rtsbuilding.toggle_item_pickup_mode": "Toggle Item Pickup",
 
   "key.categories.rtsbuilding.camera": "RTSBuilding - Camera",
   "key.rtsbuilding.camera_forward": "Camera Forward",
@@ -12,7 +18,7 @@
   "key.rtsbuilding.camera_up": "Camera Up",
   "key.rtsbuilding.camera_down": "Camera Down",
 
-  "screen.rtsbuilding.settings.title": "RTS设置",
+  "screen.rtsbuilding.settings.title": "RTS Settings",
   "screen.rtsbuilding.settings.category.personalization": "Personalization",
   "screen.rtsbuilding.settings.category.rendering": "Rendering",
   "screen.rtsbuilding.settings.category.controls": "Controls",
@@ -21,7 +27,34 @@
   "screen.rtsbuilding.settings.theme.dark": "Dark",
   "screen.rtsbuilding.settings.ui_scale": "UI Scale",
   "screen.rtsbuilding.settings.sensitivity": "camera Sensitivity",
+  "screen.rtsbuilding.settings.orbit_mode": "Orbit Mode",
+  "screen.rtsbuilding.settings.orbit_mode.on": "ON",
+  "screen.rtsbuilding.settings.orbit_mode.off": "OFF",
 
+  "screen.rtsbuilding.settings.depth_test": "See-Through",
+  "screen.rtsbuilding.settings.flow_animation": "Flow Animation",
+  "screen.rtsbuilding.settings.smooth_animation": "Wireframe Smooth Movement Animation",
+  "screen.rtsbuilding.settings.ui_smooth_animation": "UI Smooth Animation",
+  "screen.rtsbuilding.settings.overlay_alpha": "Wireframe Alpha",
   "screen.rtsbuilding.debug.chunk_border": "Chunk Border",
-  "screen.rtsbuilding.debug.collision_box": "Collision Box"
+  "screen.rtsbuilding.debug.collision_box": "Collision Box",
+
+  "tooltip.rtsbuilding.camera.free_mode": "Free Camera",
+  "tooltip.rtsbuilding.camera.free_mode.desc": "Freely move, zoom and rotate the camera",
+  "tooltip.rtsbuilding.camera.surround_mode": "Orbit Mode",
+  "tooltip.rtsbuilding.camera.surround_mode.desc": "Camera orbits around the current player",
+  "tooltip.rtsbuilding.debug.overlay": "Debug Overlay",
+  "tooltip.rtsbuilding.debug.overlay.desc": "Show debug overlays like chunk borders and hitboxes",
+  "tooltip.rtsbuilding.shortcut": "Shortcut: %s",
+
+  "tooltip.rtsbuilding.left.click_button": "Building Mode",
+  "tooltip.rtsbuilding.left.click_button.desc": "Place and break blocks",
+  "tooltip.rtsbuilding.left.select_button": "Select Mode",
+  "tooltip.rtsbuilding.left.select_button.desc": "Select and interact",
+  "tooltip.rtsbuilding.left.bind_button": "Bind Mode",
+  "tooltip.rtsbuilding.left.bind_button.desc": "Bind and drag entities",
+  "tooltip.rtsbuilding.left.direction_rotate": "Direction Rotate",
+  "tooltip.rtsbuilding.left.direction_rotate.desc": "Rotate block orientation",
+  "tooltip.rtsbuilding.left.item_pickup": "Item Pickup",
+  "tooltip.rtsbuilding.left.item_pickup.desc": "Pick up items from world"
 }

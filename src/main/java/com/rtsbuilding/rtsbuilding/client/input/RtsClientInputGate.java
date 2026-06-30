@@ -27,7 +27,7 @@ public final class RtsClientInputGate {
     private RtsClientInputGate() {}
 
     private static boolean isRtsEnabled() {
-        CameraModule cam = RtsClientKernel.get().module("camera");
+        CameraModule cam = RtsClientKernel.get().module(CameraModule.class);
         return cam != null && cam.getState().isEnabled();
     }
 

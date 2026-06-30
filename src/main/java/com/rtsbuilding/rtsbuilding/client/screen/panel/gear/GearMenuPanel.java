@@ -41,7 +41,7 @@ public final class GearMenuPanel extends RtsPanel {
         super.init(screen);
         this.resizable = true;
         RtsClientKernel kernel = RtsClientKernel.get();
-        this.cameraModule = kernel.module("camera");
+        this.cameraModule = kernel.module(CameraModule.class);
         this.operationSection.setCameraModule(this.cameraModule);
     }
 
@@ -138,6 +138,11 @@ public final class GearMenuPanel extends RtsPanel {
                 operationSection.handleSliderDrag(mouseX);
                 return true;
             }
+            // 透明度滑条拖拽
+            if (renderingSection.isSliderDragging()) {
+                renderingSection.handleSliderDrag(mouseX);
+                return true;
+            }
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
@@ -146,6 +151,7 @@ public final class GearMenuPanel extends RtsPanel {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         scrollBar.endDrag();
         operationSection.endSliderDrag();
+        renderingSection.endSliderDrag();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -153,6 +159,10 @@ public final class GearMenuPanel extends RtsPanel {
     protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         // 滑条滚轮优先：鼠标在灵敏度滑条区域时调值而非滚动面板
         if (operationSection.handleSliderScroll(mouseX, mouseY, scrollY)) {
+            return true;
+        }
+        // 透明度滑条滚轮
+        if (renderingSection.handleSliderScroll(mouseX, mouseY, scrollY)) {
             return true;
         }
         return scrollBar.handleScroll(scrollY);

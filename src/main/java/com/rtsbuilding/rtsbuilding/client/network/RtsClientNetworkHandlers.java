@@ -39,7 +39,7 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleCameraAnchor(S2CRtsCameraAnchorPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            CameraModule cm = kernel().module("camera");
+            CameraModule cm = kernel().module(CameraModule.class);
             if (cm != null) cm.applyServerCameraAnchor(payload);
             // 同步更新内核区域信息（独立于摄像机模块）
             kernel().updateRegion(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
@@ -48,10 +48,12 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleCameraState(S2CRtsCameraStatePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            CameraModule cm = kernel().module("camera");
+            CameraModule cm = kernel().module(CameraModule.class);
             if (cm != null) cm.applyServerCameraState(payload);
             // 同步更新内核区域信息（独立于摄像机模块）
             kernel().updateRegion(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
+            // 分发 RtsToggled 事件，触发 BuilderScreen 的打开/关闭
+            kernel().dispatch(new StateEvent.RtsToggled(payload.enabled()));
         });
     }
 
@@ -61,28 +63,28 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            StorageModule sm = kernel().module("storage");
+            StorageModule sm = kernel().module(StorageModule.class);
             if (sm != null) sm.applyStoragePage(payload);
         });
     }
 
     public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            StorageModule sm = kernel().module("storage");
+            StorageModule sm = kernel().module(StorageModule.class);
             if (sm != null) sm.applyStorageDirty(payload);
         });
     }
 
     public static void handleCraftables(S2CRtsCraftablesPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            StorageModule sm = kernel().module("storage");
+            StorageModule sm = kernel().module(StorageModule.class);
             if (sm != null) sm.applyCraftables(payload);
         });
     }
 
     public static void handleCraftFeedback(S2CRtsCraftFeedbackPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            StorageModule sm = kernel().module("storage");
+            StorageModule sm = kernel().module(StorageModule.class);
             if (sm != null) sm.applyCraftFeedback(payload);
         });
     }
@@ -93,14 +95,14 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleMineProgress(S2CRtsMineProgressPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            MiningModule mm = kernel().module("mining");
+            MiningModule mm = kernel().module(MiningModule.class);
             if (mm != null) mm.applyMineProgress(payload.pos(), payload.stage());
         });
     }
 
     public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            MiningModule mm = kernel().module("mining");
+            MiningModule mm = kernel().module(MiningModule.class);
             if (mm != null) mm.applyUltimineProgress(payload.processed(), payload.total());
         });
     }
@@ -111,14 +113,14 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            WorkflowModule wm = kernel().module("workflow");
+            WorkflowModule wm = kernel().module(WorkflowModule.class);
             if (wm != null) wm.applyWorkflowProgress(payload);
         });
     }
 
     public static void handleWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            WorkflowModule wm = kernel().module("workflow");
+            WorkflowModule wm = kernel().module(WorkflowModule.class);
             if (wm != null) {
                 for (var entry : payload.entries()) {
                     wm.applyWorkflowProgress(entry);
@@ -133,14 +135,14 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleProgressionState(S2CRtsProgressionStatePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            ProgressionModule pm = kernel().module("progression");
+            ProgressionModule pm = kernel().module(ProgressionModule.class);
             if (pm != null) pm.applyProgressionState(payload, null);
         });
     }
 
     public static void handlePluginState(S2CRtsPluginStatePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            PluginModule pm = kernel().module("plugin");
+            PluginModule pm = kernel().module(PluginModule.class);
             if (pm != null) pm.applyPluginState(payload);
         });
     }

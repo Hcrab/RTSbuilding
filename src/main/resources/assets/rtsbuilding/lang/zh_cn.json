@@ -3,6 +3,12 @@
   "key.rtsbuilding.toggleRts": "开启/关闭 RTS 模式",
   "key.rtsbuilding.open_gear_menu": "打开设置面板",
   "key.rtsbuilding.toggle_debug_overlay": "切换辅助显示",
+  "key.rtsbuilding.toggle_camera_mode": "切换相机模式",
+  "key.rtsbuilding.move_player": "移动玩家到目标位置",
+  "key.rtsbuilding.toggle_select_mode": "切换选择模式",
+  "key.rtsbuilding.toggle_bind_mode": "切换绑定模式",
+  "key.rtsbuilding.toggle_direction_rotate_mode": "切换方向旋转",
+  "key.rtsbuilding.toggle_item_pickup_mode": "切换物品拾取",
 
   "key.categories.rtsbuilding.camera": "RTSBuilding - 摄像机",
   "key.rtsbuilding.camera_forward": "摄像机前进",
@@ -21,7 +27,34 @@
   "screen.rtsbuilding.settings.theme.dark": "深色",
   "screen.rtsbuilding.settings.ui_scale": "界面缩放",
   "screen.rtsbuilding.settings.sensitivity": "相机灵敏度",
+  "screen.rtsbuilding.settings.orbit_mode": "环绕模式",
+  "screen.rtsbuilding.settings.orbit_mode.on": "已开启",
+  "screen.rtsbuilding.settings.orbit_mode.off": "已关闭",
 
+  "screen.rtsbuilding.settings.depth_test": "穿透层",
+  "screen.rtsbuilding.settings.flow_animation": "线框流动动画",
+  "screen.rtsbuilding.settings.smooth_animation": "线框移动平滑动画",
+  "screen.rtsbuilding.settings.ui_smooth_animation": "UI平滑动画",
+  "screen.rtsbuilding.settings.overlay_alpha": "线框透明度",
   "screen.rtsbuilding.debug.chunk_border": "区块显示",
-  "screen.rtsbuilding.debug.collision_box": "碰撞箱显示"
+  "screen.rtsbuilding.debug.collision_box": "碰撞箱显示",
+
+  "tooltip.rtsbuilding.camera.free_mode": "自由视角",
+  "tooltip.rtsbuilding.camera.free_mode.desc": "自由移动、缩放和旋转摄像机",
+  "tooltip.rtsbuilding.camera.surround_mode": "环绕模式",
+  "tooltip.rtsbuilding.camera.surround_mode.desc": "摄像机围绕当前玩家旋转",
+  "tooltip.rtsbuilding.debug.overlay": "辅助显示",
+  "tooltip.rtsbuilding.debug.overlay.desc": "辅助显示，如显示区块和碰撞箱",
+  "tooltip.rtsbuilding.shortcut": "快捷键: %s",
+
+  "tooltip.rtsbuilding.left.click_button": "建筑模式",
+  "tooltip.rtsbuilding.left.click_button.desc": "放置和破坏方块",
+  "tooltip.rtsbuilding.left.select_button": "选择模式",
+  "tooltip.rtsbuilding.left.select_button.desc": "选择并交互",
+  "tooltip.rtsbuilding.left.bind_button": "绑定模式",
+  "tooltip.rtsbuilding.left.bind_button.desc": "绑定并拖拽实体",
+  "tooltip.rtsbuilding.left.direction_rotate": "方向旋转",
+  "tooltip.rtsbuilding.left.direction_rotate.desc": "旋转方块朝向",
+  "tooltip.rtsbuilding.left.item_pickup": "物品拾取",
+  "tooltip.rtsbuilding.left.item_pickup.desc": "从世界中拾取物品"
 }

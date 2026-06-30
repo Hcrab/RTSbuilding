@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
+package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;

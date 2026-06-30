@@ -12,12 +12,7 @@ import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsBeginHomeSelectionP
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsRequestProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetHomePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetSurvivalProgressionPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsCloseRemoteMenuPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetAutoStorePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetBdNetworkPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetFunnelPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;

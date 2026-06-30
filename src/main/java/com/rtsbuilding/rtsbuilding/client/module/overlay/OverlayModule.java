@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.module.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
-import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
 
 /**
@@ -9,21 +8,9 @@ import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
  */
 public final class OverlayModule implements FeatureModule {
 
-    private ModuleState state = ModuleState.IDLE;
-
     @Override
     public String moduleId() {
         return "overlay";
-    }
-
-    @Override
-    public ModuleState state() {
-        return this.state;
-    }
-
-    @Override
-    public void onStateChange(ModuleState newState) {
-        this.state = newState;
     }
 
     @Override

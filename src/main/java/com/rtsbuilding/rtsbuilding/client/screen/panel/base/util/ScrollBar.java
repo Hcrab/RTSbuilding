@@ -1,10 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 
 /**
  * 垂直滚动条组件——管理滚动状态、渲染轨道/滑块、处理鼠标交互。

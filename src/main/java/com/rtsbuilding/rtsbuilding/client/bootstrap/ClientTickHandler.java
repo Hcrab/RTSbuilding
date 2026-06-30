@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
+import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -23,6 +24,8 @@ public final class ClientTickHandler {
     public static void onClientTickPre(ClientTickEvent.Pre event) {
         RtsClientKernel kernel = RtsClientKernel.get();
         if (!kernel.isInitialized()) return;
+
+        RtsClientPathfinding.tickPre();
 
         kernel.inputPipeline().onTickPre();
 

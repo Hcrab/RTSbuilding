@@ -9,7 +9,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.downbar;
 public final class DownSidebarLayoutHelper {
 
     /** 下边框高度 */
-    public static final int DOWN_BAR_HEIGHT = 16;
+    public static final int DOWN_BAR_HEIGHT = 81;
 
     // ======================== 布局计算 ========================
 

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
 
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.BasePopup;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
@@ -25,12 +26,12 @@ public final class DebugMenuPopup extends BasePopup {
 
     // ======================== 调试状态字段 ========================
 
-    /** 辅助显示模式总开关 */
-    private boolean debugOverlayEnabled;
-    /** 区块边框显示 */
-    private boolean chunkBorderVisible;
-    /** 碰撞箱显示 */
-    private boolean collisionBoxVisible;
+    /** 辅助显示模式总开关（默认关闭） */
+    private boolean debugOverlayEnabled = false;
+    /** 区块边框显示（默认开启） */
+    private boolean chunkBorderVisible = true;
+    /** 碰撞箱显示（默认开启） */
+    private boolean collisionBoxVisible = true;
 
     /** 是否已调用 switchRenderChunkborder() 开启区块边框渲染 */
     private boolean chunkBorderRenderingActive;
@@ -97,7 +98,7 @@ public final class DebugMenuPopup extends BasePopup {
                 }));
 
         this.items = itemsList.toArray(new DebugToggleItem[0]);
-        this.states = new boolean[]{true, false};
+        this.states = new boolean[]{true, true};
 
         // 自动计算每个菜单项的内容宽度（复选框 + 间距 + 文字）
         var font = Minecraft.getInstance().font;

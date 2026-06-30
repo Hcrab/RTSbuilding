@@ -2,14 +2,15 @@ package com.rtsbuilding.rtsbuilding.client.kernel;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.input.InputPipeline;
+import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPipeline;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,7 +33,8 @@ public final class RtsClientKernel {
 
     private final EpochClock clock = new EpochClock();
     private final Map<String, FeatureModule> modules = new LinkedHashMap<>();
-    private final List<FeatureModule> activeModules = new ArrayList<>();
+    /** 模块激活级别映射——Kernel 是状态唯一管理者 */
+    private final Map<String, ModuleState> moduleStates = new HashMap<>();
     private RenderPipeline renderPipeline;
     private InputPipeline inputPipeline;
     private boolean initialized;
@@ -59,7 +61,7 @@ public final class RtsClientKernel {
         this.inputPipeline = new InputPipeline();
         for (FeatureModule module : modules.values()) {
             module.init(this);
-            activeModules.add(module);
+            moduleStates.put(module.moduleId(), ModuleState.ON);
             LOG.debug("Module initialized: {}", module.moduleId());
         }
         this.initialized = true;
@@ -76,15 +78,27 @@ public final class RtsClientKernel {
         modules.put(id, module);
         if (initialized) {
             module.init(this);
-            activeModules.add(module);
+            moduleStates.put(id, ModuleState.ON);
         }
     }
 
-    /** 获取已注册的模块。 */
+    /** 获取已注册的模块（字符串 ID 查找）。 */
     @SuppressWarnings("unchecked")
     public <T extends FeatureModule> T module(String id) {
         FeatureModule m = modules.get(id);
         return m == null ? null : (T) m;
+    }
+
+    /**
+     * 按类型查找模块——编译期类型安全，无需强制转型。
+     * <p>遍历所有模块找到第一个匹配类型的实例。9 个模块的遍历开销可忽略不计。</p>
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends FeatureModule> T module(Class<T> type) {
+        for (FeatureModule m : modules.values()) {
+            if (type.isInstance(m)) return (T) m;
+        }
+        return null;
     }
 
     // ======================================================================
@@ -96,10 +110,12 @@ public final class RtsClientKernel {
         if (!initialized) return;
         long now = clock.tick();
         int tickIdx = clock.tickIndex();
-        for (FeatureModule module : activeModules) {
-            if (module.state() == ModuleState.OFF) continue;
-            module.tick(now, tickIdx);
+        for (Map.Entry<String, FeatureModule> entry : modules.entrySet()) {
+            if (moduleStates.getOrDefault(entry.getKey(), ModuleState.ON) == ModuleState.OFF) continue;
+            entry.getValue().tick(now, tickIdx);
         }
+        // 后处理：确保 RTS 摄像机活跃时 BuilderScreen 保持打开
+        ensureBuilderScreenOpen();
     }
 
     /** 渲染帧末尾调用。由 {@link com.rtsbuilding.rtsbuilding.client.bootstrap.ClientRenderHandler} 驱动。 */
@@ -117,28 +133,61 @@ public final class RtsClientKernel {
     /** 向所有非 OFF 模块广播事件。由网络回调或内部逻辑触发。 */
     public void dispatch(StateEvent event) {
         if (!initialized) return;
-        for (FeatureModule module : activeModules) {
-            if (module.state() == ModuleState.OFF) continue;
-            module.onSessionEvent(event);
+        for (Map.Entry<String, FeatureModule> entry : modules.entrySet()) {
+            if (moduleStates.getOrDefault(entry.getKey(), ModuleState.ON) == ModuleState.OFF) continue;
+            entry.getValue().onSessionEvent(event);
         }
+        // 后处理：事件分发后管理全局副作用（如关闭 BuilderScreen）
+        handlePostDispatch(event);
     }
 
     // ======================================================================
-    //  State management
+    //  Screen lifecycle management
     // ======================================================================
 
-    /** 设置模块的激活级别。内核自动维护 activeModules 列表。 */
-    public void setModuleState(String moduleId, ModuleState state) {
-        FeatureModule m = modules.get(moduleId);
-        if (m == null) return;
-        ModuleState old = m.state();
-        if (old == state) return;
-        // 反射更新 state（模块自行管理 state 字段）
-        m.onStateChange(state);
-        if (old == ModuleState.OFF && state != ModuleState.OFF) {
-            if (!activeModules.contains(m)) activeModules.add(m);
-        } else if (state == ModuleState.OFF) {
-            activeModules.remove(m);
+    /**
+     * 当 RTS 摄像机活跃时确保 BuilderScreen 保持打开。
+     * <p>替代原散布在 CameraModule 中的屏幕生命周期管理代码，
+     * 将 UI 生命周期提升到内核层级统一管理。</p>
+     */
+    private void ensureBuilderScreenOpen() {
+        if (mc().screen instanceof BuilderScreen) return;
+        CameraModule cam = module(CameraModule.class);
+        if (cam != null && cam.getState().isEnabled()) {
+            mc().setScreen(new BuilderScreen());
+        }
+    }
+
+    /**
+     * 关闭当前打开的 BuilderScreen。
+     * <p>由 {@link #handlePostDispatch} 在收到服务器关闭事件时调用。</p>
+     */
+    private void closeBuilderScreenIfOpen() {
+        if (mc().screen instanceof BuilderScreen) {
+            mc().setScreen(null);
+        }
+    }
+
+    /**
+     * 事件分发后处理——管理全局副作用。
+     * <p>当前处理：</p>
+     * <ul>
+     *   <li>{@code RtsToggled(true)} → 立即打开 BuilderScreen（消除一帧延迟导致的视觉闪烁）</li>
+     *   <li>{@code RtsToggled(false)} → 关闭 BuilderScreen</li>
+     * </ul>
+     *
+     * <p>注意：screen 打开/关闭与摄像机状态的生效是同一帧完成的，
+     * 因为 dispatch 在网络处理器 {@code enqueueWork} 中同步执行。</p>
+     */
+    private void handlePostDispatch(StateEvent event) {
+        if (event instanceof StateEvent.RtsToggled e) {
+            if (e.enabled()) {
+                if (!(mc().screen instanceof BuilderScreen)) {
+                    mc().setScreen(new BuilderScreen());
+                }
+            } else {
+                closeBuilderScreenIfOpen();
+            }
         }
     }
 

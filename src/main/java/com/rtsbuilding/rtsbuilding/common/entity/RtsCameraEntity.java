@@ -11,6 +11,12 @@ import java.util.UUID;
 public class RtsCameraEntity extends Entity {
     private UUID ownerUuid;
 
+    // Orbit mode interpolated params（由 CameraEntitySync 设置，getEyePosition 读取）
+    private double orbitPrevAngle, orbitPrevPitch, orbitPrevRadius;
+    private double orbitCurrAngle, orbitCurrPitch, orbitCurrRadius;
+    private double orbitTargetX, orbitTargetY, orbitTargetZ;
+    private boolean orbitActive;
+
     public RtsCameraEntity(EntityType<? extends RtsCameraEntity> entityType, Level level) {
         super(entityType, level);
         this.noPhysics = true;
@@ -95,5 +101,23 @@ public class RtsCameraEntity extends Entity {
         this.setXRot(currPitch);
         this.setYHeadRot(currYaw);
         this.setYBodyRot(currYaw);
+    }
+
+    /**
+     * 设置轨道模式插值参数——由 {@link CameraModule} 在帧率级更新时使用。
+     */
+    public void setOrbitInterp(double prevAngle, double prevPitch, double prevRadius,
+                                double currAngle, double currPitch, double currRadius,
+                                double targetX, double targetY, double targetZ, boolean active) {
+        this.orbitPrevAngle = prevAngle;
+        this.orbitPrevPitch = prevPitch;
+        this.orbitPrevRadius = prevRadius;
+        this.orbitCurrAngle = currAngle;
+        this.orbitCurrPitch = currPitch;
+        this.orbitCurrRadius = currRadius;
+        this.orbitTargetX = targetX;
+        this.orbitTargetY = targetY;
+        this.orbitTargetZ = targetZ;
+        this.orbitActive = active;
     }
 }

@@ -10,12 +10,13 @@ import javax.annotation.Nullable;
 /**
  * 缩放滑条组件——渲染一个水平滑条轨道和滑块，支持点击跳转和拖拽微调。
  * <p>滑条轨道与滑块均使用九宫格贴图渲染，支持任意宽度。</p>
+ * <p>滑块移动带有指数平滑插值，离目标越远移动越快，手感丝滑。</p>
  *
  * <p>用法示例：</p>
  * <pre>{@code
  * ScaleSliderComponent slider = new ScaleSliderComponent();
  *
- * // 渲染
+ * // 渲染（自动处理平滑动画）
  * slider.render(g, mouseX, mouseY, trackX, trackY, trackW, MIN, MAX, currentValue);
  *
  * // 点击
@@ -51,6 +52,13 @@ public class ScaleSliderComponent {
     /** 滑条轨道点击检测在 Y 方向向外扩展的像素数，方便点击到窄轨道 */
     private static final int TRACK_CLICK_PADDING = 3;
 
+    // ======================== 平滑动画参数 ========================
+
+    /** 基础插值速率（每帧向目标靠近的比例） */
+    private static final double LERP_BASE = 0.12;
+    /** 距离加速系数——差值越大移动越快 */
+    private static final double LERP_DISTANCE_BOOST = 3.0;
+
     // ======================== 拖拽状态 ========================
 
     private boolean dragging = false;
@@ -62,28 +70,44 @@ public class ScaleSliderComponent {
     private double valuePerPixel = 0;
     /** 最近渲染时滑块左上角 X（用于点击检测） */
     private int renderedThumbX = 0;
-    /** 最近渲染时的当前值（用于拖拽基准） */
-    private double currentValue = 0;
+
+    // ======================== 平滑状态 ========================
+
+    /** 平滑动画当前显示的插值值 */
+    private double smoothValue = 0;
+    /** 最近一次传入 render 的实际值（供拖拽/滚轮用） */
+    private double externalValue = 0;
+    /** 是否已完成首次初始化（首次 render 时跳转到目标） */
+    private boolean initialized;
 
     // ======================== 渲染 ========================
 
     /**
-     * 渲染滑条轨道和滑块。
-     *
-     * @param g        渲染上下文
-     * @param mouseX   鼠标 X（用于悬浮检测，当前未使用）
-     * @param mouseY   鼠标 Y（当前未使用）
-     * @param trackX   滑条轨道左上角 X
-     * @param trackY   滑条轨道左上角 Y
-     * @param trackW   滑条轨道宽度
-     * @param min      最小值
-     * @param max      最大值
-     * @param value    当前值
+     * 渲染滑条轨道和滑块，同时驱动平滑动画。
+     * <p>滑块位置从当前平滑值向目标值渐进，远离时加速，形成丝滑手感和快速响应。</p>
      */
     public void render(GuiGraphics g, int mouseX, int mouseY,
                        int trackX, int trackY, int trackW,
                        double min, double max, double value) {
         if (trackW <= 0) return;
+
+        this.externalValue = value;
+
+        // 首次渲染直接跳转到目标值，不播放动画
+        if (!initialized) {
+            initialized = true;
+            smoothValue = value;
+        }
+
+        // 指数平滑插值：向目标渐进，差值越大速度越快
+        // 拖拽中直接跟随（不插值），保证 1:1 鼠标响应
+        if (dragging) {
+            smoothValue = value;
+        } else {
+            double diff = value - smoothValue;
+            double speed = Mth.clamp(LERP_BASE + Math.abs(diff) * LERP_DISTANCE_BOOST, 0.0, 1.0);
+            smoothValue += diff * speed;
+        }
 
         // 拖拽状态下切换为下层贴图
         int layerOffset = dragging ? SLIDER_TEX_H / 2 : 0;
@@ -94,10 +118,9 @@ public class ScaleSliderComponent {
                 SLIDER_TEX_W, SLIDER_TEX_H,
                 0, layerOffset, TRACK_SRC_W, TRACK_SRC_H);
 
-        // 滑块（垂直居中于滑条轨道）
-        int thumbX = trackX + (int) Math.round((value - min) / (max - min) * (trackW - THUMB_W));
+        // 滑块（使用平滑值计算位置）
+        int thumbX = trackX + (int) Math.round((smoothValue - min) / (max - min) * (trackW - THUMB_W));
         this.renderedThumbX = thumbX;
-        this.currentValue = value;
         int thumbY = trackY + (TRACK_SRC_H - THUMB_SRC_H) / 2;
         RtsClientUiUtil.drawNineSliceRegion(g, SLIDER_TEXTURE,
                 thumbX, thumbY, THUMB_W, THUMB_SRC_H, SLIDER_BORDER,
@@ -124,9 +147,9 @@ public class ScaleSliderComponent {
                 && mouseY < trackY + TRACK_SRC_H + TRACK_CLICK_PADDING
                 && mouseX >= renderedThumbX && mouseX < renderedThumbX + THUMB_W) {
 
-            // 开始拖拽追踪（基于当前值，不改变值）
+            // 开始拖拽追踪（基于当前平滑值，避免拖拽起始跳变）
             clickMouseX = mouseX;
-            clickValue = currentValue;
+            clickValue = smoothValue;
             double pixelRange = Math.max(1, trackW - THUMB_W);
             valuePerPixel = (max - min) / pixelRange;
             dragging = true;
@@ -156,7 +179,7 @@ public class ScaleSliderComponent {
                 && mouseX >= trackX && mouseX < trackX + trackW) {
 
             double step = 0.1; // 每格滚轮调整 0.1
-            double newValue = currentValue + (scrollY > 0 ? step : -step);
+            double newValue = smoothValue + (scrollY > 0 ? step : -step);
             newValue = Mth.clamp(newValue, min, max);
             newValue = Math.round(newValue * 100.0) / 100.0;
             return newValue;
@@ -197,5 +220,10 @@ public class ScaleSliderComponent {
     /** 结束滑块拖拽 */
     public void endDrag() {
         this.dragging = false;
+    }
+
+    /** 获取当前平滑显示值（可用于外部读取对齐） */
+    public double getSmoothValue() {
+        return smoothValue;
     }
 }

@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper
 public final class RightSidebarLayoutHelper {
 
     /** 右边框宽度 */
-    public static final int SIDEBAR_WIDTH = 60;
+    public static final int SIDEBAR_WIDTH = 90;
 
     /** 右边框顶部 Y 坐标（顶部栏上栏位底部） */
     public static final int SIDEBAR_TOP_Y = TopBarLayoutHelper.TOP_BAR_HEIGHT;

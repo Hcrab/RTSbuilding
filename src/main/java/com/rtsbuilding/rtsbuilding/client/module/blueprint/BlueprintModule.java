@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.module.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
-import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
 
 /**
  * 蓝图模块——管理蓝图捕获、保存、放置。
@@ -9,20 +8,8 @@ import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
  */
 public final class BlueprintModule implements FeatureModule {
 
-    private ModuleState state = ModuleState.IDLE;
-
     @Override
     public String moduleId() {
         return "blueprint";
-    }
-
-    @Override
-    public ModuleState state() {
-        return this.state;
-    }
-
-    @Override
-    public void onStateChange(ModuleState newState) {
-        this.state = newState;
     }
 }

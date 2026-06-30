@@ -63,8 +63,11 @@ public final class RtsFloatingWindowLayer {
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);
-            window.render(g, mouseX, mouseY, 0.0F);
-            window.setSkipHoverDetection(false);
+            try {
+                window.render(g, mouseX, mouseY, 0.0F);
+            } finally {
+                window.setSkipHoverDetection(false);
+            }
             g.flush();
             Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
         }

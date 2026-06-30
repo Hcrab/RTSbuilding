@@ -53,46 +53,64 @@ public final class RtsKeyMappings {
             CATEGORY_FUNCTION
     );
 
-    // ======================================================================
-    //  Camera movement keys
-    //  W/A/S/D 移动摄像机，空格上升，Shift 下降
-    // ======================================================================
+    /** 切换相机模式（自由/环绕玩家，默认 Ctrl+M） */
+    public static final KeyMapping TOGGLE_CAMERA_MODE_KEY = new KeyMapping(
+            "key.rtsbuilding.toggle_camera_mode",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_M,
+            CATEGORY_FUNCTION
+    );
 
-    /** W → 摄像机前进 */
-    public static final KeyMapping CAMERA_FORWARD = new KeyMapping(
-            "key.rtsbuilding.camera_forward",
-            GLFW.GLFW_KEY_W,
-            CATEGORY_CAMERA
+    /** 移动玩家到目标位置（默认 Alt+右键） */
+    public static final KeyMapping MOVE_PLAYER_KEY = new KeyMapping(
+            "key.rtsbuilding.move_player",
+            KeyConflictContext.GUI,
+            KeyModifier.ALT,
+            InputConstants.Type.MOUSE,
+            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
+            CATEGORY_FUNCTION
     );
-    /** S → 摄像机后退 */
-    public static final KeyMapping CAMERA_BACK = new KeyMapping(
-            "key.rtsbuilding.camera_back",
-            GLFW.GLFW_KEY_S,
-            CATEGORY_CAMERA
+
+    /** 切换选择模式（框选/点击，默认 Ctrl+T） */
+    public static final KeyMapping TOGGLE_SELECT_MODE_KEY = new KeyMapping(
+            "key.rtsbuilding.toggle_select_mode",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_T,
+            CATEGORY_FUNCTION
     );
-    /** A → 摄像机左移 */
-    public static final KeyMapping CAMERA_LEFT = new KeyMapping(
-            "key.rtsbuilding.camera_left",
-            GLFW.GLFW_KEY_A,
-            CATEGORY_CAMERA
+
+    /** 切换绑定模式（绑定/拖拽，默认 Ctrl+G） */
+    public static final KeyMapping TOGGLE_BIND_MODE_KEY = new KeyMapping(
+            "key.rtsbuilding.toggle_bind_mode",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
+            CATEGORY_FUNCTION
     );
-    /** D → 摄像机右移 */
-    public static final KeyMapping CAMERA_RIGHT = new KeyMapping(
-            "key.rtsbuilding.camera_right",
-            GLFW.GLFW_KEY_D,
-            CATEGORY_CAMERA
+
+    /** 切换方向旋转模式（默认 Ctrl+R） */
+    public static final KeyMapping TOGGLE_DIRECTION_ROTATE_MODE_KEY = new KeyMapping(
+            "key.rtsbuilding.toggle_direction_rotate_mode",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_R,
+            CATEGORY_FUNCTION
     );
-    /** 空格 → 摄像机上升 */
-    public static final KeyMapping CAMERA_UP = new KeyMapping(
-            "key.rtsbuilding.camera_up",
-            GLFW.GLFW_KEY_SPACE,
-            CATEGORY_CAMERA
-    );
-    /** Shift → 摄像机下降 */
-    public static final KeyMapping CAMERA_DOWN = new KeyMapping(
-            "key.rtsbuilding.camera_down",
-            GLFW.GLFW_KEY_LEFT_SHIFT,
-            CATEGORY_CAMERA
+
+    /** 切换物品拾取模式（默认 Ctrl+F） */
+    public static final KeyMapping TOGGLE_ITEM_PICKUP_MODE_KEY = new KeyMapping(
+            "key.rtsbuilding.toggle_item_pickup_mode",
+            KeyConflictContext.GUI,
+            KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_F,
+            CATEGORY_FUNCTION
     );
 
     /**
@@ -104,11 +122,11 @@ public final class RtsKeyMappings {
         event.register(TOGGLE_RTS_KEY);
         event.register(OPEN_GEAR_MENU_KEY);
         event.register(TOGGLE_DEBUG_OVERLAY_KEY);
-        event.register(CAMERA_FORWARD);
-        event.register(CAMERA_BACK);
-        event.register(CAMERA_LEFT);
-        event.register(CAMERA_RIGHT);
-        event.register(CAMERA_UP);
-        event.register(CAMERA_DOWN);
+        event.register(TOGGLE_CAMERA_MODE_KEY);
+        event.register(MOVE_PLAYER_KEY);
+        event.register(TOGGLE_SELECT_MODE_KEY);
+        event.register(TOGGLE_BIND_MODE_KEY);
+        event.register(TOGGLE_DIRECTION_ROTATE_MODE_KEY);
+        event.register(TOGGLE_ITEM_PICKUP_MODE_KEY);
     }
 }

@@ -36,7 +36,7 @@ public final class ClientRtsToggleHandler {
         if (!kernel.isInitialized()) return;
 
         // 获取相机模块状态，判断 RTS 模式是否已激活
-        CameraModule cam = kernel.module("camera");
+        CameraModule cam = kernel.module(CameraModule.class);
         boolean currentlyEnabled = cam != null && cam.getState().isEnabled();
 
         // 发送切换请求到服务端（true = 从玩家头部位置开启，false = 关闭）

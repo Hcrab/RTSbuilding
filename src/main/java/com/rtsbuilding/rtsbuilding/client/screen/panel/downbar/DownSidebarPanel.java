@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.downbar;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -29,6 +30,13 @@ public final class DownSidebarPanel implements RtsPanelApi {
     private int currentHeight = DownSidebarLayoutHelper.DOWN_BAR_HEIGHT;
 
     /**
+     * 设置当前下边框高度。
+     */
+    public void setCurrentHeight(int height) {
+        this.currentHeight = Math.max(8, Math.min(height, this.screen != null ? this.screen.height / 4 : 2000));
+    }
+
+    /**
      * 返回当前下边框高度。
      */
     public int getCurrentHeight() {
@@ -48,6 +56,24 @@ public final class DownSidebarPanel implements RtsPanelApi {
     private static final int STATE_H = 16;
     /** 九宫格边框宽度 */
     private static final int BORDER = 2;
+    // ======================== 内嵌层贴图 ========================
+
+    /** 下栏内嵌层贴图（256×256，水平左暗右亮，垂直上正常下激活） */
+    private static final ResourceLocation OVERLAY_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/overlay_ui.png");
+    /** 贴图文件总宽度 */
+    private static final int OVERLAY_TEX_W = 256;
+    /** 贴图文件总高度 */
+    private static final int OVERLAY_TEX_FILE_H = 256;
+    /** 单主题半区宽度 */
+    private static final int OVERLAY_HALF_W = 128;
+    /** 单个状态高度 */
+    private static final int OVERLAY_STATE_H = 128;
+    /** 鼠标位于区域内时使用的源 Y 偏移（下半部分） */
+    private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
+    /** 九宫格边框宽度 */
+    private static final int OVERLAY_BORDER = 8;
+
     /** 上边缘拖拽缩放处理器 */
     private final DownSidebarResizeHandler resizeHandler = new DownSidebarResizeHandler();
 
@@ -81,6 +107,34 @@ public final class DownSidebarPanel implements RtsPanelApi {
                 db.x(), db.y(), db.width(), db.height(), BORDER,
                 TEX_W, TEX_FILE_H,
                 0, srcY, halfW, STATE_H);
+
+        RenderSystem.disableBlend();
+    }
+
+    /**
+     * 渲染内嵌层（overlay_ui.png）——由 BuilderScreen 在下栏之上独立调用，作为装饰层。
+     * <p>与 {@link RightSidebarPanel} 相同贴图逻辑：
+     * 水平左半=暗色主题、右半=亮色主题，由 {@link RtsClientUiUtil#drawNineSliceRegion} 自动切换；
+     * 垂直上半=正常状态、下半=鼠标位于下栏区域内时使用。</p>
+     */
+    public void renderOverlay(GuiGraphics g, int mouseX, int mouseY) {
+        DownSidebarLayoutHelper.Rect db = layoutRect();
+        // 上边缩小 1px，让内嵌层与下栏上边缘保持 1px 间距
+        int oy = db.y() + 1;
+        int oh = db.height() - 1;
+        if (db.width() <= 0 || oh <= 0) return;
+
+        boolean mouseInArea = mouseX >= db.x() && mouseX < db.x() + db.width()
+                && mouseY >= oy && mouseY < oy + oh;
+        int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        RtsClientUiUtil.drawNineSliceRegion(g, OVERLAY_TEXTURE,
+                db.x(), oy, db.width(), oh, OVERLAY_BORDER,
+                OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
+                0, srcY, OVERLAY_HALF_W, OVERLAY_STATE_H);
 
         RenderSystem.disableBlend();
     }

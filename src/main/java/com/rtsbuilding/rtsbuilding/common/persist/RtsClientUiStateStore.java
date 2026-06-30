@@ -305,11 +305,14 @@ public final class RtsClientUiStateStore {
         /** 面板滚动位置映射（面板键 → 滚动偏移量） */
         public Map<String, Integer> panelScrollOffsets = new LinkedHashMap<>();
 
-        /** 右边框宽度（默认 60px，拖拽缩放后动态变更） */
-        public int rightSidebarWidth = 60;
+        /** 右边框宽度（默认 90px，拖拽缩放后动态变更） */
+        public int rightSidebarWidth = 90;
 
-        /** 下边框高度（默认 16px，拖拽缩放后动态变更） */
-        public int downSidebarHeight = 16;
+        /** 下边框高度（默认 81px，拖拽缩放后动态变更） */
+        public int downSidebarHeight = 81;
+
+        /** 左边框宽度（默认 90px，拖拽缩放后动态变更） */
+        public int leftSidebarWidth = 90;
 
         /** 亮暗主题模式（false=暗色，true=明亮） */
         public boolean lightMode = false;
@@ -375,6 +378,16 @@ public final class RtsClientUiStateStore {
             public boolean invertPanDragX = false;
             public boolean invertPanDragY = false;
             public boolean smoothCamera = true;
+            /** 玩家环绕模式是否启用（false=自由模式，true=环绕玩家） */
+            public boolean playerOrbitMode = false;
+            /** 方块轨道环绕模式是否启用（在自由视角下绕着目标方块旋转） */
+            public boolean orbitMode = false;
+            /** 方块轨道环绕的目标方块中心 X */
+            public double orbitTargetX;
+            /** 方块轨道环绕的目标方块中心 Y */
+            public double orbitTargetY;
+            /** 方块轨道环绕的目标方块中心 Z */
+            public double orbitTargetZ;
         }
 
         /** 覆盖层状态。 */
@@ -405,12 +418,12 @@ public final class RtsClientUiStateStore {
             public boolean debugButtonVisible = false;
             public boolean lineConnected = false;
             public boolean allowPlacedBlockRecovery = false;
-            /** 辅助显示模式总开关 */
-            public boolean debugOverlayEnabled = false;
+            /** 辅助显示模式总开关（默认开启） */
+            public boolean debugOverlayEnabled = true;
             /** 区块边框显示 */
-            public boolean chunkBorderVisible = false;
-            /** 碰撞箱显示 */
-            public boolean collisionBoxVisible = false;
+            public boolean chunkBorderVisible = true;
+            /** 碰撞箱显示（默认开启） */
+            public boolean collisionBoxVisible = true;
         }
 
         /** 设置菜单状态。 */
@@ -474,6 +487,11 @@ public final class RtsClientUiStateStore {
             clean.camera.invertPanDragX = this.camera.invertPanDragX;
             clean.camera.invertPanDragY = this.camera.invertPanDragY;
             clean.camera.smoothCamera = this.camera.smoothCamera;
+            clean.camera.playerOrbitMode = this.camera.playerOrbitMode;
+            clean.camera.orbitMode = this.camera.orbitMode;
+            clean.camera.orbitTargetX = this.camera.orbitTargetX;
+            clean.camera.orbitTargetY = this.camera.orbitTargetY;
+            clean.camera.orbitTargetZ = this.camera.orbitTargetZ;
             // overlay
             clean.overlay.containerOverlayEnabled = this.overlay.containerOverlayEnabled;
             clean.overlay.overlayShiftImportEnabled = this.overlay.overlayShiftImportEnabled;
@@ -519,6 +537,8 @@ public final class RtsClientUiStateStore {
             clean.rightSidebarWidth = Math.max(30, Math.min(2000, this.rightSidebarWidth));
             // 下边框高度
             clean.downSidebarHeight = Math.max(8, Math.min(2000, this.downSidebarHeight));
+            // 左边框宽度
+            clean.leftSidebarWidth = Math.max(30, Math.min(2000, this.leftSidebarWidth));
             // 全局状态
             clean.lightMode = this.lightMode;
             return clean;

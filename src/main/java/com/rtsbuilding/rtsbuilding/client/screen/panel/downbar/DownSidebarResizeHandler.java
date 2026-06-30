@@ -81,7 +81,7 @@ public final class DownSidebarResizeHandler {
         if (!this.active) return -1;
         int dy = (int) mouseY - this.startMouseY;
         int newHeight = this.startHeight - dy;
-        int maxHeight = this.screenHeight / 2;
+        int maxHeight = this.screenHeight / 4;
         return Math.max(MIN_HEIGHT, Math.min(maxHeight, newHeight));
     }
 

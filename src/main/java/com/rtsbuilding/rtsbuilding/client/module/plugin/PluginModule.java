@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.module.plugin;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
-import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 
@@ -14,22 +13,11 @@ import java.util.List;
  */
 public final class PluginModule implements FeatureModule {
 
-    private ModuleState state = ModuleState.IDLE;
     private final List<PluginView> plugins = new ArrayList<>();
 
     @Override
     public String moduleId() {
         return "plugin";
-    }
-
-    @Override
-    public ModuleState state() {
-        return this.state;
-    }
-
-    @Override
-    public void onStateChange(ModuleState newState) {
-        this.state = newState;
     }
 
     public void applyPluginState(S2CRtsPluginStatePayload payload) {

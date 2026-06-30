@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.module.progression;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
-import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import net.minecraft.core.BlockPos;
 
@@ -11,7 +10,6 @@ import net.minecraft.core.BlockPos;
  */
 public final class ProgressionModule implements FeatureModule {
 
-    private ModuleState state = ModuleState.IDLE;
     private boolean enabled;
     private boolean homeSet;
     private BlockPos homePos = BlockPos.ZERO;
@@ -25,16 +23,6 @@ public final class ProgressionModule implements FeatureModule {
     @Override
     public String moduleId() {
         return "progression";
-    }
-
-    @Override
-    public ModuleState state() {
-        return this.state;
-    }
-
-    @Override
-    public void onStateChange(ModuleState newState) {
-        this.state = newState;
     }
 
     public void applyProgressionState(S2CRtsProgressionStatePayload payload, Runnable onLocksCleared) {

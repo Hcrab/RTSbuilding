@@ -30,11 +30,6 @@ public interface FeatureModule {
     /** 事件驱动更新。替代 tick 中轮询状态。 */
     default void onSessionEvent(StateEvent event) {}
 
-    /** 获取当前激活级别。默认 HOT。 */
-    default ModuleState state() {
-        return ModuleState.HOT;
-    }
-
     /** 获取 Minecraft 实例（便利方法）。 */
     default Minecraft mc() {
         return Minecraft.getInstance();

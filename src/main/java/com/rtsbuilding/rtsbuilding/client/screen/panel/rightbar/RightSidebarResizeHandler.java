@@ -81,7 +81,7 @@ public final class RightSidebarResizeHandler {
         if (!this.active) return -1;
         int dx = (int) mouseX - this.startMouseX;
         int newWidth = this.startWidth - dx;
-        int maxWidth = this.screenWidth / 2;
+        int maxWidth = this.screenWidth / 4;
         return Math.max(MIN_WIDTH, Math.min(maxWidth, newWidth));
     }
 

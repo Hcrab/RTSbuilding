@@ -9,6 +9,10 @@ import net.minecraft.Util;
  * 如透明度、位移、旋转角度等。</p>
  */
 public class SmoothAnimator {
+
+    /** UI 平滑动画全局开关（默认开启），由渲染设置面板控制 */
+    public static boolean enabled = true;
+
     private float currentValue;
     private float startValue;
     private float endValue;
@@ -26,6 +30,10 @@ public class SmoothAnimator {
      * 启动动画：从当前值过渡到目标值。
      */
     public void start(float to) {
+        if (!enabled) {
+            snapTo(to);
+            return;
+        }
         start(this.currentValue, to);
     }
 
@@ -33,6 +41,10 @@ public class SmoothAnimator {
      * 启动动画：从指定起始值过渡到目标值。
      */
     public void start(float from, float to) {
+        if (!enabled) {
+            snapTo(to);
+            return;
+        }
         this.startValue = from;
         this.endValue = to;
         this.startTime = Util.getMillis();

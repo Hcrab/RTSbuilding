@@ -6,8 +6,9 @@ import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass.BufferAllocator;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BlueprintGhostPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
-import com.rtsbuilding.rtsbuilding.client.render.pass.GhostBlockPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -73,6 +74,10 @@ public final class RenderPipeline {
     private int frameIndex;
     /** 当前帧的时间戳（毫秒），缓存避免每帧 System.currentTimeMillis() */
     long frameMillis;
+    /** 框选状态管理器 */
+    public final BoxSelector boxSelector = new BoxSelector();
+    /** 框选渲染 pass，供外部清除缓存 */
+    public BoxSelectionPass boxSelectionPass;
 
     // ======================================================================
     //  Construction
@@ -87,8 +92,10 @@ public final class RenderPipeline {
 
         registerPass(new BoundaryPass());
         registerPass(new InteractionTargetPass());
-        registerPass(new GhostBlockPass());
         registerPass(new BlueprintGhostPass());
+        var bsp = new BoxSelectionPass(boxSelector);
+        this.boxSelectionPass = bsp;
+        registerPass(bsp);
     }
 
     // ======================================================================
@@ -105,8 +112,12 @@ public final class RenderPipeline {
     }
 
     /** 每渲染帧调用。由 {@link RtsClientKernel#onRenderFrame} 驱动。
+     * <p>在渲染前自动调用 {@link #reset()} 重置所有缓冲区，
+     * 确保 reset 与 render 原子执行，避免异常导致状态损坏。</p>
      * @param poseStack 已设置好摄像机偏移的 PoseStack（世界坐标空间） */
     public void onRenderFrame(float partialTick, PoseStack poseStack) {
+        // 先重置缓冲区，再渲染（原子操作，防止 reset/render 分离导致状态损坏）
+        reset();
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 

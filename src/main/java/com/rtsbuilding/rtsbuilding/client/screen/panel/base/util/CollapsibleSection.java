@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
 import com.mojang.math.Axis;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import net.minecraft.client.Minecraft;

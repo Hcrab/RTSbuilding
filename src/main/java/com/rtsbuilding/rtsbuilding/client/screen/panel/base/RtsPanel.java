@@ -5,10 +5,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.PanelResizeHand
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.ResizeEdge;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
 import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;

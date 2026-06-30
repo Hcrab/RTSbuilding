@@ -1,32 +1,30 @@
 package com.rtsbuilding.rtsbuilding.client.module.camera;
 
-import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.input.layer.CameraInputLayer;
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
-import com.rtsbuilding.rtsbuilding.client.kernel.ModuleState;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
-import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-
 
 /**
  * 相机模块——管理 RTS 摄像机轨道、平移、缩放、平滑与本地镜像实体。
  *
- * <p>激活梯度：RTS 模式开启时 {@link ModuleState#HOT}，关闭时 {@link ModuleState#IDLE}。</p>
+ * <p>各职责委托给子组件：
+ * <ul>
+ *   <li>{@link FreeCameraMode} — 自由模式操控（键盘/拖拽/滚轮）</li>
+ *   <li>{@link PlayerOrbitCameraMode} — 玩家环绕模式操控</li>
+ *   <li>{@link CameraPoseComputer} — 方块轨道模式姿态运算</li>
+ *   <li>{@link CameraEntitySync} — 镜像实体生命周期</li>
+ *   <li>{@link CameraViewManager} — 视角状态捕获/恢复</li>
+ * </ul>
  */
 public final class CameraModule implements FeatureModule {
 
@@ -40,36 +38,15 @@ public final class CameraModule implements FeatureModule {
     }
 
     // ======================================================================
-    //  Constants
-    // ======================================================================
-
-    private static final float ROT_INPUT_CLAMP = 20.0F;
-    private static final float ROTATE_GAIN_X = 0.24F;
-    private static final float ROTATE_GAIN_Y = 0.22F;
-    private static final float ROT_SENS_MIN = 1.00F;
-    private static final float ROT_SENS_MAX = 10.00F;
-    private static final float ROT_SENS_STEP = 0.50F;
-    private static final double DOLLY_PER_SCROLL = 2.6D;
-    private static final double VERTICAL_SPEED = 0.32D;
-    private static final double FAST_VERTICAL_SPEED = 0.55D;
-    private static final double DOLLY_DAMP_MAX_DIST = 30.0D;
-    private static final double DOLLY_DAMP_MIN_FACTOR = 0.05D;
-    private static final double DOLLY_DAMP_RAY_RANGE = 128.0D;
-    private static final float[] INPUT_SENS_PRESETS = {0.50F, 0.75F, 1.00F, 1.25F, 1.50F, 2.00F};
-    private static final int INPUT_SENS_DEFAULT_INDEX = 2;
-    private static final double MIN_HEIGHT_OFFSET = -35.0D;
-    private static final double MAX_HEIGHT_OFFSET = 110.0D;
-    private static final float MIN_PITCH = -90.0F;
-    private static final float MAX_PITCH = 90.0F;
-    private static final int RESTORE_COOLDOWN_TICKS = 10;
-
-    // ======================================================================
-    //  State
+    //  Sub-components
     // ======================================================================
 
     private final CameraState state = new CameraState();
-    private int cameraRestoreCooldown;
-    private EntityType<RtsCameraEntity> cachedCameraEntityType;
+    private final FreeCameraMode freeCamera = new FreeCameraMode();
+    private final PlayerOrbitCameraMode playerOrbit = new PlayerOrbitCameraMode();
+    private final CameraPoseComputer poseComputer = new CameraPoseComputer();
+    private final CameraEntitySync entitySync = new CameraEntitySync();
+    private final CameraViewManager viewManager = new CameraViewManager();
 
     // ======================================================================
     //  Module lifecycle
@@ -83,95 +60,40 @@ public final class CameraModule implements FeatureModule {
     @Override
     public void onSessionEvent(StateEvent event) {
         if (event instanceof StateEvent.RtsToggled e) {
-            if (!e.enabled()) {
-                disableCamera();
-            }
+            if (!e.enabled()) disableCamera();
         } else if (event instanceof StateEvent.AnchorUpdated e) {
             state.setBounds(e.x(), e.y(), e.z(), e.maxRadius());
         } else if (event instanceof StateEvent.PlayerDied) {
-            // 玩家死亡 → 立即禁用相机、恢复正常视角
             disableCamera();
         }
     }
 
-    private void disableCamera() {
+    // ======================================================================
+    //  Public API
+    // ======================================================================
+
+    /** 禁用相机——恢复视角、清理状态、通知服务端。 */
+    public void disableCamera() {
         if (!state.enabled) return;
-        restorePreviousView();
-        clearState();
-        Minecraft mc = mc();
-        if (mc.screen instanceof BuilderScreen) {
-            mc.setScreen(null);
-        }
-        // 通知服务器关闭 RTS 模式（匹配旧代码死亡处理）
+        shutdownCamera();
         RtsClientPacketGateway.sendToggleCamera(false);
     }
 
     // ======================================================================
-    //  Server state callbacks (called from network handler)
+    //  Server state callbacks
     // ======================================================================
 
-    /**
-     * 应用服务端下发的完整相机状态（RTS 模式开启）。
-     */
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
         Minecraft mc = mc();
         if (mc.player == null) return;
 
         if (payload.enabled()) {
-            boolean freshEnable = !state.enabled;
-            state.enabled = true;
-            state.anchorX = payload.anchorX();
-            state.anchorY = payload.anchorY();
-            state.anchorZ = payload.anchorZ();
-            state.maxRadius = payload.maxRadius();
-
-            if (freshEnable) {
-                capturePreviousView();
-                // 清除残留输入
-                if (mc.player instanceof LocalPlayer lp) {
-                    lp.input.forwardImpulse = 0.0F;
-                    lp.input.leftImpulse = 0.0F;
-                    lp.input.jumping = false;
-                    lp.input.shiftKeyDown = false;
-                }
-            }
-
-            // 每次服务端下发状态时都重新应用 RTS 视角设置
-            applyRtsView();
-
-            // 应用服务端相机姿态
-            state.localHeightOffset = payload.heightOffset();
-            state.localYaw = payload.yawDeg();
-            state.localPitch = payload.pitchDeg();
-            state.localX = payload.anchorX();
-            state.localY = payload.anchorY() + payload.heightOffset();
-            state.localZ = payload.anchorZ();
-            state.localReady = true;
-
-            // 打开 BuilderScreen（如果未打开）
-            if (!(mc.screen instanceof BuilderScreen)) {
-                mc.setScreen(new BuilderScreen());
-            }
-
-            // 首次同步前先保存当前姿态作为插值基准，防止 prevX/Y/Z 为 0 导致从原点跳变闪屏
-            savePrevState();
-
-            syncCameraEntity(mc);
+            enableCamera(mc, payload);
         } else {
-            // RTS 模式关闭
-            state.enabled = false;
-            state.localReady = false;
-            restorePreviousView();
-            clearState();
-            if (mc.screen instanceof BuilderScreen) {
-                mc.setScreen(null);
-            }
+            shutdownCamera();
         }
     }
 
-    /**
-     * 应用服务端锚点更新。
-     */
     public void applyServerCameraAnchor(S2CRtsCameraAnchorPayload payload) {
         if (!state.enabled) return;
         state.anchorX = payload.anchorX();
@@ -191,27 +113,46 @@ public final class CameraModule implements FeatureModule {
         Minecraft mc = mc();
         if (mc.player == null || mc.level == null) return;
 
-        // 保底：RTS 模式活跃时如果 BuilderScreen 被意外关闭，立即重开
-        // 防止原版 HUD（血条、经验条、准星等）透过 RTS 视图显示
-        if (!(mc.screen instanceof BuilderScreen)) {
-            mc.setScreen(new BuilderScreen());
+        entitySync.savePrevState(state);
+
+        if (state.playerOrbitMode || state.orbitMode) {
+            // 轨道/玩家环绕模式输入已在 onRenderFrame 中帧率级处理，tick 只负责实体同步
+        } else {
+            FreeCameraMode.CameraInput input = freeCamera.readCameraInput();
+            freeCamera.processInput(state, input);
+            freeCamera.resetAccumulation(state);
         }
 
-        CameraInput input = readCameraInput(mc);
+        entitySync.sync(mc, state);
+    }
 
-        // 在处理输入前保存当前姿态作为上一 tick 插值基准
-        savePrevState();
+    /**
+     * 渲染帧前处理——在每帧 {@code Camera.setup()} 之前调用。
+     * 轨道模式下在此帧率级处理累积输入并更新实体位置，实现平滑圆周运动。
+     *
+     * @param partialTick 渲染帧 partialTick，用于玩家位置插值
+     */
+    public void onRenderFrame(float partialTick) {
+        if (!state.enabled || !state.localReady) return;
+        if (!state.playerOrbitMode && !state.orbitMode) return;
 
-        processPendingInput(input);
+        Minecraft mc = mc();
+        if (mc.player == null || mc.level == null) return;
 
-        resetAccumulation();
-
-        // 每 tick 同步实体位置
-        syncCameraEntity(mc);
+        if (state.playerOrbitMode) {
+            // 帧率级消费累积输入并更新玩家环绕姿态
+            playerOrbit.processInput(state, partialTick);
+        } else {
+            // 帧率级消费累积输入并更新轨道姿态
+            poseComputer.processOrbitInput(state);
+        }
+        // 直接用 snapTo 设置实体位置（xo=x, yRotO=yRot），
+        // 使 getEyePosition(partialTick) 返回当前精确的圆周位置
+        entitySync.snapToState(state);
     }
 
     // ======================================================================
-    //  Camera input queueing (called from input layer)
+    //  Camera input queueing
     // ======================================================================
 
     public void queuePanDrag(double dx, double dy) {
@@ -226,13 +167,18 @@ public final class CameraModule implements FeatureModule {
         state.pendingRawRotateY += (float) dy;
     }
 
-    /**
-     * 右键拖拽移动摄像机：垂直拖→前后移动，水平拖→左右移动。
-     * 符号约定：dragY 负=上=后退，dragY 正=下=前进；dragX 正=右，dragX 负=左。
-     */
     public void queueDragMove(double dx, double dy) {
-        // pendingPanX → dz（前后），pendingPanY → -pendingPanY → dx（左右）
-        // 所以：dy（垂直）→ pendingPanX，dx（水平）→ -pendingPanY
+        // 方块环绕模式：右键拖拽平移轨道目标（改变射线瞄向的方块）
+        if (state.orbitMode && !state.playerOrbitMode) {
+            double yawRad = Math.toRadians(state.localYaw);
+            double cos = Math.cos(yawRad);
+            double sin = Math.sin(yawRad);
+            double scale = 0.005D * Math.max(4.0D, state.orbitRadius) * state.inputSensitivity;
+            // 屏幕拖拽 → 世界空间平移（dy=前后, dx=左右，与自由模式一致）
+            state.orbitTargetX += (cos * dx - sin * dy) * scale;
+            state.orbitTargetZ += (sin * dx + cos * dy) * scale;
+            return;
+        }
         state.pendingPanX += (float)(dy);
         state.pendingPanY += (float)(-dx);
     }
@@ -246,258 +192,226 @@ public final class CameraModule implements FeatureModule {
     }
 
     // ======================================================================
+    //  Orbit mode API——绕目标方块圆周旋转
+    // ======================================================================
+
+    /**
+     * 启用轨道旋转模式——相机绕着 {@code mc.hitResult} 瞄准的方块旋转，并始终看向目标。
+     * <p>如果当前没有瞄准方块，则使用锚点作为轨道目标（在 GUI 设置面板中点击开关时适用）。</p>
+     *
+     * @return 是否成功启用
+     */
+    public boolean enableOrbitMode() {
+        Minecraft mc = mc();
+        if (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK) {
+            BlockHitResult hit = (BlockHitResult) mc.hitResult;
+            BlockPos pos = hit.getBlockPos();
+            state.orbitTargetX = pos.getX() + 0.5;
+            state.orbitTargetY = pos.getY() + 0.5;
+            state.orbitTargetZ = pos.getZ() + 0.5;
+        } else {
+            // 在 GUI 设置面板中 mc.hitResult 可能为空，回退使用锚点
+            state.orbitTargetX = state.anchorX;
+            state.orbitTargetY = state.anchorY;
+            state.orbitTargetZ = state.anchorZ;
+        }
+        poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
+        state.orbitMode = true;
+        return true;
+    }
+
+    /**
+     * 启用轨道旋转模式——相机绕着指定方块旋转，并始终看向目标。
+     *
+     * @param pos 轨道环绕的目标方块位置
+     * @return 是否成功启用
+     */
+    public boolean enableOrbitMode(BlockPos pos) {
+        if (pos == null) return enableOrbitMode();
+        state.orbitTargetX = pos.getX() + 0.5;
+        state.orbitTargetY = pos.getY() + 0.5;
+        state.orbitTargetZ = pos.getZ() + 0.5;
+        poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
+        state.orbitMode = true;
+        return true;
+    }
+
+    /** 禁用轨道旋转模式，恢复自由视角控制。 */
+    public void disableOrbitMode() {
+        state.orbitMode = false;
+    }
+
+    /**
+     * 从持久化恢复方块环绕模式——使用保存的目标坐标，不依赖 {@code mc.hitResult}。
+     * 在重新进入 RTS 模式且之前处于方块环绕时调用。
+     *
+     * @param targetX 保存的目标方块中心 X
+     * @param targetY 保存的目标方块中心 Y
+     * @param targetZ 保存的目标方块中心 Z
+     */
+    public void restoreOrbitMode(double targetX, double targetY, double targetZ) {
+        state.orbitTargetX = targetX;
+        state.orbitTargetY = targetY;
+        state.orbitTargetZ = targetZ;
+        poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
+        state.orbitMode = true;
+    }
+
+    /** 切换轨道旋转模式开关。 */
+    public boolean toggleOrbitMode() {
+        if (state.orbitMode) {
+            disableOrbitMode();
+            return false;
+        }
+        return enableOrbitMode();
+    }
+
+    /** 是否处于轨道旋转模式 */
+    public boolean isOrbitMode() {
+        return state.orbitMode;
+    }
+
+    // ======================================================================
+    //  Player orbit mode API——绕玩家实体环绕旋转
+    // ======================================================================
+
+    /**
+     * 启用玩家环绕模式——相机绕着玩家实体旋转，并始终看向玩家。
+     * <p>如果当前处于方块轨道模式，先退出方块轨道模式。</p>
+     *
+     * @return 是否成功启用
+     */
+    public boolean enablePlayerOrbitMode() {
+        Minecraft mc = mc();
+        if (mc.player == null) return false;
+
+        // 保存当前方块环绕模式的完整状态，退出玩家环绕时恢复
+        state.savedBlockOrbitMode = state.orbitMode;
+        if (state.orbitMode) {
+            state.savedOrbitTargetX = state.orbitTargetX;
+            state.savedOrbitTargetY = state.orbitTargetY;
+            state.savedOrbitTargetZ = state.orbitTargetZ;
+            state.savedOrbitAngle = state.orbitAngle;
+            state.savedOrbitPitch = state.orbitPitch;
+            state.savedOrbitRadius = state.orbitRadius;
+        }
+        state.orbitMode = false;
+
+        playerOrbit.init(state);
+        state.playerOrbitMode = true;
+        return true;
+    }
+
+    /** 禁用玩家环绕模式，恢复自由视角控制。若之前处于方块环绕模式则自动恢复。 */
+    public void disablePlayerOrbitMode() {
+        state.playerOrbitMode = false;
+        // 恢复之前保存的方块环绕模式
+        if (state.savedBlockOrbitMode && !state.orbitMode) {
+            state.orbitTargetX = state.savedOrbitTargetX;
+            state.orbitTargetY = state.savedOrbitTargetY;
+            state.orbitTargetZ = state.savedOrbitTargetZ;
+            state.orbitAngle = state.savedOrbitAngle;
+            state.orbitPitch = state.savedOrbitPitch;
+            state.orbitRadius = state.savedOrbitRadius;
+            state.orbitMode = true;
+            poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
+        }
+        state.savedBlockOrbitMode = false;
+    }
+
+    /** 切换玩家环绕模式开关。 */
+    public boolean togglePlayerOrbitMode() {
+        if (state.playerOrbitMode) {
+            disablePlayerOrbitMode();
+            return false;
+        }
+        return enablePlayerOrbitMode();
+    }
+
+    /** 是否处于玩家环绕模式 */
+    public boolean isPlayerOrbitMode() {
+        return state.playerOrbitMode;
+    }
+
+    // ======================================================================
     //  Getters (for UI)
     // ======================================================================
 
-    public CameraState getState() {
-        return this.state;
-    }
+    public CameraState getState() { return this.state; }
 
-    public float getRotateSensitivity() {
-        return this.state.rotateSensitivity;
-    }
+    public float getRotateSensitivity() { return this.state.rotateSensitivity; }
 
-    public int getInputSensitivityIndex() {
-        return Mth.clamp(this.state.inputSensitivityIndex, 0, INPUT_SENS_PRESETS.length - 1);
-    }
-
-    public int getInputSensitivityPresetCount() {
-        return INPUT_SENS_PRESETS.length;
-    }
-
-    public void setInputSensitivityByFraction(double fraction) {
-        int next = (int) Math.round(Mth.clamp(fraction, 0.0D, 1.0D) * (INPUT_SENS_PRESETS.length - 1));
-        this.state.inputSensitivityIndex = Mth.clamp(next, 0, INPUT_SENS_PRESETS.length - 1);
-    }
-
-    public void cycleInputSensitivity() {
-        this.state.inputSensitivityIndex = (this.state.inputSensitivityIndex + 1) % INPUT_SENS_PRESETS.length;
-    }
-
-    public void increaseSensitivity() {
-        this.state.rotateSensitivity = Mth.clamp(this.state.rotateSensitivity + ROT_SENS_STEP, ROT_SENS_MIN, ROT_SENS_MAX);
-    }
-
-    public void decreaseSensitivity() {
-        this.state.rotateSensitivity = Mth.clamp(this.state.rotateSensitivity - ROT_SENS_STEP, ROT_SENS_MIN, ROT_SENS_MAX);
-    }
-
-    public float getInputSensitivity() {
-        return state.inputSensitivity;
-    }
+    public float getInputSensitivity() { return state.inputSensitivity; }
 
     public void setInputSensitivity(float val) {
         state.inputSensitivity = Mth.clamp(val, 0.1F, 2.0F);
     }
 
-    public String getInputSensitivityLabel() {
-        return String.format(java.util.Locale.ROOT, "x%.2f", state.inputSensitivity);
-    }
-
     // ======================================================================
-    //  Internal
+    //  Internal — camera lifecycle
     // ======================================================================
 
-    private void capturePreviousView() {
-        Minecraft mc = mc();
-        state.prevCameraEntity = mc.getCameraEntity();
-        state.prevCameraType = mc.options.getCameraType();
-        state.prevBobView = mc.options.bobView().get();
-        state.prevFovScale = mc.options.fovEffectScale().get();
+    /** 启用 RTS 摄像机，应用服务端下发的姿态。 */
+    private void enableCamera(Minecraft mc, S2CRtsCameraStatePayload payload) {
+        boolean freshEnable = !state.enabled;
+        state.enabled = true;
+        state.anchorX = payload.anchorX();
+        state.anchorY = payload.anchorY();
+        state.anchorZ = payload.anchorZ();
+        state.maxRadius = payload.maxRadius();
+
+        if (freshEnable) {
+            viewManager.capture(mc);
+            if (mc.player instanceof LocalPlayer lp) {
+                lp.input.forwardImpulse = 0.0F;
+                lp.input.leftImpulse = 0.0F;
+                lp.input.jumping = false;
+                lp.input.shiftKeyDown = false;
+            }
+        }
+
+        viewManager.applyRtsView(mc);
+
+        state.localHeightOffset = payload.heightOffset();
+        state.localYaw = payload.yawDeg();
+        state.localPitch = payload.pitchDeg();
+        state.localX = payload.anchorX();
+        state.localY = payload.anchorY() + payload.heightOffset();
+        state.localZ = payload.anchorZ();
+        state.localReady = true;
+
+        // 首次启用时默认开启方块环绕模式，以锚点作为轨道目标
+        if (freshEnable) {
+            state.orbitTargetX = state.anchorX;
+            state.orbitTargetY = state.anchorY + state.localHeightOffset;
+            state.orbitTargetZ = state.anchorZ;
+            poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
+            state.orbitMode = true;
+        }
+
+        entitySync.savePrevState(state);
+        entitySync.sync(mc, state);
     }
 
-    private void applyRtsView() {
-        Minecraft mc = mc();
-        mc.options.setCameraType(CameraType.FIRST_PERSON);
-        mc.options.bobView().set(false);
-        mc.options.fovEffectScale().set(0.0D);
-    }
-
-    private void restorePreviousView() {
-        Minecraft mc = mc();
-        Entity restore = state.prevCameraEntity != null ? state.prevCameraEntity : mc.player;
-        mc.setCameraEntity(restore);
-        mc.options.setCameraType(state.prevCameraType);
-        mc.options.bobView().set(state.prevBobView);
-        mc.options.fovEffectScale().set(state.prevFovScale);
+    /**
+     * 关闭 RTS 摄像机——恢复视角、清理状态。
+     * <p>被 {@link #disableCamera()} 和 {@link #applyServerCameraState} 共用，
+     * 消除重复的关闭逻辑。</p>
+     */
+    private void shutdownCamera() {
+        state.enabled = false;
+        state.localReady = false;
+        viewManager.restore(mc());
+        clearState();
     }
 
     private void clearState() {
-        state.enabled = false;
-        state.localReady = false;
-        state.prevCameraEntity = null;
-        state.localMirrorCamera = null;
         state.prevX = state.prevY = state.prevZ = 0.0D;
         state.prevYaw = state.prevPitch = 0.0F;
-        cameraRestoreCooldown = 0;
-    }
-
-    private void resetAccumulation() {
-        state.pendingPanX = 0.0F;
-        state.pendingPanY = 0.0F;
-        state.pendingScroll = 0.0F;
-        state.pendingRotateSteps = 0;
-        state.pendingRawRotateX = 0.0F;
-        state.pendingRawRotateY = 0.0F;
-    }
-
-    private void processPendingInput(CameraInput input) {
-        // 首次处理输入
-        float rawX = Mth.clamp(state.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float rawY = Mth.clamp(state.pendingRawRotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-
-        // 旋转输入无二次钳位——让灵敏度自然控制手感，拖多少转多少
-        float sensScale = state.inputSensitivity;
-        float rotateXForTick = rawX * state.rotateSensitivity * sensScale;
-        float rotateYForTick = rawY * state.rotateSensitivity * sensScale;
-
-        // 中键拖拽旋转（即时响应，无平滑）
-        state.localYaw += rotateXForTick * ROTATE_GAIN_X;
-        if (state.pendingRotateSteps != 0) {
-            state.localYaw = snapQuarter(state.localYaw + 90.0F * state.pendingRotateSteps);
-        }
-        state.localPitch = Mth.clamp(state.localPitch + rotateYForTick * ROTATE_GAIN_Y, MIN_PITCH, MAX_PITCH);
-
-        // 灵敏度归一化因子（以默认值 5.0 为基准，保持默认手感不变）
-        double sensNorm = state.rotateSensitivity / 5.0D;
-        double speed = (input.fast ? 0.80D : 0.45D) * sensNorm;
-        double yawRad = Math.toRadians(state.localYaw);
-        double sin = Math.sin(yawRad);
-        double cos = Math.cos(yawRad);
-
-        // ==================================================================
-        //  键盘/WASD/拖拽/滚轮全部即时响应，无惯性无平滑
-        // ==================================================================
-
-        // 键盘输入位移
-        double kbDx = (-sin * input.forward + cos * input.strafe) * speed;
-        double kbDz = (cos * input.forward + sin * input.strafe) * speed;
-        double kbDy = input.vertical * (input.fast ? FAST_VERTICAL_SPEED : VERTICAL_SPEED) * sensNorm;
-
-        double half = state.maxRadius;
-        state.localX = Mth.clamp(state.localX + kbDx, state.anchorX - half, state.anchorX + half);
-        state.localY = Mth.clamp(state.localY + kbDy, state.anchorY + MIN_HEIGHT_OFFSET, state.anchorY + MAX_HEIGHT_OFFSET);
-        state.localZ = Mth.clamp(state.localZ + kbDz, state.anchorZ - half, state.anchorZ + half);
-
-        // 滚轮推拉（即时响应，含距离阻尼）
-        if (state.pendingScroll != 0.0F) {
-            double pitchRad = Math.toRadians(state.localPitch);
-            double dampingFactor = computeDollyDamping(yawRad, pitchRad);
-            double scroll = state.pendingScroll * DOLLY_PER_SCROLL * dampingFactor;
-            double scrollX = -Math.sin(yawRad) * Math.cos(pitchRad) * scroll;
-            double scrollY = -Math.sin(pitchRad) * scroll;
-            double scrollZ = Math.cos(yawRad) * Math.cos(pitchRad) * scroll;
-            state.localX = Mth.clamp(state.localX + scrollX, state.anchorX - half, state.anchorX + half);
-            state.localY = Mth.clamp(state.localY + scrollY, state.anchorY + MIN_HEIGHT_OFFSET, state.anchorY + MAX_HEIGHT_OFFSET);
-            state.localZ = Mth.clamp(state.localZ + scrollZ, state.anchorZ - half, state.anchorZ + half);
-        }
-
-        // 拖拽位移（即时响应，无惯性无平滑）
-        if (state.pendingPanX != 0.0F || state.pendingPanY != 0.0F) {
-            double dragScale = 0.010D * Math.max(8.0D, state.localHeightOffset) * sensScale * sensNorm;
-            double dragDx = cos * -state.pendingPanY * dragScale + (-sin) * state.pendingPanX * dragScale;
-            double dragDz = sin * -state.pendingPanY * dragScale + cos * state.pendingPanX * dragScale;
-            state.localX = Mth.clamp(state.localX + dragDx, state.anchorX - half, state.anchorX + half);
-            state.localZ = Mth.clamp(state.localZ + dragDz, state.anchorZ - half, state.anchorZ + half);
-        }
-        state.localHeightOffset = state.localY - state.anchorY;
-    }
-
-    /**
-     * 计算滚轮距离阻尼因子。
-     * <p>摄像机沿视线方向发射射线，若在 {@link #DOLLY_DAMP_MAX_DIST} 内命中方块，
-     * 则距离越近阻尼越大（移动距离越短），实现靠近方块时滚轮推拉丝滑减速。</p>
-     *
-     * @param yawRad   当前水平角（弧度）
-     * @param pitchRad 当前俯仰角（弧度）
-     * @return 阻尼系数 [DOLLY_DAMP_MIN_FACTOR, 1.0]，无阻挡或距离太远返回 1.0
-     */
-    private double computeDollyDamping(double yawRad, double pitchRad) {
-        Minecraft mc = mc();
-        if (mc.level == null) return 1.0D;
-
-        Vec3 from = new Vec3(state.localX, state.localY, state.localZ);
-        double dx = -Math.sin(yawRad) * Math.cos(pitchRad);
-        double dy = -Math.sin(pitchRad);
-        double dz = Math.cos(yawRad) * Math.cos(pitchRad);
-        Vec3 to = from.add(dx * DOLLY_DAMP_RAY_RANGE, dy * DOLLY_DAMP_RAY_RANGE, dz * DOLLY_DAMP_RAY_RANGE);
-
-        BlockHitResult hit = mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.getCameraEntity()));
-        if (hit.getType() == HitResult.Type.BLOCK) {
-            double dist = from.distanceTo(hit.getLocation());
-            if (dist < DOLLY_DAMP_MAX_DIST) {
-                double t = dist / DOLLY_DAMP_MAX_DIST;
-                // smoothstep 平滑过渡
-                t = t * t * (3.0D - 2.0D * t);
-                return Mth.lerp(t, DOLLY_DAMP_MIN_FACTOR, 1.0D);
-            }
-        }
-        return 1.0D;
-    }
-
-    private void savePrevState() {
-        state.prevX = state.localX;
-        state.prevY = state.localY;
-        state.prevZ = state.localZ;
-        state.prevYaw = state.localYaw;
-        state.prevPitch = state.localPitch;
-    }
-
-    /**
-     * 同步摄像机实体位置和视角，必要时切换 {@code mc.cameraEntity}。
-     * <p>仅在 {@link #tick} 和 {@link #applyServerCameraState} 中调用（20Hz），
-     * {@code setCameraEntity} 带 10 tick 冷却防抖。</p>
-     */
-    private void syncCameraEntity(Minecraft mc) {
-        if (mc.level == null || !state.localReady) return;
-        ensureMirrorCamera(mc);
-        if (state.localMirrorCamera != null) {
-            state.localMirrorCamera.snapInterpolated(
-                    state.prevX, state.prevY, state.prevZ, state.prevYaw, state.prevPitch,
-                    state.localX, state.localY, state.localZ, state.localYaw, state.localPitch);
-            if (mc.getCameraEntity() != state.localMirrorCamera) {
-                if (cameraRestoreCooldown <= 0) {
-                    mc.setCameraEntity(state.localMirrorCamera);
-                    cameraRestoreCooldown = RESTORE_COOLDOWN_TICKS;
-                } else {
-                    cameraRestoreCooldown--;
-                }
-            } else if (cameraRestoreCooldown > 0) {
-                cameraRestoreCooldown--;
-            }
-        }
-    }
-
-    private void ensureMirrorCamera(Minecraft mc) {
-        if (state.localMirrorCamera != null && state.localMirrorCamera.level() == mc.level) return;
-        if (cachedCameraEntityType == null) {
-            cachedCameraEntityType = (EntityType<RtsCameraEntity>) com.rtsbuilding.rtsbuilding.common.RtsEntities.RTS_CAMERA_ENTITY.get();
-        }
-        state.localMirrorCamera = new RtsCameraEntity(cachedCameraEntityType, mc.level);
-    }
-
-    private static float snapQuarter(float yaw) {
-        return Math.round(yaw / 90.0F) * 90.0F;
-    }
-
-    private CameraInput readCameraInput(Minecraft mc) {
-        float forward = 0.0F;
-        float strafe = 0.0F;
-        float vertical = 0.0F;
-
-        if (RtsKeyMappings.CAMERA_FORWARD.isDown()) forward += 1.0F;
-        if (RtsKeyMappings.CAMERA_BACK.isDown()) forward -= 1.0F;
-        if (RtsKeyMappings.CAMERA_LEFT.isDown()) strafe += 1.0F;
-        if (RtsKeyMappings.CAMERA_RIGHT.isDown()) strafe -= 1.0F;
-        if (RtsKeyMappings.CAMERA_UP.isDown()) vertical += 1.0F;
-        if (RtsKeyMappings.CAMERA_DOWN.isDown()) vertical -= 1.0F;
-
-        return new CameraInput(forward, strafe, vertical, mc.options.keySprint.isDown());
-    }
-
-    private record CameraInput(float forward, float strafe, float vertical, boolean fast) {
-        boolean hasMovement() {
-            return forward != 0.0F || strafe != 0.0F || vertical != 0.0F;
-        }
+        state.orbitMode = false;
+        state.playerOrbitMode = false;
+        state.savedBlockOrbitMode = false;
+        viewManager.clear();
+        entitySync.clear();
     }
 }

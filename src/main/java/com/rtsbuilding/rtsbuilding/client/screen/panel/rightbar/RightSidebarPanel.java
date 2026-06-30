@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -31,6 +31,13 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private int currentWidth = RightSidebarLayoutHelper.SIDEBAR_WIDTH;
 
     /**
+     * 设置当前右边框宽度。
+     */
+    public void setCurrentWidth(int width) {
+        this.currentWidth = Math.max(30, Math.min(width, this.screen != null ? this.screen.width / 4 : 2000));
+    }
+
+    /**
      * 返回当前右边框宽度，供其他组件（如 {@link TopBarPanel}）
      * 动态调整布局位置。
      */
@@ -51,6 +58,24 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private static final int STATE_H = 16;
     /** 九宫格边框宽度 */
     private static final int BORDER = 2;
+    // ======================== 内嵌层贴图 ========================
+
+    /** 右边栏内嵌层贴图（256×256，水平左暗右亮，垂直上正常下激活） */
+    private static final ResourceLocation OVERLAY_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/overlay_ui.png");
+    /** 贴图文件总宽度 */
+    private static final int OVERLAY_TEX_W = 256;
+    /** 贴图文件总高度 */
+    private static final int OVERLAY_TEX_FILE_H = 256;
+    /** 单主题半区宽度 */
+    private static final int OVERLAY_HALF_W = 128;
+    /** 单个状态高度 */
+    private static final int OVERLAY_STATE_H = 128;
+    /** 鼠标位于区域内时使用的源 Y 偏移（下半部分） */
+    private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
+    /** 九宫格边框宽度 */
+    private static final int OVERLAY_BORDER = 8;
+
     /** 左边框拖拽缩放处理器 */
     private final RightSidebarResizeHandler resizeHandler = new RightSidebarResizeHandler();
 
@@ -83,6 +108,58 @@ public final class RightSidebarPanel implements RtsPanelApi {
                 sb.x(), sb.y(), sb.width(), sb.height(), BORDER,
                 TEX_W, TEX_FILE_H,
                 0, srcY, halfW, STATE_H);
+
+        RenderSystem.disableBlend();
+    }
+
+    /**
+     * 渲染内嵌层（overlay_ui.png）——由 BuilderScreen 在右边栏之上独立调用，作为装饰层。
+     * <p>水平分为上下两个嵌层，中间间隔 1px。每块嵌层与 {@link ScreenBackgroundPanel} 相同贴图逻辑：
+     * 水平左半=暗色主题、右半=亮色主题，由 {@link RtsClientUiUtil#drawNineSliceRegion} 自动切换；
+     * 垂直上半=正常状态、下半=鼠标位于对应嵌层区域内时使用。</p>
+     */
+    public void renderOverlay(GuiGraphics g, int mouseX, int mouseY) {
+        RightSidebarLayoutHelper.Rect sb = layoutRect();
+        // 左边缩小 1px，让内嵌层与右边栏左边缘保持 1px 间距
+        int ox = sb.x() + 1;
+        int ow = sb.width() - 1;
+        if (ow <= 0) return;
+
+        int totalH = sb.height();
+        int gap = 1;
+        // 上嵌层 : 下嵌层 = 黄金比例（φ ≈ 1.618，取斐波那契近似 8:13）
+        int upperH = (totalH - gap) * 8 / 21;
+
+        // 上嵌层
+        renderOverlayPart(g, ox, sb.y(), ow, upperH, mouseX, mouseY);
+        // 下嵌层（中间间隔 1px）
+        int bottomY = sb.y() + upperH + gap;
+        renderOverlayPart(g, ox, bottomY, ow, totalH - upperH - gap, mouseX, mouseY);
+    }
+
+    /**
+     * 渲染一块嵌层区域。
+     *
+     * @param ox      目标区域 X
+     * @param oy      目标区域 Y
+     * @param ow      目标区域宽度
+     * @param oh      目标区域高度
+     */
+    private void renderOverlayPart(GuiGraphics g, int ox, int oy, int ow, int oh,
+                                   int mouseX, int mouseY) {
+        if (oh <= 0) return;
+
+        boolean mouseInArea = mouseX >= ox && mouseX < ox + ow
+                && mouseY >= oy && mouseY < oy + oh;
+        int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        RtsClientUiUtil.drawNineSliceRegion(g, OVERLAY_TEXTURE,
+                ox, oy, ow, oh, OVERLAY_BORDER,
+                OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
+                0, srcY, OVERLAY_HALF_W, OVERLAY_STATE_H);
 
         RenderSystem.disableBlend();
     }

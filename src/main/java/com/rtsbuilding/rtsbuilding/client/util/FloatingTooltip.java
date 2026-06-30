@@ -106,13 +106,13 @@ public class FloatingTooltip {
      * @param text   浮窗文字（多行用 \n 分隔）
      * @param color         文字 ARGB 颜色
      * @param shortcutColor 快捷键行的文字颜色（通常比 {@code color} 暗一些）
+     * @param screenW       浮窗参考的屏幕宽度（虚拟坐标空间，如 BuilderScreen.width）
+     * @param screenH       浮窗参考的屏幕高度（虚拟坐标空间，如 BuilderScreen.height）
      */
     public void renderBelowButton(GuiGraphics g, int btnX, int btnY, int btnW, int btnH,
-                                  int padH, int padV, String text, int color, int shortcutColor) {
+                                  int padH, int padV, String text, int color, int shortcutColor,
+                                  int screenW, int screenH) {
         float alpha = getAlpha();
-        var window = Minecraft.getInstance().getWindow();
-        int screenW = window.getGuiScaledWidth();
-        int screenH = window.getGuiScaledHeight();
         var font = Minecraft.getInstance().font;
 
         // 按行分割，计算最大宽度和总高度（文字按 TEXT_SCALE 缩放）
