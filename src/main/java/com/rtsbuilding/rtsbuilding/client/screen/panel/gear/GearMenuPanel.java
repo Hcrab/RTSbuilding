@@ -2,9 +2,14 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.gear;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
+import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -25,7 +30,9 @@ public final class GearMenuPanel extends RtsPanel {
     private static final int DEFAULT_WINDOW_W = 253;
     private static final int MIN_WINDOW_W = 187;
     /** 滚动条与内容区右边缘的间距 */
-    private static final int SCROLLBAR_RIGHT_GAP = 7;
+    private static final int SCROLLBAR_RIGHT_GAP = 11;
+    /** 内容区宽度缩减量，为滑条滑块留足空间 */
+    private static final int CONTENT_WIDTH_REDUCTION = 6;
     /** 第一个分区头部距内容区顶部的偏移，totalSectionHeight 需包含此值 */
     private static final int CONTENT_TOP_PAD = 8;
     private CameraModule cameraModule = null;
@@ -68,6 +75,13 @@ public final class GearMenuPanel extends RtsPanel {
     // ======================== 渲染 ========================
 
     @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        super.render(g, mouseX, mouseY, partialTick);
+        // 在所有折叠条和 scissor 结束后渲染颜色浮窗，避免被其他分区遮挡
+        renderingSection.renderColorTooltips(g, mouseX, mouseY);
+    }
+
+    @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int cx = contentX();
         int cy = contentY();
@@ -80,14 +94,17 @@ public final class GearMenuPanel extends RtsPanel {
 
         int scroll = scrollBar.getScroll();
 
+        // 内容宽度统一缩减，为滑条滑块留足空间
+        int sectionRenderW = cw - CONTENT_WIDTH_REDUCTION;
+
         // 渲染折叠分区（Y 偏移 -scroll 实现滚动效果）
         int scrolledCy = cy - scroll;
         int sectionY = scrolledCy;
-        renderingSection.render(g, mouseX, mouseY, cx, sectionY, cw);
+        renderingSection.render(g, mouseX, mouseY, cx, sectionY, sectionRenderW);
         sectionY += renderingSection.totalHeight(cw);
-        personalizationSection.render(g, mouseX, mouseY, cx, sectionY, cw);
+        personalizationSection.render(g, mouseX, mouseY, cx, sectionY, sectionRenderW);
         sectionY += personalizationSection.totalHeight(cw);
-        operationSection.render(g, mouseX, mouseY, cx, sectionY, cw);
+        operationSection.render(g, mouseX, mouseY, cx, sectionY, sectionRenderW);
 
         // 渲染滚动条（右侧）
         if (scrollBar.isVisible()) {
@@ -114,15 +131,18 @@ public final class GearMenuPanel extends RtsPanel {
                 }
             }
 
+            // 点击检测宽度与渲染宽度保持一致
+            int sectionClickW = cw - CONTENT_WIDTH_REDUCTION;
+
             int scroll = scrollBar.getScroll();
             int scrolledCy = cy - scroll;
 
             int sectionCY = scrolledCy;
-            if (renderingSection.handleClick(mouseX, mouseY, cx, sectionCY, cw)) return;
+            if (renderingSection.handleClick(mouseX, mouseY, cx, sectionCY, sectionClickW)) return;
             sectionCY += renderingSection.totalHeight(cw);
-            if (personalizationSection.handleClick(mouseX, mouseY, cx, sectionCY, cw)) return;
+            if (personalizationSection.handleClick(mouseX, mouseY, cx, sectionCY, sectionClickW)) return;
             sectionCY += personalizationSection.totalHeight(cw);
-            operationSection.handleClick(mouseX, mouseY, cx, sectionCY, cw);
+            operationSection.handleClick(mouseX, mouseY, cx, sectionCY, sectionClickW);
         }
     }
 
@@ -272,7 +292,85 @@ public final class GearMenuPanel extends RtsPanel {
                         s -> s.sectionExpandedStates.getOrDefault(pk + ".operation", false),
                         (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".operation", true); else s.sectionExpandedStates.remove(pk + ".operation"); },
                         operationSection::isExpanded,
-                        operationSection::setExpanded)
+                        operationSection::setExpanded),
+                // ===== 渲染设置选项 =====
+                // 流动动画
+                PersistableProperty.boolField(
+                        pk + ".flowAnimation",
+                        s -> s.settings.flowAnimationEnabled,
+                        (s, v) -> s.settings.flowAnimationEnabled = v,
+                        () -> BoxSelectionPass.flowAnimationEnabled,
+                        v -> BoxSelectionPass.flowAnimationEnabled = v),
+                // 平滑追踪动画
+                PersistableProperty.boolField(
+                        pk + ".smoothAnimation",
+                        s -> s.settings.smoothAnimationEnabled,
+                        (s, v) -> s.settings.smoothAnimationEnabled = v,
+                        () -> CornerBracketRenderer.SmoothTarget.enabled,
+                        v -> CornerBracketRenderer.SmoothTarget.enabled = v),
+                // UI 平滑动画
+                PersistableProperty.boolField(
+                        pk + ".uiSmoothAnimation",
+                        s -> s.settings.uiSmoothAnimationEnabled,
+                        (s, v) -> s.settings.uiSmoothAnimationEnabled = v,
+                        () -> SmoothAnimator.enabled,
+                        v -> SmoothAnimator.enabled = v),
+                // 深度测试
+                PersistableProperty.boolField(
+                        pk + ".depthTest",
+                        s -> s.settings.depthTestEnabled,
+                        (s, v) -> s.settings.depthTestEnabled = v,
+                        () -> BoxSelectionPass.depthTestEnabled,
+                        v -> BoxSelectionPass.depthTestEnabled = v),
+                // 线框透明度
+                PersistableProperty.doubleField(
+                        pk + ".noDepthAlpha",
+                        s -> s.settings.noDepthAlpha,
+                        (s, v) -> s.settings.noDepthAlpha = v,
+                        () -> (double) CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA,
+                        v -> CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA = v.floatValue()),
+                // 屏障颜色
+                PersistableProperty.intField(
+                        pk + ".barrierColor",
+                        s -> s.settings.barrierColor,
+                        (s, v) -> s.settings.barrierColor = v,
+                        () -> BoundaryPass.barrierColor,
+                        v -> BoundaryPass.barrierColor = v),
+                // 方块目标颜色
+                PersistableProperty.intField(
+                        pk + ".blockTargetColor",
+                        s -> s.settings.blockTargetColor,
+                        (s, v) -> s.settings.blockTargetColor = v,
+                        () -> InteractionTargetPass.blockTargetColor,
+                        v -> InteractionTargetPass.blockTargetColor = v),
+                // 实体目标颜色
+                PersistableProperty.intField(
+                        pk + ".entityTargetColor",
+                        s -> s.settings.entityTargetColor,
+                        (s, v) -> s.settings.entityTargetColor = v,
+                        () -> InteractionTargetPass.entityTargetColor,
+                        v -> InteractionTargetPass.entityTargetColor = v),
+                // 框选线框颜色
+                PersistableProperty.intField(
+                        pk + ".selectionColor",
+                        s -> s.settings.selectionColor,
+                        (s, v) -> s.settings.selectionColor = v,
+                        () -> BoxSelectionPass.selectionColor,
+                        v -> BoxSelectionPass.selectionColor = v),
+                // 框选覆盖层颜色
+                PersistableProperty.intField(
+                        pk + ".previewOverlayColor",
+                        s -> s.settings.previewOverlayColor,
+                        (s, v) -> s.settings.previewOverlayColor = v,
+                        () -> BoxSelectionPass.previewOverlayColor,
+                        v -> BoxSelectionPass.previewOverlayColor = v),
+                // 框选虚线间隙颜色
+                PersistableProperty.intField(
+                        pk + ".selectionGapColor",
+                        s -> s.settings.selectionGapColor,
+                        (s, v) -> s.settings.selectionGapColor = v,
+                        () -> BoxSelectionPass.selectionGapColor,
+                        v -> BoxSelectionPass.selectionGapColor = v)
         );
     }
 

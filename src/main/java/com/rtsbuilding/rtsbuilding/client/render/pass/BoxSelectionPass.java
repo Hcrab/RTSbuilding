@@ -41,6 +41,15 @@ public final class BoxSelectionPass implements RenderPass {
     /** 线框流动动画开关（默认开启），由渲染设置面板控制 */
     public static boolean flowAnimationEnabled = true;
 
+    // ======================== 可自定义颜色 ========================
+
+    /** 框选虚线角支架颜色（ARGB），默认白色 */
+    public static int selectionColor = 0xFFFFFFFF;
+    /** 框选预览半透明覆盖层颜色（ARGB），默认蓝色 */
+    public static int previewOverlayColor = 0xFF4D80FF;
+    /** 框选虚线间隙颜色（ARGB），默认黑色 */
+    public static int selectionGapColor = 0xFF000000;
+
     private final BoxSelector selector;
     private final CornerBracketRenderer.SmoothTarget smoothTarget = new CornerBracketRenderer.SmoothTarget();
 
@@ -119,30 +128,39 @@ public final class BoxSelectionPass implements RenderPass {
         double distance = smoothTarget.centerDistanceTo(cameraPos);
 
         // 深度检测层 + 无深度穿墙层
+        float selR = ((selectionColor >> 16) & 0xFF) / 255.0f;
+        float selG = ((selectionColor >> 8) & 0xFF) / 255.0f;
+        float selB = (selectionColor & 0xFF) / 255.0f;
+        float gapR = ((selectionGapColor >> 16) & 0xFF) / 255.0f;
+        float gapG = ((selectionGapColor >> 8) & 0xFF) / 255.0f;
+        float gapB = (selectionGapColor & 0xFF) / 255.0f;
         CornerBracketRenderer.renderDashedCornerBrackets(poseStack, alloc.brackets(),
                 smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
                 smoothTarget.maxX(), smoothTarget.maxY(), smoothTarget.maxZ(),
-                1.0f, 1.0f, 1.0f, DEPTH_ALPHA, distance, flowOffset);
+                selR, selG, selB, gapR, gapG, gapB, DEPTH_ALPHA, distance, flowOffset);
         if (depthTestEnabled) {
             CornerBracketRenderer.renderDashedCornerBrackets(poseStack, alloc.noDepth(),
                     smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
                     smoothTarget.maxX(), smoothTarget.maxY(), smoothTarget.maxZ(),
-                    1.0f, 1.0f, 1.0f, CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, distance, flowOffset);
+                    selR, selG, selB, gapR, gapG, gapB, CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, distance, flowOffset);
         }
 
         // 蓝色半透明覆盖层（选定 A 点后、选中完成前的预览阶段展示）
         if (phase != BoxSelector.Phase.IDLE && phase != BoxSelector.Phase.COMPLETE) {
+            float ovR = ((previewOverlayColor >> 16) & 0xFF) / 255.0f;
+            float ovG = ((previewOverlayColor >> 8) & 0xFF) / 255.0f;
+            float ovB = (previewOverlayColor & 0xFF) / 255.0f;
             // 深度层——正常遮挡时可见
             CornerBracketRenderer.renderFilledFaces(alloc.brackets(), poseStack,
                     smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
                     smoothTarget.maxX(), smoothTarget.maxY(), smoothTarget.maxZ(),
-                    0.3f, 0.5f, 1.0f, 0.18f);
+                    ovR, ovG, ovB, 0.18f);
             if (depthTestEnabled) {
                 // 穿墙层——透过方块可见
                 CornerBracketRenderer.renderFilledFaces(alloc.noDepth(), poseStack,
                         smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
                         smoothTarget.maxX(), smoothTarget.maxY(), smoothTarget.maxZ(),
-                        0.3f, 0.5f, 1.0f, 0.06f);
+                        ovR, ovG, ovB, 0.06f);
             }
         }
 
@@ -316,12 +334,18 @@ public final class BoxSelectionPass implements RenderPass {
             CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),
                     bounds.minX, bounds.minY, bounds.minZ,
                     bounds.maxX, bounds.maxY, bounds.maxZ,
-                    0.3f, 0.6f, 1.0f, 0.9f, 0);
+                    ((InteractionTargetPass.entityTargetColor >> 16) & 0xFF) / 255.0f,
+                    ((InteractionTargetPass.entityTargetColor >> 8) & 0xFF) / 255.0f,
+                    (InteractionTargetPass.entityTargetColor & 0xFF) / 255.0f,
+                    0.9f, 0);
             if (depthTestEnabled) {
                 CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.noDepth(),
                         bounds.minX, bounds.minY, bounds.minZ,
                         bounds.maxX, bounds.maxY, bounds.maxZ,
-                        0.3f, 0.6f, 1.0f, CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, 0);
+                        ((InteractionTargetPass.entityTargetColor >> 16) & 0xFF) / 255.0f,
+                        ((InteractionTargetPass.entityTargetColor >> 8) & 0xFF) / 255.0f,
+                        (InteractionTargetPass.entityTargetColor & 0xFF) / 255.0f,
+                        CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, 0);
             }
         }
     }

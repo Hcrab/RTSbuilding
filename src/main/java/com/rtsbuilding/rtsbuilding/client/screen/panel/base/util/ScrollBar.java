@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
-import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -32,30 +35,49 @@ public class ScrollBar {
 
     // ======================== 默认外观常量 ========================
 
+    /** 每次滚轮滚动像素数（默认 4px，手感较快） */
+    private static final int DEFAULT_SCROLL_STEP = 4;
     private static final int DEFAULT_TRACK_WIDTH = 2;
-    private static final int THUMB_EXTEND = 1; // 滑块比轨道左右各宽 1px（视觉凸出）
+    // 滑块比轨道左右各宽 1px（视觉凸出），由 THUMB_W - TRACK_W 推算
     private static final int MIN_THUMB_SIZE = 12;
 
     // ======================== 贴图常量 ========================
 
-    private static final ResourceLocation SCROLLBAR_TEXTURE = ResourceLocation.tryParse(
+    /** 贴图文件尺寸（两张贴图通用：32×32，水平双主题↔亮暗，垂直分半↔正常/移动） */
+    private static final int TEX_W = 32;
+    private static final int TEX_H = 32;
+    /** 贴图单一主题半区尺寸 */
+    private static final int HALF_W = 16;
+    private static final int HALF_H = 16;
+    /** 状态切换垂直偏移（正常态 0-16，移动态 16-32） */
+    private static final int STATE_OFFSET = HALF_H;
+    /** 九宫格边框 */
+    private static final int BORDER = 2;
+
+    /** 渲染时轨道宽度（竖向滚动条固定 5px） */
+    private static final int TRACK_W = 5;
+    /** 渲染时滑块宽度（竖向滚动条固定 7px） */
+    private static final int THUMB_W = 7;
+
+    /** 轨道贴图（mouse_wheel.png） */
+    private static final ResourceLocation TRACK_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/mouse_wheel.png");
-    /** 贴图文件总宽度（双主题横向翻倍） */
-    private static final int SCROLLBAR_TEX_W = 32;
-    /** 贴图文件总高度 */
-    private static final int SCROLLBAR_TEX_H = 32;
-    /** 九宫格边框像素宽度 */
-    private static final int SCROLLBAR_BORDER = 1;
-    private static final TextureInfo SCROLLBAR_TEX_INFO = new TextureInfo(
-            SCROLLBAR_TEXTURE, SCROLLBAR_TEX_W, SCROLLBAR_TEX_H,
+    private static final TextureInfo TRACK_TEX_INFO = new TextureInfo(
+            TRACK_TEXTURE, TEX_W, TEX_H,
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
             TextureInfo.FilterMode.PIXEL);
-    /** 滑条源矩形（左半区内 x=0..4, y=0..16 区域，4×16） */
-    private static final int TRACK_SRC_W = 4;
-    private static final int TRACK_SRC_H = 16;
-    /** 滑块源矩形（左半区内 x=5..11, y=0..16 区域，6×16） */
-    private static final int THUMB_SRC_W = 6;
-    private static final int THUMB_SRC_H = 16;
+    private static final NineSliceRegion TRACK_NINE_SLICE = new NineSliceRegion(
+            new SpriteRegion(TRACK_TEX_INFO, 0, 0, HALF_W, HALF_H), BORDER);
+
+    /** 滑块贴图（slider.png） */
+    private static final ResourceLocation THUMB_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/slider.png");
+    private static final TextureInfo THUMB_TEX_INFO = new TextureInfo(
+            THUMB_TEXTURE, TEX_W, TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion THUMB_NINE_SLICE = new NineSliceRegion(
+            new SpriteRegion(THUMB_TEX_INFO, 0, 0, HALF_W, HALF_H), BORDER);
 
     // ======================== 状态字段 ========================
 
@@ -72,17 +94,13 @@ public class ScrollBar {
     /** 上一帧鼠标是否悬浮在滑块上，用于切换下层高亮贴图 */
     private boolean hovering;
 
-    private static final NineSliceRegion TRACK_NINE_SLICE = new NineSliceRegion(
-            new SpriteRegion(SCROLLBAR_TEX_INFO, 0, 0, TRACK_SRC_W, TRACK_SRC_H), SCROLLBAR_BORDER);
-    private static final NineSliceRegion THUMB_NINE_SLICE = new NineSliceRegion(
-            new SpriteRegion(SCROLLBAR_TEX_INFO, 5, 0, THUMB_SRC_W, THUMB_SRC_H), SCROLLBAR_BORDER);
-
     // ======================== 外观配置 ========================
 
     private static final int DEFAULT_TRACK_COLOR     = 0x662E3B4C;
     private static final int DEFAULT_THUMB_COLOR     = 0xFF586A80;
     private static final int DEFAULT_THUMB_HOVER_COLOR = 0xFF6A7E96;
 
+    private int scrollStep = DEFAULT_SCROLL_STEP;
     private int trackColor = DEFAULT_TRACK_COLOR;
     private int thumbColor = DEFAULT_THUMB_COLOR;
     private int thumbHoverColor = DEFAULT_THUMB_HOVER_COLOR;
@@ -164,7 +182,8 @@ public class ScrollBar {
     public boolean handleScroll(double scrollY) {
         if (this.maxScroll <= 0) return false;
         int before = this.scroll;
-        this.scroll = Mth.clamp(this.scroll + (scrollY > 0.0D ? -1 : 1), 0, this.maxScroll);
+        int step = scrollY > 0.0D ? -this.scrollStep : this.scrollStep;
+        this.scroll = Mth.clamp(this.scroll + step, 0, this.maxScroll);
         return this.scroll != before;
     }
 
@@ -250,23 +269,23 @@ public class ScrollBar {
         // 激活状态下切换为下层贴图（拖拽或悬停时显示高亮态）
         boolean active = this.dragging || this.hovering;
 
-        // 滑条（4px 宽，垂直平铺填充）
-        NineSliceRegion track = active ? TRACK_NINE_SLICE.withVOffset(TRACK_SRC_H) : TRACK_NINE_SLICE;
-        RtsClientUiUtil.drawNineSliceRegion(g, track.withTheme(), barX, barY, TRACK_SRC_W, barH);
+        // 滑条（5px 宽，垂直平铺填充）
+        NineSliceRegion track = active ? TRACK_NINE_SLICE.withVOffset(STATE_OFFSET) : TRACK_NINE_SLICE;
+        RtsClientUiUtil.drawNineSliceRegion(g, track.withTheme(), barX, barY, TRACK_W, barH);
 
-        // 滑块（6px 宽，以滑条为中心左右各凸出 1px）
-        NineSliceRegion thumb = active ? THUMB_NINE_SLICE.withVOffset(THUMB_SRC_H) : THUMB_NINE_SLICE;
-        RtsClientUiUtil.drawNineSliceRegion(g, thumb.withTheme(), barX - 1, thumbY, THUMB_SRC_W, thumbH);
+        // 滑块（7px 宽，以滑条为中心左右各凸出 1px）
+        NineSliceRegion thumb = active ? THUMB_NINE_SLICE.withVOffset(STATE_OFFSET) : THUMB_NINE_SLICE;
+        RtsClientUiUtil.drawNineSliceRegion(g, thumb.withTheme(), barX - 1, thumbY, THUMB_W, thumbH);
     }
 
     // ======================== 交互区域检测 ========================
 
     /**
-     * 判断鼠标是否在滚动条区域内（匹配贴图渲染宽度 6px）。
+     * 判断鼠标是否在滚动条区域内（匹配贴图渲染宽度 7px）。
      */
     public boolean isInsideBar(double mouseX, double mouseY, int barX, int barY, int barH) {
         return mouseX >= barX - 1
-                && mouseX < barX + 5
+                && mouseX < barX + 6
                 && mouseY >= barY
                 && mouseY < barY + barH;
     }
@@ -303,6 +322,11 @@ public class ScrollBar {
 
     public ScrollBar withThumbHoverColor(int color) {
         this.thumbHoverColor = color;
+        return this;
+    }
+
+    public ScrollBar withScrollStep(int step) {
+        this.scrollStep = Math.max(1, step);
         return this;
     }
 

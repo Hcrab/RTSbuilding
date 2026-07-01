@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.util;
 
-import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -37,29 +40,45 @@ public class ScaleSliderComponent {
 
     // ======================== 贴图常量 ========================
 
-    private static final ResourceLocation SLIDER_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/mouse_wheel_2.png");
-    private static final int SLIDER_TEX_W = 32;
-    private static final int SLIDER_TEX_H = 32;
-    private static final int SLIDER_BORDER = 2;
-    private static final int TRACK_SRC_W = 16;
-    private static final int TRACK_SRC_H = 4;
-    private static final int THUMB_SRC_W = 16;
-    private static final int THUMB_SRC_H = 6;
+    /** 贴图文件尺寸（两张贴图通用） */
+    private static final int TEX_W = 32;
+    private static final int TEX_H = 32;
+    /** 贴图单一主题半区尺寸 */
+    private static final int HALF_W = 16;
+    private static final int HALF_H = 16;
+    /** 状态切换垂直偏移（正常态 0-16，移动态 16-32） */
+    private static final int STATE_OFFSET = HALF_H;
+    /** 九宫格边框 */
+    private static final int BORDER = 2;
 
-    /** 渲染时滑块的视觉宽度 */
+    /** 渲染时轨道高度（横向滑条固定 5px） */
+    private static final int TRACK_H = 5;
+    /** 渲染时滑块高度（横向滑条固定 7px） */
+    private static final int THUMB_H = 7;
+    /** 渲染时滑块宽度 */
     private static final int THUMB_W = 8;
     /** 滑条轨道点击检测在 Y 方向向外扩展的像素数，方便点击到窄轨道 */
     private static final int TRACK_CLICK_PADDING = 3;
 
-    private static final TextureInfo SLIDER_TEX_INFO = new TextureInfo(
-            SLIDER_TEXTURE, SLIDER_TEX_W, SLIDER_TEX_H,
+    /** 轨道贴图（mouse_wheel.png） */
+    private static final ResourceLocation TRACK_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/mouse_wheel.png");
+    private static final TextureInfo TRACK_TEX_INFO = new TextureInfo(
+            TRACK_TEXTURE, TEX_W, TEX_H,
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
             TextureInfo.FilterMode.PIXEL);
     private static final NineSliceRegion TRACK_NINE_SLICE = new NineSliceRegion(
-            new SpriteRegion(SLIDER_TEX_INFO, 0, 0, TRACK_SRC_W, TRACK_SRC_H), SLIDER_BORDER);
+            new SpriteRegion(TRACK_TEX_INFO, 0, 0, HALF_W, HALF_H), BORDER);
+
+    /** 滑块贴图（slider.png） */
+    private static final ResourceLocation THUMB_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/slider.png");
+    private static final TextureInfo THUMB_TEX_INFO = new TextureInfo(
+            THUMB_TEXTURE, TEX_W, TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
     private static final NineSliceRegion THUMB_NINE_SLICE = new NineSliceRegion(
-            new SpriteRegion(SLIDER_TEX_INFO, 0, 5, THUMB_SRC_W, THUMB_SRC_H), SLIDER_BORDER);
+            new SpriteRegion(THUMB_TEX_INFO, 0, 0, HALF_W, HALF_H), BORDER);
 
     // ======================== 平滑动画参数 ========================
 
@@ -122,17 +141,17 @@ public class ScaleSliderComponent {
         boolean draggingState = this.dragging;
 
         // 滑条轨道
-        NineSliceRegion track = draggingState ? TRACK_NINE_SLICE.withVOffset(SLIDER_TEX_H / 2) : TRACK_NINE_SLICE;
+        NineSliceRegion track = draggingState ? TRACK_NINE_SLICE.withVOffset(STATE_OFFSET) : TRACK_NINE_SLICE;
         RtsClientUiUtil.drawNineSliceRegion(g, track.withTheme(),
-                trackX, trackY, trackW, TRACK_SRC_H);
+                trackX, trackY, trackW, TRACK_H);
 
         // 滑块（使用平滑值计算位置）
         int thumbX = trackX + (int) Math.round((smoothValue - min) / (max - min) * (trackW - THUMB_W));
         this.renderedThumbX = thumbX;
-        int thumbY = trackY + (TRACK_SRC_H - THUMB_SRC_H) / 2;
-        NineSliceRegion thumb = draggingState ? THUMB_NINE_SLICE.withVOffset(SLIDER_TEX_H / 2) : THUMB_NINE_SLICE;
+        int thumbY = trackY + (TRACK_H - THUMB_H) / 2;
+        NineSliceRegion thumb = draggingState ? THUMB_NINE_SLICE.withVOffset(STATE_OFFSET) : THUMB_NINE_SLICE;
         RtsClientUiUtil.drawNineSliceRegion(g, thumb.withTheme(),
-                thumbX, thumbY, THUMB_W, THUMB_SRC_H);
+                thumbX, thumbY, THUMB_W, THUMB_H);
     }
 
     // ======================== 交互 ========================
@@ -151,7 +170,7 @@ public class ScaleSliderComponent {
         // Y 方向双向扩展 TRACK_CLICK_PADDING 方便点到窄轨道
         // X 方向只检测滑块区域，点击轨道本身不做跳转
         if (mouseY >= trackY - TRACK_CLICK_PADDING
-                && mouseY < trackY + TRACK_SRC_H + TRACK_CLICK_PADDING
+                && mouseY < trackY + TRACK_H + TRACK_CLICK_PADDING
                 && mouseX >= renderedThumbX && mouseX < renderedThumbX + THUMB_W) {
 
             // 开始拖拽追踪（基于当前平滑值，避免拖拽起始跳变）
@@ -182,7 +201,7 @@ public class ScaleSliderComponent {
 
         // Y 方向检测范围与 handleClick 一致
         if (mouseY >= trackY - TRACK_CLICK_PADDING
-                && mouseY < trackY + TRACK_SRC_H + TRACK_CLICK_PADDING
+                && mouseY < trackY + TRACK_H + TRACK_CLICK_PADDING
                 && mouseX >= trackX && mouseX < trackX + trackW) {
 
             double step = 0.1; // 每格滚轮调整 0.1

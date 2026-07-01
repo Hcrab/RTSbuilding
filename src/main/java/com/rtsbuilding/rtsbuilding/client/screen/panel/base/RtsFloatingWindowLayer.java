@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 

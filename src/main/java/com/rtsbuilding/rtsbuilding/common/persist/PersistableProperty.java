@@ -166,6 +166,17 @@ public sealed interface PersistableProperty {
         return new FieldProperty<>(jsonKey, stateReader, stateWriter, runtimeGetter, runtimeSetter);
     }
 
+    /** 创建双精度浮点数字段属性 */
+    static FieldProperty<Double> doubleField(
+            String jsonKey,
+            Function<RtsClientUiStateStore.UiState, Double> stateReader,
+            BiConsumer<RtsClientUiStateStore.UiState, Double> stateWriter,
+            Supplier<Double> runtimeGetter,
+            java.util.function.Consumer<Double> runtimeSetter
+    ) {
+        return new FieldProperty<>(jsonKey, stateReader, stateWriter, runtimeGetter, runtimeSetter);
+    }
+
     /**
      * 创建枚举字段属性。
      *

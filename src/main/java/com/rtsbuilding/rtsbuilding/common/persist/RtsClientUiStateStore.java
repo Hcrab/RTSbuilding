@@ -418,8 +418,8 @@ public final class RtsClientUiStateStore {
             public boolean debugButtonVisible = false;
             public boolean lineConnected = false;
             public boolean allowPlacedBlockRecovery = false;
-            /** 辅助显示模式总开关（默认开启） */
-            public boolean debugOverlayEnabled = true;
+            /** 辅助显示模式总开关（默认关闭） */
+            public boolean debugOverlayEnabled = false;
             /** 区块边框显示 */
             public boolean chunkBorderVisible = true;
             /** 碰撞箱显示（默认开启） */
@@ -433,6 +433,30 @@ public final class RtsClientUiStateStore {
             public boolean helpersExpanded;
             public boolean animationExpanded;
             public List<String> expandedHintKeys = new ArrayList<>();
+
+            // ===== 渲染设置 =====
+            /** 流动动画开关 */
+            public boolean flowAnimationEnabled = true;
+            /** 平滑追踪动画开关 */
+            public boolean smoothAnimationEnabled = true;
+            /** UI 平滑动画开关 */
+            public boolean uiSmoothAnimationEnabled = true;
+            /** 深度测试开关 */
+            public boolean depthTestEnabled = true;
+            /** 无深度遮挡时线框透明度 [0.02, 0.80] */
+            public double noDepthAlpha = 0.10;
+            /** 屏障颜色 ARGB */
+            public int barrierColor = 0xFFFFCC00;
+            /** 方块交互目标角支架颜色 ARGB */
+            public int blockTargetColor = 0xFFF69C31;
+            /** 实体交互目标角支架颜色 ARGB */
+            public int entityTargetColor = 0xFF4D99FF;
+            /** 框选线框颜色 ARGB */
+            public int selectionColor = 0xFFFFFFFF;
+            /** 框选预览覆盖层颜色 ARGB */
+            public int previewOverlayColor = 0xFF4D80FF;
+            /** 框选虚线间隙颜色 ARGB */
+            public int selectionGapColor = 0xFF000000;
         }
 
         /** 窗口面板位置/大小的不可变记录。 */
@@ -519,6 +543,17 @@ public final class RtsClientUiStateStore {
             clean.settings.helpersExpanded = this.settings.helpersExpanded;
             clean.settings.animationExpanded = this.settings.animationExpanded;
             clean.settings.expandedHintKeys = sanitizeKeys(this.settings.expandedHintKeys);
+            clean.settings.flowAnimationEnabled = this.settings.flowAnimationEnabled;
+            clean.settings.smoothAnimationEnabled = this.settings.smoothAnimationEnabled;
+            clean.settings.uiSmoothAnimationEnabled = this.settings.uiSmoothAnimationEnabled;
+            clean.settings.depthTestEnabled = this.settings.depthTestEnabled;
+            clean.settings.noDepthAlpha = Math.max(0.02, Math.min(0.80, this.settings.noDepthAlpha));
+            clean.settings.barrierColor = this.settings.barrierColor;
+            clean.settings.blockTargetColor = this.settings.blockTargetColor;
+            clean.settings.entityTargetColor = this.settings.entityTargetColor;
+            clean.settings.selectionColor = this.settings.selectionColor;
+            clean.settings.previewOverlayColor = this.settings.previewOverlayColor;
+            clean.settings.selectionGapColor = this.settings.selectionGapColor;
             // top-level
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             if (this.windowPanelBounds != null) {

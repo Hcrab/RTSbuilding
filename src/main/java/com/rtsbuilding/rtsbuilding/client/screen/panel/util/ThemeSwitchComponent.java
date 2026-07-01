@@ -186,7 +186,7 @@ public class ThemeSwitchComponent {
         SpriteRegion normal = new SpriteRegion(texInfo, u, vDefault, sw, sh);
         SpriteRegion hovered = new SpriteRegion(texInfo, u, vHover, sw, sh);
         RtsClientUiUtil.renderCrossFade(t,
-                () -> RtsClientUiUtil.drawSprite(g, normal.withTheme(), screenX, screenY, sw, sh),
-                () -> RtsClientUiUtil.drawSprite(g, hovered.withTheme(), screenX, screenY, sw, sh));
+                () -> RtsClientUiUtil.drawSprite(g, normal, screenX, screenY, sw, sh),
+                () -> RtsClientUiUtil.drawSprite(g, hovered, screenX, screenY, sw, sh));
     }
 }

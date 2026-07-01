@@ -10,8 +10,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.util.Mth;
 
-import javax.annotation.Nullable;
-
 /**
  * 可折叠设置分区抽象基类——为设置面板中的折叠分区提供通用渲染、交互逻辑
  * 以及统一的开关/滑条布局辅助方法。
@@ -37,6 +35,13 @@ public abstract class SettingsSection {
     protected static final int RIGHT_PAD = 6;
     /** 滑条与标签间距 */
     protected static final int SLIDER_GAP = 8;
+    /** 中位线与右侧控件起始的间距 */
+    protected static final int MID_DIVIDER_GAP = 4;
+
+    /** 返回内容区中位线右侧控件的起始 X（中位线 + 间距） */
+    protected static int midControlX(int x, int w) {
+        return x + w / 2 + MID_DIVIDER_GAP;
+    }
 
     // ======================== 实例字段 ========================
 
@@ -228,11 +233,11 @@ public abstract class SettingsSection {
                                  ScaleSliderComponent slider, SliderTrack trackPos,
                                  double min, double max, double value) {
         RtsClientUiUtil.drawUiText(g, label, x + LEFT_PAD, textY(y, row), getTextColor());
-        int textW = Minecraft.getInstance().font.width(label);
         int lineCenterY = textY(y, row) + Minecraft.getInstance().font.lineHeight / 2;
-        trackPos.trackX = x + LEFT_PAD + textW + SLIDER_GAP;
+        int controlStart = midControlX(x, w);
+        trackPos.trackX = controlStart;
         trackPos.trackY = lineCenterY - 2;
-        trackPos.trackW = Mth.clamp(w - LEFT_PAD - RIGHT_PAD - textW - SLIDER_GAP, 20, w - LEFT_PAD - RIGHT_PAD);
+        trackPos.trackW = Mth.clamp(x + w - RIGHT_PAD - controlStart, 20, x + w - RIGHT_PAD - controlStart);
         trackPos.slider = slider;
         slider.render(g, mx, my, trackPos.trackX, trackPos.trackY, trackPos.trackW, min, max, value);
     }

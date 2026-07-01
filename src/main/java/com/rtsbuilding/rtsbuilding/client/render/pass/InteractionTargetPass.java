@@ -7,8 +7,6 @@ import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * 交互目标渲染 pass——基于鼠标光标的射线检测，用角支架高亮悬停方块或实体。
@@ -19,6 +17,13 @@ public final class InteractionTargetPass implements RenderPass {
     private static final double LINE_OFFSET = 0.01D;
 
     private static final CornerBracketRenderer.SmoothTarget smoothTarget = new CornerBracketRenderer.SmoothTarget();
+
+    // ======================== 可自定义颜色 ========================
+
+    /** 方块交互目标角支架颜色（ARGB），默认橙金 #F69C31 */
+    public static int blockTargetColor = 0xFFF69C31;
+    /** 实体交互目标角支架颜色（ARGB），默认青蓝 #4D99FF */
+    public static int entityTargetColor = 0xFF4D99FF;
 
     @Override
     public boolean shouldRender(Minecraft mc) {
@@ -70,10 +75,11 @@ public final class InteractionTargetPass implements RenderPass {
         // 根据动画后的中心计算距离（厚度缩放）
         double distance = smoothTarget.centerDistanceTo(ray.origin());
 
-        // 选择颜色：方块=橙金，实体=青蓝
-        float r = isBlock ? 0.965f : 0.3f;
-        float g = isBlock ? 0.608f : 0.6f;
-        float b = isBlock ? 0.192f : 1.0f;
+        // 选择颜色：取自可自定义的静态字段
+        int color = isBlock ? blockTargetColor : entityTargetColor;
+        float r = ((color >> 16) & 0xFF) / 255.0f;
+        float g = ((color >> 8) & 0xFF) / 255.0f;
+        float b = (color & 0xFF) / 255.0f;
 
         // 深度检测层
         CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),

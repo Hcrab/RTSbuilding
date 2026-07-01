@@ -3,18 +3,19 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
+import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.BlockHitResult;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPanel;
@@ -23,13 +24,14 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.util.CursorStyleManager;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.CursorWrapHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 
@@ -249,6 +251,18 @@ public class BuilderScreen extends Screen {
         if (cam != null) {
             cam.setInputSensitivity((float) state.camera.inputSensitivity);
         }
+        // 恢复渲染设置
+        BoxSelectionPass.flowAnimationEnabled = state.settings.flowAnimationEnabled;
+        CornerBracketRenderer.SmoothTarget.enabled = state.settings.smoothAnimationEnabled;
+        SmoothAnimator.enabled = state.settings.uiSmoothAnimationEnabled;
+        BoxSelectionPass.depthTestEnabled = state.settings.depthTestEnabled;
+        CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA = (float) state.settings.noDepthAlpha;
+        BoundaryPass.barrierColor = state.settings.barrierColor;
+        InteractionTargetPass.blockTargetColor = state.settings.blockTargetColor;
+        InteractionTargetPass.entityTargetColor = state.settings.entityTargetColor;
+        BoxSelectionPass.selectionColor = state.settings.selectionColor;
+        BoxSelectionPass.previewOverlayColor = state.settings.previewOverlayColor;
+        BoxSelectionPass.selectionGapColor = state.settings.selectionGapColor;
     }
 
     private void persistGlobalState() {
@@ -259,6 +273,18 @@ public class BuilderScreen extends Screen {
             state.camera.inputSensitivity = cam.getInputSensitivity();
         }
         RtsClientUiStateStore.cache().markDirty();
+        // 持久化渲染设置
+        state.settings.flowAnimationEnabled = BoxSelectionPass.flowAnimationEnabled;
+        state.settings.smoothAnimationEnabled = CornerBracketRenderer.SmoothTarget.enabled;
+        state.settings.uiSmoothAnimationEnabled = SmoothAnimator.enabled;
+        state.settings.depthTestEnabled = BoxSelectionPass.depthTestEnabled;
+        state.settings.noDepthAlpha = CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA;
+        state.settings.barrierColor = BoundaryPass.barrierColor;
+        state.settings.blockTargetColor = InteractionTargetPass.blockTargetColor;
+        state.settings.entityTargetColor = InteractionTargetPass.entityTargetColor;
+        state.settings.selectionColor = BoxSelectionPass.selectionColor;
+        state.settings.previewOverlayColor = BoxSelectionPass.previewOverlayColor;
+        state.settings.selectionGapColor = BoxSelectionPass.selectionGapColor;
     }
 
     // ======================================================================
@@ -538,14 +564,14 @@ public class BuilderScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         Boolean scaled = scaleMouseEvent(mouseX, mouseY, (x, y) -> mouseClicked(x, y, button));
         if (scaled != null) return scaled;
+        // 浮窗渲染在最上层，事件优先级应高于侧边栏/顶栏（防止浮窗覆盖区域误触下层按钮）
+        if (floatingWindowLayer != null && floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (topBarPanel != null && topBarPanel.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (leftSidebarPanel != null && leftSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        // 浮窗渲染在最上层，事件优先级应高于侧边栏（防止浮窗覆盖区域误触侧边栏缩放）
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (rightSidebarPanel != null && rightSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
@@ -676,6 +702,10 @@ public class BuilderScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // 浮窗面板优先处理键盘事件（如调色盘文本输入框），防止被下方快捷键抢走
+        if (floatingWindowLayer != null && floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
+            return true;
+        }
         // Ctrl+, → 切换设置面板打开/关闭
         if (RtsKeyMappings.OPEN_GEAR_MENU_KEY.matches(keyCode, scanCode)) {
             gearMenuPanel.toggleOpen();
@@ -725,9 +755,6 @@ public class BuilderScreen extends Screen {
             if (leftSidebarPanel != null) {
                 leftSidebarPanel.toggleItemPickupMode();
             }
-            return true;
-        }
-        if (floatingWindowLayer != null && floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
         if (kernel.inputPipeline().onKeyPressed(keyCode, scanCode, modifiers)) {

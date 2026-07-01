@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.gear;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.SettingsSection;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ResetButton;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ScaleSliderComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ThemeSwitchComponent;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -10,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 import javax.annotation.Nullable;
 
@@ -26,6 +28,11 @@ public class OperationSection extends SettingsSection {
     /** 灵敏度滑条轨道位置缓存 */
     private final SliderTrack sensTrack = new SliderTrack();
 
+    /** 重置按钮——恢复灵敏度为默认值 */
+    private final ResetButton sensResetBtn = new ResetButton();
+    /** 重置按钮——恢复环绕模式为关闭 */
+    private final ResetButton orbitResetBtn = new ResetButton();
+
     /** 缓存的翻译文本 */
     private String cachedSensitivityLabel;
     private String cachedOrbitLabel;
@@ -35,6 +42,12 @@ public class OperationSection extends SettingsSection {
 
     public OperationSection() {
         super("screen.rtsbuilding.settings.category.controls");
+        sensResetBtn.setResetAction(() -> {
+            if (cameraModule != null) cameraModule.setInputSensitivity(1.0f);
+        });
+        orbitResetBtn.setResetAction(() -> {
+            if (cameraModule != null) cameraModule.disableOrbitMode();
+        });
     }
 
     public void setCameraModule(@Nullable CameraModule module) {
@@ -50,14 +63,32 @@ public class OperationSection extends SettingsSection {
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int lineCount) {
         double sens = getSensitivity();
 
-        // 灵敏度标签 + 滑条（第一行，合并到同一行）
+        // 灵敏度标签 + 滑条（以中位线为界，左侧文字右侧滑条+重置）
         String labelText = buildSensitivityLabel(sens);
-        renderSlider(g, mouseX, mouseY, x, y, w, 0, labelText, slider, sensTrack,
-                SENS_MIN, SENS_MAX, sens);
+        RtsClientUiUtil.drawUiText(g, labelText, x + LEFT_PAD, textY(y, 0), getTextColor());
+        int lineCenterY = textY(y, 0) + Minecraft.getInstance().font.lineHeight / 2;
+        int controlStart = midControlX(x, w);
+        sensTrack.trackX = controlStart;
+        sensTrack.trackY = lineCenterY - 2;
+        int trackMaxW = (x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4) - controlStart;
+        sensTrack.trackW = Mth.clamp(trackMaxW, 20, trackMaxW);
+        sensTrack.slider = slider;
+        slider.render(g, mouseX, mouseY, sensTrack.trackX, sensTrack.trackY, sensTrack.trackW, SENS_MIN, SENS_MAX, sens);
+        // 灵敏度重置按钮
+        int sensResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
+        int sensResetY = lineCenterY - ResetButton.BTN_SIZE / 2;
+        sensResetBtn.render(g, mouseX, mouseY, sensResetX, sensResetY);
 
-        // 环绕模式开关（第二行）
+        // 环绕模式开关（第二行，右侧带重置按钮）
         renderLabel(g, getOrbitLabel(), x, y, 1);
-        renderToggle(g, mouseX, mouseY, x, y, w, 1, orbitToggle, cameraModule != null && cameraModule.isOrbitMode());
+        int textCenterY = textY(y, 1) + Minecraft.getInstance().font.lineHeight / 2;
+        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4 - ThemeSwitchComponent.SIZE;
+        int toggleY = textCenterY - ThemeSwitchComponent.SIZE / 2;
+        orbitToggle.render(g, mouseX, mouseY, toggleX, toggleY, cameraModule != null && cameraModule.isOrbitMode());
+        // 环绕模式重置按钮
+        int orbitResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
+        int orbitResetY = textCenterY - ResetButton.BTN_SIZE / 2;
+        orbitResetBtn.render(g, mouseX, mouseY, orbitResetX, orbitResetY);
     }
 
     private String buildSensitivityLabel(double sens) {
@@ -77,6 +108,10 @@ public class OperationSection extends SettingsSection {
     @Override
     protected boolean onContentLineClick(int lineIndex, double mouseX, double mouseY,
                                          int contentX, int contentY, int contentW) {
+        // 重置按钮优先检测
+        if (sensResetBtn.handleClick(mouseX, mouseY)) return true;
+        if (orbitResetBtn.handleClick(mouseX, mouseY)) return true;
+
         Double newVal = slider.handleClick(mouseX, mouseY,
                 sensTrack.trackX, sensTrack.trackY, sensTrack.trackW, SENS_MIN, SENS_MAX);
         if (newVal != null) {

@@ -7,7 +7,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * 加厚角支架渲染器——在 AABB 的 12 条棱上画 L 型粗线框。
  *
- * <p>每条棱用两个垂直四边形渲染成十字形截面，从任何角度看都有厚度。
+ * <p>每条棱用六个四边形渲染成完整六面体棱柱（参考 effortless 的 {@code renderAACuboidLine}），
+ * 从任何角度都保持均匀厚度。
  * 厚度随距离自动缩放（超过 {@link #THICKNESS_SCALE_DISTANCE} 格后线性增长），
  * 确保远处依然清晰可见。
  *
@@ -54,25 +55,28 @@ public final class CornerBracketRenderer {
     // ──────────────────────────────────────────────
 
     /**
-     * 渲染虚线角支架——在 12 条棱上交替绘制白色段和黑色段，形成白黑交替的虚线效果。
+     * 渲染虚线角支架——在 12 条棱上交替绘制主色段和间隙色段，形成虚线效果。
      * <p>与 {@link #renderCornerBrackets} 相同的厚四边形风格，但每条棱由短段虚线组成。
-     * 黑色段渲染在间隙位置，颜色固定为 (0,0,0)。
+     * 间隙段颜色由 gapR/gapG/gapB 指定。
      *
+     * @param gapR       间隙段红色 [0,1]
+     * @param gapG       间隙段绿色 [0,1]
+     * @param gapB       间隙段蓝色 [0,1]
      * @param flowOffset 流动偏移量（块），随时间递增使虚线沿棱边流动
      */
     public static void renderDashedCornerBrackets(PoseStack poseStack, VertexConsumer consumer,
             double minX, double minY, double minZ,
             double maxX, double maxY, double maxZ,
-            float r, float g, float b, float a,
+            float r, float g, float b, float gapR, float gapG, float gapB, float a,
             double distance, double flowOffset) {
         double halfThick = BRACKET_THICKNESS
                 * Math.max(MIN_THICKNESS_MULTIPLIER, 1.0D)
                 * Math.max(1.0D, distance / THICKNESS_SCALE_DISTANCE) * 0.5D;
 
         // 12 条棱，每条虚线绘制
-        drawDashedHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, minY, r, g, b, a, halfThick, flowOffset);
-        drawDashedHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, maxY, r, g, b, a, halfThick, flowOffset);
-        drawDashedVerticalEdges(consumer, poseStack, minX, minZ, maxX, maxZ, minY, maxY, r, g, b, a, halfThick, flowOffset);
+        drawDashedHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, minY, r, g, b, gapR, gapG, gapB, a, halfThick, flowOffset);
+        drawDashedHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, maxY, r, g, b, gapR, gapG, gapB, a, halfThick, flowOffset);
+        drawDashedVerticalEdges(consumer, poseStack, minX, minZ, maxX, maxZ, minY, maxY, r, g, b, gapR, gapG, gapB, a, halfThick, flowOffset);
     }
 
     /**
@@ -217,60 +221,84 @@ public final class CornerBracketRenderer {
     //  内部渲染逻辑
     // ──────────────────────────────────────────────
 
-    /** 坐标轴枚举——决定四边形膨胀方向 */
-    private enum Axis { X, Y, Z }
-
     private static void drawHorizontalRing(VertexConsumer consumer, PoseStack poseStack,
             double minX, double minZ, double maxX, double maxZ,
             double y, float r, float g, float b, float a, double t) {
-        drawSegment(consumer, poseStack, minX, y, minZ, maxX, y, minZ, r, g, b, a, t, Axis.X);  // 前
-        drawSegment(consumer, poseStack, maxX, y, minZ, maxX, y, maxZ, r, g, b, a, t, Axis.Z); // 右
-        drawSegment(consumer, poseStack, maxX, y, maxZ, minX, y, maxZ, r, g, b, a, t, Axis.X);  // 后
-        drawSegment(consumer, poseStack, minX, y, maxZ, minX, y, minZ, r, g, b, a, t, Axis.Z); // 左
+        drawSegment(consumer, poseStack, minX, y, minZ, maxX, y, minZ, r, g, b, a, t);  // 前
+        drawSegment(consumer, poseStack, maxX, y, minZ, maxX, y, maxZ, r, g, b, a, t); // 右
+        drawSegment(consumer, poseStack, maxX, y, maxZ, minX, y, maxZ, r, g, b, a, t);  // 后
+        drawSegment(consumer, poseStack, minX, y, maxZ, minX, y, minZ, r, g, b, a, t); // 左
     }
 
     private static void drawVerticalEdges(VertexConsumer consumer, PoseStack poseStack,
             double minX, double minZ, double maxX, double maxZ,
             double minY, double maxY, float r, float g, float b, float a, double t) {
-        drawSegment(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ, r, g, b, a, t, Axis.Y);
-        drawSegment(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ, r, g, b, a, t, Axis.Y);
-        drawSegment(consumer, poseStack, maxX, minY, maxZ, maxX, maxY, maxZ, r, g, b, a, t, Axis.Y);
-        drawSegment(consumer, poseStack, minX, minY, maxZ, minX, maxY, maxZ, r, g, b, a, t, Axis.Y);
+        drawSegment(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ, r, g, b, a, t);
+        drawSegment(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ, r, g, b, a, t);
+        drawSegment(consumer, poseStack, maxX, minY, maxZ, maxX, maxY, maxZ, r, g, b, a, t);
+        drawSegment(consumer, poseStack, minX, minY, maxZ, minX, maxY, maxZ, r, g, b, a, t);
     }
 
+    /**
+     * 绘制粗线段——用六个四边形渲染完整六面体棱柱（匹配 effortless 的 renderAACuboidLine 风格）。
+     * <p>从线段方向自动计算垂直截面，首尾两端各延伸半厚度形成端盖，
+     * 确保从任何角度观察都呈现均匀的实体厚度。
+     */
     private static void drawSegment(VertexConsumer consumer, PoseStack poseStack,
             double x1, double y1, double z1,
             double x2, double y2, double z2,
-            float r, float g, float b, float a, double t, Axis axis) {
-        switch (axis) {
-            case X -> {
-                // 沿 X 轴 → Y + Z 方向膨胀
-                quad(consumer, poseStack,
-                        x1, y1 - t, z1, x1, y1 + t, z1,
-                        x2, y2 + t, z2, x2, y2 - t, z2, r, g, b, a);
-                quad(consumer, poseStack,
-                        x1, y1, z1 - t, x1, y1, z1 + t,
-                        x2, y2, z2 + t, x2, y2, z2 - t, r, g, b, a);
-            }
-            case Y -> {
-                // 沿 Y 轴 → Z + X 方向膨胀
-                quad(consumer, poseStack,
-                        x1, y1, z1 - t, x1, y1, z1 + t,
-                        x2, y2, z2 + t, x2, y2, z2 - t, r, g, b, a);
-                quad(consumer, poseStack,
-                        x1 - t, y1, z1, x1 + t, y1, z1,
-                        x2 + t, y2, z2, x2 - t, y2, z2, r, g, b, a);
-            }
-            case Z -> {
-                // 沿 Z 轴 → X + Y 方向膨胀
-                quad(consumer, poseStack,
-                        x1 - t, y1, z1, x1 + t, y1, z1,
-                        x2 + t, y2, z2, x2 - t, y2, z2, r, g, b, a);
-                quad(consumer, poseStack,
-                        x1, y1 - t, z1, x1, y1 + t, z1,
-                        x2, y2 + t, z2, x2, y2 - t, z2, r, g, b, a);
-            }
+            float r, float g, float b, float a, double t) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double dz = z2 - z1;
+        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1.0e-4) return;
+
+        // 单位方向向量
+        double nx = dx / len, ny = dy / len, nz = dz / len;
+
+        // 首尾两端按半厚度延伸（参照 effortless 的 extension 逻辑）
+        double sx = x1 - nx * t, sy = y1 - ny * t, sz = z1 - nz * t;
+        double ex = x2 + nx * t, ey = y2 + ny * t, ez = z2 + nz * t;
+
+        // 计算垂直于线段方向的 u（up）向量：叉积取最小的轴
+        double ux, uy, uz;
+        double ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+        if (ax <= ay && ax <= az) {
+            ux = 0;  uy = nz;  uz = -ny;
+        } else if (ay <= ax && ay <= az) {
+            ux = -nz; uy = 0;   uz = nx;
+        } else {
+            ux = ny;  uy = -nx; uz = 0;
         }
+        double uLen = Math.sqrt(ux * ux + uy * uy + uz * uz);
+        if (uLen < 1.0e-8) return;
+        ux /= uLen; uy /= uLen; uz /= uLen;
+
+        // v = 方向 × u（已归一化）
+        double vx = ny * uz - nz * uy;
+        double vy = nz * ux - nx * uz;
+        double vz = nx * uy - ny * ux;
+
+        // 四个角点 = 中心 ± u*t ± v*t
+        // 起始端截面
+        double s1x = sx + ux * t + vx * t, s1y = sy + uy * t + vy * t, s1z = sz + uz * t + vz * t;
+        double s2x = sx + ux * t - vx * t, s2y = sy + uy * t - vy * t, s2z = sz + uz * t - vz * t;
+        double s3x = sx - ux * t - vx * t, s3y = sy - uy * t - vy * t, s3z = sz - uz * t - vz * t;
+        double s4x = sx - ux * t + vx * t, s4y = sy - uy * t + vy * t, s4z = sz - uz * t + vz * t;
+        // 结束端截面
+        double e1x = ex + ux * t + vx * t, e1y = ey + uy * t + vy * t, e1z = ez + uz * t + vz * t;
+        double e2x = ex + ux * t - vx * t, e2y = ey + uy * t - vy * t, e2z = ez + uz * t - vz * t;
+        double e3x = ex - ux * t - vx * t, e3y = ey - uy * t - vy * t, e3z = ez - uz * t - vz * t;
+        double e4x = ex - ux * t + vx * t, e4y = ey - uy * t + vy * t, e4z = ez - uz * t + vz * t;
+
+        // 六个面（start cap, end cap, 4 个侧面）
+        quad(consumer, poseStack, s1x, s1y, s1z, s2x, s2y, s2z, s3x, s3y, s3z, s4x, s4y, s4z, r, g, b, a);
+        quad(consumer, poseStack, e4x, e4y, e4z, e3x, e3y, e3z, e2x, e2y, e2z, e1x, e1y, e1z, r, g, b, a);
+        quad(consumer, poseStack, s1x, s1y, s1z, e1x, e1y, e1z, e2x, e2y, e2z, s2x, s2y, s2z, r, g, b, a);
+        quad(consumer, poseStack, s2x, s2y, s2z, e2x, e2y, e2z, e3x, e3y, e3z, s3x, s3y, s3z, r, g, b, a);
+        quad(consumer, poseStack, s3x, s3y, s3z, e3x, e3y, e3z, e4x, e4y, e4z, s4x, s4y, s4z, r, g, b, a);
+        quad(consumer, poseStack, s4x, s4y, s4z, e4x, e4y, e4z, e1x, e1y, e1z, s1x, s1y, s1z, r, g, b, a);
     }
 
     // ──────────────────────────────────────────────
@@ -279,27 +307,27 @@ public final class CornerBracketRenderer {
 
     private static void drawDashedHorizontalRing(VertexConsumer consumer, PoseStack poseStack,
             double minX, double minZ, double maxX, double maxZ,
-            double y, float r, float g, float b, float a, double t, double flowOffset) {
-        drawDashedSegment(consumer, poseStack, minX, y, minZ, maxX, y, minZ, r, g, b, a, t, Axis.X, flowOffset);
-        drawDashedSegment(consumer, poseStack, maxX, y, minZ, maxX, y, maxZ, r, g, b, a, t, Axis.Z, flowOffset);
-        drawDashedSegment(consumer, poseStack, maxX, y, maxZ, minX, y, maxZ, r, g, b, a, t, Axis.X, flowOffset);
-        drawDashedSegment(consumer, poseStack, minX, y, maxZ, minX, y, minZ, r, g, b, a, t, Axis.Z, flowOffset);
+            double y, float r, float g, float b, float gapR, float gapG, float gapB, float a, double t, double flowOffset) {
+        drawDashedSegment(consumer, poseStack, minX, y, minZ, maxX, y, minZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
+        drawDashedSegment(consumer, poseStack, maxX, y, minZ, maxX, y, maxZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
+        drawDashedSegment(consumer, poseStack, maxX, y, maxZ, minX, y, maxZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
+        drawDashedSegment(consumer, poseStack, minX, y, maxZ, minX, y, minZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
     }
 
     private static void drawDashedVerticalEdges(VertexConsumer consumer, PoseStack poseStack,
             double minX, double minZ, double maxX, double maxZ,
-            double minY, double maxY, float r, float g, float b, float a, double t, double flowOffset) {
-        drawDashedSegment(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ, r, g, b, a, t, Axis.Y, flowOffset);
-        drawDashedSegment(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ, r, g, b, a, t, Axis.Y, flowOffset);
-        drawDashedSegment(consumer, poseStack, maxX, minY, maxZ, maxX, maxY, maxZ, r, g, b, a, t, Axis.Y, flowOffset);
-        drawDashedSegment(consumer, poseStack, minX, minY, maxZ, minX, maxY, maxZ, r, g, b, a, t, Axis.Y, flowOffset);
+            double minY, double maxY, float r, float g, float b, float gapR, float gapG, float gapB, float a, double t, double flowOffset) {
+        drawDashedSegment(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
+        drawDashedSegment(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
+        drawDashedSegment(consumer, poseStack, maxX, minY, maxZ, maxX, maxY, maxZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
+        drawDashedSegment(consumer, poseStack, minX, minY, maxZ, minX, maxY, maxZ, r, g, b, gapR, gapG, gapB, a, t, flowOffset);
     }
 
-    /** 绘制一条虚线边——白色段和黑色段交替 */
+    /** 绘制一条虚线边——主色段和间隙色段交替 */
     private static void drawDashedSegment(VertexConsumer consumer, PoseStack poseStack,
             double x1, double y1, double z1,
             double x2, double y2, double z2,
-            float r, float g, float b, float a, double t, Axis axis, double flowOffset) {
+            float r, float g, float b, float gapR, float gapG, float gapB, float a, double t, double flowOffset) {
         double dx = x2 - x1;
         double dy = y2 - y1;
         double dz = z2 - z1;
@@ -320,10 +348,10 @@ public final class CornerBracketRenderer {
                 drawSegment(consumer, poseStack,
                         x1 + nx * realStart, y1 + ny * realStart, z1 + nz * realStart,
                         x1 + nx * whiteEnd, y1 + ny * whiteEnd, z1 + nz * whiteEnd,
-                        r, g, b, a, t, axis);
+                        r, g, b, a, t);
             }
 
-            // 黑色段（间隙位置）
+            // 间隙段
             double blackStart = pos + DASH_LEN;
             double blackEnd = Math.min(pos + step, length);
             if (blackEnd > blackStart && blackEnd > 0) {
@@ -331,7 +359,7 @@ public final class CornerBracketRenderer {
                 drawSegment(consumer, poseStack,
                         x1 + nx * realStart, y1 + ny * realStart, z1 + nz * realStart,
                         x1 + nx * blackEnd, y1 + ny * blackEnd, z1 + nz * blackEnd,
-                        0.0f, 0.0f, 0.0f, a, t, axis);
+                        gapR, gapG, gapB, a, t);
             }
 
             pos += step;
