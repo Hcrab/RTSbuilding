@@ -113,6 +113,15 @@ public final class RtsKeyMappings {
             CATEGORY_FUNCTION
     );
 
+    /** 循环切换模式（交互→建造→蓝图，默认 Tab） */
+    public static final KeyMapping CYCLE_MODE_KEY = new KeyMapping(
+            "key.rtsbuilding.cycle_mode",
+            KeyConflictContext.GUI,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_TAB,
+            CATEGORY_FUNCTION
+    );
+
     /**
      * 注册所有按键映射到游戏。
      *
@@ -128,5 +137,6 @@ public final class RtsKeyMappings {
         event.register(TOGGLE_BIND_MODE_KEY);
         event.register(TOGGLE_DIRECTION_ROTATE_MODE_KEY);
         event.register(TOGGLE_ITEM_PICKUP_MODE_KEY);
+        event.register(CYCLE_MODE_KEY);
     }
 }

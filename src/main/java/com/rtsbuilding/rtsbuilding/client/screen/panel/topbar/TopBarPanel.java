@@ -43,6 +43,11 @@ public final class TopBarPanel implements RtsPanelApi {
     private CameraModeGroup cameraModeGroup;
     private UtilityButtonGroup utilityGroup;
 
+    // ======================== 模式切换器 ========================
+
+    /** 模式切换器（下栏左侧） */
+    private ModeSwitcher modeSwitcher;
+
     // ======================== Logo ========================
 
     /** Logo 悬浮状态管理器 */
@@ -125,6 +130,8 @@ public final class TopBarPanel implements RtsPanelApi {
         this.cameraModeGroup = new CameraModeGroup(cameraModule);
         this.debugPopup = createDebugPopup();
         this.utilityGroup = new UtilityButtonGroup(debugPopup);
+        // 创建模式切换器
+        this.modeSwitcher = new ModeSwitcher();
         // 创建 Logo 下拉菜单
         this.logoPopup = createLogoPopup();
         this.logoPopup.positionFromButton(LOGO_SIZE / 2, LOGO_SIZE, screen.width);
@@ -188,6 +195,13 @@ public final class TopBarPanel implements RtsPanelApi {
         }
     }
 
+    /** 循环切换模式（Tab 快捷键委托） */
+    public void cycleMode() {
+        if (modeSwitcher != null) {
+            modeSwitcher.cycleMode();
+        }
+    }
+
     public void onPostUiStateLoad() {
         if (debugPopup != null) {
             debugPopup.onPostUiStateLoad();
@@ -197,6 +211,11 @@ public final class TopBarPanel implements RtsPanelApi {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderTopBarBackground(g);
+
+        // 渲染下栏左侧模式切换器
+        if (modeSwitcher != null) {
+            modeSwitcher.render(g, mouseX, mouseY);
+        }
 
         // 一次性计算所有按钮组布局，委托各按钮组渲染
         var layout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
@@ -246,6 +265,11 @@ public final class TopBarPanel implements RtsPanelApi {
         var layout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
         cameraModeGroup.renderTooltipOverlay(g, layout.modeGroup(), screen.width, screen.height);
         utilityGroup.renderTooltipOverlay(g, layout.utilityGroup(), screen.width, screen.height);
+
+        // 模式切换器弹窗（在左侧面板之后渲染，避免被遮挡）
+        if (modeSwitcher != null) {
+            modeSwitcher.renderPopup(g, mouseX, mouseY);
+        }
     }
 
     /**
@@ -304,6 +328,9 @@ public final class TopBarPanel implements RtsPanelApi {
             debugPopup.close();
             return true;
         }
+
+        // 模式切换器点击（含弹出菜单处理）
+        if (modeSwitcher != null && modeSwitcher.mouseClicked(mx, my)) return true;
 
         // Logo 点击：切换下拉菜单
         if (TopBarLayoutHelper.logoRect().contains(mx, my)) {
@@ -395,13 +422,16 @@ public final class TopBarPanel implements RtsPanelApi {
     }
 
     /**
-     * 检测鼠标是否悬停在任意弹出菜单（Logo 下拉菜单 / Debug 选项菜单）上。
+     * 检测鼠标是否悬停在任意弹出菜单（Logo 下拉菜单 / Debug 选项菜单 / 模式切换器菜单）上。
      * <p>用于判断交互目标渲染是否应被遮挡。</p>
      *
      * @return true 如果有弹出菜单处于打开状态且鼠标在其区域内
      */
     public boolean isMouseOverAnyPopup(int mouseX, int mouseY) {
         if (debugPopup != null && debugPopup.isOpen() && debugPopup.contains(mouseX, mouseY)) {
+            return true;
+        }
+        if (modeSwitcher != null && modeSwitcher.isMouseOverPopup(mouseX, mouseY)) {
             return true;
         }
         return logoPopup != null && logoPopup.isOpen() && logoPopup.contains(mouseX, mouseY);

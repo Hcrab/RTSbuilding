@@ -757,6 +757,13 @@ public class BuilderScreen extends Screen {
             }
             return true;
         }
+        // Tab → 循环切换模式（交互→建造→蓝图→交互...）
+        if (RtsKeyMappings.CYCLE_MODE_KEY.matches(keyCode, scanCode)) {
+            if (topBarPanel != null) {
+                topBarPanel.cycleMode();
+            }
+            return true;
+        }
         if (kernel.inputPipeline().onKeyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }

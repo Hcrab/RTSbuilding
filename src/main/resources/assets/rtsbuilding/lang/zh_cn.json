@@ -10,6 +10,8 @@
   "key.rtsbuilding.toggle_direction_rotate_mode": "切换方向旋转",
   "key.rtsbuilding.toggle_item_pickup_mode": "切换物品拾取",
 
+  "key.rtsbuilding.cycle_mode": "循环切换模式",
+
   "key.categories.rtsbuilding.camera": "RTSBuilding - 摄像机",
   "key.rtsbuilding.camera_forward": "摄像机前进",
   "key.rtsbuilding.camera_back": "摄像机后退",
@@ -64,5 +66,9 @@
   "tooltip.rtsbuilding.left.direction_rotate": "方向旋转",
   "tooltip.rtsbuilding.left.direction_rotate.desc": "旋转方块朝向",
   "tooltip.rtsbuilding.left.item_pickup": "物品拾取",
-  "tooltip.rtsbuilding.left.item_pickup.desc": "从世界中拾取物品"
+  "tooltip.rtsbuilding.left.item_pickup.desc": "从世界中拾取物品",
+
+  "screen.rtsbuilding.mode.interactive": "交互模式",
+  "screen.rtsbuilding.mode.build": "建造模式",
+  "screen.rtsbuilding.mode.blueprint": "蓝图模式"
 }

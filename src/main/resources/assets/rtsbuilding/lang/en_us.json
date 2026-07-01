@@ -10,6 +10,8 @@
   "key.rtsbuilding.toggle_direction_rotate_mode": "Toggle Direction Rotate",
   "key.rtsbuilding.toggle_item_pickup_mode": "Toggle Item Pickup",
 
+  "key.rtsbuilding.cycle_mode": "Cycle Mode",
+
   "key.categories.rtsbuilding.camera": "RTSBuilding - Camera",
   "key.rtsbuilding.camera_forward": "Camera Forward",
   "key.rtsbuilding.camera_back": "Camera Back",
@@ -64,5 +66,9 @@
   "tooltip.rtsbuilding.left.direction_rotate": "Direction Rotate",
   "tooltip.rtsbuilding.left.direction_rotate.desc": "Rotate block orientation",
   "tooltip.rtsbuilding.left.item_pickup": "Item Pickup",
-  "tooltip.rtsbuilding.left.item_pickup.desc": "Pick up items from world"
+  "tooltip.rtsbuilding.left.item_pickup.desc": "Pick up items from world",
+
+  "screen.rtsbuilding.mode.interactive": "Interactive Mode",
+  "screen.rtsbuilding.mode.build": "Build Mode",
+  "screen.rtsbuilding.mode.blueprint": "Blueprint Mode"
 }
