@@ -1,9 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.util;
 
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -69,6 +66,19 @@ public class ThemeSwitchComponent {
     private static final int V_TOGGLED        = 64;  // 已开启
     private static final int V_HOVER_TOGGLED  = 96;  // 悬浮已开启
 
+    // ======================== 预计算 TextureInfo 常量 ========================
+
+    /** 开关背景贴图元数据（避免每帧 new） */
+    private static final TextureInfo SWITCH_TEX_INFO = new TextureInfo(
+            SWITCH_TEXTURE, SWITCH_TEX_W, SWITCH_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    /** 开关滑块贴图元数据（避免每帧 new） */
+    private static final TextureInfo SLIDER_TEX_INFO = new TextureInfo(
+            SLIDER_TEXTURE, SLIDER_TEX_W, SLIDER_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+
     // ======================== 内部状态 ========================
 
     /** 交互区域水平内缩像素（左右各缩多少） */
@@ -83,9 +93,8 @@ public class ThemeSwitchComponent {
     /** 点击区域缓存坐标 */
     private int areaX, areaY;
 
-    /** 悬浮态平滑动画器（120ms） */
-    private final SmoothAnimator hoverAnim = AnimationFactory.createHoverAnim();
-    private boolean lastHovered;
+    /** 悬浮状态管理器 */
+    private final HoverStateManager hoverState = new HoverStateManager();
 
     /** 滑块滑动动画器（200ms） */
     private final SmoothAnimator slideAnim;
@@ -130,12 +139,7 @@ public class ThemeSwitchComponent {
         boolean hovered = mouseX >= areaX && mouseX < areaX + AREA_W
                 && mouseY >= areaY && mouseY < areaY + AREA_H;
 
-        if (hovered != lastHovered) {
-            lastHovered = hovered;
-            hoverAnim.start(hovered ? 1.0f : 0.0f);
-        }
-        hoverAnim.tick();
-        float hoverT = hoverAnim.getValue();
+        float hoverT = this.hoverState.update(hovered);
 
         // ---------- 渲染滑条背景 ----------
         int bgU = lightMode ? U_LIGHT : U_DARK;
@@ -143,10 +147,9 @@ public class ThemeSwitchComponent {
         int bgVHover   = on ? V_HOVER_TOGGLED : V_HOVER_DEFAULT;
 
         if (SWITCH_TEXTURE != null) {
-            renderSwitchFrame(g, SWITCH_TEXTURE,
+            renderSwitchFrame(g, SWITCH_TEX_INFO,
                     switchX, switchY, SIZE, SWITCH_STATE_H,
-                    bgU, bgVDefault, bgVHover, hoverT,
-                    SWITCH_TEX_W, SWITCH_TEX_H);
+                    bgU, bgVDefault, bgVHover, hoverT);
         }
 
         // ---------- 渲染滑块 ----------
@@ -155,10 +158,9 @@ public class ThemeSwitchComponent {
         int slVHover   = on ? SLIDER_V_HOVER_TOGGLED : SLIDER_V_HOVER_DEFAULT;
 
         if (SLIDER_TEXTURE != null) {
-            renderSwitchFrame(g, SLIDER_TEXTURE,
+            renderSwitchFrame(g, SLIDER_TEX_INFO,
                     sliderX, sliderY, SLIDER_FRAME_W, SLIDER_FRAME_H,
-                    sliderU, slVDefault, slVHover, hoverT,
-                    SLIDER_TEX_W, SLIDER_TEX_H);
+                    sliderU, slVDefault, slVHover, hoverT);
         }
     }
 
@@ -178,14 +180,13 @@ public class ThemeSwitchComponent {
 
     // ======================== 内部工具 ========================
 
-    private static void renderSwitchFrame(GuiGraphics g, ResourceLocation tex,
+    private static void renderSwitchFrame(GuiGraphics g, TextureInfo texInfo,
                                           int screenX, int screenY, int sw, int sh,
-                                          int u, int vDefault, int vHover, float t,
-                                          int texW, int texH) {
-        Runnable normalRender = () -> RtsClientUiUtil.drawPixelImage(g, tex, screenX, screenY, sw, sh,
-                u, vDefault, sw, sh, texW, texH);
-        Runnable hoverRender = () -> RtsClientUiUtil.drawPixelImage(g, tex, screenX, screenY, sw, sh,
-                u, vHover, sw, sh, texW, texH);
-        RtsClientUiUtil.renderCrossFade(t, normalRender, hoverRender);
+                                          int u, int vDefault, int vHover, float t) {
+        SpriteRegion normal = new SpriteRegion(texInfo, u, vDefault, sw, sh);
+        SpriteRegion hovered = new SpriteRegion(texInfo, u, vHover, sw, sh);
+        RtsClientUiUtil.renderCrossFade(t,
+                () -> RtsClientUiUtil.drawSprite(g, normal.withTheme(), screenX, screenY, sw, sh),
+                () -> RtsClientUiUtil.drawSprite(g, hovered.withTheme(), screenX, screenY, sw, sh));
     }
 }

@@ -5,8 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.PanelResizeHand
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.ResizeEdge;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
@@ -164,10 +163,8 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         this.skipHoverDetection = skip;
     }
 
-    /** 面板背景悬浮动画器 */
-    private final SmoothAnimator panelHoverAnim = AnimationFactory.createHoverAnim();
-    /** 上一帧悬浮状态，用于检测变化 */
-    private boolean lastPanelHovered;
+    /** 面板背景悬浮状态管理器 */
+    private final HoverStateManager panelHoverState = new HoverStateManager();
 
     /** 平滑渲染位置的 X 坐标（视觉渲染用，逻辑位置为 windowX） */
     private float visualX;
@@ -269,7 +266,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         updatePanelHoverState(mouseX, mouseY);
 
         if (this.skipHoverDetection) {
-            RtsButton.setGlobalSkipHover(true);
+            HoverStateManager.setGloballySuppressed(true);
         }
         boolean needScissor = shouldClipContent();
         try {
@@ -284,7 +281,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
             g.flush();
         } finally {
             if (this.skipHoverDetection) {
-                RtsButton.setGlobalSkipHover(false);
+                HoverStateManager.setGloballySuppressed(false);
             }
             if (needScissor) {
                 g.disableScissor();
@@ -802,7 +799,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
                 getPanelBgColor(), getPanelHoverBgColor(),
                 getTitleBarBgColor(), getTitleTextColor(),
                 getTitle(), this.closable, this.closeButton,
-                this.panelHoverAnim.getValue());
+                this.panelHoverState.getValue());
     }
 
     /** 启用内容区域裁剪，防止内容溢出窗口边框 */
@@ -828,11 +825,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
      */
     private void updatePanelHoverState(int mouseX, int mouseY) {
         this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
-        if (this.mouseHovering != this.lastPanelHovered) {
-            this.lastPanelHovered = this.mouseHovering;
-            this.panelHoverAnim.start(this.mouseHovering ? 1.0f : 0.0f);
-        }
-        this.panelHoverAnim.tick();
+        this.panelHoverState.update(this.mouseHovering);
     }
 
     // ======================================================================

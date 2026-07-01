@@ -46,6 +46,10 @@ public class ScrollBar {
     private static final int SCROLLBAR_TEX_H = 32;
     /** 九宫格边框像素宽度 */
     private static final int SCROLLBAR_BORDER = 1;
+    private static final TextureInfo SCROLLBAR_TEX_INFO = new TextureInfo(
+            SCROLLBAR_TEXTURE, SCROLLBAR_TEX_W, SCROLLBAR_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
     /** 滑条源矩形（左半区内 x=0..4, y=0..16 区域，4×16） */
     private static final int TRACK_SRC_W = 4;
     private static final int TRACK_SRC_H = 16;
@@ -68,10 +72,10 @@ public class ScrollBar {
     /** 上一帧鼠标是否悬浮在滑块上，用于切换下层高亮贴图 */
     private boolean hovering;
 
-    private static final NineSliceSource TRACK_SPEC = new NineSliceSource(
-            0, 0, TRACK_SRC_W, TRACK_SRC_H, SCROLLBAR_BORDER);
-    private static final NineSliceSource THUMB_SPEC = new NineSliceSource(
-            5, 0, THUMB_SRC_W, THUMB_SRC_H, SCROLLBAR_BORDER);
+    private static final NineSliceRegion TRACK_NINE_SLICE = new NineSliceRegion(
+            new SpriteRegion(SCROLLBAR_TEX_INFO, 0, 0, TRACK_SRC_W, TRACK_SRC_H), SCROLLBAR_BORDER);
+    private static final NineSliceRegion THUMB_NINE_SLICE = new NineSliceRegion(
+            new SpriteRegion(SCROLLBAR_TEX_INFO, 5, 0, THUMB_SRC_W, THUMB_SRC_H), SCROLLBAR_BORDER);
 
     // ======================== 外观配置 ========================
 
@@ -247,16 +251,12 @@ public class ScrollBar {
         boolean active = this.dragging || this.hovering;
 
         // 滑条（4px 宽，垂直平铺填充）
-        RtsClientUiUtil.drawNineSlice(g, SCROLLBAR_TEXTURE,
-                SCROLLBAR_TEX_W, SCROLLBAR_TEX_H,
-                barX, barY, TRACK_SRC_W, barH,
-                active ? TRACK_SPEC.withYOffset(TRACK_SRC_H) : TRACK_SPEC);
+        NineSliceRegion track = active ? TRACK_NINE_SLICE.withVOffset(TRACK_SRC_H) : TRACK_NINE_SLICE;
+        RtsClientUiUtil.drawNineSliceRegion(g, track.withTheme(), barX, barY, TRACK_SRC_W, barH);
 
         // 滑块（6px 宽，以滑条为中心左右各凸出 1px）
-        RtsClientUiUtil.drawNineSlice(g, SCROLLBAR_TEXTURE,
-                SCROLLBAR_TEX_W, SCROLLBAR_TEX_H,
-                barX - 1, thumbY, THUMB_SRC_W, thumbH,
-                active ? THUMB_SPEC.withYOffset(THUMB_SRC_H) : THUMB_SPEC);
+        NineSliceRegion thumb = active ? THUMB_NINE_SLICE.withVOffset(THUMB_SRC_H) : THUMB_NINE_SLICE;
+        RtsClientUiUtil.drawNineSliceRegion(g, thumb.withTheme(), barX - 1, thumbY, THUMB_SRC_W, thumbH);
     }
 
     // ======================== 交互区域检测 ========================

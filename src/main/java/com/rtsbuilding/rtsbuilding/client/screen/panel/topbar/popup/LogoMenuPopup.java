@@ -2,8 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
 
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.BasePopup;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -100,14 +99,15 @@ public final class LogoMenuPopup extends BasePopup {
     @Override
     protected void renderItem(GuiGraphics g, int index, int itemY, float hoverT) {
         // 设置图标（精灵图画法，双主题横向偏移）
-        int themeU = ThemeManager.getInstance().themeU(SETTING_HALF_W);
         int iconX = x + getPadH();
         int iconY = itemY + (getItemHeight() - SETTING_ICON_SIZE) / 2;
-        RtsClientUiUtil.drawScaledImage(g, SETTING_TEXTURE,
-                iconX, iconY, SETTING_ICON_SIZE, SETTING_ICON_SIZE,
-                themeU, 0,
-                SETTING_HALF_W, SETTING_TEX_H,
-                SETTING_TEX_W, SETTING_TEX_H);
+        TextureInfo settingTex = new TextureInfo(
+                SETTING_TEXTURE, SETTING_TEX_W, SETTING_TEX_H,
+                TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+                TextureInfo.FilterMode.PIXEL);
+        SpriteRegion iconRegion = new SpriteRegion(settingTex, 0, 0, SETTING_HALF_W, SETTING_TEX_H).withTheme();
+        RtsClientUiUtil.drawSprite(g, iconRegion,
+                iconX, iconY, SETTING_ICON_SIZE, SETTING_ICON_SIZE);
 
         // 文字（跟在图标后面）
         int textColor = hoverT > 0.5f ? ThemeManager.getHoverTextColor() : ThemeManager.getTextColor();

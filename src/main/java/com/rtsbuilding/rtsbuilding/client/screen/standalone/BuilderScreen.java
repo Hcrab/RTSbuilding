@@ -22,6 +22,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.CursorStyleManager;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.util.CursorWrapHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -110,6 +111,10 @@ public class BuilderScreen extends Screen {
         this.cursorStyleManager = new CursorStyleManager((mx, my) -> {
             var fwCursor = floatingWindowLayer.resizeCursorAt(mx, my);
             if (fwCursor != RtsPanel.ResizeCursor.DEFAULT) return fwCursor;
+            // 鼠标在浮动窗口内部（但不在缩放边缘上）→ 不显示侧边栏缩放光标
+            if (floatingWindowLayer.isMouseOverWindowOrResizableBorder(mx, my)) {
+                return RtsPanel.ResizeCursor.DEFAULT;
+            }
             if (rightSidebarPanel.isMouseOverLeftEdge(mx, my)) return RtsPanel.ResizeCursor.RESIZE_EW;
             if (downSidebarPanel.isMouseOverTopEdge(mx, my)) return RtsPanel.ResizeCursor.RESIZE_NS;
             return RtsPanel.ResizeCursor.DEFAULT;
@@ -460,17 +465,31 @@ public class BuilderScreen extends Screen {
         // 注意：继承 RtsPanel 的浮窗面板（通过 floatingWindowLayer 渲染）
         // 必须渲染在其它非 RtsPanel UI（如 downSidebarPanel）之后，
         // 以确保浮窗面板永远绘制在最上层。
-        if (topBarPanel != null) {
-            topBarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+        //
+        // 在渲染主面板前检测鼠标是否在浮动窗口上，若是则全局抑制下层组件的悬浮亮起。
+        // 浮动窗口内部的悬浮效果由 RtsFloatingWindowLayer.renderFloatingWindows() 自行管理。
+        boolean mouseOverFloating = floatingWindowLayer != null
+                && floatingWindowLayer.isMouseOverWindowOrResizableBorder(mouseX, mouseY);
+        if (mouseOverFloating) {
+            HoverStateManager.setGloballySuppressed(true);
         }
-        if (leftSidebarPanel != null) {
-            leftSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
-        if (rightSidebarPanel != null) {
-            rightSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
-        if (downSidebarPanel != null) {
-            downSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+        try {
+            if (topBarPanel != null) {
+                topBarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+            if (leftSidebarPanel != null) {
+                leftSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+            if (rightSidebarPanel != null) {
+                rightSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+            if (downSidebarPanel != null) {
+                downSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+        } finally {
+            if (mouseOverFloating) {
+                HoverStateManager.setGloballySuppressed(false);
+            }
         }
 
         // 3. 渲染九宫格装饰层
@@ -525,13 +544,14 @@ public class BuilderScreen extends Screen {
         if (leftSidebarPanel != null && leftSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        // 浮窗渲染在最上层，事件优先级应高于侧边栏（防止浮窗覆盖区域误触侧边栏缩放）
+        if (floatingWindowLayer != null && floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         if (rightSidebarPanel != null && rightSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         if (downSidebarPanel != null && downSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         // 右键点击 → 框选系统选点（Shift+右键留给摄像机拖拽，Alt+右键移动玩家）
@@ -607,6 +627,10 @@ public class BuilderScreen extends Screen {
         double clampedDx = Math.abs(dragX) > 200 ? 0 : dragX;
         double clampedDy = Math.abs(dragY) > 200 ? 0 : dragY;
 
+        // 浮窗渲染在最上层，拖拽事件优先级应高于侧边栏
+        if (floatingWindowLayer != null && floatingWindowLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+            return true;
+        }
         if (leftSidebarPanel != null && leftSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
@@ -614,9 +638,6 @@ public class BuilderScreen extends Screen {
             return true;
         }
         if (downSidebarPanel != null && downSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-            return true;
-        }
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
         if (kernel.inputPipeline().onMouseDragged(mouseX, mouseY, button, clampedDx, clampedDy)) {

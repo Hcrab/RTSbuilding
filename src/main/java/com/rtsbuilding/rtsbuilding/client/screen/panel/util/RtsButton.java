@@ -1,10 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.util;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -24,33 +20,24 @@ public class RtsButton extends AbstractButton {
     }
 
     private final OnPress onPress;
-    private final ResourceLocation textureLocation;
-    private final int textureU;
-    private final int textureV;
-    private final int textureWidth;
-    private final int textureHeight;
-    private final int hoverTextureV;  // 悬停状态纹理V坐标
-    private final int hoverTextureHeight;  // 悬停状态纹理高度
-    private final int fullTextureWidth;   // 完整纹理总宽度
-    private final int fullTextureHeight;  // 完整纹理总高度
+    /** 纹理元数据缓存（由构造函数根据 raw 参数预计算，避免每帧 new） */
+    private final TextureInfo texInfo;
+    /** 普通态精灵区域（构造时预计算） */
+    private final SpriteRegion normalRegion;
+    /** 悬浮态精灵区域（构造时预计算） */
+    private final SpriteRegion hoveredRegion;
 
     private static final int TEXT_COLOR = 0xFFD8E3EE;
+    private static final int TEXT_COLOR_HOVER = 0xFFE8F0FA;
     private static final int TEXT_COLOR_DISABLED = 0xFF556677;
     private static final int BUTTON_BACKGROUND = 0xDD1A232E;
     private static final int BUTTON_HOVER = 0xDD2A3442;
     private static final int BORDER_LIGHT = 0xFF647B92;
     private static final int BORDER_DARK = 0xFF0D1117;
 
-    /** 悬浮态平滑动画器 */
-    private final SmoothAnimator hoverAnim = AnimationFactory.createHoverAnim();
-    /** 上一帧悬浮状态，用于检测变化 */
-    private boolean lastHovered;
+    /** 悬浮状态管理器 */
+    private final HoverStateManager hoverState = new HoverStateManager();
 
-    /**
-     * 设置后，所有RtsButton实例将抑制悬停/焦点效果。
-     * 由RtsPanel在渲染被更高重叠窗口覆盖的窗口时使用。
-     */
-    private static boolean globalSkipHover;
 
     /**
      * 创建纯色按钮。
@@ -61,6 +48,8 @@ public class RtsButton extends AbstractButton {
 
     /**
      * 创建带纹理的按钮，支持悬停状态切换。
+     * <p>纹理参数在构造时预计算为 {@link TextureInfo} 和 {@link SpriteRegion} 并缓存，
+     * 避免每帧重新创建对象。</p>
      *
      * @param x X坐标
      * @param y Y坐标
@@ -84,15 +73,19 @@ public class RtsButton extends AbstractButton {
                      int fullTextureWidth, int fullTextureHeight, OnPress onPress) {
         super(x, y, width, height, message);
         this.onPress = onPress;
-        this.textureLocation = textureLocation;
-        this.textureU = textureU;
-        this.textureV = textureV;
-        this.textureWidth = textureWidth;
-        this.textureHeight = textureHeight;
-        this.hoverTextureV = hoverTextureV;
-        this.hoverTextureHeight = hoverTextureHeight;
-        this.fullTextureWidth = fullTextureWidth;
-        this.fullTextureHeight = fullTextureHeight;
+        // 预计算 TextureInfo 和 SpriteRegion（仅当有纹理时）
+        if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
+            this.texInfo = new TextureInfo(
+                    textureLocation, fullTextureWidth, fullTextureHeight,
+                    TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+                    TextureInfo.FilterMode.PIXEL);
+            this.normalRegion = new SpriteRegion(texInfo, textureU, textureV, textureWidth, textureHeight);
+            this.hoveredRegion = new SpriteRegion(texInfo, textureU, hoverTextureV, textureWidth, hoverTextureHeight);
+        } else {
+            this.texInfo = null;
+            this.normalRegion = null;
+            this.hoveredRegion = null;
+        }
     }
 
     /**
@@ -115,24 +108,22 @@ public class RtsButton extends AbstractButton {
     protected void renderWidget(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
 
-        // 检测悬浮状态变化并启动动画
-        boolean effectiveHovered = isHovered && !globalSkipHover;
-        if (effectiveHovered != this.lastHovered) {
-            this.lastHovered = effectiveHovered;
-            this.hoverAnim.start(effectiveHovered ? 1.0f : 0.0f);
-        }
-        this.hoverAnim.tick();
+        // 更新悬浮状态并推进动画（全局抑制由 HoverStateManager 内部处理）
+        this.hoverState.update(isHovered);
 
-        if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
-            // 使用纹理渲染（矢量缩放）
-            renderWithTexture(guiGraphics);
+        if (normalRegion != null && hoveredRegion != null) {
+            // 使用预缓存的 SpriteRegion 渲染（新架构）
+            renderWithSprite(guiGraphics);
         } else {
             // 使用纯色渲染
             renderWithSolidColor(guiGraphics);
         }
 
-        // 计算文本位置（居中）
-        int textColor = this.active ? TEXT_COLOR : TEXT_COLOR_DISABLED;
+        // 计算文本颜色（悬浮时平滑过渡到高亮色）
+        float hoverT = this.hoverState.getValue();
+        int textColor = this.active
+                ? SmoothAnimator.lerpColor(TEXT_COLOR, TEXT_COLOR_HOVER, hoverT)
+                : TEXT_COLOR_DISABLED;
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
                 Math.max(4, this.width - 8));
         int textWidth = minecraft.font.width(label);
@@ -145,55 +136,12 @@ public class RtsButton extends AbstractButton {
         }
     }
 
-    /**
-     * 使用纹理渲染按钮（支持矢量缩放和悬停效果）。
-     */
-    private void renderWithTexture(GuiGraphics guiGraphics) {
-        // 双主题偏移：亮色主题使用右半区
-        int themeUOffset = ThemeManager.getInstance().themeU(textureWidth);
-
-        // 将普通态（textureV）和悬浮态（hoverTextureV）贴图交叉淡入淡出
-        float t = this.hoverAnim.getValue();
-
-        // 启用混合模式以支持透明
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(
-                org.lwjgl.opengl.GL11.GL_SRC_ALPHA,
-                org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA,
-                org.lwjgl.opengl.GL11.GL_ONE,
-                org.lwjgl.opengl.GL11.GL_ZERO
-        );
-
-        if (t > 0.001f && t < 0.999f) {
-            // 过渡动画：普通态全不透明 + 悬浮态淡入叠加
-            RtsClientUiUtil.drawScaledImage(guiGraphics, textureLocation,
-                    this.getX(), this.getY(), this.width, this.height,
-                    textureU + themeUOffset, textureV,
-                    textureWidth, textureHeight,
-                    fullTextureWidth, fullTextureHeight);
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, t);
-            RtsClientUiUtil.drawScaledImage(guiGraphics, textureLocation,
-                    this.getX(), this.getY(), this.width, this.height,
-                    textureU + themeUOffset, hoverTextureV,
-                    textureWidth, hoverTextureHeight,
-                    fullTextureWidth, fullTextureHeight);
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        } else if (t >= 0.999f) {
-            RtsClientUiUtil.drawScaledImage(guiGraphics, textureLocation,
-                    this.getX(), this.getY(), this.width, this.height,
-                    textureU + themeUOffset, hoverTextureV,
-                    textureWidth, hoverTextureHeight,
-                    fullTextureWidth, fullTextureHeight);
-        } else {
-            RtsClientUiUtil.drawScaledImage(guiGraphics, textureLocation,
-                    this.getX(), this.getY(), this.width, this.height,
-                    textureU + themeUOffset, textureV,
-                    textureWidth, textureHeight,
-                    fullTextureWidth, fullTextureHeight);
-        }
-
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        RenderSystem.disableBlend();
+    /** 使用预缓存的 SpriteRegion 渲染按钮（支持矢量缩放和悬停效果）。 */
+    private void renderWithSprite(GuiGraphics guiGraphics) {
+        float t = this.hoverState.getValue();
+        RtsClientUiUtil.renderCrossFade(t,
+                () -> RtsClientUiUtil.drawSprite(guiGraphics, normalRegion.withTheme(), this.getX(), this.getY(), this.width, this.height),
+                () -> RtsClientUiUtil.drawSprite(guiGraphics, hoveredRegion.withTheme(), this.getX(), this.getY(), this.width, this.height));
     }
 
     /**
@@ -201,7 +149,7 @@ public class RtsButton extends AbstractButton {
      */
     private void renderWithSolidColor(GuiGraphics guiGraphics) {
         // 使用动画值插值背景颜色，实现悬浮过渡效果
-        float t = this.hoverAnim.getValue();
+        float t = this.hoverState.getValue();
         int backgroundColor = SmoothAnimator.lerpColor(BUTTON_BACKGROUND, BUTTON_HOVER, t);
         RtsClientUiUtil.drawPanelFrame(guiGraphics,
                 this.getX(), this.getY(), this.width, this.height,
@@ -218,9 +166,11 @@ public class RtsButton extends AbstractButton {
     /**
      * 设置是否所有RtsButton实例应在下一次渲染调用时全局跳过
      * 悬停/焦点视觉效果。
+     * @deprecated 请使用 {@link HoverStateManager#setGloballySuppressed(boolean)} 替代
      */
+    @Deprecated
     public static void setGlobalSkipHover(boolean skip) {
-        globalSkipHover = skip;
+        HoverStateManager.setGloballySuppressed(skip);
     }
 
 }

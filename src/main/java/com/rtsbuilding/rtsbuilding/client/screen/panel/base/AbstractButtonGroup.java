@@ -45,17 +45,29 @@ public abstract class AbstractButtonGroup {
     /** 布局方向 */
     public enum Direction { HORIZONTAL, VERTICAL }
 
+    // ======================== 贴图元数据 ========================
+
+    private static final TextureInfo BUTTON_TEX_TEMPLATE = new TextureInfo(
+            null, TEX_W, TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+
     // ======================== 实例字段 ========================
 
     /** 该组各按钮对应的贴图 */
     protected final ResourceLocation[] textures;
 
-    /** 各按钮选中状态（true=绘制启用态 srcY=1024） */
+    /** 各按钮的 TextureInfo（基于模板 + 各自 location） */
+    private final TextureInfo[] texInfoCache;
+
+    /** 各按钮选中状态（true=绘制启用态） */
     protected final boolean[] selected;
 
-    /** 各按钮悬浮动画状态 */
-    private final boolean[] lastHovered;
-    private final SmoothAnimator[] hoverAnims;
+    /** 各按钮悬浮状态管理器 */
+    private final HoverStateManager[] hoverStates;
+
+    /** 各按钮的三个状态精灵区域：i*3+0=正常, +1=悬浮, +2=选中 */
+    private final SpriteRegion[] stateRegions;
 
     /** 按钮绘制尺寸 */
     protected final int buttonSize;
@@ -78,11 +90,23 @@ public abstract class AbstractButtonGroup {
         this.innerGap = innerGap;
         this.textures = textures;
         int n = textures.length;
-        this.selected = new boolean[n];
-        this.lastHovered = new boolean[n];
-        this.hoverAnims = new SmoothAnimator[n];
+        // 初始化 TextureInfo 和 SpriteRegion 缓存
+        this.texInfoCache = new TextureInfo[n];
+        this.stateRegions = new SpriteRegion[n * 3];
         for (int i = 0; i < n; i++) {
-            this.hoverAnims[i] = AnimationFactory.createHoverAnim();
+            this.texInfoCache[i] = new TextureInfo(
+                    textures[i], TEX_W, TEX_H,
+                    TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+                    TextureInfo.FilterMode.PIXEL);
+            // 正常态 (v=0), 悬浮态 (v=STATE_H), 选中态 (v=STATE_H*2)
+            this.stateRegions[i * 3]     = new SpriteRegion(texInfoCache[i], 0, 0,          HALF_W, STATE_H);
+            this.stateRegions[i * 3 + 1] = new SpriteRegion(texInfoCache[i], 0, STATE_H,    HALF_W, STATE_H);
+            this.stateRegions[i * 3 + 2] = new SpriteRegion(texInfoCache[i], 0, STATE_H * 2, HALF_W, STATE_H);
+        }
+        this.selected = new boolean[n];
+        this.hoverStates = new HoverStateManager[n];
+        for (int i = 0; i < n; i++) {
+            this.hoverStates[i] = new HoverStateManager();
         }
     }
 
@@ -98,7 +122,7 @@ public abstract class AbstractButtonGroup {
         return textures.length;
     }
 
-    /** 该组在纵向占据的总高度（用于垂直布局的跨组间距计算） */
+    /** 该组在纵向占据的总高度 */
     public final int totalHeight() {
         int n = textures.length;
         return n * buttonSize + (n - 1) * innerGap;
@@ -106,7 +130,6 @@ public abstract class AbstractButtonGroup {
 
     // ======================== 渲染（顶栏按钮组） ========================
 
-    /** 通过 {@link TopBarLayoutHelper.ButtonGroup} 渲染所有按钮 */
     public void render(GuiGraphics g, int mouseX, int mouseY, TopBarLayoutHelper.ButtonGroup group) {
         for (int i = 0; i < textures.length; i++) {
             renderSingle(g, mouseX, mouseY, i, group.rect(i).x(), group.rect(i).y());
@@ -116,7 +139,6 @@ public abstract class AbstractButtonGroup {
 
     // ======================== 渲染（左边栏按钮组） ========================
 
-    /** 通过原点坐标渲染所有按钮（按 direction 方向排列） */
     public void render(GuiGraphics g, int mouseX, int mouseY, int originX, int originY) {
         for (int i = 0; i < textures.length; i++) {
             int bx = direction == Direction.HORIZONTAL
@@ -131,62 +153,28 @@ public abstract class AbstractButtonGroup {
 
     /** 绘制单个按钮（含悬浮动画 + 选中态），使用统一精灵图格式 */
     private void renderSingle(GuiGraphics g, int mouseX, int mouseY, int index, int bx, int by) {
-        // 更新悬浮状态
+        // 更新悬浮状态（全局抑制由 HoverStateManager 内部处理）
         boolean hovering = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
-        if (hovering != lastHovered[index]) {
-            lastHovered[index] = hovering;
-            hoverAnims[index].start(hovering ? 1.0f : 0.0f);
-        }
-        hoverAnims[index].tick();
+        float hoverT = this.hoverStates[index].update(hovering);
 
-        // 双主题 x 偏移：亮色→右半区，暗色→左半区
-        int themeU = RtsClientUiUtil.isLightMode() ? HALF_W : 0;
-
-        if (selected[index]) {
-            // 选中态（srcY=1024）：直接绘制，不做悬浮处理
-            RtsClientUiUtil.drawScaledImage(g, textures[index],
-                    bx, by, buttonSize, buttonSize,
-                    themeU, STATE_H * 2, HALF_W, STATE_H,
-                    TEX_W, TEX_H);
-        } else {
-            // 非选中态：正常态（srcY=0）↔ 悬浮态（srcY=512）交叉淡入
-            float t = hoverAnims[index].getValue();
-            if (t > 0.001f && t < 0.999f) {
-                Runnable normal = () -> RtsClientUiUtil.drawScaledImage(g, textures[index],
-                        bx, by, buttonSize, buttonSize,
-                        themeU, 0, HALF_W, STATE_H,
-                        TEX_W, TEX_H);
-                Runnable hovered = () -> RtsClientUiUtil.drawScaledImage(g, textures[index],
-                        bx, by, buttonSize, buttonSize,
-                        themeU, STATE_H, HALF_W, STATE_H,
-                        TEX_W, TEX_H);
-                RtsClientUiUtil.renderCrossFade(t, normal, hovered);
-            } else if (t >= 0.999f) {
-                RtsClientUiUtil.drawScaledImage(g, textures[index],
-                        bx, by, buttonSize, buttonSize,
-                        themeU, STATE_H, HALF_W, STATE_H,
-                        TEX_W, TEX_H);
-            } else {
-                RtsClientUiUtil.drawScaledImage(g, textures[index],
-                        bx, by, buttonSize, buttonSize,
-                        themeU, 0, HALF_W, STATE_H,
-                        TEX_W, TEX_H);
-            }
-        }
+        // 使用统一的状态精灵绘制入口（自动处理：主题偏移 + 过滤策略 + 交叉淡入）
+        int si = index * 3;
+        RtsClientUiUtil.drawStateSprite(g,
+                stateRegions[si],     // normal
+                stateRegions[si + 1], // hovered
+                stateRegions[si + 2], // selected
+                selected[index],
+                hoverT,
+                bx, by, buttonSize, buttonSize);
     }
 
     // ======================== 额外渲染（子类覆盖） ========================
 
-    /**
-     * 在组内所有按钮渲染完成后调用，用于绘制折叠箭头、浮窗等附加元素。
-     * 仅顶栏按钮组使用此钩子。
-     */
     protected void renderExtra(GuiGraphics g, int mouseX, int mouseY, TopBarLayoutHelper.ButtonGroup group) {}
 
     // ======================== 点击（顶栏按钮组） ========================
 
-    /** 处理鼠标点击（顶栏），返回是否消费事件 */
     public boolean mouseClicked(int mx, int my, TopBarLayoutHelper.ButtonGroup group) {
         for (int i = 0; i < textures.length; i++) {
             var r = group.rect(i);
@@ -200,7 +188,6 @@ public abstract class AbstractButtonGroup {
 
     // ======================== 点击（左边栏按钮组） ========================
 
-    /** 处理鼠标点击（左边栏），返回被点击的按钮索引，未命中返回 -1 */
     public int mouseClicked(double mx, double my, int originX, int originY) {
         for (int i = 0; i < textures.length; i++) {
             int bx = direction == Direction.HORIZONTAL
@@ -217,10 +204,6 @@ public abstract class AbstractButtonGroup {
 
     // ======================== 子类可覆盖的点击行为 ========================
 
-    /**
-     * 按钮点击回调。默认行为：单选（清除所有选中，点亮当前按钮）。
-     * <p>子类可覆盖此方法实现互斥切换、外部状态驱动等复杂逻辑。</p>
-     */
     protected void onButtonClick(int index) {
         java.util.Arrays.fill(selected, false);
         selected[index] = true;
@@ -228,25 +211,16 @@ public abstract class AbstractButtonGroup {
 
     // ======================== 选中态管理 ========================
 
-    /** 清除该组所有按钮的选中状态 */
     public final void clearSelection() {
         java.util.Arrays.fill(selected, false);
     }
 
-    /**
-     * 检测指定索引的按钮是否处于选中状态。
-     *
-     * @param index 按钮索引
-     * @return true 如果索引在有效范围内且该按钮被选中
-     */
     public final boolean isSelected(int index) {
         return index >= 0 && index < selected.length && selected[index];
     }
 
-    // ======================== 动画刷新 ========================
+    // ======================== 动画刷新（已由 HoverStateManager 内部管理） ========================
 
-    /** 刷新所有悬浮动画器 */
     public void tick() {
-        for (SmoothAnimator a : hoverAnims) a.tick();
     }
 }

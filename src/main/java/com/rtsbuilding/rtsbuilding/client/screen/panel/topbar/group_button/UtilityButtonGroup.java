@@ -31,7 +31,17 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
             ResourceLocation.tryParse("rtsbuilding:textures/gui/base/fold_arrow.png");
     private static final int FOLD_ARROW_HALF_W = 512;
     private static final int FOLD_ARROW_STATE_H = 512;
+    /** 折叠箭头贴图文件总宽度（双主题翻倍） */
+    private static final int FOLD_ARROW_TEX_W = 1024;
+    /** 折叠箭头贴图文件总高度 */
+    private static final int FOLD_ARROW_TEX_H = 1024;
     private static final int FOLD_ARROW_SIZE = 8;
+
+    /** 折叠箭头贴图元数据（避免每帧 new） */
+    private static final TextureInfo FOLD_ARROW_TEX_INFO = new TextureInfo(
+            FOLD_ARROW, FOLD_ARROW_TEX_W, FOLD_ARROW_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
 
     private final DebugMenuPopup debugPopup;
 
@@ -103,16 +113,14 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
 
         int arrowX = rect.x() + (rect.width() - FOLD_ARROW_SIZE) / 2;
         int arrowY = rect.y() + (rect.height() - FOLD_ARROW_SIZE) / 2;
-        int arrowThemeOffset = RtsClientUiUtil.isLightMode() ? FOLD_ARROW_HALF_W : 0;
         g.pose().pushPose();
         float halfArrow = FOLD_ARROW_SIZE / 2.0f;
         g.pose().translate(arrowX + halfArrow, arrowY + halfArrow, 0);
         g.pose().mulPose(Axis.ZP.rotationDegrees(arrowRotateAnim.getValue() * 90.0f));
         g.pose().translate(-halfArrow, -halfArrow, 0);
-        RtsClientUiUtil.drawPixelImage(g, FOLD_ARROW,
-                0, 0, FOLD_ARROW_SIZE, FOLD_ARROW_SIZE,
-                arrowThemeOffset, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H,
-                1024, 1024);
+        SpriteRegion arrowRegion = new SpriteRegion(
+                FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();
+        RtsClientUiUtil.drawSprite(g, arrowRegion, 0, 0, FOLD_ARROW_SIZE, FOLD_ARROW_SIZE);
         g.pose().popPose();
     }
 

@@ -1,13 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import net.minecraft.client.gui.GuiGraphics;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 弹出菜单基类——提供通用的打开/关闭、悬浮动画、九宫格背景渲染框架。
@@ -32,10 +29,8 @@ public abstract class BasePopup {
     /** 弹出菜单左上角 Y */
     protected int y;
 
-    /** 每个菜单项独立的悬浮动画器 */
-    private final List<SmoothAnimator> hoverAnims = new ArrayList<>();
-    /** 上一帧悬浮的菜单项 index */
-    private int lastHoveredIndex = -1;
+    /** 每个菜单项独立的悬浮状态管理器 */
+    private HoverStateManager[] hoverStates;
 
     /** 每个菜单项的内容宽度（不含 padH），用于自动计算弹出菜单总宽度 */
     private int[] itemContentWidths;
@@ -105,13 +100,12 @@ public abstract class BasePopup {
         this.itemContentWidths = widths;
     }
 
-    /** 子类在构造完成后调用此方法以创建动画器数组 */
+    /** 子类在构造完成后调用此方法以创建悬浮状态管理器数组 */
     protected void initAnims(int count) {
-        hoverAnims.clear();
+        hoverStates = new HoverStateManager[count];
         for (int i = 0; i < count; i++) {
-            hoverAnims.add(AnimationFactory.createHoverAnim());
+            hoverStates[i] = new HoverStateManager();
         }
-        lastHoveredIndex = -1;
     }
 
     // ======================== 位置 ========================
@@ -172,10 +166,11 @@ public abstract class BasePopup {
 
     /** 关闭时重置所有悬浮动画 */
     private void resetAllHoverAnims() {
-        for (SmoothAnimator anim : hoverAnims) {
-            anim.snapTo(0.0f);
+        if (hoverStates != null) {
+            for (HoverStateManager hs : hoverStates) {
+                hs.snapTo(false);
+            }
         }
-        lastHoveredIndex = -1;
     }
 
     // ======================== 尺寸与命中检测 ========================
@@ -216,37 +211,21 @@ public abstract class BasePopup {
         // 1) 九宫格面板背景
         RtsClientUiUtil.drawNineSlicePanel(g, x, y, pw, ph, false);
 
-        // 2) 检测当前悬浮项
+        // 2) 检测当前悬浮项并更新各菜单项的悬浮状态
         int hoveredIndex = -1;
         for (int i = 0; i < getItemCount(); i++) {
             int iy = itemY(i);
-            if (mouseX >= x + getPadH() && mouseX < x + pw - getPadH()
-                    && mouseY >= iy && mouseY < iy + getItemHeight()) {
+            boolean inside = mouseX >= x + getPadH() && mouseX < x + pw - getPadH()
+                    && mouseY >= iy && mouseY < iy + getItemHeight();
+            if (inside) {
                 hoveredIndex = i;
-                break;
             }
         }
 
-        // 3) 悬浮状态变更 → 启动动画
-        if (hoveredIndex != lastHoveredIndex) {
-            if (lastHoveredIndex >= 0 && lastHoveredIndex < hoverAnims.size()) {
-                hoverAnims.get(lastHoveredIndex).start(0.0f);
-            }
-            if (hoveredIndex >= 0 && hoveredIndex < hoverAnims.size()) {
-                hoverAnims.get(hoveredIndex).start(1.0f);
-            }
-            lastHoveredIndex = hoveredIndex;
-        }
-
-        // 4) 推进所有动画
-        for (SmoothAnimator anim : hoverAnims) {
-            anim.tick();
-        }
-
-        // 5) 绘制每个菜单项
+        // 3) 绘制每个菜单项（更新悬浮状态 + 渲染背景 + 子类内容）
         for (int i = 0; i < getItemCount(); i++) {
             int iy = itemY(i);
-            float t = hoverAnims.get(i).getValue();
+            float t = hoverStates[i].update(i == hoveredIndex);
 
             // 悬浮背景（从完全透明到半透明深色）
             if (t > 0.001f) {

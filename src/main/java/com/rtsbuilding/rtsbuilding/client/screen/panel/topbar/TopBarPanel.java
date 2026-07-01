@@ -45,10 +45,8 @@ public final class TopBarPanel implements RtsPanelApi {
 
     // ======================== Logo ========================
 
-    /** Logo 悬浮高亮动画器 */
-    private final SmoothAnimator logoHoverAnim = AnimationFactory.createHoverAnim();
-    /** 上一帧 Logo 高亮状态（用于检测状态变更以触发动画） */
-    private boolean prevLogoHighlighted;
+    /** Logo 悬浮状态管理器 */
+    private final HoverStateManager logoHoverState = new HoverStateManager();
 
     /** Logo 点击状态（按下时为 true，下一帧自动重置） */
     private boolean logoPressed;
@@ -89,6 +87,14 @@ public final class TopBarPanel implements RtsPanelApi {
     private static final int TOP_UI_HALF_W = 16;
     /** 九宫格边框宽度（源图上半仅 8px 高，4px border 会导致 srcInnerH=0，改为 2px） */
     private static final int TOP_UI_BORDER = 2;
+    private static final TextureInfo TOP_UP_TEX_INFO = new TextureInfo(
+            TOP_UI_UP_TEXTURE, TOP_UI_TEX_W, TOP_UI_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final TextureInfo TOP_DOWN_TEX_INFO = new TextureInfo(
+            TOP_UI_DOWN_TEXTURE, TOP_UI_TEX_W, TOP_UI_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
     /**
      * 上半部分源高度（(0,0)〜(16,8)=8 行，即 y=0~7）。
      * <p>经实测贴图像素验证，上半部分共 8 行（y=0~7），非包含端点的 9 行。
@@ -100,10 +106,10 @@ public final class TopBarPanel implements RtsPanelApi {
      * <p>半透明灰色，需要 blend 启用才能正确渲染。</p>
      */
     private static final int BOTTOM_SRC_H = TopBarLayoutHelper.BOTTOM_SRC_H;
-    private static final NineSliceSource TOP_UP_SPEC = NineSliceSource.fullTheme(
-            TOP_UI_HALF_W, TOP_SRC_H, TOP_UI_BORDER);
-    private static final NineSliceSource TOP_DOWN_SPEC = NineSliceSource.fullTheme(
-            TOP_UI_HALF_W, BOTTOM_SRC_H, TOP_UI_BORDER);
+    private static final NineSliceRegion TOP_UP_NINE_SLICE = NineSliceRegion.fullTheme(
+            TOP_UP_TEX_INFO, TOP_SRC_H, TOP_UI_BORDER);
+    private static final NineSliceRegion TOP_DOWN_NINE_SLICE = NineSliceRegion.fullTheme(
+            TOP_DOWN_TEX_INFO, BOTTOM_SRC_H, TOP_UI_BORDER);
     /** 顶部栏上半部分绘制高度 */
     private static final int TOP_BAR_HEIGHT = TopBarLayoutHelper.TOP_BAR_HEIGHT;
     /** 屏幕背景九宫格边框宽度，用于定位下半部分顶部 Y */
@@ -200,15 +206,10 @@ public final class TopBarPanel implements RtsPanelApi {
         // 刷新所有动画器
         cameraModeGroup.tick();
         utilityGroup.tick();
-        logoHoverAnim.tick();
-
         // Logo 悬浮检测
         boolean hovering = TopBarLayoutHelper.logoRect().contains(mouseX, mouseY);
         boolean shouldHighlight = hovering || logoPressed;
-        if (shouldHighlight != prevLogoHighlighted) {
-            prevLogoHighlighted = shouldHighlight;
-            logoHoverAnim.start(shouldHighlight ? 1.0f : 0.0f);
-        }
+        this.logoHoverState.update(shouldHighlight);
         if (logoPressed) {
             logoPressed = false;
         }
@@ -251,14 +252,17 @@ public final class TopBarPanel implements RtsPanelApi {
      * 交叉渐变绘制 Logo 贴图。
      */
     private void renderLogoCrossFade(GuiGraphics g) {
+        TextureInfo logoInfo = new TextureInfo(
+                LOGO_TEXTURE, LOGO_SHEET_WIDTH, LOGO_SHEET_HEIGHT,
+                TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+                TextureInfo.FilterMode.PIXEL);
         int halfW = LOGO_SHEET_WIDTH / 2;
         int halfH = LOGO_SHEET_HEIGHT / 2;
-        int srcX = RtsClientUiUtil.isLightMode() ? halfW : 0;
-        Runnable normal = () -> RtsClientUiUtil.drawScaledImage(g, LOGO_TEXTURE, 0, 0, LOGO_SIZE, LOGO_SIZE,
-                srcX, 0, halfW, halfH, LOGO_SHEET_WIDTH, LOGO_SHEET_HEIGHT);
-        Runnable highlighted = () -> RtsClientUiUtil.drawScaledImage(g, LOGO_TEXTURE, 0, 0, LOGO_SIZE, LOGO_SIZE,
-                srcX, halfH, halfW, halfH, LOGO_SHEET_WIDTH, LOGO_SHEET_HEIGHT);
-        logoHoverAnim.renderCrossFade(normal, highlighted);
+        SpriteRegion normal = new SpriteRegion(logoInfo, 0, 0, halfW, halfH);
+        SpriteRegion highlighted = normal.withVOffset(halfH);
+        Runnable normalRender = () -> RtsClientUiUtil.drawSprite(g, normal.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
+        Runnable highlightedRender = () -> RtsClientUiUtil.drawSprite(g, highlighted.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
+        logoHoverState.renderCrossFade(normalRender, highlightedRender);
     }
 
     /** 绘制顶部栏背景（九宫格拼接，上半+间隔+下半，支持透明度） */
@@ -266,15 +270,13 @@ public final class TopBarPanel implements RtsPanelApi {
         int screenW = screen.width;
 
         // 上半部分
-        RtsClientUiUtil.drawNineSlice(g, TOP_UI_UP_TEXTURE,
-                TOP_UI_TEX_W, TOP_UI_TEX_H,
-                0, 0, screenW, TOP_BAR_HEIGHT, TOP_UP_SPEC);
+        RtsClientUiUtil.drawNineSliceRegion(g, TOP_UP_NINE_SLICE.withTheme(),
+                0, 0, screenW, TOP_BAR_HEIGHT);
 
         // 下半部分
         int bottomY = TOP_BAR_HEIGHT + SCREEN_BORDER;
-        RtsClientUiUtil.drawNineSlice(g, TOP_UI_DOWN_TEXTURE,
-                TOP_UI_TEX_W, TOP_UI_TEX_H,
-                0, bottomY, screenW, BOTTOM_SRC_H, TOP_DOWN_SPEC);
+        RtsClientUiUtil.drawNineSliceRegion(g, TOP_DOWN_NINE_SLICE.withTheme(),
+                0, bottomY, screenW, BOTTOM_SRC_H);
     }
 
     @Override

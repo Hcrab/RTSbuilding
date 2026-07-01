@@ -91,9 +91,16 @@ public final class RtsFloatingWindowLayer {
 
     public RtsPanel.ResizeCursor resizeCursorAt(double mouseX, double mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            RtsPanel.ResizeCursor cursor = this.frontToBackWindows.get(i).currentResizeCursor(mouseX, mouseY);
+            RtsPanel window = this.frontToBackWindows.get(i);
+            if (!window.isOpen()) continue;
+            RtsPanel.ResizeCursor cursor = window.currentResizeCursor(mouseX, mouseY);
             if (cursor != RtsPanel.ResizeCursor.DEFAULT) {
                 return cursor;
+            }
+            // 鼠标在某个上层面板的窗口内部（但不在缩放边缘上）→
+            // 下方所有面板的缩放边缘都被该面板遮挡，不应显示缩放光标
+            if (window.isInsideWindow(mouseX, mouseY)) {
+                return RtsPanel.ResizeCursor.DEFAULT;
             }
         }
         return RtsPanel.ResizeCursor.DEFAULT;

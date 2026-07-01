@@ -1,9 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.util;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -36,6 +35,11 @@ public class ColorPickerButton {
     private static final int COLOR_WHEEL_TEX_H = 89;
     /** 图标绘制尺寸 */
     private static final int COLOR_WHEEL_FRAME = 12;
+
+    /** 颜色轮盘贴图元数据（避免每帧 new） */
+    private static final TextureInfo COLOR_WHEEL_TEX_INFO = new TextureInfo(
+            COLOR_WHEEL_TEXTURE, COLOR_WHEEL_TEX_W, COLOR_WHEEL_TEX_H,
+            TextureInfo.ThemeLayout.NONE, TextureInfo.FilterMode.NORMAL);
 
     /** 按钮尺寸（宽=高） */
     public static final int BTN_SIZE = 16;
@@ -82,18 +86,15 @@ public class ColorPickerButton {
         this.areaX = btnX;
         this.areaY = btnY;
 
-        // 九宫格浮动背景
-        RenderSystem.enableBlend();
+        // 九宫格浮动背景（内部已自动处理 blend）
         RtsClientUiUtil.drawNineSliceFloatingPanel(g, btnX, btnY, BTN_SIZE, BTN_SIZE);
 
         // 上方精灵图颜色轮盘 — 89×89 原图缩放到图标尺寸
         int iconX = btnX + (BTN_SIZE - COLOR_WHEEL_FRAME) / 2;
         int iconY = btnY + (BTN_SIZE - COLOR_WHEEL_FRAME) / 2;
-        RtsClientUiUtil.drawHighQualityImage(g, COLOR_WHEEL_TEXTURE,
-                iconX, iconY, COLOR_WHEEL_FRAME, COLOR_WHEEL_FRAME,
-                0, 0, COLOR_WHEEL_TEX_W, COLOR_WHEEL_TEX_H,
-                COLOR_WHEEL_TEX_W, COLOR_WHEEL_TEX_H);
-        RenderSystem.disableBlend();
+        SpriteRegion wheelRegion = new SpriteRegion(COLOR_WHEEL_TEX_INFO, 0, 0, COLOR_WHEEL_TEX_W, COLOR_WHEEL_TEX_H);
+        RtsClientUiUtil.drawSprite(g, wheelRegion,
+                iconX, iconY, COLOR_WHEEL_FRAME, COLOR_WHEEL_FRAME);
     }
 
     // ======================== 交互 ========================

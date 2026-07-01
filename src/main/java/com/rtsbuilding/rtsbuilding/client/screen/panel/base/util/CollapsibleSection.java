@@ -26,20 +26,29 @@ public class CollapsibleSection {
     private static final int FOLD_TEX_FILE_H = 32;
     private static final int FOLD_TEX_STATE_H = 16;
     private static final int FOLD_BORDER = 4;
-    private static final NineSliceSource FOLD_SPEC = NineSliceSource.fullTheme(
-            FOLD_TEX_W / 2, FOLD_TEX_STATE_H, FOLD_BORDER);
+    private static final TextureInfo FOLD_TEX_INFO = new TextureInfo(
+            FOLD_TEXTURE, FOLD_TEX_W, FOLD_TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion FOLD_NINE_SLICE = NineSliceRegion.fullTheme(
+            FOLD_TEX_INFO, FOLD_TEX_STATE_H, FOLD_BORDER);
     private static final int FOLD_BTN_SIZE = 16;
 
     // ======================== 折叠箭头贴图 ========================
 
     private static final ResourceLocation FOLD_ARROW_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/fold_arrow.png");
-    /** 源区域宽度（单帧 512px） */
+    /** 源区域宽度（单帧 512px）——等于 {@link TextureInfo#halfWidth()} */
     private static final int FOLD_ARROW_TEX_W = 512;
-    /** 贴图文件总宽度（双主题翻倍为 1024） */
+    /** 贴图文件总宽度（双主题翻倍为 1024）——等于 {@link TextureInfo#fullWidth()} */
     private static final int FOLD_ARROW_TEX_FILE_W = 1024;
     private static final int FOLD_ARROW_TEX_FILE_H = 1024;
     private static final int FOLD_ARROW_STATE_H = 512;
+
+    private static final TextureInfo FOLD_ARROW_TEX_INFO = new TextureInfo(
+            FOLD_ARROW_TEXTURE, FOLD_ARROW_TEX_FILE_W, FOLD_ARROW_TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
 
     // ======================== 布局常量 ========================
 
@@ -58,13 +67,10 @@ public class CollapsibleSection {
 
     /** 箭头旋转平滑动画器 */
     private final SmoothAnimator arrowAnim = AnimationFactory.createHoverAnim();
-    /** 悬浮态背景平滑动画器 */
-    private final SmoothAnimator hoverAnim = AnimationFactory.createHoverAnim();
+    /** 悬浮状态管理器 */
+    private final HoverStateManager hoverState = new HoverStateManager();
     /** 内容展开/收起平滑动画器 */
     private final SmoothAnimator contentAnim = AnimationFactory.createExpandAnim();
-    /** 上一帧悬浮状态，用于检测变化 */
-    private boolean lastHovered;
-    /** 展开时内容完整高度，用于扩展背景绘制 */
     private int contentFullHeight;
 
     // ======================== 构造与状态管理 ========================
@@ -122,19 +128,14 @@ public class CollapsibleSection {
      */
     private void updateHoverState(int mouseX, int mouseY, int x, int y, int sectionWidth, int contentHeight) {
         int detectH = this.expanded && contentHeight > 0 ? SECTION_HEADER_H + contentHeight : SECTION_HEADER_H;
-        boolean hover = isMouseOver(mouseX, mouseY, x, y, sectionWidth, detectH);
-        if (hover != this.lastHovered) {
-            this.lastHovered = hover;
-            this.hoverAnim.start(hover ? 1.0f : 0.0f);
-        }
-        this.hoverAnim.tick();
+        this.hoverState.update(isMouseOver(mouseX, mouseY, x, y, sectionWidth, detectH));
     }
 
     /**
      * 渲染标题栏背景（普通态 / 悬浮过渡 / 完全悬浮三段式交叉淡入淡出）。
      */
     private void renderHoverBackground(GuiGraphics g, int x, int y, int sectionWidth) {
-        float t = this.hoverAnim.getValue();
+        float t = this.hoverState.getValue();
         RtsClientUiUtil.renderCrossFade(t,
                 () -> renderStateBackground(g, x, y, sectionWidth, 0),
                 () -> renderStateBackground(g, x, y, sectionWidth, FOLD_TEX_STATE_H));
@@ -149,10 +150,8 @@ public class CollapsibleSection {
         // 折叠条背景九宫格：展开时向下延伸覆盖标题栏+内容区
         // 收起时只绘制标题栏区域
         int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * getContentProgress());
-        RtsClientUiUtil.drawNineSlice(g, FOLD_TEXTURE,
-                FOLD_TEX_W, FOLD_TEX_FILE_H,
-                x, y, sectionWidth, bgH,
-                FOLD_SPEC.withYOffset(vOffset));
+        RtsClientUiUtil.drawNineSliceRegion(g, FOLD_NINE_SLICE.withTheme().withVOffset(vOffset),
+                x, y, sectionWidth, bgH);
     }
 
     /**
@@ -167,13 +166,9 @@ public class CollapsibleSection {
         g.pose().translate(halfBtn, halfBtn, 0);
         g.pose().mulPose(Axis.ZP.rotationDegrees(this.arrowAnim.getValue() * 90.0f));
         g.pose().translate(-halfBtn, -halfBtn, 0);
-        if (FOLD_ARROW_TEXTURE != null) {
-            int arrowU = ThemeManager.getInstance().themeU(FOLD_ARROW_TEX_W);
-            RtsClientUiUtil.drawScaledImage(g, FOLD_ARROW_TEXTURE, 0, 0, FOLD_BTN_SIZE, FOLD_BTN_SIZE,
-                    arrowU, 0,
-                    FOLD_ARROW_TEX_W, FOLD_ARROW_STATE_H,
-                    FOLD_ARROW_TEX_FILE_W, FOLD_ARROW_TEX_FILE_H);
-        }
+        SpriteRegion arrowRegion = new SpriteRegion(FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_TEX_W, FOLD_ARROW_STATE_H)
+                .withTheme();
+        RtsClientUiUtil.drawSprite(g, arrowRegion, 0, 0, FOLD_BTN_SIZE, FOLD_BTN_SIZE);
         g.pose().popPose();
     }
 

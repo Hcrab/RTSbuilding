@@ -33,10 +33,9 @@ public class FloatingTooltip {
     private static final float TEXT_SCALE = 0.75f;
 
     private final long delayMs;
-    private final SmoothAnimator anim = AnimationFactory.createHoverAnim();
+    private final HoverStateManager hoverState = new HoverStateManager();
     private long hoverStartTime = -1L;
     private boolean tooltipShown;
-    private boolean prevTooltipShown;
 
     /** 默认延迟 1000ms */
     public FloatingTooltip() {
@@ -50,9 +49,8 @@ public class FloatingTooltip {
         this.delayMs = delayMs;
     }
 
-    /** 每帧调用，推进淡入淡出动画 */
+    /** 每帧调用，推进淡入淡出动画（已由 HoverStateManager 内部管理，保留以兼容外部调用） */
     public void tick() {
-        anim.tick();
     }
 
     /**
@@ -74,15 +72,12 @@ public class FloatingTooltip {
             tooltipShown = false;
         }
 
-        if (tooltipShown != prevTooltipShown) {
-            prevTooltipShown = tooltipShown;
-            anim.start(tooltipShown ? 1.0f : 0.0f);
-        }
+        this.hoverState.update(tooltipShown);
     }
 
     /** 获取当前淡入淡出透明度 [0, 1] */
     public float getAlpha() {
-        return anim.getValue();
+        return hoverState.getValue();
     }
 
     /** 浮窗是否应渲染（透明度超过阈值） */

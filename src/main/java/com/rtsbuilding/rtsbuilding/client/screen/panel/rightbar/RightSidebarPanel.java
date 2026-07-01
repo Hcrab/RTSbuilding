@@ -57,7 +57,12 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private static final int STATE_H = 16;
     /** 九宫格边框宽度 */
     private static final int BORDER = 2;
-    private static final NineSliceSource BORDER_SPEC = NineSliceSource.fullTheme(TEX_W / 2, STATE_H, BORDER);
+    private static final TextureInfo RIGHT_TEX_INFO = new TextureInfo(
+            BORDER_TEXTURE, TEX_W, TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion RIGHT_NINE_SLICE = NineSliceRegion.fullTheme(
+            RIGHT_TEX_INFO, STATE_H, BORDER);
     // ======================== 内嵌层贴图 ========================
 
     /** 右边栏内嵌层贴图（256×256，水平左暗右亮，垂直上正常下激活） */
@@ -75,7 +80,12 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
     /** 九宫格边框宽度 */
     private static final int OVERLAY_BORDER = 8;
-    private static final NineSliceSource OVERLAY_SPEC = NineSliceSource.fullTheme(OVERLAY_HALF_W, OVERLAY_STATE_H, OVERLAY_BORDER);
+    private static final TextureInfo OVERLAY_TEX_INFO = new TextureInfo(
+            OVERLAY_TEXTURE, OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion OVERLAY_NINE_SLICE = NineSliceRegion.fullTheme(
+            OVERLAY_TEX_INFO, OVERLAY_STATE_H, OVERLAY_BORDER);
 
     /** 左边框拖拽缩放处理器 */
     private final RightSidebarResizeHandler resizeHandler = new RightSidebarResizeHandler();
@@ -101,10 +111,8 @@ public final class RightSidebarPanel implements RtsPanelApi {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
 
         int srcY = resizeHandler.isActive() ? STATE_H : 0;
-        RtsClientUiUtil.drawNineSlice(g, BORDER_TEXTURE,
-                TEX_W, TEX_FILE_H,
-                sb.x(), sb.y(), sb.width(), sb.height(),
-                BORDER_SPEC.withYOffset(srcY));
+        RtsClientUiUtil.drawNineSliceRegion(g, RIGHT_NINE_SLICE.withTheme().withVOffset(srcY),
+                sb.x(), sb.y(), sb.width(), sb.height());
     }
 
     /**
@@ -144,14 +152,13 @@ public final class RightSidebarPanel implements RtsPanelApi {
                                    int mouseX, int mouseY) {
         if (oh <= 0) return;
 
-        boolean mouseInArea = mouseX >= ox && mouseX < ox + ow
+        boolean mouseInArea = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
+                && mouseX >= ox && mouseX < ox + ow
                 && mouseY >= oy && mouseY < oy + oh;
         int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
 
-        RtsClientUiUtil.drawNineSlice(g, OVERLAY_TEXTURE,
-                OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
-                ox, oy, ow, oh,
-                OVERLAY_SPEC.withYOffset(srcY));
+        RtsClientUiUtil.drawNineSliceRegion(g, OVERLAY_NINE_SLICE.withTheme().withVOffset(srcY),
+                ox, oy, ow, oh);
     }
 
     // ======================== 交互：左边框拖拽缩放 ========================

@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.BasePopup;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.*;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -282,29 +281,19 @@ public final class DebugMenuPopup extends BasePopup {
         int textY = itemY + (getItemHeight() - Minecraft.getInstance().font.lineHeight) / 2 + 1;
         RtsClientUiUtil.drawUiText(g, label, textX, textY, textColor);
 
-        // 模式按钮精灵图（靠右对齐，双主题横向偏移）
-        int themeU = RtsClientUiUtil.isLightMode() ? MODE_BTN_HALF_W : 0;
+        // 模式按钮精灵图（靠右对齐）
         int btnX = x + getPopupWidth() - getPadH() - MODE_BTN_SIZE;
         int btnY = itemY + (getItemHeight() - MODE_BTN_SIZE) / 2;
 
-        if (states[index]) {
-            // 已勾选 → 按下状态（无动画）
-            RtsClientUiUtil.drawScaledImage(g, MODE_BUTTON_TEXTURE,
-                    btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE,
-                    themeU, MODE_BTN_STATE_H * 2, MODE_BTN_HALF_W, MODE_BTN_STATE_H,
-                    MODE_BTN_TEX_W, MODE_BTN_TEX_H);
-        } else {
-            // 未勾选 → 正常态→悬浮态交叉淡入
-            Runnable normal = () -> RtsClientUiUtil.drawScaledImage(g, MODE_BUTTON_TEXTURE,
-                    btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE,
-                    themeU, 0, MODE_BTN_HALF_W, MODE_BTN_STATE_H,
-                    MODE_BTN_TEX_W, MODE_BTN_TEX_H);
-            Runnable hovered = () -> RtsClientUiUtil.drawScaledImage(g, MODE_BUTTON_TEXTURE,
-                    btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE,
-                    themeU, MODE_BTN_STATE_H, MODE_BTN_HALF_W, MODE_BTN_STATE_H,
-                    MODE_BTN_TEX_W, MODE_BTN_TEX_H);
-            RtsClientUiUtil.renderCrossFade(hoverT, normal, hovered);
-        }
+        TextureInfo modeBtnInfo = new TextureInfo(
+                MODE_BUTTON_TEXTURE, MODE_BTN_TEX_W, MODE_BTN_TEX_H,
+                TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+                TextureInfo.FilterMode.PIXEL);
+        SpriteRegion normal = new SpriteRegion(modeBtnInfo, 0, 0, MODE_BTN_HALF_W, MODE_BTN_STATE_H);
+        SpriteRegion hovered = normal.withVOffset(MODE_BTN_STATE_H);
+        SpriteRegion selected = normal.withVOffset(MODE_BTN_STATE_H * 2);
+        RtsClientUiUtil.drawStateSprite(g, normal, hovered, selected, states[index], hoverT,
+                btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE);
     }
 
     @Override

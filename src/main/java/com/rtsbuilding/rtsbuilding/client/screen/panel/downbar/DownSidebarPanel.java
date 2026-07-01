@@ -55,7 +55,12 @@ public final class DownSidebarPanel implements RtsPanelApi {
     private static final int STATE_H = 16;
     /** 九宫格边框宽度 */
     private static final int BORDER = 2;
-    private static final NineSliceSource BORDER_SPEC = NineSliceSource.fullTheme(TEX_W / 2, STATE_H, BORDER);
+    private static final TextureInfo DOWN_TEX_INFO = new TextureInfo(
+            BORDER_TEXTURE, TEX_W, TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion DOWN_NINE_SLICE = NineSliceRegion.fullTheme(
+            DOWN_TEX_INFO, STATE_H, BORDER);
     // ======================== 内嵌层贴图 ========================
 
     /** 下栏内嵌层贴图（256×256，水平左暗右亮，垂直上正常下激活） */
@@ -73,7 +78,12 @@ public final class DownSidebarPanel implements RtsPanelApi {
     private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
     /** 九宫格边框宽度 */
     private static final int OVERLAY_BORDER = 8;
-    private static final NineSliceSource OVERLAY_SPEC = NineSliceSource.fullTheme(OVERLAY_HALF_W, OVERLAY_STATE_H, OVERLAY_BORDER);
+    private static final TextureInfo OVERLAY_TEX_INFO = new TextureInfo(
+            OVERLAY_TEXTURE, OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion OVERLAY_NINE_SLICE = NineSliceRegion.fullTheme(
+            OVERLAY_TEX_INFO, OVERLAY_STATE_H, OVERLAY_BORDER);
 
     /** 上边缘拖拽缩放处理器 */
     private final DownSidebarResizeHandler resizeHandler = new DownSidebarResizeHandler();
@@ -100,10 +110,8 @@ public final class DownSidebarPanel implements RtsPanelApi {
         if (db.width() <= 0 || db.height() <= 0) return;
 
         int srcY = resizeHandler.isActive() ? STATE_H : 0;
-        RtsClientUiUtil.drawNineSlice(g, BORDER_TEXTURE,
-                TEX_W, TEX_FILE_H,
-                db.x(), db.y(), db.width(), db.height(),
-                BORDER_SPEC.withYOffset(srcY));
+        RtsClientUiUtil.drawNineSliceRegion(g, DOWN_NINE_SLICE.withTheme().withVOffset(srcY),
+                db.x(), db.y(), db.width(), db.height());
     }
 
     /**
@@ -119,14 +127,13 @@ public final class DownSidebarPanel implements RtsPanelApi {
         int oh = db.height() - 1;
         if (db.width() <= 0 || oh <= 0) return;
 
-        boolean mouseInArea = mouseX >= db.x() && mouseX < db.x() + db.width()
+        boolean mouseInArea = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
+                && mouseX >= db.x() && mouseX < db.x() + db.width()
                 && mouseY >= oy && mouseY < oy + oh;
         int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
 
-        RtsClientUiUtil.drawNineSlice(g, OVERLAY_TEXTURE,
-                OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
-                db.x(), oy, db.width(), oh,
-                OVERLAY_SPEC.withYOffset(srcY));
+        RtsClientUiUtil.drawNineSliceRegion(g, OVERLAY_NINE_SLICE.withTheme().withVOffset(srcY),
+                db.x(), oy, db.width(), oh);
     }
 
     // ======================== 交互：上边缘拖拽缩放 ========================

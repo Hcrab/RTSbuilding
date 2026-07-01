@@ -52,10 +52,14 @@ public class ScaleSliderComponent {
     /** 滑条轨道点击检测在 Y 方向向外扩展的像素数，方便点击到窄轨道 */
     private static final int TRACK_CLICK_PADDING = 3;
 
-    private static final NineSliceSource TRACK_SPEC = new NineSliceSource(
-            0, 0, TRACK_SRC_W, TRACK_SRC_H, SLIDER_BORDER);
-    private static final NineSliceSource THUMB_SPEC = new NineSliceSource(
-            0, 5, THUMB_SRC_W, THUMB_SRC_H, SLIDER_BORDER);
+    private static final TextureInfo SLIDER_TEX_INFO = new TextureInfo(
+            SLIDER_TEXTURE, SLIDER_TEX_W, SLIDER_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion TRACK_NINE_SLICE = new NineSliceRegion(
+            new SpriteRegion(SLIDER_TEX_INFO, 0, 0, TRACK_SRC_W, TRACK_SRC_H), SLIDER_BORDER);
+    private static final NineSliceRegion THUMB_NINE_SLICE = new NineSliceRegion(
+            new SpriteRegion(SLIDER_TEX_INFO, 0, 5, THUMB_SRC_W, THUMB_SRC_H), SLIDER_BORDER);
 
     // ======================== 平滑动画参数 ========================
 
@@ -118,23 +122,17 @@ public class ScaleSliderComponent {
         boolean draggingState = this.dragging;
 
         // 滑条轨道
-        RtsClientUiUtil.drawNineSlice(g, SLIDER_TEXTURE,
-                SLIDER_TEX_W, SLIDER_TEX_H,
-                trackX, trackY, trackW, TRACK_SRC_H,
-                draggingState
-                        ? TRACK_SPEC.withYOffset(SLIDER_TEX_H / 2)
-                        : TRACK_SPEC);
+        NineSliceRegion track = draggingState ? TRACK_NINE_SLICE.withVOffset(SLIDER_TEX_H / 2) : TRACK_NINE_SLICE;
+        RtsClientUiUtil.drawNineSliceRegion(g, track.withTheme(),
+                trackX, trackY, trackW, TRACK_SRC_H);
 
         // 滑块（使用平滑值计算位置）
         int thumbX = trackX + (int) Math.round((smoothValue - min) / (max - min) * (trackW - THUMB_W));
         this.renderedThumbX = thumbX;
         int thumbY = trackY + (TRACK_SRC_H - THUMB_SRC_H) / 2;
-        RtsClientUiUtil.drawNineSlice(g, SLIDER_TEXTURE,
-                SLIDER_TEX_W, SLIDER_TEX_H,
-                thumbX, thumbY, THUMB_W, THUMB_SRC_H,
-                draggingState
-                        ? THUMB_SPEC.withYOffset(SLIDER_TEX_H / 2)
-                        : THUMB_SPEC);
+        NineSliceRegion thumb = draggingState ? THUMB_NINE_SLICE.withVOffset(SLIDER_TEX_H / 2) : THUMB_NINE_SLICE;
+        RtsClientUiUtil.drawNineSliceRegion(g, thumb.withTheme(),
+                thumbX, thumbY, THUMB_W, THUMB_SRC_H);
     }
 
     // ======================== 交互 ========================

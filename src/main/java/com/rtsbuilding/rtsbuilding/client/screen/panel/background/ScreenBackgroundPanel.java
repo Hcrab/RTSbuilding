@@ -46,7 +46,12 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
     private static final int ACTIVE_V_OFFSET = 128;
     /** 九宫格边框宽度 */
     private static final int BORDER = 8;
-    private static final NineSliceSource SCREEN_SPEC = NineSliceSource.fullTheme(HALF_W, STATE_H, BORDER);
+    private static final TextureInfo SCREEN_TEX_INFO = new TextureInfo(
+            SCREEN_UI_TEXTURE, TEX_W, TEX_FILE_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion SCREEN_NINE_SLICE = NineSliceRegion.fullTheme(
+            SCREEN_TEX_INFO, STATE_H, BORDER);
 
     /** 背景起始 Y——顶部栏上半部分底部（与右边框顶部对齐） */
     public static final int BACKGROUND_TOP_Y = TopBarLayoutHelper.TOP_BAR_HEIGHT;
@@ -157,16 +162,16 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
         int contentH = this.screen.height - BACKGROUND_TOP_Y - this.screen.getDownSidebarHeight();
         if (contentW <= 0 || contentH <= 0) return;
 
-        // 判断鼠标是否在背景内容区域内
-        boolean mouseInArea = mouseX >= 0 && mouseX < contentW
+        // 判断鼠标是否在背景内容区域内（但若在浮动窗口/弹出菜单上则抑制，避免上层UI遮挡时误亮起）
+        boolean mouseInArea = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
+                && mouseX >= 0 && mouseX < contentW
                 && mouseY >= BACKGROUND_TOP_Y && mouseY < BACKGROUND_TOP_Y + contentH;
-        NineSliceSource src = mouseInArea
-                ? SCREEN_SPEC.withYOffset(ACTIVE_V_OFFSET)
-                : SCREEN_SPEC;
+        NineSliceRegion spec = mouseInArea
+                ? SCREEN_NINE_SLICE.withVOffset(ACTIVE_V_OFFSET)
+                : SCREEN_NINE_SLICE;
 
-        cache.drawOrCache(g, SCREEN_UI_TEXTURE,
-                TEX_W, TEX_FILE_H,
-                0, BACKGROUND_TOP_Y, contentW, contentH, src);
+        cache.drawOrCache(g, spec.withTheme(),
+                0, BACKGROUND_TOP_Y, contentW, contentH);
     }
 
     /**
