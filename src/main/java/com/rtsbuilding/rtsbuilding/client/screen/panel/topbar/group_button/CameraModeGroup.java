@@ -4,9 +4,9 @@ import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.AbstractButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
-import com.rtsbuilding.rtsbuilding.client.util.FloatingTooltip;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -22,19 +22,33 @@ import net.minecraft.resources.ResourceLocation;
 public final class CameraModeGroup extends AbstractButtonGroup {
 
     private static final ResourceLocation FREE_MODE =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/free_mode.png");
+            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/button/free_mode.png");
     private static final ResourceLocation SURROUND_MODE =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/surround_mode.png");
+            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/button/surround_mode.png");
+
+    // ======================== 位置背景贴图 ========================
+
+    /** up_button.png —— 首位（左侧）按钮背景 */
+    private static final ResourceLocation DOWN_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/down_button.png");
+    /** middle_button.png —— 中间按钮背景 */
+    private static final ResourceLocation MIDDLE_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/middle_button.png");
+    /** up_button.png —— 末位（右侧）按钮背景 */
+    private static final ResourceLocation UP_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/up_button.png");
 
     private final CameraModule cameraModule;
 
     // ----- 浮窗提示 -----
-    private final FloatingTooltip freeModeTooltip = new FloatingTooltip();
-    private final FloatingTooltip surroundModeTooltip = new FloatingTooltip();
+    private final TooltipController freeModeTooltip = TooltipController.builder().build();
+    private final TooltipController surroundModeTooltip = TooltipController.builder().build();
 
     public CameraModeGroup(CameraModule cameraModule) {
-        // HORIZONTAL 方向，顶栏按钮大小 14px，0间隙
-        super(Direction.HORIZONTAL, TopBarLayoutHelper.BTN_SIZE, DEFAULT_INNER_GAP, FREE_MODE, SURROUND_MODE);
+        // HORIZONTAL 方向，顶栏按钮大小 14px，0间隙，有背景层
+        super(Direction.HORIZONTAL, TopBarLayoutHelper.BTN_SIZE, DEFAULT_INNER_GAP, true,
+                DOWN_BG, MIDDLE_BG, UP_BG,
+                FREE_MODE, SURROUND_MODE);
         this.cameraModule = cameraModule;
     }
 
@@ -52,15 +66,13 @@ public final class CameraModeGroup extends AbstractButtonGroup {
         {
             var rect = group.rect(0);
             boolean hovered = rect.contains(mouseX, mouseY);
-            freeModeTooltip.tick();
-            freeModeTooltip.update(hovered, false);
+                        freeModeTooltip.update(hovered, false);
         }
         // 环绕模式按钮（index 1）
         {
             var rect = group.rect(1);
             boolean hovered = rect.contains(mouseX, mouseY);
-            surroundModeTooltip.tick();
-            surroundModeTooltip.update(hovered, false);
+                        surroundModeTooltip.update(hovered, false);
         }
     }
 
@@ -71,7 +83,7 @@ public final class CameraModeGroup extends AbstractButtonGroup {
                                      int screenW, int screenH) {
         String keyText = RtsKeyMappings.TOGGLE_CAMERA_MODE_KEY.getTranslatedKeyMessage().getString();
         int textColor = ThemeManager.getTextColor();
-        int shortcutColor = SmoothAnimator.scaleColor(textColor, 0.6f);
+        int shortcutColor = ColorAnimation.scale(textColor, 0.6f);
 
         // 自由模式浮窗
         if (freeModeTooltip.shouldRender()) {
@@ -79,8 +91,8 @@ public final class CameraModeGroup extends AbstractButtonGroup {
             String text = Component.translatable("tooltip.rtsbuilding.camera.free_mode").getString() + "\n"
                     + Component.translatable("tooltip.rtsbuilding.camera.free_mode.desc").getString() + "\n"
                     + Component.translatable("tooltip.rtsbuilding.shortcut", keyText).getString();
-            freeModeTooltip.renderBelowButton(g, rect.x(), rect.y(), rect.width(), rect.height(),
-                    6, 3, text, textColor, shortcutColor, screenW, screenH);
+            freeModeTooltip.render(g, rect.x(), rect.y(), rect.width(), rect.height(),
+                    text, textColor, shortcutColor, screenW, screenH);
         }
 
         // 环绕模式浮窗
@@ -89,8 +101,8 @@ public final class CameraModeGroup extends AbstractButtonGroup {
             String text = Component.translatable("tooltip.rtsbuilding.camera.surround_mode").getString() + "\n"
                     + Component.translatable("tooltip.rtsbuilding.camera.surround_mode.desc").getString() + "\n"
                     + Component.translatable("tooltip.rtsbuilding.shortcut", keyText).getString();
-            surroundModeTooltip.renderBelowButton(g, rect.x(), rect.y(), rect.width(), rect.height(),
-                    6, 3, text, textColor, shortcutColor, screenW, screenH);
+            surroundModeTooltip.render(g, rect.x(), rect.y(), rect.width(), rect.height(),
+                    text, textColor, shortcutColor, screenW, screenH);
         }
     }
 
@@ -110,3 +122,4 @@ public final class CameraModeGroup extends AbstractButtonGroup {
         // 不调用 super——selected[] 由 render() 从 cameraModule 同步
     }
 }
+

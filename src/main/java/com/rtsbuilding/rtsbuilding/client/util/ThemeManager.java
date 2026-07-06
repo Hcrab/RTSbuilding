@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 全局主题管理器——统一管理亮暗主题状态，支持监听器通知。
@@ -22,8 +22,8 @@ import java.util.List;
 public final class ThemeManager {
     private static final ThemeManager INSTANCE = new ThemeManager();
 
-    private boolean lightMode;
-    private final List<ThemeListener> listeners = new ArrayList<>();
+    private volatile boolean lightMode;
+    private final List<ThemeListener> listeners = new CopyOnWriteArrayList<>();
 
     private ThemeManager() {
     }

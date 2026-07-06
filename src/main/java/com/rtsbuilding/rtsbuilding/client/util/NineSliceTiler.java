@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
 
 /**
  * 九宫格平铺计算器——提取九宫格拼贴坐标计算逻辑，
- * 供 {@link RtsClientUiUtil#drawNineSliceRegion} 和 {@link NineSliceCache#rebuild} 复用。
+ * 供 {@link com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer#drawNineSlice} 复用。
  *
  * <p>消除两边重复的 {@code for} 循环平铺算法，确保一处修改两处生效。</p>
  *
@@ -20,18 +20,21 @@ public final class NineSliceTiler {
 
     /**
      * 九宫格拼贴片渲染回调。
-     *
-     * @param srcX 源区域 X（贴图坐标）
-     * @param srcY 源区域 Y（贴图坐标）
-     * @param srcW 源区域宽度
-     * @param srcH 源区域高度
-     * @param dstX 目标区域 X（屏幕/缓存坐标）
-     * @param dstY 目标区域 Y
-     * @param dstW 目标宽度
-     * @param dstH 目标高度
      */
     @FunctionalInterface
     public interface TileCallback {
+        /**
+         * 渲染一个拼贴块。
+         *
+         * @param srcX 源区域 X（贴图坐标）
+         * @param srcY 源区域 Y（贴图坐标）
+         * @param srcW 源区域宽度
+         * @param srcH 源区域高度
+         * @param dstX 目标区域 X（屏幕/缓存坐标）
+         * @param dstY 目标区域 Y
+         * @param dstW 目标宽度
+         * @param dstH 目标高度
+         */
         void accept(int srcX, int srcY, int srcW, int srcH,
                     int dstX, int dstY, int dstW, int dstH);
     }

@@ -380,13 +380,14 @@ public final class CameraModule implements FeatureModule {
         state.localZ = payload.anchorZ();
         state.localReady = true;
 
-        // 首次启用时默认开启方块环绕模式，以锚点作为轨道目标
+        // 首次启用时以锚点作为轨道目标的备选位置。
+        // 方块环绕模式的启用/禁用由持久化系统在 BuilderScreen.init() 中
+        // 通过 CameraPersistenceHandler 恢复，不在此处强制开启。
         if (freshEnable) {
             state.orbitTargetX = state.anchorX;
             state.orbitTargetY = state.anchorY + state.localHeightOffset;
             state.orbitTargetZ = state.anchorZ;
             poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
-            state.orbitMode = true;
         }
 
         entitySync.savePrevState(state);
@@ -411,6 +412,7 @@ public final class CameraModule implements FeatureModule {
         state.orbitMode = false;
         state.playerOrbitMode = false;
         state.savedBlockOrbitMode = false;
+        // 环绕模式状态由持久化系统在 BuilderScreen.init() 中恢复。
         viewManager.clear();
         entitySync.clear();
     }

@@ -125,8 +125,15 @@ public final class RtsClientUiStateStore {
             try {
                 Files.move(tempPath, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } catch (IOException e) {
-                // 文件系统可能不支持原子移动（如某些网络文件系统），回退到普通移动
-                Files.move(tempPath, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
+                // 文件系统可能不支持原子移动（如某些网络文件系统），或目标文件被锁定，回退到普通移动
+                try {
+                    Files.move(tempPath, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e2) {
+                    // 移动仍然失败（如 Windows 上目标文件被其他进程锁定），回退到直接写入
+                    LOG.warn("移动临时文件失败，将直接写入目标文件: {}", CONFIG_PATH, e2);
+                    Files.write(CONFIG_PATH, encoded);
+                    Files.deleteIfExists(tempPath);
+                }
             }
         } catch (IOException e) {
             LOG.warn("写入二进制 UI 状态文件失败，旧文件将保留: {}", CONFIG_PATH, e);
@@ -311,11 +318,20 @@ public final class RtsClientUiStateStore {
         /** 下边框高度（默认 81px，拖拽缩放后动态变更） */
         public int downSidebarHeight = 81;
 
+        /** 底部栏左嵌层宽度（默认黄金比例 8/21，分隔条拖拽后动态变更） */
+        public int downSidebarLeftOverlayW = -1;
+
+        /** 右边栏上嵌层高度（默认黄金比例 8/21，分隔条拖拽后动态变更） */
+        public int rightSidebarUpperOverlayH = -1;
+
         /** 左边框宽度（默认 90px，拖拽缩放后动态变更） */
         public int leftSidebarWidth = 90;
 
         /** 亮暗主题模式（false=暗色，true=明亮） */
         public boolean lightMode = false;
+
+        /** 大模式：INTERACTIVE / BUILD / BLUEPRINT */
+        public String mode = "INTERACTIVE";
 
         // ================================================================
         //  面板分组内嵌状态类
@@ -457,6 +473,12 @@ public final class RtsClientUiStateStore {
             public int previewOverlayColor = 0xFF4D80FF;
             /** 框选虚线间隙颜色 ARGB */
             public int selectionGapColor = 0xFF000000;
+            /** 框选实体角支架颜色 ARGB */
+            public int entitySelectionColor = 0xFF4CAF50;
+            /** 存储绑定双向模式线框颜色 ARGB */
+            public int linkedBidirectionalColor = 0xFF4CAF50;
+            /** 存储绑定仅提取模式线框颜色 ARGB */
+            public int linkedExtractOnlyColor = 0xFFFF4CD1;
         }
 
         /** 窗口面板位置/大小的不可变记录。 */
@@ -554,6 +576,9 @@ public final class RtsClientUiStateStore {
             clean.settings.selectionColor = this.settings.selectionColor;
             clean.settings.previewOverlayColor = this.settings.previewOverlayColor;
             clean.settings.selectionGapColor = this.settings.selectionGapColor;
+            clean.settings.entitySelectionColor = this.settings.entitySelectionColor;
+            clean.settings.linkedBidirectionalColor = this.settings.linkedBidirectionalColor;
+            clean.settings.linkedExtractOnlyColor = this.settings.linkedExtractOnlyColor;
             // top-level
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             if (this.windowPanelBounds != null) {
@@ -574,8 +599,13 @@ public final class RtsClientUiStateStore {
             clean.downSidebarHeight = Math.max(8, Math.min(2000, this.downSidebarHeight));
             // 左边框宽度
             clean.leftSidebarWidth = Math.max(30, Math.min(2000, this.leftSidebarWidth));
+            // 底部栏左嵌层宽度（-1 表示使用默认黄金比例）
+            clean.downSidebarLeftOverlayW = this.downSidebarLeftOverlayW;
+            // 右边栏上嵌层高度（-1 表示使用默认黄金比例）
+            clean.rightSidebarUpperOverlayH = this.rightSidebarUpperOverlayH;
             // 全局状态
             clean.lightMode = this.lightMode;
+            clean.mode = sanitizeEnum(this.mode, "INTERACTIVE");
             return clean;
         }
 

@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
@@ -209,7 +209,7 @@ public abstract class BasePopup {
         int ph = menuHeight();
 
         // 1) 九宫格面板背景
-        RtsClientUiUtil.drawNineSlicePanel(g, x, y, pw, ph, false);
+        SpriteRenderer.drawNineSlicePanel(g, x, y, pw, ph, false);
 
         // 2) 检测当前悬浮项并更新各菜单项的悬浮状态
         int hoveredIndex = -1;
@@ -229,7 +229,7 @@ public abstract class BasePopup {
 
             // 悬浮背景（从完全透明到半透明深色）
             if (t > 0.001f) {
-                int bgColor = SmoothAnimator.lerpColor(bgNormal(), bgHover(), t);
+                int bgColor = ColorAnimation.lerpRGB(bgNormal(), bgHover(), t);
                 g.fill(x + getPadH(), iy, x + pw - getPadH(), iy + getItemHeight(), bgColor);
             }
 

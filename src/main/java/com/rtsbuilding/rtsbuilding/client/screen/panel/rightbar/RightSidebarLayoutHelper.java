@@ -6,6 +6,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper
  * 右边框布局坐标计算——集中管理右边框位置。
  *
  * <p>纯装饰性右边框，60px 宽，从顶部栏上栏位底部到屏幕底部。</p>
+ *
+ * <p><b>实例化重构</b>：从静态工具类改为实例类，由 {@link RightSidebarPanel} 创建实例使用。</p>
  */
 public final class RightSidebarLayoutHelper {
 
@@ -15,6 +17,8 @@ public final class RightSidebarLayoutHelper {
     /** 右边框顶部 Y 坐标（顶部栏上栏位底部） */
     public static final int SIDEBAR_TOP_Y = TopBarLayoutHelper.TOP_BAR_HEIGHT;
 
+    public RightSidebarLayoutHelper() {}
+
     // ======================== 布局计算 ========================
 
     /**
@@ -22,7 +26,7 @@ public final class RightSidebarLayoutHelper {
      * 从屏幕右边缘向左延伸 SIDEBAR_WIDTH 像素）。
      * <p>使用默认宽度 {@link #SIDEBAR_WIDTH}。</p>
      */
-    public static Rect sidebarRect(int screenWidth, int screenHeight) {
+    public Rect sidebarRect(int screenWidth, int screenHeight) {
         return sidebarRect(screenWidth, screenHeight, SIDEBAR_WIDTH);
     }
 
@@ -33,7 +37,7 @@ public final class RightSidebarLayoutHelper {
      * @param screenHeight  屏幕高度
      * @param sidebarWidth  右边框当前实际宽度（拖拽缩放后动态变化）
      */
-    public static Rect sidebarRect(int screenWidth, int screenHeight, int sidebarWidth) {
+    public Rect sidebarRect(int screenWidth, int screenHeight, int sidebarWidth) {
         int x = screenWidth - sidebarWidth;
         int y = SIDEBAR_TOP_Y;
         return new Rect(x, y, sidebarWidth, screenHeight - y);
@@ -46,6 +50,4 @@ public final class RightSidebarLayoutHelper {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
     }
-
-    private RightSidebarLayoutHelper() {}
 }

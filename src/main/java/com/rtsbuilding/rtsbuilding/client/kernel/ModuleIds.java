@@ -18,4 +18,5 @@ public final class ModuleIds {
     public static final String PLUGIN = "plugin";
     public static final String PROGRESSION = "progression";
     public static final String OVERLAY = "overlay";
+    public static final String REMOTE_MENU = "remote_menu";
 }

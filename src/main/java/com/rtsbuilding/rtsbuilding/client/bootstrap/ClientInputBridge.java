@@ -2,8 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -77,5 +81,37 @@ public final class ClientInputBridge {
         if (kernel().inputPipeline().onCharTyped((char) event.getCodePoint(), 0)) {
             event.setCanceled(true);
         }
+    }
+
+    /**
+     * 屏幕打开拦截——RTS 模式下将容器屏幕注入到 BuilderScreen 的覆盖层中。
+     * <p>当 RTS 摄像机活跃且 BuilderScreen 是当前屏幕时，
+     * 阻止容器屏幕（ChestScreen、FurnaceScreen、MerchantScreen 等）替换 BuilderScreen，
+     * 改为将其存储为 BuilderScreen 的子覆盖层进行渲染和交互。
+     * 这样 RTS 模式和摄像机保持活跃，容器 GUI 在 RTS UI 之上渲染。</p>
+     */
+    @SubscribeEvent
+    public static void onScreenOpening(ScreenEvent.Opening event) {
+        CameraModule cam = kernel().module(CameraModule.class);
+        if (cam == null || !cam.getState().isEnabled()) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        Screen current = mc.screen;
+        if (!(current instanceof BuilderScreen builderScreen)) return;
+
+        Screen newScreen = event.getScreen();
+        // 允许 RTS 自有屏幕通过
+        if (newScreen instanceof BuilderScreen || newScreen instanceof RtsCraftTerminalScreen) return;
+
+        // 拦截容器屏幕 → 注入为 BuilderScreen 的子覆盖层
+        if (newScreen instanceof AbstractContainerScreen<?> containerScreen) {
+            RtsbuildingMod.LOGGER.debug("RTS: Intercepting {} as overlay in BuilderScreen",
+                    containerScreen.getClass().getSimpleName());
+            builderScreen.showContainerScreen(containerScreen);
+            event.setCanceled(true);
+        }
+        // 非容器屏幕（聊天、设置等）允许正常替换 BuilderScreen，
+        // 但 BuilderScreen.onClose() 会通过 CameraModule.disableCamera() 停用相机。
+        // 对于非容器屏幕暂不做特殊处理。
     }
 }

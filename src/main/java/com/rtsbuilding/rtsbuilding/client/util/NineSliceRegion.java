@@ -1,9 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+
 /**
  * 九宫格精灵图规格——描述一个需要九宫格拼贴渲染的精灵区域。
  * <p>将源矩形 + 边框宽度聚合成一个不可变对象，传递给
- * {@link RtsClientUiUtil#drawNineSliceRegion} 进行九宫格渲染。</p>
+ * {@link SpriteRenderer#drawNineSlice} 进行九宫格渲染。</p>
  *
  * <p>与 {@link SpriteRegion} 的关系：九宫格是精灵区域的一种渲染方式，
  * 在标准精灵区域的基础上附加了边框宽度信息。</p>
@@ -13,7 +15,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
  *
  * <p>快捷创建：</p>
  * <ul>
- *   <li>{@link #fullTheme(TextureInfo, int, int, int)} — 从左上角开始的半区全宽九宫格</li>
+ *   <li>{@link #fullTheme(TextureInfo, int, int)} — 从左上角开始的半区全宽九宫格</li>
  * </ul>
  */
 public record NineSliceRegion(

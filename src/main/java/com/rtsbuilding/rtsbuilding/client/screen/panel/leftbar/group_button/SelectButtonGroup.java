@@ -3,10 +3,11 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.group_button;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.AbstractButtonGroup;
-import com.rtsbuilding.rtsbuilding.client.util.FloatingTooltip;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -19,19 +20,33 @@ import net.minecraft.resources.ResourceLocation;
  */
 public final class SelectButtonGroup extends AbstractButtonGroup {
 
-    /** click_button.png 贴图路径（1024×1536，横向双主题，纵向3状态） */
+    /** click.png 贴图路径（1024×512，横向双主题） */
     private static final ResourceLocation BTN_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/left/default_button/click_button.png");
-    /** select_button.png 贴图路径 */
+            "rtsbuilding:textures/gui/left/button/click.png");
+    /** select.png 贴图路径 */
     private static final ResourceLocation SELECT_BTN = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/left/default_button/select_button.png");
+            "rtsbuilding:textures/gui/left/button/select.png");
+
+    // ======================== 位置背景贴图 ========================
+
+    /** down_button.png —— 首位按钮背景 */
+    private static final ResourceLocation DOWN_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/down_button.png");
+    /** middle_button.png —— 中间按钮背景 */
+    private static final ResourceLocation MIDDLE_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/middle_button.png");
+    /** up_button.png —— 末位按钮背景 */
+    private static final ResourceLocation UP_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/up_button.png");
 
     // ----- 浮窗提示 -----
-    private final FloatingTooltip clickBtnTooltip = new FloatingTooltip();
-    private final FloatingTooltip selectBtnTooltip = new FloatingTooltip();
+    private final TooltipController clickBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
+    private final TooltipController selectBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
 
     public SelectButtonGroup() {
-        super(BTN_TEXTURE, SELECT_BTN);
+        super(Direction.VERTICAL, DEFAULT_BTN_SIZE, DEFAULT_INNER_GAP, true,
+                DOWN_BG, MIDDLE_BG, UP_BG,
+                BTN_TEXTURE, SELECT_BTN);
         // 初始化默认选中 click_button（索引 0）
         selected[0] = true;
     }
@@ -52,13 +67,11 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
         // click_button（索引 0）
         boolean hover0 = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
-        clickBtnTooltip.tick();
         clickBtnTooltip.update(hover0, false);
 
         // select_button（索引 1）
         boolean hover1 = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by + buttonSize && mouseY < by + buttonSize * 2;
-        selectBtnTooltip.tick();
         selectBtnTooltip.update(hover1, false);
     }
 
@@ -67,7 +80,7 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
                                      int screenW, int screenH) {
         String keyText = RtsKeyMappings.TOGGLE_SELECT_MODE_KEY.getTranslatedKeyMessage().getString();
         int textColor = ThemeManager.getTextColor();
-        int shortcutColor = SmoothAnimator.scaleColor(textColor, 0.6f);
+        int shortcutColor = ColorAnimation.scale(textColor, 0.6f);
 
         // click_button
         if (clickBtnTooltip.shouldRender()) {
@@ -91,7 +104,7 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
     }
 
     /** 在按钮右侧渲染浮窗 */
-    private static void renderTooltipRight(GuiGraphics g, FloatingTooltip tooltip,
+    private static void renderTooltipRight(GuiGraphics g, TooltipController tooltip,
                                             int btnX, int btnY, int btnW, int btnH,
                                             String text, int color, int shortcutColor,
                                             int screenW, int screenH) {
@@ -120,7 +133,7 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-        RtsClientUiUtil.drawNineSliceFloatingPanel(g, tipX, tipY, tipW, tipH);
+        SpriteRenderer.drawNineSliceFloatingPanel(g, tipX, tipY, tipW, tipH);
 
         float textY = tipY + padV;
         for (int i = 0; i < lines.length; i++) {
@@ -128,7 +141,7 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
             g.pose().pushPose();
             g.pose().translate(tipX + padH, textY, 0);
             g.pose().scale(0.75f, 0.75f, 1.0f);
-            RtsClientUiUtil.drawUiText(g, lines[i], 0, 0, lineColor);
+            TextRenderer.draw(g, lines[i], 0, 0, lineColor);
             g.pose().popPose();
             textY += scaledLineH + scaledLineGap;
         }

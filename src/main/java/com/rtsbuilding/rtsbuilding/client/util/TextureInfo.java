@@ -20,7 +20,7 @@ import net.minecraft.resources.ResourceLocation;
  * SpriteRegion hovered = normal.withVOffset(16);
  *
  * // 直接绘制
- * RtsClientUiUtil.drawSprite(g, normal.withTheme(), dstX, dstY, dstW, dstH);
+ * SpriteRenderer.drawSprite(g, normal.withTheme(), dstX, dstY, dstW, dstH);
  * }</pre>
  */
 public record TextureInfo(
@@ -46,7 +46,7 @@ public record TextureInfo(
 
     /**
      * 纹理过滤策略——定义贴图缩放时的像素采样方式。
-     * <p>策略附着在 {@link TextureInfo} 上，由 {@link RtsClientUiUtil#drawSprite}
+     * <p>策略附着在 {@link TextureInfo} 上，由 {@link com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer#drawSprite}
      * 自动应用，调用方无需手动设置过滤参数。</p>
      */
     public enum FilterMode {

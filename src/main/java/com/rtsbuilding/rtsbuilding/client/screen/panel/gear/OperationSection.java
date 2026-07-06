@@ -3,10 +3,10 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.gear;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.SettingsSection;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ResetButton;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ScaleSliderComponent;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ThemeSwitchComponent;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ResetButton;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
@@ -65,7 +65,7 @@ public class OperationSection extends SettingsSection {
 
         // 灵敏度标签 + 滑条（以中位线为界，左侧文字右侧滑条+重置）
         String labelText = buildSensitivityLabel(sens);
-        RtsClientUiUtil.drawUiText(g, labelText, x + LEFT_PAD, textY(y, 0), getTextColor());
+        TextRenderer.draw(g, labelText, x + LEFT_PAD, textY(y, 0), getTextColor());
         int lineCenterY = textY(y, 0) + Minecraft.getInstance().font.lineHeight / 2;
         int controlStart = midControlX(x, w);
         sensTrack.trackX = controlStart;
@@ -170,3 +170,4 @@ public class OperationSection extends SettingsSection {
         return hit != null ? hit.getBlockPos() : null;
     }
 }
+

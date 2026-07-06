@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -244,10 +244,10 @@ public final class GearMenuPanel extends RtsPanel {
 
     @Override
     protected void computeDefaultPosition() {
-        this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
-        this.windowY = Mth.clamp((this.screen.height - this.windowHeight) / 2,
+        setWindowX(Math.max(8, (this.screen.width - getWindowWidth()) / 2));
+        setWindowY(Mth.clamp((this.screen.height - getWindowHeight()) / 2,
                 TOP_H + 6,
-                Math.max(TOP_H + 6, this.screen.height - this.windowHeight - 8));
+                Math.max(TOP_H + 6, this.screen.height - getWindowHeight() - 8)));
     }
 
     // ======================== 持久化属性 ========================
@@ -313,8 +313,8 @@ public final class GearMenuPanel extends RtsPanel {
                         pk + ".uiSmoothAnimation",
                         s -> s.settings.uiSmoothAnimationEnabled,
                         (s, v) -> s.settings.uiSmoothAnimationEnabled = v,
-                        () -> SmoothAnimator.enabled,
-                        v -> SmoothAnimator.enabled = v),
+                        FloatAnimation::isEnabled,
+                        FloatAnimation::setEnabled),
                 // 深度测试
                 PersistableProperty.boolField(
                         pk + ".depthTest",
@@ -370,7 +370,14 @@ public final class GearMenuPanel extends RtsPanel {
                         s -> s.settings.selectionGapColor,
                         (s, v) -> s.settings.selectionGapColor = v,
                         () -> BoxSelectionPass.selectionGapColor,
-                        v -> BoxSelectionPass.selectionGapColor = v)
+                        v -> BoxSelectionPass.selectionGapColor = v),
+                // 框选实体角支架颜色
+                PersistableProperty.intField(
+                        pk + ".entitySelectionColor",
+                        s -> s.settings.entitySelectionColor,
+                        (s, v) -> s.settings.entitySelectionColor = v,
+                        () -> BoxSelectionPass.entitySelectionColor,
+                        v -> BoxSelectionPass.entitySelectionColor = v)
         );
     }
 

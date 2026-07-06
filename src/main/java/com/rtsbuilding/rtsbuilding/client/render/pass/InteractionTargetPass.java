@@ -34,7 +34,8 @@ public final class InteractionTargetPass implements RenderPass {
     public void render(Minecraft mc, BufferAllocator alloc, PoseStack poseStack, float partialTick, int frameIndex) {
         if (mc.level == null || mc.getCameraEntity() == null) return;
         if (!(mc.screen instanceof BuilderScreen screen)) return;
-        // 仅当左边栏 click_button 选中时才渲染交互目标高亮
+        // 仅当左边栏 click_button 选中时渲染交互目标高亮
+        // （bind_button 模式下由 LinkedStoragePass 处理容器线框，不重复渲染）
         if (!screen.isClickButtonSelected()) return;
 
         // 鼠标在 UI 区域内时不渲染（UI 覆盖世界画面）

@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ScaleSliderComponent;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ThemeSwitchComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -211,7 +211,7 @@ public abstract class SettingsSection {
 
     /** 在指定行渲染标签文本（左对齐） */
     protected void renderLabel(GuiGraphics g, String text, int x, int y, int row) {
-        RtsClientUiUtil.drawUiText(g, text, x + LEFT_PAD, textY(y, row), getTextColor());
+        TextRenderer.draw(g, text, x + LEFT_PAD, textY(y, row), getTextColor());
     }
 
     /** 在指定行渲染右对齐开关 */
@@ -232,7 +232,7 @@ public abstract class SettingsSection {
                                  int x, int y, int w, int row, String label,
                                  ScaleSliderComponent slider, SliderTrack trackPos,
                                  double min, double max, double value) {
-        RtsClientUiUtil.drawUiText(g, label, x + LEFT_PAD, textY(y, row), getTextColor());
+        TextRenderer.draw(g, label, x + LEFT_PAD, textY(y, row), getTextColor());
         int lineCenterY = textY(y, row) + Minecraft.getInstance().font.lineHeight / 2;
         int controlStart = midControlX(x, w);
         trackPos.trackX = controlStart;
@@ -263,3 +263,4 @@ public abstract class SettingsSection {
         return section.totalHeight(contentFullH);
     }
 }
+

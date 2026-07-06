@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -78,7 +78,7 @@ public class GrayscaleBarComponent {
      * @param dragging   是否正在拖拽
      */
     public void renderIndicator(GuiGraphics g, int barX, int barY,
-                                 float relY, SmoothAnimator animator,
+                                 float relY, FloatAnimation animator,
                                  int mouseX, int mouseY, boolean dragging) {
         int targetState;
         if (dragging) {
@@ -109,7 +109,7 @@ public class GrayscaleBarComponent {
         SpriteRegion region = new SpriteRegion(
                 GRAYSCALE_INDICATOR_TEX_INFO, 0, stateVOffset,
                 GRAYSCALE_INDICATOR_TEX_W, GRAYSCALE_INDICATOR_STATE_H);
-        RtsClientUiUtil.drawSprite(g, region, drawX, drawY,
+        SpriteRenderer.drawSprite(g, region, drawX, drawY,
                 INDICATOR_DRAW_W, INDICATOR_DRAW_H);
     }
 
@@ -128,3 +128,4 @@ public class GrayscaleBarComponent {
         return (float) relY;
     }
 }
+

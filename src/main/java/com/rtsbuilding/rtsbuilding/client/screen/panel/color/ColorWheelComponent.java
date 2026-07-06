@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -111,7 +111,7 @@ public class ColorWheelComponent {
      * @param wheelY  轮盘图像左上角屏幕 Y
      */
     public void renderWheel(GuiGraphics g, int wheelX, int wheelY) {
-        RtsClientUiUtil.drawSprite(g, new SpriteRegion(
+        SpriteRenderer.drawSprite(g, new SpriteRegion(
                         COLOR_WHEEL_TEX_INFO, 0, 0, COLOR_WHEEL_TEX_W, COLOR_WHEEL_TEX_H),
                 wheelX, wheelY, DRAW_SIZE, DRAW_SIZE);
     }
@@ -131,7 +131,7 @@ public class ColorWheelComponent {
      */
     public void renderIndicator(GuiGraphics g, int wheelX, int wheelY,
                                  float relX, float relY,
-                                 SmoothAnimator animator,
+                                 FloatAnimation animator,
                                  int mouseX, int mouseY, boolean dragging) {
         int targetState;
         if (dragging) {
@@ -164,7 +164,7 @@ public class ColorWheelComponent {
         SpriteRegion region = new SpriteRegion(
                 INDICATOR_TEX_INFO, 0, stateVOffset,
                 INDICATOR_TEX_W, INDICATOR_STATE_H);
-        RtsClientUiUtil.drawSprite(g, region,
+        SpriteRenderer.drawSprite(g, region,
                 dotCenterX - halfDot, dotCenterY - halfDot,
                 INDICATOR_DRAW_SIZE, INDICATOR_DRAW_SIZE);
     }
@@ -383,3 +383,4 @@ public class ColorWheelComponent {
         }
     }
 }
+

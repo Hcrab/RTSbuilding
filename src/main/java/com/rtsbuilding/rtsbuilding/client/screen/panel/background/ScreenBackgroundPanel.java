@@ -5,10 +5,9 @@ import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceCache;
 import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -21,7 +20,7 @@ import java.util.List;
  * 渲染为 BuilderScreen 的背景（底层）。否则使用九宫格背景贴图作为占位。</p>
  *
  * <p>贴图 screen_ui.png 为 256×256，水平左半=暗色主题、右半=亮色主题，
- * 由 {@link RtsClientUiUtil#drawNineSliceRegion} 自动根据当前主题切换；
+ * 由 {@link SpriteRenderer#drawNineSlice} 自动根据当前主题切换；
  * 垂直上半=正常状态、下半=鼠标位于背景区域内时使用。
  * 背景区域从顶部栏上半部分底部（y=24）延伸到下边框顶部，
  * 从屏幕左边缘延伸到右边框左边缘，不遮挡任何交互元素。</p>
@@ -29,8 +28,6 @@ import java.util.List;
 public final class ScreenBackgroundPanel implements RtsPanelApi {
 
     private BuilderScreen screen;
-    /** 九宫格渲染缓存（将平铺拼装结果缓存到纹理，每帧仅需一次 blit） */
-    private final NineSliceCache cache = new NineSliceCache();
 
     // ======================== 贴图资源 ========================
 
@@ -88,7 +85,8 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
      * 九宫格中心透明区域让捕获画面可见；
      * 无捕获帧时作为背景占位渲染在内容区域。</p>
      */
-    public void renderOverlay(GuiGraphics g, int mouseX, int mouseY) {
+    @Override
+    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
         if (this.screen == null) return;
 
         renderNineSliceFallback(g, mouseX, mouseY);
@@ -109,6 +107,7 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
         int capH = ViewCaptureService.getCaptureHeight();
         if (capW <= 0 || capH <= 0 || destW <= 0 || destH <= 0) return;
 
+        // 确保 blend 已启用（为黑色 letterbox 填充做准备）
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
@@ -153,6 +152,9 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
                 renderX, renderY, renderW, renderH,
                 0, 0, capW, capH,
                 capW, capH);
+
+        // 重新启用 blend（后续 UI 渲染需要）
+        RenderSystem.enableBlend();
     }
 
     /**
@@ -165,15 +167,19 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
         int contentH = this.screen.height - BACKGROUND_TOP_Y - this.screen.getDownSidebarHeight();
         if (contentW <= 0 || contentH <= 0) return;
 
-        // 判断鼠标是否在背景内容区域内（但若在浮动窗口/弹出菜单上则抑制，避免上层UI遮挡时误亮起）
+        // 判断鼠标是否在背景内容区域内（但若在浮动窗口/弹出菜单上则抑制，避免上层UI遮挡时误亮起）。
+        // 注意：contentW 已排除右边栏宽度（= screen.width - rightSidebarWidth），
+        // 但内容区域仍然包含了左边栏范围（x ∈ [0, leftSidebarWidth)），
+        // 因此需要进一步排除左边栏，防止鼠标移到左边栏上时背景装饰层误亮起。
+        int leftW = this.screen.getLeftSidebarWidth();
         boolean mouseInArea = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
-                && mouseX >= 0 && mouseX < contentW
+                && mouseX >= leftW && mouseX < contentW
                 && mouseY >= BACKGROUND_TOP_Y && mouseY < BACKGROUND_TOP_Y + contentH;
         NineSliceRegion spec = mouseInArea
                 ? SCREEN_NINE_SLICE.withVOffset(ACTIVE_V_OFFSET)
                 : SCREEN_NINE_SLICE;
 
-        cache.drawOrCache(g, spec.withTheme(),
+        SpriteRenderer.drawNineSlice(g, spec.withTheme(),
                 0, BACKGROUND_TOP_Y, contentW, contentH);
     }
 

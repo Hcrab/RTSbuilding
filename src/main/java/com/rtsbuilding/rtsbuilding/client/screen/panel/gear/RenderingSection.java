@@ -3,15 +3,23 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.gear;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.LinkedStoragePass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.SettingsSection;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.*;
-import com.rtsbuilding.rtsbuilding.client.util.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.FloatingTooltip;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ColorBlockComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ColorPickerButton;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ResetButton;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorGroup;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorSlot;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorSource;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -47,10 +55,11 @@ public class RenderingSection extends SettingsSection {
     private static final int ROW_BARRIER_COLOR = 5;
     private static final int ROW_TARGET_COLOR = 6;
     private static final int ROW_SELECTION_COLOR = 7;
+    private static final int ROW_LINKED_STORAGE_COLOR = 8;
     /** 始终可见的行数（穿透层及以上的行） */
     private static final int ALWAYS_VISIBLE_ROW_COUNT = 4;
-    /** 始终可见 + 屏障颜色 + 交互目标颜色 + 框选颜色高度（4 + 3 行） */
-    private static final int MIN_CONTENT_H = 146;  // 7 * 20 + 6
+    /** 始终可见 + 屏障颜色 + 交互目标颜色 + 框选颜色 + 存储绑定颜色高度（4 + 4 行） */
+    private static final int MIN_CONTENT_H = 167;  // 8 * 20 + 7
     /** 依赖穿透层的条件行高度（透明度标签+滑条合并为一行） */
     private static final int EXTRA_ROWS_H = 20;   // 1 * 20
 
@@ -78,7 +87,7 @@ public class RenderingSection extends SettingsSection {
     private int barrierBlockX, barrierBlockY;
 
     /** 屏障颜色浮窗 */
-    private final FloatingTooltip barrierTooltip = new FloatingTooltip();
+    private final TooltipController barrierTooltip = TooltipController.builder().build();
 
     /** 调色盘按钮组件（交互目标颜色） */
     private final ColorPickerButton targetColorPickerButton = new ColorPickerButton();
@@ -104,8 +113,8 @@ public class RenderingSection extends SettingsSection {
     private int targetBlockX, entityBlockX, targetBlockY;
 
     /** 方块/实体目标颜色浮窗 */
-    private final FloatingTooltip blockTargetTooltip = new FloatingTooltip();
-    private final FloatingTooltip entityTargetTooltip = new FloatingTooltip();
+    private final TooltipController blockTargetTooltip = TooltipController.builder().build();
+    private final TooltipController entityTargetTooltip = TooltipController.builder().build();
 
     /** 调色盘按钮组件（框选颜色） */
     private final ColorPickerButton selectionColorPickerButton = new ColorPickerButton();
@@ -120,6 +129,7 @@ public class RenderingSection extends SettingsSection {
     private final ResetButton barrierResetBtn = new ResetButton();
     private final ResetButton targetResetBtn = new ResetButton();
     private final ResetButton selectionResetBtn = new ResetButton();
+    private final ResetButton linkedResetBtn = new ResetButton();
     /** 框选颜色组（线框主色 + 间隙色 + 覆盖层） */
     private final ColorGroup selectionColorGroup = new ColorGroup("渲染设置", List.of(
             new ColorSlot("框选线框颜色", new ColorSource() {
@@ -139,18 +149,50 @@ public class RenderingSection extends SettingsSection {
                 public int getColor() { return BoxSelectionPass.previewOverlayColor; }
                 @Override
                 public void setColor(int color) { BoxSelectionPass.previewOverlayColor = color; }
+            }),
+            new ColorSlot("框选实体颜色", new ColorSource() {
+                @Override
+                public int getColor() { return BoxSelectionPass.entitySelectionColor; }
+                @Override
+                public void setColor(int color) { BoxSelectionPass.entitySelectionColor = color; }
             })
     ));
     /** 颜色块组件（框选颜色） */
     private final ColorBlockComponent selectionColorBlock = new ColorBlockComponent();
     /** 框选线框/间隙/覆盖层色块位置缓存 */
-    private int selBlockX, selGapBlockX, selOverlayBlockX, selBlockY;
+    private int selBlockX, selGapBlockX, selOverlayBlockX, selEntityBlockX, selBlockY;
     /** 框选颜色浮窗 */
-    private final FloatingTooltip selWireframeTooltip = new FloatingTooltip();
-    private final FloatingTooltip selGapTooltip = new FloatingTooltip();
-    private final FloatingTooltip selOverlayTooltip = new FloatingTooltip();
+    private final TooltipController selWireframeTooltip = TooltipController.builder().build();
+    private final TooltipController selGapTooltip = TooltipController.builder().build();
+    private final TooltipController selOverlayTooltip = TooltipController.builder().build();
+    private final TooltipController selEntityTooltip = TooltipController.builder().build();
 
-    /** 缓存的翻译文本（避免每帧 Component.translatable() */
+    /** 调色盘按钮组件（存储绑定颜色） */
+    private final ColorPickerButton linkedColorPickerButton = new ColorPickerButton();
+    /** 存储绑定颜色组（双向模式 + 仅提取模式） */
+    private final ColorGroup linkedColorGroup = new ColorGroup("渲染设置", List.of(
+            new ColorSlot("绑定容器线框颜色（双向）", new ColorSource() {
+                @Override
+                public int getColor() { return LinkedStoragePass.bidirectionalColor; }
+                @Override
+                public void setColor(int color) { LinkedStoragePass.bidirectionalColor = color; }
+            }),
+            new ColorSlot("绑定容器线框颜色（仅提取）", new ColorSource() {
+                @Override
+                public int getColor() { return LinkedStoragePass.extractOnlyColor; }
+                @Override
+                public void setColor(int color) { LinkedStoragePass.extractOnlyColor = color; }
+            })
+    ));
+    /** 颜色块组件（存储绑定颜色） */
+    private final ColorBlockComponent linkedColorBlock = new ColorBlockComponent();
+    /** 双向/仅提取色块位置缓存 */
+    private int linkedBiBlockX, linkedExtBlockX, linkedBlockY;
+    /** 存储绑定颜色浮窗 */
+    private final TooltipController linkedBiTooltip = TooltipController.builder().build();
+    private final TooltipController linkedExtTooltip = TooltipController.builder().build();
+
+    /** 缓存的翻译文本（避免每帧 Component.translatable()） */
     private String cachedFlowLabel;
     private String cachedSmoothLabel;
     private String cachedUiSmoothLabel;
@@ -159,9 +201,10 @@ public class RenderingSection extends SettingsSection {
     private String cachedBarrierLabel;
     private String cachedTargetLabel;
     private String cachedSelectionLabel;
+    private String cachedLinkedLabel;
 
     /** 内容区高度平滑动画器 */
-    private final SmoothAnimator heightAnim = AnimationFactory.createExpandAnim();
+    private final FloatAnimation heightAnim = AnimationFactory.newExpandAnim();
     private boolean lastDepthEnabled;
 
     public RenderingSection() {
@@ -173,7 +216,7 @@ public class RenderingSection extends SettingsSection {
         // 初始化重置按钮回调
         flowResetBtn.setResetAction(() -> BoxSelectionPass.flowAnimationEnabled = true);
         smoothResetBtn.setResetAction(() -> CornerBracketRenderer.SmoothTarget.enabled = true);
-        uiSmoothResetBtn.setResetAction(() -> SmoothAnimator.enabled = true);
+        uiSmoothResetBtn.setResetAction(() -> FloatAnimation.setEnabled(true));
         depthResetBtn.setResetAction(() -> BoxSelectionPass.depthTestEnabled = true);
         alphaResetBtn.setResetAction(() -> CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA = 0.10f);
         barrierResetBtn.setResetAction(() -> BoundaryPass.barrierColor = 0xFFFFCC00);
@@ -185,12 +228,17 @@ public class RenderingSection extends SettingsSection {
             BoxSelectionPass.selectionColor = 0xFFFFFFFF;
             BoxSelectionPass.selectionGapColor = 0xFF000000;
             BoxSelectionPass.previewOverlayColor = 0xFF4D80FF;
+            BoxSelectionPass.entitySelectionColor = 0xFF4CAF50;
+        });
+        linkedResetBtn.setResetAction(() -> {
+            LinkedStoragePass.bidirectionalColor = 0xFF4CAF50;
+            LinkedStoragePass.extractOnlyColor = 0xFFFF4CD1;
         });
     }
 
     @Override
     protected int getContentRowCount() {
-        return ALWAYS_VISIBLE_ROW_COUNT + 4; // 始终可见4行 + 屏障1行 + 目标1行 + 框选1行 + 条件行1行
+        return ALWAYS_VISIBLE_ROW_COUNT + 5; // 始终可见4行 + 屏障1行 + 目标1行 + 框选1行 + 存储绑定1行 + 条件行1行
     }
 
     @Override
@@ -201,7 +249,7 @@ public class RenderingSection extends SettingsSection {
 
     /** 基于 cursorY 渲染标签行（替代父类的 renderLabel + 固定行索引） */
     private void renderRowLabel(GuiGraphics g, String text, int x, int lineY) {
-        RtsClientUiUtil.drawUiText(g, text, x + LEFT_PAD, lineY + 2, getTextColor());
+        TextRenderer.draw(g, text, x + LEFT_PAD, lineY + 2, getTextColor());
     }
 
     /** 基于 cursorY 渲染开关行——开关中心对齐文字中心，右侧带重置按钮 */
@@ -222,7 +270,7 @@ public class RenderingSection extends SettingsSection {
     private void renderRowSlider(GuiGraphics g, int mx, int my, int x, int w, int lineY,
                                   String label, ScaleSliderComponent slider, SliderTrack trackPos,
                                   double min, double max, double value, ResetButton resetBtn) {
-        RtsClientUiUtil.drawUiText(g, label, x + LEFT_PAD, lineY + 2, getTextColor());
+        TextRenderer.draw(g, label, x + LEFT_PAD, lineY + 2, getTextColor());
         int centerY = lineY + 2 + Minecraft.getInstance().font.lineHeight / 2;
         int controlStart = midControlX(x, w);
         trackPos.trackX = controlStart;
@@ -263,7 +311,7 @@ public class RenderingSection extends SettingsSection {
         cursorY += lineH;
 
         renderRowLabel(g, getUiSmoothLabel(), x, cursorY);
-        renderRowToggle(g, mouseX, mouseY, x, w, cursorY, uiSmoothToggle, SmoothAnimator.enabled, uiSmoothResetBtn);
+        renderRowToggle(g, mouseX, mouseY, x, w, cursorY, uiSmoothToggle, FloatAnimation.isEnabled(), uiSmoothResetBtn);
         cursorY += lineH;
 
         // 穿透层（主依赖条目）
@@ -352,6 +400,9 @@ public class RenderingSection extends SettingsSection {
         int selOverlayBlockX = selGapBlockX + ColorBlockComponent.DEFAULT_SIZE + 2;
         this.selOverlayBlockX = selOverlayBlockX;
         selectionColorBlock.render(g, selOverlayBlockX, selBlockY, BoxSelectionPass.previewOverlayColor);
+        int selEntityBlockX = selOverlayBlockX + ColorBlockComponent.DEFAULT_SIZE + 2;
+        this.selEntityBlockX = selEntityBlockX;
+        selectionColorBlock.render(g, selEntityBlockX, selBlockY, BoxSelectionPass.entitySelectionColor);
 
         // 调色盘按钮左移以给重置按钮留空间
         int selPickerX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - RESET_BTN_GAP - ColorPickerButton.BTN_SIZE;
@@ -362,6 +413,33 @@ public class RenderingSection extends SettingsSection {
         int selResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
         int selResetY = selTextCenterY - ResetButton.BTN_SIZE / 2;
         selectionResetBtn.render(g, mouseX, mouseY, selResetX, selResetY);
+        cursorY += lineH;
+
+        // ---- 存储绑定颜色（始终可见，自动跟随 cursorY）----
+        String linkedLabel = getLinkedLabel();
+        renderRowLabel(g, linkedLabel, x, cursorY);
+
+        int linkedLabelW = Minecraft.getInstance().font.width(linkedLabel);
+        int linkedTextCenterY = cursorY + 2 + Minecraft.getInstance().font.lineHeight / 2;
+        int linkedBiBlockX = x + LEFT_PAD + linkedLabelW + COLOR_BLOCK_GAP;
+        int linkedBlockY = linkedTextCenterY - ColorBlockComponent.DEFAULT_SIZE / 2;
+        this.linkedBiBlockX = linkedBiBlockX;
+        this.linkedBlockY = linkedBlockY;
+
+        linkedColorBlock.render(g, linkedBiBlockX, linkedBlockY, LinkedStoragePass.bidirectionalColor);
+        int linkedExtBlockX = linkedBiBlockX + ColorBlockComponent.DEFAULT_SIZE + 2;
+        this.linkedExtBlockX = linkedExtBlockX;
+        linkedColorBlock.render(g, linkedExtBlockX, linkedBlockY, LinkedStoragePass.extractOnlyColor);
+
+        // 调色盘按钮左移以给重置按钮留空间
+        int linkedPickerX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - RESET_BTN_GAP - ColorPickerButton.BTN_SIZE;
+        int linkedPickerY = linkedTextCenterY - ColorPickerButton.BTN_SIZE / 2;
+        linkedColorPickerButton.render(g, mouseX, mouseY, linkedPickerX, linkedPickerY);
+
+        // 存储绑定颜色重置按钮
+        int linkedResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
+        int linkedResetY = linkedTextCenterY - ResetButton.BTN_SIZE / 2;
+        linkedResetBtn.render(g, mouseX, mouseY, linkedResetX, linkedResetY);
     }
 
     /** 渲染色块浮窗提示——由 GearMenuPanel 在 scissor 解除后调用 */
@@ -378,8 +456,7 @@ public class RenderingSection extends SettingsSection {
                 && mouseY >= barrierBlockY && mouseY < barrierBlockY + bs;
         barrierTooltip.update(onBarrier, false);
         if (barrierTooltip.shouldRender()) {
-            barrierTooltip.renderBelowButton(g, barrierBlockX, barrierBlockY, bs, bs,
-                    padH, padV, getBarrierTooltipText(), textColor, shortcutColor,
+            barrierTooltip.render(g, barrierBlockX, barrierBlockY, bs, bs, getBarrierTooltipText(), textColor, shortcutColor,
                     screen.width, screen.height);
         }
 
@@ -387,8 +464,7 @@ public class RenderingSection extends SettingsSection {
                 && mouseY >= targetBlockY && mouseY < targetBlockY + bs;
         blockTargetTooltip.update(onBlockTarget, false);
         if (blockTargetTooltip.shouldRender()) {
-            blockTargetTooltip.renderBelowButton(g, targetBlockX, targetBlockY, bs, bs,
-                    padH, padV, getBlockTargetTooltipText(), textColor, shortcutColor,
+            blockTargetTooltip.render(g, targetBlockX, targetBlockY, bs, bs, getBlockTargetTooltipText(), textColor, shortcutColor,
                     screen.width, screen.height);
         }
 
@@ -396,8 +472,7 @@ public class RenderingSection extends SettingsSection {
                 && mouseY >= targetBlockY && mouseY < targetBlockY + bs;
         entityTargetTooltip.update(onEntityTarget, false);
         if (entityTargetTooltip.shouldRender()) {
-            entityTargetTooltip.renderBelowButton(g, entityBlockX, targetBlockY, bs, bs,
-                    padH, padV, getEntityTargetTooltipText(), textColor, shortcutColor,
+            entityTargetTooltip.render(g, entityBlockX, targetBlockY, bs, bs, getEntityTargetTooltipText(), textColor, shortcutColor,
                     screen.width, screen.height);
         }
 
@@ -406,8 +481,7 @@ public class RenderingSection extends SettingsSection {
                 && mouseY >= selBlockY && mouseY < selBlockY + bs;
         selWireframeTooltip.update(onSelWire, false);
         if (selWireframeTooltip.shouldRender()) {
-            selWireframeTooltip.renderBelowButton(g, selBlockX, selBlockY, bs, bs,
-                    padH, padV, getSelWireframeTooltipText(), textColor, shortcutColor,
+            selWireframeTooltip.render(g, selBlockX, selBlockY, bs, bs, getSelWireframeTooltipText(), textColor, shortcutColor,
                     screen.width, screen.height);
         }
 
@@ -416,8 +490,7 @@ public class RenderingSection extends SettingsSection {
                 && mouseY >= selBlockY && mouseY < selBlockY + bs;
         selGapTooltip.update(onSelGap, false);
         if (selGapTooltip.shouldRender()) {
-            selGapTooltip.renderBelowButton(g, selGapBlockX, selBlockY, bs, bs,
-                    padH, padV, getSelGapTooltipText(), textColor, shortcutColor,
+            selGapTooltip.render(g, selGapBlockX, selBlockY, bs, bs, getSelGapTooltipText(), textColor, shortcutColor,
                     screen.width, screen.height);
         }
 
@@ -426,8 +499,34 @@ public class RenderingSection extends SettingsSection {
                 && mouseY >= selBlockY && mouseY < selBlockY + bs;
         selOverlayTooltip.update(onSelOverlay, false);
         if (selOverlayTooltip.shouldRender()) {
-            selOverlayTooltip.renderBelowButton(g, selOverlayBlockX, selBlockY, bs, bs,
-                    padH, padV, getSelOverlayTooltipText(), textColor, shortcutColor,
+            selOverlayTooltip.render(g, selOverlayBlockX, selBlockY, bs, bs, getSelOverlayTooltipText(), textColor, shortcutColor,
+                    screen.width, screen.height);
+        }
+
+        // 框选实体颜色浮窗
+        boolean onSelEntity = mouseX >= selEntityBlockX && mouseX < selEntityBlockX + bs
+                && mouseY >= selBlockY && mouseY < selBlockY + bs;
+        selEntityTooltip.update(onSelEntity, false);
+        if (selEntityTooltip.shouldRender()) {
+            selEntityTooltip.render(g, selEntityBlockX, selBlockY, bs, bs, getSelEntityTooltipText(), textColor, shortcutColor,
+                    screen.width, screen.height);
+        }
+
+        // 存储绑定双向模式颜色浮窗
+        boolean onLinkedBi = mouseX >= linkedBiBlockX && mouseX < linkedBiBlockX + bs
+                && mouseY >= linkedBlockY && mouseY < linkedBlockY + bs;
+        linkedBiTooltip.update(onLinkedBi, false);
+        if (linkedBiTooltip.shouldRender()) {
+            linkedBiTooltip.render(g, linkedBiBlockX, linkedBlockY, bs, bs, getLinkedBiTooltipText(), textColor, shortcutColor,
+                    screen.width, screen.height);
+        }
+
+        // 存储绑定仅提取模式颜色浮窗
+        boolean onLinkedExt = mouseX >= linkedExtBlockX && mouseX < linkedExtBlockX + bs
+                && mouseY >= linkedBlockY && mouseY < linkedBlockY + bs;
+        linkedExtTooltip.update(onLinkedExt, false);
+        if (linkedExtTooltip.shouldRender()) {
+            linkedExtTooltip.render(g, linkedExtBlockX, linkedBlockY, bs, bs, getLinkedExtTooltipText(), textColor, shortcutColor,
                     screen.width, screen.height);
         }
     }
@@ -444,7 +543,7 @@ public class RenderingSection extends SettingsSection {
             return true;
         }
         if (uiSmoothToggle.handleClick(mouseX, mouseY)) {
-            SmoothAnimator.enabled = !SmoothAnimator.enabled;
+            FloatAnimation.setEnabled(!FloatAnimation.isEnabled());
             return true;
         }
         if (depthToggle.handleClick(mouseX, mouseY)) {
@@ -461,6 +560,7 @@ public class RenderingSection extends SettingsSection {
         if (barrierResetBtn.handleClick(mouseX, mouseY)) return true;
         if (targetResetBtn.handleClick(mouseX, mouseY)) return true;
         if (selectionResetBtn.handleClick(mouseX, mouseY)) return true;
+        if (linkedResetBtn.handleClick(mouseX, mouseY)) return true;
 
         if (lineIndex == ROW_BARRIER_COLOR) {
             if (colorPickerButton.handleClick(mouseX, mouseY)) {
@@ -475,6 +575,11 @@ public class RenderingSection extends SettingsSection {
         }
         if (lineIndex == ROW_SELECTION_COLOR) {
             if (selectionColorPickerButton.handleClick(mouseX, mouseY)) {
+                return true;
+            }
+        }
+        if (lineIndex == ROW_LINKED_STORAGE_COLOR) {
+            if (linkedColorPickerButton.handleClick(mouseX, mouseY)) {
                 return true;
             }
         }
@@ -501,6 +606,8 @@ public class RenderingSection extends SettingsSection {
         this.targetColorPickerButton.setColorGroup(targetColorGroup);
         this.selectionColorPickerButton.setColorPickerPanel(panel);
         this.selectionColorPickerButton.setColorGroup(selectionColorGroup);
+        this.linkedColorPickerButton.setColorPickerPanel(panel);
+        this.linkedColorPickerButton.setColorGroup(linkedColorGroup);
     }
 
     /**
@@ -512,6 +619,7 @@ public class RenderingSection extends SettingsSection {
         this.colorPickerButton.setParentPanel(parent);
         this.targetColorPickerButton.setParentPanel(parent);
         this.selectionColorPickerButton.setParentPanel(parent);
+        this.linkedColorPickerButton.setParentPanel(parent);
     }
 
     public boolean isSliderDragging() {
@@ -582,6 +690,11 @@ public class RenderingSection extends SettingsSection {
         return cachedSelectionLabel;
     }
 
+    private String getLinkedLabel() {
+        if (cachedLinkedLabel == null) cachedLinkedLabel = Component.translatable("screen.rtsbuilding.settings.linked_storage_color").getString();
+        return cachedLinkedLabel;
+    }
+
     // ======================== 浮窗文字 ========================
 
     private String getBarrierTooltipText() {
@@ -607,4 +720,17 @@ public class RenderingSection extends SettingsSection {
     private String getSelOverlayTooltipText() {
         return "覆盖层颜色\n选择模式下预览阶段的半透明填充颜色";
     }
+
+    private String getSelEntityTooltipText() {
+        return "框选实体颜色\n框选完成时选区内实体的角支架线框颜色";
+    }
+
+    private String getLinkedBiTooltipText() {
+        return "绑定容器线框（双向）\n已绑定容器的双向模式（可存可取）角支架线框颜色";
+    }
+
+    private String getLinkedExtTooltipText() {
+        return "绑定容器线框（仅提取）\n已绑定容器的仅提取模式角支架线框颜色";
+    }
 }
+

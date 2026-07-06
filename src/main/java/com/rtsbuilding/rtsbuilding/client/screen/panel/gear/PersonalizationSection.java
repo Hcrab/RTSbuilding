@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.gear;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.SettingsSection;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ResetButton;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ResetButton;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ThemeSwitchComponent;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

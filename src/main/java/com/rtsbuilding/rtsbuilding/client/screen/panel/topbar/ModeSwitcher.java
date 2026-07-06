@@ -5,10 +5,17 @@ import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.BasePopup;
 import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+
+import java.util.function.Consumer;
 
 /**
  * 模式切换器——在顶部栏下栏左侧显示当前模式按钮，点击弹出模式选择列表。
@@ -147,6 +154,9 @@ public final class ModeSwitcher {
     /** 背景悬浮状态管理器 */
     private final HoverStateManager hoverState = new HoverStateManager();
 
+    /** 模式变化回调（如触发持久化） */
+    private Consumer<Mode> onModeChange;
+
     /** 弹出模式选择列表 */
     private final ModePopup popup;
 
@@ -154,7 +164,7 @@ public final class ModeSwitcher {
     private final int fixedWidth;
 
     /** 箭头旋转动画器（弹出菜单打开/关闭时旋转 90°） */
-    private final SmoothAnimator arrowAnim = AnimationFactory.createHoverAnim();
+    private final FloatAnimation arrowAnim = AnimationFactory.newHoverAnim();
 
     public ModeSwitcher() {
         this.popup = new ModePopup(this);
@@ -180,6 +190,14 @@ public final class ModeSwitcher {
 
     public void setMode(Mode mode) {
         this.currentMode = mode;
+        if (onModeChange != null) {
+            onModeChange.accept(mode);
+        }
+    }
+
+    /** 设置模式变化回调 */
+    public void setOnModeChange(Consumer<Mode> callback) {
+        this.onModeChange = callback;
     }
 
     /** 循环切换到下一个模式（Tab 快捷键调用） */
@@ -265,8 +283,8 @@ public final class ModeSwitcher {
         NineSliceRegion bgNormal = MODE_BG_NINE_SLICE.withTheme();
         NineSliceRegion bgHover = MODE_BG_NINE_SLICE.withVOffset(MODE_BG_NORMAL_H).withTheme();
         hoverState.renderCrossFade(
-                () -> RtsClientUiUtil.drawNineSliceRegion(g, bgNormal, x, y, w, SWITCHER_HEIGHT),
-                () -> RtsClientUiUtil.drawNineSliceRegion(g, bgHover, x, y, w, SWITCHER_HEIGHT));
+                () -> SpriteRenderer.drawNineSlice(g, bgNormal, x, y, w, SWITCHER_HEIGHT),
+                () -> SpriteRenderer.drawNineSlice(g, bgHover, x, y, w, SWITCHER_HEIGHT));
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -277,13 +295,13 @@ public final class ModeSwitcher {
         int iconX = x + PAD_H + (ICON_SIZE - iconW) / 2;
         int iconY = y + (SWITCHER_HEIGHT - iconH) / 2;
         SpriteRegion iconRegion = getModeIconRegion(currentMode).withTheme();
-        RtsClientUiUtil.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
+        SpriteRenderer.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
 
         // 渲染模式文字（图标槽位右边固定偏移）
         int textX = x + PAD_H + ICON_SIZE + ICON_TEXT_GAP;
         int textY = iconY + (iconH - Minecraft.getInstance().font.lineHeight) / 2 + 1;
         int textColor = ThemeManager.getTextColor();
-        RtsClientUiUtil.drawUiText(g, currentMode.getDisplayName(), textX, textY, textColor);
+        TextRenderer.draw(g, currentMode.getDisplayName(), textX, textY, textColor);
 
         // 渲染折叠箭头（文字右边）
         int arrowX = textX + Minecraft.getInstance().font.width(currentMode.getDisplayName()) + TEXT_ARROW_GAP;
@@ -315,7 +333,7 @@ public final class ModeSwitcher {
         g.pose().translate(half, half, 0);
         g.pose().mulPose(Axis.ZP.rotationDegrees(this.arrowAnim.getValue() * 90.0f));
         g.pose().translate(-half, -half, 0);
-        RtsClientUiUtil.drawSprite(g, arrowRegion, 0, 0, ARROW_SIZE, ARROW_SIZE);
+        SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, ARROW_SIZE, ARROW_SIZE);
         g.pose().popPose();
     }
 
@@ -400,7 +418,7 @@ public final class ModeSwitcher {
             int iconX = x + getPadH() + (POPUP_ICON_SLOT_W - iconW) / 2;
             int iconY = itemY + (getItemHeight() - iconH) / 2;
             SpriteRegion iconRegion = switcher.getModeIconRegion(mode).withTheme();
-            RtsClientUiUtil.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
+            SpriteRenderer.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
 
             // 文字（从固定槽位右边偏移）
             int textColor = hoverT > 0.5f
@@ -409,13 +427,13 @@ public final class ModeSwitcher {
             String label = mode.getDisplayName().getString();
             int textX = x + getPadH() + POPUP_ICON_SLOT_W + 4;
             int textY = iconY + (iconH - Minecraft.getInstance().font.lineHeight) / 2 + 1;
-            RtsClientUiUtil.drawUiText(g, label, textX, textY, textColor);
+            TextRenderer.draw(g, label, textX, textY, textColor);
 
             // 快捷键（靠右边缘对齐，颜色更暗/弱，不受悬浮影响）
             int shortcutColor = ThemeManager.getInstance().isLightMode() ? LIGHT_SHORTCUT_COLOR : DARK_SHORTCUT_COLOR;
             String shortcutLabel = RtsKeyMappings.CYCLE_MODE_KEY.getTranslatedKeyMessage().getString();
             int shortcutX = x + getPopupWidth() - getPadH() - Minecraft.getInstance().font.width(shortcutLabel);
-            RtsClientUiUtil.drawUiText(g, shortcutLabel, shortcutX, textY, shortcutColor);
+            TextRenderer.draw(g, shortcutLabel, shortcutX, textY, shortcutColor);
         }
 
         @Override
@@ -429,3 +447,4 @@ public final class ModeSwitcher {
         }
     }
 }
+

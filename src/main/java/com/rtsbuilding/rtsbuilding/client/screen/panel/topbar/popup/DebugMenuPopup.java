@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.BasePopup;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -282,7 +283,7 @@ public final class DebugMenuPopup extends BasePopup {
         String label = items[index].label().getString();
         int textX = x + getPadH();
         int textY = itemY + (getItemHeight() - Minecraft.getInstance().font.lineHeight) / 2 + 1;
-        RtsClientUiUtil.drawUiText(g, label, textX, textY, textColor);
+        TextRenderer.draw(g, label, textX, textY, textColor);
 
         // 模式按钮精灵图（靠右对齐）
         int btnX = x + getPopupWidth() - getPadH() - MODE_BTN_SIZE;
@@ -295,7 +296,7 @@ public final class DebugMenuPopup extends BasePopup {
         SpriteRegion normal = new SpriteRegion(modeBtnInfo, 0, 0, MODE_BTN_HALF_W, MODE_BTN_STATE_H);
         SpriteRegion hovered = normal.withVOffset(MODE_BTN_STATE_H);
         SpriteRegion selected = normal.withVOffset(MODE_BTN_STATE_H * 2);
-        RtsClientUiUtil.drawStateSprite(g, normal, hovered, selected, states[index], hoverT,
+        SpriteRenderer.drawStateSprite(g, normal, hovered, selected, states[index], hoverT,
                 btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE);
     }
 

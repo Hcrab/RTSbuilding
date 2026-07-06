@@ -10,7 +10,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.group_button.Utili
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup.DebugMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup.LogoMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -37,6 +41,9 @@ public final class TopBarPanel implements RtsPanelApi {
     private BuilderScreen screen;
     private boolean quickBuildOpen;
     private boolean guideOpen;
+
+    /** 布局帮助类实例 */
+    private final TopBarLayoutHelper layout = new TopBarLayoutHelper();
 
     // ======================== 按钮组 ========================
 
@@ -132,6 +139,12 @@ public final class TopBarPanel implements RtsPanelApi {
         this.utilityGroup = new UtilityButtonGroup(debugPopup);
         // 创建模式切换器
         this.modeSwitcher = new ModeSwitcher();
+        // 模式变化时自动持久化
+        this.modeSwitcher.setOnModeChange(mode -> {
+            if (screen != null) {
+                screen.persistUiState();
+            }
+        });
         // 创建 Logo 下拉菜单
         this.logoPopup = createLogoPopup();
         this.logoPopup.positionFromButton(LOGO_SIZE / 2, LOGO_SIZE, screen.width);
@@ -202,6 +215,21 @@ public final class TopBarPanel implements RtsPanelApi {
         }
     }
 
+    /**
+     * 返回当前大模式（INTERACTIVE / BUILD / BLUEPRINT）。
+     * 由 {@link LeftSidebarPanel} 等组件在判断子功能可见性时使用。
+     */
+    public ModeSwitcher.Mode getCurrentMode() {
+        return modeSwitcher != null ? modeSwitcher.getCurrentMode() : ModeSwitcher.Mode.INTERACTIVE;
+    }
+
+    /** 设置大模式（委托给模式切换器） */
+    public void setMode(ModeSwitcher.Mode mode) {
+        if (modeSwitcher != null) {
+            modeSwitcher.setMode(mode);
+        }
+    }
+
     public void onPostUiStateLoad() {
         if (debugPopup != null) {
             debugPopup.onPostUiStateLoad();
@@ -218,15 +246,15 @@ public final class TopBarPanel implements RtsPanelApi {
         }
 
         // 一次性计算所有按钮组布局，委托各按钮组渲染
-        var layout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
-        cameraModeGroup.render(g, mouseX, mouseY, layout.modeGroup());
-        utilityGroup.render(g, mouseX, mouseY, layout.utilityGroup());
+        var groupLayout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
+        cameraModeGroup.render(g, mouseX, mouseY, groupLayout.modeGroup());
+        utilityGroup.render(g, mouseX, mouseY, groupLayout.utilityGroup());
 
         // 刷新所有动画器
         cameraModeGroup.tick();
         utilityGroup.tick();
         // Logo 悬浮检测
-        boolean hovering = TopBarLayoutHelper.logoRect().contains(mouseX, mouseY);
+        boolean hovering = layout.logoRect().contains(mouseX, mouseY);
         boolean shouldHighlight = hovering || logoPressed;
         this.logoHoverState.update(shouldHighlight);
         if (logoPressed) {
@@ -241,7 +269,7 @@ public final class TopBarPanel implements RtsPanelApi {
 
         // 渲染 Debug 选项弹出菜单（位置每帧更新，跟随右侧按钮）
         if (debugPopup != null) {
-            var anchor = utilityGroup.getPopupAnchor(layout.utilityGroup());
+            var anchor = utilityGroup.getPopupAnchor(groupLayout.utilityGroup());
             debugPopup.positionFromButton(
                     anchor.x() + anchor.width() / 2,
                     anchor.y() + anchor.height(),
@@ -262,9 +290,9 @@ public final class TopBarPanel implements RtsPanelApi {
      */
     @Override
     public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
-        var layout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
-        cameraModeGroup.renderTooltipOverlay(g, layout.modeGroup(), screen.width, screen.height);
-        utilityGroup.renderTooltipOverlay(g, layout.utilityGroup(), screen.width, screen.height);
+        var groupLayout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
+        cameraModeGroup.renderTooltipOverlay(g, groupLayout.modeGroup(), screen.width, screen.height);
+        utilityGroup.renderTooltipOverlay(g, groupLayout.utilityGroup(), screen.width, screen.height);
 
         // 模式切换器弹窗（在左侧面板之后渲染，避免被遮挡）
         if (modeSwitcher != null) {
@@ -284,8 +312,8 @@ public final class TopBarPanel implements RtsPanelApi {
         int halfH = LOGO_SHEET_HEIGHT / 2;
         SpriteRegion normal = new SpriteRegion(logoInfo, 0, 0, halfW, halfH);
         SpriteRegion highlighted = normal.withVOffset(halfH);
-        Runnable normalRender = () -> RtsClientUiUtil.drawSprite(g, normal.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
-        Runnable highlightedRender = () -> RtsClientUiUtil.drawSprite(g, highlighted.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
+        Runnable normalRender = () -> SpriteRenderer.drawSprite(g, normal.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
+        Runnable highlightedRender = () -> SpriteRenderer.drawSprite(g, highlighted.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
         logoHoverState.renderCrossFade(normalRender, highlightedRender);
     }
 
@@ -294,12 +322,12 @@ public final class TopBarPanel implements RtsPanelApi {
         int screenW = screen.width;
 
         // 上半部分
-        RtsClientUiUtil.drawNineSliceRegion(g, TOP_UP_NINE_SLICE.withTheme(),
+        SpriteRenderer.drawNineSlice(g, TOP_UP_NINE_SLICE.withTheme(),
                 0, 0, screenW, TOP_BAR_HEIGHT);
 
         // 下半部分
         int bottomY = TOP_BAR_HEIGHT + SCREEN_BORDER;
-        RtsClientUiUtil.drawNineSliceRegion(g, TOP_DOWN_NINE_SLICE.withTheme(),
+        SpriteRenderer.drawNineSlice(g, TOP_DOWN_NINE_SLICE.withTheme(),
                 0, bottomY, screenW, BOTTOM_SRC_H);
     }
 
@@ -333,7 +361,7 @@ public final class TopBarPanel implements RtsPanelApi {
         if (modeSwitcher != null && modeSwitcher.mouseClicked(mx, my)) return true;
 
         // Logo 点击：切换下拉菜单
-        if (TopBarLayoutHelper.logoRect().contains(mx, my)) {
+        if (layout.logoRect().contains(mx, my)) {
             logoPressed = true;
             if (logoPopup != null) {
                 logoPopup.toggle();
@@ -342,9 +370,9 @@ public final class TopBarPanel implements RtsPanelApi {
         }
 
         // 委托按钮组处理点击
-        var layout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
-        if (cameraModeGroup.mouseClicked(mx, my, layout.modeGroup())) return true;
-        if (utilityGroup.mouseClicked(mx, my, layout.utilityGroup())) return true;
+        var groupLayout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
+        if (cameraModeGroup.mouseClicked(mx, my, groupLayout.modeGroup())) return true;
+        if (utilityGroup.mouseClicked(mx, my, groupLayout.utilityGroup())) return true;
 
         return false;
     }
@@ -363,61 +391,25 @@ public final class TopBarPanel implements RtsPanelApi {
     public List<PersistableProperty> persistableProperties() {
         List<PersistableProperty> props = new ArrayList<>();
 
-        // 相机模式持久化（自由视角/方块轨道/玩家环绕，优先级：玩家环绕 > 方块轨道 > 自由视角）
-        if (cameraModule != null) {
-            props.add(PersistableProperty.boolField(
-                    "camera.playerOrbitMode",
-                    state -> state.camera.playerOrbitMode,
-                    (state, v) -> state.camera.playerOrbitMode = v,
-                    () -> cameraModule.isPlayerOrbitMode(),
-                    v -> {
-                        if (v) cameraModule.enablePlayerOrbitMode();
-                        else cameraModule.disablePlayerOrbitMode();
-                    }));
-            // 方块轨道环绕（自由视角下的子功能，仅在玩家环绕未启用时恢复）
-            // 保存/恢复目标方块坐标，避免重新进入时 mc.hitResult 不准导致错位
-            props.add(new PersistableProperty.FieldProperty<>(
-                    "camera.orbitTargetX",
-                    state -> state.camera.orbitTargetX,
-                    (state, v) -> state.camera.orbitTargetX = v,
-                    () -> cameraModule.getState().getOrbitTargetX(),
-                    v -> cameraModule.getState().setOrbitTargetX(v)));
-            props.add(new PersistableProperty.FieldProperty<>(
-                    "camera.orbitTargetY",
-                    state -> state.camera.orbitTargetY,
-                    (state, v) -> state.camera.orbitTargetY = v,
-                    () -> cameraModule.getState().getOrbitTargetY(),
-                    v -> cameraModule.getState().setOrbitTargetY(v)));
-            props.add(new PersistableProperty.FieldProperty<>(
-                    "camera.orbitTargetZ",
-                    state -> state.camera.orbitTargetZ,
-                    (state, v) -> state.camera.orbitTargetZ = v,
-                    () -> cameraModule.getState().getOrbitTargetZ(),
-                    v -> cameraModule.getState().setOrbitTargetZ(v)));
-            // 方块轨道模式开关（恢复时使用已恢复的目标坐标，不依赖 mc.hitResult）
-            props.add(PersistableProperty.boolField(
-                    "camera.orbitMode",
-                    state -> state.camera.orbitMode,
-                    (state, v) -> state.camera.orbitMode = v,
-                    () -> cameraModule.isOrbitMode(),
-                    v -> {
-                        if (!cameraModule.isPlayerOrbitMode()) {
-                            if (v) {
-                                cameraModule.restoreOrbitMode(
-                                        cameraModule.getState().getOrbitTargetX(),
-                                        cameraModule.getState().getOrbitTargetY(),
-                                        cameraModule.getState().getOrbitTargetZ());
-                            } else {
-                                cameraModule.disableOrbitMode();
-                            }
-                        }
-                    }));
-        }
-
         // 调试弹出菜单状态持久化
+        // 注意：相机模式/目标坐标的持久化已移入 CameraPersistenceHandler
         if (debugPopup != null) {
             props.addAll(debugPopup.persistableProperties());
         }
+
+        // 大模式持久化（交互/建造/蓝图）
+        if (modeSwitcher != null) {
+            props.add(PersistableProperty.enumField(
+                    "mode",
+                    state -> state.mode,
+                    (state, v) -> state.mode = v,
+                    modeSwitcher::getCurrentMode,
+                    modeSwitcher::setMode,
+                    ModeSwitcher.Mode.INTERACTIVE,
+                    ModeSwitcher.Mode.class
+            ));
+        }
+
         return props;
     }
 
@@ -437,3 +429,4 @@ public final class TopBarPanel implements RtsPanelApi {
         return logoPopup != null && logoPopup.isOpen() && logoPopup.contains(mouseX, mouseY);
     }
 }
+

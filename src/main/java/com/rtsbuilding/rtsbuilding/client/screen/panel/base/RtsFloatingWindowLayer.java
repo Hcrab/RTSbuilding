@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 
@@ -67,6 +68,10 @@ public final class RtsFloatingWindowLayer {
         for (int i = 0; i < this.frontToBackWindows.size(); i++) {
             RtsPanel window = this.frontToBackWindows.get(i);
             if (!window.isOpen()) continue;
+
+            // 每渲染一个面板前强制关闭深度测试，避免前一个面板残留的深度状态影响后一个
+            RenderSystem.disableDepthTest();
+
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);

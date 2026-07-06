@@ -3,42 +3,44 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
-import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
-import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
-import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
-import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
+import com.rtsbuilding.rtsbuilding.client.render.pass.*;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.container.ContainerScreenPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.CursorStyleManager;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.CursorWrapHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.event.*;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.CONSUMED;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.PASS;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelRegistry;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.RenderLayer;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.BindModeMouseHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.BuilderScreenMovementHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.BuilderScreenScaleManager;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.CameraPersistenceHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.CursorStyleManager;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.CursorWrapHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.EntityInteractionHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectionHighlight;
 import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.SmoothAnimator;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 
+import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Locale;
-
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
 /**
  * 薄调度器 BuilderScreen
@@ -62,29 +64,37 @@ public class BuilderScreen extends Screen {
     private final DownSidebarPanel downSidebarPanel;
     private final LeftSidebarPanel leftSidebarPanel;
 
+    /** 面板注册表——按渲染层级统一管理内容面板 */
+    private final PanelRegistry panelRegistry = new PanelRegistry();
+
     /** UI 状态管理器——统筹面板持久化属性的加载与保存 */
     private final RtsScreenUiStateManager uiStateManager;
 
+    // ======================== 容器屏幕面板 ========================
+
+    /** 包裹容器 GUI 的浮窗面板，由 ScreenEvent.Opening 拦截后创建 */
+    @Nullable
+    private ContainerScreenPanel containerScreenPanel;
+
     // ======================== RTS GUI 缩放设置 ========================
 
-    /** 用户设定的偏好 RTS GUI 缩放值（默认 2.0x） */
-    private double fixedRtsGuiScale = DEFAULT_RTS_GUI_SCALE;
-
-    /** 当前是否处于固定缩放渲染通道中（防止递归重入） */
-    private boolean fixedRtsScaleRenderPass = false;
-    /** 当前是否处于固定缩放输入通道中（防止递归重入） */
-    private boolean fixedRtsScaleInputPass = false;
-    /** 活跃的渲染缩放倍率（仅在 fixedRtsScaleRenderPass 期间有效） */
-    private double activeRtsGuiRenderScale = 1.0D;
+    /** 缩放管理器——管理固定缩放倍率的渲染与输入坐标适配 */
+    private final BuilderScreenScaleManager scaleManager;
 
     private final CursorStyleManager cursorStyleManager;
     private final CursorWrapHandler cursorWrapHandler;
-
-    /** 上一次 Alt+右键的时刻（ms），用于双击检测以触发「飞到目标上方」。 */
-    private long lastCtrlRightClickTime = 0;
-
-    /** Alt+右键双击时间阈值（ms）。 */
-    private static final long CTRL_DOUBLE_CLICK_THRESHOLD_MS = 300;
+    /** 玩家移动处理器——处理 Alt+右键寻路 */
+    private final BuilderScreenMovementHandler movementHandler;
+    /** 绑定模式交互处理器——封装容器绑定的鼠标/键盘事件处理 */
+    private final BindModeMouseHandler bindModeHandler;
+    /** 选择面板高亮状态——在 SelectPanel 与渲染管线间传递 */
+    private final SelectionHighlight selectionHighlight;
+    /** 实体交互处理器——交互模式下右键与生物/方块交互 */
+    private final EntityInteractionHandler entityInteractionHandler;
+    /** 相机持久化处理器——管理相机模式/目标坐标的状态持久化 */
+    private final CameraPersistenceHandler cameraPersistenceHandler;
+    /** 事件分发器——以优先级顺序分发输入事件 */
+    private final EventDispatcher eventDispatcher = new EventDispatcher();
 
     public BuilderScreen() {
         super(Component.literal("RTS Builder"));
@@ -98,18 +108,31 @@ public class BuilderScreen extends Screen {
         this.downSidebarPanel = new DownSidebarPanel();
         this.leftSidebarPanel = new LeftSidebarPanel();
         this.topBarPanel = new TopBarPanel();
+        // 注册内容面板到 PanelRegistry（移除渲染中的硬编码调用）
+        panelRegistry.register(topBarPanel, RenderLayer.CONTENT_PANELS);
+        panelRegistry.register(leftSidebarPanel, RenderLayer.CONTENT_PANELS);
+        panelRegistry.register(rightSidebarPanel, RenderLayer.CONTENT_PANELS);
+        panelRegistry.register(downSidebarPanel, RenderLayer.CONTENT_PANELS);
         this.topBarPanel.setOnGearMenuToggle(() -> {
             gearMenuPanel.toggleOpen();
             topBarPanel.setGearMenuOpen(gearMenuPanel.isOpen());
         });
         this.floatingWindowLayer = new RtsFloatingWindowLayer();
+        // cameraPersistenceHandler 必须在 uiStateManager 之前初始化
+        this.cameraPersistenceHandler = new CameraPersistenceHandler();
+
         this.uiStateManager = new RtsScreenUiStateManager(List.of(
                 this.topBarPanel,
                 this.gearMenuPanel,
                 this.leftSidebarPanel,
                 this.rightSidebarPanel,
-                this.downSidebarPanel
+                this.downSidebarPanel,
+                this.cameraPersistenceHandler
         ));
+        this.selectionHighlight = new SelectionHighlight();
+        this.movementHandler = new BuilderScreenMovementHandler();
+        this.bindModeHandler = new BindModeMouseHandler();
+        this.entityInteractionHandler = new EntityInteractionHandler(selectionHighlight);
         this.cursorStyleManager = new CursorStyleManager((mx, my) -> {
             var fwCursor = floatingWindowLayer.resizeCursorAt(mx, my);
             if (fwCursor != RtsPanel.ResizeCursor.DEFAULT) return fwCursor;
@@ -117,11 +140,17 @@ public class BuilderScreen extends Screen {
             if (floatingWindowLayer.isMouseOverWindowOrResizableBorder(mx, my)) {
                 return RtsPanel.ResizeCursor.DEFAULT;
             }
+            // 嵌层分隔条拖拽：底部栏垂直分隔条（横向缩放）、右边栏水平分隔条（纵向缩放）
+            if (rightSidebarPanel.isMouseOverOverlayDivider(mx, my)) return RtsPanel.ResizeCursor.RESIZE_NS;
+            if (downSidebarPanel.isMouseOverOverlayDivider(mx, my)) return RtsPanel.ResizeCursor.RESIZE_EW;
             if (rightSidebarPanel.isMouseOverLeftEdge(mx, my)) return RtsPanel.ResizeCursor.RESIZE_EW;
             if (downSidebarPanel.isMouseOverTopEdge(mx, my)) return RtsPanel.ResizeCursor.RESIZE_NS;
             return RtsPanel.ResizeCursor.DEFAULT;
         });
         this.cursorWrapHandler = new CursorWrapHandler();
+        this.scaleManager = new BuilderScreenScaleManager();
+        // 注册 EventDispatcher 事件处理器（替代原本散落在输入方法中的 if-else 路由）
+        registerEventHandlers();
     }
 
     @Override
@@ -133,16 +162,27 @@ public class BuilderScreen extends Screen {
         this.floatingWindowLayer.frontToBackWindows().add(this.colorPickerPanel);
         this.gearMenuPanel.init(this);
         this.floatingWindowLayer.frontToBackWindows().add(this.gearMenuPanel);
-        this.rightSidebarPanel.init(this);
-        this.downSidebarPanel.init(this);
-        this.leftSidebarPanel.init(this);
-        this.topBarPanel.init(this);
+        // 内容面板由 PanelRegistry 统一 init（替代 4 行硬编码 init 调用）
+        panelRegistry.initAll(this);
+        // 初始化相机持久化处理器
+        this.cameraPersistenceHandler.initCamera(kernel.module(CameraModule.class));
+
         // 面板初始化完毕后，从持久化存储加载之前保存的状态
         this.uiStateManager.load();
+
+        // 注入选择面板高亮到渲染管线
+        var eshp = kernel.renderPipeline().entitySelectHighlightPass;
+        if (eshp != null) {
+            eshp.setHighlightSource(this.selectionHighlight);
+        }
         // 加载完毕后恢复全局状态（主题、相机灵敏度等）
         restoreGlobalState();
         // 恢复之前活跃的调试覆盖层（如区块边框）
         this.topBarPanel.onPostUiStateLoad();
+        // 如果存在容器屏幕面板，以新尺寸重新初始化
+        if (containerScreenPanel != null && containerScreenPanel.isOpen()) {
+            containerScreenPanel.init(this);
+        }
     }
 
     @Override
@@ -157,6 +197,11 @@ public class BuilderScreen extends Screen {
 
     @Override
     public void onClose() {
+        // 关闭前先关闭容器屏幕面板
+        if (containerScreenPanel != null) {
+            containerScreenPanel.setOpen(false);
+            containerScreenPanel = null;
+        }
         // 关闭前先关闭所有实际渲染的调试覆盖层（区块边框等）
         this.topBarPanel.onRtsExited();
         // 保存所有面板状态 + 全局状态
@@ -224,11 +269,80 @@ public class BuilderScreen extends Screen {
         return leftSidebarPanel != null && leftSidebarPanel.isClickButtonSelected();
     }
 
+    /**
+     * 当前是否处于交互模式（ModeSwitcher 的大模式为 INTERACTIVE）。
+     * <p>在建造/蓝图模式下，容器绑定等交互模式专属功能应隐藏。</p>
+     */
+    public boolean isInteractiveMode() {
+        return topBarPanel != null
+                && topBarPanel.getCurrentMode() == com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.ModeSwitcher.Mode.INTERACTIVE;
+    }
+
+    /**
+     * 当前是否处于蓝图模式（ModeSwitcher 的大模式为 BLUEPRINT）。
+     * <p>蓝图模式下左边栏只显示漏斗按钮。</p>
+     */
+    public boolean isBlueprintMode() {
+        return topBarPanel != null
+                && topBarPanel.getCurrentMode() == com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.ModeSwitcher.Mode.BLUEPRINT;
+    }
+
+    /**
+     * 左边栏 bind_button 是否处于选中状态。
+     * <p>选中时处于容器存储绑定模式，交互目标线框在绑定模式下同样需要渲染。
+     */
+    public boolean isBindModeActive() {
+        return leftSidebarPanel != null && leftSidebarPanel.isBindModeActive();
+    }
+
     /** 清除框选状态和缓存（由快捷键或点击 click_button 时调用） */
     public void clearBoxSelection() {
         kernel.renderPipeline().boxSelector.reset();
         var bsp = kernel.renderPipeline().boxSelectionPass;
         if (bsp != null) bsp.clearCache();
+    }
+
+    // ======================================================================
+    //  容器屏幕面板管理
+    // ======================================================================
+
+    /**
+     * 打开容器屏幕面板，包裹给定的容器屏幕。
+     * <p>由 {@code ScreenEvent.Opening} 处理器在拦截容器屏幕时调用。</p>
+     */
+    public void showContainerScreen(Screen screen) {
+        if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> containerScreen)) return;
+
+        // 关闭旧的容器面板
+        if (this.containerScreenPanel != null) {
+            this.containerScreenPanel.setOpen(false);
+        }
+
+        // 创建并注册新面板
+        this.containerScreenPanel = new ContainerScreenPanel(containerScreen);
+        this.containerScreenPanel.init(this);
+        // 注册到浮窗层，使面板获得 Z 顺序排序和输入路由
+        this.floatingWindowLayer.frontToBackWindows().add(this.containerScreenPanel);
+        this.containerScreenPanel.setOpen(true);
+        this.floatingWindowLayer.markSortDirty();
+    }
+
+    /** 当前是否有容器屏幕面板打开。 */
+    public boolean hasContainerScreen() {
+        return this.containerScreenPanel != null && this.containerScreenPanel.isOpen();
+    }
+
+    /**
+     * 关闭当前容器屏幕面板（如有）。
+     * <p>在发送新的方块交互包前调用，确保服务端处理新交互时
+     * 不会因 {@code closeContainer()} 触发的 {@code ScreenEvent.Closing}
+     * 意外关闭 BuilderScreen 并禁用相机。</p>
+     */
+    public void closeContainerScreen() {
+        if (this.containerScreenPanel != null) {
+            this.containerScreenPanel.setOpen(false);
+            this.containerScreenPanel = null;
+        }
     }
 
     /**
@@ -241,7 +355,10 @@ public class BuilderScreen extends Screen {
     }
 
     // ======================================================================
-    //  全局状态持久化（主题、相机灵敏度等——不属于面板管理器职责）
+    //  全局状态持久化（主题、相机灵敏度——面板管理器不覆盖的全局设置）
+    //
+    //  注意：渲染设置（颜色、动画开关等）由 GearMenuPanel.persistableProperties()
+    //  通过 RtsScreenUiStateManager 统一管理，不再在此重复。
     // ======================================================================
 
     private void restoreGlobalState() {
@@ -251,18 +368,6 @@ public class BuilderScreen extends Screen {
         if (cam != null) {
             cam.setInputSensitivity((float) state.camera.inputSensitivity);
         }
-        // 恢复渲染设置
-        BoxSelectionPass.flowAnimationEnabled = state.settings.flowAnimationEnabled;
-        CornerBracketRenderer.SmoothTarget.enabled = state.settings.smoothAnimationEnabled;
-        SmoothAnimator.enabled = state.settings.uiSmoothAnimationEnabled;
-        BoxSelectionPass.depthTestEnabled = state.settings.depthTestEnabled;
-        CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA = (float) state.settings.noDepthAlpha;
-        BoundaryPass.barrierColor = state.settings.barrierColor;
-        InteractionTargetPass.blockTargetColor = state.settings.blockTargetColor;
-        InteractionTargetPass.entityTargetColor = state.settings.entityTargetColor;
-        BoxSelectionPass.selectionColor = state.settings.selectionColor;
-        BoxSelectionPass.previewOverlayColor = state.settings.previewOverlayColor;
-        BoxSelectionPass.selectionGapColor = state.settings.selectionGapColor;
     }
 
     private void persistGlobalState() {
@@ -273,18 +378,6 @@ public class BuilderScreen extends Screen {
             state.camera.inputSensitivity = cam.getInputSensitivity();
         }
         RtsClientUiStateStore.cache().markDirty();
-        // 持久化渲染设置
-        state.settings.flowAnimationEnabled = BoxSelectionPass.flowAnimationEnabled;
-        state.settings.smoothAnimationEnabled = CornerBracketRenderer.SmoothTarget.enabled;
-        state.settings.uiSmoothAnimationEnabled = SmoothAnimator.enabled;
-        state.settings.depthTestEnabled = BoxSelectionPass.depthTestEnabled;
-        state.settings.noDepthAlpha = CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA;
-        state.settings.barrierColor = BoundaryPass.barrierColor;
-        state.settings.blockTargetColor = InteractionTargetPass.blockTargetColor;
-        state.settings.entityTargetColor = InteractionTargetPass.entityTargetColor;
-        state.settings.selectionColor = BoxSelectionPass.selectionColor;
-        state.settings.previewOverlayColor = BoxSelectionPass.previewOverlayColor;
-        state.settings.selectionGapColor = BoxSelectionPass.selectionGapColor;
     }
 
     // ======================================================================
@@ -293,37 +386,22 @@ public class BuilderScreen extends Screen {
 
     /** 返回当前固定 RTS GUI 缩放值（如 2.0 表示 2x）。 */
     public double getRtsGuiScale() {
-        return this.fixedRtsGuiScale;
+        return scaleManager.getRtsGuiScale();
     }
 
     /** 返回格式化的缩放标签（如 "2.0x"）。 */
     public String rtsGuiScaleLabel() {
-        double scale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
-        if (Math.abs(scale - Math.rint(scale)) < 0.001D) {
-            return String.format(Locale.ROOT, "%.0fx", scale);
-        }
-        return String.format(Locale.ROOT, "%.1fx", scale);
+        return scaleManager.rtsGuiScaleLabel();
     }
 
     /** 按给定增量调整 GUI 缩放并立即标记持久化。 */
     public void adjustRtsGuiScale(double delta) {
-        this.fixedRtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale + delta);
+        scaleManager.adjustRtsGuiScale(delta);
     }
 
     /** 直接设置 GUI 缩放为指定值（自动校验并取整到合法范围）。 */
     public void setRtsGuiScale(double scale) {
-        this.fixedRtsGuiScale = sanitizeRtsGuiScale(scale);
-    }
-
-    /**
-     * 将缩放值限制到合法范围并按配置步长取整。
-     */
-    private static double sanitizeRtsGuiScale(double scale) {
-        if (!Double.isFinite(scale)) {
-            return DEFAULT_RTS_GUI_SCALE;
-        }
-        double snapped = Math.round(scale / RTS_GUI_SCALE_STEP) * RTS_GUI_SCALE_STEP;
-        return Math.max(MIN_RTS_GUI_SCALE, Math.min(MAX_RTS_GUI_SCALE, snapped));
+        scaleManager.setRtsGuiScale(scale);
     }
 
     /**
@@ -332,16 +410,7 @@ public class BuilderScreen extends Screen {
      * 需将虚拟坐标乘以缩放倍率后再提交。</p>
      */
     public void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) {
-        double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
-        if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
-            g.enableScissor(
-                    (int) Math.floor(x1 * scale),
-                    (int) Math.floor(y1 * scale),
-                    (int) Math.ceil(x2 * scale),
-                    (int) Math.ceil(y2 * scale));
-            return;
-        }
-        g.enableScissor(x1, y1, x2, y2);
+        scaleManager.enableRtsScissor(g, x1, y1, x2, y2);
     }
 
     /**
@@ -351,97 +420,22 @@ public class BuilderScreen extends Screen {
      * @return true 表示已以非单位缩放处理（调用方应 return）
      */
     private boolean renderWithFixedRtsGuiScale(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        RtsUiScaleFrame frame = enterFixedRtsGuiScale();
-        if (frame == null || Math.abs(frame.scale() - 1.0D) < 0.001D) {
-            if (frame != null) frame.close();
-            return false;
-        }
-        this.fixedRtsScaleRenderPass = true;
-        double previousActiveRenderScale = this.activeRtsGuiRenderScale;
-        this.activeRtsGuiRenderScale = frame.scale();
-        g.pose().pushPose();
-        g.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
-        try {
-            render(g,
-                    (int) Math.round(mouseX / frame.scale()),
-                    (int) Math.round(mouseY / frame.scale()),
-                    partialTick);
-        } finally {
-            g.pose().popPose();
-            this.activeRtsGuiRenderScale = previousActiveRenderScale;
-            this.fixedRtsScaleRenderPass = false;
-            frame.close();
-        }
-        return true;
+        return scaleManager.renderWithFixedRtsGuiScale(this, g, mouseX, mouseY, partialTick);
     }
 
-    /**
-     * 进入固定 RTS GUI 缩放帧：临时调整 {@code this.width/height} 为虚拟尺寸，
-     * 使 Minecraft 的 Screen 尺寸匹配用户偏好的固定缩放倍率。
-     *
-     * @return 缩放帧（调用方需在完成后 {@link RtsUiScaleFrame#close()} 恢复），
-     *         或在不可缩放时返回 {@code null}
-     */
     private RtsUiScaleFrame enterFixedRtsGuiScale() {
-        if (this.minecraft == null || this.minecraft.getWindow() == null
-                || this.width <= 0 || this.height <= 0) {
-            return null;
-        }
-        double currentScale = this.minecraft.getWindow().getScreenWidth()
-                / (double) Math.max(1, this.width);
-        if (currentScale <= 0.0D || !Double.isFinite(currentScale)) {
-            return null;
-        }
-        double renderScale = this.fixedRtsGuiScale / currentScale;
-        if (renderScale <= 0.0D || !Double.isFinite(renderScale)) {
-            return null;
-        }
-        int oldW = this.width;
-        int oldH = this.height;
-        int virtualW = Math.max(1, (int) Math.round(oldW / renderScale));
-        int virtualH = Math.max(1, (int) Math.round(oldH / renderScale));
-        this.width = virtualW;
-        this.height = virtualH;
-        return new RtsUiScaleFrame(oldW, oldH, renderScale, () -> {
-            this.width = oldW;
-            this.height = oldH;
-        });
+        return scaleManager.enterFixedRtsGuiScale(this);
     }
 
-    /**
-     * 进入固定缩放输入帧。若需要缩放，调用 {@code handler} 递归处理并返回结果。
-     * <p>消除各输入事件方法中重复的 {@code beginFixedRtsScaleInput/try...finally/endFixedRtsScaleInput} 三明治。</p>
-     *
-     * @return 非 null 表示缩放已递归处理（调用方应直接 return）；
-     *         null 表示无需缩放或已在缩放通道中，调用方用原始坐标继续处理
-     */
     @javax.annotation.Nullable
     private Boolean scaleMouseEvent(double mouseX, double mouseY,
             java.util.function.BiFunction<Double, Double, Boolean> handler) {
-        if (this.fixedRtsScaleInputPass) return null;
-        RtsUiScaleFrame frame = enterFixedRtsGuiScale();
-        if (frame == null) return false;
-        if (Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            this.fixedRtsScaleInputPass = true;
-            try {
-                return handler.apply(mouseX / frame.scale(), mouseY / frame.scale());
-            } finally {
-                this.fixedRtsScaleInputPass = false;
-                frame.close();
-            }
-        }
-        frame.close();
-        return null;
+        return scaleManager.scaleMouseEvent(this, mouseX, mouseY, handler);
     }
 
-    /** {@link #scaleMouseEvent} 的 void 版本。 */
     private boolean scaleMouseEventVoid(double mouseX, double mouseY,
             java.util.function.BiConsumer<Double, Double> handler) {
-        Boolean result = scaleMouseEvent(mouseX, mouseY, (x, y) -> {
-            handler.accept(x, y);
-            return true;
-        });
-        return result != null;
+        return scaleManager.scaleMouseEventVoid(this, mouseX, mouseY, handler);
     }
 
     // ======================================================================
@@ -451,8 +445,12 @@ public class BuilderScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        cursorWrapHandler.tick(kernel.module(CameraModule.class), fixedRtsGuiScale,
+        cursorWrapHandler.tick(kernel.module(CameraModule.class), scaleManager.getRtsGuiScale(),
                 getRightSidebarWidth(), getDownSidebarHeight());
+        // 容器屏幕面板的 tick（自动关闭检测等）
+        if (containerScreenPanel != null && containerScreenPanel.isOpen()) {
+            containerScreenPanel.tick();
+        }
     }
 
     // ======================================================================
@@ -462,7 +460,7 @@ public class BuilderScreen extends Screen {
     @Override
     public void render(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         // 以用户偏好的固定缩放倍率渲染（非缩放入口递归调用自身，缩放入口直接进入内容）
-        if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
+        if (!scaleManager.isInRenderPass() && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
             return;
         }
 
@@ -487,46 +485,22 @@ public class BuilderScreen extends Screen {
             }
         }
 
-        // 2. 渲染各面板
+        // 2. 渲染内容面板层（通过 PanelRegistry 统一编排）
         // 注意：继承 RtsPanel 的浮窗面板（通过 floatingWindowLayer 渲染）
-        // 必须渲染在其它非 RtsPanel UI（如 downSidebarPanel）之后，
-        // 以确保浮窗面板永远绘制在最上层。
-        //
-        // 在渲染主面板前检测鼠标是否在浮动窗口上，若是则全局抑制下层组件的悬浮亮起。
-        // 浮动窗口内部的悬浮效果由 RtsFloatingWindowLayer.renderFloatingWindows() 自行管理。
+        // 必须在内容面板之后渲染，以确保浮窗面板永远绘制在最上层。
         boolean mouseOverFloating = floatingWindowLayer != null
                 && floatingWindowLayer.isMouseOverWindowOrResizableBorder(mouseX, mouseY);
-        if (mouseOverFloating) {
-            HoverStateManager.setGloballySuppressed(true);
-        }
-        try {
-            if (topBarPanel != null) {
-                topBarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-            }
-            if (leftSidebarPanel != null) {
-                leftSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-            }
-            if (rightSidebarPanel != null) {
-                rightSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-            }
-            if (downSidebarPanel != null) {
-                downSidebarPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-            }
-        } finally {
-            if (mouseOverFloating) {
-                HoverStateManager.setGloballySuppressed(false);
-            }
-        }
+        panelRegistry.renderContentPanels(guiGraphics, mouseX, mouseY, partialTick, mouseOverFloating);
 
         // 3. 渲染九宫格装饰层
         if (screenBackgroundPanel != null) {
-            screenBackgroundPanel.renderOverlay(guiGraphics, mouseX, mouseY);
+            screenBackgroundPanel.renderOverlays(guiGraphics, mouseX, mouseY);
         }
         if (rightSidebarPanel != null) {
-            rightSidebarPanel.renderOverlay(guiGraphics, mouseX, mouseY);
+            rightSidebarPanel.renderOverlays(guiGraphics, mouseX, mouseY);
         }
         if (downSidebarPanel != null) {
-            downSidebarPanel.renderOverlay(guiGraphics, mouseX, mouseY);
+            downSidebarPanel.renderOverlays(guiGraphics, mouseX, mouseY);
         }
 
         // 4. 渲染各面板的工具提示覆盖层
@@ -534,12 +508,17 @@ public class BuilderScreen extends Screen {
             topBarPanel.renderOverlays(guiGraphics, mouseX, mouseY);
         }
         if (leftSidebarPanel != null) {
-            leftSidebarPanel.renderTooltipOverlays(guiGraphics, mouseX, mouseY);
+            leftSidebarPanel.renderOverlays(guiGraphics, mouseX, mouseY);
         }
 
-        // 5. 继承 RtsPanel 的浮窗面板（GearMenuPanel 等）永远绘制在最顶层
+        // 5. 继承 RtsPanel 的浮窗面板（GearMenuPanel、ContainerScreenPanel 等）永远绘制在最顶层
         if (floatingWindowLayer != null) {
             floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
+        }
+
+        // 5.1 校验选择面板条目有效性（渲染已由浮动窗口层管理）
+        if (entityInteractionHandler != null) {
+            entityInteractionHandler.validatePanel(this);
         }
 
         // 6. 更新框选系统的鼠标悬浮位置（仅选择模式 + 鼠标在内容区域内）
@@ -558,41 +537,15 @@ public class BuilderScreen extends Screen {
 
     // ======================================================================
     //  输入事件（已通过 beginFixedRtsScaleInput/endFixedRtsScaleInput 适配固定缩放坐标）
+    //    浮窗面板的输入由 floatingWindowLayer 通过 EventDispatcher 路由，
+    //    不再需要在 BuilderScreen 中单独转发到容器屏幕。
     // ======================================================================
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         Boolean scaled = scaleMouseEvent(mouseX, mouseY, (x, y) -> mouseClicked(x, y, button));
         if (scaled != null) return scaled;
-        // 浮窗渲染在最上层，事件优先级应高于侧边栏/顶栏（防止浮窗覆盖区域误触下层按钮）
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (topBarPanel != null && topBarPanel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (leftSidebarPanel != null && leftSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (rightSidebarPanel != null && rightSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (downSidebarPanel != null && downSidebarPanel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        // 右键点击 → 框选系统选点（Shift+右键留给摄像机拖拽，Alt+右键移动玩家）
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && !isAltDown() && !isShiftDown()
-                && leftSidebarPanel != null && !leftSidebarPanel.isClickButtonSelected()) {
-            kernel.renderPipeline().boxSelector.handleRightClickWithHover();
-        }
-        // Alt+右键 → 移动玩家到光标指向的方块（优先级高于相机输入层，防止被 CameraInputLayer 消费）
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && isAltDown()) {
-            return handleMovePlayerActionAt();
-        }
-        if (kernel.inputPipeline().onMouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return eventDispatcher.dispatch(new MouseClickEvent(mouseX, mouseY, button));
     }
 
     private static boolean isAltDown() {
@@ -613,210 +566,246 @@ public class BuilderScreen extends Screen {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         Boolean scaled = scaleMouseEvent(mouseX, mouseY, (x, y) -> mouseReleased(x, y, button));
         if (scaled != null) return scaled;
-        if (leftSidebarPanel != null && leftSidebarPanel.mouseReleased(mouseX, mouseY, button)) {
-            // 不阻止后续分发
-        }
-        if (rightSidebarPanel != null && rightSidebarPanel.mouseReleased(mouseX, mouseY, button)) {
-            // 不阻止后续分发
-        }
-        if (downSidebarPanel != null && downSidebarPanel.mouseReleased(mouseX, mouseY, button)) {
-            // 不阻止后续分发
-        }
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseReleased(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (kernel.inputPipeline().onMouseReleased(mouseX, mouseY, button)) {
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return eventDispatcher.dispatch(new MouseReleaseEvent(mouseX, mouseY, button));
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        // mouseDragged 多参特殊处理，inline 缩放逻辑
-        if (!this.fixedRtsScaleInputPass) {
-            RtsUiScaleFrame frame = enterFixedRtsGuiScale();
-            if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-                this.fixedRtsScaleInputPass = true;
-                try {
-                    double s = frame.scale();
-                    return mouseDragged(mouseX / s, mouseY / s, button, dragX / s, dragY / s);
-                } finally {
-                    this.fixedRtsScaleInputPass = false;
-                    frame.close();
-                }
-            }
-            if (frame != null) frame.close();
-        }
-        // 输入管道：跳过因 glfwSetCursorPos 光标环绕导致的大幅跳变 delta
-        // （正常拖拽 delta < 200px，环绕跳变 delta ≈ 屏幕宽度）
-        double clampedDx = Math.abs(dragX) > 200 ? 0 : dragX;
-        double clampedDy = Math.abs(dragY) > 200 ? 0 : dragY;
-
-        // 浮窗渲染在最上层，拖拽事件优先级应高于侧边栏
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+        if (scaleManager.scaleMouseEventQuad(this, mouseX, mouseY, button, dragX, dragY,
+                (x, y, btn, dx, dy) -> mouseDragged(x, y, btn, dx, dy))) {
             return true;
         }
-        if (leftSidebarPanel != null && leftSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-            return true;
-        }
-        if (rightSidebarPanel != null && rightSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-            return true;
-        }
-        if (downSidebarPanel != null && downSidebarPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-            return true;
-        }
-        if (kernel.inputPipeline().onMouseDragged(mouseX, mouseY, button, clampedDx, clampedDy)) {
-            return true;
-        }
-
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return eventDispatcher.dispatch(new MouseDragEvent(mouseX, mouseY, button, dragX, dragY));
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         Boolean scaled = scaleMouseEvent(mouseX, mouseY, (x, y) -> mouseScrolled(x, y, scrollX, scrollY));
         if (scaled != null) return scaled;
-        if (floatingWindowLayer != null && floatingWindowLayer.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
-            return true;
-        }
-        // 滚轮 → 选择模式 AWAITING_C 阶段调整框选高度
-        if (leftSidebarPanel != null && !leftSidebarPanel.isClickButtonSelected()
-                && kernel.renderPipeline().boxSelector.handleScroll(scrollY)) {
-            return true;
-        }
-        if (kernel.inputPipeline().onMouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return eventDispatcher.dispatch(new MouseScrollEvent(mouseX, mouseY, scrollX, scrollY));
     }
 
     @Override
     public void mouseMoved(double mouseX, double mouseY) {
         if (scaleMouseEventVoid(mouseX, mouseY, (x, y) -> mouseMoved(x, y))) return;
-        if (floatingWindowLayer != null) {
-            floatingWindowLayer.mouseMoved(mouseX, mouseY);
-        }
-        super.mouseMoved(mouseX, mouseY);
+        eventDispatcher.dispatch(new MouseMoveEvent(mouseX, mouseY));
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // 浮窗面板优先处理键盘事件（如调色盘文本输入框），防止被下方快捷键抢走
-        if (floatingWindowLayer != null && floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        // Ctrl+, → 切换设置面板打开/关闭
-        if (RtsKeyMappings.OPEN_GEAR_MENU_KEY.matches(keyCode, scanCode)) {
-            gearMenuPanel.toggleOpen();
-            topBarPanel.setGearMenuOpen(gearMenuPanel.isOpen());
-            return true;
-        }
-        // Alt+Z → 切换辅助显示模式
-        if (RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY.matches(keyCode, scanCode)) {
-            topBarPanel.toggleDebugOverlay();
-            return true;
-        }
-        // Ctrl+M → 切换相机模式（自由/环绕玩家）
-        if (RtsKeyMappings.TOGGLE_CAMERA_MODE_KEY.matches(keyCode, scanCode)) {
-            CameraModule cam = kernel.module(CameraModule.class);
-            if (cam != null) {
-                cam.togglePlayerOrbitMode();
-            }
-            return true;
-        }
-        // B → 切换选择模式（框选/点击）
-        if (RtsKeyMappings.TOGGLE_SELECT_MODE_KEY.matches(keyCode, scanCode)) {
-            if (leftSidebarPanel != null) {
-                leftSidebarPanel.toggleSelectMode();
-                // 切换到点击模式（click_button）→ 取消框选 + 清缓存
-                if (leftSidebarPanel.isClickButtonSelected()) {
-                    clearBoxSelection();
-                }
-            }
-            return true;
-        }
-        // Ctrl+G → 切换绑定模式
-        if (RtsKeyMappings.TOGGLE_BIND_MODE_KEY.matches(keyCode, scanCode)) {
-            if (leftSidebarPanel != null) {
-                leftSidebarPanel.toggleBindMode();
-            }
-            return true;
-        }
-        // Ctrl+R → 切换方向旋转模式
-        if (RtsKeyMappings.TOGGLE_DIRECTION_ROTATE_MODE_KEY.matches(keyCode, scanCode)) {
-            if (leftSidebarPanel != null) {
-                leftSidebarPanel.toggleDirectionRotateMode();
-            }
-            return true;
-        }
-        // Ctrl+F → 切换物品拾取模式
-        if (RtsKeyMappings.TOGGLE_ITEM_PICKUP_MODE_KEY.matches(keyCode, scanCode)) {
-            if (leftSidebarPanel != null) {
-                leftSidebarPanel.toggleItemPickupMode();
-            }
-            return true;
-        }
-        // Tab → 循环切换模式（交互→建造→蓝图→交互...）
-        if (RtsKeyMappings.CYCLE_MODE_KEY.matches(keyCode, scanCode)) {
-            if (topBarPanel != null) {
-                topBarPanel.cycleMode();
-            }
-            return true;
-        }
-        if (kernel.inputPipeline().onKeyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return eventDispatcher.dispatch(new KeyPressEvent(keyCode, scanCode, modifiers));
     }
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        if (floatingWindowLayer != null && floatingWindowLayer.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (kernel.inputPipeline().onCharTyped(codePoint, modifiers)) {
-            return true;
-        }
-        return super.charTyped(codePoint, modifiers);
+        return eventDispatcher.dispatch(new CharEvent(codePoint, modifiers));
     }
 
-    // ======================== 移动玩家 ========================
+    // ======================================================================
+    //  EventDispatcher 处理器注册（替换原本 if-else 输入路由链）
+    // ======================================================================
 
     /**
-     * 处理 Alt+右键移动玩家到光标指向的方块。
-     * <p>根据是否双击决定移动行为：
-     * <ul>
-     *   <li>单击 → 移动到目标位置（水平到达即停）</li>
-     *   <li>双击 → 飞到目标上方后精准降落（含 Y 轴到达判定）</li>
-     * </ul>
+     * 注册事件处理器到 EventDispatcher——替换原本 BuilderScreen 中的 if-else 输入路由链。
      *
-     * @return true 表示事件已消费
+     * <p>处理器按优先级注册，高优先级的浮窗和 UI 面板优先消费事件，
+     * 随后是业务逻辑（绑定、框选、移动），最后是输入管道和默认行为。
+     * 所有输入方法（{@link #mouseClicked} 等）现仅需一行 dispatch 调用委托至此。
+     *
+     * <p>优先级常量定义在 {@link EventDispatcher} 中，同一优先级内处理器的注册顺序
+     * 决定了同优先级的执行次序。</p>
      */
-    private boolean handleMovePlayerActionAt() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.getCameraEntity() == null) {
-            return true;
-        }
-        var ray = CursorRaycaster.computeCursorRay(mc, this);
-        if (ray == null) {
-            return true;
-        }
-        BlockHitResult hit = ray.raycastBlock(mc);
-        if (hit == null) {
-            return true;
-        }
-        // 双击检测
-        long now = System.currentTimeMillis();
-        boolean isDoubleClick = (now - this.lastCtrlRightClickTime) < CTRL_DOUBLE_CLICK_THRESHOLD_MS;
-        this.lastCtrlRightClickTime = now;
+    private void registerEventHandlers() {
+        // ======================== Mouse Click ========================
 
-        if (isDoubleClick) {
-            this.lastCtrlRightClickTime = 0;
-            RtsClientPathfinding.goToAbove(hit.getBlockPos(), 1);
-        } else {
-            RtsClientPathfinding.goTo(hit.getBlockPos());
-        }
-        return true;
+        // P_FLOATING_WINDOW (100): 浮窗面板优先
+        eventDispatcher.onMouseClick(event -> {
+            if (floatingWindowLayer.mouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
+            // 点击任意空白区域 → 关闭交互选择面板
+            if (entityInteractionHandler.isSelectPanelOpen()) {
+                entityInteractionHandler.closeSelectPanel();
+                return CONSUMED;
+            }
+            return PASS;
+        }, EventDispatcher.P_FLOATING_WINDOW);
+
+        // P_UI_PANEL (80): 由 PanelRegistry 统一注册内容面板点击（替代 4 行硬编码）
+        panelRegistry.registerContentPanelMouseClick(eventDispatcher);
+
+        // P_BIND_LOGIC (60): 容器绑定业务逻辑（委托给 BindModeMouseHandler）
+        eventDispatcher.onMouseClick(event ->
+                bindModeHandler.handleMouseClick(event, BuilderScreen.this, leftSidebarPanel),
+                EventDispatcher.P_BIND_LOGIC);
+
+        // P_SELECTION (40): 框选系统右键选点
+        eventDispatcher.onMouseClick(event -> {
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+                    && !isAltDown() && !isShiftDown()
+                    && !leftSidebarPanel.isClickButtonSelected()) {
+                kernel.renderPipeline().boxSelector.handleRightClickWithHover();
+                return CONSUMED;
+            }
+            return PASS;
+        }, EventDispatcher.P_SELECTION);
+
+        // P_ENTITY_INTERACT (50): 交互模式右键与生物/方块交互
+        eventDispatcher.onMouseClick(event ->
+                entityInteractionHandler.handleMouseClick(event, BuilderScreen.this, leftSidebarPanel),
+                EventDispatcher.P_ENTITY_INTERACT);
+
+        // P_MOVEMENT (20): Alt+右键移动玩家
+        eventDispatcher.onMouseClick(event -> {
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && isAltDown()) {
+                if (movementHandler.handleMovePlayerActionAt(BuilderScreen.this)) return CONSUMED;
+            }
+            return PASS;
+        }, EventDispatcher.P_MOVEMENT);
+
+        // P_INPUT_PIPELINE (0): 内核输入管道
+        eventDispatcher.onMouseClick(event -> {
+            if (kernel.inputPipeline().onMouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_INPUT_PIPELINE);
+
+        // P_FALLBACK (-100): 默认 Screen 行为
+        eventDispatcher.onMouseClick(event -> {
+            if (BuilderScreen.super.mouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_FALLBACK);
+
+        // ======================== Mouse Release ========================
+
+        // P_UI_PANEL (80): 由 PanelRegistry 统一注册内容面板释放
+        panelRegistry.registerContentPanelMouseRelease(eventDispatcher);
+
+        eventDispatcher.onMouseRelease(event -> {
+            if (floatingWindowLayer.mouseReleased(event.x(), event.y(), event.button())) return CONSUMED;
+            if (kernel.inputPipeline().onMouseReleased(event.x(), event.y(), event.button())) return CONSUMED;
+            if (BuilderScreen.super.mouseReleased(event.x(), event.y(), event.button())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_FALLBACK);
+
+        // ======================== Mouse Drag ========================
+
+        // P_UI_PANEL (80): 由 PanelRegistry 统一注册内容面板拖拽
+        panelRegistry.registerContentPanelMouseDrag(eventDispatcher);
+
+        eventDispatcher.onMouseDrag(event -> {
+            // 跳过因 glfwSetCursorPos 光标环绕导致的大幅跳变 delta
+            double clampedDx = Math.abs(event.dx()) > 200 ? 0 : event.dx();
+            double clampedDy = Math.abs(event.dy()) > 200 ? 0 : event.dy();
+            if (floatingWindowLayer.mouseDragged(event.x(), event.y(), event.button(), event.dx(), event.dy())) return CONSUMED;
+            if (kernel.inputPipeline().onMouseDragged(event.x(), event.y(), event.button(), clampedDx, clampedDy)) return CONSUMED;
+            if (BuilderScreen.super.mouseDragged(event.x(), event.y(), event.button(), event.dx(), event.dy())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_FALLBACK);
+
+        // ======================== Mouse Scroll ========================
+
+        eventDispatcher.onMouseScroll(event -> {
+            if (floatingWindowLayer.mouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) return CONSUMED;
+            if (!leftSidebarPanel.isClickButtonSelected()
+                    && kernel.renderPipeline().boxSelector.handleScroll(event.scrollY())) return CONSUMED;
+            if (kernel.inputPipeline().onMouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) return CONSUMED;
+            if (BuilderScreen.super.mouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_FALLBACK);
+
+        // ======================== Key Press ========================
+
+        // P_FLOATING_WINDOW (100): 浮窗面板键盘事件（含 ESC 关闭浮窗）
+        eventDispatcher.onKeyPress(event -> {
+            if (floatingWindowLayer.keyPressed(event.keyCode(), event.scanCode(), event.modifiers())) return CONSUMED;
+            // ESC 关闭交互选择面板
+            if (event.keyCode() == GLFW.GLFW_KEY_ESCAPE && entityInteractionHandler.isSelectPanelOpen()) {
+                entityInteractionHandler.closeSelectPanel();
+                return CONSUMED;
+            }
+            return PASS;
+        }, EventDispatcher.P_FLOATING_WINDOW);
+
+        // P_UI_PANEL (80): UI 快捷键
+        eventDispatcher.onKeyPress(event -> {
+            // Ctrl+, → 切换设置面板
+            if (RtsKeyMappings.OPEN_GEAR_MENU_KEY.matches(event.keyCode(), event.scanCode())) {
+                gearMenuPanel.toggleOpen();
+                topBarPanel.setGearMenuOpen(gearMenuPanel.isOpen());
+                return CONSUMED;
+            }
+            // Alt+Z → 切换辅助显示
+            if (RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY.matches(event.keyCode(), event.scanCode())) {
+                topBarPanel.toggleDebugOverlay();
+                return CONSUMED;
+            }
+            // Ctrl+M → 切换相机模式
+            if (RtsKeyMappings.TOGGLE_CAMERA_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+                CameraModule cam = kernel.module(CameraModule.class);
+                if (cam != null) cam.togglePlayerOrbitMode();
+                return CONSUMED;
+            }
+            // B → 切换选择模式
+            if (RtsKeyMappings.TOGGLE_SELECT_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+                leftSidebarPanel.toggleSelectMode();
+                if (leftSidebarPanel.isClickButtonSelected()) clearBoxSelection();
+                return CONSUMED;
+            }
+            // Ctrl+G → 切换绑定模式
+            if (RtsKeyMappings.TOGGLE_BIND_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+                leftSidebarPanel.toggleBindMode();
+                return CONSUMED;
+            }
+            // Ctrl+R → 切换方向旋转模式
+            if (RtsKeyMappings.TOGGLE_DIRECTION_ROTATE_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+                leftSidebarPanel.toggleDirectionRotateMode();
+                return CONSUMED;
+            }
+            // Ctrl+F → 切换物品拾取模式
+            if (RtsKeyMappings.TOGGLE_ITEM_PICKUP_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+                leftSidebarPanel.toggleItemPickupMode();
+                return CONSUMED;
+            }
+            // Tab → 循环切换模式
+            if (RtsKeyMappings.CYCLE_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+                topBarPanel.cycleMode();
+                return CONSUMED;
+            }
+            return PASS;
+        }, EventDispatcher.P_UI_PANEL);
+
+        // P_BIND_LOGIC (60): Enter → 框选批量绑定确认（委托给 BindModeMouseHandler）
+        eventDispatcher.onKeyPress(event ->
+                bindModeHandler.handleKeyPress(event, leftSidebarPanel),
+                EventDispatcher.P_BIND_LOGIC);
+
+        // P_INPUT_PIPELINE (0): 内核输入管道
+        eventDispatcher.onKeyPress(event -> {
+            if (kernel.inputPipeline().onKeyPressed(event.keyCode(), event.scanCode(), event.modifiers())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_INPUT_PIPELINE);
+
+        // P_FALLBACK (-100): 默认 Screen 行为
+        eventDispatcher.onKeyPress(event -> {
+            if (BuilderScreen.super.keyPressed(event.keyCode(), event.scanCode(), event.modifiers())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_FALLBACK);
+
+        // ======================== Char Typed ========================
+
+        eventDispatcher.onChar(event -> {
+            if (floatingWindowLayer.charTyped(event.codePoint(), event.modifiers())) return CONSUMED;
+            if (kernel.inputPipeline().onCharTyped(event.codePoint(), event.modifiers())) return CONSUMED;
+            if (BuilderScreen.super.charTyped(event.codePoint(), event.modifiers())) return CONSUMED;
+            return PASS;
+        }, EventDispatcher.P_FALLBACK);
+
+        // ======================== Mouse Move ========================
+
+        eventDispatcher.onMouseMove(event -> {
+            if (floatingWindowLayer != null) {
+                floatingWindowLayer.mouseMoved(event.x(), event.y());
+            }
+            BuilderScreen.super.mouseMoved(event.x(), event.y());
+            return CONSUMED;
+        }, EventDispatcher.P_FALLBACK);
     }
 }

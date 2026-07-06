@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.kernel;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.input.InputPipeline;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPipeline;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
@@ -149,9 +150,15 @@ public final class RtsClientKernel {
      * 当 RTS 摄像机活跃时确保 BuilderScreen 保持打开。
      * <p>替代原散布在 CameraModule 中的屏幕生命周期管理代码，
      * 将 UI 生命周期提升到内核层级统一管理。</p>
+     *
+     * <p>如果远程菜单模块报告有容器菜单打开，则跳过 BuilderScreen 的恢复，
+     * 避免 BuilderScreen 与容器菜单争夺屏幕焦点。</p>
      */
     private void ensureBuilderScreenOpen() {
         if (mc().screen instanceof BuilderScreen) return;
+        // 远程菜单打开时不覆盖容器 GUI
+        RemoteMenuModule rmm = module(RemoteMenuModule.class);
+        if (rmm != null && rmm.isRemoteMenuOpen()) return;
         CameraModule cam = module(CameraModule.class);
         if (cam != null && cam.getState().isEnabled()) {
             mc().setScreen(new BuilderScreen());
@@ -187,6 +194,10 @@ public final class RtsClientKernel {
                 }
             } else {
                 closeBuilderScreenIfOpen();
+                // RTS 关闭时清理存储绑定动画状态，防止跨会话内存泄漏
+                if (this.renderPipeline != null && this.renderPipeline.linkedStoragePass != null) {
+                    this.renderPipeline.linkedStoragePass.clearAnimationState();
+                }
             }
         }
     }

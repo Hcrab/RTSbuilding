@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.RtsButton;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.RtsButton;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -106,7 +108,7 @@ public final class WindowFrameRenderer {
         float hg = (float) (hoverTint >> 8 & 0xFF) / 255.0F;
         float hb = (float) (hoverTint & 0xFF) / 255.0F;
 
-        RtsClientUiUtil.renderCrossFade(ctx.hoverAnimProgress(),
+        CrossFadeRenderer.render(ctx.hoverAnimProgress(),
                 () -> renderPanelLayer(g, ctx.windowX(), ctx.windowY(), ctx.windowWidth(), ctx.windowHeight(),
                         nr, ng, nb, a, false),
                 () -> renderPanelLayer(g, ctx.windowX(), ctx.windowY(), ctx.windowWidth(), ctx.windowHeight(),
@@ -117,7 +119,7 @@ public final class WindowFrameRenderer {
     private static void renderPanelLayer(GuiGraphics g, int wx, int wy, int ww, int wh,
                                           float r, float green, float b, float alpha, boolean hovered) {
         g.setColor(r, green, b, alpha);
-        RtsClientUiUtil.drawNineSlicePanel(g, wx, wy, ww, wh, hovered);
+        SpriteRenderer.drawNineSlicePanel(g, wx, wy, ww, wh, hovered);
         g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
@@ -152,16 +154,16 @@ public final class WindowFrameRenderer {
         // +3/-6 偏移原因：drag_ui.png 的九宫格边框为 4px（PANEL_BORDER=4），
         // 拖拽面板背景渲染时在窗口区域内缩进 1px（左侧+3 = border-1，右侧同理），
         // 使标题栏背景与面板背景的四角九宫格无缝拼接，避免边缘重叠
-        RtsClientUiUtil.drawNineSliceDragPanel(g, ctx.windowX() + 3, ctx.windowY() + 3,
+        SpriteRenderer.drawNineSliceDragPanel(g, ctx.windowX() + 3, ctx.windowY() + 3,
                 ctx.windowWidth() - 6, titleH, false);
         g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     private static void renderTitleText(GuiGraphics g, Context ctx, int titleH) {
-        String title = RtsClientUiUtil.trimToWidth(Minecraft.getInstance().font, ctx.title().getString(),
+        String title = TextRenderer.trimToWidth(Minecraft.getInstance().font, ctx.title().getString(),
                 Math.max(8, ctx.windowWidth() - 36));
         int textY = ctx.windowY() + Math.max(1, (titleH - Minecraft.getInstance().font.lineHeight) / 2) + 2;
-        RtsClientUiUtil.drawUiText(g, title, ctx.windowX() + 8, textY, ctx.titleTextColor());
+        TextRenderer.draw(g, title, ctx.windowX() + 8, textY, ctx.titleTextColor());
     }
 
     private static void renderCloseButton(GuiGraphics g, int mouseX, int mouseY, Context ctx) {
@@ -173,3 +175,4 @@ public final class WindowFrameRenderer {
         btn.render(g, mouseX, mouseY, 0.0F);
     }
 }
+

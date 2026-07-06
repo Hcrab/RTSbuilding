@@ -2,12 +2,19 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ColorGroup;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ColorSource;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.HexInputComponent;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.ScaleSliderComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorGroup;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorSource;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ColorPreviewComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.HexInputComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.SwatchSelectorComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
+import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,16 +28,13 @@ import net.minecraft.util.Mth;
  * 通过颜色轮盘、灰度条或色调/饱和度滑条来修改 {@link BoundaryPass#barrierColor}。</p>
  *
  * <p>本面板为布局协调器，将渲染和交互委托给 {@link ColorWheelComponent}、
- * {@link GrayscaleBarComponent} 和 {@link ScaleSliderComponent} 等子组件，
+ * {@link GrayscaleBarComponent}、{@link ColorPreviewComponent}、
+ * {@link SwatchSelectorComponent} 和 {@link ScaleSliderComponent} 等子组件，
  * 颜色数学运算委托给 {@link ColorMath} 工具类。</p>
  */
 public class ColorPickerPanel extends RtsPanel {
 
     // ======================== 面板尺寸（由组件自动计算）========================
-
-    // ======================== 颜色预览条布局 ========================
-
-    private static final int PREVIEW_BAR_H = 16;
 
     // ======================== 色调/饱和度滑条布局 ========================
 
@@ -40,19 +44,17 @@ public class ColorPickerPanel extends RtsPanel {
     private static final int SLIDER_CLICK_PAD = 3;
     private static final int SLIDER_TRACK_H = 4;
 
-    // ======================== 色块选择器布局 ========================
-
-    /** 色块选择器行高 */
-    private static final int SWATCH_ROW_H = 20;
-    /** 每个色块的尺寸 */
-    private static final int SWATCH_SIZE = 14;
-    /** 色块之间的间距 */
-    private static final int SWATCH_GAP = 4;
-
     // ======================== Hex/Dec 输入组件 ========================
 
     /** 颜色值输入组件（标签 + 输入框 + 模式切换按钮） */
     private final HexInputComponent hexInput = new HexInputComponent();
+
+    // ======================== 子组件 ========================
+
+    private final ColorWheelComponent wheelComponent = new ColorWheelComponent();
+    private final GrayscaleBarComponent grayscaleComponent = new GrayscaleBarComponent();
+    private final ColorPreviewComponent colorPreview = new ColorPreviewComponent();
+    private final SwatchSelectorComponent swatchSelector = new SwatchSelectorComponent();
 
     // ======================== 颜色源（由按钮打开时设置，面板只读写此源）=======================
 
@@ -168,11 +170,6 @@ public class ColorPickerPanel extends RtsPanel {
         return ColorMath.blendGrayscale(this.wheelBaseColor, this.grayscaleIndicatorRelY);
     }
 
-    // ======================== 子组件 ========================
-
-    private final ColorWheelComponent wheelComponent = new ColorWheelComponent();
-    private final GrayscaleBarComponent grayscaleComponent = new GrayscaleBarComponent();
-
     // ======================== 指示点状态 ========================
 
     /** 指示点在轮盘绘制区域中的连续归一化位置 [0,1] */
@@ -207,9 +204,9 @@ public class ColorPickerPanel extends RtsPanel {
     // ======================== 指示器状态动画器 ========================
 
     /** 轮盘指示点状态过渡动画器（0=正常，1=悬浮，2=拖拽） */
-    private final SmoothAnimator indicatorStateAnim = AnimationFactory.createHoverAnim();
+    private final FloatAnimation indicatorStateAnim = AnimationFactory.newHoverAnim();
     /** 灰度条指示器状态过渡动画器 */
-    private final SmoothAnimator grayscaleIndicatorStateAnim = AnimationFactory.createHoverAnim();
+    private final FloatAnimation grayscaleIndicatorStateAnim = AnimationFactory.newHoverAnim();
 
     public ColorPickerPanel() {
     }
@@ -222,10 +219,8 @@ public class ColorPickerPanel extends RtsPanel {
         this.closable = true;
         // 连接 HexInputComponent 的颜色解析回调：解析成功时同步颜色并写回数据源
         this.hexInput.setOnColorParsed(color -> {
-            System.out.println("[ColorPicker] onColorParsed: color=0x" + Integer.toHexString(color) + ", calling syncToColor + applyToSource");
             syncToColor(color);
             applyToSource();
-            System.out.println("[ColorPicker] after applyToSource: getCurrentColor()=0x" + Integer.toHexString(getCurrentColor()) + ", wheelBaseColor=0x" + Integer.toHexString(wheelBaseColor));
         });
     }
 
@@ -259,7 +254,7 @@ public class ColorPickerPanel extends RtsPanel {
      * @return int[] { sliderSectionY, sliderTrackX, sliderTrackW }
      */
     private int[] computeSliderSectionLayout(int cx, int cw, int wheelSectionBottom, int extraSectionH) {
-        int sliderSectionY = wheelSectionBottom + 6 + PREVIEW_BAR_H + extraSectionH + SLIDER_GAP;
+        int sliderSectionY = wheelSectionBottom + 6 + ColorPreviewComponent.PREVIEW_BAR_H + extraSectionH + SLIDER_GAP;
         int sliderTrackX = cx + SLIDER_LABEL_W + 4;
         int sliderTrackW = cw - SLIDER_LABEL_W - 10;
         return new int[]{sliderSectionY, sliderTrackX, sliderTrackW};
@@ -273,7 +268,6 @@ public class ColorPickerPanel extends RtsPanel {
         int cy = contentY();
         int cw = contentWidth();
 
-        int textColor = ThemeManager.getTextColor();
         Font font = Minecraft.getInstance().font;
 
         // ---- 1. 轮盘 + 灰度条区域 ----
@@ -284,7 +278,7 @@ public class ColorPickerPanel extends RtsPanel {
 
         try (BlendScope blend = BlendScope.normal()) {
             // 浮窗背景（向右延伸以囊括灰度条）
-            RtsClientUiUtil.drawNineSliceFloatingPanel(g, panelX, panelY, panelW, panelH);
+            SpriteRenderer.drawNineSliceFloatingPanel(g, panelX, panelY, panelW, panelH);
 
             // 轮盘
             wheelComponent.renderWheel(g, wheelImgX, wheelImgY);
@@ -303,85 +297,36 @@ public class ColorPickerPanel extends RtsPanel {
                     mouseX, mouseY, grayscaleDragging);
         }
 
-        // ---- 2. 新旧颜色对照预览条（左半=原色，右半=当前色）----
+        // ---- 2. 新旧颜色对照预览条（委托给 ColorPreviewComponent）----
         int previewY = panelY + panelH + 6;
         int previewX = cx + 6;
         int previewW = cw - 12;
-        int midX = previewX + previewW / 2;
-        int oldColor = this.initialColor;
         int newColor = getCurrentColor();
-
-        // 左半：初始颜色
-        g.fill(previewX, previewY, midX, previewY + PREVIEW_BAR_H, oldColor);
-        // 右半：当前颜色
-        g.fill(midX, previewY, previewX + previewW, previewY + PREVIEW_BAR_H, newColor);
-
-        int borderColor = 0xFF666666;
-        // 外边框
-        g.hLine(previewX, previewX + previewW, previewY, borderColor);
-        g.hLine(previewX, previewX + previewW, previewY + PREVIEW_BAR_H, borderColor);
-        g.vLine(previewX, previewY, previewY + PREVIEW_BAR_H, borderColor);
-        g.vLine(previewX + previewW, previewY, previewY + PREVIEW_BAR_H, borderColor);
-        // 中间分隔线
-        g.vLine(midX, previewY, previewY + PREVIEW_BAR_H, borderColor);
-
-        // 在新颜色半区居中显示颜色值（根据当前进制模式）
-        String colorValueStr = hexInput.isHexDisplayMode()
-                ? String.format("#%06X", newColor & 0xFFFFFF)
-                : String.valueOf(newColor & 0xFFFFFF);
-        String oldColorValueStr = hexInput.isHexDisplayMode()
-                ? String.format("#%06X", oldColor & 0xFFFFFF)
-                : String.valueOf(oldColor & 0xFFFFFF);
-        int newColorTextColor = ColorMath.isDarkColor(newColor) ? 0xFFFFFFFF : 0xFF000000;
-        int oldColorTextColor = ColorMath.isDarkColor(oldColor) ? 0xFFFFFFFF : 0xFF000000;
-        int colorValueX = midX + (previewW / 2 - font.width(colorValueStr)) / 2;
-        int oldColorValueX = previewX + (previewW / 2 - font.width(oldColorValueStr)) / 2;
-        int colorValueY = previewY + (PREVIEW_BAR_H - font.lineHeight) / 2 + 1;
-        g.drawString(font, oldColorValueStr, oldColorValueX, colorValueY, oldColorTextColor, false);
-        g.drawString(font, colorValueStr, colorValueX, colorValueY, newColorTextColor, false);
+        colorPreview.render(g, previewX, previewY, previewW,
+                this.initialColor, newColor, hexInput.isHexDisplayMode());
 
         // ---- 3. Hex/Dec 手动输入行（委托给 HexInputComponent）----
-        int hexInputY = previewY + PREVIEW_BAR_H + 3;
+        int hexInputY = previewY + ColorPreviewComponent.PREVIEW_BAR_H + 3;
         this.hexInput.render(g, mouseX, mouseY, previewX, previewW, hexInputY, newColor);
 
-        // ---- 4. 色块选择器（仅多条目组时显示）----
+        // ---- 4. 色块选择器（委托给 SwatchSelectorComponent）----
         int swatchSectionTop = hexInputY + HexInputComponent.INPUT_H + 3;
-        if (hasSwatchSelector()) {
-            int swatchY = swatchSectionTop + (SWATCH_ROW_H - SWATCH_SIZE) / 2;
-            int textCenterY = swatchSectionTop + (SWATCH_ROW_H - font.lineHeight) / 2 + 1;
-            int itemX = cx + 6;
-            for (int i = 0; i < colorGroup.size(); i++) {
-                String name = colorGroup.slot(i).displayName();
-                int slotColor = colorGroup.slot(i).source().getColor();
-                // 色块背景
-                g.fill(itemX, swatchY, itemX + SWATCH_SIZE, swatchY + SWATCH_SIZE, slotColor);
-                // 选中态：白色边框；非选中态：深灰边框
-                int swatchBorder = (i == activeSlotIndex) ? 0xFFFFFFFF : 0xFF444444;
-                g.hLine(itemX - 1, itemX + SWATCH_SIZE, swatchY - 1, swatchBorder);
-                g.hLine(itemX - 1, itemX + SWATCH_SIZE, swatchY + SWATCH_SIZE, swatchBorder);
-                g.vLine(itemX - 1, swatchY - 1, swatchY + SWATCH_SIZE, swatchBorder);
-                g.vLine(itemX + SWATCH_SIZE, swatchY - 1, swatchY + SWATCH_SIZE, swatchBorder);
-                // 色块右侧绘制文字标签
-                RtsClientUiUtil.drawUiText(g, name, itemX + SWATCH_SIZE + 3, textCenterY, textColor);
-                // 移动到下一个条目（色块宽度 + 文字间距 + 文字宽度 + 条目间距）
-                itemX += SWATCH_SIZE + 3 + font.width(name) + 12;
-            }
-        }
+        swatchSelector.render(g, mouseX, mouseY, colorGroup, activeSlotIndex, swatchSectionTop);
 
-        // ---- 4. 色调和饱和度滑条 ----
+        // ---- 5. 色调和饱和度滑条 ----
         int wheelSectionBottom = panelY + panelH;
-        // Hex 输入行 + 3px间隙+3px间隙 + 可选色块选择器
-        int extraSectionH = HexInputComponent.INPUT_H + 6 + (hasSwatchSelector() ? SWATCH_ROW_H : 0);
+        int extraSectionH = HexInputComponent.INPUT_H + 6 + (hasSwatchSelector() ? SwatchSelectorComponent.ROW_H : 0);
         int[] sliderLayout = computeSliderSectionLayout(cx, cw, wheelSectionBottom, extraSectionH);
         int sliderSectionY = sliderLayout[0];
         int sliderTrackX = sliderLayout[1];
         int sliderTrackW = sliderLayout[2];
 
-        RtsClientUiUtil.drawUiText(g, "色相", cx + 6, sliderSectionY - 1, textColor);
+        int textColor = ThemeManager.getTextColor();
+        TextRenderer.draw(g, "色相", cx + 6, sliderSectionY - 1, textColor);
         hueSlider.render(g, mouseX, mouseY, sliderTrackX, sliderSectionY, sliderTrackW, 0.0, 1.0, hueValue);
 
         int satSliderY = sliderSectionY + SLIDER_ROW_GAP;
-        RtsClientUiUtil.drawUiText(g, "饱和度", cx + 6, satSliderY - 1, textColor);
+        TextRenderer.draw(g, "饱和度", cx + 6, satSliderY - 1, textColor);
         satSlider.render(g, mouseX, mouseY, sliderTrackX, satSliderY, sliderTrackW, 0.0, 1.0, saturationValue);
     }
 
@@ -415,23 +360,15 @@ public class ColorPickerPanel extends RtsPanel {
             return;
         }
 
-        // ---- 3. 检测色块选择器点击（多条目组时切换活跃条目）----
+        // ---- 3. 检测色块选择器点击（委托给 SwatchSelectorComponent）----
         if (hasSwatchSelector()) {
             int previewY = wheelLayout[1] + wheelLayout[3] + 6;
-            int hexInputY = previewY + PREVIEW_BAR_H + 3;
+            int hexInputY = previewY + ColorPreviewComponent.PREVIEW_BAR_H + 3;
             int swatchSectionTop = hexInputY + HexInputComponent.INPUT_H + 3;
-            int swatchY = swatchSectionTop + (SWATCH_ROW_H - SWATCH_SIZE) / 2;
-            int itemX = cx + 6;
-            Font clickFont = Minecraft.getInstance().font;
-            for (int i = 0; i < colorGroup.size(); i++) {
-                String name = colorGroup.slot(i).displayName();
-                int itemW = SWATCH_SIZE + 3 + clickFont.width(name);
-                if (mouseX >= itemX && mouseX < itemX + itemW
-                        && mouseY >= swatchY && mouseY < swatchY + SWATCH_SIZE) {
-                    switchToSlot(i);
-                    return;
-                }
-                itemX += itemW + 12;
+            int hitIndex = swatchSelector.hitTest(mouseX, mouseY, colorGroup, swatchSectionTop);
+            if (hitIndex >= 0) {
+                switchToSlot(hitIndex);
+                return;
             }
         }
 
@@ -439,9 +376,7 @@ public class ColorPickerPanel extends RtsPanel {
         int previewY = wheelLayout[1] + wheelLayout[3] + 6;
         int previewX = cx + 6;
         int previewW = cw - 12;
-        int midX = previewX + previewW / 2;
-        if (mouseX >= previewX && mouseX < midX
-                && mouseY >= previewY && mouseY < previewY + PREVIEW_BAR_H) {
+        if (colorPreview.isClickOnInitialColor(mouseX, mouseY, previewX, previewW, previewY)) {
             if (hexInput.isEditMode()) {
                 hexInput.cancelEdit();
             }
@@ -451,14 +386,13 @@ public class ColorPickerPanel extends RtsPanel {
         }
 
         // ---- 5. 检测 Hex/Dec 输入框及模式切换按钮点击（委托给 HexInputComponent）----
-        int hexInputY = previewY + PREVIEW_BAR_H + 3;
+        int hexInputY = previewY + ColorPreviewComponent.PREVIEW_BAR_H + 3;
         if (this.hexInput.handleClick(mouseX, mouseY, hexInputY, previewX, previewW, getCurrentColor())) {
             return;
         }
 
         // ---- 6. 检测色调滑条点击 ----
-        // Hex 输入行 + 3px间隙+3px间隙 + 可选色块选择器
-        int extraSectionH = HexInputComponent.INPUT_H + 6 + (hasSwatchSelector() ? SWATCH_ROW_H : 0);
+        int extraSectionH = HexInputComponent.INPUT_H + 6 + (hasSwatchSelector() ? SwatchSelectorComponent.ROW_H : 0);
         int wheelSectionBottom = wheelLayout[1] + wheelLayout[3];
         int[] sliderLayout = computeSliderSectionLayout(cx, cw, wheelSectionBottom, extraSectionH);
         int sliderSectionY = sliderLayout[0];
@@ -523,8 +457,6 @@ public class ColorPickerPanel extends RtsPanel {
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
         return this.hexInput.handleCharTyped(codePoint, modifiers);
     }
-
-
 
     private void pickWheelColor(double mouseX, double mouseY, int wheelImgX, int wheelImgY) {
         ColorWheelComponent.WheelPickResult result = wheelComponent.pickColor(mouseX, mouseY, wheelImgX, wheelImgY);
@@ -632,21 +564,9 @@ public class ColorPickerPanel extends RtsPanel {
         int maxWidth = Math.max(wheelWidth, inputLineWidth);
         // 当有色块选择器时，确保宽度能容纳所有色块+文字标签
         if (colorGroup != null && colorGroup.size() > 1) {
-            maxWidth = Math.max(maxWidth, computeSwatchSelectorWidth());
+            maxWidth = Math.max(maxWidth, swatchSelector.computeMinWidth(colorGroup));
         }
         return maxWidth;
-    }
-
-    /** 计算色块选择器（含文字标签）所需的最小宽度 */
-    private int computeSwatchSelectorWidth() {
-        Font font = Minecraft.getInstance().font;
-        int total = 6; // 左内边距
-        for (int i = 0; i < colorGroup.size(); i++) {
-            if (i > 0) total += 12; // 条目间距
-            total += SWATCH_SIZE + 3 + font.width(colorGroup.slot(i).displayName());
-        }
-        total += 4; // 右内边距，确保文字不贴面板边缘
-        return total;
     }
 
     /** 计算输入行（标签 + 输入框 + 模式按钮）所需的最小内容宽度 */
@@ -661,10 +581,10 @@ public class ColorPickerPanel extends RtsPanel {
     private int computeContentHeight() {
         int h = 4; // panelY = cy + 4
         h += ColorWheelComponent.AREA_SIZE; // 轮盘浮窗区
-        h += 6 + PREVIEW_BAR_H; // gap + 预览条
+        h += 6 + ColorPreviewComponent.PREVIEW_BAR_H; // gap + 预览条
         h += 3 + HexInputComponent.INPUT_H + 3; // gap + Hex 输入行 + gap
         if (hasSwatchSelector()) {
-            h += SWATCH_ROW_H; // 可选色块选择器
+            h += SwatchSelectorComponent.ROW_H; // 可选色块选择器
         }
         h += 6 + SLIDER_GAP; // 到滑条段的 gap
         h += SLIDER_ROW_GAP + SLIDER_TRACK_H + SLIDER_CLICK_PAD; // 饱和度滑条底部
@@ -675,8 +595,8 @@ public class ColorPickerPanel extends RtsPanel {
     @Override
     protected void computeDefaultPosition() {
         if (this.screen != null) {
-            this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
-            this.windowY = Math.max(60, (this.screen.height - this.windowHeight) / 2);
+            setWindowX(Math.max(8, (this.screen.width - getWindowWidth()) / 2));
+            setWindowY(Math.max(60, (this.screen.height - getWindowHeight()) / 2));
         }
     }
 

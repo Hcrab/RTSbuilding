@@ -2,10 +2,11 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
 
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.BasePopup;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -109,7 +110,7 @@ public final class LogoMenuPopup extends BasePopup {
                 TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
                 TextureInfo.FilterMode.PIXEL);
         SpriteRegion iconRegion = new SpriteRegion(settingTex, 0, 0, SETTING_HALF_W, SETTING_TEX_H).withTheme();
-        RtsClientUiUtil.drawSprite(g, iconRegion,
+        SpriteRenderer.drawSprite(g, iconRegion,
                 iconX, iconY, SETTING_ICON_SIZE, SETTING_ICON_SIZE);
 
         // 文字（跟在图标后面）
@@ -117,13 +118,13 @@ public final class LogoMenuPopup extends BasePopup {
         String label = items.get(index).label().getString();
         int textX = iconX + SETTING_ICON_SIZE + 4;
         int textY = iconY + (SETTING_ICON_SIZE - Minecraft.getInstance().font.lineHeight) / 2 + 1;
-        RtsClientUiUtil.drawUiText(g, label, textX, textY, textColor);
+        TextRenderer.draw(g, label, textX, textY, textColor);
 
         // 快捷键文字（跟在主文字后面，颜色更暗/弱，不受悬浮影响）
         int shortcutColor = ThemeManager.getInstance().isLightMode() ? LIGHT_SHORTCUT_COLOR : DARK_SHORTCUT_COLOR;
         String shortcutLabel = RtsKeyMappings.OPEN_GEAR_MENU_KEY.getTranslatedKeyMessage().getString();
         int shortcutX = textX + Minecraft.getInstance().font.width(label) + LABEL_TO_SHORTCUT_GAP;
-        RtsClientUiUtil.drawUiText(g, shortcutLabel, shortcutX, textY, shortcutColor);
+        TextRenderer.draw(g, shortcutLabel, shortcutX, textY, shortcutColor);
     }
 
     @Override

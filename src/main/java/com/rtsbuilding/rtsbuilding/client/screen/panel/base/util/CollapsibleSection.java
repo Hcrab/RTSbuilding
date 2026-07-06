@@ -2,6 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.base.util;
 
 import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -66,11 +72,11 @@ public class CollapsibleSection {
     private String cachedTitle;
 
     /** 箭头旋转平滑动画器 */
-    private final SmoothAnimator arrowAnim = AnimationFactory.createHoverAnim();
+    private final FloatAnimation arrowAnim = AnimationFactory.newHoverAnim();
     /** 悬浮状态管理器 */
     private final HoverStateManager hoverState = new HoverStateManager();
     /** 内容展开/收起平滑动画器 */
-    private final SmoothAnimator contentAnim = AnimationFactory.createExpandAnim();
+    private final FloatAnimation contentAnim = AnimationFactory.newExpandAnim();
     private int contentFullHeight;
 
     // ======================== 构造与状态管理 ========================
@@ -136,7 +142,7 @@ public class CollapsibleSection {
      */
     private void renderHoverBackground(GuiGraphics g, int x, int y, int sectionWidth) {
         float t = this.hoverState.getValue();
-        RtsClientUiUtil.renderCrossFade(t,
+        CrossFadeRenderer.render(t,
                 () -> renderStateBackground(g, x, y, sectionWidth, 0),
                 () -> renderStateBackground(g, x, y, sectionWidth, FOLD_TEX_STATE_H));
     }
@@ -150,7 +156,7 @@ public class CollapsibleSection {
         // 折叠条背景九宫格：展开时向下延伸覆盖标题栏+内容区
         // 收起时只绘制标题栏区域
         int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * getContentProgress());
-        RtsClientUiUtil.drawNineSliceRegion(g, FOLD_NINE_SLICE.withTheme().withVOffset(vOffset),
+        SpriteRenderer.drawNineSlice(g, FOLD_NINE_SLICE.withTheme().withVOffset(vOffset),
                 x, y, sectionWidth, bgH);
     }
 
@@ -168,7 +174,7 @@ public class CollapsibleSection {
         g.pose().translate(-halfBtn, -halfBtn, 0);
         SpriteRegion arrowRegion = new SpriteRegion(FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_TEX_W, FOLD_ARROW_STATE_H)
                 .withTheme();
-        RtsClientUiUtil.drawSprite(g, arrowRegion, 0, 0, FOLD_BTN_SIZE, FOLD_BTN_SIZE);
+        SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, FOLD_BTN_SIZE, FOLD_BTN_SIZE);
         g.pose().popPose();
     }
 
@@ -180,7 +186,7 @@ public class CollapsibleSection {
             cachedTitle = Component.translatable(this.titleKey).getString();
         }
         int maxTitleWidth = Math.max(8, sectionWidth - TITLE_WIDTH_SUB);
-        RtsClientUiUtil.drawUiText(g, RtsClientUiUtil.trimToWidth(Minecraft.getInstance().font, cachedTitle, maxTitleWidth),
+        TextRenderer.draw(g, TextRenderer.trimToWidth(Minecraft.getInstance().font, cachedTitle, maxTitleWidth),
                 x + TITLE_X_OFFSET, y + TITLE_Y_OFFSET,
                 ThemeManager.getTextColor());
     }

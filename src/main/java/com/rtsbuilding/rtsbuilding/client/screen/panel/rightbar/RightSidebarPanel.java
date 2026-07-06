@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.EdgeResizeHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -89,8 +90,34 @@ public final class RightSidebarPanel implements RtsPanelApi {
     private static final NineSliceRegion OVERLAY_NINE_SLICE = NineSliceRegion.fullTheme(
             OVERLAY_TEX_INFO, OVERLAY_STATE_H, OVERLAY_BORDER);
 
-    /** 左边框拖拽缩放处理器 */
-    private final RightSidebarResizeHandler resizeHandler = new RightSidebarResizeHandler();
+    /** 布局帮助类实例 */
+    private final RightSidebarLayoutHelper layout = new RightSidebarLayoutHelper();
+
+    /** 左边框拖拽缩放处理器（水平 LEADING 边） */
+    private final EdgeResizeHandler resizeHandler = new EdgeResizeHandler(
+            EdgeResizeHandler.Orientation.HORIZONTAL,
+            EdgeResizeHandler.Side.LEADING,
+            20);
+
+    // ======================== 嵌层分隔条拖拽状态 ========================
+
+    /** 上嵌层高度（像素），-1 表示使用默认黄金比例 */
+    private int upperOverlayHeight = -1;
+
+    /** 是否正在拖拽嵌层分隔条 */
+    private boolean isDraggingOverlayDivider;
+
+    /** 拖拽起始鼠标 Y */
+    private int dragOverlayDividerStartY;
+
+    /** 拖拽起始上嵌层高度 */
+    private int dragOverlayDividerStartUpperH;
+
+    /** 分隔条可点击区域半高（以分隔线中心向两边延伸） */
+    private static final int OVERLAY_DIVIDER_HALF_HIT = 2;
+
+    /** 嵌层最小高度 */
+    private static final int OVERLAY_MIN_SIZE = 20;
 
     @Override
     public void init(BuilderScreen screen) {
@@ -98,11 +125,39 @@ public final class RightSidebarPanel implements RtsPanelApi {
                 "RightSidebarPanel.init() called with null screen");
     }
 
+    /**
+     * 计算基于黄金比例的默认上嵌层高度。
+     */
+    private int defaultUpperOverlayHeight(int totalH) {
+        int gap = 1;
+        return Math.max(OVERLAY_MIN_SIZE, (totalH - gap) * 8 / 21);
+    }
+
+    /**
+     * 将上嵌层高度钳制到合法范围，确保上下嵌层均不小于最小尺寸。
+     */
+    private int clampUpperOverlayHeight(int h, int totalH) {
+        int gap = 1;
+        int maxUpper = totalH - gap - OVERLAY_MIN_SIZE;
+        return Math.max(OVERLAY_MIN_SIZE, Math.min(maxUpper, h));
+    }
+
+    /**
+     * 获取当前有效的上嵌层高度（处理 -1 默认值并钳制范围）。
+     */
+    private int resolveUpperOverlayHeight() {
+        RightSidebarLayoutHelper.Rect sb = layoutRect();
+        if (this.upperOverlayHeight <= 0) {
+            return defaultUpperOverlayHeight(sb.height());
+        }
+        return clampUpperOverlayHeight(this.upperOverlayHeight, sb.height());
+    }
+
     // ======================== 布局快捷方法 ========================
 
     /** {@link RightSidebarLayoutHelper#sidebarRect} 的快捷调用，免去重复传参。 */
     private RightSidebarLayoutHelper.Rect layoutRect() {
-        return RightSidebarLayoutHelper.sidebarRect(
+        return layout.sidebarRect(
                 this.screen.width, this.screen.height, this.currentWidth);
     }
 
@@ -113,17 +168,19 @@ public final class RightSidebarPanel implements RtsPanelApi {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
 
         int srcY = resizeHandler.isActive() ? STATE_H : 0;
-        RtsClientUiUtil.drawNineSliceRegion(g, RIGHT_NINE_SLICE.withTheme().withVOffset(srcY),
+        SpriteRenderer.drawNineSlice(g, RIGHT_NINE_SLICE.withTheme().withVOffset(srcY),
                 sb.x(), sb.y(), sb.width(), sb.height());
     }
 
     /**
      * 渲染内嵌层（overlay_ui.png）——由 BuilderScreen 在右边栏之上独立调用，作为装饰层。
      * <p>水平分为上下两个嵌层，中间间隔 1px。每块嵌层与 {@link ScreenBackgroundPanel} 相同贴图逻辑：
-     * 水平左半=暗色主题、右半=亮色主题，由 {@link RtsClientUiUtil#drawNineSliceRegion} 自动切换；
+     * 水平左半=暗色主题、右半=亮色主题，由 {@link SpriteRenderer#drawNineSlice} 自动切换；
      * 垂直上半=正常状态、下半=鼠标位于对应嵌层区域内时使用。</p>
+     * <p>分隔条（上下嵌层之间的 1px 间隙）支持拖拽调整上下比例。</p>
      */
-    public void renderOverlay(GuiGraphics g, int mouseX, int mouseY) {
+    @Override
+    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
         // 左边缩小 1px，让内嵌层与右边栏左边缘保持 1px 间距
         int ox = sb.x() + 1;
@@ -132,14 +189,49 @@ public final class RightSidebarPanel implements RtsPanelApi {
 
         int totalH = sb.height();
         int gap = 1;
-        // 上嵌层 : 下嵌层 = 黄金比例（φ ≈ 1.618，取斐波那契近似 8:13）
-        int upperH = (totalH - gap) * 8 / 21;
+        // 使用用户拖拽调整后的上嵌层高度，未调整时使用默认黄金比例
+        int upperH = resolveUpperOverlayHeight();
 
         // 上嵌层
         renderOverlayPart(g, ox, sb.y(), ow, upperH, mouseX, mouseY);
         // 下嵌层（中间间隔 1px）
         int bottomY = sb.y() + upperH + gap;
-        renderOverlayPart(g, ox, bottomY, ow, totalH - upperH - gap, mouseX, mouseY);
+        int lowerH = totalH - upperH - gap;
+        if (lowerH > 0) {
+            renderOverlayPart(g, ox, bottomY, ow, lowerH, mouseX, mouseY);
+        }
+    }
+
+    /**
+     * 公开方法：检测鼠标是否位于嵌层分隔条区域（供 {@link BuilderScreen} 更新光标用）。
+     */
+    public boolean isMouseOverOverlayDivider(int mx, int my) {
+        return isMouseOverRightOverlayDivider(mx, my);
+    }
+
+    /**
+     * 检测鼠标是否位于右边栏上/下嵌层分隔条的可点击区域上。
+     */
+    private boolean isMouseOverRightOverlayDivider(int mx, int my) {
+        RightSidebarLayoutHelper.Rect sb = layoutRect();
+        if (sb.width() <= 0 || sb.height() <= 0) return false;
+        // 水平方向：在整个嵌层宽度范围内
+        int ox = sb.x() + 1;
+        int ow = sb.width() - 1;
+        if (mx < ox || mx >= ox + ow) return false;
+        int divY = overlayDividerY();
+        return my >= divY - OVERLAY_DIVIDER_HALF_HIT && my < divY + OVERLAY_DIVIDER_HALF_HIT + 1;
+    }
+
+    /**
+     * 分隔条的 Y 坐标（位于上嵌层与下嵌层的 1px 间隙中心）。
+     */
+    private int overlayDividerY() {
+        RightSidebarLayoutHelper.Rect sb = layoutRect();
+        int totalH = sb.height();
+        if (totalH <= 0) return 0;
+        int upperH = resolveUpperOverlayHeight();
+        return sb.y() + upperH;
     }
 
     /**
@@ -154,20 +246,31 @@ public final class RightSidebarPanel implements RtsPanelApi {
                                    int mouseX, int mouseY) {
         if (oh <= 0) return;
 
-        boolean mouseInArea = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
-                && mouseX >= ox && mouseX < ox + ow
-                && mouseY >= oy && mouseY < oy + oh;
+        // 拖拽分隔条时两个嵌层都强制显示悬浮激活态
+        boolean mouseInArea = isDraggingOverlayDivider
+                || ((this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
+                        && mouseX >= ox && mouseX < ox + ow
+                        && mouseY >= oy && mouseY < oy + oh);
         int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
 
-        RtsClientUiUtil.drawNineSliceRegion(g, OVERLAY_NINE_SLICE.withTheme().withVOffset(srcY),
+        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme().withVOffset(srcY),
                 ox, oy, ow, oh);
     }
 
-    // ======================== 交互：左边框拖拽缩放 ========================
+    // ======================== 交互：左边框拖拽缩放 + 嵌层分隔条拖拽 ========================
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0) return false;
+        int mx = (int) mouseX;
+        int my = (int) mouseY;
+        // 优先检测嵌层分隔条点击
+        if (isMouseOverRightOverlayDivider(mx, my)) {
+            isDraggingOverlayDivider = true;
+            dragOverlayDividerStartY = my;
+            dragOverlayDividerStartUpperH = resolveUpperOverlayHeight();
+            return true;
+        }
         RightSidebarLayoutHelper.Rect sb = layoutRect();
         return resizeHandler.tryBegin(mouseX, mouseY,
                 sb.x(), sb.y(), sb.height(),
@@ -177,6 +280,11 @@ public final class RightSidebarPanel implements RtsPanelApi {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button != 0) return false;
+        if (isDraggingOverlayDivider) {
+            isDraggingOverlayDivider = false;
+            this.screen.persistUiState();
+            return true;
+        }
         if (resizeHandler.isActive()) {
             resizeHandler.end();
             this.screen.persistUiState();
@@ -187,19 +295,40 @@ public final class RightSidebarPanel implements RtsPanelApi {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (button != 0 || !resizeHandler.isActive()) return false;
-        this.currentWidth = resizeHandler.computeWidth(mouseX);
+        if (button != 0) return false;
+        if (isDraggingOverlayDivider) {
+            int my = (int) mouseY;
+            int deltaY = my - dragOverlayDividerStartY;
+            int newUpperH = dragOverlayDividerStartUpperH + deltaY;
+            RightSidebarLayoutHelper.Rect sb = layoutRect();
+            int totalH = sb.height();
+            if (totalH > 0) {
+                this.upperOverlayHeight = clampUpperOverlayHeight(newUpperH, totalH);
+            }
+            return true;
+        }
+        if (!resizeHandler.isActive()) return false;
+        this.currentWidth = resizeHandler.computeNewSize(mouseX);
         return true;
+    }
+
+    // ======================== 状态重置 ========================
+
+    /**
+     * 当屏幕大小变化导致布局失效时，重置嵌层分隔条拖拽状态。
+     */
+    public void resetOverlayDividerDrag() {
+        isDraggingOverlayDivider = false;
     }
 
     /**
      * 检测鼠标是否悬停在左边框缩放区域上（供 {@link BuilderScreen}
      * 更新光标样式用）。
-     * <p>委托给 {@link RightSidebarResizeHandler#isOverLeftEdge}。</p>
+     * <p>委托给 {@link EdgeResizeHandler#isOverEdge}。</p>
      */
     public boolean isMouseOverLeftEdge(int mx, int my) {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
-        return resizeHandler.isOverLeftEdge(mx, my, sb.x(), sb.y(), sb.height());
+        return resizeHandler.isOverEdge(mx, my, sb.x(), sb.y(), sb.height());
     }
 
     @Override
@@ -211,7 +340,13 @@ public final class RightSidebarPanel implements RtsPanelApi {
                         s -> s.rightSidebarWidth,
                         (s, v) -> s.rightSidebarWidth = v,
                         () -> this.currentWidth,
-                        v -> this.currentWidth = v)
+                        v -> this.currentWidth = v),
+                PersistableProperty.intField(
+                        pk + ".upperOverlayHeight",
+                        s -> s.rightSidebarUpperOverlayH,
+                        (s, v) -> s.rightSidebarUpperOverlayH = v,
+                        () -> this.upperOverlayHeight,
+                        v -> this.upperOverlayHeight = v)
         );
     }
 }

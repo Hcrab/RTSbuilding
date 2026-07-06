@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.module.storage;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
@@ -32,7 +33,8 @@ public final class StorageState {
     private boolean bdNetworkEnabled = true;
     private String linkedStorageName = "No Storage";
     private final List<BlockPos> linkedPositions = new ArrayList<>();
-    private final List<Object> linkedEntries = new ArrayList<>();
+    /** 已链接的存储方块列表（用于渲染线框） */
+    private final List<LinkedStorageEntry> linkedStorageEntries = new ArrayList<>();
     private int storagePage, storagePageSize = 90, storageTotalPages = 1, storageTotalEntries;
     private int storageRevision;
     private String storageSearch = "", storageCategory = "all";
@@ -131,6 +133,21 @@ public final class StorageState {
         this.fluidEntries.clear();
         this.recentEntries.clear();
 
+        // 处理链接存储数据
+        this.linkedPositions.clear();
+        this.linkedStorageEntries.clear();
+        int linkedSize = Math.min(payload.linkedPositions().size(), payload.linkedWorldAvailable().size());
+        for (int i = 0; i < linkedSize; i++) {
+            Long packed = payload.linkedPositions().get(i);
+            if (packed == null) continue;
+            BlockPos pos = BlockPos.of(packed);
+            this.linkedPositions.add(pos);
+            byte mode = i < payload.linkedModes().size() ? payload.linkedModes().get(i) : 0;
+            boolean available = i < payload.linkedWorldAvailable().size()
+                    ? Boolean.TRUE.equals(payload.linkedWorldAvailable().get(i)) : false;
+            this.linkedStorageEntries.add(new LinkedStorageEntry(pos, mode, available));
+        }
+
         int size = Math.min(payload.itemStacks().size(), payload.counts().size());
         for (int i = 0; i < size; i++) {
             ItemStack stack = payload.itemStacks().get(i);
@@ -198,6 +215,8 @@ public final class StorageState {
         this.storageEntries.clear();
         this.fluidEntries.clear();
         this.recentEntries.clear();
+        this.linkedPositions.clear();
+        this.linkedStorageEntries.clear();
         this.storageLinked = false;
         this.storagePage = 0;
         this.storageTotalPages = 1;
@@ -235,7 +254,7 @@ public final class StorageState {
     public boolean isStorageCollapsed() { return storageCollapsed; }
     public void toggleCollapsed() { this.storageCollapsed = !this.storageCollapsed; }
     public boolean hasAnyStorageContent() {
-        return storageLinked || !storageEntries.isEmpty() || !fluidEntries.isEmpty();
+        return storageLinked || !linkedPositions.isEmpty() || !storageEntries.isEmpty() || !fluidEntries.isEmpty();
     }
     public int getRevision() { return storageRevision; }
     public List<Object> getStorageEntries() { return storageEntries; }
@@ -244,6 +263,8 @@ public final class StorageState {
     public List<Object> getFunnelBufferEntries() { return funnelBuffer; }
     public List<Object> getCraftableEntries() { return craftableEntries; }
     public List<String> getStorageCategories() { return storageCategories; }
+    /** 获取已链接的存储方块列表（用于渲染角支架线框） */
+    public List<LinkedStorageEntry> getLinkedStorageEntries() { return linkedStorageEntries; }
     public int getPage() { return storagePage; }
     public int getTotalPages() { return storageTotalPages; }
     public String getSearch() { return storageSearch; }

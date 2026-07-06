@@ -37,6 +37,9 @@ public final class LeftSidebarPanel implements RtsPanelApi {
      */
     private int currentWidth = LeftSidebarLayoutHelper.SIDEBAR_WIDTH;
 
+    /** 布局帮助类实例——不再使用静态方法调用 */
+    private final LeftSidebarLayoutHelper layout = new LeftSidebarLayoutHelper();
+
     /** 选择组（click + select），位于上方 */
     private final SelectButtonGroup selectGroup = new SelectButtonGroup();
     /** 操作组（bind + rotate + pickup），位于选择组下方 */
@@ -80,6 +83,14 @@ public final class LeftSidebarPanel implements RtsPanelApi {
     }
 
     /**
+     * bind_button（索引 0）是否处于选中状态。
+     * 外部组件（如 {@link BuilderScreen}）通过此方法判断是否处于绑定模式。
+     */
+    public boolean isBindModeActive() {
+        return actionGroup.isSelected(0);
+    }
+
+    /**
      * 切换绑定模式（bind_button 开/关），由快捷键 Ctrl+G 触发。
      */
     public void toggleBindMode() {
@@ -104,7 +115,7 @@ public final class LeftSidebarPanel implements RtsPanelApi {
 
     /** {@link LeftSidebarLayoutHelper#sidebarRect} 的快捷调用，免去重复传参。 */
     private LeftSidebarLayoutHelper.Rect layoutRect() {
-        return LeftSidebarLayoutHelper.sidebarRect(
+        return layout.sidebarRect(
                 this.screen.width, this.screen.height, this.currentWidth);
     }
 
@@ -128,6 +139,18 @@ public final class LeftSidebarPanel implements RtsPanelApi {
 
         // group 0: 选择组（click + select）
         selectGroup.render(g, mouseX, mouseY, bx, baseY);
+
+        // 绑定按钮：交互模式下始终显示（点击/框选模式均可用）
+        boolean showBind = screen != null && screen.isInteractiveMode();
+        actionGroup.setShowBindButton(showBind);
+
+        // 旋转按钮：交互模式下隐藏（选择/建造/蓝图模式下显示）
+        boolean showRotate = screen == null || !screen.isInteractiveMode();
+        actionGroup.setShowRotateButton(showRotate);
+
+        // 蓝图模式：只显示漏斗按钮
+        boolean blueprint = screen != null && screen.isBlueprintMode();
+        actionGroup.setBlueprintMode(blueprint);
 
         // group 1: 操作组（bind + rotate + pickup）
         int actionY = baseY + selectGroup.totalHeight() + CROSS_GAP;
@@ -169,9 +192,20 @@ public final class LeftSidebarPanel implements RtsPanelApi {
     }
 
     /**
-     * 渲染各按钮的 tooltip 覆盖层（在步骤 4 中调用，确保在其他 UI 之上）。
+     * 渲染各按钮的 tooltip 覆盖层——实现 {@link RtsPanelApi#renderOverlays} 标准接口。
+     * <p>替代原先的 {@link #renderTooltipOverlays} 自定义方法名，
+     * 使 LeftSidebarPanel 与 TopBarPanel 等面板的覆盖层渲染接口保持一致，
+     * 为后续 {@link com.rtsbuilding.rtsbuilding.client.screen.layout.PanelRegistry} 统一编排铺路。</p>
      */
-    public void renderTooltipOverlays(GuiGraphics g, int mouseX, int mouseY) {
+    @Override
+    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
+        renderTooltipOverlays(g, mouseX, mouseY);
+    }
+
+    /**
+     * 渲染各按钮的 tooltip 覆盖层（内部实现，供 {@link #renderOverlays} 委托调用）。
+     */
+    private void renderTooltipOverlays(GuiGraphics g, int mouseX, int mouseY) {
         int bx = btnX();
         int baseY = groupBaseY();
         int actionY = baseY + selectGroup.totalHeight() + CROSS_GAP;

@@ -74,6 +74,10 @@ public final class RenderPipeline {
     public final BoxSelector boxSelector = new BoxSelector();
     /** 框选渲染 pass，供外部清除缓存 */
     public BoxSelectionPass boxSelectionPass;
+    /** 已链接存储渲染 pass，供外部清理动画状态 */
+    public LinkedStoragePass linkedStoragePass;
+    /** 实体选择高亮 pass，供外部注入高亮状态源 */
+    public EntitySelectHighlightPass entitySelectHighlightPass;
 
     // ======================================================================
     //  Construction
@@ -88,10 +92,16 @@ public final class RenderPipeline {
 
         registerPass(new BoundaryPass());
         registerPass(new InteractionTargetPass());
+        registerPass(new LinkedStoragePass());
+        var lsp = (LinkedStoragePass) passes.get(passes.size() - 1);
+        this.linkedStoragePass = lsp;
         registerPass(new BlueprintGhostPass());
         var bsp = new BoxSelectionPass(boxSelector);
         this.boxSelectionPass = bsp;
         registerPass(bsp);
+        var eshp = new EntitySelectHighlightPass();
+        this.entitySelectHighlightPass = eshp;
+        registerPass(eshp);
     }
 
     // ======================================================================

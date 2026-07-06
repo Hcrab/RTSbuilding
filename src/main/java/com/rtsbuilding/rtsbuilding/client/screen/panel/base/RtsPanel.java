@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base;
 
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.PanelBounds;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.PanelDragHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.PanelResizeHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.ResizeEdge;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.util.RtsButton;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.component.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
@@ -61,16 +62,11 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     //  面板状态字段
     // ======================================================================
 
+    /** 面板边界管理器——统一管理窗口位置、尺寸、初始化和脏标记 */
+    protected final PanelBounds bounds = new PanelBounds(0, 0);
+
     /** 所属的 BuilderScreen 引用，在 init() 中设置 */
     protected BuilderScreen screen;
-    /** 窗口左上角 X */
-    protected int windowX;
-    /** 窗口左上角 Y */
-    protected int windowY;
-    /** 窗口宽度 */
-    protected int windowWidth;
-    /** 窗口高度 */
-    protected int windowHeight;
     /** 窗口是否处于打开状态 */
     protected boolean open;
     /** 鼠标是否悬浮在窗口范围内 */
@@ -82,12 +78,6 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     /** 是否显示关闭按钮并允许 ESC 关闭 */
     protected boolean closable = true;
 
-    /** 初始化时的默认宽度（由 getDefaultWidth() + minWidth 决定） */
-    private int defaultWidth;
-    /** 初始化时的默认高度（由 getDefaultHeight() + minHeight 决定） */
-    private int defaultHeight;
-    /** 位置是否已初始化 */
-    private boolean positionInitialized;
     /** 最后点击时间戳，用于 Z 顺序排序 */
     private long lastClickTime = System.nanoTime();
     /** 关闭按钮实例 */
@@ -96,10 +86,6 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     final PanelResizeHandler resizeHandler = new PanelResizeHandler(this);
     /** 窗口拖拽处理器 */
     final PanelDragHandler dragHandler = new PanelDragHandler(this);
-    /** 边界是否已变更（供持久化系统消费） */
-    private boolean boundsDirty;
-    /** 用户是否曾手动设置过边界 */
-    private boolean userBoundsPreference;
     /** 是否跳过悬浮检测（由浮动窗口层控制，避免下层窗口抢占悬浮态） */
     private boolean skipHoverDetection;
 
@@ -166,11 +152,6 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     /** 面板背景悬浮状态管理器 */
     private final HoverStateManager panelHoverState = new HoverStateManager();
 
-    /** 平滑渲染位置的 X 坐标（视觉渲染用，逻辑位置为 windowX） */
-    private float visualX;
-    /** 平滑渲染位置的 Y 坐标（视觉渲染用，逻辑位置为 windowY） */
-    private float visualY;
-
 
     // ======================================================================
     //  光标枚举
@@ -236,8 +217,9 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     @Override
     public void init(BuilderScreen screen) {
         this.screen = screen;
-        this.defaultWidth = Math.max(getMinWindowWidth(), getDefaultWidth());
-        this.defaultHeight = Math.max(getMinWindowHeight(), getDefaultHeight());
+        bounds.setDefaults(
+                Math.max(getMinWindowWidth(), getDefaultWidth()),
+                Math.max(getMinWindowHeight(), getDefaultHeight()));
         this.closeButton = createCloseButton();
     }
 
@@ -262,11 +244,10 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         if (!this.resizeHandler.isResizing()) {
             clampWindowToScreen();
         }
-        updateVisualPosition();
         updatePanelHoverState(mouseX, mouseY);
 
         if (this.skipHoverDetection) {
-            HoverStateManager.setGloballySuppressed(true);
+            HoverStateManager.floatingWindowSuppression().setSuppressed(true);
         }
         boolean needScissor = shouldClipContent();
         try {
@@ -281,7 +262,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
             g.flush();
         } finally {
             if (this.skipHoverDetection) {
-                HoverStateManager.setGloballySuppressed(false);
+                HoverStateManager.floatingWindowSuppression().setSuppressed(false);
             }
             if (needScissor) {
                 g.disableScissor();
@@ -353,15 +334,15 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     //  位置/尺寸访问器
     // ======================================================================
 
-    public int getWindowX() { return this.windowX; }
-    public int getWindowY() { return this.windowY; }
-    public int getWindowWidth() { return this.windowWidth; }
-    public int getWindowHeight() { return this.windowHeight; }
+    public int getWindowX() { return bounds.getX(); }
+    public int getWindowY() { return bounds.getY(); }
+    public int getWindowWidth() { return bounds.getWidth(); }
+    public int getWindowHeight() { return bounds.getHeight(); }
 
-    public void setWindowX(int x) { this.windowX = x; }
-    public void setWindowY(int y) { this.windowY = y; }
-    public void setWindowWidth(int width) { this.windowWidth = width; }
-    public void setWindowHeight(int height) { this.windowHeight = height; }
+    public void setWindowX(int x) { bounds.setX(x); }
+    public void setWindowY(int y) { bounds.setY(y); }
+    public void setWindowWidth(int width) { bounds.setWidth(width); }
+    public void setWindowHeight(int height) { bounds.setHeight(height); }
 
     /** 获取关联的 BuilderScreen */
     public BuilderScreen getScreen() { return this.screen; }
@@ -373,10 +354,13 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     public void markBroughtToFront() { this.lastClickTime = System.nanoTime(); }
 
     /** 位置是否已初始化 */
-    public boolean hasInitializedBounds() { return this.positionInitialized; }
+    public boolean hasInitializedBounds() { return bounds.isInitialized(); }
 
     /** 用户是否曾手动设置过边界 */
-    public boolean hasUserBoundsPreference() { return this.userBoundsPreference; }
+    public boolean hasUserBoundsPreference() { return bounds.hasUserPreference(); }
+
+    /** 当前是否正在被用户拖拽缩放 */
+    protected boolean isResizing() { return resizeHandler.isResizing(); }
 
     // ======================================================================
     //  边界管理
@@ -388,9 +372,9 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
      */
     public void setPosition(int x, int y) {
         ensureSizeInitialized();
-        this.windowX = x;
-        this.windowY = y;
-        this.positionInitialized = true;
+        bounds.setX(x);
+        bounds.setY(y);
+        bounds.setInitialized(true);
         clampWindowToScreen();
         markUserBoundsDirty();
     }
@@ -400,12 +384,12 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
      * 触发边界变更标记以供持久化。
      */
     public void setBounds(int x, int y, int width, int height) {
-        this.windowX = x;
-        this.windowY = y;
-        this.windowWidth = Math.max(getMinWindowWidth(), width);
-        this.windowHeight = Math.max(getMinWindowHeight(), height);
+        bounds.setX(x);
+        bounds.setY(y);
+        bounds.setWidth(Math.max(getMinWindowWidth(), width));
+        bounds.setHeight(Math.max(getMinWindowHeight(), height));
         clampWindowSize();
-        this.positionInitialized = true;
+        bounds.setInitialized(true);
         clampWindowToScreen();
         markUserBoundsDirty();
     }
@@ -416,21 +400,21 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
      * 表示边界不是用户主动设置的（例如代码自动恢复布局），持久化系统不会覆写用户偏好。</p>
      */
     public void setTransientBounds(int x, int y, int width, int height) {
-        this.windowX = x;
-        this.windowY = y;
-        this.windowWidth = Math.max(getMinWindowWidth(), width);
-        this.windowHeight = Math.max(getMinWindowHeight(), height);
+        bounds.setX(x);
+        bounds.setY(y);
+        bounds.setWidth(Math.max(getMinWindowWidth(), width));
+        bounds.setHeight(Math.max(getMinWindowHeight(), height));
         clampWindowSize();
-        this.positionInitialized = true;
+        bounds.setInitialized(true);
         clampWindowToScreen();
-        this.userBoundsPreference = false;
+        bounds.clearUserPreference();
     }
 
     /** 仅设置窗口尺寸，不改变位置。触发边界变更标记。 */
     public void setSize(int width, int height) {
         ensureSizeInitialized();
-        this.windowWidth = width;
-        this.windowHeight = height;
+        bounds.setWidth(width);
+        bounds.setHeight(height);
         clampWindowSize();
         clampWindowToScreen();
         markUserBoundsDirty();
@@ -438,12 +422,11 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /** 重置窗口到默认尺寸和位置。用于"恢复默认布局"。 */
     public void resetToDefaultBounds() {
-        this.windowWidth = this.defaultWidth;
-        this.windowHeight = this.defaultHeight;
+        bounds.resetToDefaults();
         clampWindowSize();
         computeDefaultPosition();
         clampWindowToScreen();
-        this.positionInitialized = true;
+        bounds.setInitialized(true);
         markUserBoundsDirty();
     }
 
@@ -453,9 +436,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
      * @return true 自上次调用后边界发生过变更
      */
     public boolean consumeBoundsDirty() {
-        boolean dirty = this.boundsDirty;
-        this.boundsDirty = false;
-        return dirty;
+        return bounds.consumeDirty();
     }
 
     // ======================================================================
@@ -464,15 +445,15 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /** 检测鼠标是否在窗口矩形内 */
     public boolean isInsideWindow(double mouseX, double mouseY) {
-        return mouseX >= this.windowX && mouseX < this.windowX + this.windowWidth
-                && mouseY >= this.windowY && mouseY < this.windowY + this.windowHeight;
+        return mouseX >= bounds.getX() && mouseX < bounds.getX() + bounds.getWidth()
+                && mouseY >= bounds.getY() && mouseY < bounds.getY() + bounds.getHeight();
     }
 
     /** 检测鼠标是否在窗口矩形或调整大小的边缘区域内 */
     public boolean isInsideWindowOrResizeBorder(double mouseX, double mouseY) {
         int border = getResizeBorderWidth();
-        return mouseX >= this.windowX - border && mouseX < this.windowX + this.windowWidth + border
-                && mouseY >= this.windowY - border && mouseY < this.windowY + this.windowHeight + border;
+        return mouseX >= bounds.getX() - border && mouseX < bounds.getX() + bounds.getWidth() + border
+                && mouseY >= bounds.getY() - border && mouseY < bounds.getY() + bounds.getHeight() + border;
     }
 
     /** 检测鼠标是否在可调整大小的边缘上 */
@@ -562,13 +543,13 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         }
         // 调整大小
         if (this.resizeHandler.isResizing()) {
-            int beforeX = this.windowX;
-            int beforeY = this.windowY;
-            int beforeW = this.windowWidth;
-            int beforeH = this.windowHeight;
+            int beforeX = bounds.getX();
+            int beforeY = bounds.getY();
+            int beforeW = bounds.getWidth();
+            int beforeH = bounds.getHeight();
             this.resizeHandler.resizeToMouse((int) mouseX, (int) mouseY);
-            if (beforeX != this.windowX || beforeY != this.windowY
-                    || beforeW != this.windowWidth || beforeH != this.windowHeight) {
+            if (beforeX != bounds.getX() || beforeY != bounds.getY()
+                    || beforeW != bounds.getWidth() || beforeH != bounds.getHeight()) {
                 markUserBoundsDirty();
             }
             return true;
@@ -669,14 +650,14 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     /** 窗口最大宽度（默认屏幕宽度 - 边距） */
     protected int getMaxWindowWidth() {
         return this.screen == null
-                ? this.windowWidth
+                ? bounds.getWidth()
                 : Math.max(getMinWindowWidth(), this.screen.width - SCREEN_MARGIN * 2);
     }
 
     /** 窗口最大高度（默认屏幕高度 - 标题栏） */
     protected int getMaxWindowHeight() {
         return this.screen == null
-                ? this.windowHeight
+                ? bounds.getHeight()
                 : Math.max(getMinWindowHeight(), this.screen.height - SCREEN_MARGIN * 2);
     }
 
@@ -708,17 +689,17 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     // ------- 内容区域坐标计算 -------
 
-    /** 内容区域左上角 X（窗口内左边框偏移 1px，使用平滑渲染位置） */
-    protected int contentX() { return Math.round(this.visualX) + 1; }
+    /** 内容区域左上角 X（窗口内左边框偏移 1px） */
+    protected int contentX() { return bounds.getX() + 1; }
 
-    /** 内容区域左上角 Y（标题栏下方偏移 2px，使用平滑渲染位置） */
-    protected int contentY() { return Math.round(this.visualY) + getTitleBarHeight() + 2; }
+    /** 内容区域左上角 Y（标题栏下方偏移 2px） */
+    protected int contentY() { return bounds.getY() + getTitleBarHeight() + 2; }
 
     /** 内容区域宽度（窗口宽度减去左右边框各 1px） */
-    protected int contentWidth() { return Math.max(0, this.windowWidth - 2); }
+    protected int contentWidth() { return Math.max(0, bounds.getWidth() - 2); }
 
     /** 内容区域高度（窗口高度减去标题栏和底部边框） */
-    protected int contentHeight() { return Math.max(0, this.windowHeight - getTitleBarHeight() - 8); }
+    protected int contentHeight() { return Math.max(0, bounds.getHeight() - getTitleBarHeight() - 8); }
 
     // ------- 键盘/滚轮事件 -------
 
@@ -760,8 +741,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /** 标记用户边界为脏（触发持久化和回调） */
     private void markUserBoundsDirty() {
-        this.userBoundsPreference = true;
-        this.boundsDirty = true;
+        bounds.markDirty();
         onBoundsChanged();
     }
 
@@ -776,8 +756,8 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /** 将窗口放置在指定窗口的下方（对齐 X，间隔 gap 像素） */
     protected void positionBelow(RtsPanel aboveWindow, int gap) {
-        this.windowX = aboveWindow.windowX;
-        this.windowY = aboveWindow.windowY + aboveWindow.windowHeight + gap;
+        bounds.setX(aboveWindow.getWindowX());
+        bounds.setY(aboveWindow.getWindowY() + aboveWindow.getWindowHeight() + gap);
         clampWindowToScreen();
     }
 
@@ -790,11 +770,11 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         WindowFrameRenderer.renderFrame(g, mouseX, mouseY, buildWindowFrameContext());
     }
 
-    /** 构建窗口框架渲染上下文（使用平滑渲染位置） */
+    /** 构建窗口框架渲染上下文 */
     private WindowFrameRenderer.Context buildWindowFrameContext() {
         return new WindowFrameRenderer.Context(
-                Math.round(this.visualX), Math.round(this.visualY),
-                this.windowWidth, this.windowHeight,
+                bounds.getX(), bounds.getY(),
+                bounds.getWidth(), bounds.getHeight(),
                 getTitleBarHeight(),
                 getPanelBgColor(), getPanelHoverBgColor(),
                 getTitleBarBgColor(), getTitleTextColor(),
@@ -829,28 +809,13 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     }
 
     // ======================================================================
-    //  视觉位置平滑更新
-    // ======================================================================
-
-    /**
-     * 更新平滑渲染位置，使视觉位置以指数平滑方式跟随逻辑位置。
-     * <p>拖拽时视觉位置直接等于逻辑位置，确保面板跟手响应；
-     * 非拖拽时视觉位置直接归位，避免非交互场景下出现残影。</p>
-     */
-    private void updateVisualPosition() {
-        // 拖拽时直接使用逻辑位置，保证跟手感
-        this.visualX = this.windowX;
-        this.visualY = this.windowY;
-    }
-
-    // ======================================================================
     //  点击测试内部方法
     // ======================================================================
 
     /** 检测鼠标是否在标题栏区域内 */
     private boolean isInsideTitleBar(double mouseX, double mouseY) {
-        return mouseX >= this.windowX && mouseX < this.windowX + this.windowWidth
-                && mouseY >= this.windowY && mouseY < this.windowY + getTitleBarHeight();
+        return mouseX >= bounds.getX() && mouseX < bounds.getX() + bounds.getWidth()
+                && mouseY >= bounds.getY() && mouseY < bounds.getY() + getTitleBarHeight();
     }
 
     /**
@@ -859,12 +824,16 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
      */
     private ResizeEdge getResizeEdgeAt(int mouseX, int mouseY) {
         int border = getResizeBorderWidth();
-        boolean nearLeft = mouseX >= this.windowX - border && mouseX < this.windowX + border;
-        boolean nearRight = mouseX >= this.windowX + this.windowWidth - border
-                && mouseX < this.windowX + this.windowWidth + border;
-        boolean nearTop = mouseY >= this.windowY - border && mouseY < this.windowY + border;
-        boolean nearBottom = mouseY >= this.windowY + this.windowHeight - border
-                && mouseY < this.windowY + this.windowHeight + border;
+        int wx = bounds.getX();
+        int wy = bounds.getY();
+        int ww = bounds.getWidth();
+        int wh = bounds.getHeight();
+        boolean nearLeft = mouseX >= wx - border && mouseX < wx + border;
+        boolean nearRight = mouseX >= wx + ww - border
+                && mouseX < wx + ww + border;
+        boolean nearTop = mouseY >= wy - border && mouseY < wy + border;
+        boolean nearBottom = mouseY >= wy + wh - border
+                && mouseY < wy + wh + border;
 
         // 四角优先判断
         if (nearTop && nearLeft) return ResizeEdge.TOP_LEFT;
@@ -873,8 +842,8 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         if (nearBottom && nearRight) return ResizeEdge.BOTTOM_RIGHT;
 
         // 非角边缘：鼠标需在窗口实际范围内，而非延长线上
-        boolean inVerticalRange = mouseY >= this.windowY && mouseY < this.windowY + this.windowHeight;
-        boolean inHorizontalRange = mouseX >= this.windowX && mouseX < this.windowX + this.windowWidth;
+        boolean inVerticalRange = mouseY >= wy && mouseY < wy + wh;
+        boolean inHorizontalRange = mouseX >= wx && mouseX < wx + ww;
         if (nearLeft && inVerticalRange) return ResizeEdge.LEFT;
         if (nearRight && inVerticalRange) return ResizeEdge.RIGHT;
         if (nearTop && inHorizontalRange) return ResizeEdge.TOP;
@@ -888,43 +857,41 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /** 确保位置已初始化 */
     private void initializePosition() {
-        if (!this.positionInitialized) {
+        if (bounds.needsInit()) {
             initializeDefaultBounds();
         }
     }
 
     /** 初始化默认边界：默认尺寸 + 默认位置 + 限制到屏幕 */
     private void initializeDefaultBounds() {
-        this.windowWidth = this.defaultWidth;
-        this.windowHeight = this.defaultHeight;
+        bounds.resetToDefaults();
         clampWindowSize();
         computeDefaultPosition();
         clampWindowToScreen();
-        this.positionInitialized = true;
-        this.userBoundsPreference = false;
+        bounds.setInitialized(true);
+        bounds.clearUserPreference();
     }
 
     /** 确保尺寸已初始化（用于调用 setSize/setPosition 前检查） */
     private void ensureSizeInitialized() {
-        if (this.windowWidth <= 0 || this.windowHeight <= 0) {
-            this.windowWidth = this.defaultWidth;
-            this.windowHeight = this.defaultHeight;
+        if (bounds.needsSizeInit()) {
+            bounds.resetToDefaults();
             clampWindowSize();
         }
     }
 
     /** 将窗口尺寸限制到 [min, max] 范围内 */
     public void clampWindowSize() {
-        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
-        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
+        bounds.setWidth(Mth.clamp(bounds.getWidth(), getMinWindowWidth(), getMaxWindowWidth()));
+        bounds.setHeight(Mth.clamp(bounds.getHeight(), getMinWindowHeight(), getMaxWindowHeight()));
     }
 
     /** 将窗口位置限制到屏幕范围内 */
     public void clampWindowToScreen() {
         if (this.screen == null) return;
-        int maxX = Math.max(0, this.screen.width - this.windowWidth);
+        int maxX = Math.max(0, this.screen.width - bounds.getWidth());
         int maxY = Math.max(0, this.screen.height - getTitleBarHeight());
-        this.windowX = Mth.clamp(this.windowX, 0, maxX);
-        this.windowY = Mth.clamp(this.windowY, 0, maxY);
+        bounds.setX(Mth.clamp(bounds.getX(), 0, maxX));
+        bounds.setY(Mth.clamp(bounds.getY(), 0, maxY));
     }
 }

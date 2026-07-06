@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.client.render.pass;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -49,6 +48,8 @@ public final class BoxSelectionPass implements RenderPass {
     public static int previewOverlayColor = 0xFF4D80FF;
     /** 框选虚线间隙颜色（ARGB），默认黑色 */
     public static int selectionGapColor = 0xFF000000;
+    /** 框选实体角支架颜色（ARGB），使用与交互目标不同的颜色以示区分，默认亮绿色 */
+    public static int entitySelectionColor = 0xFF4CAF50;
 
     private final BoxSelector selector;
     private final CornerBracketRenderer.SmoothTarget smoothTarget = new CornerBracketRenderer.SmoothTarget();
@@ -97,9 +98,6 @@ public final class BoxSelectionPass implements RenderPass {
             return;
         }
 
-        // 鼠标在 UI 区域内时不渲染（UI 覆盖世界画面）
-        if (!isMouseInContentArea(mc, screen)) return;
-        if (screen.isMouseOverUI(guiMouseX(mc, screen), guiMouseY(mc, screen))) return;
 
         BlockPos hover = selector.getHoverPos();
         BoxSelector.Phase phase = selector.getPhase();
@@ -164,10 +162,14 @@ public final class BoxSelectionPass implements RenderPass {
             }
         }
 
-        // ====== COMPLETE 阶段：方块覆盖层 + 实体青蓝线框 ======
+        // ====== COMPLETE 阶段：方块覆盖层 + 实体青蓝线框 + 容器标记 ======
         if (phase == BoxSelector.Phase.COMPLETE) {
             renderBlockOverlay(mc, alloc, poseStack, box);
             renderEntityBrackets(mc, alloc, poseStack, partialTick);
+            // 绑定模式激活时，在选区内渲染容器方块角支架线框
+            if (screen.isBindModeActive()) {
+                renderContainerBrackets(mc, alloc, poseStack, box);
+            }
         }
     }
 
@@ -247,30 +249,6 @@ public final class BoxSelectionPass implements RenderPass {
         return result;
     }
 
-    // ======================== 鼠标位置工具 ========================
-
-    private static double guiMouseX(Minecraft mc, BuilderScreen screen) {
-        return mc.mouseHandler.xpos() / screen.getRtsGuiScale();
-    }
-
-    private static double guiMouseY(Minecraft mc, BuilderScreen screen) {
-        return mc.mouseHandler.ypos() / screen.getRtsGuiScale();
-    }
-
-    private static boolean isMouseInContentArea(Minecraft mc, BuilderScreen screen) {
-        double rtsScale = screen.getRtsGuiScale();
-        var win = mc.getWindow();
-        int virtualW = (int) Math.round(win.getScreenWidth() / rtsScale);
-        int virtualH = (int) Math.round(win.getScreenHeight() / rtsScale);
-        double mx = guiMouseX(mc, screen);
-        double my = guiMouseY(mc, screen);
-        int left = screen.getLeftSidebarWidth();
-        int top = ScreenBackgroundPanel.BACKGROUND_TOP_Y;
-        int right = virtualW - screen.getRightSidebarWidth();
-        int bottom = virtualH - screen.getDownSidebarHeight();
-        return mx >= left && mx < right && my >= top && my < bottom;
-    }
-
     /** 每类方块包围盒，附带首个方块的 BlockState 用于提取地图颜色 */
     private static final class GroupBounds {
         double minX = Double.POSITIVE_INFINITY;
@@ -334,18 +312,64 @@ public final class BoxSelectionPass implements RenderPass {
             CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),
                     bounds.minX, bounds.minY, bounds.minZ,
                     bounds.maxX, bounds.maxY, bounds.maxZ,
-                    ((InteractionTargetPass.entityTargetColor >> 16) & 0xFF) / 255.0f,
-                    ((InteractionTargetPass.entityTargetColor >> 8) & 0xFF) / 255.0f,
-                    (InteractionTargetPass.entityTargetColor & 0xFF) / 255.0f,
+                    ((entitySelectionColor >> 16) & 0xFF) / 255.0f,
+                    ((entitySelectionColor >> 8) & 0xFF) / 255.0f,
+                    (entitySelectionColor & 0xFF) / 255.0f,
                     0.9f, 0);
             if (depthTestEnabled) {
                 CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.noDepth(),
                         bounds.minX, bounds.minY, bounds.minZ,
                         bounds.maxX, bounds.maxY, bounds.maxZ,
-                        ((InteractionTargetPass.entityTargetColor >> 16) & 0xFF) / 255.0f,
-                        ((InteractionTargetPass.entityTargetColor >> 8) & 0xFF) / 255.0f,
-                        (InteractionTargetPass.entityTargetColor & 0xFF) / 255.0f,
+                        ((entitySelectionColor >> 16) & 0xFF) / 255.0f,
+                        ((entitySelectionColor >> 8) & 0xFF) / 255.0f,
+                        (entitySelectionColor & 0xFF) / 255.0f,
                         CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, 0);
+            }
+        }
+    }
+
+    // ======================== 框选内容器高亮线框 ========================
+
+    /**
+     * 绑定模式下，在选区内为每个带 BlockEntity 的容器方块渲染蓝色角支架线框。
+     * <p>颜色风格与 {@link com.rtsbuilding.rtsbuilding.client.render.pass.LinkedStoragePass} 的双向模式一致（蓝色），
+     * 让玩家在批量绑定前清楚看到哪些方框会被链接。
+     */
+    private void renderContainerBrackets(Minecraft mc, BufferAllocator alloc, PoseStack poseStack, BoxAABB box) {
+        if (mc.level == null) return;
+        // 复用 scanBlockOverlay 的缓存选区
+        BlockPos min = selector.getMinCorner();
+        BlockPos max = selector.getMaxCorner();
+        if (min == null || max == null) return;
+
+        // 绑定模式蓝色（与 LinkedStoragePass 双向模式一致）
+        float r = 0.24F, g = 0.55F, b = 1.00F;
+
+        for (int x = min.getX(); x < max.getX(); x++) {
+            for (int y = min.getY(); y < max.getY(); y++) {
+                for (int z = min.getZ(); z < max.getZ(); z++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    BlockState state = mc.level.getBlockState(pos);
+                    if (state.isAir() || !state.hasBlockEntity()) continue;
+
+                    double distance = mc.getCameraEntity() != null
+                            ? mc.getCameraEntity().distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)
+                            : 64.0;
+                    double camDist = Math.sqrt(distance);
+
+                    // 深度检测层
+                    CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),
+                            pos.getX() - 0.01, pos.getY() - 0.01, pos.getZ() - 0.01,
+                            pos.getX() + 1.01, pos.getY() + 1.01, pos.getZ() + 1.01,
+                            r, g, b, 0.6f, camDist);
+                    // 穿墙层
+                    if (depthTestEnabled) {
+                        CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.noDepth(),
+                                pos.getX() - 0.01, pos.getY() - 0.01, pos.getZ() - 0.01,
+                                pos.getX() + 1.01, pos.getY() + 1.01, pos.getZ() + 1.01,
+                                r, g, b, CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, camDist);
+                    }
+                }
             }
         }
     }

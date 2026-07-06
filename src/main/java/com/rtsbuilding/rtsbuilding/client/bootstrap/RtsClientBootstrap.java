@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.client.module.mining.MiningModule;
 import com.rtsbuilding.rtsbuilding.client.module.overlay.OverlayModule;
 import com.rtsbuilding.rtsbuilding.client.module.plugin.PluginModule;
 import com.rtsbuilding.rtsbuilding.client.module.progression.ProgressionModule;
+import com.rtsbuilding.rtsbuilding.client.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
@@ -54,6 +55,7 @@ public final class RtsClientBootstrap {
             kernel.register(new PluginModule());
             kernel.register(new ProgressionModule());
             kernel.register(new OverlayModule());
+            kernel.register(new RemoteMenuModule());
 
             // 初始化内核（创建 InputPipeline、RenderPipeline）
             kernel.initialize();

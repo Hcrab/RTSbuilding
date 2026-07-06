@@ -5,7 +5,14 @@ import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.AbstractButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup.DebugMenuPopup;
-import com.rtsbuilding.rtsbuilding.client.util.*;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -21,10 +28,20 @@ import net.minecraft.resources.ResourceLocation;
  */
 public final class UtilityButtonGroup extends AbstractButtonGroup {
 
-    private static final ResourceLocation BTN_RIGHT =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/button_right.png");
+    // ======================== 位置背景贴图 ========================
+
+    /** up_button.png —— 首位（左侧）按钮背景 */
+    private static final ResourceLocation DOWN_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/down_button.png");
+    /** middle_button.png —— 中间按钮背景 */
+    private static final ResourceLocation MIDDLE_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/middle_button.png");
+    /** up_button.png —— 末位（右侧）按钮背景 */
+    private static final ResourceLocation UP_BG = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/button/up_button.png");
+
     private static final ResourceLocation CHUNK_DISPLAY =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/chunk_display.png");
+            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/button/chunk_display.png");
 
     // 折叠箭头（仅 btn_right 使用）
     private static final ResourceLocation FOLD_ARROW =
@@ -46,15 +63,17 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
     private final DebugMenuPopup debugPopup;
 
     // ----- chunk_display -----
-    private final FloatingTooltip chunkBtnTooltip = new FloatingTooltip();
+    private final TooltipController chunkBtnTooltip = TooltipController.builder().build();
 
     // ----- 折叠箭头 -----
-    private final SmoothAnimator arrowRotateAnim = AnimationFactory.createExpandAnim();
+    private final FloatAnimation arrowRotateAnim = AnimationFactory.newExpandAnim();
     private boolean prevArrowActive;
 
     public UtilityButtonGroup(DebugMenuPopup debugPopup) {
-        // HORIZONTAL 方向，顶栏按钮大小 14px，0间隙
-        super(Direction.HORIZONTAL, TopBarLayoutHelper.BTN_SIZE, DEFAULT_INNER_GAP, BTN_RIGHT, CHUNK_DISPLAY);
+        // HORIZONTAL 方向，顶栏按钮大小 14px，0间隙，有背景层
+        super(Direction.HORIZONTAL, TopBarLayoutHelper.BTN_SIZE, DEFAULT_INNER_GAP, true,
+                DOWN_BG, MIDDLE_BG, UP_BG,
+                null, CHUNK_DISPLAY);
         this.debugPopup = debugPopup;
     }
 
@@ -78,8 +97,7 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         var rect = group.rect(1);
         boolean hovered = rect.contains(mouseX, mouseY);
         boolean popupOpen = debugPopup != null && debugPopup.isOpen();
-        chunkBtnTooltip.tick();
-        chunkBtnTooltip.update(hovered, popupOpen);
+                chunkBtnTooltip.update(hovered, popupOpen);
     }
 
     /**
@@ -92,12 +110,12 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         var rect = group.rect(1);
         String keyText = RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY.getTranslatedKeyMessage().getString();
         int textColor = ThemeManager.getTextColor();
-        int shortcutColor = SmoothAnimator.scaleColor(textColor, 0.6f);
+        int shortcutColor = ColorAnimation.scale(textColor, 0.6f);
         String text = Component.translatable("tooltip.rtsbuilding.debug.overlay").getString() + "\n"
                 + Component.translatable("tooltip.rtsbuilding.debug.overlay.desc").getString() + "\n"
                 + Component.translatable("tooltip.rtsbuilding.shortcut", keyText).getString();
-        chunkBtnTooltip.renderBelowButton(g, rect.x(), rect.y(), rect.width(), rect.height(),
-                6, 3, text, textColor, shortcutColor, screenW, screenH);
+        chunkBtnTooltip.render(g, rect.x(), rect.y(), rect.width(), rect.height(),
+                text, textColor, shortcutColor, screenW, screenH);
     }
 
     // ======================== 折叠箭头（btn_right） ========================
@@ -120,7 +138,7 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         g.pose().translate(-halfArrow, -halfArrow, 0);
         SpriteRegion arrowRegion = new SpriteRegion(
                 FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();
-        RtsClientUiUtil.drawSprite(g, arrowRegion, 0, 0, FOLD_ARROW_SIZE, FOLD_ARROW_SIZE);
+        SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, FOLD_ARROW_SIZE, FOLD_ARROW_SIZE);
         g.pose().popPose();
     }
 
@@ -144,3 +162,4 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         return group.rect(0);
     }
 }
+
