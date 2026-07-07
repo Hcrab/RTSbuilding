@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorGroup;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorGroup;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;

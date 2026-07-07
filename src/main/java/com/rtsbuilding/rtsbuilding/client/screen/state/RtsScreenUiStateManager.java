@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.state;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import org.slf4j.Logger;

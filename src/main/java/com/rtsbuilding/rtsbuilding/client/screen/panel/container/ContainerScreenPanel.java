@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.container;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.mixin.ScreenRenderBgMixin;
 import net.minecraft.client.Minecraft;
@@ -178,8 +178,10 @@ public final class ContainerScreenPanel extends RtsPanel {
     @Override
     protected void onClose() {
         super.onClose();
-        inputForwarder.clear(); // 调用 removed() + 置空
+        // ★ 先发送关闭包（此时 containerId 尚未被清零）
         closeContainerOnServer();
+        // ★ 再清理容器屏幕资源
+        inputForwarder.clear();
     }
 
     /** 向服务端发送容器关闭包，绕过 NeoForge 的 Player.closeContainer() 补丁。 */
@@ -253,6 +255,7 @@ public final class ContainerScreenPanel extends RtsPanel {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!this.open) return false;
         // 非左键（右键/中键）：转发到容器屏幕处理（如分拆物品堆），
         // 但在面板窗口内时吞没事件，阻止传递到 CameraInputLayer 触发摄像机操控
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT && isInsideWindow(mouseX, mouseY)) {
@@ -264,6 +267,7 @@ public final class ContainerScreenPanel extends RtsPanel {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (!this.open) return false;
         // 如果当前正在拖拽标题栏或缩放边缘，由基类处理
         if (super.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
 
@@ -277,6 +281,7 @@ public final class ContainerScreenPanel extends RtsPanel {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (!this.open) return false;
         // 非左键：转发到容器屏幕处理，但在面板窗口内时吞没事件
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             inputForwarder.mouseReleased(mouseX - contentX(), mouseY - contentY(), button);
@@ -289,6 +294,7 @@ public final class ContainerScreenPanel extends RtsPanel {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (!this.open) return false;
         if (!inputForwarder.hasScreen() || !isInsideWindow(mouseX, mouseY)) return false;
         // 转发到容器屏幕处理（如滑条滚动），
         // 无论容器是否消费都返回 true，防止滚轮穿透到 CameraInputLayer 触发摄像机变焦
@@ -298,6 +304,7 @@ public final class ContainerScreenPanel extends RtsPanel {
 
     @Override
     public boolean mouseMoved(double mouseX, double mouseY) {
+        if (!this.open) return false;
         if (!inputForwarder.hasScreen() || !isInsideWindow(mouseX, mouseY)) return false;
         inputForwarder.mouseMoved(mouseX - contentX(), mouseY - contentY());
         return false;

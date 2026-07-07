@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 

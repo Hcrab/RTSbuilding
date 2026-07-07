@@ -51,6 +51,13 @@ public final class BoxSelectionPass implements RenderPass {
     /** 框选实体角支架颜色（ARGB），使用与交互目标不同的颜色以示区分，默认亮绿色 */
     public static int entitySelectionColor = 0xFF4CAF50;
 
+    // ======================== ARGB 颜色缓存 ========================
+
+    private static final CornerBracketRenderer.Rgb selColor = new CornerBracketRenderer.Rgb();
+    private static final CornerBracketRenderer.Rgb gapColor = new CornerBracketRenderer.Rgb();
+    private static final CornerBracketRenderer.Rgb overlayColor = new CornerBracketRenderer.Rgb();
+    private static final CornerBracketRenderer.Rgb entitySelColor = new CornerBracketRenderer.Rgb();
+
     private final BoxSelector selector;
     private final CornerBracketRenderer.SmoothTarget smoothTarget = new CornerBracketRenderer.SmoothTarget();
 
@@ -125,13 +132,11 @@ public final class BoxSelectionPass implements RenderPass {
         Vec3 cameraPos = camera.getEyePosition(partialTick);
         double distance = smoothTarget.centerDistanceTo(cameraPos);
 
-        // 深度检测层 + 无深度穿墙层
-        float selR = ((selectionColor >> 16) & 0xFF) / 255.0f;
-        float selG = ((selectionColor >> 8) & 0xFF) / 255.0f;
-        float selB = (selectionColor & 0xFF) / 255.0f;
-        float gapR = ((selectionGapColor >> 16) & 0xFF) / 255.0f;
-        float gapG = ((selectionGapColor >> 8) & 0xFF) / 255.0f;
-        float gapB = (selectionGapColor & 0xFF) / 255.0f;
+        // 深度检测层 + 无深度穿墙层（颜色从 ARGB 缓存读取）
+        selColor.update(selectionColor);
+        gapColor.update(selectionGapColor);
+        float selR = selColor.r, selG = selColor.g, selB = selColor.b;
+        float gapR = gapColor.r, gapG = gapColor.g, gapB = gapColor.b;
         CornerBracketRenderer.renderDashedCornerBrackets(poseStack, alloc.brackets(),
                 smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
                 smoothTarget.maxX(), smoothTarget.maxY(), smoothTarget.maxZ(),
@@ -145,9 +150,8 @@ public final class BoxSelectionPass implements RenderPass {
 
         // 蓝色半透明覆盖层（选定 A 点后、选中完成前的预览阶段展示）
         if (phase != BoxSelector.Phase.IDLE && phase != BoxSelector.Phase.COMPLETE) {
-            float ovR = ((previewOverlayColor >> 16) & 0xFF) / 255.0f;
-            float ovG = ((previewOverlayColor >> 8) & 0xFF) / 255.0f;
-            float ovB = (previewOverlayColor & 0xFF) / 255.0f;
+            overlayColor.update(previewOverlayColor);
+            float ovR = overlayColor.r, ovG = overlayColor.g, ovB = overlayColor.b;
             // 深度层——正常遮挡时可见
             CornerBracketRenderer.renderFilledFaces(alloc.brackets(), poseStack,
                     smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
@@ -217,7 +221,8 @@ public final class BoxSelectionPass implements RenderPass {
 
         // 用方块注册 ID（整数）分组，避免每帧构建字符串
         var reg = BuiltInRegistries.BLOCK;
-        Map<Integer, GroupBounds> groups = new HashMap<>();
+        // 预分配 32 容量，典型选区方块种类数远小于此值，避免 rehash
+        Map<Integer, GroupBounds> groups = new HashMap<>(32);
 
         for (int x = minX; x < maxX; x++) {
             for (int y = minY; y < maxY; y++) {
@@ -290,6 +295,8 @@ public final class BoxSelectionPass implements RenderPass {
     private void renderEntityBrackets(Minecraft mc, BufferAllocator alloc, PoseStack poseStack, float partialTick) {
         if (mc.level == null) return;
 
+        entitySelColor.update(entitySelectionColor);
+
         BlockPos min = selector.getMinCorner();
         BlockPos max = selector.getMaxCorner();
         if (min == null || max == null) return;
@@ -312,17 +319,17 @@ public final class BoxSelectionPass implements RenderPass {
             CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),
                     bounds.minX, bounds.minY, bounds.minZ,
                     bounds.maxX, bounds.maxY, bounds.maxZ,
-                    ((entitySelectionColor >> 16) & 0xFF) / 255.0f,
-                    ((entitySelectionColor >> 8) & 0xFF) / 255.0f,
-                    (entitySelectionColor & 0xFF) / 255.0f,
+                    entitySelColor.r,
+                    entitySelColor.g,
+                    entitySelColor.b,
                     0.9f, 0);
             if (depthTestEnabled) {
                 CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.noDepth(),
                         bounds.minX, bounds.minY, bounds.minZ,
                         bounds.maxX, bounds.maxY, bounds.maxZ,
-                        ((entitySelectionColor >> 16) & 0xFF) / 255.0f,
-                        ((entitySelectionColor >> 8) & 0xFF) / 255.0f,
-                        (entitySelectionColor & 0xFF) / 255.0f,
+                        entitySelColor.r,
+                        entitySelColor.g,
+                        entitySelColor.b,
                         CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA, 0);
             }
         }
@@ -345,17 +352,25 @@ public final class BoxSelectionPass implements RenderPass {
         // 绑定模式蓝色（与 LinkedStoragePass 双向模式一致）
         float r = 0.24F, g = 0.55F, b = 1.00F;
 
+        var camera = mc.getCameraEntity();
+        var level = mc.level;
+
         for (int x = min.getX(); x < max.getX(); x++) {
-            for (int y = min.getY(); y < max.getY(); y++) {
-                for (int z = min.getZ(); z < max.getZ(); z++) {
+            int cx = x >> 4;
+            for (int z = min.getZ(); z < max.getZ(); z++) {
+                int cz = z >> 4;
+                // 跳过没有 BlockEntity 的 chunk，省掉大量 getBlockState 调用
+                if (!level.hasChunk(cx, cz)) continue;
+                var chunk = level.getChunk(cx, cz);
+                if (chunk.getBlockEntities().isEmpty()) continue;
+                for (int y = min.getY(); y < max.getY(); y++) {
                     BlockPos pos = new BlockPos(x, y, z);
-                    BlockState state = mc.level.getBlockState(pos);
+                    BlockState state = level.getBlockState(pos);
                     if (state.isAir() || !state.hasBlockEntity()) continue;
 
-                    double distance = mc.getCameraEntity() != null
-                            ? mc.getCameraEntity().distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)
-                            : 64.0;
-                    double camDist = Math.sqrt(distance);
+                    double camDist = camera != null
+                            ? Math.sqrt(camera.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5))
+                            : 8.0;
 
                     // 深度检测层
                     CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),

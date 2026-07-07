@@ -135,27 +135,32 @@ public final class CursorRaycaster {
     private static Vec3 computeRayDirection(Minecraft mc, double nx, double ny) {
         float yawDeg = mc.gameRenderer.getMainCamera().getYRot();
         float pitchDeg = mc.gameRenderer.getMainCamera().getXRot();
-        double yaw = Math.toRadians(yawDeg);
-        double pitch = Math.toRadians(pitchDeg);
+        float yaw = (float) Math.toRadians(yawDeg);
+        float pitch = (float) Math.toRadians(pitchDeg);
+
+        float sinYaw = (float) Math.sin(yaw);
+        float cosYaw = (float) Math.cos(yaw);
+        float sinPitch = (float) Math.sin(pitch);
+        float cosPitch = (float) Math.cos(pitch);
 
         // 前向量（相机朝向）
         Vec3 forward = new Vec3(
-                -Math.sin(yaw) * Math.cos(pitch),
-                -Math.sin(pitch),
-                Math.cos(yaw) * Math.cos(pitch)).normalize();
+                -sinYaw * cosPitch,
+                -sinPitch,
+                cosYaw * cosPitch).normalize();
 
         // 右向量
-        Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
+        Vec3 right = new Vec3(cosYaw, 0.0D, sinYaw).normalize();
 
         // 上向量 = forward × right
         Vec3 up = forward.cross(right).normalize();
 
-        double fovY = Math.toRadians(mc.options.fov().get());
-        double tanY = Math.tan(fovY * 0.5D);
+        float fovY = (float) Math.toRadians(mc.options.fov().get());
+        float tanY = (float) Math.tan(fovY * 0.5f);
         // 使用全帧缓冲区的宽高比（相机渲染到全屏）
-        double fbAspect = (double) Math.max(1, mc.getWindow().getScreenWidth())
+        float fbAspect = (float) Math.max(1, mc.getWindow().getScreenWidth())
                 / Math.max(1, mc.getWindow().getScreenHeight());
-        double tanX = tanY * fbAspect;
+        float tanX = tanY * fbAspect;
 
         // 前向 + 横向偏移 + 纵向偏移 → 最终方向
         return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();

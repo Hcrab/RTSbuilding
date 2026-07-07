@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.select;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;

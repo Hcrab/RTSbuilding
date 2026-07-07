@@ -58,7 +58,7 @@ public final class GhostRingBuffer {
         for (int i = 0; i < CAPACITY; i++) {
             if (active[i] && (nowMs - addedAtMs[i]) > maxAgeMs) {
                 active[i] = false;
-                count--;
+                count = Math.max(0, count - 1);
             }
         }
     }

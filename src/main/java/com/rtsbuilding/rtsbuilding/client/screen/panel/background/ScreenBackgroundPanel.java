@@ -2,11 +2,11 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.background;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -20,7 +20,6 @@ import java.util.List;
  * 渲染为 BuilderScreen 的背景（底层）。否则使用九宫格背景贴图作为占位。</p>
  *
  * <p>贴图 screen_ui.png 为 256×256，水平左半=暗色主题、右半=亮色主题，
- * 由 {@link SpriteRenderer#drawNineSlice} 自动根据当前主题切换；
  * 垂直上半=正常状态、下半=鼠标位于背景区域内时使用。
  * 背景区域从顶部栏上半部分底部（y=24）延伸到下边框顶部，
  * 从屏幕左边缘延伸到右边框左边缘，不遮挡任何交互元素。</p>

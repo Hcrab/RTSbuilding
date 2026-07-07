@@ -18,6 +18,11 @@ public final class InteractionTargetPass implements RenderPass {
 
     private static final CornerBracketRenderer.SmoothTarget smoothTarget = new CornerBracketRenderer.SmoothTarget();
 
+    // ======================== ARGB 颜色缓存 ========================
+
+    private static final CornerBracketRenderer.Rgb blockColor = new CornerBracketRenderer.Rgb();
+    private static final CornerBracketRenderer.Rgb entityColor = new CornerBracketRenderer.Rgb();
+
     // ======================== 可自定义颜色 ========================
 
     /** 方块交互目标角支架颜色（ARGB），默认橙金 #F69C31 */
@@ -42,7 +47,8 @@ public final class InteractionTargetPass implements RenderPass {
         if (!isMouseInContentArea(mc, screen)) return;
         if (screen.isMouseOverUI(guiMouseX(mc, screen), guiMouseY(mc, screen))) return;
 
-        var ray = CursorRaycaster.computeCursorRay(mc, screen);
+        // 使用 RenderPipeline 统一计算的缓存射线，避免每帧重复计算
+        var ray = alloc.cursorRay();
         if (ray == null) return;
 
         var hit = ray.raycastNearest(mc);
@@ -76,11 +82,12 @@ public final class InteractionTargetPass implements RenderPass {
         // 根据动画后的中心计算距离（厚度缩放）
         double distance = smoothTarget.centerDistanceTo(ray.origin());
 
-        // 选择颜色：取自可自定义的静态字段
-        int color = isBlock ? blockTargetColor : entityTargetColor;
-        float r = ((color >> 16) & 0xFF) / 255.0f;
-        float g = ((color >> 8) & 0xFF) / 255.0f;
-        float b = (color & 0xFF) / 255.0f;
+        // 选择颜色：从 ARGB 缓存读取 float 分量，避免每帧位运算
+        blockColor.update(blockTargetColor);
+        entityColor.update(entityTargetColor);
+        float r = isBlock ? blockColor.r : entityColor.r;
+        float g = isBlock ? blockColor.g : entityColor.g;
+        float b = isBlock ? blockColor.b : entityColor.b;
 
         // 深度检测层
         CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),

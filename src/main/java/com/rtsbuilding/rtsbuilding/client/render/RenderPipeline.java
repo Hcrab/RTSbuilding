@@ -5,6 +5,9 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass.BufferAllocator;
 import com.rtsbuilding.rtsbuilding.client.render.pass.*;
+import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
+import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster.CursorRay;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -95,7 +98,6 @@ public final class RenderPipeline {
         registerPass(new LinkedStoragePass());
         var lsp = (LinkedStoragePass) passes.get(passes.size() - 1);
         this.linkedStoragePass = lsp;
-        registerPass(new BlueprintGhostPass());
         var bsp = new BoxSelectionPass(boxSelector);
         this.boxSelectionPass = bsp;
         registerPass(bsp);
@@ -129,8 +131,13 @@ public final class RenderPipeline {
 
         this.frameMillis = System.currentTimeMillis();
 
+        // 统一计算当前帧的鼠标射线，各 Pass 从 BufferAllocator 读取，避免重复计算
+        BuilderScreen screen = mc.screen instanceof BuilderScreen bs ? bs : null;
+        CursorRay cursorRay = screen != null ? CursorRaycaster.computeCursorRay(mc, screen) : null;
+
         BufferAllocator alloc = new BufferAllocator(
-                linesBuf.builder, fill.builder, brackets.builder, noDepth.builder, barrier.builder);
+                linesBuf.builder, fill.builder, brackets.builder, noDepth.builder, barrier.builder,
+                cursorRay);
         for (RenderPass pass : passes) {
             if (!pass.shouldRender(mc)) continue;
             pass.render(mc, alloc, poseStack, partialTick, frameIndex);

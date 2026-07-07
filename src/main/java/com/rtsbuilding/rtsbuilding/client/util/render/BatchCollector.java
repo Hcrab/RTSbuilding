@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 

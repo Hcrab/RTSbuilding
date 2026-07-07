@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
-import com.rtsbuilding.rtsbuilding.client.screen.event.EventResult;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.BlockEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.EntityEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectPanel;

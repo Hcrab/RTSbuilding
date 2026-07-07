@@ -3,18 +3,18 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.building.BuildingModule;
-import com.rtsbuilding.rtsbuilding.client.screen.event.EventDispatcher;
-import com.rtsbuilding.rtsbuilding.client.screen.event.EventResult;
-import com.rtsbuilding.rtsbuilding.client.screen.event.KeyPressEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.MouseClickEvent;
+import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.KeyPressEvent;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseClickEvent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.CONSUMED;
-import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.PASS;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.CONSUMED;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.PASS;
 
 /**
  * 绑定模式交互处理器——封装容器绑定相关的鼠标/键盘事件处理。

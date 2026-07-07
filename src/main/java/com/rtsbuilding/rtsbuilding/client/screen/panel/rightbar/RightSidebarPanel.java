@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.EdgeResizeHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.overlay.DownOverlayLayer;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.component.EdgeResizeHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.overlay.LowerRightOverlayLayer;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.overlay.UpperRightOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
@@ -66,29 +69,6 @@ public final class RightSidebarPanel implements RtsPanelApi {
             TextureInfo.FilterMode.PIXEL);
     private static final NineSliceRegion RIGHT_NINE_SLICE = NineSliceRegion.fullTheme(
             RIGHT_TEX_INFO, STATE_H, BORDER);
-    // ======================== 内嵌层贴图 ========================
-
-    /** 右边栏内嵌层贴图（256×256，水平左暗右亮，垂直上正常下激活） */
-    private static final ResourceLocation OVERLAY_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/overlay_ui.png");
-    /** 贴图文件总宽度 */
-    private static final int OVERLAY_TEX_W = 256;
-    /** 贴图文件总高度 */
-    private static final int OVERLAY_TEX_FILE_H = 256;
-    /** 单主题半区宽度 */
-    private static final int OVERLAY_HALF_W = 128;
-    /** 单个状态高度 */
-    private static final int OVERLAY_STATE_H = 128;
-    /** 鼠标位于区域内时使用的源 Y 偏移（下半部分） */
-    private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
-    /** 九宫格边框宽度 */
-    private static final int OVERLAY_BORDER = 8;
-    private static final TextureInfo OVERLAY_TEX_INFO = new TextureInfo(
-            OVERLAY_TEXTURE, OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion OVERLAY_NINE_SLICE = NineSliceRegion.fullTheme(
-            OVERLAY_TEX_INFO, OVERLAY_STATE_H, OVERLAY_BORDER);
 
     /** 布局帮助类实例 */
     private final RightSidebarLayoutHelper layout = new RightSidebarLayoutHelper();
@@ -98,6 +78,13 @@ public final class RightSidebarPanel implements RtsPanelApi {
             EdgeResizeHandler.Orientation.HORIZONTAL,
             EdgeResizeHandler.Side.LEADING,
             20);
+
+    // ======================== 内嵌层实例 ========================
+
+    /** 上嵌层 */
+    private final UpperRightOverlayLayer upperLayer = new UpperRightOverlayLayer();
+    /** 下嵌层 */
+    private final LowerRightOverlayLayer lowerLayer = new LowerRightOverlayLayer();
 
     // ======================== 嵌层分隔条拖拽状态 ========================
 
@@ -173,10 +160,9 @@ public final class RightSidebarPanel implements RtsPanelApi {
     }
 
     /**
-     * 渲染内嵌层（overlay_ui.png）——由 BuilderScreen 在右边栏之上独立调用，作为装饰层。
-     * <p>水平分为上下两个嵌层，中间间隔 1px。每块嵌层与 {@link ScreenBackgroundPanel} 相同贴图逻辑：
-     * 水平左半=暗色主题、右半=亮色主题，由 {@link SpriteRenderer#drawNineSlice} 自动切换；
-     * 垂直上半=正常状态、下半=鼠标位于对应嵌层区域内时使用。</p>
+     * 渲染内嵌层——由 BuilderScreen 在右边栏之上独立调用，作为装饰层。
+     * <p>垂直分为上下两个 {@link DownOverlayLayer}，中间间隔 1px。
+     * 每个嵌层使用 Scissor 裁剪确保内容不溢出。</p>
      * <p>分隔条（上下嵌层之间的 1px 间隙）支持拖拽调整上下比例。</p>
      */
     @Override
@@ -192,14 +178,25 @@ public final class RightSidebarPanel implements RtsPanelApi {
         // 使用用户拖拽调整后的上嵌层高度，未调整时使用默认黄金比例
         int upperH = resolveUpperOverlayHeight();
 
-        // 上嵌层
-        renderOverlayPart(g, ox, sb.y(), ow, upperH, mouseX, mouseY);
-        // 下嵌层（中间间隔 1px）
+        // 更新上嵌层位置并渲染（拖拽分隔条时强制显示激活态）
+        upperLayer.setBounds(ox, sb.y(), ow, upperH);
+        upperLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(upperLayer, mouseX, mouseY));
+
+        // 更新下嵌层位置并渲染（中间间隔 1px）
         int bottomY = sb.y() + upperH + gap;
         int lowerH = totalH - upperH - gap;
         if (lowerH > 0) {
-            renderOverlayPart(g, ox, bottomY, ow, lowerH, mouseX, mouseY);
+            lowerLayer.setBounds(ox, bottomY, ow, lowerH);
+            lowerLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(lowerLayer, mouseX, mouseY));
         }
+    }
+
+    /**
+     * 检测鼠标是否位于嵌层区域内（排除 UI 覆盖区域）。
+     */
+    private boolean isMouseInLayer(DownOverlayLayer layer, int mouseX, int mouseY) {
+        if (this.screen == null || this.screen.isMouseOverUI(mouseX, mouseY)) return false;
+        return layer.contains(mouseX, mouseY);
     }
 
     /**
@@ -232,29 +229,6 @@ public final class RightSidebarPanel implements RtsPanelApi {
         if (totalH <= 0) return 0;
         int upperH = resolveUpperOverlayHeight();
         return sb.y() + upperH;
-    }
-
-    /**
-     * 渲染一块嵌层区域。
-     *
-     * @param ox      目标区域 X
-     * @param oy      目标区域 Y
-     * @param ow      目标区域宽度
-     * @param oh      目标区域高度
-     */
-    private void renderOverlayPart(GuiGraphics g, int ox, int oy, int ow, int oh,
-                                   int mouseX, int mouseY) {
-        if (oh <= 0) return;
-
-        // 拖拽分隔条时两个嵌层都强制显示悬浮激活态
-        boolean mouseInArea = isDraggingOverlayDivider
-                || ((this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
-                        && mouseX >= ox && mouseX < ox + ow
-                        && mouseY >= oy && mouseY < oy + oh);
-        int srcY = mouseInArea ? OVERLAY_ACTIVE_V_OFFSET : 0;
-
-        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme().withVOffset(srcY),
-                ox, oy, ow, oh);
     }
 
     // ======================== 交互：左边框拖拽缩放 + 嵌层分隔条拖拽 ========================

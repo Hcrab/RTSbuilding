@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;

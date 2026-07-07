@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.gear;
 
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.util.SettingsSection;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.component.SettingsSection;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ResetButton;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ThemeSwitchComponent;

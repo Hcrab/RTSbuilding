@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.group_button.ActionButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.group_button.SelectButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;

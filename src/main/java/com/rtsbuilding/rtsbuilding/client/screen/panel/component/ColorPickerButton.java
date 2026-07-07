@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorGroup;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorSource;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorGroup;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorSource;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import net.minecraft.client.gui.GuiGraphics;

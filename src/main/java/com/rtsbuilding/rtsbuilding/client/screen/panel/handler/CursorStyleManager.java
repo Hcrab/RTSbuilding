@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 

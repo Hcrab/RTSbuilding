@@ -366,6 +366,40 @@ public final class CornerBracketRenderer {
         }
     }
 
+    // ======================== ARGB 颜色缓存 ========================
+
+    /**
+     * ARGB 颜色→float RGB 分量缓存。颜色值不变时跳过位运算，零分配。
+     * <p>各 Pass 中每帧调用一次 {@link #update(int)}，后续直接读取 {@link #r}、{@link #g}、{@link #b}。
+     * <pre>{@code
+     * private static final Rgb selColor = new Rgb();
+     * // in render():
+     * selColor.update(selectionColor);
+     * // use selColor.r, selColor.g, selColor.b
+     * }</pre>
+     */
+    public static final class Rgb {
+        private int argb = Integer.MIN_VALUE;
+        /** 红色分量 [0,1] */
+        public float r;
+        /** 绿色分量 [0,1] */
+        public float g;
+        /** 蓝色分量 [0,1] */
+        public float b;
+
+        /**
+         * 更新缓存。如果 argb 与上次相同则跳过位运算。
+         * @param newArgb 新的 ARGB 颜色值
+         */
+        public void update(int newArgb) {
+            if (this.argb == newArgb) return;
+            this.argb = newArgb;
+            this.r = ((newArgb >> 16) & 0xFF) / 255.0f;
+            this.g = ((newArgb >> 8) & 0xFF) / 255.0f;
+            this.b = (newArgb & 0xFF) / 255.0f;
+        }
+    }
+
     // ======================== 平滑插值目标 ========================
 
     /**

@@ -39,6 +39,11 @@ public final class LinkedStoragePass implements RenderPass {
     /** 仅提取模式颜色 ARGB（默认粉色 #FF4CD1），由渲染设置面板控制 */
     public static int extractOnlyColor = 0xFFFF4CD1;
 
+    // ======================== ARGB 颜色缓存 ========================
+
+    private static final CornerBracketRenderer.Rgb biColor = new CornerBracketRenderer.Rgb();
+    private static final CornerBracketRenderer.Rgb extColor = new CornerBracketRenderer.Rgb();
+
     /** 深度层透明度 */
     private static final float DEPTH_ALPHA = 0.70F;
     /** 无深度穿墙层透明度 */
@@ -210,17 +215,12 @@ public final class LinkedStoragePass implements RenderPass {
 
             AABB fullBounds = computeStorageBounds(mc.level, pos, state);
 
-            // 确定目标颜色（从可配置的 ARGB 静态字段提取 RGB 分量）
-            float targetR, targetG, targetB;
-            if (entry.isExtractOnly()) {
-                targetR = ((extractOnlyColor >> 16) & 0xFF) / 255.0f;
-                targetG = ((extractOnlyColor >> 8) & 0xFF) / 255.0f;
-                targetB = (extractOnlyColor & 0xFF) / 255.0f;
-            } else {
-                targetR = ((bidirectionalColor >> 16) & 0xFF) / 255.0f;
-                targetG = ((bidirectionalColor >> 8) & 0xFF) / 255.0f;
-                targetB = (bidirectionalColor & 0xFF) / 255.0f;
-            }
+            // 确定目标颜色（从 ARGB 缓存读取 float 分量，颜色不变时零分配）
+            biColor.update(bidirectionalColor);
+            extColor.update(extractOnlyColor);
+            float targetR = entry.isExtractOnly() ? extColor.r : biColor.r;
+            float targetG = entry.isExtractOnly() ? extColor.g : biColor.g;
+            float targetB = entry.isExtractOnly() ? extColor.b : biColor.b;
 
             AnimState a = animStates.get(pos);
             if (a != null) {

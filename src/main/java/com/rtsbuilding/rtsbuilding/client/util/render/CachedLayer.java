@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util.render;
 
-import com.rtsbuilding.rtsbuilding.client.util.NineSliceTiler;
-import com.rtsbuilding.rtsbuilding.client.util.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceTiler;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;

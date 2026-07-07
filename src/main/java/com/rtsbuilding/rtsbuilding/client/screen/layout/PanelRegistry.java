@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
-import com.rtsbuilding.rtsbuilding.client.screen.event.EventDispatcher;
-import com.rtsbuilding.rtsbuilding.client.screen.event.EventResult;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import net.minecraft.client.gui.GuiGraphics;
@@ -10,8 +10,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.CONSUMED;
-import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.PASS;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.CONSUMED;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.PASS;
 
 /**
  * 面板注册表——管理 BuilderScreen 中按渲染层级编排的所有面板。

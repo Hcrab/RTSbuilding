@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
-import com.rtsbuilding.rtsbuilding.client.screen.event.EventResult;
-import com.rtsbuilding.rtsbuilding.client.screen.event.MouseClickEvent;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseClickEvent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.BlockEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.EntityEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectableEntry;
@@ -33,8 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.CONSUMED;
-import static com.rtsbuilding.rtsbuilding.client.screen.event.EventResult.PASS;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.CONSUMED;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.PASS;
 
 /**
  * 交互目标处理器——处理交互模式下与生物/方块的远程交互。

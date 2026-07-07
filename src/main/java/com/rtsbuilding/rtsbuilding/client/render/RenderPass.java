@@ -2,7 +2,10 @@ package com.rtsbuilding.rtsbuilding.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster.CursorRay;
 import net.minecraft.client.Minecraft;
+
+import javax.annotation.Nullable;
 
 /**
  * 渲染 pass 接口——所有世界覆盖层渲染通过此接口注册到 {@link RenderPipeline}。
@@ -27,12 +30,14 @@ public interface RenderPass {
 
     /**
      * 缓冲区分配器——渲染管线的预分配缓冲区在此传递给各 pass。
+     * @param cursorRay 当前帧的缓存射线（由 RenderPipeline 统一计算，可能为 null）
      */
     record BufferAllocator(
             VertexConsumer lines,
             VertexConsumer filledBox,
             VertexConsumer brackets,
             VertexConsumer noDepth,
-            VertexConsumer barrier
+            VertexConsumer barrier,
+            @Nullable CursorRay cursorRay
     ) {}
 }

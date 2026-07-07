@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorGroup;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.model.ColorSource;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorGroup;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorSource;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ColorPreviewComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.HexInputComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.component.SwatchSelectorC
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
 import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
-import com.rtsbuilding.rtsbuilding.client.util.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
