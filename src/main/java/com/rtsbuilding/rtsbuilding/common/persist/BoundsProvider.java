@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.persist;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.RtsPanel;
+
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
 
 /**
  * 提供面板边界信息的接口——供 {@link PersistableProperty.BoundsProperty} 使用。

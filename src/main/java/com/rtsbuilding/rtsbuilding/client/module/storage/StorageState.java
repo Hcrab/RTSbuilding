@@ -35,6 +35,12 @@ public final class StorageState {
     private final List<BlockPos> linkedPositions = new ArrayList<>();
     /** 已链接的存储方块列表（用于渲染线框） */
     private final List<LinkedStorageEntry> linkedStorageEntries = new ArrayList<>();
+    /** 已链接存储的显示名称列表（与 linkedStorageEntries 顺序一致） */
+    private final List<String> linkedDisplayNames = new ArrayList<>();
+    /** 已链接存储的图标物品 ID 列表（与 linkedStorageEntries 顺序一致） */
+    private final List<String> linkedIconItemIds = new ArrayList<>();
+    /** 已链接存储的优先级列表（与 linkedStorageEntries 顺序一致） */
+    private final List<Integer> linkedPriorities = new ArrayList<>();
     private int storagePage, storagePageSize = 90, storageTotalPages = 1, storageTotalEntries;
     private int storageRevision;
     private String storageSearch = "", storageCategory = "all";
@@ -136,6 +142,9 @@ public final class StorageState {
         // 处理链接存储数据
         this.linkedPositions.clear();
         this.linkedStorageEntries.clear();
+        this.linkedDisplayNames.clear();
+        this.linkedIconItemIds.clear();
+        this.linkedPriorities.clear();
         int linkedSize = Math.min(payload.linkedPositions().size(), payload.linkedWorldAvailable().size());
         for (int i = 0; i < linkedSize; i++) {
             Long packed = payload.linkedPositions().get(i);
@@ -146,6 +155,12 @@ public final class StorageState {
             boolean available = i < payload.linkedWorldAvailable().size()
                     ? Boolean.TRUE.equals(payload.linkedWorldAvailable().get(i)) : false;
             this.linkedStorageEntries.add(new LinkedStorageEntry(pos, mode, available));
+            String name = i < payload.linkedNames().size() ? payload.linkedNames().get(i) : "";
+            this.linkedDisplayNames.add(name.isBlank() ? pos.toShortString() : name);
+            this.linkedIconItemIds.add(i < payload.linkedIconItemIds().size()
+                    ? (payload.linkedIconItemIds().get(i) == null ? "" : payload.linkedIconItemIds().get(i)) : "");
+            this.linkedPriorities.add(i < payload.linkedPriorities().size()
+                    ? (payload.linkedPriorities().get(i) == null ? 0 : payload.linkedPriorities().get(i)) : 0);
         }
 
         int size = Math.min(payload.itemStacks().size(), payload.counts().size());
@@ -217,6 +232,9 @@ public final class StorageState {
         this.recentEntries.clear();
         this.linkedPositions.clear();
         this.linkedStorageEntries.clear();
+        this.linkedDisplayNames.clear();
+        this.linkedIconItemIds.clear();
+        this.linkedPriorities.clear();
         this.storageLinked = false;
         this.storagePage = 0;
         this.storageTotalPages = 1;
@@ -265,6 +283,12 @@ public final class StorageState {
     public List<String> getStorageCategories() { return storageCategories; }
     /** 获取已链接的存储方块列表（用于渲染角支架线框） */
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return linkedStorageEntries; }
+    /** 获取已链接存储的显示名称列表 */
+    public List<String> getLinkedDisplayNames() { return linkedDisplayNames; }
+    /** 获取已链接存储的图标物品 ID 列表 */
+    public List<String> getLinkedIconItemIds() { return linkedIconItemIds; }
+    /** 获取已链接存储的优先级列表 */
+    public List<Integer> getLinkedPriorities() { return linkedPriorities; }
     public int getPage() { return storagePage; }
     public int getTotalPages() { return storageTotalPages; }
     public String getSearch() { return storageSearch; }

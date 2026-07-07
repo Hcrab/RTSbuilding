@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.base.window;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -96,29 +95,45 @@ public final class WindowFrameRenderer {
 
     /**
      * 渲染面板九宫格背景，支持悬浮态交叉淡入淡出。
+     *
+     * <p><b>实现细节：</b></p>
+     * <p>交叉淡入淡出的 alpha 通过顶点颜色（{@link GuiGraphics#setColor} 的 alpha 参数）实现，
+     * 而非依赖 {@code RenderSystem.setShaderColor()}。因为 {@link SpriteRenderer#drawNineSlicePanel}
+     * 内部的 {@code BlendScope.normal().close()} 会重置 shader color 为 (1,1,1,1)，
+     * 在 {@link GuiGraphics} 的缓冲渲染模式下，这会导致叠加层的 alpha 丢失，交叉淡入淡出失效。</p>
      */
     private static void renderPanelBackground(GuiGraphics g, Context ctx) {
-        int normalTint = ctx.panelBgColor();
-        int hoverTint = ctx.panelHoverBgColor();
-        float a = (float) (normalTint >> 24 & 0xFF) / 255.0F;
-        float nr = (float) (normalTint >> 16 & 0xFF) / 255.0F;
-        float ng = (float) (normalTint >> 8 & 0xFF) / 255.0F;
-        float nb = (float) (normalTint & 0xFF) / 255.0F;
-        float hr = (float) (hoverTint >> 16 & 0xFF) / 255.0F;
-        float hg = (float) (hoverTint >> 8 & 0xFF) / 255.0F;
-        float hb = (float) (hoverTint & 0xFF) / 255.0F;
+        float t = ctx.hoverAnimProgress();
+        int wx = ctx.windowX();
+        int wy = ctx.windowY();
+        int ww = ctx.windowWidth();
+        int wh = ctx.windowHeight();
 
-        CrossFadeRenderer.render(ctx.hoverAnimProgress(),
-                () -> renderPanelLayer(g, ctx.windowX(), ctx.windowY(), ctx.windowWidth(), ctx.windowHeight(),
-                        nr, ng, nb, a, false),
-                () -> renderPanelLayer(g, ctx.windowX(), ctx.windowY(), ctx.windowWidth(), ctx.windowHeight(),
-                        hr, hg, hb, a, true));
+        if (t <= 0.001f) {
+            renderPanelLayer(g, wx, wy, ww, wh, ctx, 1.0f, false);
+        } else if (t >= 0.999f) {
+            renderPanelLayer(g, wx, wy, ww, wh, ctx, 1.0f, true);
+        } else {
+            // 交叉淡入淡出：正常层全透明，叠加层透明度 = t
+            renderPanelLayer(g, wx, wy, ww, wh, ctx, 1.0f, false);
+            renderPanelLayer(g, wx, wy, ww, wh, ctx, t, true);
+        }
     }
 
-    /** 渲染单层面板背景贴图（带色调） */
+    /**
+     * 渲染单层面板背景贴图（带色调）。
+     *
+     * @param alphaMultiplier alpha 倍增因子——用于交叉淡入淡出时控制叠加层的透明度
+     * @param hovered         true=悬浮态纹理偏移，false=正常态纹理偏移
+     */
     private static void renderPanelLayer(GuiGraphics g, int wx, int wy, int ww, int wh,
-                                          float r, float green, float b, float alpha, boolean hovered) {
-        g.setColor(r, green, b, alpha);
+                                          Context ctx, float alphaMultiplier, boolean hovered) {
+        int tint = hovered ? ctx.panelHoverBgColor() : ctx.panelBgColor();
+        float a = (float) (tint >> 24 & 0xFF) / 255.0F * alphaMultiplier;
+        float r = (float) (tint >> 16 & 0xFF) / 255.0F;
+        float gr = (float) (tint >> 8 & 0xFF) / 255.0F;
+        float b = (float) (tint & 0xFF) / 255.0F;
+        g.setColor(r, gr, b, a);
         SpriteRenderer.drawNineSlicePanel(g, wx, wy, ww, wh, hovered);
         g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
@@ -175,4 +190,3 @@ public final class WindowFrameRenderer {
         btn.render(g, mouseX, mouseY, 0.0F);
     }
 }
-

@@ -194,4 +194,58 @@ public final class PanelRegistry {
             return PASS;
         }, EventDispatcher.P_UI_PANEL);
     }
+
+    /**
+     * 注册内容面板的鼠标滚轮事件到 EventDispatcher。
+     *
+     * @param dispatcher 事件分发器实例
+     */
+    public void registerContentPanelMouseScroll(EventDispatcher dispatcher) {
+        dispatcher.onMouseScroll(event -> {
+            for (PanelEntry entry : entries) {
+                if (entry.layer() == RenderLayer.CONTENT_PANELS) {
+                    if (entry.panel().mouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) {
+                        return CONSUMED;
+                    }
+                }
+            }
+            return PASS;
+        }, EventDispatcher.P_UI_PANEL);
+    }
+
+    /**
+     * 注册内容面板的按键按下事件到 EventDispatcher。
+     *
+     * @param dispatcher 事件分发器实例
+     */
+    public void registerContentPanelKeyPress(EventDispatcher dispatcher) {
+        dispatcher.onKeyPress(event -> {
+            for (PanelEntry entry : entries) {
+                if (entry.layer() == RenderLayer.CONTENT_PANELS) {
+                    if (entry.panel().keyPressed(event.keyCode(), event.scanCode(), event.modifiers())) {
+                        return CONSUMED;
+                    }
+                }
+            }
+            return PASS;
+        }, EventDispatcher.P_UI_PANEL);
+    }
+
+    /**
+     * 注册内容面板的字符输入事件到 EventDispatcher。
+     *
+     * @param dispatcher 事件分发器实例
+     */
+    public void registerContentPanelCharTyped(EventDispatcher dispatcher) {
+        dispatcher.onChar(event -> {
+            for (PanelEntry entry : entries) {
+                if (entry.layer() == RenderLayer.CONTENT_PANELS) {
+                    if (entry.panel().charTyped(event.codePoint(), event.modifiers())) {
+                        return CONSUMED;
+                    }
+                }
+            }
+            return PASS;
+        }, EventDispatcher.P_UI_PANEL);
+    }
 }

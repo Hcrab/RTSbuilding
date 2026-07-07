@@ -362,7 +362,7 @@ public final class LinkedStoragePass implements RenderPass {
      * <p>如果是双箱子（{@link ChestType#LEFT} 或 {@link ChestType#RIGHT}），
      * 合并两个半箱为一个包围盒。</p>
      */
-    private static AABB computeStorageBounds(Level level, BlockPos pos, BlockState state) {
+    public static AABB computeStorageBounds(Level level, BlockPos pos, BlockState state) {
         if (state.getBlock() instanceof ChestBlock) {
             ChestType chestType = state.getValue(ChestBlock.TYPE);
             if (chestType != ChestType.SINGLE) {

@@ -12,6 +12,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.EasingFunctions;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
@@ -91,6 +93,16 @@ public class HexInputComponent {
     /** 文本水平滚动偏移（像素），使光标保持在可视区域 */
     private int scrollOffset;
 
+    /** 输入框聚焦/失焦交叉淡入淡出动画（0=常态，1=聚焦态） */
+    private final FloatAnimation inputFocusAnim = FloatAnimation.builder()
+            .from(0f).to(0f)
+            .duration(100L)
+            .easing(EasingFunctions.EASE_OUT_QUAD)
+            .startFromCurrent(true)
+            .build();
+    /** 上一帧是否处于编辑模式 */
+    private boolean prevHexEditMode;
+
     // ======================== 回调 ========================
 
     @Nullable
@@ -128,10 +140,17 @@ public class HexInputComponent {
         int inputW = previewW - labelW - LABEL_GAP - modeBtnW - MODE_GAP;
         int inputX = previewX + labelW + LABEL_GAP;
 
-        NineSliceRegion inputSpec = hexEditMode
-                ? INPUT_BOX_NINE_SLICE.withVOffset(INPUT_BOX_STATE_H)
-                : INPUT_BOX_NINE_SLICE;
-        SpriteRenderer.drawNineSlice(g, inputSpec.withTheme(), inputX, inputY, inputW, INPUT_H);
+        // 输入框聚焦/失焦交叉淡入淡出动画
+        inputFocusAnim.tick();
+        if (hexEditMode != prevHexEditMode) {
+            inputFocusAnim.start(hexEditMode ? 1f : 0f);
+            prevHexEditMode = hexEditMode;
+        }
+        NineSliceRegion normalSpec = INPUT_BOX_NINE_SLICE.withTheme();
+        NineSliceRegion focusSpec = INPUT_BOX_NINE_SLICE.withTheme().withVOffset(INPUT_BOX_STATE_H);
+        CrossFadeRenderer.render(inputFocusAnim.getValue(),
+                () -> SpriteRenderer.drawNineSlice(g, normalSpec, inputX, inputY, inputW, INPUT_H),
+                () -> SpriteRenderer.drawNineSlice(g, focusSpec, inputX, inputY, inputW, INPUT_H));
 
         TextRenderer.draw(g, inputLabel, previewX,
                 inputY + (INPUT_H - font.lineHeight) / 2, inputTextColor);

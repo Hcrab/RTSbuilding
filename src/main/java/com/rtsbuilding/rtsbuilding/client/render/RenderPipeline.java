@@ -98,6 +98,8 @@ public final class RenderPipeline {
         registerPass(new LinkedStoragePass());
         var lsp = (LinkedStoragePass) passes.get(passes.size() - 1);
         this.linkedStoragePass = lsp;
+        // 位置标记 pass——始终渲染，独立于绑定模式
+        registerPass(new LocateMarkerPass());
         var bsp = new BoxSelectionPass(boxSelector);
         this.boxSelectionPass = bsp;
         registerPass(bsp);

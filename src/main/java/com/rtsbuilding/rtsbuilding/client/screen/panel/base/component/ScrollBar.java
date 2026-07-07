@@ -44,10 +44,10 @@ public class ScrollBar {
     // 滑块比轨道左右各宽 1px（视觉凸出），由 THUMB_W - TRACK_W 推算
     private static final int MIN_THUMB_SIZE = 12;
 
-    /** 渲染时轨道厚度（竖向=宽度，横向=高度，固定 5px） */
-    private static final int TRACK_THICKNESS = 5;
-    /** 渲染时滑块厚度（竖向=宽度，横向=高度，固定 7px） */
-    private static final int THUMB_THICKNESS = 7;
+    /** 渲染时轨道厚度（竖向=宽度，横向=高度，固定 3px） */
+    private static final int TRACK_THICKNESS = 3;
+    /** 渲染时滑块厚度（竖向=宽度，横向=高度，固定 5px） */
+    private static final int THUMB_THICKNESS = 5;
 
     // ======================== 贴图常量 ========================
 

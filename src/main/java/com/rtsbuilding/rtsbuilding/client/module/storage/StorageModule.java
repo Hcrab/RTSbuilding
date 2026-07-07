@@ -16,7 +16,9 @@ import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 存储模块——管理存储页面、合成、漏斗、快槽和 GUI 绑定。
@@ -28,6 +30,9 @@ public final class StorageModule implements FeatureModule {
 
     private final StorageState state = new StorageState();
 
+    /** 当前开启了位置标记的已链接容器位置集合（纯客户端状态） */
+    private final Set<BlockPos> locationDisplayPositions = new HashSet<>();
+
     @Override
     public String moduleId() {
         return "storage";
@@ -36,9 +41,13 @@ public final class StorageModule implements FeatureModule {
     @Override
     public void onSessionEvent(StateEvent event) {
         if (event instanceof StateEvent.RtsToggled e) {
-            if (!e.enabled()) state.clearSessionState();
+            if (!e.enabled()) {
+                state.clearSessionState();
+                locationDisplayPositions.clear();
+            }
         } else if (event instanceof StateEvent.PlayerDied) {
             state.clearSessionState();
+            locationDisplayPositions.clear();
         }
     }
 
@@ -122,6 +131,43 @@ public final class StorageModule implements FeatureModule {
 
     /** 获取已链接的存储方块列表（用于渲染角支架线框） */
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return state.getLinkedStorageEntries(); }
+
+    /** 获取已链接存储的显示名称列表 */
+    public List<String> getLinkedDisplayNames() { return state.getLinkedDisplayNames(); }
+
+    /** 获取已链接存储的图标物品 ID 列表 */
+    public List<String> getLinkedIconItemIds() { return state.getLinkedIconItemIds(); }
+
+    /** 获取已链接存储的优先级列表 */
+    public List<Integer> getLinkedPriorities() { return state.getLinkedPriorities(); }
+
+    // ======================================================================
+    //  位置标记状态（纯客户端，不涉及网络同步）
+    // ======================================================================
+
+    /**
+     * 切换指定容器位置标记的显示状态。
+     *
+     * @param pos 容器方块位置
+     * @return true 表示已开启位置标记，false 表示已关闭
+     */
+    public boolean toggleLocationDisplay(BlockPos pos) {
+        if (!locationDisplayPositions.remove(pos)) {
+            locationDisplayPositions.add(pos);
+            return true;
+        }
+        return false;
+    }
+
+    /** 获取当前开启了位置标记的容器位置集合 */
+    public Set<BlockPos> getLocationDisplayPositions() {
+        return locationDisplayPositions;
+    }
+
+    /** 检查指定位置是否已开启位置标记 */
+    public boolean isLocationDisplayActive(BlockPos pos) {
+        return locationDisplayPositions.contains(pos);
+    }
 
     // ======================================================================
     //  容器绑定逻辑（从 BuilderScreen 迁入，解耦 UI 框架与业务）

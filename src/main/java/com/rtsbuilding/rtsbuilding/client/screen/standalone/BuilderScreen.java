@@ -44,6 +44,7 @@ import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
@@ -268,6 +269,34 @@ public class BuilderScreen extends Screen {
             return true;
         }
         return topBarPanel.isMouseOverAnyPopup((int) mouseX, (int) mouseY);
+    }
+
+    /**
+     * 检测鼠标是否悬停在任意实现 {@link RtsPanelApi} 的面板区域内。
+     * <p>鼠标在面板区域内时阻止所有摄像机操作（拖拽旋转、平移、滚轮缩放），
+     * 避免面板交互被摄像机误触发。</p>
+     */
+    public boolean isMouseOverRtsPanelApi(double mouseX, double mouseY) {
+        // 浮动窗口（GearMenuPanel, ColorPickerPanel, ContainerScreenPanel 等）
+        if (floatingWindowLayer != null
+                && floatingWindowLayer.isMouseOverWindowOrResizableBorder(mouseX, mouseY)) {
+            return true;
+        }
+        // 顶部栏弹窗
+        if (topBarPanel != null && topBarPanel.isMouseOverAnyPopup((int) mouseX, (int) mouseY)) {
+            return true;
+        }
+        // 下栏面板区域（含左右嵌层）
+        int downH = getDownSidebarHeight();
+        if (downH > 0 && mouseY >= this.height - downH) {
+            return true;
+        }
+        // 右边栏面板区域（含上下嵌层）
+        int rightW = getRightSidebarWidth();
+        if (rightW > 0 && mouseX >= this.width - rightW) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -521,6 +550,8 @@ public class BuilderScreen extends Screen {
         }
 
         // 5. 继承 RtsPanel 的浮窗面板（GearMenuPanel、ContainerScreenPanel 等）永远绘制在最顶层
+        // ★ 清空深度缓冲，防止内容面板中物品图标的深度残留遮挡浮窗渲染
+        RenderSystem.clear(256, false); // GL_DEPTH_BUFFER_BIT
         if (floatingWindowLayer != null) {
             floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
         }
@@ -672,6 +703,8 @@ public class BuilderScreen extends Screen {
 
         // P_INPUT_PIPELINE (0): 内核输入管道
         eventDispatcher.onMouseClick(event -> {
+            // 鼠标在实现RtsPanelApi的面板上时阻止摄像机操作
+            if (isMouseOverRtsPanelApi(event.x(), event.y())) return CONSUMED;
             if (kernel.inputPipeline().onMouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
             return PASS;
         }, EventDispatcher.P_INPUT_PIPELINE);
@@ -711,10 +744,15 @@ public class BuilderScreen extends Screen {
 
         // ======================== Mouse Scroll ========================
 
+        // P_UI_PANEL (80): 内容面板滚轮事件
+        panelRegistry.registerContentPanelMouseScroll(eventDispatcher);
+
         eventDispatcher.onMouseScroll(event -> {
             if (floatingWindowLayer.mouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) return CONSUMED;
             if (!leftSidebarPanel.isClickButtonSelected()
                     && kernel.renderPipeline().boxSelector.handleScroll(event.scrollY())) return CONSUMED;
+            // 鼠标在实现RtsPanelApi的面板上时阻止摄像机滚轮缩放
+            if (isMouseOverRtsPanelApi(event.x(), event.y())) return CONSUMED;
             if (kernel.inputPipeline().onMouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) return CONSUMED;
             if (BuilderScreen.super.mouseScrolled(event.x(), event.y(), event.scrollX(), event.scrollY())) return CONSUMED;
             return PASS;
@@ -734,6 +772,8 @@ public class BuilderScreen extends Screen {
         }, EventDispatcher.P_FLOATING_WINDOW);
 
         // P_UI_PANEL (80): UI 快捷键
+        panelRegistry.registerContentPanelKeyPress(eventDispatcher);
+
         eventDispatcher.onKeyPress(event -> {
             // Ctrl+, → 切换设置面板
             if (RtsKeyMappings.OPEN_GEAR_MENU_KEY.matches(event.keyCode(), event.scanCode())) {
@@ -799,6 +839,9 @@ public class BuilderScreen extends Screen {
         }, EventDispatcher.P_FALLBACK);
 
         // ======================== Char Typed ========================
+
+        // P_UI_PANEL (80): 内容面板字符输入
+        panelRegistry.registerContentPanelCharTyped(eventDispatcher);
 
         eventDispatcher.onChar(event -> {
             if (floatingWindowLayer.charTyped(event.codePoint(), event.modifiers())) return CONSUMED;

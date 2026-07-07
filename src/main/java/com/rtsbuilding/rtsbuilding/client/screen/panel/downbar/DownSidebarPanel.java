@@ -101,7 +101,7 @@ public final class DownSidebarPanel implements RtsPanelApi {
     private static final int OVERLAY_DIVIDER_HALF_HIT = 2;
 
     /** 嵌层最小宽度 */
-    private static final int OVERLAY_MIN_SIZE = 30;
+    private static final int OVERLAY_MIN_SIZE = 160;
 
     @Override
     public void init(BuilderScreen screen) {
@@ -173,11 +173,14 @@ public final class DownSidebarPanel implements RtsPanelApi {
 
         int totalW = db.width();
         int gap = 1;
+
         // 使用用户拖拽调整后的左嵌层宽度，未调整时使用默认黄金比例
         int leftW = resolveLeftOverlayWidth();
 
-        // 更新左嵌层位置并渲染（拖拽分隔条时强制显示激活态）
+        // 更新左嵌层位置并渲染（拖拽分隔条时抑制所有悬浮逻辑）
         leftLayer.setBounds(db.x(), oy, leftW, oh);
+        leftLayer.setDividerDragging(isDraggingOverlayDivider);
+        leftLayer.setLastMousePos(mouseX, mouseY);
         leftLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(leftLayer, mouseX, mouseY));
 
         // 更新右嵌层位置并渲染（中间间隔 1px）
@@ -185,6 +188,8 @@ public final class DownSidebarPanel implements RtsPanelApi {
         int rightW = totalW - leftW - gap;
         if (rightW > 0) {
             rightLayer.setBounds(rightX, oy, rightW, oh);
+            rightLayer.setDividerDragging(isDraggingOverlayDivider);
+            rightLayer.setLastMousePos(mouseX, mouseY);
             rightLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(rightLayer, mouseX, mouseY));
         }
     }
@@ -235,6 +240,14 @@ public final class DownSidebarPanel implements RtsPanelApi {
         if (button != 0) return false;
         int mx = (int) mouseX;
         int my = (int) mouseY;
+        // 优先委派给左嵌层（容器绑定交互）
+        if (leftLayer.contains(mx, my) && leftLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        // 委派给右嵌层
+        if (rightLayer.contains(mx, my) && rightLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         // 优先检测嵌层分隔条点击
         if (isMouseOverDownOverlayDivider(mx, my)) {
             isDraggingOverlayDivider = true;
@@ -249,8 +262,38 @@ public final class DownSidebarPanel implements RtsPanelApi {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int mx = (int) mouseX;
+        int my = (int) mouseY;
+        if (leftLayer.contains(mx, my)) {
+            return leftLayer.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        if (rightLayer.contains(mx, my)) {
+            return rightLayer.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        return false;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (leftLayer.keyPressed(keyCode, scanCode, modifiers)) return true;
+        if (rightLayer.keyPressed(keyCode, scanCode, modifiers)) return true;
+        return false;
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (leftLayer.charTyped(codePoint, modifiers)) return true;
+        if (rightLayer.charTyped(codePoint, modifiers)) return true;
+        return false;
+    }
+
+    @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button != 0) return false;
+        // 委派给嵌层（释放滚动条拖拽等）
+        if (leftLayer.mouseReleased(mouseX, mouseY, button)) return true;
+        if (rightLayer.mouseReleased(mouseX, mouseY, button)) return true;
         if (isDraggingOverlayDivider) {
             isDraggingOverlayDivider = false;
             this.screen.persistUiState();
@@ -267,6 +310,9 @@ public final class DownSidebarPanel implements RtsPanelApi {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (button != 0) return false;
+        // 委派给嵌层（滚动条拖拽）
+        if (leftLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
+        if (rightLayer.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
         if (isDraggingOverlayDivider) {
             int mx = (int) mouseX;
             int deltaX = mx - dragOverlayDividerStartX;
