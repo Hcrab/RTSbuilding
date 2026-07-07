@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsRequestPluginsPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsUninstallPluginPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.*;
 import com.rtsbuilding.rtsbuilding.network.storage.*;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -222,6 +223,9 @@ public final class RtsClientPacketGateway {
             String label = stack.getHoverName().getString();
             if (matchesLocalizedSearch(id, label, tokens)) {
                 matches.add(id.toString());
+                if (matches.size() >= C2SRtsRequestStoragePagePayload.MAX_LOCALIZED_SEARCH_MATCHES) {
+                    break;
+                }
             }
         }
         return matches;
@@ -296,6 +300,7 @@ public final class RtsClientPacketGateway {
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
         }
+        RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
         PacketDistributor.sendToServer(new C2SRtsPlacePayload(
                 hit.getBlockPos(),
                 (byte) hit.getDirection().get3DDataValue(),
@@ -339,6 +344,7 @@ public final class RtsClientPacketGateway {
                 continue;
             }
             positions.add(hit.getBlockPos().immutable());
+            RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
             if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
                 break;
             }
@@ -370,6 +376,7 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendPlaceFluid(BlockHitResult hit, boolean forcePlace, String fluidId, Vec3 rayOrigin, Vec3 rayDir) {
+        RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
         PacketDistributor.sendToServer(new C2SRtsPlaceFluidPayload(
                 hit.getBlockPos(),
                 (byte) hit.getDirection().get3DDataValue(),

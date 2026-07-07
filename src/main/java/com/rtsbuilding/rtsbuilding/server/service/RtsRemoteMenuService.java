@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -16,7 +17,6 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -63,7 +63,7 @@ public final class RtsRemoteMenuService {
     }
 
     public static void relaxOpenedMenuValidation(AbstractContainerMenu menu) {
-        if (menu == null) {
+        if (menu == null || RtsRemoteMenuCompat.isRemoteMenuPersistenceDisabledForProbe()) {
             return;
         }
         boolean preserveContainerIdentity = menu instanceof ChestMenu;
@@ -142,7 +142,7 @@ public final class RtsRemoteMenuService {
         if (player == null || pos == null) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
         if (!(player.level() instanceof ServerLevel level) || !level.hasChunkAt(pos)) {
             return;
         }

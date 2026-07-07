@@ -47,8 +47,35 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        clientCompat {
+            client()
+            gameDirectory = project.file('run-compat-automation/neoforge-1.21.1-client')
+            def compatServer = providers.environmentVariable('RTSBUILDING_GUI_COMPAT_SERVER')
+                    .orElse('localhost:25566')
+                    .get()
+            programArguments.addAll '--quickPlayMultiplayer', compatServer
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        serverCompat {
+            server()
+            gameDirectory = project.file('run-compat-automation/neoforge-1.21.1-server')
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
         gameTestServer {
             type = "gameTestServer"
+            // 基础 GameTest 使用干净目录，避免本地 run/mods 中的科技/客户端模组干扰服务器烟测。
+            gameDirectory = project.file('run-gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        serverSmokeGameTestServer {
+            type = "gameTestServer"
+            // Dedicated server-side compatibility smoke profile. Keep this
+            // separate from the manual play run directory.
+            gameDirectory = project.file('run-server-smoke')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -107,36 +134,24 @@ sourceSets {
     }
 }
 
-configurations {
-    runtimeClasspath.extendsFrom localRuntime
-    additionalRuntimeClasspath.extendsFrom localRuntime
-}
-
 dependencies {
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
-    runtimeOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge:${jei_version}"
-    
     compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
-
-    // Sophisticated 系列由本地测试包 run/mods 提供，避免 Gradle localRuntime 再注入一份导致 JPMS 模块冲突。
-    localRuntime "maven.modrinth:pipez:${pipez_version}"
     compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
 
-    runtimeOnly fileTree(dir: 'libs', include: '*.jar')
-
-    // ── Test dependencies ──
+    // 鈹€鈹€ Test dependencies 鈹€鈹€
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
     testImplementation "org.mockito:mockito-core:5.12.0"
     testImplementation "org.mockito:mockito-junit-jupiter:5.12.0"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
     testImplementation "net.neoforged:neoforge:${neo_version}"
 
-    // ── JMH for microbenchmarks ──
+    // 鈹€鈹€ JMH for microbenchmarks 鈹€鈹€
     testImplementation 'org.openjdk.jmh:jmh-core:1.37'
     testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 
-    // ── SQLite for benchmark data persistence ──
+    // 鈹€鈹€ SQLite for benchmark data persistence 鈹€鈹€
     testImplementation 'org.xerial:sqlite-jdbc:3.46.0.0'
 }
 
@@ -172,7 +187,7 @@ tasks.register('generateBenchmarkReport') {
 
 tasks.register('runBenchmarks', Test) {
     group = 'benchmark'
-    description = 'Internal task — run benchmark tests'
+    description = 'Internal task 鈥?run benchmark tests'
     useJUnitPlatform()
 
     testClassesDirs = sourceSets.test.output.classesDirs

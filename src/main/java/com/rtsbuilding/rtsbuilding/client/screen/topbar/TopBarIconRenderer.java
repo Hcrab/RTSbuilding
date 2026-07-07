@@ -23,6 +23,9 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * @see TopBarTypes.TopBarButtonId
  */
 public final class TopBarIconRenderer {
+    private static final int RANGE_CULLING_ACTIVE_MARKER_HALF_WIDTH = 9;
+    private static final int RANGE_CULLING_ACTIVE_MARKER_TOP_OFFSET = 8;
+    private static final int RANGE_CULLING_ACTIVE_MARKER_HEIGHT = 2;
 
     // ======================== Public API ========================
 
@@ -51,6 +54,7 @@ public final class TopBarIconRenderer {
             case QUICK_BUILD -> drawQuickBuildIcon(g, cx, cy, color, active);
             case QUEST_DETECT -> drawQuestCheckIcon(g, cx, cy, color);
             case CHUNK_VIEW -> drawChunkCurtainIcon(g, cx, cy, color, active);
+            case RANGE_CULLING -> drawRangeCullingIcon(g, cx, cy, color, active);
             case DEBUG -> drawDebugIcon(g, cx, cy, color, font);
             case GEAR -> drawGearIcon(g, cx, cy, color);
             default -> {
@@ -241,6 +245,36 @@ public final class TopBarIconRenderer {
         g.fill(cx - 7, cy - 6, cx + 6, cy - 5, color);
         g.fill(cx - 7, cy, cx + 6, cy + 1, color);
         g.fill(cx - 7, cy + 6, cx + 6, cy + 7, color);
+    }
+
+    /**
+     * 绘制范围剔除按钮：空心立方体表示被隐藏区域，斜线表示射线会穿透。
+     */
+    private static void drawRangeCullingIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
+        int fill = active ? 0x884AA8FF : 0x221D2530;
+        int slash = active ? 0xFFFFD45A : 0xFF88BEF4;
+        if (active) {
+            int markerY = cy + RANGE_CULLING_ACTIVE_MARKER_TOP_OFFSET;
+            g.fill(cx - RANGE_CULLING_ACTIVE_MARKER_HALF_WIDTH,
+                    markerY,
+                    cx + RANGE_CULLING_ACTIVE_MARKER_HALF_WIDTH,
+                    markerY + RANGE_CULLING_ACTIVE_MARKER_HEIGHT,
+                    0xFFFFD45A);
+        }
+        g.fill(cx - 8, cy - 6, cx + 5, cy + 6, fill);
+        g.hLine(cx - 8, cx + 4, cy - 6, color);
+        g.hLine(cx - 8, cx + 4, cy + 6, color);
+        g.vLine(cx - 8, cy - 6, cy + 6, color);
+        g.vLine(cx + 5, cy - 6, cy + 6, color);
+        g.hLine(cx - 4, cx + 8, cy - 9, color);
+        g.vLine(cx + 8, cy - 9, cy + 3, color);
+        g.fill(cx - 4, cy - 9, cx - 2, cy - 6, color);
+        g.fill(cx + 5, cy + 3, cx + 8, cy + 6, color);
+        g.fill(cx - 7, cy + 5, cx - 4, cy + 8, slash);
+        g.fill(cx - 4, cy + 2, cx - 1, cy + 5, slash);
+        g.fill(cx - 1, cy - 1, cx + 2, cy + 2, slash);
+        g.fill(cx + 2, cy - 4, cx + 5, cy - 1, slash);
+        g.fill(cx + 5, cy - 7, cx + 8, cy - 4, slash);
     }
 
     /**

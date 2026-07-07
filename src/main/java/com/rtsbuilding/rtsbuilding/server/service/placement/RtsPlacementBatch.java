@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -90,7 +91,7 @@ public final class RtsPlacementBatch {
         }
         // Quick-build jobs (shape builds) are limited to BUILD_BATCH_MAX_QUEUED_JOBS;
         // reject when full. Single-block placements bypass this limit.
-        if (quickBuild && session.placement.placeBatchJobs.size() >= BUILD_BATCH_MAX_QUEUED_JOBS) {
+        if (quickBuild && session.placement.placeBatchJobs.size() >= Config.buildBatchMaxQueuedJobs()) {
             return false;
         }
         session.placement.placeBatchJobs.addLast(new PlaceBatchJob(
@@ -132,7 +133,7 @@ public final class RtsPlacementBatch {
         for (PlaceBatchJob j : session.placement.placeBatchJobs) {
             totalBlocks += j.totalCount();
         }
-        int remaining = Math.min(BUILD_BATCH_MAX_BLOCKS_PER_TICK, Math.max(1, totalBlocks / 10));
+        int remaining = Math.min(Config.buildBatchBlocksPerTick(), Math.max(1, totalBlocks / 10));
         // 记录此 tick 开始前每个 job 的已放置数，用于按 job 独立更新工作流进度
         java.util.Map<Integer, Integer> placedBeforeTick = new java.util.HashMap<>();
         // 收集此 tick 中完成的所有 job，确保每个 job 的工作流都被 complete

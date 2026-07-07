@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
@@ -10,6 +11,10 @@ import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
 import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
@@ -45,6 +50,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
+import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -118,6 +124,10 @@ public final class BuilderScreen extends Screen {
     private final BlueprintNameWindowPanel blueprintNameWindowPanel = new BlueprintNameWindowPanel();
     /** Windowed blueprint material details prompt. */
     private final BlueprintMaterialWindowPanel blueprintMaterialWindowPanel = new BlueprintMaterialWindowPanel();
+    /** Client-side range-culling editor state. */
+    private final RtsCullingManager cullingManager = RtsCullingClientState.persistentManager();
+    /** Windowed range-culling management controls. */
+    private final RtsCullingPanel cullingPanel = new RtsCullingPanel(this.cullingManager);
     /** Top bar panel with mode buttons, shape selection, and action controls. */
     private final TopBarPanel topBarPanel = new TopBarPanel();
     /** Bottom panel containing storage grid, crafting, blueprints, and pin slots. */
@@ -204,6 +214,7 @@ public final class BuilderScreen extends Screen {
                 this.gearMenuPanel,
                 this.guidePanel,
                 this.quickBuildPanel,
+                this.cullingPanel,
                 this.workflowPanel,
                 this.resumePlacementPanel,
                 this.blueprintResumePanel);
@@ -214,6 +225,7 @@ public final class BuilderScreen extends Screen {
         this.uiStateManager.registerWindowPanel("craft_quantity", this.craftQuantityWindowPanel);
         this.uiStateManager.registerWindowPanel("blueprint_name", this.blueprintNameWindowPanel);
         this.uiStateManager.registerWindowPanel("blueprint_materials", this.blueprintMaterialWindowPanel);
+        this.uiStateManager.registerWindowPanel("range_culling", this.cullingPanel);
         this.uiStateManager.registerWindowPanel("workflow", this.workflowPanel);
         this.uiStateManager.registerWindowPanel("resume_placement", this.resumePlacementPanel);
         this.uiStateManager.registerWindowPanel("blueprint_resume", this.blueprintResumePanel);
@@ -226,6 +238,7 @@ public final class BuilderScreen extends Screen {
         this.craftQuantityWindowPanel.init(this, this.controller);
         this.funnelBufferPanel.init(this, this.controller);
         this.quickBuildPanel.init(this, this.controller);
+        this.cullingPanel.init(this, this.controller);
         this.workflowPanel.init(this, this.controller);
         this.resumePlacementPanel.init(this, this.controller);
         this.blueprintResumePanel.init(this, this.controller);
@@ -235,10 +248,15 @@ public final class BuilderScreen extends Screen {
         this.shapeController.init(this, this.controller);
         this.cursorPicker.init(this, this.controller, this.shapeController);
         this.cameraInput.init(this, this.controller);
+        RtsCullingClientState.setActiveManager(this.cullingManager);
     }
     /** Returns the Minecraft font renderer for use by sub-panels and utilities. */
     public Font font() {
         return this.font;
+    }
+    /** 返回顶部栏底部 Y 坐标，供浮动面板避让顶部操作区。 */
+    public int topBarBottomY() {
+        return TOP_H;
     }
     /** Triggers a red flash overlay on the screen to indicate the player took damage while in RTS mode. */
     public void triggerDamageFlash() {
@@ -320,6 +338,13 @@ public final class BuilderScreen extends Screen {
      * 确保持久化值正确反映到活跃状态。
      */
     public void syncQuickBuildActiveState() {
+        if (!this.quickBuildPanel.isOpen()) {
+            this.controller.setBuildShape(BuildShape.BLOCK);
+            this.controller.clearAreaMineSession();
+            this.shapeController.clearShapeBuildSession();
+            ensureFillModeForShape(BuildShape.BLOCK);
+            return;
+        }
         if (this.quickBuildPanel.isRangeDestroyMode()) {
             this.shapeController.applyDestroyStateAsActive();
         } else {
@@ -408,6 +433,7 @@ public final class BuilderScreen extends Screen {
     @Override
     public void onClose() {
         this.shapeController.clearShapeBuildSession();
+        this.cullingManager.closeManagementMode();
         this.controller.clearAreaMineSession();
         persistUiState();
         this.uiStateManager.flush();
@@ -423,6 +449,7 @@ public final class BuilderScreen extends Screen {
         }
         this.craftQuantityWindowPanel.close();
         this.overlayRenderer.updateNativeCursorVisibility(false);
+        RtsCullingClientState.clearActiveManager(this.cullingManager);
     }
     /* Called when the screen is fully removed from the display stack. Resets camera vertical input and cursor. */
     @Override
@@ -430,6 +457,7 @@ public final class BuilderScreen extends Screen {
         super.removed();
         this.cameraInput.resetCameraVerticalHeld();
         this.overlayRenderer.updateNativeCursorVisibility(false);
+        RtsCullingClientState.clearActiveManager(this.cullingManager);
     }
     /*
       Called every client tick. Updates shape state,
@@ -490,6 +518,7 @@ public final class BuilderScreen extends Screen {
         if (handleOverlayClicks(mouseX, mouseY, button)) return true;
         if (handleBlueprintCaptureClicks(mouseX, mouseY, button)) return true;
         if (handleHomeSelectionClicks(mouseX, mouseY, button)) return true;
+        if (handleRangeCullingSelectionClick(mouseX, mouseY, button)) return true;
         if (handleAreaMineClickBlock(mouseX, mouseY, button)) return true;
         if (handleLeftClickInteractions(mouseX, mouseY, button)) return true;
         if (handleWorldClickActions(mouseX, mouseY, button)) return true;
@@ -607,6 +636,9 @@ public final class BuilderScreen extends Screen {
      * and pan/pick mouse actions.
      */
     private boolean handleWorldClickActions(double mouseX, double mouseY, int button) {
+        if (handleBatchConfirmMouse(mouseX, mouseY, button)) {
+            return true;
+        }
         if (CameraInputHandler.isBreakActionMouse(button)
                 && CameraInputHandler.canStartBreakActionOnMouse(button)
                 && this.cameraInput.startMiningAt(mouseX, mouseY, button, false)) {
@@ -657,6 +689,25 @@ public final class BuilderScreen extends Screen {
         }
         return false;
     }
+
+    private boolean handleBatchConfirmMouse(double mouseX, double mouseY, int button) {
+        if (!Config.isKeyboardBatchConfirmEnabled() || !isWorldArea(mouseX, mouseY) || isSearchFocused()) {
+            return false;
+        }
+        InputConstants.Key mouseKey = InputConstants.Type.MOUSE.getOrCreate(button);
+        if (this.shapeController.isAwaitingBatchDestroyConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_DESTROY.isActiveAndMatches(mouseKey)) {
+            this.shapeController.tryConfirmPendingRangeDestroy();
+            return true;
+        }
+        if (this.shapeController.isAwaitingBatchPlaceConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_PLACE.isActiveAndMatches(mouseKey)) {
+            this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
+            return true;
+        }
+        return false;
+    }
+
     @Override
     /**
      * Handles mouse release with RTS GUI scale remapping. Routes release events to
@@ -672,15 +723,15 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
+            this.cameraInput.stopActiveMining();
+            return true;
+        }
         if (this.draggingInputSensitivity) {
             this.draggingInputSensitivity = false;
             return true;
         }
         if (handleFloatingWindowRelease(mouseX, mouseY, button)) {
-            return true;
-        }
-        if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
-            this.cameraInput.stopActiveMining();
             return true;
         }
         if (this.cameraInput.isRightDragActive(button)) {
@@ -714,6 +765,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (handleFloatingWindowDrag(mouseX, mouseY, button, dragX, dragY)) {
+            return true;
+        }
+        if (this.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return true;
         }
 
@@ -807,6 +861,11 @@ public final class BuilderScreen extends Screen {
         if (!isWorldArea(mouseX, mouseY)) {
             return true;
         }
+        if (this.cullingManager.isManagementMode()) {
+            return mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0
+                    ? handleRangeCullingWorldAction(mouseX, mouseY)
+                    : false;
+        }
         if (this.controller.getMode() == BuilderMode.LINK_STORAGE) {
             this.shapeController.clearShapeBuildSession();
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
@@ -829,8 +888,11 @@ public final class BuilderScreen extends Screen {
         }
         boolean forcePlace = hasShiftDown();
         boolean rangeDestroyMode = isQuickBuildRangeDestroyMode();
-        if (!rangeDestroyMode && this.shapeController.tryConfirmPendingShapeBuild(forcePlace)) {
-            return true;
+        if (!rangeDestroyMode && this.shapeController.isAwaitingBatchPlaceConfirm()) {
+            if (Config.isKeyboardBatchConfirmEnabled()) {
+                return true;
+            }
+            return this.shapeController.tryConfirmPendingShapeBuild(forcePlace);
         }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.hasSelectedBlueprint()) {
             if (BlueprintPanel.hasPinnedPreview()) {
@@ -881,6 +943,15 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
+                if (!forcePlace && !rangeDestroyMode) {
+                    this.shapeController.clearShapeBuildSession();
+                    this.controller.interactBlockWithPinnedItem(
+                            target.blockHit(),
+                            this.controller.getSelectedItemId(),
+                            target.rayOrigin(),
+                            target.rayDir());
+                    return true;
+                }
                 if (rangeDestroyMode) {
                     this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
                     this.shapeController.recordSinglePlacementForUndo(
@@ -943,12 +1014,20 @@ public final class BuilderScreen extends Screen {
             }
         } else if (target.blockHit() != null) {
             if (hasMainHandItem()) {
-                this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
-                this.shapeController.recordSinglePlacementForUndo(
-                        target.blockHit(),
-                        InteractionTypes.PlacementReplayKind.TOOL_SLOT,
-                        "",
-                        getSelectedToolSlot());
+                if (forcePlace) {
+                    this.controller.placeSelected(target.blockHit(), true, target.rayOrigin(), target.rayDir());
+                    this.shapeController.recordSinglePlacementForUndo(
+                            target.blockHit(),
+                            InteractionTypes.PlacementReplayKind.TOOL_SLOT,
+                            "",
+                            getSelectedToolSlot());
+                } else {
+                    this.controller.interactBlockWithToolSlot(
+                            target.blockHit(),
+                            getSelectedToolSlot(),
+                            target.rayOrigin(),
+                            target.rayDir());
+                }
             } else {
                 this.controller.interactEmpty(target.blockHit(), target.rayOrigin(), target.rayDir());
             }
@@ -1000,6 +1079,11 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (BlueprintPanel.mouseScrolledCaptureHeight(scrollY)) {
+            return true;
+        }
+        if (this.cullingManager.isManagementMode()
+                && (this.cullingManager.activeHandleDirection() != null || isWorldArea(mouseX, mouseY))
+                && this.cullingManager.handleScroll(scrollY, isAltDown())) {
             return true;
         }
         if (isInsideBottomPanel(mouseX, mouseY)) {
@@ -1085,6 +1169,9 @@ public final class BuilderScreen extends Screen {
      * shape rotation, and craft terminal.
      */
     private boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers) {
+        if (this.cullingManager.isManagementMode()) {
+            return true;
+        }
         // While area mine selection is active, block all world interaction keys except the break key
         if (!BlueprintPanel.isCaptureModeActive()
                 && this.controller.getAreaMinePhase() != MiningOperationService.AREA_MINE_PHASE_NONE) {
@@ -1108,6 +1195,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (!isSearchFocused() && this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, true)) {
+            return true;
+        }
+        if (!isSearchFocused() && handleBatchConfirmKey(keyCode, scanCode)) {
             return true;
         }
         if (!isSearchFocused() && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
@@ -1156,6 +1246,23 @@ public final class BuilderScreen extends Screen {
                 && !hasControlDown()) {
             persistUiState();
             this.controller.openCraftTerminal();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleBatchConfirmKey(int keyCode, int scanCode) {
+        if (!Config.isKeyboardBatchConfirmEnabled()) {
+            return false;
+        }
+        if (this.shapeController.isAwaitingBatchDestroyConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
+            this.shapeController.tryConfirmPendingRangeDestroy();
+            return true;
+        }
+        if (this.shapeController.isAwaitingBatchPlaceConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
+            this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
             return true;
         }
         return false;
@@ -1240,6 +1347,12 @@ public final class BuilderScreen extends Screen {
         if (ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode) && this.funnelHotkeyHeld) {
             this.funnelHotkeyHeld = false;
             deactivateFunnelHotkey();
+            return true;
+        }
+        if (this.cameraInput.isLeftMiningActive()
+                && this.cameraInput.isKeyboardMining()
+                && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
+            this.cameraInput.stopActiveMining();
             return true;
         }
         if (this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, false)) {
@@ -1365,6 +1478,7 @@ public final class BuilderScreen extends Screen {
             this.playerStatusRenderer.render(guiGraphics);
         }
         this.storageLinkDetailHandler.updateVisibility(mouseX, mouseY);
+        updateRangeCullingHover(mouseX, mouseY);
         this.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
         this.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
@@ -1648,8 +1762,11 @@ public final class BuilderScreen extends Screen {
         if (!isQuickBuildRangeDestroyMode() || isQuickBuildRangeDestroyChainMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
         }
-        if (this.shapeController.tryConfirmPendingRangeDestroy()) {
-            return true;
+        if (this.shapeController.isAwaitingBatchDestroyConfirm()) {
+            if (Config.isKeyboardBatchConfirmEnabled()) {
+                return true;
+            }
+            return this.shapeController.tryConfirmPendingRangeDestroy();
         }
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target != null && target.blockHit() != null) {
@@ -1758,6 +1875,26 @@ public final class BuilderScreen extends Screen {
             this.guidePanel.open(GuideTypes.GuideContext.TOP, x, y);
         }
     }
+    /** Returns whether the current player can open the range-culling editor. */
+    public boolean canUseRangeCulling() {
+        return !this.controller.isProgressionEnabled()
+                || this.controller.hasInstalledPlugin(BuiltInRtsPluginCatalog.RANGE_CULLING_PLUGIN.toString());
+    }
+    /** Returns whether range-culling management mode is currently active. */
+    public boolean isRangeCullingManagementActive() {
+        return this.cullingManager.isManagementMode();
+    }
+    /** Toggles range-culling management mode from the top bar. */
+    public void toggleRangeCullingManagement() {
+        if (!canUseRangeCulling()) {
+            return;
+        }
+        this.cameraInput.stopActiveMining();
+        this.shapeController.clearShapeBuildSession();
+        this.cullingManager.toggleManagementMode();
+        this.cullingPanel.setOpen(this.cullingManager.isManagementMode());
+        persistUiState();
+    }
     /** Opens the bottom guide panel at the given position. */
     public void openBottomGuide(int x, int y) {
         this.guidePanel.open(GuideTypes.GuideContext.BOTTOM, x, y);
@@ -1802,6 +1939,34 @@ public final class BuilderScreen extends Screen {
                     ? BuilderMode.INTERACT
                     : this.modeBeforeFunnelHotkey);
         }
+    }
+
+    private boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.cullingManager.isManagementMode() || !isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        return handleRangeCullingWorldAction(mouseX, mouseY);
+    }
+
+    private boolean handleRangeCullingWorldAction(double mouseX, double mouseY) {
+        if (!this.cullingManager.isManagementMode() || !isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        return RtsCullingWorldInput.handleWorldAction(this.cullingManager, this.cursorPicker);
+    }
+
+    private void updateRangeCullingHover(double mouseX, double mouseY) {
+        if (!this.cullingManager.isManagementMode()) {
+            this.cullingManager.updateHover(null, null);
+            return;
+        }
+        if (!isWorldArea(mouseX, mouseY) || isMouseOverFloatingWindow(mouseX, mouseY)) {
+            this.cullingManager.updateHover(null, null);
+            return;
+        }
+        this.cullingManager.updateHover(
+                this.cursorPicker.currentRayOrigin(),
+                this.cursorPicker.computeCursorRayDirection());
     }
 
     public boolean isBlueprintPlacementModeLocked() {
@@ -1935,6 +2100,11 @@ public final class BuilderScreen extends Screen {
             if (button.id() == TopBarTypes.TopBarButtonId.QUICK_BUILD
                     && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
                 g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
+                return;
+            }
+            if (button.id() == TopBarTypes.TopBarButtonId.RANGE_CULLING
+                    && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
+                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.range_culling_toggle"), mouseX, mouseY);
                 return;
             }
         }

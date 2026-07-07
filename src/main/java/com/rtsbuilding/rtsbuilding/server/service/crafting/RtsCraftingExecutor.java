@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
@@ -29,7 +30,6 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -177,7 +177,7 @@ public final class RtsCraftingExecutor {
         ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                 S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, totalCraftedCount);
         ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
-        PacketDistributor.sendToPlayer(player, new S2CRtsCraftFeedbackPayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCraftFeedbackPayload(
                 craftedItemId, totalCraftedCount,
                 new ArrayList<>(consumedCounts.keySet()),
                 new ArrayList<>(consumedCounts.values())));

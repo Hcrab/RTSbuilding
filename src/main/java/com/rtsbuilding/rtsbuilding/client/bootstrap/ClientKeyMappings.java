@@ -91,6 +91,14 @@ public final class ClientKeyMappings {
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_LEFT,
             "key.categories.rtsbuilding");
+    public static final KeyMapping CONFIRM_BATCH_PLACE = new KeyMapping(
+            "key.rtsbuilding.confirm_batch_place",
+            GLFW.GLFW_KEY_ENTER,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping CONFIRM_BATCH_DESTROY = new KeyMapping(
+            "key.rtsbuilding.confirm_batch_destroy",
+            GLFW.GLFW_KEY_ENTER,
+            "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_ROTATE_DRAG = new KeyMapping(
             "key.rtsbuilding.camera_rotate_drag",
             InputConstants.Type.MOUSE,
@@ -140,6 +148,8 @@ public final class ClientKeyMappings {
         event.register(ACTION_PRIMARY);
         event.register(MOVE_PLAYER);
         event.register(ACTION_BREAK);
+        event.register(CONFIRM_BATCH_PLACE);
+        event.register(CONFIRM_BATCH_DESTROY);
         event.register(CAMERA_ROTATE_DRAG);
         event.register(CAMERA_PAN_DRAG);
         event.register(PICK_BLOCK);

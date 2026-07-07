@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.interaction;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -39,8 +40,6 @@ import java.util.List;
  */
 public final class RtsLinkedItemInteractor {
 
-    private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
-
     private RtsLinkedItemInteractor() {
     }
 
@@ -79,7 +78,7 @@ public final class RtsLinkedItemInteractor {
                 interactionPos,
                 hit,
                 rayContext,
-                REMOTE_POV_BLOCK_REACH,
+                Config.remotePovBlockReach(),
                 () -> {
             if (targetEntity != null) {
                 return InteractionHelper.useItemOnEntityWithMainHand(player, level, extracted, targetEntity, hit);

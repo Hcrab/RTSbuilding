@@ -192,6 +192,10 @@ public final class ClientRtsController {
         return this.pluginStateManager.installedPlugins();
     }
 
+    public String getPluginTeamName() {
+        return this.pluginStateManager.teamName();
+    }
+
     public boolean hasInstalledPlugin(String pluginId) {
         return this.pluginStateManager.hasPlugin(pluginId);
     }

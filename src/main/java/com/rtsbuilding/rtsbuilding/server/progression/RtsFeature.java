@@ -24,5 +24,6 @@ public enum RtsFeature {
     FLUID_HANDLING,
     ULTIMINE,
     AREA_DESTROY,
-    BLUEPRINTS
+    BLUEPRINTS,
+    RANGE_CULLING
 }

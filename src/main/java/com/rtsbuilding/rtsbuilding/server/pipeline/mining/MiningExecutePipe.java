@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
@@ -78,6 +79,9 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         // ── 1. 验证世界目标访问 ──────────────────────────────
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return PipelineResult.failure("Cannot access world target at " + pos.toShortString());
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, face == null ? Direction.DOWN : face)) {
+            return PipelineResult.failure("Claim protection denied block break at " + pos.toShortString());
         }
 
         // ── 2. 已放置方块恢复 ─────────────────────────────────────

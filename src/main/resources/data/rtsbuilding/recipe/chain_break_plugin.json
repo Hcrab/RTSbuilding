@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "tools",
   "key": {
-    "I": {"item": "minecraft:iron_ingot"},
+    "I": {"tag": "c:ingots/iron"},
     "P": {"item": "minecraft:iron_pickaxe"},
-    "R": {"item": "minecraft:redstone"}
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
     " I ",

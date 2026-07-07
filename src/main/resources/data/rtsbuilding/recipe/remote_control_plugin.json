@@ -3,8 +3,8 @@
   "category": "misc",
   "key": {
     "C": {"item": "minecraft:compass"},
-    "I": {"item": "minecraft:copper_ingot"},
-    "R": {"item": "minecraft:redstone"}
+    "I": {"tag": "c:ingots/copper"},
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
     "IRI",

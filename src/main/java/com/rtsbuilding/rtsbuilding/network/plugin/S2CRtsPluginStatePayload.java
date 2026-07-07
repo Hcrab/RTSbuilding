@@ -16,7 +16,9 @@ public record S2CRtsPluginStatePayload(
         List<Integer> radiusBlocks,
         List<Boolean> fieldDeployment,
         List<Boolean> personal,
-        List<ItemStack> stacks) implements CustomPacketPayload {
+        List<String> ownerNames,
+        List<ItemStack> stacks,
+        String teamName) implements CustomPacketPayload {
     public static final Type<S2CRtsPluginStatePayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_plugin_state"));
 
@@ -26,7 +28,8 @@ public record S2CRtsPluginStatePayload(
                         Math.min(payload.families().size(),
                                 Math.min(payload.radiusBlocks().size(),
                                         Math.min(payload.fieldDeployment().size(),
-                                                Math.min(payload.personal().size(), payload.stacks().size())))));
+                                                Math.min(payload.personal().size(),
+                                                        Math.min(payload.ownerNames().size(), payload.stacks().size()))))));
                 buf.writeVarInt(size);
                 for (int i = 0; i < size; i++) {
                     buf.writeUtf(payload.pluginIds().get(i) == null ? "" : payload.pluginIds().get(i), 128);
@@ -34,9 +37,11 @@ public record S2CRtsPluginStatePayload(
                     buf.writeVarInt(Math.max(0, payload.radiusBlocks().get(i)));
                     buf.writeBoolean(Boolean.TRUE.equals(payload.fieldDeployment().get(i)));
                     buf.writeBoolean(Boolean.TRUE.equals(payload.personal().get(i)));
+                    buf.writeUtf(payload.ownerNames().get(i) == null ? "" : payload.ownerNames().get(i), 64);
                     ItemStack stack = payload.stacks().get(i);
                     ItemStack.STREAM_CODEC.encode(buf, stack == null ? ItemStack.EMPTY : stack.copyWithCount(1));
                 }
+                buf.writeUtf(payload.teamName() == null ? "" : payload.teamName(), 128);
             },
             (buf) -> {
                 int size = Math.min(64, Math.max(0, buf.readVarInt()));
@@ -45,6 +50,7 @@ public record S2CRtsPluginStatePayload(
                 List<Integer> radiusBlocks = new ArrayList<>(size);
                 List<Boolean> fieldDeployment = new ArrayList<>(size);
                 List<Boolean> personal = new ArrayList<>(size);
+                List<String> ownerNames = new ArrayList<>(size);
                 List<ItemStack> stacks = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) {
                     pluginIds.add(buf.readUtf(128));
@@ -52,9 +58,11 @@ public record S2CRtsPluginStatePayload(
                     radiusBlocks.add(buf.readVarInt());
                     fieldDeployment.add(buf.readBoolean());
                     personal.add(buf.readBoolean());
+                    ownerNames.add(buf.readUtf(64));
                     stacks.add(ItemStack.STREAM_CODEC.decode(buf));
                 }
-                return new S2CRtsPluginStatePayload(pluginIds, families, radiusBlocks, fieldDeployment, personal, stacks);
+                return new S2CRtsPluginStatePayload(pluginIds, families, radiusBlocks, fieldDeployment, personal,
+                        ownerNames, stacks, buf.readUtf(128));
             });
 
     @Override

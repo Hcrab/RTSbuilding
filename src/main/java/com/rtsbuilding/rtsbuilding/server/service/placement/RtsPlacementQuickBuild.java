@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
@@ -139,6 +140,9 @@ public final class RtsPlacementQuickBuild {
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
         ServerLevel level = player.serverLevel();
+        if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
+            return true;
+        }
         if (!canPlaceStateAt(level, player, targetPos, plan.state())) {
             return true;
         }

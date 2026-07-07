@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.blueprint;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
+import com.rtsbuilding.rtsbuilding.common.blueprint.sanitize.BlueprintBlockEntitySanitizer;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
@@ -11,10 +12,12 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipe;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BlueprintService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.BlockPlacer;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -259,7 +262,7 @@ public final class BlueprintTickPipe implements TickablePipe {
             return PlaceResult.UNSUPPORTED;
         }
 
-        BlockPlacer.applyBlueprintBlockEntity(level, plan.target(), plan.blockEntityTag());
+        BlockPlacer.applyBlueprintBlockEntity(level, plan.target(), blueprintBlockEntityTagForPlacement(player, plan));
         BlockPlacer.trackPlaced(level, plan.target());
         for (Item item : plan.items()) {
             ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
@@ -268,6 +271,16 @@ public final class BlueprintTickPipe implements TickablePipe {
             }
         }
         return PlaceResult.PLACED;
+    }
+
+    private static CompoundTag blueprintBlockEntityTagForPlacement(ServerPlayer player, PlacementPlan plan) {
+        if (plan == null || plan.blockEntityTag() == null || plan.blockEntityTag().isEmpty()) {
+            return null;
+        }
+        if (player != null && player.isCreative()) {
+            return plan.blockEntityTag();
+        }
+        return BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(plan.blockEntityTag());
     }
 
     private static void refundExtractedMaterials(ServerPlayer player, List<ItemStack> stacks) {
@@ -281,6 +294,7 @@ public final class BlueprintTickPipe implements TickablePipe {
     private static boolean canStillPlace(ServerPlayer player, ServerLevel level,
                                            BlockPos target, BlockState state) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) return false;
+        if (!RtsClaimProtectionService.canPlaceBlock(player, target)) return false;
         if (level.getBlockEntity(target) != null) return false;
         BlockState current = level.getBlockState(target);
         if (!BlueprintReplaceRules.canBlueprintReplace(current)) {

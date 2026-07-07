@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.server.progression;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class RtsProgressionManager {
     public static final int DEFAULT_MAX_ACTION_RADIUS_BLOCKS = 128;
@@ -48,6 +48,14 @@ public final class RtsProgressionManager {
 
     public static String sharedProgressionKey(ServerPlayer player) {
         return RtsProgressionPersistence.sharedProgressionKey(player);
+    }
+
+    public static String sharedProgressionLabel(ServerPlayer player) {
+        return RtsProgressionPersistence.sharedProgressionLabel(player);
+    }
+
+    public static com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData sharedProgressionData(ServerPlayer player) {
+        return RtsProgressionPersistence.sharedProgressionData(player);
     }
 
     public static boolean hasHome(ServerPlayer player) {
@@ -134,7 +142,7 @@ public final class RtsProgressionManager {
             return;
         }
         HomeAnchor home = RtsHomeManager.getHome(player);
-        PacketDistributor.sendToPlayer(player, new S2CRtsProgressionStatePayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsProgressionStatePayload(
                 isEnabled(),
                 home != null,
                 home == null ? BlockPos.ZERO : home.pos(),

@@ -23,6 +23,7 @@ public record S2CRtsStoragePagePayload(
         int page,
         int totalPages,
         int totalEntries,
+        boolean totalCountsSnapshot,
         String search,
         String category,
         byte sort,
@@ -84,6 +85,7 @@ public record S2CRtsStoragePagePayload(
                 buf.writeVarInt(payload.page());
                 buf.writeVarInt(payload.totalPages());
                 buf.writeVarInt(payload.totalEntries());
+                buf.writeBoolean(payload.totalCountsSnapshot());
                 buf.writeUtf(payload.search(), 128);
                 buf.writeUtf(payload.category(), 128);
                 buf.writeByte(payload.sort());
@@ -187,6 +189,7 @@ public record S2CRtsStoragePagePayload(
                 int page = buf.readVarInt();
                 int totalPages = buf.readVarInt();
                 int totalEntries = buf.readVarInt();
+                boolean totalCountsSnapshot = buf.readBoolean();
                 String search = buf.readUtf(128);
                 String category = buf.readUtf(128);
                 byte sort = buf.readByte();
@@ -272,6 +275,7 @@ public record S2CRtsStoragePagePayload(
                         page,
                         totalPages,
                         totalEntries,
+                        totalCountsSnapshot,
                         search,
                         category,
                         sort,

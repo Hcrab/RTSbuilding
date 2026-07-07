@@ -32,16 +32,20 @@ public final class BuildGhostRenderer {
     }
 
     /**
-     * Renders the build-mode ghost preview. Model layer and wireframe layer
-     * are independently toggleable.
+     * Renders the build-mode ghost preview. The model layer is toggleable, but
+     * the blue preview wireframe is always rendered so range selection is never
+     * invisible just because an animation setting was disabled.
      */
     static void render(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
             PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             boolean renderBlockGhost, boolean renderWireframe) {
-        if (preview == null || (!renderBlockGhost && !renderWireframe)) {
+        if (preview == null) {
             return;
         }
         List<BlockPos> blocks = preview.blocks();
+        if (blocks.isEmpty()) {
+            return;
+        }
         BlockPos targetPos = blocks.isEmpty() ? null : blocks.get(0);
         boolean readyConfirm = preview.readyConfirm();
 
@@ -64,9 +68,7 @@ public final class BuildGhostRenderer {
             }
         }
 
-        // 3. Render wireframe outlines
-        if (renderWireframe) {
-            BuildGhostWireframeRenderer.renderWireframes(blocks, poseStack, lineBuffer, readyConfirm);
-        }
+        // 3. Render preview wireframe outlines. This is independent from animation settings.
+        BuildGhostWireframeRenderer.renderWireframes(blocks, poseStack, lineBuffer, readyConfirm);
     }
 }

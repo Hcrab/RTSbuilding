@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -66,7 +67,7 @@ public final class RtsUltimineProcessor {
         if (progressionLimit <= 0) {
             return;
         }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
 
         if (player.isCreative()) {
             Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
@@ -128,11 +129,12 @@ public final class RtsUltimineProcessor {
 
         // 限定范围
         int clampedMinX = minX;
-        int clampedMaxX = Math.min(clampedMinX + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxX);
+        int areaMineMaxSize = RtsMiningValidator.areaMineMaxSize();
+        int clampedMaxX = Math.min(clampedMinX + areaMineMaxSize - 1, maxX);
         int clampedMinZ = minZ;
-        int clampedMaxZ = Math.min(clampedMinZ + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxZ);
+        int clampedMaxZ = Math.min(clampedMinZ + areaMineMaxSize - 1, maxZ);
         int clampedMinY = minY;
-        int clampedMaxY = Math.min(clampedMinY + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxY);
+        int clampedMaxY = Math.min(clampedMinY + areaMineMaxSize - 1, maxY);
 
         boolean selectedToolRequested = !player.isCreative() && session.mining.miningSelectedToolRequested;
         RtsToolLease toolLease = player.isCreative()
@@ -314,7 +316,7 @@ public final class RtsUltimineProcessor {
         if (progressionLimit <= 0) {
             return 0;
         }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
 
         // Creative mode: break immediately
         if (player.isCreative()) {
@@ -371,11 +373,12 @@ public final class RtsUltimineProcessor {
 
         // 限定范围
         int clampedMinX = minX;
-        int clampedMaxX = Math.min(clampedMinX + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxX);
+        int areaMineMaxSize = RtsMiningValidator.areaMineMaxSize();
+        int clampedMaxX = Math.min(clampedMinX + areaMineMaxSize - 1, maxX);
         int clampedMinZ = minZ;
-        int clampedMaxZ = Math.min(clampedMinZ + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxZ);
+        int clampedMaxZ = Math.min(clampedMinZ + areaMineMaxSize - 1, maxZ);
         int clampedMinY = minY;
-        int clampedMaxY = Math.min(clampedMinY + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxY);
+        int clampedMaxY = Math.min(clampedMinY + areaMineMaxSize - 1, maxY);
 
         // Creative mode: break immediately
         if (player.isCreative()) {
@@ -444,11 +447,14 @@ public final class RtsUltimineProcessor {
         sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
         for (BlockPos raw : sortedPositions) {
-            if (raw == null || unique.size() >= RtsMiningValidator.AREA_DESTROY_MAX_TARGETS) {
+            if (raw == null || unique.size() >= RtsMiningValidator.areaDestroyMaxTargets()) {
                 continue;
             }
             BlockPos pos = raw.immutable();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
@@ -486,7 +492,7 @@ public final class RtsUltimineProcessor {
         int processedThisTick = 0;
         int brokenBeforeThisTick = session.mining.ultimineBrokenTargets;
 
-        while (processedThisTick < RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK && !session.mining.ultimineTargets.isEmpty()) {
+        while (processedThisTick < RtsMiningValidator.ultimineBlocksPerTick() && !session.mining.ultimineTargets.isEmpty()) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
                 finishUltimineBatch(player, session);
                 return;
@@ -496,6 +502,9 @@ public final class RtsUltimineProcessor {
             session.mining.ultimineProcessedTargets++;
 
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, target, session.mining.miningFace)) {
                 continue;
             }
             BlockState targetState = level.getBlockState(target);
@@ -577,7 +586,8 @@ public final class RtsUltimineProcessor {
         if (!targets.isEmpty()) {
             List<BlockPos> validTargets = new ArrayList<>();
             for (BlockPos target : targets) {
-                if (RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                if (RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
+                        && RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
                     validTargets.add(target);
                 }
             }
@@ -589,6 +599,9 @@ public final class RtsUltimineProcessor {
         while (!targets.isEmpty()) {
             BlockPos target = targets.removeFirst();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
                 continue;
             }
             RtsMiningStateMachine.destroyMinedBlock(player, session, target, toolSlot);

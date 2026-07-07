@@ -33,8 +33,9 @@ public final class RtsMiningTargetQueue {
             return new ArrayDeque<>();
         }
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
+        int maxTargets = RtsMiningValidator.areaDestroyMaxTargets();
         for (BlockPos raw : positions) {
-            if (raw == null || unique.size() >= RtsMiningValidator.AREA_DESTROY_MAX_TARGETS) {
+            if (raw == null || unique.size() >= maxTargets) {
                 continue;
             }
             BlockPos pos = raw.immutable();
@@ -51,7 +52,7 @@ public final class RtsMiningTargetQueue {
 
     /** Returns true when the current server tick may process another queued target. */
     public static boolean canProcessAnotherTargetThisTick(int processedThisTick, Deque<BlockPos> targets) {
-        return processedThisTick < RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK
+        return processedThisTick < RtsMiningValidator.ultimineBlocksPerTick()
                 && targets != null
                 && !targets.isEmpty();
     }

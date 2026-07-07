@@ -18,6 +18,8 @@ public record C2SRtsRequestStoragePagePayload(
         int pageSize,
         boolean pinyinSearchEnabled,
         List<String> localizedSearchMatches) implements CustomPacketPayload {
+    public static final int MAX_LOCALIZED_SEARCH_MATCHES = 256;
+
     public static final Type<C2SRtsRequestStoragePagePayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_storage_page"));
 
@@ -42,19 +44,35 @@ public record C2SRtsRequestStoragePagePayload(
                     buf.readBoolean(),
                     readStringList(buf)));
 
-    private static void writeStringList(RegistryFriendlyByteBuf buf, List<String> values) {
-        int size = values == null ? 0 : Math.min(values.size(), 8192);
-        buf.writeVarInt(size);
+    public static List<String> limitLocalizedSearchMatches(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        int size = Math.min(values.size(), MAX_LOCALIZED_SEARCH_MATCHES);
+        List<String> limited = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            buf.writeUtf(values.get(i) == null ? "" : values.get(i), 128);
+            limited.add(values.get(i) == null ? "" : values.get(i));
+        }
+        return List.copyOf(limited);
+    }
+
+    private static void writeStringList(RegistryFriendlyByteBuf buf, List<String> values) {
+        List<String> limited = limitLocalizedSearchMatches(values);
+        buf.writeVarInt(limited.size());
+        for (String value : limited) {
+            buf.writeUtf(value, 128);
         }
     }
 
     private static List<String> readStringList(RegistryFriendlyByteBuf buf) {
-        int size = Math.min(Math.max(0, buf.readVarInt()), 8192);
-        List<String> values = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            values.add(buf.readUtf(128));
+        int declaredSize = Math.max(0, buf.readVarInt());
+        int storedSize = Math.min(declaredSize, MAX_LOCALIZED_SEARCH_MATCHES);
+        List<String> values = new ArrayList<>(storedSize);
+        for (int i = 0; i < declaredSize; i++) {
+            String value = buf.readUtf(128);
+            if (i < storedSize) {
+                values.add(value);
+            }
         }
         return values;
     }

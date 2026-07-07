@@ -89,13 +89,8 @@ public final class MiningOperationService {
         }
 
         if (stage < 0) {
-            if (this.mineRenderPos != null) {
-                minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-                this.mineRenderPos = null;
-            } else {
-                minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, pos, -1);
-            }
-            this.mineRenderStage = -1;
+            clearActiveMineTargetIfMatches(pos);
+            clearMineProgressRender(pos);
             return;
         }
 
@@ -174,13 +169,14 @@ public final class MiningOperationService {
      * Aborts the current mining operation.
      */
     public void abortMining(int toolSlot) {
-        if (this.activeMinePos == null || this.activeMineFace < 0) {
-            return;
+        BlockPos abortPos = this.activeMinePos;
+        int abortFace = this.activeMineFace;
+        if (abortPos != null && abortFace >= 0) {
+            RtsClientPacketGateway.sendMineAbort(abortPos, abortFace, toolSlot);
         }
-        RtsClientPacketGateway.sendMineAbort(this.activeMinePos, this.activeMineFace, toolSlot);
         this.activeMinePos = null;
         this.activeMineFace = -1;
-        this.mineRenderStage = -1;
+        clearMineProgressRender(abortPos);
     }
 
     // =========================================================================
@@ -221,17 +217,18 @@ public final class MiningOperationService {
      * @return the clamped boundary result
      */
     public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos pointB, int heightOffset) {
-        int dx = Math.min(Math.abs(pointB.getX() - pointA.getX()), AREA_MINE_MAX_SIZE - 1);
+        int maxSize = Math.max(1, AREA_MINE_MAX_SIZE);
+        int dx = Math.min(Math.abs(pointB.getX() - pointA.getX()), maxSize - 1);
         int minX = pointB.getX() >= pointA.getX() ? pointA.getX() : pointA.getX() - dx;
         int maxX = pointB.getX() >= pointA.getX() ? pointA.getX() + dx : pointA.getX();
 
-        int dz = Math.min(Math.abs(pointB.getZ() - pointA.getZ()), AREA_MINE_MAX_SIZE - 1);
+        int dz = Math.min(Math.abs(pointB.getZ() - pointA.getZ()), maxSize - 1);
         int minZ = pointB.getZ() >= pointA.getZ() ? pointA.getZ() : pointA.getZ() - dz;
         int maxZ = pointB.getZ() >= pointA.getZ() ? pointA.getZ() + dz : pointA.getZ();
 
         int baseY = pointA.getY();
-        int minY = Math.max(baseY - (AREA_MINE_MAX_SIZE - 1), baseY + Math.min(0, heightOffset));
-        int maxY = Math.min(baseY + (AREA_MINE_MAX_SIZE - 1), baseY + Math.max(0, heightOffset));
+        int minY = Math.max(baseY - (maxSize - 1), baseY + Math.min(0, heightOffset));
+        int maxY = Math.min(baseY + (maxSize - 1), baseY + Math.max(0, heightOffset));
 
         return new AreaMineBounds(minX, maxX, minY, maxY, minZ, maxZ);
     }
@@ -239,7 +236,8 @@ public final class MiningOperationService {
     // ---------- Height setting ----------
 
     public void setAreaMineHeightOffset(int offset) {
-        this.areaMineHeightOffset = Math.max(-(AREA_MINE_MAX_SIZE - 1), Math.min(AREA_MINE_MAX_SIZE - 1, offset));
+        int maxSize = Math.max(1, AREA_MINE_MAX_SIZE);
+        this.areaMineHeightOffset = Math.max(-(maxSize - 1), Math.min(maxSize - 1, offset));
     }
 
     public void adjustAreaMineHeightOffset(int delta) {
@@ -426,10 +424,35 @@ public final class MiningOperationService {
 
     /** Clears mining render (including destroyBlockProgress) and resets all mining state. */
     public void clearMiningRenderState() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level != null && this.mineRenderPos != null) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-        }
+        clearMineProgressRender(this.mineRenderPos);
         clearMiningState();
+    }
+
+    private void clearMineProgressRender(BlockPos fallbackPos) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null
+                && this.mineRenderPos != null
+                && (fallbackPos == null || this.mineRenderPos.equals(fallbackPos))) {
+            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
+            this.mineRenderPos = null;
+            this.mineRenderStage = -1;
+        } else if (minecraft.level != null && fallbackPos != null) {
+            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, fallbackPos, -1);
+            if (fallbackPos.equals(this.mineRenderPos)) {
+                this.mineRenderPos = null;
+                this.mineRenderStage = -1;
+            }
+        } else if (fallbackPos == null) {
+            this.mineRenderPos = null;
+            this.mineRenderStage = -1;
+        }
+    }
+
+    private void clearActiveMineTargetIfMatches(BlockPos pos) {
+        if (pos == null || !pos.equals(this.activeMinePos)) {
+            return;
+        }
+        this.activeMinePos = null;
+        this.activeMineFace = -1;
     }
 }

@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBatchJobTickOps;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.mining.*;
@@ -187,6 +188,10 @@ public final class RtsDestructionBatch {
 
                 // 验证：世界可达性
                 if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                    job.skippedWhileProcessing++;
+                    continue;
+                }
+                if (!RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
                     job.skippedWhileProcessing++;
                     continue;
                 }
@@ -387,6 +392,9 @@ public final class RtsDestructionBatch {
             }
             BlockPos pos = raw.immutable();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
                 continue;
             }
             BlockState state = level.getBlockState(pos);

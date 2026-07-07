@@ -8,6 +8,10 @@ import net.minecraft.world.inventory.ChestMenu;
 
 public final class RtsRemoteMenuCompat {
     private static final RemoteMenuTracker TRACKER = new RemoteMenuTracker(RtsRemoteMenuCompat::isSupportedRemoteMenu);
+    private static final String DISABLE_PERSISTENCE_PROPERTY =
+            "rtsbuilding.guiCompatDisableRemoteMenuPersistence";
+    private static final String DISABLE_PERSISTENCE_ENV =
+            "RTSBUILDING_GUI_COMPAT_DISABLE_REMOTE_MENU_PERSISTENCE";
 
     private static final String STORAGE_MENU_BASE_CLASS =
             "net.p3pp3rf1y.sophisticatedcore.common.gui.StorageContainerMenuBase";
@@ -89,11 +93,24 @@ public final class RtsRemoteMenuCompat {
     }
 
     public static boolean shouldForceStillValid(AbstractContainerMenu menu, Player player) {
+        if (isRemoteMenuPersistenceDisabledForProbe()) {
+            return false;
+        }
         return TRACKER.shouldForceStillValid(menu, player);
     }
 
     public static boolean isLocalSophisticatedMenu(AbstractContainerMenu menu, Player player) {
         return isSophisticatedMenu(menu) && !shouldForceStillValid(menu, player);
+    }
+
+    public static boolean isRemoteMenuPersistenceDisabledForProbe() {
+        String configured = System.getProperty(DISABLE_PERSISTENCE_PROPERTY);
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv(DISABLE_PERSISTENCE_ENV);
+        }
+        return "1".equals(configured)
+                || "true".equalsIgnoreCase(configured)
+                || "yes".equalsIgnoreCase(configured);
     }
 
     private static boolean isInstanceOf(Object instance, String className) {

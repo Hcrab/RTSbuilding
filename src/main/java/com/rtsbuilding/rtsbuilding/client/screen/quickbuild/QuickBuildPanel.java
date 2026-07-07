@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
@@ -581,7 +582,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     String hintKey = isRangeDestroyChainMode()
                             ? "screen.rtsbuilding.quick_build.chain_hint"
                             : "screen.rtsbuilding.quick_build.destroy_hint";
-                    renderBottomInfoText(g, Component.translatable(hintKey),
+                    renderBottomInfoText(g, Component.translatable(hintKey, confirmKeyLabel(true)),
                             x + 8, textY, this.windowWidth - 16, 0xFFB8B8);
                 }
                 return;
@@ -626,6 +627,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     }
                 }
             }
+            renderBottomInfoText(g,
+                    Component.translatable("screen.rtsbuilding.quick_build.build_hint", confirmKeyLabel(false)),
+                    x + 8,
+                    textY + screen.font().lineHeight + 3,
+                    this.windowWidth - 16,
+                    0xFFD8E8FF);
         }
     }
 
@@ -635,6 +642,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         for (int i = 0; i < lineCount; i++) {
             g.drawString(screen.font(), lines.get(i), x, y + i * screen.font().lineHeight, color, false);
         }
+    }
+
+    private String confirmKeyLabel(boolean destroyMode) {
+        return (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE)
+                .getTranslatedKeyMessage()
+                .getString();
     }
 
     // ======================== 输入处理 ========================
@@ -759,6 +772,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     protected void onClose() {
+        restoreSingleBlockCursor();
+        if (screen != null) {
+            screen.persistUiState();
+        }
     }
 
     public QuickBuildMode getMode() {

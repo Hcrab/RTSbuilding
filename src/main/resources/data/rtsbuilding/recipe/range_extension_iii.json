@@ -2,14 +2,14 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "D": {"item": "minecraft:diamond"},
+    "G": {"tag": "c:ingots/gold"},
     "P": {"item": "rtsbuilding:range_extension_ii"},
-    "R": {"item": "minecraft:redstone"}
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
-    " D ",
+    " G ",
     "RPR",
-    " D "
+    " G "
   ],
   "result": {"count": 1, "id": "rtsbuilding:range_extension_iii"}
 }

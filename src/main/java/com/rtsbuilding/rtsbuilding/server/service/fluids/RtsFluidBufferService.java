@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -35,8 +36,6 @@ import java.util.Optional;
  */
 public final class RtsFluidBufferService {
 
-    private static final long DEFAULT_INTERNAL_FLUID_CAPACITY_MB = 100L * FluidType.BUCKET_VOLUME;
-
     private RtsFluidBufferService() {
     }
 
@@ -46,7 +45,7 @@ public final class RtsFluidBufferService {
      */
     public static long internalFluidCapacityMb(ServerPlayer player) {
         if (player == null) {
-            return DEFAULT_INTERNAL_FLUID_CAPACITY_MB;
+            return Config.internalFluidCapacityMb();
         }
         return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * FluidType.BUCKET_VOLUME);
     }

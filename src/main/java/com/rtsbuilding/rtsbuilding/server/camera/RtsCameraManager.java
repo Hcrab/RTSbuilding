@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.camera;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
@@ -13,7 +14,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.Map;
 import java.util.UUID;
@@ -122,7 +122,7 @@ public final class RtsCameraManager {
         ServiceRegistry.getInstance().session().onRtsEnabled(player);
 
         // 向客户端发送相机状态同步包
-        PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
                 camera.getId(),
                 anchor.x,
@@ -187,7 +187,7 @@ public final class RtsCameraManager {
                 camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead);
         SESSIONS.put(player.getUUID(), session);
 
-        PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
                 camera.getId(),
                 anchor.x,
@@ -218,7 +218,7 @@ public final class RtsCameraManager {
         }
         RtsCameraEntityHelper.discardOwnedCameras(player);
 
-        PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(false, -1, 0.0D, 0.0D, 0.0D,
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(false, -1, 0.0D, 0.0D, 0.0D,
                 RtsProgressionManager.DEFAULT_MAX_ACTION_RADIUS_BLOCKS, 18.0D, 0.0F, 70.0F, false, false));
         ServiceRegistry.getInstance().session().onRtsDisabled(player);
     }
@@ -383,7 +383,7 @@ public final class RtsCameraManager {
                 yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
-        PacketDistributor.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
                 newAnchor.x, newAnchor.y, newAnchor.z, maxRadius(player, session)));
     }
 
@@ -423,7 +423,7 @@ public final class RtsCameraManager {
                 session.maxRadius(),
                 session.closeRangeAllowed()));
 
-        PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
                 restored.getId(),
                 session.anchor().x,

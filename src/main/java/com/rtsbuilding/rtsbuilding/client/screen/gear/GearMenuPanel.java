@@ -166,6 +166,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
                     this.controller.isInvertPanDragY());
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint");
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.keyboard_batch_confirm",
+                    "screen.rtsbuilding.settings.keyboard_batch_confirm.hint",
+                    Config.isKeyboardBatchConfirmEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint");
         }
         rowY += SECTION_GAP;
 
@@ -420,6 +425,16 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 return;
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint");
+            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.keyboard_batch_confirm.hint")) {
+                return;
+            }
+            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint"))) {
+                Config.setKeyboardBatchConfirmEnabled(!Config.isKeyboardBatchConfirmEnabled());
+                return;
+            }
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint");
         }
         rowY += SECTION_GAP;
 
@@ -747,7 +762,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 SENSITIVITY_ROW_H
                         + SIMPLE_TOGGLE_ROW_H
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_x_invert.hint")
-                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint"));
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint")
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint"));
         height += SECTION_GAP;
         height += sectionHeight(this.displayExpanded,
                 SCALE_ROW_H

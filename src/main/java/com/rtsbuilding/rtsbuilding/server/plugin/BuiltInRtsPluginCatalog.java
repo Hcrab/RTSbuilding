@@ -23,6 +23,7 @@ public final class BuiltInRtsPluginCatalog {
     public static final ResourceLocation CHAIN_BREAK_PLUGIN = id("chain_break_plugin");
     public static final ResourceLocation AREA_DESTROY_PLUGIN = id("area_destroy_plugin");
     public static final ResourceLocation BLUEPRINT_PLUGIN = id("blueprint_plugin");
+    public static final ResourceLocation RANGE_CULLING_PLUGIN = id("range_culling_plugin");
     public static final ResourceLocation FIELD_DEPLOYMENT_PLUGIN = id("field_deployment_plugin");
     public static final ResourceLocation RANGE_EXTENSION_I = id("range_extension_i");
     public static final ResourceLocation RANGE_EXTENSION_II = id("range_extension_ii");
@@ -50,6 +51,8 @@ public final class BuiltInRtsPluginCatalog {
                         EnumSet.of(RtsFeature.AREA_DESTROY), 0, false),
                 definition(BLUEPRINT_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.BLUEPRINTS), 0, false),
+                definition(RANGE_CULLING_PLUGIN, RtsPluginFamily.UNIQUE,
+                        EnumSet.of(RtsFeature.RANGE_CULLING), 0, false),
                 definition(FIELD_DEPLOYMENT_PLUGIN, RtsPluginFamily.UNIQUE,
                         Set.of(), 0, true),
                 definition(RANGE_EXTENSION_I, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 16, false),

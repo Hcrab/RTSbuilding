@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.interaction;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
@@ -27,8 +28,6 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class RtsEmptyHandInteractor {
 
-    private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
-
     private RtsEmptyHandInteractor() {
     }
 
@@ -43,7 +42,7 @@ public final class RtsEmptyHandInteractor {
                 interactionPos,
                 hit,
                 rayContext,
-                REMOTE_POV_BLOCK_REACH,
+                Config.remotePovBlockReach(),
                 () -> {
                     if (targetEntity != null) {
                         return InteractionHelper.useItemOnEntityWithMainHand(player, level, ItemStack.EMPTY, targetEntity, hit).result();

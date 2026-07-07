@@ -1,9 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -59,6 +61,30 @@ public final class RtsMiningValidator {
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
 
     private RtsMiningValidator() {
+    }
+
+    public static int ultimineMaxBlocks() {
+        return configIntOrDefault(Config::ultimineMaxBlocks, ULTIMINE_MAX_BLOCKS);
+    }
+
+    public static int areaMineMaxSize() {
+        return configIntOrDefault(Config::areaMineMaxSize, AREA_MINE_MAX_SIZE);
+    }
+
+    public static int areaDestroyMaxTargets() {
+        return configIntOrDefault(Config::areaDestroyMaxTargets, AREA_DESTROY_MAX_TARGETS);
+    }
+
+    public static int ultimineBlocksPerTick() {
+        return configIntOrDefault(Config::ultimineBlocksPerTick, ULTIMINE_BLOCKS_PER_TICK);
+    }
+
+    private static int configIntOrDefault(java.util.function.IntSupplier supplier, int fallback) {
+        try {
+            return supplier.getAsInt();
+        } catch (IllegalStateException ignored) {
+            return fallback;
+        }
     }
 
     // =========================================================================
@@ -125,6 +151,9 @@ public final class RtsMiningValidator {
             return false;
         }
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+            return false;
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
             return false;
         }
         if (creative) {
@@ -237,6 +266,9 @@ public final class RtsMiningValidator {
             ServerPlayer player, BlockPos seed, int toolSlot, ItemStack linkedTool,
             boolean selectedToolRequested, int limit, boolean creative, byte mode) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, seed)) {
+            return new java.util.ArrayDeque<>();
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, seed, Direction.DOWN)) {
             return new java.util.ArrayDeque<>();
         }
         BlockState seedState = player.serverLevel().getBlockState(seed);

@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -28,6 +29,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
@@ -77,13 +79,16 @@ public class RtsbuildingMod {
      */
     public RtsbuildingMod(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::registerGameTests);
         RtsEntities.register(modEventBus);
         RtsBlocks.register(modEventBus);
         RtsItems.register(modEventBus);
         RtsCreativeTabs.register(modEventBus);
         NeoForge.EVENT_BUS.register(this);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC, "rts_building/rtsbuilding-common.toml");
+        modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC, "rts_building/rtsbuilding-server.toml");
         if (FMLEnvironment.dist == Dist.CLIENT) {
+            modContainer.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC, "rts_building/rtsbuilding-client.toml");
             com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
         }
     }
@@ -119,6 +124,10 @@ public class RtsbuildingMod {
      *
      * @param event 服务器启动事件
      */
+    private void registerGameTests(RegisterGameTestsEvent event) {
+        event.register(RtsServerGameTests.class);
+    }
+
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("服务器正在启动……");

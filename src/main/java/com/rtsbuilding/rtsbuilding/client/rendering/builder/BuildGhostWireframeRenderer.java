@@ -10,11 +10,9 @@ import java.util.List;
 /**
  * Wireframe renderer for single-block ghost previews.
  * <p>
- * Renders block outline wireframes. Colour depends on confirmation state:
- * <ul>
- *   <li>Unconfirmed (preview): cyan wireframe</li>
- *   <li>Ready (confirmed): green wireframe</li>
- * </ul>
+ * Renders block outline wireframes. Build previews deliberately stay blue even
+ * at the final confirmation step, because this layer is only a preview of
+ * future positions, not a server-confirmed placement animation.
  */
 public final class BuildGhostWireframeRenderer {
 
@@ -27,16 +25,16 @@ public final class BuildGhostWireframeRenderer {
      * @param blocks       Target block positions
      * @param poseStack    Pose stack for coordinate transforms
      * @param lineBuffer   Line vertex buffer
-     * @param readyConfirm Whether the placement is ready to confirm
+     * @param readyConfirm Kept for call-site compatibility; preview colour is constant.
      */
     public static void renderWireframes(List<BlockPos> blocks, PoseStack poseStack,
             VertexConsumer lineBuffer, boolean readyConfirm) {
         if (blocks == null || blocks.isEmpty()) {
             return;
         }
-        float lineR = readyConfirm ? 0.45F : 0.30F;
-        float lineG = readyConfirm ? 0.95F : 0.75F;
-        float lineB = readyConfirm ? 0.45F : 1.00F;
+        float lineR = 0.30F;
+        float lineG = 0.75F;
+        float lineB = 1.00F;
 
         for (BlockPos pos : blocks) {
             double minX = pos.getX() + 0.03D;

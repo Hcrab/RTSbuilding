@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import net.minecraft.network.chat.Component;
@@ -9,7 +10,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -105,18 +105,21 @@ public final class RtsPluginService {
         if (player == null || pluginId == null) {
             return false;
         }
-        List<RtsInstalledPlugin> installed = installedPlugins(player);
+        List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
         for (int i = 0; i < installed.size(); i++) {
-            RtsInstalledPlugin entry = installed.get(i);
-            if (!pluginId.equals(entry.pluginId())) {
+            RtsPluginTeamService.StoredPlugin entry = installed.get(i);
+            if (!pluginId.equals(entry.plugin().pluginId())) {
                 continue;
             }
-            ItemStack returning = entry.stack().copyWithCount(1);
+            if (!entry.isOwnedBy(player)) {
+                return fail(player, "message.rtsbuilding.plugin.not_yours");
+            }
+            ItemStack returning = entry.plugin().stack().copyWithCount(1);
             if (!player.getInventory().add(returning)) {
                 return fail(player, "message.rtsbuilding.plugin.inventory_full");
             }
             installed.remove(i);
-            RtsPluginPersistence.save(player, installed);
+            RtsPluginTeamService.saveInstalledPlugins(player, installed);
             player.getInventory().setChanged();
             syncRelatedPlayers(player);
             success(player, "message.rtsbuilding.plugin.uninstalled");
@@ -135,6 +138,7 @@ public final class RtsPluginService {
         List<Integer> radii = new ArrayList<>(effectivePlugins.size());
         List<Boolean> fieldDeployment = new ArrayList<>(effectivePlugins.size());
         List<Boolean> personal = new ArrayList<>(effectivePlugins.size());
+        List<String> ownerNames = new ArrayList<>(effectivePlugins.size());
         List<ItemStack> stacks = new ArrayList<>(effectivePlugins.size());
         for (RtsPluginTeamService.EffectivePlugin effective : effectivePlugins) {
             RtsInstalledPlugin entry = effective.plugin();
@@ -147,10 +151,12 @@ public final class RtsPluginService {
             radii.add(definition.radiusBlocks());
             fieldDeployment.add(definition.fieldDeployment());
             personal.add(effective.personal());
+            ownerNames.add(effective.ownerName());
             stacks.add(entry.stack().copyWithCount(1));
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsPluginStatePayload(
-                pluginIds, families, radii, fieldDeployment, personal, stacks));
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsPluginStatePayload(
+                pluginIds, families, radii, fieldDeployment, personal, ownerNames, stacks,
+                RtsPluginTeamService.teamLabel(player)));
     }
 
     public static void syncRelatedPlayers(ServerPlayer player) {
@@ -164,7 +170,12 @@ public final class RtsPluginService {
         if (player == null) {
             return List.of();
         }
-        return new ArrayList<>(RtsPluginPersistence.load(player));
+        List<RtsPluginTeamService.StoredPlugin> stored = RtsPluginTeamService.installedPlugins(player);
+        List<RtsInstalledPlugin> installed = new ArrayList<>(stored.size());
+        for (RtsPluginTeamService.StoredPlugin plugin : stored) {
+            installed.add(plugin.plugin());
+        }
+        return installed;
     }
 
     public static boolean isPluginItem(ItemStack stack) {
@@ -176,9 +187,9 @@ public final class RtsPluginService {
         if (definition == null) {
             return InstallResult.fail("message.rtsbuilding.plugin.not_plugin");
         }
-        List<RtsInstalledPlugin> installed = installedPlugins(player);
-        for (RtsInstalledPlugin entry : installed) {
-            RtsPluginDefinition existing = RtsPluginRegistry.byId(entry.pluginId());
+        List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
+        for (RtsPluginTeamService.StoredPlugin entry : installed) {
+            RtsPluginDefinition existing = RtsPluginRegistry.byId(entry.plugin().pluginId());
             if (existing == null) {
                 continue;
             }
@@ -194,9 +205,12 @@ public final class RtsPluginService {
     }
 
     private static void addInstalled(ServerPlayer player, RtsPluginDefinition definition, ItemStack installedStack) {
-        List<RtsInstalledPlugin> installed = installedPlugins(player);
-        installed.add(new RtsInstalledPlugin(definition.id(), installedStack, player.level().getGameTime()));
-        RtsPluginPersistence.save(player, installed);
+        List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
+        installed.add(new RtsPluginTeamService.StoredPlugin(
+                new RtsInstalledPlugin(definition.id(), installedStack, player.level().getGameTime()),
+                player.getUUID(),
+                player.getGameProfile().getName()));
+        RtsPluginTeamService.saveInstalledPlugins(player, installed);
         syncRelatedPlayers(player);
     }
 

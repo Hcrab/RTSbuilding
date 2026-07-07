@@ -4,7 +4,7 @@
   "key": {
     "B": {"item": "minecraft:book"},
     "P": {"item": "minecraft:paper"},
-    "R": {"item": "minecraft:redstone"}
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
     "PPP",

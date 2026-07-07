@@ -726,7 +726,6 @@ public final class StorageStateManager {
             this.storageCategory = CATEGORY_ALL;
         }
         this.storageEntries.clear();
-        this.storageTotalCounts.clear();
         this.fluidEntries.clear();
         this.recentEntries.clear();
 
@@ -745,14 +744,17 @@ public final class StorageStateManager {
             this.storageEntries.add(new StorageEntry(preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath()));
         }
 
-        int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
-        for (int i = 0; i < totalItemSize; i++) {
-            String itemId = payload.totalItemIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                continue;
+        if (payload.totalCountsSnapshot()) {
+            this.storageTotalCounts.clear();
+            int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
+            for (int i = 0; i < totalItemSize; i++) {
+                String itemId = payload.totalItemIds().get(i);
+                ResourceLocation id = ResourceLocation.tryParse(itemId);
+                if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+                    continue;
+                }
+                this.storageTotalCounts.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
             }
-            this.storageTotalCounts.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
         }
 
         int fluidSize = Math.min(payload.fluidIds().size(),

@@ -53,6 +53,8 @@ public final class RtsItems {
     public static final DeferredHolder<Item, Item> AREA_DESTROY_PLUGIN = pluginItem("area_destroy_plugin", true);
     /** 蓝图插件 —— 保存并复现建筑结构 */
     public static final DeferredHolder<Item, Item> BLUEPRINT_PLUGIN = pluginItem("blueprint_plugin", true);
+    /** 范围剔除插件 - 在 RTS 内绘制剔除盒，隐藏盒内已有方块并让射线穿透。 */
+    public static final DeferredHolder<Item, Item> RANGE_CULLING_PLUGIN = pluginItem("range_culling_plugin", true);
     /** 现场部署插件 —— 快速部署已保存的蓝图 */
     public static final DeferredHolder<Item, Item> FIELD_DEPLOYMENT_PLUGIN = pluginItem("field_deployment_plugin", true);
     /** 范围扩展 I —— 扩大基础操作半径 */

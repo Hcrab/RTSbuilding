@@ -2,14 +2,14 @@
   "type": "minecraft:crafting_shaped",
   "category": "tools",
   "key": {
-    "D": {"item": "minecraft:diamond"},
-    "P": {"item": "minecraft:diamond_pickaxe"},
-    "R": {"item": "minecraft:redstone"}
+    "L": {"tag": "c:gems/lapis"},
+    "P": {"item": "minecraft:iron_pickaxe"},
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
-    " D ",
+    " L ",
     "RPR",
-    " D "
+    " L "
   ],
   "result": {"count": 1, "id": "rtsbuilding:area_destroy_plugin"}
 }

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.refinedstorage;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
@@ -89,7 +90,6 @@ public final class RtsRefinedStorageCompat {
          * With the current cache tick rates this avoids repeatedly walking a
          * large RS network during normal mining/building input.
          */
-        private static final int REFRESH_THROTTLE = 10;
         private int refreshCounter = 0;
         private boolean snapshotStale;
 
@@ -112,7 +112,7 @@ public final class RtsRefinedStorageCompat {
             boolean shouldRefresh = this.snapshotStale;
             if (!shouldRefresh) {
                 this.refreshCounter++;
-                shouldRefresh = this.refreshCounter >= REFRESH_THROTTLE;
+                shouldRefresh = this.refreshCounter >= Config.refinedStorageNetworkRefreshThrottle();
             }
             if (shouldRefresh) {
                 refreshSnapshot();

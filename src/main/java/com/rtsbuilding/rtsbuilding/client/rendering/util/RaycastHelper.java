@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -41,6 +44,42 @@ public final class RaycastHelper {
             return bhr;
         }
         return null;
+    }
+
+    /**
+     * 使用范围剔除感知的方块射线。
+     *
+     * <p>黄色交互框、实际点击和远程放置必须共用同一套“遇到被剔除方块就从盒子出口后继续”的规则，
+     * 否则玩家看到的目标会停在隐藏屋顶/墙体上，而真正想操作的内部方块无法被选中。</p>
+     */
+    public static BlockHitResult raycastBlockFromCursorThroughCulling(Minecraft minecraft, Vec3 camPos, Vec3 direction,
+            double maxReach, boolean includeFluidSource) {
+        if (minecraft == null || minecraft.level == null || minecraft.getCameraEntity() == null) {
+            return null;
+        }
+        ClipContext.Fluid fluidMode = includeFluidSource ? ClipContext.Fluid.SOURCE_ONLY : ClipContext.Fluid.NONE;
+        return RtsCullingRayClipper.clip(
+                camPos,
+                direction,
+                maxReach,
+                (start, end) -> minecraft.level.clip(new ClipContext(
+                        start,
+                        end,
+                        ClipContext.Block.OUTLINE,
+                        fluidMode,
+                        minecraft.getCameraEntity())),
+                new RtsCullingRayClipper.CullingQuery() {
+                    @Override
+                    public boolean shouldCull(BlockPos pos) {
+                        return RtsCullingClientState.shouldCull(pos);
+                    }
+
+                    @Override
+                    public double distanceAfterCulledBlock(Vec3 origin, Vec3 rayDirection, BlockPos pos,
+                            double maxDistance) {
+                        return RtsCullingClientState.distanceAfterCulledBlock(origin, rayDirection, pos, maxDistance);
+                    }
+                });
     }
 
     /**

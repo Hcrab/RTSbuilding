@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
@@ -12,7 +13,6 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -113,6 +113,7 @@ public final class RtsInteractionHandlers {
             }
         });
     }
+
     public static void handleScanResumePlacement(C2SRtsScanResumePlacementPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
@@ -120,7 +121,7 @@ public final class RtsInteractionHandlers {
                 if (session != null) {
                     RtsResumeScanResult result = RtsPendingPlacementService.scanPendingJob(serverPlayer, session, payload.workflowEntryId());
                     if (result != null) {
-                        PacketDistributor.sendToPlayer(serverPlayer, new S2CRtsResumePlacementScanPayload(
+                        RtsClientboundPackets.sendToPlayer(serverPlayer, new S2CRtsResumePlacementScanPayload(
                                 result.itemId(), result.itemLabel(),
                                 result.totalRemaining(), result.alreadyPlacedCount(),
                                 result.conflictCount(), result.availableItems(),
@@ -188,7 +189,7 @@ public final class RtsInteractionHandlers {
                 int entryId = payload.workflowEntryId();
                 var scan = RtsBlueprintJobService.scanBlueprintMaterials(serverPlayer, entryId);
                 if (scan != null) {
-                    PacketDistributor.sendToPlayer(serverPlayer, new S2CRtsBlueprintResumeScanPayload(
+                    RtsClientboundPackets.sendToPlayer(serverPlayer, new S2CRtsBlueprintResumeScanPayload(
                             scan.itemIds(), scan.itemLabels(),
                             scan.required(), scan.available(),
                             entryId, scan.completedCount(), scan.totalCount()));

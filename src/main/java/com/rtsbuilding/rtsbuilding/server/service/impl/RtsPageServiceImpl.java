@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
@@ -15,7 +16,6 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 
@@ -41,7 +41,7 @@ public final class RtsPageServiceImpl implements PageService {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         boolean pinyinSearchEnabled = session != null && session.browser.pinyinSearchEnabled;
         List<String> localizedSearchMatches = session == null ? List.of() : List.copyOf(session.browser.localizedSearchMatches);
-        int pageSize = session == null ? RtsStoragePageBuilder.DEFAULT_PAGE_SIZE : session.browser.pageSize;
+        int pageSize = session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
         requestPage(player, page, search, category, sort, ascending,
                 pageSize, pinyinSearchEnabled, localizedSearchMatches);
     }
@@ -51,7 +51,7 @@ public final class RtsPageServiceImpl implements PageService {
                             RtsStorageSort sort, boolean ascending, boolean pinyinSearchEnabled) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         List<String> localizedSearchMatches = session == null ? List.of() : List.copyOf(session.browser.localizedSearchMatches);
-        int pageSize = session == null ? RtsStoragePageBuilder.DEFAULT_PAGE_SIZE : session.browser.pageSize;
+        int pageSize = session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
         requestPage(player, page, search, category, sort, ascending,
                 pageSize, pinyinSearchEnabled, localizedSearchMatches);
     }
@@ -85,7 +85,7 @@ public final class RtsPageServiceImpl implements PageService {
         var result = RtsStoragePageBuilder.build(
                 player, session, page, session.browser.pageSize,
                 activeHandlers, activeFluidHandlers);
-        PacketDistributor.sendToPlayer(player, result.payload());
+        RtsClientboundPackets.sendToPlayer(player, result.payload());
         session.transfer.storageViewDirty = false;
         session.browser.page = result.safePage();
         registry.session().saveToPlayerNbt(player, session);
@@ -97,7 +97,7 @@ public final class RtsPageServiceImpl implements PageService {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) return;
         if (session.transfer.storageViewDirty) return;
         session.transfer.storageViewDirty = true;
-        PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
     }
 
     @Override
@@ -117,6 +117,6 @@ public final class RtsPageServiceImpl implements PageService {
 
     private int sessionPageSize(ServerPlayer player) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
-        return session == null ? RtsStoragePageBuilder.DEFAULT_PAGE_SIZE : session.browser.pageSize;
+        return session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
     }
 }

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
@@ -23,14 +25,12 @@ import java.util.Set;
  *   <li><b>类别解析</b>（{@link #parseCategorySelection} / {@link #encodeModCategory} / {@link #encodeTabCategory}）— 
  *   处理 "all"、"mod|namespace"、"tab|namespace|tabKey" 三种类别格式</li>
  *   <li><b>命名空间排序</b>（{@link #compareNamespace}）— "minecraft" 优先，其余按字母序</li>
- *   <li><b>页面大小</b>（{@link #sanitizePageSize}）— 限制在 1~{@link #MAX_PAGE_SIZE} 之间</li>
+ *   <li><b>页面大小</b>（{@link #sanitizePageSize}）— 限制在服务端配置允许的范围内</li>
  *   <li><b>玩家背包边界</b>— 确定主背包物品在储存视图中的包含范围</li>
  * </ul>
  */
 public final class RtsPageSharedHelpers {
 
-    public static final int DEFAULT_PAGE_SIZE = 90;
-    public static final int MAX_PAGE_SIZE = 180;
     static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     static final String CATEGORY_ALL = "all";
     static final String CATEGORY_MOD_PREFIX = "mod|";
@@ -41,8 +41,16 @@ public final class RtsPageSharedHelpers {
 
     // ---- page size ---------------------------------------------------------------
 
+    public static int defaultPageSize() {
+        return Config.defaultStoragePageSize();
+    }
+
+    public static int maxPageSize() {
+        return Config.maxStoragePageSize();
+    }
+
     public static int sanitizePageSize(int pageSize) {
-        return Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
+        return Math.max(1, Math.min(maxPageSize(), pageSize));
     }
 
     // ---- search ------------------------------------------------------------------
@@ -85,7 +93,7 @@ public final class RtsPageSharedHelpers {
                 continue;
             }
             sanitized.add(key.toString());
-            if (sanitized.size() >= 8192) {
+            if (sanitized.size() >= C2SRtsRequestStoragePagePayload.MAX_LOCALIZED_SEARCH_MATCHES) {
                 break;
             }
         }

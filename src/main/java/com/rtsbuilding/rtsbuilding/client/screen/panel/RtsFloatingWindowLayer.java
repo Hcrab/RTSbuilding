@@ -47,7 +47,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
         int topmostHoverIdx = -1;
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.isOpen() && window.isInsideWindow(mouseX, mouseY)) {
+            if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
                 topmostHoverIdx = i;
                 break;
             }
@@ -57,6 +57,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
             // 对鼠标在区域内但非最顶层的窗口抑制悬浮效果
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
+                    && window.isVisibleWindow()
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);
             window.render(g, mouseX, mouseY, 0.0F);
@@ -82,7 +83,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     public void renderFloatingWindowOverlays(GuiGraphics g, int mouseX, int mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.isOpen() && window.isInsideWindow(mouseX, mouseY)) {
+            if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
                 window.renderOverlays(g, mouseX, mouseY);
                 return;
             }
@@ -102,7 +103,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     public boolean isMouseOverWindowOrResizableBorder(double mouseX, double mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.isOpen()
+            if (window.isVisibleWindow()
                     && (window.isInsideWindow(mouseX, mouseY) || window.isInsideResizableBorder(mouseX, mouseY))) {
                 return true;
             }

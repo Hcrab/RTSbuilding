@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
@@ -10,6 +11,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -53,6 +56,10 @@ public final class RtsLinkedStorageBindingService {
         }
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
 
         LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
         Object itemHandler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);

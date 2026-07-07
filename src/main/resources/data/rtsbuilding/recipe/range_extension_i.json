@@ -2,13 +2,13 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {"item": "minecraft:amethyst_shard"},
-    "C": {"item": "minecraft:copper_ingot"},
-    "R": {"item": "minecraft:redstone"}
+    "C": {"tag": "c:ingots/copper"},
+    "G": {"tag": "c:glass_panes"},
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
     " C ",
-    "RAR",
+    "RGR",
     " C "
   ],
   "result": {"count": 1, "id": "rtsbuilding:range_extension_i"}

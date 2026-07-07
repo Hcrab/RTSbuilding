@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidBufferService;
 import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidNetworkOperator;
 import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidWorldPlacer;
@@ -13,6 +14,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
@@ -82,7 +84,10 @@ public final class RtsStorageFluids {
 
         ServerLevel level = player.serverLevel();
         FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
-        int filledIntoBlock = RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, face, transfer);
+        int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
+                player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
+                ? RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, face, transfer)
+                : 0;
         if (filledIntoBlock > 0) {
             int consumed = extractFluidFromNetwork(session, safeFluidHandlers, fluid, filledIntoBlock, true);
             if (consumed > 0) {
@@ -100,6 +105,9 @@ public final class RtsStorageFluids {
         BlockHitResult hit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, clickedPos, false);
         BlockPos placePos = RtsFluidWorldPlacer.resolveFluidPlacementPos(level, player, hit, transfer);
         if (placePos == null) {
+            return false;
+        }
+        if (!RtsClaimProtectionService.canPlaceBlock(player, placePos)) {
             return false;
         }
         BlockHitResult placementHit = resolveFluidPlacementHit(hit, placePos);

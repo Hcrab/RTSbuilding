@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
@@ -26,6 +27,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -47,8 +49,6 @@ import net.minecraft.world.phys.Vec3;
  * 同时处理远程菜单追踪、放置方块检测、音效播放和最近物品记录。
  */
 public final class RtsInteractionServiceImpl implements InteractionService {
-
-    private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
 
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
@@ -101,17 +101,35 @@ public final class RtsInteractionServiceImpl implements InteractionService {
             }
         }
 
-        InteractionResult result = InteractionResult.PASS;
-        Vec3 hit = new Vec3(hitX, hitY, hitZ);
-        if (blockHit != null) {
-            RtsRemoteMenuService.sendRemoteMenuOpenHint(player, effectiveBlockPos);
-        }
         ItemStack toolSnapshot = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT || sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR
                 ? player.getInventory().getItem(RtsMiningValidator.clampHotbarSlot(toolSlot)).copy()
                 : ItemStack.EMPTY;
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
                 ? SoundService.createSoundStack(itemId)
                 : toolSnapshot.copy();
+        ItemStack protectionStack = soundStack.isEmpty() ? ItemStack.EMPTY : soundStack.copyWithCount(1);
+        if (targetEntity != null && !RtsClaimProtectionService.canInteractEntity(
+                player, targetEntity, InteractionHand.MAIN_HAND, protectionStack, false)) {
+            return;
+        }
+        if (blockHit != null) {
+            Direction hitFace = blockHit.getDirection();
+            if (!RtsClaimProtectionService.canInteractBlock(
+                    player, effectiveBlockPos, hitFace, InteractionHand.MAIN_HAND, protectionStack)) {
+                return;
+            }
+            if (!protectionStack.isEmpty() && protectionStack.getItem() instanceof BlockItem
+                    && !RtsClaimProtectionService.canPlaceBlock(
+                            player, interactionPlacementTarget(level, effectiveBlockPos, hitFace))) {
+                return;
+            }
+        }
+
+        InteractionResult result = InteractionResult.PASS;
+        Vec3 hit = new Vec3(hitX, hitY, hitZ);
+        if (blockHit != null) {
+            RtsRemoteMenuService.sendRemoteMenuOpenHint(player, effectiveBlockPos);
+        }
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
 
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
@@ -159,5 +177,12 @@ public final class RtsInteractionServiceImpl implements InteractionService {
         }
 
         registry.page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
+    }
+
+    private static BlockPos interactionPlacementTarget(ServerLevel level, BlockPos clickedPos, Direction face) {
+        if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
+            return clickedPos;
+        }
+        return clickedPos.relative(face);
     }
 }

@@ -5,9 +5,9 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintParseExceptio
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public final class BlueprintNetworkHandlers {
@@ -45,6 +45,6 @@ public final class BlueprintNetworkHandlers {
     }
 
     public static void send(ServerPlayer player, byte status, String messageKey, String detail) {
-        PacketDistributor.sendToPlayer(player, new S2CBlueprintStatusPayload(status, messageKey, detail));
+        RtsClientboundPackets.sendToPlayer(player, new S2CBlueprintStatusPayload(status, messageKey, detail));
     }
 }

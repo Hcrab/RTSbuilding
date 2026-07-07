@@ -36,12 +36,16 @@ public final class RtsPluginManagementScreen extends Screen {
     private int selectedInventorySlot = -1;
     private int hoveredInventorySlot = -1;
     private String hoveredInstalledPluginId = "";
-    private int syncTicks;
+    private int refreshFeedbackTicks;
 
     private int installX;
     private int installY;
     private int installW;
     private int installH;
+    private int refreshX;
+    private int refreshY;
+    private int refreshW;
+    private int refreshH;
 
     public RtsPluginManagementScreen(Screen parent) {
         super(Component.translatable("screen.rtsbuilding.plugins"));
@@ -59,9 +63,8 @@ public final class RtsPluginManagementScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        if (++this.syncTicks >= 40) {
-            this.syncTicks = 0;
-            this.controller.requestPluginState();
+        if (this.refreshFeedbackTicks > 0) {
+            this.refreshFeedbackTicks--;
         }
     }
 
@@ -107,6 +110,11 @@ public final class RtsPluginManagementScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0) {
             return super.mouseClicked(mouseX, mouseY, button);
+        }
+        if (inside(mouseX, mouseY, this.refreshX, this.refreshY, this.refreshW, this.refreshH)) {
+            this.controller.requestPluginState();
+            this.refreshFeedbackTicks = 12;
+            return true;
         }
         if (inside(mouseX, mouseY, this.installX, this.installY, this.installW, this.installH)
                 && this.selectedInventorySlot >= 0) {
@@ -174,14 +182,20 @@ public final class RtsPluginManagementScreen extends Screen {
         drawFrame(g, x, y, w, h, 0xCC17202A, 0xFF43566B);
         g.drawString(this.font, Component.translatable("screen.rtsbuilding.plugins.installed"),
                 x + 7, y + 7, 0xFFEAF2FF, false);
+        String teamName = this.controller.getPluginTeamName();
+        boolean hasTeam = teamName != null && !teamName.isBlank();
+        if (hasTeam) {
+            g.drawString(this.font, trim(Component.translatable("screen.rtsbuilding.plugins.team", teamName).getString(), w - 16),
+                    x + 7, y + 18, 0xFF9FB0C2, false);
+        }
         List<PluginStateManager.InstalledPluginView> installed = this.controller.getInstalledPlugins();
         if (installed.isEmpty()) {
             drawWrapped(g, Component.translatable("screen.rtsbuilding.plugins.empty"),
-                    x + 8, y + 28, w - 16, 0xFF9FB0C2);
+                    x + 8, y + (hasTeam ? 38 : 28), w - 16, 0xFF9FB0C2);
             return;
         }
 
-        int rowY = y + 24;
+        int rowY = y + (hasTeam ? 34 : 24);
         for (PluginStateManager.InstalledPluginView plugin : installed) {
             if (rowY + INSTALLED_ROW_H > y + h - 4) {
                 break;
@@ -198,13 +212,7 @@ public final class RtsPluginManagementScreen extends Screen {
             }
             String name = stack.isEmpty() ? plugin.pluginId() : stack.getHoverName().getString();
             g.drawString(this.font, trim(name, w - 76), x + 28, rowY + 5, 0xFFFFFFFF, false);
-            String status = plugin.radiusBlocks() > 0 && plugin.personal()
-                    ? Component.translatable("screen.rtsbuilding.plugins.radius", plugin.radiusBlocks()).getString()
-                    : plugin.radiusBlocks() > 0
-                            ? Component.translatable("screen.rtsbuilding.plugins.team_radius", plugin.radiusBlocks()).getString()
-                    : Component.translatable(plugin.personal()
-                            ? "screen.rtsbuilding.plugins.active"
-                            : "screen.rtsbuilding.plugins.team_shared").getString();
+            String status = pluginStatus(plugin);
             g.drawString(this.font, trim(status, w - 82), x + 28, rowY + 16, 0xFFB8C7D6, false);
             if (plugin.personal()) {
                 int uninstallX = x + w - 50;
@@ -224,6 +232,16 @@ public final class RtsPluginManagementScreen extends Screen {
         boolean hover = inside(mouseX, mouseY, x, y, w, this.installH);
         drawFrame(g, x, y, w, this.installH, hover ? 0xCC243341 : 0xBB17202A,
                 hover ? 0xFF85A7C5 : 0xFF4B5F73);
+        this.refreshW = 52;
+        this.refreshH = 16;
+        this.refreshX = x + w - this.refreshW - 7;
+        this.refreshY = y + 5;
+        boolean refreshHover = inside(mouseX, mouseY, this.refreshX, this.refreshY, this.refreshW, this.refreshH);
+        int refreshFill = this.refreshFeedbackTicks > 0 ? 0xCC2F5B45 : refreshHover ? 0xCC2B4055 : 0xAA1D2A37;
+        drawFrame(g, this.refreshX, this.refreshY, this.refreshW, this.refreshH, refreshFill,
+                refreshHover ? 0xFF9FC7E6 : 0xFF5C7188);
+        g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.plugins.refresh"),
+                this.refreshX + this.refreshW / 2, this.refreshY + 4, 0xFFEAF2FF);
         g.drawString(this.font, Component.translatable("screen.rtsbuilding.plugins.install_area"),
                 x + 8, y + 7, 0xFFEAF2FF, false);
         Component hint = this.selectedInventorySlot >= 0
@@ -275,7 +293,8 @@ public final class RtsPluginManagementScreen extends Screen {
 
     private int installedUninstallY(String pluginId) {
         Layout layout = resolveLayout();
-        int rowY = layout.y() + HEADER_H + 8 + 24;
+        String teamName = this.controller.getPluginTeamName();
+        int rowY = layout.y() + HEADER_H + 8 + (teamName == null || teamName.isBlank() ? 24 : 34);
         for (PluginStateManager.InstalledPluginView plugin : this.controller.getInstalledPlugins()) {
             if (plugin.pluginId().equals(pluginId)) {
                 return rowY + 5;
@@ -283,6 +302,24 @@ public final class RtsPluginManagementScreen extends Screen {
             rowY += INSTALLED_ROW_H;
         }
         return -1000;
+    }
+
+    private String pluginStatus(PluginStateManager.InstalledPluginView plugin) {
+        if (plugin.radiusBlocks() > 0 && plugin.personal()) {
+            return Component.translatable("screen.rtsbuilding.plugins.radius", plugin.radiusBlocks()).getString();
+        }
+        if (plugin.radiusBlocks() > 0) {
+            return plugin.ownerName().isBlank()
+                    ? Component.translatable("screen.rtsbuilding.plugins.team_radius", plugin.radiusBlocks()).getString()
+                    : Component.translatable("screen.rtsbuilding.plugins.team_radius_by",
+                            plugin.ownerName(), plugin.radiusBlocks()).getString();
+        }
+        if (plugin.personal()) {
+            return Component.translatable("screen.rtsbuilding.plugins.active").getString();
+        }
+        return plugin.ownerName().isBlank()
+                ? Component.translatable("screen.rtsbuilding.plugins.team_shared").getString()
+                : Component.translatable("screen.rtsbuilding.plugins.team_shared_by", plugin.ownerName()).getString();
     }
 
     private boolean isPersonalInstalledPlugin(String pluginId) {

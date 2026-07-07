@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.sync.HistoryRecordPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
@@ -151,6 +152,10 @@ public final class RtsMiningStateMachine {
             return;
         }
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, session.mining.miningPos)) {
+            stopActiveMining(player, session);
+            return;
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, session.mining.miningPos, session.mining.miningFace)) {
             stopActiveMining(player, session);
             return;
         }
@@ -392,6 +397,10 @@ public final class RtsMiningStateMachine {
      * player's selected hotbar slot.
      */
     public static MiningBreakResult destroyMinedBlock(ServerPlayer player, RtsStorageSession session, BlockPos pos, int toolSlot) {
+        Direction face = session != null && session.mining.miningFace != null ? session.mining.miningFace : Direction.DOWN;
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, face)) {
+            return new MiningBreakResult(false, ItemStack.EMPTY);
+        }
         BlockState beforeState = player.serverLevel().getBlockState(pos);
         boolean broken;
         ItemStack remainder;

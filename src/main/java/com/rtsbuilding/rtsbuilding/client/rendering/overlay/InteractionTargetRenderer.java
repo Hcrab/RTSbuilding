@@ -182,7 +182,8 @@ public final class InteractionTargetRenderer {
         Vec3 rayEnd = camPos.add(viewDir.scale(MAX_REACH));
 
         // ── Ray-cast blocks and entities ──
-        BlockHitResult blockHit = RaycastHelper.raycastBlockFromCursor(minecraft, camPos, rayEnd, false);
+        BlockHitResult blockHit = RaycastHelper.raycastBlockFromCursorThroughCulling(
+                minecraft, camPos, viewDir, MAX_REACH, false);
         EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(minecraft, camPos, rayEnd, viewDir, MAX_REACH);
 
         // ── Pick the nearest hit ──
@@ -193,11 +194,12 @@ public final class InteractionTargetRenderer {
             // Entity is closer (or equal) – render entity highlight
             Entity entity = entityHit.getEntity();
             // Skip entity outside RTS build boundary
-            if (isWithinBounds(controller, entity.blockPosition())) {
+            if (InteractionTargetSelection.shouldRenderEntityInsteadOfBlock(
+                    entityDistSq, blockDistSq, isWithinBounds(controller, entity.blockPosition()))) {
                 double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
                 renderEntityCornerHighlight(poseStack, lineBuffer, noDepthBuffer, entity, distance, breathFactor);
+                return;
             }
-            return;
         }
 
         if (blockHit == null || blockHit.getType() != HitResult.Type.BLOCK) {
@@ -243,7 +245,7 @@ public final class InteractionTargetRenderer {
 
         // Blocked when cursor is over an open floating window
         for (var window : builderScreen.getFloatingWindowLayer().frontToBackWindows()) {
-            if (window.isOpen() && window.isInsideWindow(mouseX, mouseY)) {
+            if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
                 return true;
             }
         }

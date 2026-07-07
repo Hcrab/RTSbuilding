@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -32,8 +33,6 @@ import java.util.List;
 public final class RtsDropAbsorber {
 
     /** 方块破坏位置周围搜索物品实体的半径。 */
-    private static final double DROP_SCAN_RADIUS = 1.25D;
-
     private RtsDropAbsorber() {
     }
 
@@ -50,7 +49,7 @@ public final class RtsDropAbsorber {
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
 
-        AABB box = new AABB(center).inflate(DROP_SCAN_RADIUS);
+        AABB box = new AABB(center).inflate(Config.dropScanRadius());
         List<ItemEntity> drops = player.serverLevel().getEntitiesOfClass(
                 ItemEntity.class,
                 box,

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
@@ -526,6 +528,24 @@ public final class ScreenShapeController {
                 });
     }
 
+    public boolean isAwaitingBatchPlaceConfirm() {
+        return !this.screen.isQuickBuildRangeDestroyMode() && isAwaitingBatchConfirm();
+    }
+
+    public boolean isAwaitingBatchDestroyConfirm() {
+        return this.screen.isQuickBuildRangeDestroyMode()
+                && !this.screen.isQuickBuildRangeDestroyChainMode()
+                && isAwaitingBatchConfirm();
+    }
+
+    private boolean isAwaitingBatchConfirm() {
+        BuildShape currentShape = this.controller.getBuildShape();
+        return currentShape != BuildShape.BLOCK
+                && this.shapeBuildSession != null
+                && this.shapeBuildSession.shape() == currentShape
+                && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
+    }
+
     public boolean tryConfirmPendingShapeBuild(boolean forcePlace) {
         if (this.controller.getBuildShape() == BuildShape.BLOCK) return false;
         boolean useFluid = this.controller.hasSelectedFluid();
@@ -552,15 +572,6 @@ public final class ScreenShapeController {
                         }
                     } else {
                         this.controller.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, true);
-                    }
-                    if (!useFluid) {
-                        List<BlockPos> positions = hits.stream()
-                                .map(BlockHitResult::getBlockPos)
-                                .map(BlockPos::immutable)
-                                .toList();
-                        BlockPos firstPlacePos = positions.isEmpty() ? null : positions.get(0);
-                        BlockState pendingState = resolvePendingGhostBlockState(firstPlacePos);
-                        PlacementAnimationRenderer.addPendingBatch(positions, pendingState);
                     }
                 });
     }
@@ -924,11 +935,20 @@ public final class ScreenShapeController {
             case READY_CONFIRM -> currentShape == BuildShape.WALL
                     ? this.screen.text(destroyMode
                             ? "screen.rtsbuilding.shape_status.destroy_confirm_wall"
-                            : "screen.rtsbuilding.shape_status.confirm_wall")
+                            : "screen.rtsbuilding.shape_status.confirm_wall", confirmKeyLabel(destroyMode))
                     : this.screen.text(destroyMode
                             ? "screen.rtsbuilding.shape_status.destroy_confirm"
-                            : "screen.rtsbuilding.shape_status.confirm");
+                            : "screen.rtsbuilding.shape_status.confirm", confirmKeyLabel(destroyMode));
         };
+    }
+
+    private String confirmKeyLabel(boolean destroyMode) {
+        if (Config.isKeyboardBatchConfirmEnabled()) {
+            return (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE)
+                    .getTranslatedKeyMessage()
+                    .getString();
+        }
+        return this.screen.text(destroyMode ? "screen.rtsbuilding.input.lmb" : "screen.rtsbuilding.input.rmb");
     }
 
     public String shapeLabel(BuildShape shape) {

@@ -173,6 +173,7 @@ public final class TopBarPanel {
                     this.controller.setChunkCurtainVisible(!this.controller.isChunkCurtainVisible());
                     screen.persistUiState();
                 }
+                case RANGE_CULLING -> screen.toggleRangeCullingManagement();
                 case GUIDE -> {
                     screen.toggleTopGuide(button.x() + button.width() / 2, 4 + TOP_BUTTON_H);
                 }
@@ -226,6 +227,10 @@ public final class TopBarPanel {
         }
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.CHUNK_VIEW, x, TOP_ICON_BUTTON_W, "", true, this.controller.isChunkCurtainVisible()));
         x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        if (screen.canUseRangeCulling()) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, x, TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
+            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        }
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GUIDE, x, TOP_ICON_BUTTON_W, "", true, screen.isGuideOpen()));
 
         // ---- Right-aligned buttons ----

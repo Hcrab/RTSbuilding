@@ -36,6 +36,18 @@ final class RtsFtbTeamsCompatImpl {
         }
     }
 
+    String teamLabel(ServerPlayer player) {
+        if (player == null) {
+            return "";
+        }
+        try {
+            Object team = resolveTeam(player);
+            return team == null ? "" : resolveTeamLabel(team);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return "";
+        }
+    }
+
     private Object resolveTeam(ServerPlayer player) throws ReflectiveOperationException {
         Object api = this.teamsApiMethod.invoke(null);
         if (api == null) {
@@ -70,6 +82,24 @@ final class RtsFtbTeamsCompatImpl {
             }
         }
         return team.toString();
+    }
+
+    private static String resolveTeamLabel(Object team) {
+        for (String methodName : new String[] { "getName", "getDisplayName", "getShortName" }) {
+            try {
+                Method method = team.getClass().getMethod(methodName);
+                if (method.getParameterCount() != 0) {
+                    continue;
+                }
+                Object value = unwrapOptional(method.invoke(team));
+                if (value != null && !value.toString().isBlank()) {
+                    return value.toString();
+                }
+            } catch (ReflectiveOperationException ignored) {
+                // Try the next known label method name.
+            }
+        }
+        return "";
     }
 
     private static Method resolveTeamLookupMethod(Class<?> managerClass) throws NoSuchMethodException {

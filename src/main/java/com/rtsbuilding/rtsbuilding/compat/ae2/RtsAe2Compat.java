@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.ae2;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
@@ -100,7 +101,6 @@ public final class RtsAe2Compat {
          *   <li>Idle (60 tick rate): refresh every ~600 ticks (30s)</li>
          * </ul>
          */
-        private static final int REFRESH_THROTTLE = 10;
         private int refreshCounter = 0;
         private boolean snapshotStale;
 
@@ -129,7 +129,7 @@ public final class RtsAe2Compat {
             boolean shouldRefresh = this.snapshotStale;
             if (!shouldRefresh) {
                 this.refreshCounter++;
-                shouldRefresh = this.refreshCounter >= REFRESH_THROTTLE;
+                shouldRefresh = this.refreshCounter >= Config.ae2NetworkRefreshThrottle();
             }
             if (shouldRefresh) {
                 // Use cached inventory — O(1) retrieval, no full network scan.

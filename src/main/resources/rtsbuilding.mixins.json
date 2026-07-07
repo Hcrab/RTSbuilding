@@ -3,6 +3,10 @@
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "BlockEntityRenderDispatcherMixin",
+    "BlockRenderDispatcherMixin",
+    "EmbeddiumWorldSliceMixin",
+    "RenderChunkRegionMixin",
     "LocalPlayerMixin"
   ],
   "mixins": [

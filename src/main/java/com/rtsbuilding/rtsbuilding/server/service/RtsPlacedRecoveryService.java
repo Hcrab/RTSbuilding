@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -102,6 +103,9 @@ public final class RtsPlacedRecoveryService {
         BlockState state = level.getBlockState(targetPos);
         if (state.isAir()) {
             tracker.clear(targetPos);
+            return;
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, targetPos, face != null ? face : Direction.UP)) {
             return;
         }
 

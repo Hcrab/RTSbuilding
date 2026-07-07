@@ -23,6 +23,7 @@ public final class RtsClientPluginCatalog {
             id("chain_break_plugin"),
             id("area_destroy_plugin"),
             id("blueprint_plugin"),
+            id("range_culling_plugin"),
             id("field_deployment_plugin"),
             id("range_extension_i"),
             id("range_extension_ii"),

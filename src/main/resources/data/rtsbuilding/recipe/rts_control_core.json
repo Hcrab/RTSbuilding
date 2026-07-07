@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {"item": "minecraft:amethyst_shard"},
+    "A": {"tag": "c:gems/amethyst"},
     "E": {"item": "minecraft:ender_eye"},
-    "R": {"item": "minecraft:redstone"}
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
     " R ",

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 
 import java.util.LinkedHashMap;
@@ -16,7 +17,7 @@ import java.util.UUID;
  * 当储存数据发生变化时版本号递增，下一次请求触发完整重建。
  *
  * <p>内部使用基于访问顺序的 {@link LinkedHashMap}（accessOrder=true），
- * 最多缓存 {@link #MAX_CACHED_PLAYERS}=256 个玩家。
+ * 最多缓存的玩家数由服务端配置控制。
  * 当缓存满时，最近最少访问的玩家条目被自动淘汰。
  *
  * <p>缓存键（{@link CachedPageKey}）包含搜索词、排序方式、
@@ -27,8 +28,6 @@ public final class RtsPageCache {
     public static final RtsPageCache INSTANCE = new RtsPageCache();
 
     /** 具有缓存页面数据的最大玩家数。 */
-    private static final int MAX_CACHED_PLAYERS = 256;
-
     /** 无锁 LRU：访问顺序迭代让我们可以找到最旧的条目。 */
     private final Map<UUID, CachedPage> cache = new LinkedHashMap<>(
             16, 0.75f, true /* accessOrder */);
@@ -76,7 +75,7 @@ public final class RtsPageCache {
             return;
         }
         // Evict oldest if at capacity (the eldest entry in access-order map)
-        if (cache.size() >= MAX_CACHED_PLAYERS && !cache.containsKey(playerUuid)) {
+        if (cache.size() >= Config.pageCacheMaxPlayers() && !cache.containsKey(playerUuid)) {
             var it = cache.entrySet().iterator();
             if (it.hasNext()) {
                 it.next();

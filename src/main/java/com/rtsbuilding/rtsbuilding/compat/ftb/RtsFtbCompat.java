@@ -31,6 +31,13 @@ public final class RtsFtbCompat {
         return TEAMS_IMPL.teamKey(player);
     }
 
+    public static String progressionTeamLabel(ServerPlayer player) {
+        if (TEAMS_IMPL == null || player == null) {
+            return "";
+        }
+        return TEAMS_IMPL.teamLabel(player);
+    }
+
     private static RtsFtbCompatImpl createImpl() {
         if (!FTB_QUESTS_LOADED || !FTB_TEAMS_LOADED) {
             return null;

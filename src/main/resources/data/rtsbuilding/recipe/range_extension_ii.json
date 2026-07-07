@@ -2,14 +2,14 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "E": {"item": "minecraft:emerald"},
+    "I": {"tag": "c:ingots/iron"},
     "P": {"item": "rtsbuilding:range_extension_i"},
-    "R": {"item": "minecraft:redstone"}
+    "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [
-    " E ",
+    " I ",
     "RPR",
-    " E "
+    " I "
   ],
   "result": {"count": 1, "id": "rtsbuilding:range_extension_ii"}
 }
