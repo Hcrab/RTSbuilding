@@ -36,6 +36,8 @@ public final class RtsPluginManagementScreen extends Screen {
     private int selectedInventorySlot = -1;
     private int hoveredInventorySlot = -1;
     private String hoveredInstalledPluginId = "";
+    private ItemStack hoveredInstalledStack = ItemStack.EMPTY;
+    private int installedScroll;
     private int refreshFeedbackTicks;
 
     private int installX;
@@ -73,6 +75,7 @@ public final class RtsPluginManagementScreen extends Screen {
         renderPageBackground(g);
         this.hoveredInventorySlot = -1;
         this.hoveredInstalledPluginId = "";
+        this.hoveredInstalledStack = ItemStack.EMPTY;
 
         Layout layout = resolveLayout();
         drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEF111820, 0xFF6C8197);
@@ -102,6 +105,8 @@ public final class RtsPluginManagementScreen extends Screen {
             if (!hovered.isEmpty()) {
                 g.renderTooltip(this.font, hovered, mouseX, mouseY);
             }
+        } else if (!this.hoveredInstalledStack.isEmpty()) {
+            g.renderTooltip(this.font, this.hoveredInstalledStack, mouseX, mouseY);
         }
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -163,6 +168,18 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        InstalledListMetrics metrics = installedListMetrics();
+        if (inside(mouseX, mouseY, metrics.x(), metrics.y(), metrics.w(), metrics.h())
+                && metrics.maxScroll() > 0) {
+            int delta = scrollY > 0.0D ? -1 : 1;
+            this.installedScroll = Mth.clamp(this.installedScroll + delta, 0, metrics.maxScroll());
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
     public void onClose() {
         if (this.minecraft != null) {
             this.minecraft.setScreen(this.parent);
@@ -190,19 +207,25 @@ public final class RtsPluginManagementScreen extends Screen {
         }
         List<PluginStateManager.InstalledPluginView> installed = this.controller.getInstalledPlugins();
         if (installed.isEmpty()) {
+            this.installedScroll = 0;
             drawWrapped(g, Component.translatable("screen.rtsbuilding.plugins.empty"),
                     x + 8, y + (hasTeam ? 38 : 28), w - 16, 0xFF9FB0C2);
             return;
         }
 
         int rowY = y + (hasTeam ? 34 : 24);
-        for (PluginStateManager.InstalledPluginView plugin : installed) {
+        int visibleRows = Math.max(1, (y + h - 4 - rowY) / INSTALLED_ROW_H);
+        int maxScroll = Math.max(0, installed.size() - visibleRows);
+        this.installedScroll = Mth.clamp(this.installedScroll, 0, maxScroll);
+        for (int i = this.installedScroll; i < installed.size(); i++) {
+            PluginStateManager.InstalledPluginView plugin = installed.get(i);
             if (rowY + INSTALLED_ROW_H > y + h - 4) {
                 break;
             }
             boolean hover = inside(mouseX, mouseY, x + 4, rowY, w - 8, INSTALLED_ROW_H - 2);
             if (hover) {
                 this.hoveredInstalledPluginId = plugin.pluginId();
+                this.hoveredInstalledStack = plugin.stack();
             }
             g.fill(x + 4, rowY, x + w - 4, rowY + INSTALLED_ROW_H - 2,
                     hover ? 0xAA2A3846 : 0x88202B36);
@@ -222,6 +245,7 @@ public final class RtsPluginManagementScreen extends Screen {
             }
             rowY += INSTALLED_ROW_H;
         }
+        drawInstalledScrollBar(g, x, y, w, h, hasTeam, installed.size(), visibleRows, maxScroll);
     }
 
     private void drawInstallArea(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
@@ -295,11 +319,13 @@ public final class RtsPluginManagementScreen extends Screen {
         Layout layout = resolveLayout();
         String teamName = this.controller.getPluginTeamName();
         int rowY = layout.y() + HEADER_H + 8 + (teamName == null || teamName.isBlank() ? 24 : 34);
+        int index = 0;
         for (PluginStateManager.InstalledPluginView plugin : this.controller.getInstalledPlugins()) {
             if (plugin.pluginId().equals(pluginId)) {
-                return rowY + 5;
+                int visibleIndex = index - this.installedScroll;
+                return visibleIndex >= 0 ? rowY + visibleIndex * INSTALLED_ROW_H + 5 : -1000;
             }
-            rowY += INSTALLED_ROW_H;
+            index++;
         }
         return -1000;
     }
@@ -396,6 +422,33 @@ public final class RtsPluginManagementScreen extends Screen {
         g.vLine(x + w, y, y + h, 0xFF0B1016);
     }
 
+    private void drawInstalledScrollBar(GuiGraphics g, int x, int y, int w, int h, boolean hasTeam,
+            int totalRows, int visibleRows, int maxScroll) {
+        if (maxScroll <= 0) {
+            return;
+        }
+        int contentY = y + (hasTeam ? 34 : 24);
+        int trackH = Math.max(12, y + h - 6 - contentY);
+        int trackX = x + w - 8;
+        g.fill(trackX, contentY, trackX + 3, contentY + trackH, 0x66334455);
+        int thumbH = Mth.clamp(trackH * visibleRows / Math.max(1, totalRows), 12, trackH);
+        int thumbY = contentY + (trackH - thumbH) * this.installedScroll / maxScroll;
+        g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, 0xFF8FA8C3);
+    }
+
+    private InstalledListMetrics installedListMetrics() {
+        Layout layout = resolveLayout();
+        int leftX = layout.x() + PAD;
+        int leftY = layout.y() + HEADER_H + 8;
+        int leftW = Math.min(184, (layout.w() - PAD * 3) / 2);
+        int leftH = layout.h() - HEADER_H - 48;
+        String teamName = this.controller.getPluginTeamName();
+        int rowY = leftY + (teamName == null || teamName.isBlank() ? 24 : 34);
+        int visibleRows = Math.max(1, (leftY + leftH - 4 - rowY) / INSTALLED_ROW_H);
+        int maxScroll = Math.max(0, this.controller.getInstalledPlugins().size() - visibleRows);
+        return new InstalledListMetrics(leftX, leftY, leftW, leftH, maxScroll);
+    }
+
     private void renderPageBackground(GuiGraphics g) {
         g.fill(0, 0, this.width, this.height, 0xD80D1117);
     }
@@ -415,5 +468,8 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     private record Layout(int x, int y, int w, int h) {
+    }
+
+    private record InstalledListMetrics(int x, int y, int w, int h, int maxScroll) {
     }
 }

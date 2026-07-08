@@ -1,12 +1,20 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 /**
  * Real inventory item used to install one RTS plugin.
@@ -28,5 +36,15 @@ public class RtsPluginItem extends Item {
             }
         }
         return InteractionResultHolder.pass(stack);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents,
+            TooltipFlag tooltipFlag) {
+        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (itemId != null && RtsbuildingMod.MODID.equals(itemId.getNamespace())) {
+            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin." + itemId.getPath())
+                    .withStyle(ChatFormatting.GRAY));
+        }
     }
 }
