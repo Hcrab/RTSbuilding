@@ -729,10 +729,27 @@ public final class LeftDownOverlayLayer extends DownOverlayLayer {
                     int targetPriority = priorities.get(targetRl.originalIndex);
                     LinkedStorageEntry currentEntry = entries.get(origIdx);
                     LinkedStorageEntry targetEntry = entries.get(targetRl.originalIndex);
-                    RtsClientPacketGateway.sendUpdateLinkedStorage(
-                            currentEntry.pos(), currentEntry.isExtractOnly(), targetPriority);
-                    RtsClientPacketGateway.sendUpdateLinkedStorage(
-                            targetEntry.pos(), targetEntry.isExtractOnly(), currentPriority);
+
+                    if (currentPriority == targetPriority) {
+                        // 优先级相等时，通过 +1/-1 打破相等实现位置互换
+                        if (i == 0) {
+                            // 首行向下移动 → 优先级增加
+                            int newPriority = Math.min(100, targetPriority + 1);
+                            RtsClientPacketGateway.sendUpdateLinkedStorage(
+                                    currentEntry.pos(), currentEntry.isExtractOnly(), newPriority);
+                        } else {
+                            // 非首行向上移动 → 优先级减小
+                            int newPriority = Math.max(0, targetPriority - 1);
+                            RtsClientPacketGateway.sendUpdateLinkedStorage(
+                                    currentEntry.pos(), currentEntry.isExtractOnly(), newPriority);
+                        }
+                    } else {
+                        // 不同优先级：交换两者
+                        RtsClientPacketGateway.sendUpdateLinkedStorage(
+                                currentEntry.pos(), currentEntry.isExtractOnly(), targetPriority);
+                        RtsClientPacketGateway.sendUpdateLinkedStorage(
+                                targetEntry.pos(), targetEntry.isExtractOnly(), currentPriority);
+                    }
                     sm.requestPage(sm.getState().getPage());
                 }
                 return true;
@@ -762,7 +779,8 @@ public final class LeftDownOverlayLayer extends DownOverlayLayer {
             // 模式切换按钮
             if (mx >= rl.toggleX && mx < rl.toggleX + rl.toggleW) {
                 boolean nextExtractOnly = !entry.isExtractOnly();
-                RtsClientPacketGateway.sendUpdateLinkedStorage(entry.pos(), nextExtractOnly, 0);
+                int currentPriority = priorities.get(origIdx);
+                RtsClientPacketGateway.sendUpdateLinkedStorage(entry.pos(), nextExtractOnly, currentPriority);
                 sm.requestPage(sm.getState().getPage());
                 return true;
             }

@@ -141,6 +141,24 @@ public final class StorageModule implements FeatureModule {
     /** 获取已链接存储的优先级列表 */
     public List<Integer> getLinkedPriorities() { return state.getLinkedPriorities(); }
 
+    /**
+     * 根据方块坐标查询已链接存储的当前优先级。
+     * 用于切换模式时保持优先级不变。
+     *
+     * @param pos 容器方块位置
+     * @return 当前优先级，未找到时返回 0
+     */
+    public int getLinkedPriority(BlockPos pos) {
+        var entries = getLinkedStorageEntries();
+        var priorities = getLinkedPriorities();
+        for (int i = 0; i < entries.size() && i < priorities.size(); i++) {
+            if (entries.get(i).pos().equals(pos)) {
+                return priorities.get(i);
+            }
+        }
+        return 0;
+    }
+
     // ======================================================================
     //  位置标记状态（纯客户端，不涉及网络同步）
     // ======================================================================
@@ -192,7 +210,8 @@ public final class StorageModule implements FeatureModule {
 
         if (existing.isPresent()) {
             boolean nextExtractOnly = !existing.get().isExtractOnly();
-            RtsClientPacketGateway.sendUpdateLinkedStorage(existing.get().pos(), nextExtractOnly, 0);
+            int currentPriority = getLinkedPriority(existing.get().pos());
+            RtsClientPacketGateway.sendUpdateLinkedStorage(existing.get().pos(), nextExtractOnly, currentPriority);
         } else {
             RtsClientPacketGateway.sendLinkStorage(pos, true);
         }
@@ -258,7 +277,8 @@ public final class StorageModule implements FeatureModule {
                     var existing = linkedMap.get(canonical);
                     if (existing != null) {
                         boolean nextExtractOnly = !existing.isExtractOnly();
-                        RtsClientPacketGateway.sendUpdateLinkedStorage(existing.pos(), nextExtractOnly, 0);
+                        int currentPriority = getLinkedPriority(existing.pos());
+                        RtsClientPacketGateway.sendUpdateLinkedStorage(existing.pos(), nextExtractOnly, currentPriority);
                     } else {
                         RtsClientPacketGateway.sendLinkStorage(canonical, true);
                     }
