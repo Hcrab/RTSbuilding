@@ -105,7 +105,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
                     .createCompositeState(false));
 
     private static final RenderType BARRIER_BOUNDARY = RenderType.entityTranslucent(
-            new ResourceLocation(RtsbuildingMod.MODID, "textures/misc/barrier.png"));
+            new ResourceLocation("minecraft", "textures/misc/forcefield.png"));
 
     private static final BufferBuilder CHUNK_FILL_BUFFER = new BufferBuilder(CHUNK_XRAY_FILL.bufferSize());
     private static final BufferBuilder CHUNK_LINE_BUFFER = new BufferBuilder(CHUNK_XRAY_LINES.bufferSize());

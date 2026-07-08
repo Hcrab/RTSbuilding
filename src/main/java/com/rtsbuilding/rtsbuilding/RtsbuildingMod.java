@@ -4,8 +4,6 @@ package com.rtsbuilding.rtsbuilding;
 import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-import com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests;
-import com.rtsbuilding.rtsbuilding.gametest.RtsStorageCompatGameTests;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -23,7 +21,6 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.RegisterGameTestsEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -64,7 +61,6 @@ public final class RtsbuildingMod {
     public RtsbuildingMod(final FMLJavaModLoadingContext context) {
         IEventBus modEventBus = context.getModEventBus();
         modEventBus.addListener(this::commonSetup);
-        modEventBus.addListener(this::registerGameTests);
 
         ENTITY_TYPES.register(modEventBus);
         RtsForgePayloadRegistrar.register();
@@ -77,13 +73,6 @@ public final class RtsbuildingMod {
         RtsAPIImpl.init();
         RtsPipelineRegistration.registerAll();
         LOGGER.info("RTSBuilding common setup complete");
-    }
-
-    private void registerGameTests(final RegisterGameTestsEvent event) {
-        event.register(RtsServerGameTests.class);
-        if (RtsStorageCompatGameTests.isEnabled()) {
-            event.register(RtsStorageCompatGameTests.class);
-        }
     }
 
     @SubscribeEvent
