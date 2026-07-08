@@ -3,6 +3,12 @@
   "minVersion": "0.8.5",
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_17",
+  "client": [
+    "BlockEntityRenderDispatcherMixin",
+    "BlockRenderDispatcherMixin",
+    "EmbeddiumWorldSliceMixin",
+    "RenderChunkRegionMixin"
+  ],
   "mixins": [
     "ChestMenuMixin",
     "compat.sophisticatedstorage.StorageContainerMenuMixin"

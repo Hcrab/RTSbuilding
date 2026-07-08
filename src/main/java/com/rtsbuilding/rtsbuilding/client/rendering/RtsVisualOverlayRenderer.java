@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimation
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintCaptureRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.BoundaryLineRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.ChunkGuideRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.InteractionTargetRenderer;
@@ -104,6 +105,39 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
                     .setCullState(NO_CULL)
                     .createCompositeState(false));
 
+    private static final RenderType CULLING_HANDLE_NO_DEPTH_FILL = RenderType.create(
+            "rtsbuilding_culling_handle_no_depth_fill",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.QUADS,
+            512,
+            false,
+            false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(POSITION_COLOR_SHADER)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(NO_DEPTH_TEST)
+                    .setOutputState(MAIN_TARGET)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false));
+
+    private static final RenderType CULLING_HANDLE_NO_DEPTH_LINES = RenderType.create(
+            "rtsbuilding_culling_handle_no_depth_lines",
+            DefaultVertexFormat.POSITION_COLOR_NORMAL,
+            VertexFormat.Mode.LINES,
+            512,
+            false,
+            true,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RENDERTYPE_LINES_SHADER)
+                    .setLineState(DEFAULT_LINE)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(NO_DEPTH_TEST)
+                    .setOutputState(MAIN_TARGET)
+                    .setWriteMaskState(COLOR_WRITE)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false));
+
     private static final RenderType BARRIER_BOUNDARY = RenderType.entityTranslucent(
             new ResourceLocation("minecraft", "textures/misc/forcefield.png"));
 
@@ -113,6 +147,8 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
     private static final BufferBuilder FILL_BUFFER = new BufferBuilder(RenderType.debugFilledBox().bufferSize());
     private static final BufferBuilder BRACKET_BUFFER = new BufferBuilder(BRACKET_QUADS.bufferSize());
     private static final BufferBuilder TARGET_NO_DEPTH_BUFFER = new BufferBuilder(TARGET_NO_DEPTH_QUADS.bufferSize());
+    private static final BufferBuilder CULLING_HANDLE_FILL_BUFFER = new BufferBuilder(CULLING_HANDLE_NO_DEPTH_FILL.bufferSize());
+    private static final BufferBuilder CULLING_HANDLE_LINE_BUFFER = new BufferBuilder(CULLING_HANDLE_NO_DEPTH_LINES.bufferSize());
     private static final BufferBuilder BARRIER_BUFFER = new BufferBuilder(BARRIER_BOUNDARY.bufferSize());
 
     private RtsVisualOverlayRenderer() {
@@ -156,6 +192,8 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
             BufferBuilder fillBuffer = beginBuffer(filledBox, FILL_BUFFER);
             BufferBuilder bracketBuffer = beginBuffer(BRACKET_QUADS, BRACKET_BUFFER);
             BufferBuilder targetNoDepthBuffer = beginBuffer(TARGET_NO_DEPTH_QUADS, TARGET_NO_DEPTH_BUFFER);
+            BufferBuilder cullingHandleFillBuffer = beginBuffer(CULLING_HANDLE_NO_DEPTH_FILL, CULLING_HANDLE_FILL_BUFFER);
+            BufferBuilder cullingHandleLineBuffer = beginBuffer(CULLING_HANDLE_NO_DEPTH_LINES, CULLING_HANDLE_LINE_BUFFER);
             BufferBuilder barrierBuffer = beginBuffer(BARRIER_BOUNDARY, BARRIER_BUFFER);
 
             double ax = controller.getAnchorX();
@@ -174,6 +212,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
                     minecraft, controller, poseStack, bracketBuffer, targetNoDepthBuffer);
             PlayerMoveTargetRenderer.render(minecraft, poseStack, bracketBuffer, targetNoDepthBuffer);
             ShapeGhostRenderer.renderShapeGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
+            RtsCullingRenderer.render(poseStack, lineBuffer, fillBuffer, cullingHandleLineBuffer, cullingHandleFillBuffer);
             BlueprintCaptureRenderer.renderBlueprintCaptureBox(poseStack, lineBuffer, fillBuffer);
             BlueprintGhostRenderer.renderBlueprintGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
             PlacementAnimationRenderer.render(minecraft, poseStack, lineBuffer, fillBuffer);
@@ -183,6 +222,8 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
             drawBuiltBuffer(filledBox, fillBuffer);
             drawBrackets(bracketBuffer);
             drawBuiltBufferNoDepth(TARGET_NO_DEPTH_QUADS, targetNoDepthBuffer);
+            drawBuiltBufferNoDepth(CULLING_HANDLE_NO_DEPTH_FILL, cullingHandleFillBuffer);
+            drawBuiltBufferNoDepth(CULLING_HANDLE_NO_DEPTH_LINES, cullingHandleLineBuffer);
             ShapeGhostRenderer.flushDeferredNoDepthPasses();
         } finally {
             ShapeGhostRenderer.clearDeferredNoDepthPasses();

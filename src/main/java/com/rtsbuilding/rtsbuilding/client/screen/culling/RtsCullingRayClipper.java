@@ -1,0 +1,58 @@
+package com.rtsbuilding.rtsbuilding.client.screen.culling;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * Ray clip loop for range-culling passthrough.
+ *
+ * <p>This helper owns the generic algorithm: when the ray hits a culled block, resume clipping just past the culling box exit.
+ * It avoids direct Minecraft client dependencies so the screen picker, interaction target code, and tests can share it.
+ */
+public final class RtsCullingRayClipper {
+    private static final int DEFAULT_SKIP_GUARD = 32;
+
+    private RtsCullingRayClipper() {
+    }
+
+    public static BlockHitResult clip(Vec3 origin, Vec3 direction, double maxDistance,
+            BlockClip clip, CullingQuery culling) {
+        if (origin == null || direction == null || clip == null || culling == null || maxDistance <= 0.0D) {
+            return null;
+        }
+        Vec3 normalizedDirection = direction.normalize();
+        Vec3 start = origin;
+        Vec3 end = origin.add(normalizedDirection.scale(maxDistance));
+        double startDistance = 0.0D;
+        for (int guard = 0; guard < DEFAULT_SKIP_GUARD; guard++) {
+            HitResult raw = clip.clip(start, end);
+            if (!(raw instanceof BlockHitResult hit) || raw.getType() != HitResult.Type.BLOCK) {
+                return null;
+            }
+            BlockPos hitPos = hit.getBlockPos();
+            if (!culling.shouldCull(hitPos)) {
+                return hit;
+            }
+            double nextDistance = culling.distanceAfterCulledBlock(origin, normalizedDirection, hitPos, maxDistance);
+            if (nextDistance <= startDistance + 0.01D || nextDistance >= maxDistance) {
+                return null;
+            }
+            startDistance = nextDistance;
+            start = origin.add(normalizedDirection.scale(startDistance));
+        }
+        return null;
+    }
+
+    @FunctionalInterface
+    public interface BlockClip {
+        HitResult clip(Vec3 start, Vec3 end);
+    }
+
+    public interface CullingQuery {
+        boolean shouldCull(BlockPos pos);
+
+        double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance);
+    }
+}

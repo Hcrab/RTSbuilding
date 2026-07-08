@@ -21,6 +21,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.RtsUiScaleFrame;
 import com.rtsbuilding.rtsbuilding.client.screen.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuideTypes;
@@ -53,6 +57,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -119,6 +124,10 @@ public final class BuilderScreen extends Screen {
     private final BlueprintNameWindowPanel blueprintNameWindowPanel = new BlueprintNameWindowPanel();
     /** Windowed blueprint material details prompt. */
     private final BlueprintMaterialWindowPanel blueprintMaterialWindowPanel = new BlueprintMaterialWindowPanel();
+    /** Client-side range-culling editor state. */
+    private final RtsCullingManager cullingManager = RtsCullingClientState.persistentManager();
+    /** Windowed range-culling management controls. */
+    private final RtsCullingPanel cullingPanel = new RtsCullingPanel(this.cullingManager);
     /** Top bar panel with mode buttons, shape selection, and action controls. */
     private final TopBarPanel topBarPanel = new TopBarPanel();
     /** Bottom panel containing storage grid, crafting, blueprints, and pin slots. */
@@ -201,12 +210,14 @@ public final class BuilderScreen extends Screen {
                 this.blueprintWindowPanel,
                 this.resumePlacementPanel,
                 this.workflowPanel,
+                this.cullingPanel,
                 this.quickBuildPanel);
         this.guidePanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
         this.blueprintMaterialWindowPanel.init(this, this.controller);
+        this.cullingPanel.init(this, this.controller);
         this.workflowPanel.init(this, this.controller);
         this.resumePlacementPanel.init(this, this.controller);
         this.interactionWheelPanel.init(this, this.controller);
@@ -218,6 +229,7 @@ public final class BuilderScreen extends Screen {
         this.shapeController.init(this, this.controller);
         this.cursorPicker.init(this, this.controller, this.shapeController);
         this.cameraInput.init(this, this.controller);
+        RtsCullingClientState.setActiveManager(this.cullingManager);
     }
     /** Returns the Minecraft font renderer for use by sub-panels and utilities. */
     public Font font() {
@@ -404,6 +416,7 @@ public final class BuilderScreen extends Screen {
             RtsClientPacketGateway.sendToggleCamera(this.controller.isStartCameraAtPlayerHead());
         }
         this.bottomPanel.craftQuantityDialog.close();
+        RtsCullingClientState.clearActiveManager(this.cullingManager);
         updateNativeCursorVisibility(false);
     }
     @Override
@@ -411,6 +424,7 @@ public final class BuilderScreen extends Screen {
     public void removed() {
         super.removed();
         this.cameraInput.resetCameraVerticalHeld();
+        RtsCullingClientState.clearActiveManager(this.cullingManager);
         updateNativeCursorVisibility(false);
     }
     @Override
@@ -526,6 +540,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
+        }
+        if (handleRangeCullingSelectionClick(mouseX, mouseY, button)) {
             return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -666,6 +683,11 @@ public final class BuilderScreen extends Screen {
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
             return true;
         }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && this.cullingManager.isManagementMode()
+                && this.cullingManager.releaseActiveHandleIfDragged()) {
+            return true;
+        }
         if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
             this.cameraInput.stopActiveMining();
             return true;
@@ -716,6 +738,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
+        }
+        if (handleBoxHandleDrag(button, dragX, dragY)) {
             return true;
         }
         if (this.cameraInput.handleRightDrag(mouseX, mouseY, button, dragX, dragY)) {
@@ -1020,6 +1045,11 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
+        }
+        if (this.cullingManager.isManagementMode()
+                && (this.cullingManager.activeHandleDirection() != null || isWorldArea(mouseX, mouseY))
+                && this.cullingManager.handleScroll(scrollY, isAltDown())) {
             return true;
         }
         if (isInsideBottomPanel(mouseX, mouseY)) {
@@ -1338,6 +1368,7 @@ public final class BuilderScreen extends Screen {
         this.lastMouseX = mouseX;
         this.lastMouseY = mouseY;
         this.shapeController.setShapeCursorY(mouseY);
+        updateRangeCullingHover(mouseX, mouseY);
         this.funnelBufferPanel.resetHoveredEntry();
         this.bottomPanel.hoveredEntry = -1;
         this.bottomPanel.hoveredRecentEntry = -1;
@@ -1956,6 +1987,25 @@ public final class BuilderScreen extends Screen {
             this.guidePanel.open(GuideTypes.GuideContext.TOP, x, y);
         }
     }
+    /** Returns whether the current player can open the range-culling editor. */
+    public boolean canUseRangeCulling() {
+        return true;
+    }
+    /** Returns whether range-culling management mode is currently active. */
+    public boolean isRangeCullingManagementActive() {
+        return this.cullingManager.isManagementMode();
+    }
+    /** Toggles range-culling management mode from the top bar. */
+    public void toggleRangeCullingManagement() {
+        if (!canUseRangeCulling()) {
+            return;
+        }
+        this.cameraInput.stopActiveMining();
+        this.shapeController.clearShapeBuildSession();
+        this.cullingManager.toggleManagementMode();
+        this.cullingPanel.setOpen(this.cullingManager.isManagementMode());
+        persistUiState();
+    }
     /** Opens the bottom guide panel at the given position. */
     public void openBottomGuide(int x, int y) {
         this.guidePanel.open(GuideTypes.GuideContext.BOTTOM, x, y);
@@ -2027,6 +2077,63 @@ public final class BuilderScreen extends Screen {
                     ? BuilderMode.INTERACT
                     : this.modeBeforeFunnelHotkey);
         }
+    }
+
+    private boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.cullingManager.isManagementMode() || !isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        return RtsCullingWorldInput.handleWorldAction(this.cullingManager, this.cursorPicker);
+    }
+
+    private boolean handleBoxHandleDrag(int button, double dragX, double dragY) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return false;
+        }
+        Direction cullingDirection = this.cullingManager.activeHandleDirection();
+        if (this.cullingManager.isManagementMode() && cullingDirection != null) {
+            double[] axis = screenAxisForDirection(cullingDirection);
+            return this.cullingManager.handleActiveHandleDrag(dragX, dragY, axis[0], axis[1]);
+        }
+        return false;
+    }
+
+    /**
+     * 把世界里的六向箭头投影成屏幕拖拽轴；沿箭头视觉方向拖动为扩大，反向为缩小。
+     */
+    private double[] screenAxisForDirection(Direction direction) {
+        if (direction == null || this.minecraft == null || this.minecraft.gameRenderer == null) {
+            return new double[] {0.0D, -1.0D};
+        }
+        float yawDeg = this.minecraft.gameRenderer.getMainCamera().getYRot();
+        float pitchDeg = this.minecraft.gameRenderer.getMainCamera().getXRot();
+        double yaw = Math.toRadians(yawDeg);
+        double pitch = Math.toRadians(pitchDeg);
+        Vec3 forward = new Vec3(
+                -Math.sin(yaw) * Math.cos(pitch),
+                -Math.sin(pitch),
+                Math.cos(yaw) * Math.cos(pitch)).normalize();
+        Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
+        Vec3 up = forward.cross(right).normalize();
+        Vec3 normal = new Vec3(
+                direction.getNormal().getX(),
+                direction.getNormal().getY(),
+                direction.getNormal().getZ());
+        return new double[] {-normal.dot(right), -normal.dot(up)};
+    }
+
+    private void updateRangeCullingHover(double mouseX, double mouseY) {
+        if (!this.cullingManager.isManagementMode()) {
+            this.cullingManager.updateHover(null, null);
+            return;
+        }
+        if (!isWorldArea(mouseX, mouseY) || isMouseOverFloatingWindow(mouseX, mouseY)) {
+            this.cullingManager.updateHover(null, null);
+            return;
+        }
+        this.cullingManager.updateHover(
+                this.cursorPicker.currentRayOrigin(),
+                this.cursorPicker.computeCursorRayDirection());
     }
     /**
      * Drops one item of the currently selected item (or the tool slot item) at the
@@ -2137,6 +2244,11 @@ public final class BuilderScreen extends Screen {
             if (button.id() == TopBarTypes.TopBarButtonId.QUICK_BUILD
                     && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
                 g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
+                return;
+            }
+            if (button.id() == TopBarTypes.TopBarButtonId.RANGE_CULLING
+                    && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
+                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.range_culling_toggle"), mouseX, mouseY);
                 return;
             }
         }

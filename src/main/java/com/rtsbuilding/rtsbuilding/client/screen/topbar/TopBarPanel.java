@@ -169,6 +169,10 @@ public final class TopBarPanel {
                     screen.closeGearMenu();
                     screen.persistUiState();
                 }
+                case RANGE_CULLING -> {
+                    screen.toggleRangeCullingManagement();
+                    screen.closeGearMenu();
+                }
                 case QUEST_DETECT -> {
                     screen.closeGearMenu();
                     this.controller.detectQuestsNow();
@@ -233,6 +237,10 @@ public final class TopBarPanel {
         // ---- Action buttons (center group) ----
         if (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
             layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
+            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        }
+        if (screen.canUseRangeCulling()) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, x, TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
             x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
         }
         if (isFtbQuestIntegrationLoaded()) {
