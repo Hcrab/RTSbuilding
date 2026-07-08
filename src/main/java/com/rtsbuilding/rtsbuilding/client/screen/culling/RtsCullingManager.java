@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -29,6 +30,7 @@ public final class RtsCullingManager {
     private static final int DEFAULT_HEIGHT = 0;
     private static final int FAST_SCROLL_STEP = 4;
     private static final int MAX_HEIGHT_OFFSET = 255;
+    private static final long RESIZE_ANIMATION_MS = 90L;
 
     private final RtsBoxHandleInteraction handleInteraction = new RtsBoxHandleInteraction();
     private final List<RtsCullingBox> boxes = new CopyOnWriteArrayList<>();
@@ -41,6 +43,10 @@ public final class RtsCullingManager {
     private BlockPos secondCorner;
     private int previewHeight = DEFAULT_HEIGHT;
     private Phase phase = Phase.IDLE;
+    private int animatedBoxId = -1;
+    private AABB animatedStartAabb;
+    private AABB animatedEndAabb;
+    private long animatedStartMillis;
 
     public boolean isManagementMode() {
         return managementMode;
@@ -90,6 +96,24 @@ public final class RtsCullingManager {
         return RtsCullingBox.fromDiagonal(0, firstCorner, second, previewHeight);
     }
 
+    public AABB renderAabb(RtsCullingBox box) {
+        if (box == null) {
+            return null;
+        }
+        if (box.id() != animatedBoxId || animatedStartAabb == null || animatedEndAabb == null) {
+            return box.asAabb();
+        }
+        long now = System.currentTimeMillis();
+        double raw = Mth.clamp((double) (now - animatedStartMillis) / (double) RESIZE_ANIMATION_MS,
+                0.0D, 1.0D);
+        if (raw >= 1.0D) {
+            clearResizeAnimation();
+            return box.asAabb();
+        }
+        double eased = 1.0D - Math.pow(1.0D - raw, 3.0D);
+        return lerpAabb(animatedStartAabb, animatedEndAabb, eased);
+    }
+
     public void toggleManagementMode() {
         if (managementMode) {
             closeManagementMode();
@@ -122,6 +146,7 @@ public final class RtsCullingManager {
         this.managementMode = active;
         this.hoveredId = -1;
         this.handleInteraction.clear();
+        clearResizeAnimation();
         cancelDraft();
         markAllBoxesDirty();
     }
@@ -164,6 +189,9 @@ public final class RtsCullingManager {
         if (boxHit.isPresent() && phase == Phase.IDLE) {
             this.selectedId = boxHit.get().box().id();
             this.handleInteraction.clear();
+            return true;
+        }
+        if (phase == Phase.IDLE && selectHoveredBoxIfPresent()) {
             return true;
         }
         if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
@@ -218,6 +246,10 @@ public final class RtsCullingManager {
             return false;
         }
         return this.handleInteraction.handleDrag(dragX, dragY, axisX, axisY, this::adjustSelectedFromHandle);
+    }
+
+    public boolean releaseActiveHandleIfDragged() {
+        return this.handleInteraction.releaseActiveHandleIfDragged();
     }
 
     public boolean cancelDraftIfActive() {
@@ -278,6 +310,9 @@ public final class RtsCullingManager {
         selectedId = -1;
         hoveredId = -1;
         handleInteraction.clear();
+        if (animatedBoxId == deleting) {
+            clearResizeAnimation();
+        }
         removed.ifPresent(this::markBoxDirty);
         return true;
     }
@@ -292,6 +327,7 @@ public final class RtsCullingManager {
                 continue;
             }
             RtsCullingBox resized = box.resize(axis, delta);
+            startResizeAnimation(box, resized);
             boxes.set(i, resized);
             markBoxDirty(box);
             markBoxDirty(resized);
@@ -309,6 +345,7 @@ public final class RtsCullingManager {
                 continue;
             }
             RtsCullingBox resized = box.resizeFromHandle(direction, delta);
+            startResizeAnimation(box, resized);
             boxes.set(i, resized);
             markBoxDirty(box);
             markBoxDirty(resized);
@@ -407,6 +444,20 @@ public final class RtsCullingManager {
                 .min(Comparator.comparingDouble(RtsCullingBox.RayHit::enterDistance));
     }
 
+    private boolean selectHoveredBoxIfPresent() {
+        if (hoveredId < 0) {
+            return false;
+        }
+        Optional<RtsCullingBox> hovered = boxById(hoveredId);
+        if (hovered.isEmpty()) {
+            hoveredId = -1;
+            return false;
+        }
+        selectedId = hovered.get().id();
+        handleInteraction.clear();
+        return true;
+    }
+
     private void cancelDraft() {
         this.firstCorner = null;
         this.secondCorner = null;
@@ -437,6 +488,44 @@ public final class RtsCullingManager {
         mc.levelRenderer.setBlocksDirty(
                 pos.getX() - 1, pos.getY() - 1, pos.getZ() - 1,
                 pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
+    }
+
+    private void startResizeAnimation(RtsCullingBox from, RtsCullingBox to) {
+        if (from == null || to == null || from.equals(to)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        AABB visualStart = from.id() == animatedBoxId && animatedStartAabb != null && animatedEndAabb != null
+                ? currentAnimatedAabb(now)
+                : from.asAabb();
+        animatedBoxId = to.id();
+        animatedStartAabb = visualStart;
+        animatedEndAabb = to.asAabb();
+        animatedStartMillis = now;
+    }
+
+    private AABB currentAnimatedAabb(long now) {
+        double raw = Mth.clamp((double) (now - animatedStartMillis) / (double) RESIZE_ANIMATION_MS,
+                0.0D, 1.0D);
+        double eased = 1.0D - Math.pow(1.0D - raw, 3.0D);
+        return lerpAabb(animatedStartAabb, animatedEndAabb, eased);
+    }
+
+    private void clearResizeAnimation() {
+        animatedBoxId = -1;
+        animatedStartAabb = null;
+        animatedEndAabb = null;
+        animatedStartMillis = 0L;
+    }
+
+    private static AABB lerpAabb(AABB from, AABB to, double amount) {
+        return new AABB(
+                Mth.lerp(amount, from.minX, to.minX),
+                Mth.lerp(amount, from.minY, to.minY),
+                Mth.lerp(amount, from.minZ, to.minZ),
+                Mth.lerp(amount, from.maxX, to.maxX),
+                Mth.lerp(amount, from.maxY, to.maxY),
+                Mth.lerp(amount, from.maxZ, to.maxZ));
     }
 
     public enum Phase {

@@ -20,6 +20,7 @@ public final class RtsBoxHandleInteraction {
     private Direction hoveredDirection;
     private Direction activeDirection;
     private double dragPixels;
+    private boolean draggedActiveHandle;
 
     public Direction hoveredDirection() {
         return hoveredDirection;
@@ -33,6 +34,7 @@ public final class RtsBoxHandleInteraction {
         hoveredDirection = null;
         activeDirection = null;
         dragPixels = 0.0D;
+        draggedActiveHandle = false;
     }
 
     public boolean releaseActiveHandle() {
@@ -41,7 +43,12 @@ public final class RtsBoxHandleInteraction {
         }
         activeDirection = null;
         dragPixels = 0.0D;
+        draggedActiveHandle = false;
         return true;
+    }
+
+    public boolean releaseActiveHandleIfDragged() {
+        return draggedActiveHandle && releaseActiveHandle();
     }
 
     public void updateHover(RtsCullingBox box, Vec3 origin, Vec3 rayDirection, boolean enabled) {
@@ -60,6 +67,7 @@ public final class RtsBoxHandleInteraction {
         Direction clicked = hit.get();
         hoveredDirection = clicked;
         dragPixels = 0.0D;
+        draggedActiveHandle = false;
         if (activeDirection == clicked) {
             activeDirection = null;
             return new ClickResult(ClickKind.RELEASED, clicked);
@@ -82,6 +90,9 @@ public final class RtsBoxHandleInteraction {
     public boolean handleDrag(double dragX, double dragY, double axisX, double axisY, ResizeSink sink) {
         if (activeDirection == null || sink == null) {
             return false;
+        }
+        if (Math.abs(dragX) + Math.abs(dragY) > 1.0E-4D) {
+            draggedActiveHandle = true;
         }
         double axisLength = Math.sqrt(axisX * axisX + axisY * axisY);
         if (axisLength < 1.0E-5D) {

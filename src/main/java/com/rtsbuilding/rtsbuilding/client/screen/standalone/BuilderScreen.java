@@ -754,6 +754,11 @@ public final class BuilderScreen extends Screen {
         if (handleFloatingWindowRelease(mouseX, mouseY, button)) {
             return true;
         }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && this.cullingManager.isManagementMode()
+                && this.cullingManager.releaseActiveHandleIfDragged()) {
+            return true;
+        }
         if (this.cameraInput.isRightDragActive(button)) {
             return this.cameraInput.endRightPress(mouseX, mouseY, button)
                     ? runPrimaryActionAt(mouseX, mouseY, button)

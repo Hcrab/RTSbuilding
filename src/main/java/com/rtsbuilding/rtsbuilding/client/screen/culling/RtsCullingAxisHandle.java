@@ -30,6 +30,13 @@ public final class RtsCullingAxisHandle {
         if (box == null) {
             return List.of();
         }
+        return handles(box.asAabb());
+    }
+
+    public static List<Handle> handles(AABB box) {
+        if (box == null) {
+            return List.of();
+        }
         List<Handle> result = new ArrayList<>(6);
         result.add(handle(box, Direction.EAST));
         result.add(handle(box, Direction.WEST));
@@ -51,13 +58,13 @@ public final class RtsCullingAxisHandle {
                 .min(Comparator.comparingDouble(HandleHit::distance));
     }
 
-    private static Handle handle(RtsCullingBox box, Direction direction) {
-        double minX = box.min().getX();
-        double minY = box.min().getY();
-        double minZ = box.min().getZ();
-        double maxX = box.max().getX() + 1.0D;
-        double maxY = box.max().getY() + 1.0D;
-        double maxZ = box.max().getZ() + 1.0D;
+    private static Handle handle(AABB box, Direction direction) {
+        double minX = box.minX;
+        double minY = box.minY;
+        double minZ = box.minZ;
+        double maxX = box.maxX;
+        double maxY = box.maxY;
+        double maxZ = box.maxZ;
         double centerX = (minX + maxX) * 0.5D;
         double centerY = (minY + maxY) * 0.5D;
         double centerZ = (minZ + maxZ) * 0.5D;
