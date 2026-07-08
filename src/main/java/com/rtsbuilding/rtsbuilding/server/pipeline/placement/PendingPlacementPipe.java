@@ -14,7 +14,7 @@ public final class PendingPlacementPipe implements PipelinePipe<PipelineContext>
     @Override
     public PipelineResult execute(PipelineContext ctx) {
         RtsStorageSession session = ctx.getData(SessionValidatePipe.KEY_SESSION);
-        if (session == null || session.pendingPlaceBatchJobs.isEmpty()) {
+        if (session == null || session.placement.pendingJobs.isEmpty()) {
             return PipelineResult.success();
         }
         RtsPendingPlacementService.tryResumeAfterStorageChange(ctx.player());

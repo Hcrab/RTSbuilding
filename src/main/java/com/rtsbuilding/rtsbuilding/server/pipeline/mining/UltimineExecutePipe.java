@@ -76,6 +76,24 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         }
         int workflowEntryId = ctx.getWorkflowEntryId();
         RtsUltimineProcessor.PipelineBatchStartResult result;
+        boolean queueMode = Boolean.TRUE.equals(ctx.getData(StopPreviousPipe.KEY_QUEUE_MODE));
+
+        if (queueMode) {
+            int queuedCount = switch (type) {
+                case ULTIMINE -> queueUltimine(ctx, session, lease, workflowEntryId);
+                case AREA_MINE -> queueAreaMine(ctx, session, lease, workflowEntryId);
+                case AREA_DESTROY -> queueAreaDestroy(ctx, session, lease, workflowEntryId);
+                default -> throw new IllegalStateException("Unexpected workflow type: " + type);
+            };
+            ctx.setData(NetworkSyncPipe.ARG_TOTAL_BLOCKS, queuedCount);
+            ctx.setData(NetworkSyncPipe.ARG_PROCESSED_BLOCKS, 0);
+            if (ctx.hasWorkflowEntryId()) {
+                RtsWorkflowEngine.getInstance()
+                        .from(ctx.player(), ctx.getWorkflowEntryId())
+                        .ifPresent(token -> token.setTotalBlocks(queuedCount));
+            }
+            return PipelineResult.success();
+        }
 
         switch (type) {
             case ULTIMINE -> result = startUltimine(ctx, session, lease, workflowEntryId);
@@ -88,6 +106,44 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         ctx.setData(NetworkSyncPipe.ARG_PROCESSED_BLOCKS, 0);
         updateWorkflowSlot(ctx, result);
         return PipelineResult.success();
+    }
+
+    private int queueUltimine(MiningContext ctx, RtsStorageSession session, RtsToolLease lease, int workflowEntryId) {
+        BlockPos pos = Objects.requireNonNull(ctx.getPos(), "ULTIMINE missing seed position");
+        Direction face = ctx.getFace();
+        int requestedLimit = valueOrDefault(ARG_REQUESTED_LIMIT, ctx, RtsMiningValidator.ULTIMINE_MAX_BLOCKS);
+        byte mode = valueOrDefault(ARG_MODE, ctx, (byte) 0);
+        return RtsUltimineProcessor.queueStartUltimine(
+                ctx.player(), session, pos, face,
+                (byte) RtsMiningValidator.clampHotbarSlot(ctx.getToolSlot()),
+                lease, ctx.isSelectedToolRequested(), requestedLimit, mode,
+                ctx.isToolProtectionEnabled(), workflowEntryId);
+    }
+
+    private int queueAreaMine(MiningContext ctx, RtsStorageSession session, RtsToolLease lease, int workflowEntryId) {
+        int minX = Objects.requireNonNull(ctx.getArg(ARG_MIN_X), "AREA_MINE missing minX");
+        int maxX = Objects.requireNonNull(ctx.getArg(ARG_MAX_X), "AREA_MINE missing maxX");
+        int minY = Objects.requireNonNull(ctx.getArg(ARG_MIN_Y), "AREA_MINE missing minY");
+        int maxY = Objects.requireNonNull(ctx.getArg(ARG_MAX_Y), "AREA_MINE missing maxY");
+        int minZ = Objects.requireNonNull(ctx.getArg(ARG_MIN_Z), "AREA_MINE missing minZ");
+        int maxZ = Objects.requireNonNull(ctx.getArg(ARG_MAX_Z), "AREA_MINE missing maxZ");
+        byte shapeType = valueOrDefault(ARG_SHAPE_TYPE, ctx, (byte) 0);
+        byte fillType = valueOrDefault(ARG_FILL_TYPE, ctx, (byte) 0);
+        return RtsUltimineProcessor.queueAreaMine(
+                ctx.player(), session,
+                minX, maxX, minY, maxY, minZ, maxZ,
+                (byte) RtsMiningValidator.clampHotbarSlot(ctx.getToolSlot()),
+                lease, ctx.isSelectedToolRequested(), shapeType, fillType,
+                ctx.isToolProtectionEnabled(), workflowEntryId);
+    }
+
+    private int queueAreaDestroy(MiningContext ctx, RtsStorageSession session, RtsToolLease lease, int workflowEntryId) {
+        List<BlockPos> positions = ctx.getArg(ARG_POSITIONS);
+        return RtsUltimineProcessor.queueAreaDestroy(
+                ctx.player(), session, positions,
+                (byte) RtsMiningValidator.clampHotbarSlot(ctx.getToolSlot()),
+                lease, ctx.isSelectedToolRequested(),
+                ctx.isToolProtectionEnabled(), workflowEntryId);
     }
 
     private RtsUltimineProcessor.PipelineBatchStartResult startUltimine(

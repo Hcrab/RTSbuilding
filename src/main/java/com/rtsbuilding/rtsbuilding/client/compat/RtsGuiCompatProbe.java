@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -289,6 +290,16 @@ public final class RtsGuiCompatProbe {
                 finishAutoRun(minecraft);
             }
             return;
+        }
+
+        if (minecraft.screen instanceof PauseScreen) {
+            // 自动烟测必须让集成服务端继续 tick，否则 setup command 会卡在暂停菜单里。
+            minecraft.setScreen(null);
+            if (!autoRun.closedPauseScreen) {
+                autoRun.closedPauseScreen = true;
+                writeRow("auto-close-pause", "INFO", screenClass, screenTitle, menuClass, containerId,
+                        "自动探针关闭暂停菜单，恢复集成服务端 tick。");
+            }
         }
 
         autoRun.stageTicks++;
@@ -573,6 +584,7 @@ public final class RtsGuiCompatProbe {
         private AutoStage stage = AutoStage.WAIT_WORLD;
         private int totalTicks;
         private int stageTicks;
+        private boolean closedPauseScreen;
         private boolean finished;
 
         private AutoRun(String caseId) {

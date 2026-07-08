@@ -14,6 +14,15 @@ import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientKeyMappings {
+    private static final InputConstants.Key LEGACY_ROTATE_DRAG_DEFAULT =
+            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
+    private static final InputConstants.Key LEGACY_PAN_DRAG_DEFAULT =
+            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+    private static final InputConstants.Key DEFAULT_ROTATE_DRAG =
+            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+    private static final InputConstants.Key DEFAULT_PAN_DRAG =
+            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
+
     public static final KeyMapping TOGGLE_RTS = new KeyMapping(
             "key.rtsbuilding.toggle_rts",
             GLFW.GLFW_KEY_G,
@@ -83,6 +92,14 @@ public final class ClientKeyMappings {
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_LEFT,
             "key.categories.rtsbuilding");
+    public static final KeyMapping CONFIRM_BATCH_PLACE = new KeyMapping(
+            "key.rtsbuilding.confirm_batch_place",
+            GLFW.GLFW_KEY_ENTER,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping CONFIRM_BATCH_DESTROY = new KeyMapping(
+            "key.rtsbuilding.confirm_batch_destroy",
+            GLFW.GLFW_KEY_ENTER,
+            "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_ROTATE_DRAG = new KeyMapping(
             "key.rtsbuilding.camera_rotate_drag",
             InputConstants.Type.MOUSE,
@@ -132,11 +149,23 @@ public final class ClientKeyMappings {
         event.register(ACTION_PRIMARY);
         event.register(MOVE_PLAYER);
         event.register(ACTION_BREAK);
+        event.register(CONFIRM_BATCH_PLACE);
+        event.register(CONFIRM_BATCH_DESTROY);
         event.register(CAMERA_ROTATE_DRAG);
         event.register(CAMERA_PAN_DRAG);
         event.register(PICK_BLOCK);
         event.register(CAMERA_UP);
         event.register(CAMERA_UP_SECONDARY);
         event.register(CAMERA_DOWN);
+        migrateLegacyDragDefaults();
+    }
+
+    private static void migrateLegacyDragDefaults() {
+        if (CAMERA_ROTATE_DRAG.getKey().equals(LEGACY_ROTATE_DRAG_DEFAULT)
+                && CAMERA_PAN_DRAG.getKey().equals(LEGACY_PAN_DRAG_DEFAULT)) {
+            CAMERA_ROTATE_DRAG.setKey(DEFAULT_ROTATE_DRAG);
+            CAMERA_PAN_DRAG.setKey(DEFAULT_PAN_DRAG);
+            KeyMapping.resetMapping();
+        }
     }
 }

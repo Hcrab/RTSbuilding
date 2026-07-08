@@ -25,11 +25,11 @@ import net.minecraft.world.phys.Vec3;
  * This mirrors the server placement context closely enough for directional
  * blocks and rotation previews without making the client authoritative.
  */
-final class BuildGhostBlockStateResolver {
+public final class BuildGhostBlockStateResolver {
     private BuildGhostBlockStateResolver() {
     }
 
-    static BlockState resolve(Minecraft minecraft, BlockPos targetPos) {
+    public static BlockState resolve(Minecraft minecraft, BlockPos targetPos) {
         ClientRtsController controller = ClientRtsController.get();
         ItemStack itemStack = resolveGhostItemStack(minecraft, controller);
         if (itemStack == null || !(itemStack.getItem() instanceof BlockItem blockItem)) {
@@ -46,7 +46,7 @@ final class BuildGhostBlockStateResolver {
         return rotateDegrees == 0 ? state : applyRotation(state, rotateDegrees);
     }
 
-    static ItemStack resolveSpawnEggStack(Minecraft minecraft) {
+    public static ItemStack resolveSpawnEggStack(Minecraft minecraft) {
         ClientRtsController controller = ClientRtsController.get();
         ItemStack itemPreview = controller.getSelectedItemPreview();
         if (!itemPreview.isEmpty() && itemPreview.getItem() instanceof SpawnEggItem) {
@@ -61,7 +61,7 @@ final class BuildGhostBlockStateResolver {
         return ItemStack.EMPTY;
     }
 
-    static ItemStack resolveEndCrystalStack(Minecraft minecraft) {
+    public static ItemStack resolveEndCrystalStack(Minecraft minecraft) {
         ClientRtsController controller = ClientRtsController.get();
         ItemStack itemPreview = controller.getSelectedItemPreview();
         if (!itemPreview.isEmpty() && itemPreview.getItem() instanceof EndCrystalItem) {
@@ -90,7 +90,7 @@ final class BuildGhostBlockStateResolver {
         return ItemStack.EMPTY;
     }
 
-    private static BlockState resolveStateWithCamera(Minecraft minecraft, BlockItem blockItem,
+    public static BlockState resolveStateWithCamera(Minecraft minecraft, BlockItem blockItem,
             ItemStack stack, BlockPos targetPos) {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) {
             return null;
@@ -173,7 +173,7 @@ final class BuildGhostBlockStateResolver {
         return new Vec3(x, y, z);
     }
 
-    private static BlockState applyRotation(BlockState state, int rotateDegrees) {
+    public static BlockState applyRotation(BlockState state, int rotateDegrees) {
         int turns = (rotateDegrees / 90) & 3;
         BlockState rotated = state;
         for (int i = 0; i < turns; i++) {

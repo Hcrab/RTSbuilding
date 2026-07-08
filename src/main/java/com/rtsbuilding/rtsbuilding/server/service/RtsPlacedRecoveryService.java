@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.*;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession.PlacedRecoveryJob;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import net.minecraft.core.BlockPos;
@@ -115,7 +115,7 @@ public final class RtsPlacedRecoveryService {
         if (player == null || session == null) {
             return;
         }
-        Deque<PlacedRecoveryJob> jobs = session.recoveryJobs;
+        Deque<PlacedRecoveryJob> jobs = session.placement.recoveryJobs;
         if (jobs == null || jobs.isEmpty()) {
             return;
         }
@@ -235,7 +235,7 @@ public final class RtsPlacedRecoveryService {
             droppedEntity.discard();
         }
         if (!stacks.isEmpty()) {
-            session.recoveryJobs.addLast(new PlacedRecoveryJob(targetPos.immutable(), stacks));
+            session.placement.recoveryJobs.addLast(new PlacedRecoveryJob(targetPos.immutable(), stacks));
         }
     }
 

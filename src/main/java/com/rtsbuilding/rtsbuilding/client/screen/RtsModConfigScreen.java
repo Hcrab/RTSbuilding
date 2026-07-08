@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -286,8 +287,22 @@ public final class RtsModConfigScreen extends Screen {
             }
             return;
         }
-        ClientRtsController.get().setSurvivalProgressionEnabled(this.survivalEnabled);
+        if (shouldSyncProgressionToServer(this.minecraft)) {
+            ClientRtsController.get().setSurvivalProgressionEnabled(this.survivalEnabled);
+        }
         this.minecraft.setScreen(this.parent);
+    }
+
+    static boolean shouldSyncProgressionToServer(Minecraft minecraft) {
+        return shouldSyncProgressionToServer(
+                minecraft != null && minecraft.player != null,
+                minecraft != null && minecraft.level != null,
+                minecraft != null && minecraft.getConnection() != null);
+    }
+
+    static boolean shouldSyncProgressionToServer(boolean hasPlayer, boolean hasLevel, boolean hasConnection) {
+        // 主菜单的模组配置页没有服务器连接：保存本地配置即可，不要发 C2S 同步包。
+        return hasPlayer && hasLevel && hasConnection;
     }
 
     private void captureVisibleDrafts() {

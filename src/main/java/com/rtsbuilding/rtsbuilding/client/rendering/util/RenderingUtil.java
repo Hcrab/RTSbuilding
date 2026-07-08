@@ -6,6 +6,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Shared rendering math kept deliberately small on Forge 1.20.1. It owns only
  * generic visual helpers, not gameplay selection or server authority.
@@ -24,6 +27,28 @@ public final class RenderingUtil {
         int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
         return pos.getX() >= minBlockX && pos.getX() <= maxBlockX
                 && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ;
+    }
+
+    public static List<BlockPos> filterBlocksWithinBounds(List<BlockPos> blocks, double anchorX, double anchorZ,
+            double maxRadius) {
+        if (blocks == null || blocks.isEmpty()) {
+            return blocks;
+        }
+        int minBlockX = Mth.floor(anchorX - maxRadius);
+        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
+        int minBlockZ = Mth.floor(anchorZ - maxRadius);
+        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
+        List<BlockPos> result = new ArrayList<>(blocks.size());
+        for (BlockPos pos : blocks) {
+            if (pos != null
+                    && pos.getX() >= minBlockX
+                    && pos.getX() <= maxBlockX
+                    && pos.getZ() >= minBlockZ
+                    && pos.getZ() <= maxBlockZ) {
+                result.add(pos);
+            }
+        }
+        return result.isEmpty() ? List.of() : result;
     }
 
     public static float getBreathFactor(float speed, float minFactor) {

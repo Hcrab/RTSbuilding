@@ -49,10 +49,10 @@ public final class QuestService {
             return;
         }
         long now = player.serverLevel().getGameTime();
-        if (!force && now < session.nextQuestDetectTick) {
+        if (!force && now < session.transfer.nextQuestDetectTick) {
             return;
         }
-        session.nextQuestDetectTick = now + QUEST_DETECT_COOLDOWN_TICKS;
+        session.transfer.nextQuestDetectTick = now + QUEST_DETECT_COOLDOWN_TICKS;
         if (force) {
             sendQuestDetectStatus(player, S2CRtsQuestDetectStatusPayload.PHASE_STARTED, 0, 0, 0);
         }

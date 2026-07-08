@@ -28,12 +28,23 @@ public final class RtsUltimineCollector {
         if (level == null || seed == null || limit <= 0 || filter == null) {
             return List.of();
         }
+        return collect(seed, limit, maxRadius, level::getBlockState,
+                (candidatePos, state, seedState) -> filter.test(candidatePos, state, seedState));
+    }
 
-        BlockPos seedPos = seed.immutable();
-        BlockState seedState = level.getBlockState(seedPos);
-        if (!filter.test(seedPos, seedState, seedState)) {
+    /**
+     * 使用调用方提供的状态查询函数收集连锁破坏目标。
+     *
+     * <p>这个入口让服务端真实世界和纯内存测试场景共用同一套 BFS 顺序、
+     * 半径限制和数量上限，避免渲染/队列测试再复制一份近似算法。</p>
+     */
+    public static <S> List<BlockPos> collect(BlockPos seed, int limit, int maxRadius, StateLookup<S> stateLookup,
+            GenericCandidateFilter<S> filter) {
+        if (seed == null || limit <= 0 || stateLookup == null || filter == null) {
             return List.of();
         }
+        BlockPos seedPos = seed.immutable();
+        S seedState = stateLookup.get(seedPos);
 
         int clampedLimit = Math.max(1, limit);
         int clampedRadius = Math.max(1, maxRadius);
@@ -49,7 +60,7 @@ public final class RtsUltimineCollector {
                 continue;
             }
 
-            BlockState state = level.getBlockState(current);
+            S state = stateLookup.get(current);
             if (!filter.test(current, state, seedState)) {
                 continue;
             }
@@ -103,5 +114,15 @@ public final class RtsUltimineCollector {
     @FunctionalInterface
     public interface CandidateFilter {
         boolean test(BlockPos pos, BlockState state, BlockState seedState);
+    }
+
+    @FunctionalInterface
+    public interface StateLookup<S> {
+        S get(BlockPos pos);
+    }
+
+    @FunctionalInterface
+    public interface GenericCandidateFilter<S> {
+        boolean test(BlockPos pos, S state, S seedState);
     }
 }

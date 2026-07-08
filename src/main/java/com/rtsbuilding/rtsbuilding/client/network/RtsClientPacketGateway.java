@@ -345,10 +345,20 @@ public final class RtsClientPacketGateway {
 
     public static void sendPlaceBatch(List<BlockHitResult> hits, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
+        sendPlaceBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, skipIfOccupied,
+                itemId, itemPrototype, rotateSteps, rayOrigin, rayDir);
+    }
+
+    public static void sendPlaceBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
+            boolean skipIfOccupied, String itemId, ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
         if (hits == null || hits.isEmpty()) {
             return;
         }
         Direction face = hits.get(0).getDirection();
+        BlockHitResult placementTemplate = templateHit == null ? hits.get(0) : templateHit;
+        double hitOffsetX = placementTemplate.getLocation().x - placementTemplate.getBlockPos().getX();
+        double hitOffsetY = placementTemplate.getLocation().y - placementTemplate.getBlockPos().getY();
+        double hitOffsetZ = placementTemplate.getLocation().z - placementTemplate.getBlockPos().getZ();
         List<BlockPos> positions = new ArrayList<>(Math.min(hits.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
         for (BlockHitResult hit : hits) {
             if (hit == null || hit.getDirection() != face) {
@@ -366,10 +376,6 @@ public final class RtsClientPacketGateway {
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
         }
-        BlockHitResult placementTemplate = hits.get(0);
-        double hitOffsetX = placementTemplate.getLocation().x - placementTemplate.getBlockPos().getX();
-        double hitOffsetY = placementTemplate.getLocation().y - placementTemplate.getBlockPos().getY();
-        double hitOffsetZ = placementTemplate.getLocation().z - placementTemplate.getBlockPos().getZ();
         PacketDistributor.sendToServer(new C2SRtsPlaceBatchPayload(
                 positions,
                 (byte) face.get3DDataValue(),

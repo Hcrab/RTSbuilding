@@ -72,7 +72,8 @@ public final class RtsGuiCompatSetupCommand {
 
             boolean formed = (Boolean) invoke(multiblock, "createStructure",
                     new Class<?>[] {Level.class, BlockPos.class, Direction.class, net.minecraft.world.entity.player.Player.class},
-                    level, origin.offset(triggerOffset), Direction.NORTH, player);
+                    // IE 会用 direction.getOpposite() 计算模板旋转；这里按模板原样铺放，所以传 SOUTH 保持无旋转匹配。
+                    level, origin.offset(triggerOffset), Direction.SOUTH, player);
             if (!formed) {
                 source.sendFailure(Component.literal("RTS GUI compat: IE coke oven structure did not form."));
                 return 0;

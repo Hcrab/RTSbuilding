@@ -89,6 +89,10 @@ public abstract class RtsWindowPanel implements RtsPanel {
         return this.open;
     }
 
+    public boolean isVisibleWindow() {
+        return this.open && canShowWindow();
+    }
+
     public void setOpen(boolean open) {
         if (this.open == open) {
             return;
@@ -265,7 +269,7 @@ public abstract class RtsWindowPanel implements RtsPanel {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (!this.open || !isInsideWindow(mouseX, mouseY)) {
+        if (!isVisibleWindow() || !isInsideWindow(mouseX, mouseY)) {
             return false;
         }
         return handleContentScroll(mouseX, mouseY, scrollX, scrollY);

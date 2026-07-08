@@ -50,6 +50,14 @@ public final class RtsMiningValidator {
     private RtsMiningValidator() {
     }
 
+    public static int areaDestroyMaxTargets() {
+        return AREA_DESTROY_MAX_TARGETS;
+    }
+
+    public static int ultimineBlocksPerTick() {
+        return ULTIMINE_BLOCKS_PER_TICK;
+    }
+
     // =========================================================================
     //  Block Validation
     // =========================================================================
@@ -151,7 +159,7 @@ public final class RtsMiningValidator {
      * (miningPos is null but targets remain).
      */
     public static boolean isCommittedUltimineBatch(RtsStorageSession session) {
-        return session.miningPos == null && !session.ultimineTargets.isEmpty();
+        return session.mining.miningPos == null && !session.mining.ultimineTargets.isEmpty();
     }
 
     /**
@@ -160,7 +168,7 @@ public final class RtsMiningValidator {
      * system should stop to avoid breaking the tool.
      */
     public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session) {
-        if (session == null || !session.miningToolProtectionEnabled) {
+        if (session == null || !session.mining.miningToolProtectionEnabled) {
             return false;
         }
         ItemStack tool = activeMiningTool(player, session);
@@ -185,13 +193,13 @@ public final class RtsMiningValidator {
         if (session == null) {
             return ItemStack.EMPTY;
         }
-        if (session.miningToolLease != null && !session.miningToolLease.isEmpty()) {
-            return session.miningToolLease.stack();
+        if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
+            return session.mining.miningToolLease.stack();
         }
         if (player == null) {
             return ItemStack.EMPTY;
         }
-        int slot = clampHotbarSlot(session.miningToolSlot);
+        int slot = clampHotbarSlot(session.mining.miningToolSlot);
         if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
             return ItemStack.EMPTY;
         }

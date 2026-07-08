@@ -5,6 +5,7 @@ import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests;
+import com.rtsbuilding.rtsbuilding.gametest.RtsStorageCompatGameTests;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -80,6 +81,9 @@ public final class RtsbuildingMod {
 
     private void registerGameTests(final RegisterGameTestsEvent event) {
         event.register(RtsServerGameTests.class);
+        if (RtsStorageCompatGameTests.isEnabled()) {
+            event.register(RtsStorageCompatGameTests.class);
+        }
     }
 
     @SubscribeEvent
@@ -152,6 +156,7 @@ public final class RtsbuildingMod {
             } else {
                 RtsSessionService.onPlayerTickPost(serverPlayer);
                 RtsDamageFeedbackManager.tick(serverPlayer);
+                BlueprintPlacementService.tick(serverPlayer);
             }
         }
 

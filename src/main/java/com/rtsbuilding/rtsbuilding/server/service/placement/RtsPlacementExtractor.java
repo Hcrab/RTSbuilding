@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsAggregateStorage;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -62,6 +64,25 @@ public final class RtsPlacementExtractor {
      */
     public static ItemStack extractSelectedFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item item,
                                                         ItemStack preferredStack) {
+        return extractSelectedFromNetworkCached(player, handlers, item, preferredStack);
+    }
+
+    /**
+     * Extracts one unit from aggregate linked storage first, then falls back
+     * to the direct network extractor so player-inventory fallback still works.
+     */
+    public static ItemStack extractSelectedFromNetworkCached(ServerPlayer player, List<IItemHandler> handlers, Item item,
+            ItemStack preferredStack) {
+        RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
+        if (aggregate != null && !aggregate.isEmpty()) {
+            ItemStack extracted = preferredStack != null && !preferredStack.isEmpty()
+                    ? aggregate.extractMatching(item, preferredStack, 1)
+                    : aggregate.extract(item, 1);
+            if (!extracted.isEmpty()) {
+                RtsStorageTickService.INSTANCE.alert(player.getUUID());
+                return extracted;
+            }
+        }
         if (preferredStack != null && !preferredStack.isEmpty()) {
             return RtsTransferExtractor.extractMatchingFromNetwork(handlers, player, item, preferredStack, 1);
         }
@@ -77,5 +98,25 @@ public final class RtsPlacementExtractor {
             return RtsTransferExtractor.extractMatchingFromLinked(handlers, item, preferredStack, 1);
         }
         return RtsTransferExtractor.extractOneFromLinked(handlers, item);
+    }
+
+    /**
+     * Extracts one unit from linked handlers through the aggregate cache when
+     * available. This keeps placement mutations visible to the dirty/update
+     * path without rescanning every handler on each block.
+     */
+    public static ItemStack extractSelectedFromLinkedCached(ServerPlayer player, List<IItemHandler> handlers, Item item,
+            ItemStack preferredStack) {
+        RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
+        if (aggregate != null && !aggregate.isEmpty()) {
+            ItemStack extracted = preferredStack != null && !preferredStack.isEmpty()
+                    ? aggregate.extractMatching(item, preferredStack, 1)
+                    : aggregate.extract(item, 1);
+            if (!extracted.isEmpty()) {
+                RtsStorageTickService.INSTANCE.alert(player.getUUID());
+                return extracted;
+            }
+        }
+        return extractSelectedFromLinked(handlers, item, preferredStack);
     }
 }

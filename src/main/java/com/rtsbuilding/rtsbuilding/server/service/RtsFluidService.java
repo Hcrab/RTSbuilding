@@ -62,9 +62,9 @@ public final class RtsFluidService {
                 itemId);
         if (changed) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.pageDataVersion.incrementAndGet();
+            session.transfer.pageDataVersion.incrementAndGet();
             RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         }
     }
 
@@ -86,9 +86,9 @@ public final class RtsFluidService {
         List<LinkedFluidHandler> activeFluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
         if (RtsStorageFluids.placeFluid(player, session, activeFluidHandlers, clickedPos, face, hitX, hitY, hitZ, fluidId)) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.pageDataVersion.incrementAndGet();
+            session.transfer.pageDataVersion.incrementAndGet();
             RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         }
     }
 

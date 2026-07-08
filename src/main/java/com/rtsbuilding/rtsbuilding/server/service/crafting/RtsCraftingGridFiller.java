@@ -59,7 +59,7 @@ public final class RtsCraftingGridFiller {
         Ingredient[] ingredients = recipe == null ? null : RtsCraftingUtils.mapCraftingIngredients(recipe);
         refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
     }
 
     // ---- refill from ids / stacks (network packets) ------------------------------
@@ -253,7 +253,7 @@ public final class RtsCraftingGridFiller {
         }
         RtsCraftingUtils.refreshCraftingResult(craftingMenu);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         if (anyInserted) {
             QuestService.runQuestDetect(player, session, false);
         }

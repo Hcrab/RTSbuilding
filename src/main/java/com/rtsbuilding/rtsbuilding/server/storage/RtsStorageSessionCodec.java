@@ -96,19 +96,19 @@ public final class RtsStorageSessionCodec {
         session.linkedBackpackItemIds.clear();
         session.detachedBackpackRefs.clear();
 
-        session.page = root.contains(NBT_PAGE, Tag.TAG_INT) ? Math.max(0, root.getInt(NBT_PAGE)) : 0;
-        session.search = sanitizeSavedText(root.getString(NBT_SEARCH), 128);
-        session.category = RtsStoragePageBuilder.normalizeCategory(root.getString(NBT_CATEGORY));
-        session.sort = parseSavedSort(root.getInt(NBT_SORT));
-        session.ascending = root.contains(NBT_ASCENDING, Tag.TAG_BYTE) && root.getBoolean(NBT_ASCENDING);
+        session.browser.page = root.contains(NBT_PAGE, Tag.TAG_INT) ? Math.max(0, root.getInt(NBT_PAGE)) : 0;
+        session.browser.search = sanitizeSavedText(root.getString(NBT_SEARCH), 128);
+        session.browser.category = RtsStoragePageBuilder.normalizeCategory(root.getString(NBT_CATEGORY));
+        session.browser.sort = parseSavedSort(root.getInt(NBT_SORT));
+        session.browser.ascending = root.contains(NBT_ASCENDING, Tag.TAG_BYTE) && root.getBoolean(NBT_ASCENDING);
         session.autoStoreMinedDrops = !root.contains(NBT_AUTO_STORE_MINED_DROPS, Tag.TAG_BYTE)
                 || root.getBoolean(NBT_AUTO_STORE_MINED_DROPS);
         session.useBdNetwork = !root.contains(NBT_USE_BD_NETWORK, Tag.TAG_BYTE)
                 || root.getBoolean(NBT_USE_BD_NETWORK);
-        session.craftSearch = sanitizeSavedText(root.getString(NBT_CRAFT_SEARCH), 128);
-        session.craftShowUnavailable = root.contains(NBT_CRAFT_SHOW_UNAVAILABLE, Tag.TAG_BYTE)
+        session.browser.craftSearch = sanitizeSavedText(root.getString(NBT_CRAFT_SEARCH), 128);
+        session.browser.craftShowUnavailable = root.contains(NBT_CRAFT_SHOW_UNAVAILABLE, Tag.TAG_BYTE)
                 && root.getBoolean(NBT_CRAFT_SHOW_UNAVAILABLE);
-        session.craftRequestedCount = root.contains(NBT_CRAFT_REQUESTED_COUNT, Tag.TAG_INT)
+        session.browser.craftRequestedCount = root.contains(NBT_CRAFT_REQUESTED_COUNT, Tag.TAG_INT)
                 ? Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE,
                         Math.min(999, root.getInt(NBT_CRAFT_REQUESTED_COUNT)))
                 : RtsStorageSession.CRAFTABLE_BATCH_SIZE;
@@ -123,17 +123,17 @@ public final class RtsStorageSessionCodec {
     public static CompoundTag serialize(ServerPlayer player, RtsStorageSession session) {
         CompoundTag root = new CompoundTag();
 
-        root.putInt(NBT_PAGE, Math.max(0, session.page));
-        root.putString(NBT_SEARCH, sanitizeSavedText(session.search, 128));
-        root.putString(NBT_CATEGORY, RtsStoragePageBuilder.normalizeCategory(session.category));
-        root.putInt(NBT_SORT, (session.sort == null ? RtsStorageSort.QUANTITY : session.sort).ordinal());
-        root.putBoolean(NBT_ASCENDING, session.ascending);
+        root.putInt(NBT_PAGE, Math.max(0, session.browser.page));
+        root.putString(NBT_SEARCH, sanitizeSavedText(session.browser.search, 128));
+        root.putString(NBT_CATEGORY, RtsStoragePageBuilder.normalizeCategory(session.browser.category));
+        root.putInt(NBT_SORT, (session.browser.sort == null ? RtsStorageSort.QUANTITY : session.browser.sort).ordinal());
+        root.putBoolean(NBT_ASCENDING, session.browser.ascending);
         root.putBoolean(NBT_AUTO_STORE_MINED_DROPS, session.autoStoreMinedDrops);
         root.putBoolean(NBT_USE_BD_NETWORK, session.useBdNetwork);
-        root.putString(NBT_CRAFT_SEARCH, sanitizeSavedText(session.craftSearch, 128));
-        root.putBoolean(NBT_CRAFT_SHOW_UNAVAILABLE, session.craftShowUnavailable);
+        root.putString(NBT_CRAFT_SEARCH, sanitizeSavedText(session.browser.craftSearch, 128));
+        root.putBoolean(NBT_CRAFT_SHOW_UNAVAILABLE, session.browser.craftShowUnavailable);
         root.putInt(NBT_CRAFT_REQUESTED_COUNT,
-                Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE, Math.min(999, session.craftRequestedCount)));
+                Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE, Math.min(999, session.browser.craftRequestedCount)));
 
         saveLinkedStorages(session, root);
         saveInternalFluids(session, root);

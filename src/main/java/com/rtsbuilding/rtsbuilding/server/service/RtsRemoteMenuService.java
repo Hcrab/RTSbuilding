@@ -85,8 +85,8 @@ public final class RtsRemoteMenuService {
             player.containerMenu = remoteMenu;
         }
         if (session != null) {
-            session.remoteMenuContainerId = remoteMenu.containerId;
-            session.remoteMenuPos = pos == null ? null : pos.immutable();
+            session.transfer.remoteMenuContainerId = remoteMenu.containerId;
+            session.transfer.remoteMenuPos = pos == null ? null : pos.immutable();
         }
         relaxOpenedMenuValidation(remoteMenu);
         if (session != null && RtsRemoteMenuCompat.isSupportedRemoteMenu(remoteMenu)) {

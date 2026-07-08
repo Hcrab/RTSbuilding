@@ -23,8 +23,14 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 def compatAutomationRunDir = System.getenv('RTSBUILDING_FORGE1201_COMPAT_RUN_DIR')
 def devRunDirectory = compatAutomationRunDir ? file(compatAutomationRunDir) : file('run')
+def gameTestRunDirectory = compatAutomationRunDir ? file(compatAutomationRunDir) : file('run-gametest-dev')
 def runtimeModsDirOverride = System.getenv('RTSBUILDING_FORGE1201_RUNTIME_MODS_DIR')
-def localRuntimeModsDir = runtimeModsDirOverride ? file(runtimeModsDirOverride) : new File(devRunDirectory, 'mods')
+def requestedTaskNames = gradle.startParameter.taskNames.collect { it.tokenize(':').last().toLowerCase() }
+def requestedGameTestServer = requestedTaskNames.any { it == 'rungametestserver' }
+// 普通 GameTestServer 保持干净；兼容自动化脚本会显式传入独立 runtime mods 目录。
+def loadManualRuntimeMods = !requestedGameTestServer || runtimeModsDirOverride
+def localRuntimeModsDir = runtimeModsDirOverride ? file(runtimeModsDirOverride)
+        : (loadManualRuntimeMods ? new File(devRunDirectory, 'mods') : null)
 def devRuntimeModsDir = file("${buildDir}/devRunMods")
 
 def shouldStripNestedRuntimeEntry = { String name ->
@@ -94,7 +100,7 @@ def extractNestedRuntimeJars = { File sourceJar, File targetDir ->
 
 def prepareDevRuntimeModJars = {
     devRuntimeModsDir.mkdirs()
-    if (!localRuntimeModsDir.isDirectory()) {
+    if (localRuntimeModsDir == null || !localRuntimeModsDir.isDirectory()) {
         return []
     }
 
@@ -213,8 +219,9 @@ minecraft {
         // By default, the server will crash when no gametests are provided.
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
-            // 基础 GameTest 使用干净目录，避免本地 run/mods 中的测试包模组干扰服务端烟测。
-            workingDirectory project.file('run-gametest')
+            // 基础 GameTest 使用干净目录；兼容测试可通过环境变量把“启动目录”和“第三方 jar 仓库”分开。
+            // 这样 ForgeGradle 只会加载 fg.deobf 后的 runtimeOnly 依赖，不会再从启动目录 mods 扫到原始发布 jar。
+            workingDirectory gameTestRunDirectory
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 

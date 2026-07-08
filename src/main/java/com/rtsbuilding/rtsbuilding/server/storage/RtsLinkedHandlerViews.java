@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -69,7 +70,7 @@ public final class RtsLinkedHandlerViews {
  * <p>When {@code allowStore} is false, {@link #insertItem} rejects all
  * insertions by returning the full stack. Extraction is always delegated.
  */
-final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHandler {
+final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHandler, AnySlotInsertItemHandler {
     private final IItemHandler delegate;
     private final boolean allowStore;
 
@@ -104,7 +105,8 @@ final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHand
         return this.delegate;
     }
 
-    ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
+    @Override
+    public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
         if (!this.allowStore) {
             return stack == null ? ItemStack.EMPTY : stack.copy();
         }
@@ -116,6 +118,14 @@ final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHand
             remain = this.delegate.insertItem(slot, remain, simulate);
         }
         return remain;
+    }
+
+    @Override
+    public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
+        if (this.delegate instanceof AnySlotInsertItemHandler anySlot) {
+            return anySlot.extractItemAnywhere(targetItem, amount, simulate);
+        }
+        return AnySlotInsertItemHandler.super.extractItemAnywhere(targetItem, amount, simulate);
     }
 
     @Override
@@ -135,6 +145,9 @@ final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHand
 
     @Override
     public long getReportedCount(int slot) {
+        if (this.delegate instanceof ReportedCountItemHandler reported) {
+            return Math.max(0L, reported.getReportedCount(slot));
+        }
         ItemStack stack = this.delegate.getStackInSlot(slot);
         return RtsAe2Compat.getReportedCount(this.delegate, slot, stack);
     }

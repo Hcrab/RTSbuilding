@@ -21,9 +21,9 @@ public final class UiRefreshPipe implements PipelinePipe<PipelineContext> {
         if (session == null) {
             return PipelineResult.success();
         }
-        int page = ctx.hasData(ARG_PAGE_NUMBER) ? ctx.getData(ARG_PAGE_NUMBER) : session.page;
-        RtsPageService.requestPage(ctx.player(), page, session.search,
-                session.category, session.sort, session.ascending);
+        int page = ctx.hasData(ARG_PAGE_NUMBER) ? ctx.getData(ARG_PAGE_NUMBER) : session.browser.page;
+        RtsPageService.requestPage(ctx.player(), page, session.browser.search,
+                session.browser.category, session.browser.sort, session.browser.ascending);
         return PipelineResult.success();
     }
 }

@@ -33,14 +33,19 @@ public final class RtsClientOnboardingReminder {
 
     @SubscribeEvent
     public static void registerClientCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal(DISMISS_COMMAND).executes(context -> {
-            RtsClientUiStateStore.dismissIntroReminder(currentReminderKey(Minecraft.getInstance()));
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.player != null) {
-                minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
-            }
-            return Command.SINGLE_SUCCESS;
-        }));
+        event.getDispatcher().register(Commands.literal(DISMISS_COMMAND).executes(context -> dismissIntroReminder()));
+        event.getDispatcher().register(Commands.literal("rtsbuilding")
+                .then(Commands.literal("hide")
+                        .then(Commands.literal("intro").executes(context -> dismissIntroReminder()))));
+    }
+
+    private static int dismissIntroReminder() {
+        RtsClientUiStateStore.dismissIntroReminder(currentReminderKey(Minecraft.getInstance()));
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
+        }
+        return Command.SINGLE_SUCCESS;
     }
 
     @SubscribeEvent

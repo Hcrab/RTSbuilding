@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen;
 
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
@@ -138,7 +139,7 @@ public final class BuilderScreen extends Screen {
     private final InteractionWheelPanel interactionWheelPanel = new InteractionWheelPanel();
     /** Window showing active server workflow progress and pause/cancel actions. */
     private final RtsWorkflowPanel workflowPanel = new RtsWorkflowPanel();
-    /** 鎸傝捣鏀剧疆浠诲姟鎭㈠鍓嶇殑鎵弿纭绐楀彛銆?*/
+    /** 挂起放置任务恢复前的扫描确认窗口。 */
     private final RtsResumePlacementPanel resumePlacementPanel = new RtsResumePlacementPanel();
     /** Front-to-back input routing for movable RTS windows. */
     private final RtsFloatingWindowLayer floatingWindowLayer;
@@ -226,7 +227,7 @@ public final class BuilderScreen extends Screen {
     public int topBarBottomY() {
         return TOP_H;
     }
-    /** 杩斿洖鎸傝捣鏀剧疆浠诲姟鐨勬仮澶嶇‘璁ょ獥鍙ｃ€?*/
+    /** 返回挂起放置任务的恢复确认窗口。 */
     public RtsResumePlacementPanel getResumePlacementPanel() {
         return this.resumePlacementPanel;
     }
@@ -246,23 +247,23 @@ public final class BuilderScreen extends Screen {
     public boolean isDebugButtonVisible() {
         return this.debugButtonVisible;
     }
-    /** 鍒囨崲瀹瑰櫒瑕嗙洊灞傛槸鍚︽樉绀恒€?*/
+    /** 切换容器覆盖层是否显示。 */
     public void toggleContainerOverlayEnabled() {
         RtsClientUiStateStore.setContainerOverlayEnabled(!RtsClientUiStateStore.isContainerOverlayEnabled());
     }
-    /** 鍒囨崲瑕嗙洊灞?Shift 瀵煎叆鏄惁鍚敤銆?*/
+    /** 切换覆盖层 Shift 导入是否启用。 */
     public void toggleOverlayShiftImportEnabled() {
         RtsClientUiStateStore.setOverlayShiftImportEnabled(!RtsClientUiStateStore.isOverlayShiftImportEnabled());
     }
-    /** 鍒囨崲瀛樺偍鍒锋柊瀹屾垚鍚庣殑鈥滃凡灏辩华鈥濇彁绀恒€?*/
+    /** 切换存储刷新完成后的“已就绪”提示。 */
     public void toggleShowStorageReadyPopup() {
         RtsClientUiStateStore.setShowStorageReadyPopupEnabled(!RtsClientUiStateStore.isShowStorageReadyPopupEnabled());
     }
-    /** 鍒囨崲瀹夐潤鍒锋柊妯″紡銆?*/
+    /** 切换安静刷新模式。 */
     public void toggleStorageRefreshQuietEnabled() {
         RtsClientUiStateStore.setStorageRefreshQuietEnabled(!RtsClientUiStateStore.isStorageRefreshQuietEnabled());
     }
-    /** 鍒囨崲瀛樺偍鑷姩鍒锋柊銆?*/
+    /** 切换存储自动刷新。 */
     public void toggleStorageAutoRefreshEnabled() {
         RtsClientUiStateStore.setStorageAutoRefreshEnabled(!RtsClientUiStateStore.isStorageAutoRefreshEnabled());
     }
@@ -557,6 +558,9 @@ public final class BuilderScreen extends Screen {
                 }
             }
         }
+        if (handleBatchConfirmMouse(mouseX, mouseY, button)) {
+            return true;
+        }
         if (CameraInputHandler.isBreakActionMouse(button)
                 && CameraInputHandler.canStartBreakActionOnMouse(button)
                 && this.cameraInput.startMiningAt(mouseX, mouseY, button, false)) {
@@ -606,6 +610,25 @@ public final class BuilderScreen extends Screen {
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
+
+    private boolean handleBatchConfirmMouse(double mouseX, double mouseY, int button) {
+        if (!Config.isKeyboardBatchConfirmEnabled() || !isWorldArea(mouseX, mouseY) || isSearchFocused()) {
+            return false;
+        }
+        InputConstants.Key mouseKey = InputConstants.Type.MOUSE.getOrCreate(button);
+        if (this.shapeController.isAwaitingBatchDestroyConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_DESTROY.isActiveAndMatches(mouseKey)) {
+            this.shapeController.tryConfirmPendingRangeDestroy();
+            return true;
+        }
+        if (this.shapeController.isAwaitingBatchPlaceConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_PLACE.isActiveAndMatches(mouseKey)) {
+            this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
+            return true;
+        }
+        return false;
+    }
+
     @Override
     /**
      * Handles mouse release with RTS GUI scale remapping. Routes release events to
@@ -806,8 +829,12 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         boolean forcePlace = hasShiftDown();
-        if (this.shapeController.tryConfirmPendingShapeBuild(forcePlace)) {
-            return true;
+        boolean rangeDestroyMode = isQuickBuildRangeDestroyMode();
+        if (!rangeDestroyMode && this.shapeController.isAwaitingBatchPlaceConfirm()) {
+            if (Config.isKeyboardBatchConfirmEnabled()) {
+                return true;
+            }
+            return this.shapeController.tryConfirmPendingShapeBuild(forcePlace);
         }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.hasSelectedBlueprint()) {
             if (BlueprintPanel.hasPinnedPreview()) {
@@ -830,16 +857,20 @@ public final class BuilderScreen extends Screen {
         }
         if (this.controller.hasSelectedFluid()) {
             if (target.blockHit() != null) {
-                this.shapeController.placeWithShape(
-                        target.blockHit(),
-                        forcePlace,
-                        target.rayOrigin(),
-                        target.rayDir(),
-                        mouseY,
-                        true,
-                        InteractionTypes.PlacementReplayKind.TOOL_SLOT,
-                        "",
-                        -1);
+                if (rangeDestroyMode) {
+                    this.controller.placeSelectedFluid(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
+                } else {
+                    this.shapeController.placeWithShape(
+                            target.blockHit(),
+                            forcePlace,
+                            target.rayOrigin(),
+                            target.rayDir(),
+                            mouseY,
+                            true,
+                            InteractionTypes.PlacementReplayKind.TOOL_SLOT,
+                            "",
+                            -1);
+                }
             }
             return true;
         }
@@ -853,6 +884,15 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
+                if (rangeDestroyMode) {
+                    this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
+                    this.shapeController.recordSinglePlacementForUndo(
+                            target.blockHit(),
+                            InteractionTypes.PlacementReplayKind.PIN_ITEM,
+                            this.controller.getSelectedItemId(),
+                            -1);
+                    return true;
+                }
                 this.shapeController.placeWithShape(
                         target.blockHit(),
                         forcePlace,
@@ -868,6 +908,7 @@ public final class BuilderScreen extends Screen {
         }
         if (target.blockHit() != null
                 && this.controller.getBuildShape() != ClientRtsController.BuildShape.BLOCK
+                && !rangeDestroyMode
                 && canUseToolSlotShapeSource()) {
             this.shapeController.placeWithShape(
                     target.blockHit(),
@@ -1062,6 +1103,9 @@ public final class BuilderScreen extends Screen {
         if (!isSearchFocused() && this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, true)) {
             return true;
         }
+        if (!isSearchFocused() && handleBatchConfirmKey(keyCode, scanCode)) {
+            return true;
+        }
         if (!isSearchFocused() && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
             if (this.cameraInput.startMiningAt(currentMouseX(), currentMouseY(), -1, true)) {
                 return true;
@@ -1172,6 +1216,24 @@ public final class BuilderScreen extends Screen {
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
+
+    private boolean handleBatchConfirmKey(int keyCode, int scanCode) {
+        if (!Config.isKeyboardBatchConfirmEnabled()) {
+            return false;
+        }
+        if (this.shapeController.isAwaitingBatchDestroyConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
+            this.shapeController.tryConfirmPendingRangeDestroy();
+            return true;
+        }
+        if (this.shapeController.isAwaitingBatchPlaceConfirm()
+                && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
+            this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
+            return true;
+        }
+        return false;
+    }
+
     @Override
     /** Handles key release for funnel hotkey and camera vertical movement states. */
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
@@ -1819,8 +1881,11 @@ public final class BuilderScreen extends Screen {
         if (!isQuickBuildRangeDestroyMode() || isQuickBuildRangeDestroyChainMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
         }
-        if (this.shapeController.tryConfirmPendingRangeDestroy()) {
-            return true;
+        if (this.shapeController.isAwaitingBatchDestroyConfirm()) {
+            if (Config.isKeyboardBatchConfirmEnabled()) {
+                return true;
+            }
+            return this.shapeController.tryConfirmPendingRangeDestroy();
         }
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target != null && target.blockHit() != null) {

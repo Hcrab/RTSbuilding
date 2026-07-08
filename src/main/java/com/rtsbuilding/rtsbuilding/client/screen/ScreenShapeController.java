@@ -1,11 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.screen;
 
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -36,6 +41,7 @@ public final class ScreenShapeController {
     private ClientRtsController controller;
 
     private ShapeBuildTypes.Session shapeBuildSession;
+    private BlockHitResult shapeTemplateHit;
     private int shapeFootprintNudgeA = 0;
     private int shapeFootprintNudgeB = 0;
     private double shapeCursorY = 0.0D;
@@ -89,6 +95,7 @@ public final class ScreenShapeController {
 
     public void clearShapeBuildSession() {
         this.shapeBuildSession = null;
+        this.shapeTemplateHit = null;
         this.shapeFootprintNudgeA = 0;
         this.shapeFootprintNudgeB = 0;
     }
@@ -155,6 +162,11 @@ public final class ScreenShapeController {
                 this.controller.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
+                BlockPos placePos = resolvePlacementTargetPos(hit.getBlockPos(), hit.getDirection());
+                BlockState pendingState = resolvePendingGhostBlockState(placePos);
+                if (placePos != null) {
+                    PlacementAnimationRenderer.addPendingBatch(List.of(placePos.immutable()), pendingState);
+                }
                 recordSinglePlacementForUndo(hit, replayKind, replayItemId, replayToolSlot);
             }
             return;
@@ -171,8 +183,11 @@ public final class ScreenShapeController {
             clearShapeBuildSession();
             RangeDestroyPreview preview = buildRangeDestroyPreview(List.of(hit.getBlockPos().immutable()));
             if (!preview.breakableBlocks().isEmpty()) {
-                rememberConfirmedRangeDestroyPreview(preview);
-                this.controller.confirmShapeAreaDestroy(preview.breakableBlocks(), this.screen.getSelectedToolSlot());
+                List<BlockPos> boundsFiltered = filterToBounds(preview.breakableBlocks());
+                if (!boundsFiltered.isEmpty()) {
+                    rememberConfirmedRangeDestroyPreview(new RangeDestroyPreview(new ArrayList<>(boundsFiltered)));
+                    this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
+                }
             }
             return;
         }
@@ -184,10 +199,12 @@ public final class ScreenShapeController {
             clearConfirmedChainDestroyPreview();
             this.shapeFootprintNudgeA = 0;
             this.shapeFootprintNudgeB = 0;
+            Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
+            this.shapeTemplateHit = new BlockHitResult(hit.getLocation(), placementFace, hit.getBlockPos(), hit.isInside());
             this.shapeBuildSession = new ShapeBuildTypes.Session(
                     shape,
                     ShapeGeometryUtil.resolveShapeBuildFace(shape, hit.getDirection(), rayDir),
-                    ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir),
+                    placementFace,
                     hit.getBlockPos(),
                     null,
                     ShapeBuildTypes.Phase.NEED_SECOND_POINT,
@@ -236,9 +253,31 @@ public final class ScreenShapeController {
         if (targets.isEmpty()) {
             return true;
         }
-        rememberConfirmedRangeDestroyPreview(preview);
-        this.controller.confirmShapeAreaDestroy(targets, this.screen.getSelectedToolSlot());
+        List<BlockPos> boundsFiltered = filterToBounds(targets);
+        if (boundsFiltered.isEmpty()) {
+            return true;
+        }
+        rememberConfirmedRangeDestroyPreview(new RangeDestroyPreview(new ArrayList<>(boundsFiltered)));
+        this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
         return true;
+    }
+
+    public boolean isAwaitingBatchPlaceConfirm() {
+        return !this.screen.isQuickBuildRangeDestroyMode() && isAwaitingBatchConfirm();
+    }
+
+    public boolean isAwaitingBatchDestroyConfirm() {
+        return this.screen.isQuickBuildRangeDestroyMode()
+                && !this.screen.isQuickBuildRangeDestroyChainMode()
+                && isAwaitingBatchConfirm();
+    }
+
+    private boolean isAwaitingBatchConfirm() {
+        ClientRtsController.BuildShape currentShape = this.controller.getBuildShape();
+        return currentShape != ClientRtsController.BuildShape.BLOCK
+                && this.shapeBuildSession != null
+                && this.shapeBuildSession.shape() == currentShape
+                && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
     }
 
     public boolean tryConfirmPendingShapeBuild(boolean forcePlace) {
@@ -261,13 +300,14 @@ public final class ScreenShapeController {
         Vec3 rayOrigin = mc.gameRenderer.getMainCamera().getPosition();
         Vec3 rayDir = this.screen.computeCursorRayDirection();
         List<BlockHitResult> hits = buildShapePlacementHits(input, this.shapeFillMode);
+        BlockHitResult templateHit = resolveShapeTemplateHit(input);
         clearShapeBuildSession();
         if (useFluid) {
             for (BlockHitResult shapedHit : hits) {
                 this.controller.placeSelectedFluid(shapedHit, forcePlace, rayOrigin, rayDir);
             }
         } else {
-            this.controller.placeSelectedBatch(hits, forcePlace, rayOrigin, rayDir, true);
+            this.controller.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, true);
         }
         if (!useFluid) {
             List<BlockPos> positions = new ArrayList<>(hits.size());
@@ -392,8 +432,13 @@ public final class ScreenShapeController {
             clearConfirmedChainDestroyPreview();
             return;
         }
+        List<BlockPos> boundsFiltered = filterToBounds(blocks);
+        if (boundsFiltered.isEmpty()) {
+            clearConfirmedChainDestroyPreview();
+            return;
+        }
         this.confirmedChainDestroyPreview = new ShapeDataRecords.GhostPreview(
-                copyImmutableBlocks(blocks),
+                copyImmutableBlocks(boundsFiltered),
                 true,
                 true,
                 List.of(),
@@ -614,6 +659,9 @@ public final class ScreenShapeController {
         if (input == null) {
             return "0";
         }
+        if (this.screen.isQuickBuildRangeDestroyMode()) {
+            return Integer.toString(buildRangeDestroyTargets(input).size());
+        }
         List<BlockPos> blocks = filterOccupiedReadyShapeTargets(input, ShapeGeometryUtil.buildShapePositions(input, this.shapeFillMode));
         return Integer.toString(blocks.size());
     }
@@ -647,11 +695,20 @@ public final class ScreenShapeController {
             case READY_CONFIRM -> currentShape == ClientRtsController.BuildShape.WALL
                     ? this.screen.text(destroyMode
                             ? "screen.rtsbuilding.shape_status.destroy_confirm_wall"
-                            : "screen.rtsbuilding.shape_status.confirm_wall")
+                            : "screen.rtsbuilding.shape_status.confirm_wall", confirmKeyLabel(destroyMode))
                     : this.screen.text(destroyMode
                             ? "screen.rtsbuilding.shape_status.destroy_confirm"
-                            : "screen.rtsbuilding.shape_status.confirm");
+                            : "screen.rtsbuilding.shape_status.confirm", confirmKeyLabel(destroyMode));
         };
+    }
+
+    private String confirmKeyLabel(boolean destroyMode) {
+        if (Config.isKeyboardBatchConfirmEnabled()) {
+            return (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE)
+                    .getTranslatedKeyMessage()
+                    .getString();
+        }
+        return this.screen.text(destroyMode ? "screen.rtsbuilding.input.lmb" : "screen.rtsbuilding.input.rmb");
     }
 
     public String shapeLabel(ClientRtsController.BuildShape shape) {
@@ -669,6 +726,38 @@ public final class ScreenShapeController {
     }
 
     // ===== Internal helpers =====
+
+    private BlockState resolvePendingGhostBlockState(BlockPos targetPos) {
+        Minecraft mc = this.screen.getMinecraft();
+        ItemStack itemStack = ItemStack.EMPTY;
+        if (this.controller.hasSelectedItem()) {
+            itemStack = this.controller.getSelectedItemPreview();
+        } else if (mc != null && mc.player != null) {
+            itemStack = mc.player.getMainHandItem();
+        }
+        if (itemStack.isEmpty() || !(itemStack.getItem() instanceof BlockItem blockItem)) {
+            return null;
+        }
+        if (targetPos == null) {
+            return blockItem.getBlock().defaultBlockState();
+        }
+        BlockState state = BuildGhostBlockStateResolver.resolveStateWithCamera(mc, blockItem, itemStack, targetPos);
+        if (state == null) {
+            return null;
+        }
+        int rotateDegrees = this.shapeRotateDegrees;
+        return rotateDegrees == 0 ? state : BuildGhostBlockStateResolver.applyRotation(state, rotateDegrees);
+    }
+
+    private BlockHitResult resolveShapeTemplateHit(ShapeBuildTypes.Input input) {
+        if (this.shapeTemplateHit != null) {
+            return this.shapeTemplateHit;
+        }
+        if (input == null || input.pointA() == null || input.placementFace() == null) {
+            return null;
+        }
+        return ShapeGeometryUtil.createShapePlacementHit(input.pointA(), input.placementFace());
+    }
 
     private BlockPos resolvePlacementTargetPos(BlockHitResult hit) {
         if (hit == null) {
@@ -843,12 +932,36 @@ public final class ScreenShapeController {
         return ShapeGeometryUtil.offsetPos(pointA, axisA, nextA, axisB, nextB);
     }
 
+    private List<BlockPos> buildRangeDestroyTargets(ShapeBuildTypes.Input input) {
+        if (input == null) {
+            return List.of();
+        }
+        return filterToBounds(filterBreakableRangeDestroyTargets(ShapeGeometryUtil.buildShapePositions(input, this.shapeFillMode)));
+    }
+
+    private List<BlockPos> filterBreakableRangeDestroyTargets(List<BlockPos> targets) {
+        RangeDestroyPreview preview = buildRangeDestroyPreview(targets);
+        return preview.isEmpty() ? List.of() : preview.breakableBlocks();
+    }
+
+    private List<BlockPos> filterToBounds(List<BlockPos> blocks) {
+        if (!this.controller.hasBounds() || blocks == null) {
+            return blocks;
+        }
+        return RenderingUtil.filterBlocksWithinBounds(blocks,
+                this.controller.getAnchorX(), this.controller.getAnchorZ(), this.controller.getMaxRadius());
+    }
+
     private void rememberConfirmedRangeDestroyPreview(RangeDestroyPreview preview) {
         if (preview == null || preview.isEmpty()) {
             return;
         }
+        List<BlockPos> boundsFiltered = filterToBounds(preview.breakableBlocks());
+        if (boundsFiltered.isEmpty()) {
+            return;
+        }
         this.confirmedRangeDestroyPreview = new ShapeDataRecords.GhostPreview(
-                new ArrayList<>(preview.breakableBlocks()),
+                new ArrayList<>(boundsFiltered),
                 true,
                 true,
                 List.of(),

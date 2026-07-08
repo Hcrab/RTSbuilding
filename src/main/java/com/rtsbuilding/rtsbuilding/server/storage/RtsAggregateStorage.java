@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -185,7 +187,7 @@ public final class RtsAggregateStorage {
 
                 // Mark this handler's cache as dirty
                 cs.cache.invalidate();
-                this.pendingChanges.add(targetItem.toString());
+                this.pendingChanges.add(itemId(targetItem));
             }
 
             return out;
@@ -254,7 +256,7 @@ public final class RtsAggregateStorage {
         if (item == null) {
             return false;
         }
-        String itemId = item.toString();
+        String itemId = itemId(item);
         for (CachedHandlerSlot cs : this.flatOrdered) {
             if (cs.cache.getCount(itemId) > 0) {
                 return true;
@@ -271,7 +273,7 @@ public final class RtsAggregateStorage {
             return 0L;
         }
         long total = 0L;
-        String itemId = item.toString();
+        String itemId = itemId(item);
         for (CachedHandlerSlot cs : this.flatOrdered) {
             total += cs.cache.getCount(itemId);
         }
@@ -329,6 +331,20 @@ public final class RtsAggregateStorage {
         if (handler == null || targetItem == null || limit <= 0) {
             return ItemStack.EMPTY;
         }
+        if (canUseItemOnlyFastPath(preferred) && handler instanceof AnySlotInsertItemHandler anySlot) {
+            ItemStack extracted = anySlot.extractItemAnywhere(targetItem, limit, false);
+            if (!extracted.isEmpty()) {
+                if (preferred != null && !preferred.isEmpty()
+                        && !ItemStack.isSameItemSameTags(extracted, preferred)) {
+                    ItemStack returned = insertToHandler(handler, extracted, false);
+                    if (!returned.isEmpty()) {
+                        return returned;
+                    }
+                } else {
+                    return extracted;
+                }
+            }
+        }
         int remaining = limit;
         ItemStack out = ItemStack.EMPTY;
         for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
@@ -371,11 +387,20 @@ public final class RtsAggregateStorage {
         return out;
     }
 
+    private static boolean canUseItemOnlyFastPath(ItemStack preferred) {
+        return preferred == null || preferred.isEmpty() || !preferred.hasTag();
+    }
+
+    private static String itemId(Item item) {
+        ResourceLocation id = item == null ? null : BuiltInRegistries.ITEM.getKey(item);
+        return id == null ? "" : id.toString();
+    }
+
     private void trackChange(Item originalItem, ItemStack remain, ItemStack original, boolean simulate) {
         // Only mark pending when items were actually inserted (remain shrank),
         // so failed/partial-store attempts don't trigger spurious UI refreshes.
         if (!simulate && remain.getCount() < original.getCount()) {
-            this.pendingChanges.add(originalItem.toString());
+            this.pendingChanges.add(itemId(originalItem));
         }
     }
 

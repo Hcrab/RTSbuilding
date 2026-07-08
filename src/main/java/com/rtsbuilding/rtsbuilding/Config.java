@@ -63,6 +63,10 @@ public final class Config {
             .comment("Render merged skeleton borders for non-chain range destroy previews. Chain mining always uses the skeleton style.")
             .define("useRangeDestroySkeleton", true);
 
+    public static final ForgeConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = BUILDER
+            .comment("Require a configurable keyboard key for the final multi-block placement/destroy confirmation instead of confirming with the mouse click used to select the range.")
+            .define("requireKeyboardBatchConfirm", true);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private Config() {
@@ -177,6 +181,15 @@ public final class Config {
 
     public static void setRangeDestroySkeletonEnabled(boolean enabled) {
         USE_RANGE_DESTROY_SKELETON.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean isKeyboardBatchConfirmEnabled() {
+        return REQUIRE_KEYBOARD_BATCH_CONFIRM.get();
+    }
+
+    public static void setKeyboardBatchConfirmEnabled(boolean enabled) {
+        REQUIRE_KEYBOARD_BATCH_CONFIRM.set(enabled);
         SPEC.save();
     }
 

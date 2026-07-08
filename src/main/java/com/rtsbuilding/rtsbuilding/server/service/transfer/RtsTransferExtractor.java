@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
+import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsAggregateStorage;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,6 +25,12 @@ public final class RtsTransferExtractor {
         if (handler instanceof RtsBdCompat.DirectExtractHandler de) {
             return de.tryExtractItem(targetItem, 1, false);
         }
+        if (handler instanceof AnySlotInsertItemHandler anySlot) {
+            ItemStack extracted = anySlot.extractItemAnywhere(targetItem, 1, false);
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
+        }
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
             if (stack.isEmpty() || stack.getItem() != targetItem) {
@@ -41,6 +48,12 @@ public final class RtsTransferExtractor {
         if (handler instanceof RtsBdCompat.DirectExtractHandler de) {
             return de.tryExtractItem(targetItem, limit, false);
         }
+        if (handler instanceof AnySlotInsertItemHandler anySlot) {
+            ItemStack extracted = anySlot.extractItemAnywhere(targetItem, limit, false);
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
+        }
         return extractMatching(handler, targetItem, ItemStack.EMPTY, limit);
     }
 
@@ -48,6 +61,19 @@ public final class RtsTransferExtractor {
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
             return ItemStack.EMPTY;
+        }
+        if (canUseItemOnlyFastPath(preferred) && handler instanceof AnySlotInsertItemHandler anySlot) {
+            ItemStack extracted = anySlot.extractItemAnywhere(targetItem, remaining, false);
+            if (!extracted.isEmpty()) {
+                if (!preferred.isEmpty() && !ItemStack.isSameItemSameTags(extracted, preferred)) {
+                    ItemStack remain = RtsTransferInserter.insertToHandlerPreferExisting(handler, extracted);
+                    if (!remain.isEmpty()) {
+                        return ItemStack.EMPTY;
+                    }
+                } else {
+                    return extracted;
+                }
+            }
         }
         ItemStack out = ItemStack.EMPTY;
         for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
@@ -493,5 +519,9 @@ public final class RtsTransferExtractor {
             }
         }
         return out;
+    }
+
+    private static boolean canUseItemOnlyFastPath(ItemStack preferred) {
+        return preferred == null || preferred.isEmpty() || !preferred.hasTag();
     }
 }

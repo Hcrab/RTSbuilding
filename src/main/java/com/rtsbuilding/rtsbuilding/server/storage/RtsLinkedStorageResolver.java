@@ -371,8 +371,8 @@ public final class RtsLinkedStorageResolver {
             if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
                 RtsSessionService.saveToPlayerNbt(player, session);
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
-                session.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+                session.transfer.pageDataVersion.incrementAndGet();
+                RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
     }
@@ -402,8 +402,8 @@ public final class RtsLinkedStorageResolver {
             if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
                 RtsSessionService.saveToPlayerNbt(player, session);
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
-                session.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+                session.transfer.pageDataVersion.incrementAndGet();
+                RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
     }

@@ -25,7 +25,7 @@ import java.util.List;
  * 历史记录执行器（类似 Ultimine-Rewind ??RewindExecutor???
  * <p>
  * 负责实际执行撤回/重做操作，包括放置和破坏方块??
- * 所有操作在服务端执行，保证数据一致???
+ * 所有操作在服务端执行，保证数据一??
  * <p>
  * 设计要点（基??Ultimine-Rewind 的经验）??
  * <ul>
@@ -208,8 +208,8 @@ public final class HistoryExecutor {
             RtsStorageSession session = RtsSessionService.getIfPresent(player);
             if (session != null) {
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
-                session.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+                session.transfer.pageDataVersion.incrementAndGet();
+                RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
 

@@ -109,7 +109,7 @@ public final class RtsSessionService {
     public static void onRtsEnabled(ServerPlayer player) {
         RtsStorageSession session = getOrCreate(player);
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending, false);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
         ServerHistoryManager.sendSync(player);
     }
 
@@ -134,8 +134,8 @@ public final class RtsSessionService {
     public static void onPlayerLogout(ServerPlayer player) {
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {
-            session.placeBatchJobs.clear();
-            session.pendingPlaceBatchJobs.clear();
+            session.placement.placeBatchJobs.clear();
+            session.placement.pendingJobs.clear();
             RtsFunnelService.disableAndFlush(player, session);
             RtsMenuRemoteService.closeTracked(player, session);
             RtsMenuRemoteService.clearValidation(player, session);
@@ -156,12 +156,12 @@ public final class RtsSessionService {
         if (session == null) {
             return;
         }
-        if (session.remoteMenuContainerId < 0
+        if (session.transfer.remoteMenuContainerId < 0
                 && !RtsRemoteMenuCompat.isSupportedRemoteMenu(player.containerMenu)) {
             RtsMenuRemoteService.clearValidation(player, session);
         }
-        if (session.remoteMenuContainerId >= 0
-                && (player.containerMenu == null || player.containerMenu.containerId != session.remoteMenuContainerId)) {
+        if (session.transfer.remoteMenuContainerId >= 0
+                && (player.containerMenu == null || player.containerMenu.containerId != session.transfer.remoteMenuContainerId)) {
             RtsMenuRemoteService.clearValidation(player, session);
         }
         RtsPlacementBatch.tickPlaceBatchJobs(player, session);
@@ -199,10 +199,10 @@ public final class RtsSessionService {
                 if (session == null) continue;
                 // Increment data version so the page cache in RtsPageCore
                 // knows the storage data has changed and should rebuild.
-                session.pageDataVersion.incrementAndGet();
+                session.transfer.pageDataVersion.incrementAndGet();
                 if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
-                RtsPageService.requestPage(player, session.page, session.search,
-                        session.category, session.sort, session.ascending);
+                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
+                        session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
 
@@ -237,10 +237,10 @@ public final class RtsSessionService {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
-        if (session.storageViewDirty) {
+        if (session.transfer.storageViewDirty) {
             return;
         }
-        session.storageViewDirty = true;
+        session.transfer.storageViewDirty = true;
         PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));
     }
 }

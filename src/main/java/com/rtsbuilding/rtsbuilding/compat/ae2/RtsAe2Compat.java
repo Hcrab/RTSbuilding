@@ -17,6 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -59,6 +60,9 @@ public final class RtsAe2Compat {
     }
 
     public static long getReportedCount(IItemHandler handler, int slot, ItemStack fallbackStack) {
+        if (handler instanceof com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler reported) {
+            return Math.max(0L, reported.getReportedCount(slot));
+        }
         if (handler instanceof ReportedCountItemHandler reported) {
             return Math.max(0L, reported.getReportedCount(slot));
         }
@@ -289,7 +293,9 @@ public final class RtsAe2Compat {
         return normalized;
     }
 
-    private static final class Ae2NetworkItemHandler implements IItemHandler, ReportedCountItemHandler, AnySlotInsertItemHandler {
+    private static final class Ae2NetworkItemHandler implements IItemHandler, ReportedCountItemHandler,
+            com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler, AnySlotInsertItemHandler,
+            com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler {
         private final ServerPlayer player;
         private final Object storageService;
         private final Ae2Reflection reflection;
@@ -304,7 +310,7 @@ public final class RtsAe2Compat {
 
         @Override
         public int getSlots() {
-            return this.slots.size() + 1;
+            return this.slots.size();
         }
 
         @Override
@@ -343,6 +349,7 @@ public final class RtsAe2Compat {
             }
 
             if (!simulate) {
+                this.reflection.invalidateCache(this.storageService);
                 refreshSnapshot();
             }
 
@@ -368,11 +375,36 @@ public final class RtsAe2Compat {
             }
 
             if (!simulate) {
+                this.reflection.invalidateCache(this.storageService);
                 long nextAmount = Math.max(0L, view.amount() - extracted);
                 this.slots.set(slot, new SlotView(view.key(), view.displayStack(), nextAmount));
             }
 
             return this.reflection.toStack(view.key(), (int) Math.min(Integer.MAX_VALUE, extracted));
+        }
+
+        @Override
+        public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
+            if (targetItem == null || amount <= 0) {
+                return ItemStack.EMPTY;
+            }
+            for (int slot = 0; slot < this.slots.size(); slot++) {
+                SlotView view = this.slots.get(slot);
+                if (view.amount() <= 0L || view.displayStack().getItem() != targetItem) {
+                    continue;
+                }
+                long extracted = this.reflection.extract(this.storageService, view.key(), amount, this.player, simulate);
+                if (extracted <= 0L) {
+                    return ItemStack.EMPTY;
+                }
+                if (!simulate) {
+                    this.reflection.invalidateCache(this.storageService);
+                    long nextAmount = Math.max(0L, view.amount() - extracted);
+                    this.slots.set(slot, new SlotView(view.key(), view.displayStack(), nextAmount));
+                }
+                return this.reflection.toStack(view.key(), (int) Math.min(Integer.MAX_VALUE, extracted));
+            }
+            return ItemStack.EMPTY;
         }
 
         @Override
@@ -415,6 +447,7 @@ public final class RtsAe2Compat {
         private final Class<?> storageServiceClass;
         private final Method storageServiceGetCachedInventory;
         private final Method storageServiceGetInventory;
+        private final Method storageServiceInvalidateCache;
         private final Method keyCounterIterator;
         private final Method keyEntryGetKey;
         private final Method keyEntryGetLongValue;
@@ -436,6 +469,7 @@ public final class RtsAe2Compat {
                 Class<?> storageServiceClass,
                 Method storageServiceGetCachedInventory,
                 Method storageServiceGetInventory,
+                Method storageServiceInvalidateCache,
                 Method keyCounterIterator,
                 Method keyEntryGetKey,
                 Method keyEntryGetLongValue,
@@ -455,6 +489,7 @@ public final class RtsAe2Compat {
             this.storageServiceClass = storageServiceClass;
             this.storageServiceGetCachedInventory = storageServiceGetCachedInventory;
             this.storageServiceGetInventory = storageServiceGetInventory;
+            this.storageServiceInvalidateCache = storageServiceInvalidateCache;
             this.keyCounterIterator = keyCounterIterator;
             this.keyEntryGetKey = keyEntryGetKey;
             this.keyEntryGetLongValue = keyEntryGetLongValue;
@@ -489,6 +524,7 @@ public final class RtsAe2Compat {
 
                 Method storageServiceGetCachedInventory = storageServiceClass.getMethod("getCachedInventory");
                 Method storageServiceGetInventory = storageServiceClass.getMethod("getInventory");
+                Method storageServiceInvalidateCache = storageServiceClass.getMethod("invalidateCache");
 
                 Class<?> keyCounterClass = Class.forName("appeng.api.stacks.KeyCounter");
                 Method keyCounterIterator = keyCounterClass.getMethod("iterator");
@@ -523,6 +559,7 @@ public final class RtsAe2Compat {
                         storageServiceClass,
                         storageServiceGetCachedInventory,
                         storageServiceGetInventory,
+                        storageServiceInvalidateCache,
                         keyCounterIterator,
                         keyEntryGetKey,
                         keyEntryGetLongValue,
@@ -651,6 +688,10 @@ public final class RtsAe2Compat {
                     amount,
                     simulate ? this.actionableSimulate : this.actionableModulate,
                     source));
+        }
+
+        private void invalidateCache(Object storageService) {
+            invoke(this.storageServiceInvalidateCache, storageService);
         }
 
         private boolean keysEqual(Object left, Object right) {

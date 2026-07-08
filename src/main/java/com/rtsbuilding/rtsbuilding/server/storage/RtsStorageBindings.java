@@ -52,7 +52,7 @@ public final class RtsStorageBindings {
             return false;
         }
         session.mode = mode;
-        return mode != BuilderMode.FUNNEL && session.funnelEnabled;
+        return mode != BuilderMode.FUNNEL && session.funnel.funnelEnabled;
     }
 
     // ======================================================================
@@ -320,7 +320,7 @@ public final class RtsStorageBindings {
         }
 
         static UpdateResult refreshCurrent(RtsStorageSession session, boolean saveSession) {
-            return new UpdateResult(saveSession, true, session == null ? 0 : session.page);
+            return new UpdateResult(saveSession, true, session == null ? 0 : session.browser.page);
         }
     }
 

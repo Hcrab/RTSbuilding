@@ -25,10 +25,10 @@ public final class UltimineTickPipe implements TickablePipe {
         }
 
         int workflowEntryId = miningContext.getWorkflowEntryId();
-        boolean sameWorkflow = workflowEntryId >= 0 && session.miningWorkflowEntryId == workflowEntryId;
-        boolean miningActive = session.miningPos != null
-                || session.ultimineProgressPos != null
-                || !session.ultimineTargets.isEmpty();
+        boolean sameWorkflow = workflowEntryId >= 0 && session.mining.miningWorkflowEntryId == workflowEntryId;
+        boolean miningActive = session.mining.miningPos != null
+                || session.mining.ultimineProgressPos != null
+                || !session.mining.ultimineTargets.isEmpty();
 
         return sameWorkflow && miningActive ? TickResult.running() : TickResult.done();
     }

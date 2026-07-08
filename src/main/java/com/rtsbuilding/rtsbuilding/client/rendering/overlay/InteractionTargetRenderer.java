@@ -7,7 +7,6 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -42,10 +41,14 @@ import java.util.Set;
 public final class InteractionTargetRenderer {
     private static final double INFLATE = 0.03D;
     private static final double LINE_OFFSET = 0.01D;
+    private static final double NEAR_SKELETON_DISTANCE = 10.0D;
+    private static final double FAR_COVER_DISTANCE = 20.0D;
     private static final double FACE_FOG_OFFSET = 0.005D;
-    private static final float FACE_FOG_ALPHA = 0.5F;
+    private static final float FACE_FOG_ALPHA_NEAR = 0.045F;
+    private static final float FACE_FOG_ALPHA_FAR = 0.5F;
     private static final float NO_DEPTH_BRACKET_ALPHA = 0.32F;
-    private static final float NO_DEPTH_FACE_FOG_ALPHA = 0.18F;
+    private static final float NO_DEPTH_FACE_FOG_ALPHA_NEAR = 0.025F;
+    private static final float NO_DEPTH_FACE_FOG_ALPHA_FAR = 0.18F;
     private static final float BREATH_SPEED = 0.2F;
     private static final float BREATH_MIN_FACTOR = 0.7F;
     private static final float ENTITY_COLOR_R = 0.50F;
@@ -54,6 +57,9 @@ public final class InteractionTargetRenderer {
     private static final float BLOCK_COLOR_R = 0.965F;
     private static final float BLOCK_COLOR_G = 0.608F;
     private static final float BLOCK_COLOR_B = 0.192F;
+    private static final float NEAR_BLOCK_COLOR_R = 1.000F;
+    private static final float NEAR_BLOCK_COLOR_G = 0.900F;
+    private static final float NEAR_BLOCK_COLOR_B = 0.130F;
     private static final double MAX_REACH = 128.0D;
 
     private InteractionTargetRenderer() {
@@ -70,10 +76,10 @@ public final class InteractionTargetRenderer {
 
         float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
         Vec3 camPos = minecraft.gameRenderer.getMainCamera().getPosition();
-        Vec3 viewDir = RaycastHelper.computeCursorRayDirection(minecraft);
+        Vec3 viewDir = resolveHighlightRayDirection(minecraft);
         Vec3 rayEnd = camPos.add(viewDir.scale(MAX_REACH));
 
-        BlockHitResult blockHit = RaycastHelper.raycastBlockFromCursor(minecraft, camPos, rayEnd, false);
+        BlockHitResult blockHit = resolveHighlightBlockHit(minecraft, camPos, rayEnd);
         EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(
                 minecraft, camPos, rayEnd, viewDir, MAX_REACH);
 
@@ -82,11 +88,12 @@ public final class InteractionTargetRenderer {
 
         if (entityHit != null && entityDistSq <= blockDistSq) {
             Entity entity = entityHit.getEntity();
-            if (isWithinBounds(controller, entity.blockPosition())) {
+            if (InteractionTargetSelection.shouldRenderEntityInsteadOfBlock(
+                    entityDistSq, blockDistSq, isWithinBounds(controller, entity.blockPosition()))) {
                 double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
                 renderEntityCornerHighlight(poseStack, bracketBuffer, noDepthBuffer, entity, distance, breathFactor);
+                return;
             }
-            return;
         }
 
         if (blockHit == null || blockHit.getType() != HitResult.Type.BLOCK) {
@@ -116,20 +123,35 @@ public final class InteractionTargetRenderer {
         if (!builderScreen.isWorldArea(mouseX, mouseY)) {
             return true;
         }
+        boolean coveredByFloatingWindow = false;
         for (var rtsWindow : builderScreen.getFloatingWindowLayer().frontToBackWindows()) {
-            if (rtsWindow.isOpen() && rtsWindow.isInsideWindow(mouseX, mouseY)) {
-                return true;
+            if (rtsWindow.isVisibleWindow() && rtsWindow.isInsideWindow(mouseX, mouseY)) {
+                coveredByFloatingWindow = true;
+                break;
             }
         }
 
-        var shapeSession = builderScreen.getShapeController().getShapeBuildSession();
-        if (shapeSession != null && shapeSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM) {
-            return true;
+        return shouldSuppressForBuilderUi(true, coveredByFloatingWindow,
+                builderScreen.getShapeController().getShapeBuildSession() != null);
+    }
+
+    private static Vec3 resolveHighlightRayDirection(Minecraft minecraft) {
+        if (minecraft.screen instanceof BuilderScreen builderScreen) {
+            return builderScreen.computeCursorRayDirection();
         }
-        return builderScreen.isQuickBuildOpen()
-                && shapeSession != null
-                && (shapeSession.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT
-                || shapeSession.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT);
+        return RaycastHelper.computeCursorRayDirection(minecraft);
+    }
+
+    private static BlockHitResult resolveHighlightBlockHit(Minecraft minecraft, Vec3 camPos, Vec3 rayEnd) {
+        if (minecraft.screen instanceof BuilderScreen builderScreen) {
+            return builderScreen.pickBlockHit();
+        }
+        return RaycastHelper.raycastBlockFromCursor(minecraft, camPos, rayEnd, false);
+    }
+
+    static boolean shouldSuppressForBuilderUi(boolean cursorInWorld, boolean coveredByFloatingWindow,
+            boolean shapePreviewActive) {
+        return !cursorInWorld || coveredByFloatingWindow;
     }
 
     private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer bracketBuffer,
@@ -163,23 +185,42 @@ public final class InteractionTargetRenderer {
             return;
         }
 
-        float r = BLOCK_COLOR_R * breathFactor;
-        float g = BLOCK_COLOR_G * breathFactor;
-        float b = BLOCK_COLOR_B * breathFactor;
+        BlockHighlightVisual visual = blockHighlightVisual(distance, breathFactor);
 
         CornerBracketRenderer.renderCornerBrackets(
                 poseStack, bracketBuffer,
                 bounds.minX - LINE_OFFSET, bounds.minY - LINE_OFFSET, bounds.minZ - LINE_OFFSET,
                 bounds.maxX + LINE_OFFSET, bounds.maxY + LINE_OFFSET, bounds.maxZ + LINE_OFFSET,
-                r, g, b, distance);
+                visual.r(), visual.g(), visual.b(), distance);
         renderCornerBracketsNoDepth(
                 poseStack, noDepthBuffer,
                 bounds.minX - LINE_OFFSET, bounds.minY - LINE_OFFSET, bounds.minZ - LINE_OFFSET,
                 bounds.maxX + LINE_OFFSET, bounds.maxY + LINE_OFFSET, bounds.maxZ + LINE_OFFSET,
-                r, g, b, distance);
+                visual.r(), visual.g(), visual.b(), distance);
 
-        renderHitFaceFog(bracketBuffer, poseStack, bounds, hitFace, r, g, b, FACE_FOG_ALPHA);
-        renderHitFaceFog(noDepthBuffer, poseStack, bounds, hitFace, r, g, b, NO_DEPTH_FACE_FOG_ALPHA);
+        renderHitFaceFog(bracketBuffer, poseStack, bounds, hitFace,
+                visual.r(), visual.g(), visual.b(), visual.faceAlpha());
+        renderHitFaceFog(noDepthBuffer, poseStack, bounds, hitFace,
+                visual.r(), visual.g(), visual.b(), visual.noDepthFaceAlpha());
+    }
+
+    static BlockHighlightVisual blockHighlightVisual(double distance, float breathFactor) {
+        float nearWeight = 1.0F - smoothstep(NEAR_SKELETON_DISTANCE, FAR_COVER_DISTANCE, distance);
+        float farWeight = 1.0F - nearWeight;
+        float r = (NEAR_BLOCK_COLOR_R * nearWeight + BLOCK_COLOR_R * farWeight) * breathFactor;
+        float g = (NEAR_BLOCK_COLOR_G * nearWeight + BLOCK_COLOR_G * farWeight) * breathFactor;
+        float b = (NEAR_BLOCK_COLOR_B * nearWeight + BLOCK_COLOR_B * farWeight) * breathFactor;
+        float faceAlpha = FACE_FOG_ALPHA_NEAR * nearWeight + FACE_FOG_ALPHA_FAR * farWeight;
+        float noDepthFaceAlpha = NO_DEPTH_FACE_FOG_ALPHA_NEAR * nearWeight + NO_DEPTH_FACE_FOG_ALPHA_FAR * farWeight;
+        return new BlockHighlightVisual(r, g, b, faceAlpha, noDepthFaceAlpha);
+    }
+
+    private static float smoothstep(double edge0, double edge1, double value) {
+        double t = Math.max(0.0D, Math.min(1.0D, (value - edge0) / (edge1 - edge0)));
+        return (float) (t * t * (3.0D - 2.0D * t));
+    }
+
+    record BlockHighlightVisual(float r, float g, float b, float faceAlpha, float noDepthFaceAlpha) {
     }
 
     private static void renderCornerBracketsNoDepth(PoseStack poseStack, VertexConsumer noDepthBuffer,

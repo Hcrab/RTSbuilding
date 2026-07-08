@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.compat.rs.RtsRsCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -16,8 +17,8 @@ import net.minecraftforge.items.IItemHandler;
  *
  * <p>This class owns only the low-level {@link IItemHandler} and
  * {@link IFluidHandler} capability lookup logic for block positions in the
- * world. It scans direct and sided capabilities and delegates to AE2 virtual
- * network handlers when applicable.
+ * world. It scans direct and sided capabilities and delegates to virtual
+ * network handlers such as AE2/RS when applicable.
  *
  * <p>It deliberately does not resolve session refs, build storage pages,
  * transfer items/fluids, mutate inventories, or manage permissions. Those
@@ -50,13 +51,17 @@ public final class RtsLinkedCapabilities {
     }
 
     /**
-     * Probes a block position for an item handler, preferring an AE2 virtual
-     * network handler before falling back to direct/sided capability scans.
+     * Probes a block position for an item handler, preferring virtual network
+     * handlers before falling back to direct/sided capability scans.
      */
     public static IItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
         IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
         if (ae2Network != null) {
             return ae2Network;
+        }
+        IItemHandler rsNetwork = RtsRsCompat.createNetworkItemHandler(player, pos);
+        if (rsNetwork != null) {
+            return rsNetwork;
         }
         return findHandler(player, pos);
     }

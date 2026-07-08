@@ -43,18 +43,18 @@ public final class RtsFunnelService {
      * 启用漏斗??
      */
     public static void enable(ServerPlayer player, RtsStorageSession session) {
-        session.funnelEnabled = true;
-        session.funnelTickCooldown = 0;
+        session.funnel.funnelEnabled = true;
+        session.funnel.funnelTickCooldown = 0;
     }
 
     /**
      * 禁用漏斗并清空缓冲区??
      */
     public static void disableAndFlush(ServerPlayer player, RtsStorageSession session) {
-        session.funnelEnabled = false;
-        session.funnelTarget = null;
-        session.funnelTickCooldown = 0;
-        if (session.funnelBuffer.isEmpty()) {
+        session.funnel.funnelEnabled = false;
+        session.funnel.funnelTarget = null;
+        session.funnel.funnelTickCooldown = 0;
+        if (session.funnel.funnelBuffer.isEmpty()) {
             return;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
@@ -63,39 +63,39 @@ public final class RtsFunnelService {
         for (LinkedHandler h : linked) {
             handlers.add(h.handler());
         }
-        for (ItemStack buffered : session.funnelBuffer) {
+        for (ItemStack buffered : session.funnel.funnelBuffer) {
             if (buffered.isEmpty()) continue;
             ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, buffered);
             if (!remain.isEmpty()) {
                 RtsTransferInserter.storeToLinkedWithFallback(handlers, player, remain);
             }
         }
-        session.funnelBuffer.clear();
+        session.funnel.funnelBuffer.clear();
     }
 
     /**
      * 更新漏斗目标位置??
      */
     public static void updateTarget(ServerPlayer player, RtsStorageSession session, BlockPos target) {
-        if (!session.funnelEnabled || target == null) return;
-        session.funnelTarget = target.immutable();
+        if (!session.funnel.funnelEnabled || target == null) return;
+        session.funnel.funnelTarget = target.immutable();
     }
 
     /**
      * Tick 处理漏斗逻辑??
      */
     public static void tick(ServerPlayer player, RtsStorageSession session) {
-        if (!session.funnelEnabled || session.mode != BuilderMode.FUNNEL) return;
-        if (session.funnelTickCooldown > 0) {
-            session.funnelTickCooldown--;
+        if (!session.funnel.funnelEnabled || session.mode != BuilderMode.FUNNEL) return;
+        if (session.funnel.funnelTickCooldown > 0) {
+            session.funnel.funnelTickCooldown--;
             return;
         }
-        session.funnelTickCooldown = FUNNEL_TICK_INTERVAL - 1;
+        session.funnel.funnelTickCooldown = FUNNEL_TICK_INTERVAL - 1;
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (session.funnelTarget == null) return;
-        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, session.funnelTarget)) return;
-        if (!RtsCameraManager.isWithinActionRadius(player, session.funnelTarget)) return;
+        if (session.funnel.funnelTarget == null) return;
+        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, session.funnel.funnelTarget)) return;
+        if (!RtsCameraManager.isWithinActionRadius(player, session.funnel.funnelTarget)) return;
 
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<IItemHandler> handlers = new ArrayList<>(linked.size());
@@ -104,7 +104,7 @@ public final class RtsFunnelService {
         }
 
         boolean changed = flushBuffer(handlers, player, session);
-        changed |= absorbDrops(player, session.funnelTarget, handlers, session);
+        changed |= absorbDrops(player, session.funnel.funnelTarget, handlers, session);
         if (changed) {
             RtsSessionService.markStorageViewDirty(player, session);
             QuestService.runQuestDetect(player, session, false);
@@ -114,12 +114,12 @@ public final class RtsFunnelService {
     // ---- 内部方法 ----
 
     private static boolean flushBuffer(List<IItemHandler> handlers, ServerPlayer player, RtsStorageSession session) {
-        if (session.funnelBuffer.isEmpty()) return false;
+        if (session.funnel.funnelBuffer.isEmpty()) return false;
         boolean changed = false;
-        for (int i = 0; i < session.funnelBuffer.size(); i++) {
-            ItemStack buffered = session.funnelBuffer.get(i);
+        for (int i = 0; i < session.funnel.funnelBuffer.size(); i++) {
+            ItemStack buffered = session.funnel.funnelBuffer.get(i);
             if (buffered.isEmpty()) {
-                session.funnelBuffer.remove(i);
+                session.funnel.funnelBuffer.remove(i);
                 i--;
                 changed = true;
                 continue;
@@ -129,11 +129,11 @@ public final class RtsFunnelService {
                 remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
             }
             if (remain.isEmpty()) {
-                session.funnelBuffer.remove(i);
+                session.funnel.funnelBuffer.remove(i);
                 i--;
                 changed = true;
             } else if (remain.getCount() != buffered.getCount()) {
-                session.funnelBuffer.set(i, remain);
+                session.funnel.funnelBuffer.set(i, remain);
                 changed = true;
             }
         }
@@ -189,7 +189,7 @@ public final class RtsFunnelService {
         ItemStack remain = stack.copy();
         if (remain.isEmpty()) return ItemStack.EMPTY;
 
-        for (ItemStack buffered : session.funnelBuffer) {
+        for (ItemStack buffered : session.funnel.funnelBuffer) {
             if (remain.isEmpty()) break;
             if (buffered.isEmpty() || !ItemStack.isSameItemSameTags(buffered, remain)) continue;
             int free = Math.max(0, buffered.getMaxStackSize() - buffered.getCount());
@@ -199,11 +199,11 @@ public final class RtsFunnelService {
             remain.shrink(move);
         }
 
-        while (!remain.isEmpty() && session.funnelBuffer.size() < FUNNEL_BUFFER_MAX_STACKS) {
+        while (!remain.isEmpty() && session.funnel.funnelBuffer.size() < FUNNEL_BUFFER_MAX_STACKS) {
             int move = Math.min(remain.getCount(), remain.getMaxStackSize());
             ItemStack chunk = remain.copy();
             chunk.setCount(move);
-            session.funnelBuffer.add(chunk);
+            session.funnel.funnelBuffer.add(chunk);
             remain.shrink(move);
         }
         return remain;

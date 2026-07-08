@@ -46,7 +46,9 @@ public final class RtsPlacementService {
         double hitOffsetY = clickedPos == null ? 0.5D : hitY - clickedPos.getY();
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
-        if (player != null && session != null && !forceEmptyHand) {
+        boolean selectedStoragePlacement = itemId != null && !itemId.isBlank();
+        boolean workflowPlacement = !forceEmptyHand && (quickBuild || selectedStoragePlacement);
+        if (player != null && session != null && workflowPlacement) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
                             .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
@@ -92,7 +94,8 @@ public final class RtsPlacementService {
                 rayDirZ,
                 quickBuild,
                 forceEmptyHand,
-                true);
+                true,
+                -1);
     }
 
     /**

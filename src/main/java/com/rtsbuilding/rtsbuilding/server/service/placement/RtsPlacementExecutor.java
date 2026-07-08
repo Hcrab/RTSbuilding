@@ -18,6 +18,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -104,7 +106,9 @@ public final class RtsPlacementExecutor {
                 return placeWithForcedEmptyHand(player, session, level, clickedPos, hit, interactionPos, rayContext,
                         forcePlace);
             }
-            return false;
+            // 普通主手右键不能被批处理队列丢弃；itemId 为空时继续模拟原版 useItemOn/useItem。
+            return placeWithMainHand(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
+                    skipIfOccupied, forcePlace, refreshStoragePage);
         }
 
         return placeWithStorageItem(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
@@ -153,6 +157,85 @@ public final class RtsPlacementExecutor {
         return false;
     }
 
+    private static boolean placeWithMainHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
+            BlockPos clickedPos, Direction face, BlockHitResult hit,
+            Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext, boolean skipIfOccupied,
+            boolean forcePlace, boolean refreshStoragePage) {
+        ItemStack sourceSnapshot = player.getMainHandItem().copy();
+        boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
+        if (skipIfOccupied && sourcePlacesBlock) {
+            if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
+                RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
+                return true;
+            }
+        }
+
+        BlockState beforeClicked = level.getBlockState(clickedPos);
+        BlockPos adjacentPos = clickedPos.relative(face);
+        BlockState beforeAdjacent = level.hasChunkAt(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+
+        AbstractContainerMenu menuBeforeMainHandUse = player.containerMenu;
+        InteractionResult mainHandUse = TemporaryContextSwitcher.withTemporaryUseItemContext(
+                player,
+                interactionPos,
+                hit.getLocation(),
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> TemporaryContextSwitcher.withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItemOn(
+                        player,
+                        level,
+                        player.getMainHandItem(),
+                        InteractionHand.MAIN_HAND,
+                        hit)));
+        AbstractContainerMenu menuAfterMainHandUse = player.containerMenu;
+        if (menuAfterMainHandUse != menuBeforeMainHandUse) {
+            RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterMainHandUse, clickedPos);
+            return false;
+        }
+
+        if (mainHandUse.consumesAction()) {
+            recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
+                    sourceSnapshot, sourcePlacesBlock);
+            RtsSessionService.saveToPlayerNbt(player, session);
+            return true;
+        }
+
+        AbstractContainerMenu menuBeforeUseFallback = player.containerMenu;
+        InteractionResult mainHandUseFallback = TemporaryContextSwitcher.withTemporaryUseItemContext(
+                player,
+                interactionPos,
+                hit.getLocation(),
+                rayContext,
+                REMOTE_POV_BLOCK_REACH,
+                () -> TemporaryContextSwitcher.withTemporaryShiftKey(player, forcePlace, () -> player.gameMode.useItem(
+                        player,
+                        level,
+                        player.getMainHandItem(),
+                        InteractionHand.MAIN_HAND)));
+        AbstractContainerMenu menuAfterUseFallback = player.containerMenu;
+        if (menuAfterUseFallback != menuBeforeUseFallback) {
+            RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterUseFallback, clickedPos);
+            return false;
+        }
+        if (mainHandUseFallback.consumesAction()) {
+            if (!sourceSnapshot.isEmpty()) {
+                SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
+                ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+                if (sourceId != null) {
+                    RtsPageService.recordRecentItem(
+                            session,
+                            sourceId.toString(),
+                            S2CRtsStoragePagePayload.RECENT_ITEM_USED,
+                            1L);
+                }
+            }
+            RtsSessionService.saveToPlayerNbt(player, session);
+            return true;
+        }
+
+        return false;
+    }
+
 
     private static boolean placeWithStorageItem(ServerPlayer player, RtsStorageSession session, ServerLevel level,
             BlockPos clickedPos, Direction face, BlockHitResult hit,
@@ -185,7 +268,7 @@ public final class RtsPlacementExecutor {
                 ? RtsPlacementExtractor.creativeStack(item, preferredStack)
                 : includePlayerMainInventory
                         ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, item, preferredStack)
-                        : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, item, preferredStack);
+                        : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, item, preferredStack);
         if (extracted.isEmpty()) {
             RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
             return false;
@@ -248,6 +331,39 @@ public final class RtsPlacementExecutor {
 
         RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
         return true;
+    }
+
+    private static void recordMainHandResult(ServerPlayer player, RtsStorageSession session, ServerLevel level,
+            BlockPos clickedPos, BlockState beforeClicked, BlockPos adjacentPos, BlockState beforeAdjacent,
+            ItemStack sourceSnapshot, boolean sourcePlacesBlock) {
+        BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
+        if (placedPos != null) {
+            PlacedBlockTrackerData.get(level).mark(placedPos);
+            if (sourcePlacesBlock) {
+                RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
+                RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);
+            } else {
+                SoundService.playRemoteUseSound(player, level, null, placedPos, sourceSnapshot);
+            }
+            ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+            if (sourceId != null) {
+                RtsPageService.recordRecentItem(
+                        session,
+                        sourceId.toString(),
+                        S2CRtsStoragePagePayload.RECENT_ITEM_PLACED,
+                        1L);
+            }
+        } else if (!sourceSnapshot.isEmpty()) {
+            SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
+            ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+            if (sourceId != null) {
+                RtsPageService.recordRecentItem(
+                        session,
+                        sourceId.toString(),
+                        S2CRtsStoragePagePayload.RECENT_ITEM_USED,
+                        1L);
+            }
+        }
     }
 
 

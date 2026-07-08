@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,10 +28,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 管理因缺材料或冲突被挂起的放置作业。
+ * 管理因缺材料或冲突被挂起的放置作业
  *
  * <p>本服务只负责“扫描、策略选择、把作业放回队列”。它不执行实际放置，
- * 也不改写快速建造的状态计划，避免恢复 UI 追平时改变玩家放置手感。</p>
+ * 也不改写快速建造的状态计划，避免恢复 UI 追平时改变玩家放置手感/p>
  */
 public final class RtsPendingPlacementService {
     private static final Map<UUID, RtsResumeScanResult> SCAN_CACHE = new ConcurrentHashMap<>();
@@ -130,8 +131,8 @@ public final class RtsPendingPlacementService {
             overwriteConflicts(player, session, job);
         }
 
-        session.pendingPlaceBatchJobs.remove(job);
-        session.placeBatchJobs.addLast(job);
+        session.placement.pendingJobs.remove(job);
+        session.placement.placeBatchJobs.addLast(job);
         RtsWorkflowEngine.getInstance().from(player, workflowEntryId).ifPresent(token -> token.resume());
         RtsSessionService.saveToPlayerNbt(player, session);
         RtsPageService.markStorageViewDirty(player, session);
@@ -142,20 +143,20 @@ public final class RtsPendingPlacementService {
     }
 
     public static int resumeAllPendingJobs(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.pendingPlaceBatchJobs.isEmpty()) {
+        if (player == null || session == null || session.placement.pendingJobs.isEmpty()) {
             return 0;
         }
         int count = 0;
         List<RtsPlacementBatch.PlaceBatchJob> resumable = new ArrayList<>();
-        for (RtsPlacementBatch.PlaceBatchJob job : session.pendingPlaceBatchJobs) {
+        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobs) {
             ItemStack template = resolveTemplate(job.itemPrototype(), job.itemId());
             if (player.isCreative() || countAvailableItems(player, template) > 0) {
                 resumable.add(job);
             }
         }
         for (RtsPlacementBatch.PlaceBatchJob job : resumable) {
-            session.pendingPlaceBatchJobs.remove(job);
-            session.placeBatchJobs.addLast(job);
+            session.placement.pendingJobs.remove(job);
+            session.placement.placeBatchJobs.addLast(job);
             RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
             count++;
         }
@@ -171,17 +172,73 @@ public final class RtsPendingPlacementService {
             return;
         }
         RtsStorageSession session = RtsSessionService.getIfPresent(player);
-        if (session == null || session.pendingPlaceBatchJobs.isEmpty()) {
+        if (session == null || session.placement.pendingJobs.isEmpty()) {
             return;
         }
         resumeAllPendingJobs(player, session);
+    }
+
+    public static void refreshWorkflowProgress(ServerPlayer player, RtsStorageSession session) {
+        if (player == null || session == null) {
+            return;
+        }
+
+        List<RtsPlacementBatch.PlaceBatchJob> allJobs = new ArrayList<>();
+        allJobs.addAll(session.placement.pendingJobs);
+        allJobs.addAll(session.placement.placeBatchJobs);
+
+        for (RtsPlacementBatch.PlaceBatchJob job : allJobs) {
+            if (job.workflowEntryId() < 0) {
+                continue;
+            }
+            String itemId = job.itemId();
+            if (itemId == null || itemId.isBlank()) {
+                continue;
+            }
+
+            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+                continue;
+            }
+            if (!(BuiltInRegistries.ITEM.get(id) instanceof BlockItem blockItem)) {
+                continue;
+            }
+            Block expectedBlock = blockItem.getBlock();
+            if (expectedBlock == Blocks.AIR) {
+                continue;
+            }
+
+            Direction face = job.face();
+            int actualPlaced = 0;
+            for (BlockPos pos : job.clickedPositions()) {
+                boolean found = false;
+                if (player.serverLevel().hasChunkAt(pos)) {
+                    BlockState state = player.serverLevel().getBlockState(pos);
+                    found = state.getBlock() == expectedBlock;
+                }
+                if (!found && face != null) {
+                    BlockPos adjPos = pos.relative(face);
+                    if (player.serverLevel().hasChunkAt(adjPos)) {
+                        BlockState adjState = player.serverLevel().getBlockState(adjPos);
+                        found = adjState.getBlock() == expectedBlock;
+                    }
+                }
+                if (found) {
+                    actualPlaced++;
+                }
+            }
+
+            int finalActualPlaced = actualPlaced;
+            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId())
+                    .ifPresent(token -> token.setCompletedBlocks(finalActualPlaced));
+        }
     }
 
     private static RtsPlacementBatch.PlaceBatchJob findPendingJob(RtsStorageSession session, int workflowEntryId) {
         if (session == null || workflowEntryId < 0) {
             return null;
         }
-        for (RtsPlacementBatch.PlaceBatchJob job : session.pendingPlaceBatchJobs) {
+        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobs) {
             if (job.workflowEntryId() == workflowEntryId) {
                 return job;
             }

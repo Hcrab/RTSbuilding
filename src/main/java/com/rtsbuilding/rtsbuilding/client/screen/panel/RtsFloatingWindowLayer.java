@@ -27,14 +27,17 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
         this.frontToBackWindows.sort(Comparator.comparingLong(RtsWindowPanel::getLastClickTime));
         int topmostHover = -1;
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).isInsideWindow(mouseX, mouseY)) {
+            RtsWindowPanel window = this.frontToBackWindows.get(i);
+            if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
                 topmostHover = i;
                 break;
             }
         }
         for (int i = 0; i < this.frontToBackWindows.size(); i++) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            boolean suppressHover = topmostHover >= 0 && i != topmostHover && window.isInsideWindow(mouseX, mouseY);
+            boolean suppressHover = topmostHover >= 0 && i != topmostHover
+                    && window.isVisibleWindow()
+                    && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(suppressHover);
             window.render(g, mouseX, mouseY, 0.0F);
             window.setSkipHoverDetection(false);
@@ -45,7 +48,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     public void renderFloatingWindowOverlays(GuiGraphics g, int mouseX, int mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.isInsideWindow(mouseX, mouseY)) {
+            if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
                 window.renderOverlays(g, mouseX, mouseY);
                 return;
             }
@@ -65,7 +68,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     public boolean isMouseOverWindowOrResizableBorder(double mouseX, double mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.isOpen()
+            if (window.isVisibleWindow()
                     && (window.isInsideWindow(mouseX, mouseY) || window.isInsideResizableBorder(mouseX, mouseY))) {
                 return true;
             }

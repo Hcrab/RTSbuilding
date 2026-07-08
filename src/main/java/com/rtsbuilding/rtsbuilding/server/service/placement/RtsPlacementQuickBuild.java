@@ -151,7 +151,7 @@ public final class RtsPlacementQuickBuild {
                     ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())
                     : includePlayerMainInventory
                             ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
-                            : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
+                            : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, plan.item(), plan.templateStack());
             if (extracted.isEmpty()) {
                 return false;
             }

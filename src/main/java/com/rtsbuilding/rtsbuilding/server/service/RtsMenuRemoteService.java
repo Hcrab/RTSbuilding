@@ -14,13 +14,13 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
 /**
- * 远程菜单服务——管理通过 RTS 模式打开的远程容??GUI??
+ * 远程菜单服务：管理通过 RTS 模式打开的远程容器 GUI。
  *
- * <p>职责范围??
+ * <p>职责范围：</p>
  * <ul>
- *   <li>远程菜单的生命周期跟??/li>
- *   <li>菜单验证松弛化（AlwaysValidContainer??/li>
- *   <li>兼容性包装（精妙存储、远程等??/li>
+ *   <li>远程菜单的生命周期跟踪。</li>
+ *   <li>菜单验证松弛化（AlwaysValidContainer）。</li>
+ *   <li>兼容性包装（精妙存储、远程菜单等）。</li>
  * </ul>
  */
 public final class RtsMenuRemoteService {
@@ -31,7 +31,7 @@ public final class RtsMenuRemoteService {
     }
 
     /**
-     * 标记远程菜单已打开??
+     * 标记远程菜单已打开。
      */
     public static void markOpen(ServerPlayer player, RtsStorageSession session,
                                  AbstractContainerMenu menu, BlockPos pos) {
@@ -41,8 +41,8 @@ public final class RtsMenuRemoteService {
             player.containerMenu = remoteMenu;
         }
         if (session != null) {
-            session.remoteMenuContainerId = remoteMenu.containerId;
-            session.remoteMenuPos = pos == null ? null : pos.immutable();
+            session.transfer.remoteMenuContainerId = remoteMenu.containerId;
+            session.transfer.remoteMenuPos = pos == null ? null : pos.immutable();
             relaxMenuValidation(remoteMenu);
             if (RtsRemoteMenuCompat.isSupportedRemoteMenu(remoteMenu)) {
                 RtsRemoteMenuCompat.markServerRemoteMenu(player, remoteMenu);
@@ -53,32 +53,32 @@ public final class RtsMenuRemoteService {
     }
 
     /**
-     * 清除远程菜单验证状???
+     * 清除远程菜单验证状态。
      */
     public static void clearValidation(ServerPlayer player, RtsStorageSession session) {
         if (session != null) {
-            session.remoteMenuContainerId = -1;
-            session.remoteMenuPos = null;
+            session.transfer.remoteMenuContainerId = -1;
+            session.transfer.remoteMenuPos = null;
         }
         RtsRemoteMenuCompat.clearServerRemoteMenu(player);
     }
 
     /**
-     * 关闭跟踪的远程菜???
+     * 关闭跟踪的远程菜单。
      */
     public static void closeTracked(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.remoteMenuContainerId < 0) return;
+        if (player == null || session == null || session.transfer.remoteMenuContainerId < 0) return;
         if (player.containerMenu != null
-                && player.containerMenu.containerId == session.remoteMenuContainerId
+                && player.containerMenu.containerId == session.transfer.remoteMenuContainerId
                 && !(player.containerMenu instanceof InventoryMenu)) {
             player.closeContainer();
         }
-        session.remoteMenuContainerId = -1;
-        session.remoteMenuPos = null;
+        session.transfer.remoteMenuContainerId = -1;
+        session.transfer.remoteMenuPos = null;
     }
 
     /**
-     * 发送远程菜单打开提示（客户端方块更新???
+     * 发送远程菜单打开提示（客户端方块更新）。
      */
     public static void sendOpenHint(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null) return;

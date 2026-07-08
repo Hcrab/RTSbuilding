@@ -140,6 +140,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
         poseStack.pushPose();
         try {
             poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
+            ShapeGhostRenderer.clearDeferredNoDepthPasses();
 
             if (controller.isChunkCurtainVisible()) {
                 BufferBuilder chunkFillBuffer = beginBuffer(CHUNK_XRAY_FILL, CHUNK_FILL_BUFFER);
@@ -182,7 +183,9 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
             drawBuiltBuffer(filledBox, fillBuffer);
             drawBrackets(bracketBuffer);
             drawBuiltBufferNoDepth(TARGET_NO_DEPTH_QUADS, targetNoDepthBuffer);
+            ShapeGhostRenderer.flushDeferredNoDepthPasses();
         } finally {
+            ShapeGhostRenderer.clearDeferredNoDepthPasses();
             poseStack.popPose();
         }
     }

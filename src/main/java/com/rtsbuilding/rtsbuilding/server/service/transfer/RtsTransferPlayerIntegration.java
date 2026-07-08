@@ -77,8 +77,8 @@ public final class RtsTransferPlayerIntegration {
         }
         player.containerMenu.broadcastChanges();
         RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        session.transfer.pageDataVersion.incrementAndGet();
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         QuestService.runQuestDetect(player, session, false);
     }
 
@@ -118,8 +118,8 @@ public final class RtsTransferPlayerIntegration {
                 || !RtsProgressionManager.canAccessHomeRadius(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.pageDataVersion.incrementAndGet();
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            session.transfer.pageDataVersion.incrementAndGet();
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             return;
         }
         ItemEntity dropped = new ItemEntity(player.serverLevel(), dropPos.x, dropPos.y, dropPos.z, extracted);
@@ -127,8 +127,8 @@ public final class RtsTransferPlayerIntegration {
         dropped.setPickUpDelay(10);
         player.serverLevel().addFreshEntity(dropped);
         RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        session.transfer.pageDataVersion.incrementAndGet();
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
     }
 
     public static void importMenuSlotToLinked(ServerPlayer player, RtsStorageSession session, int menuSlot) {
@@ -226,8 +226,8 @@ public final class RtsTransferPlayerIntegration {
         }
         menu.broadcastChanges();
         RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        session.transfer.pageDataVersion.incrementAndGet();
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         QuestService.runQuestDetect(player, session, false);
     }
 
@@ -276,8 +276,8 @@ public final class RtsTransferPlayerIntegration {
         }
         player.containerMenu.broadcastChanges();
         RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        session.transfer.pageDataVersion.incrementAndGet();
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
     }
 
     public static void quickMoveLinkedItem(ServerPlayer player, RtsStorageSession session, ItemStack prototype) {
@@ -318,8 +318,8 @@ public final class RtsTransferPlayerIntegration {
         }
         player.containerMenu.broadcastChanges();
         RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+        session.transfer.pageDataVersion.incrementAndGet();
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         QuestService.runQuestDetect(player, session, false);
     }
 
@@ -368,8 +368,8 @@ public final class RtsTransferPlayerIntegration {
         if (movedCount > 0) {
             player.containerMenu.broadcastChanges();
             RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.pageDataVersion.incrementAndGet();
-            RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending);
+            session.transfer.pageDataVersion.incrementAndGet();
+            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
             player.displayClientMessage(
                     Component.literal(inventoryFull
                             ? "Moved " + movedCount + " items to inventory. Inventory is full."

@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * 执行单方块远程挖掘的 pipeline 阶段。
  *
- * <p>生存模式只初始化现有 `RtsMiningStateMachine` 的状态；
+ * <p>这里只负责把 pipeline 的校验/工具租约结果写入会话。
  * 真正破坏、进度更新、工具归还仍在旧状态机 tick 中完成。</p>
  */
 public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
@@ -75,14 +75,14 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         }
 
         if (ctx.hasToolLease()) {
-            session.miningToolLease = ctx.getToolLease();
+            session.mining.miningToolLease = ctx.getToolLease();
         }
         if (ctx.isSelectedToolRequested()) {
-            session.miningSelectedToolRequested = true;
+            session.mining.miningSelectedToolRequested = true;
         }
-        session.miningToolProtectionEnabled = ctx.isToolProtectionEnabled();
+        session.mining.miningToolProtectionEnabled = ctx.isToolProtectionEnabled();
         if (ctx.hasWorkflowEntryId()) {
-            session.miningWorkflowEntryId = ctx.getWorkflowEntryId();
+            session.mining.miningWorkflowEntryId = ctx.getWorkflowEntryId();
         }
 
         RtsMiningStateMachine.beginRemoteMining(player, session, pos, face, toolSlot);

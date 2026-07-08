@@ -688,7 +688,7 @@ public final class ClientRtsController {
     }
 
     /**
-     * 濂楃敤鏈嶅姟绔彂鏉ョ殑鍗曚釜宸ヤ綔娴佽繘搴︺€俿lot 鍙礋璐?UI 鎺掑垪锛屾寜閽搷浣滀粛浣跨敤 entryId銆?     */
+     * 套用服务端发来的单个工作流进度。slot 只负责 UI 排列，按钮操作仍使用 entryId。 */
     public void applyWorkflowProgress(S2CRtsWorkflowProgressPayload payload) {
         if (payload == null) {
             return;
@@ -725,7 +725,7 @@ public final class ClientRtsController {
     }
 
     /**
-     * 濂楃敤鏈嶅姟绔壒閲忓悓姝ャ€傚厛娓呯┖鍐嶅～鍏咃紝閬垮厤宸插垹闄や换鍔″湪瀹㈡埛绔棯鍥炪€?     */
+     * 套用服务端批量同步。先清空再填入，避免已删除任务在客户端闪回。 */
     public void applyWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload) {
         for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
             this.workflowStatuses[i] = null;
@@ -2467,6 +2467,12 @@ public final class ClientRtsController {
 
     public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
             boolean skipIfOccupied) {
+        placeSelectedBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, rayOrigin, rayDir,
+                skipIfOccupied);
+    }
+
+    public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
+            Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
         beginRemoteMenuOpenGrace();
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
         long selectedCount = getSelectedItemCountForPlacement(itemId);
@@ -2481,6 +2487,7 @@ public final class ClientRtsController {
                 && selectedCount <= Math.max(1, attemptedPlacements);
         RtsClientPacketGateway.sendPlaceBatch(
                 hits,
+                templateHit,
                 forcePlace,
                 skipIfOccupied,
                 itemId,
@@ -3014,7 +3021,7 @@ public final class ClientRtsController {
 
         double adx = targetX - this.anchorX;
         double adz = targetZ - this.anchorZ;
-        // 娴ｈ法鏁ゅ锝嗘煙娴ｆ捁绔熼悾宀勬閸掓湹鍞弴鍨妇瑜般垼绔熼悾宀嬬礉娑撳孩鏂佺純顕€妾洪崚鍓佸缁惧じ绻氶幐浣风??
+        // 限制镜头在以锚点为中心的方形边界内，和可见建造边界保持一致。
         double halfExtent = this.maxRadius;
         targetX = Mth.clamp(targetX, this.anchorX - halfExtent, this.anchorX + halfExtent);
         targetZ = Mth.clamp(targetZ, this.anchorZ - halfExtent, this.anchorZ + halfExtent);

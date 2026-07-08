@@ -21,6 +21,7 @@ public final class BlueprintReaders {
             case VANILLA_NBT -> VanillaStructureNbtReader.parse(data, fileName, registryAccess);
             case SPONGE_SCHEM -> SpongeSchemReader.parse(data, fileName, registryAccess);
             case LITEMATIC -> LitematicReader.parse(data, fileName, registryAccess);
+            case BUILDING_GADGETS_JSON -> BuildingGadgetsTemplateReader.parse(data, fileName, registryAccess);
         };
     }
 }

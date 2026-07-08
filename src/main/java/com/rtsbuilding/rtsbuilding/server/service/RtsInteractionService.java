@@ -167,7 +167,7 @@ public final class RtsInteractionService {
             }
         }
 
-        RtsPageService.requestPage(player, session.page, session.search, session.category, session.sort, session.ascending, false);
+        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
     }
 
     private static int clampHotbarSlot(int slot) {
@@ -339,7 +339,7 @@ public final class RtsInteractionService {
         }
         // Force-refresh slot cache and invalidate page cache after linked-item interaction
         RtsStorageTickService.INSTANCE.forceRefresh(player);
-        session.pageDataVersion.incrementAndGet();
+        session.transfer.pageDataVersion.incrementAndGet();
         return outcome.result();
     }
 }

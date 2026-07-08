@@ -128,7 +128,8 @@ public final class RtsHandlerCache {
 
     /** Returns total count of the given item across all cached slots. */
     public long getCount(Item item) {
-        return this.countsByItem.getOrDefault(item.toString(), 0L);
+        ResourceLocation id = item == null ? null : BuiltInRegistries.ITEM.getKey(item);
+        return this.countsByItem.getOrDefault(id == null ? "" : id.toString(), 0L);
     }
 
     /** Returns total count by item registry string ID. */
