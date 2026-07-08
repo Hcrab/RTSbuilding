@@ -3,12 +3,11 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
@@ -121,21 +120,13 @@ public final class PendingGhostRenderer {
         if (!modelGroups.isEmpty()) {
             long now = System.currentTimeMillis();
             MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-            MultiBufferSource translucentBuffer = new GhostAlphaBufferSource(blockBuffer, GHOST_ALPHA);
 
             for (Map.Entry<BlockState, java.util.ArrayList<BlockPos>> group : modelGroups.entrySet()) {
                 BlockState state = group.getKey();
                 for (BlockPos pos : group.getValue()) {
                     float scale = computeGrowScale(now - GHOSTS.get(pos.asLong()).addedAtMs);
-                    poseStack.pushPose();
-                    poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-                    poseStack.translate(0.5, 0.5, 0.5);
-                    poseStack.scale(scale, scale, scale);
-                    poseStack.translate(-0.5, -0.5, -0.5);
-                    minecraft.getBlockRenderer().renderSingleBlock(
-                            state, poseStack, translucentBuffer,
-                            0xF000F0, OverlayTexture.NO_OVERLAY);
-                    poseStack.popPose();
+                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                            state, pos, GHOST_ALPHA, scale);
                 }
             }
             blockBuffer.endBatch();

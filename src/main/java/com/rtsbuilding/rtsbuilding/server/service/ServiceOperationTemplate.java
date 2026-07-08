@@ -72,6 +72,19 @@ public final class ServiceOperationTemplate {
     }
 
     /**
+     * 轻量标脏：只递增页面数据版本，并唤醒下一次储存 tick 刷新。
+     * <p>
+     * 连锁挖掘、区域破坏这类批量工作不能在每个方块后同步
+     * {@link RtsStorageTickService#forceRefresh(ServerPlayer)}，否则绑定大量储存时会把
+     * 当前服务端 tick 拖长。批量工作中途使用此方法，完成时再调用
+     * {@link #afterModification(ServerPlayer, RtsStorageSession)} 做完整刷新和持久化。
+     */
+    public void markDirtyDeferred(ServerPlayer player, RtsStorageSession session) {
+        RtsStorageTickService.INSTANCE.alert(player.getUUID());
+        session.transfer.pageDataVersion.incrementAndGet();
+    }
+
+    /**
      * 直接刷新页面——不 bump 版本也不保存，适用于页面版本已由外部递增过的场景。
      */
     public void refreshPage(ServerPlayer player, RtsStorageSession session) {

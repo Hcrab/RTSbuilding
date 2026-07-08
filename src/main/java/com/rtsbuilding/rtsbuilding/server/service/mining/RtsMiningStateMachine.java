@@ -209,12 +209,13 @@ public final class RtsMiningStateMachine {
             session.mining.ultimineProcessedPositions.add(preRecord);
             // Record any collateral blocks (multi-block structures)
             MultiBlockTracker.recordCollateralBlocks(player.serverLevel(), session, neighborRecords, pos);
-            if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
-                RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
-            }
-            // 连锁挖掘中途进度：markDirty 只更新版本号，避免每方块一次完整 afterModification（含 requestPage + saveToPlayerNbt）
+            boolean dropsChanged = RtsMiningValidator.canAutoStoreDrops(player, session)
+                    && RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
+            // 连锁挖掘中途进度：只延迟标脏，避免每方块一次同步刷新储存页。
             // 完整的 afterModification（含页面刷新和持久化）在 finalizeMiningOperation 中执行
-            ServiceRegistry.getInstance().serviceOp().markDirty(player, session);
+            if (dropsChanged) {
+                ServiceRegistry.getInstance().serviceOp().markDirtyDeferred(player, session);
+            }
             session.mining.miningPos = null;
             session.mining.miningProgress = 0.0F;
             session.mining.miningStage = -1;

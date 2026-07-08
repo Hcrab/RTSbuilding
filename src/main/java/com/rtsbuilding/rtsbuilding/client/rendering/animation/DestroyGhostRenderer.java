@@ -3,12 +3,11 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
@@ -45,7 +44,6 @@ public final class DestroyGhostRenderer {
         }
         long now = System.currentTimeMillis();
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-        MultiBufferSource translucentBuffer = new GhostAlphaBufferSource(blockBuffer, MODEL_ALPHA);
         Iterator<Map.Entry<Long, DestroyGhostEntry>> iterator = GHOSTS.entrySet().iterator();
 
         while (iterator.hasNext()) {
@@ -60,16 +58,8 @@ public final class DestroyGhostRenderer {
             }
             float scale = computeShrinkScale(elapsed);
             if (ghost.state.getRenderShape() == RenderShape.MODEL) {
-                poseStack.pushPose();
-                poseStack.translate(ghost.pos.getX(), ghost.pos.getY(), ghost.pos.getZ());
-                poseStack.translate(0.5D, 0.5D, 0.5D);
-                poseStack.scale(scale, scale, scale);
-                poseStack.translate(-0.5D, -0.5D, -0.5D);
-                int light = LevelRenderer.getLightColor(minecraft.level, ghost.pos);
-                minecraft.getBlockRenderer().renderSingleBlock(
-                        ghost.state, poseStack, translucentBuffer,
-                        light, OverlayTexture.NO_OVERLAY);
-                poseStack.popPose();
+                GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                        ghost.state, ghost.pos, MODEL_ALPHA, scale);
             } else {
                 renderFilledBox(poseStack, fillBuffer, ghost.pos, scale);
             }

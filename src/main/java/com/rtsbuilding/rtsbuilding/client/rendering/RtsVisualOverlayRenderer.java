@@ -104,9 +104,9 @@ public final class RtsVisualOverlayRenderer {
                     .setCullState(RenderStateShard.NO_CULL)
                     .createCompositeState(false));
 
-    /** World border style barrier for the RTS build boundary, using a custom striped texture */
+    /** 使用原版 forcefield 纹理渲染 RTS 边界，避免发布包携带额外小资源。 */
     private static final RenderType BOUNDARY_BARRIER = RenderType.entityTranslucent(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "textures/misc/barrier.png"));
+            ResourceLocation.fromNamespaceAndPath("minecraft", "textures/misc/forcefield.png"));
 
     private static final RenderType LINES = RenderType.lines();
     private static final RenderType FILLED_BOX = RenderType.debugFilledBox();

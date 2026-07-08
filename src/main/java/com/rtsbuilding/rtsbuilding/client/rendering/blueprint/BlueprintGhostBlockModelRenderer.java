@@ -1,12 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
@@ -51,7 +49,6 @@ public final class BlueprintGhostBlockModelRenderer {
 
         boolean renderedBlockModels = false;
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-        MultiBufferSource translucentBlockBuffer = new GhostAlphaBufferSource(blockBuffer, GHOST_ALPHA);
 
         for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
             BlockPos pos = block.pos();
@@ -71,16 +68,8 @@ public final class BlueprintGhostBlockModelRenderer {
                     && state != null
                     && !state.isAir()
                     && state.getRenderShape() == RenderShape.MODEL) {
-                poseStack.pushPose();
-                poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-                minecraft.getBlockRenderer().renderSingleBlock(
-                        state,
-                        poseStack,
-                        translucentBlockBuffer,
-                        LightTexture.FULL_BRIGHT,
-                        OverlayTexture.NO_OVERLAY);
-                poseStack.popPose();
-                renderedBlockModels = true;
+                renderedBlockModels |= GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                        state, pos, GHOST_ALPHA);
             }
         }
 

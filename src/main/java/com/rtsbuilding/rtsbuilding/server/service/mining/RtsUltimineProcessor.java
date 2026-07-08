@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -491,6 +492,9 @@ public final class RtsUltimineProcessor {
         ServerLevel level = player.serverLevel();
         int processedThisTick = 0;
         int brokenBeforeThisTick = session.mining.ultimineBrokenTargets;
+        boolean autoStoreDrops = RtsMiningValidator.canAutoStoreDrops(player, session);
+        List<BlockPos> dropsToAbsorb = new ArrayList<>();
+        boolean finishAfterThisTick = false;
 
         while (processedThisTick < RtsMiningValidator.ultimineBlocksPerTick() && !session.mining.ultimineTargets.isEmpty()) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
@@ -530,13 +534,22 @@ public final class RtsUltimineProcessor {
                 // Record any collateral multi-block destruction
                 MultiBlockTracker.recordCollateralBlocks(level, session, neighborRecords, target);
             }
-            if (result.broken() && RtsMiningValidator.canAutoStoreDrops(player, session)) {
-                RtsDropAbsorber.absorbMinedDropsImmediately(player, session, target);
+            if (result.broken() && autoStoreDrops) {
+                dropsToAbsorb.add(target.immutable());
             }
             if (result.broken() && RtsMiningValidator.isToolNearBreak(player, session)) {
-                finishUltimineBatch(player, session);
-                return;
+                finishAfterThisTick = true;
+                break;
             }
+        }
+
+        if (!dropsToAbsorb.isEmpty()
+                && RtsDropAbsorber.absorbMinedDropsBatch(player, session, dropsToAbsorb)) {
+            ServiceRegistry.getInstance().serviceOp().markDirtyDeferred(player, session);
+        }
+        if (finishAfterThisTick) {
+            finishUltimineBatch(player, session);
+            return;
         }
 
         int brokenDelta = session.mining.ultimineBrokenTargets - brokenBeforeThisTick;
