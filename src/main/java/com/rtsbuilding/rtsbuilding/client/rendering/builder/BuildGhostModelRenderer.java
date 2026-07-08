@@ -1,11 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.RenderShape;
@@ -34,39 +32,33 @@ public final class BuildGhostModelRenderer {
             return;
         }
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-        MultiBufferSource translucentBuffer = new GhostAlphaBufferSource(blockBuffer, GHOST_ALPHA);
         for (BlockPos pos : blocks) {
-            renderGhostAt(minecraft, pos, blockState, poseStack, translucentBuffer);
-            expandMultiblockGhost(minecraft, pos, blockState, poseStack, translucentBuffer);
+            renderGhostAt(minecraft, pos, blockState, poseStack, blockBuffer);
+            expandMultiblockGhost(minecraft, pos, blockState, poseStack, blockBuffer);
         }
         blockBuffer.endBatch();
     }
 
     private static void renderGhostAt(Minecraft minecraft, BlockPos pos, BlockState state,
-            PoseStack poseStack, MultiBufferSource translucentBuffer) {
+            PoseStack poseStack, MultiBufferSource blockBuffer) {
         if (state == null || state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
             return;
         }
-        poseStack.pushPose();
-        poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-        int light = LevelRenderer.getLightColor(minecraft.level, pos);
-        minecraft.getBlockRenderer().renderSingleBlock(
-                state, poseStack, translucentBuffer, light, OverlayTexture.NO_OVERLAY);
-        poseStack.popPose();
+        GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA);
     }
 
     private static void expandMultiblockGhost(Minecraft minecraft, BlockPos pos, BlockState state,
-            PoseStack poseStack, MultiBufferSource translucentBuffer) {
+            PoseStack poseStack, MultiBufferSource blockBuffer) {
         if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
             DoubleBlockHalf half = state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF);
             if (half == DoubleBlockHalf.LOWER) {
                 renderGhostAt(minecraft, pos.above(),
                         state.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER),
-                        poseStack, translucentBuffer);
+                        poseStack, blockBuffer);
             } else if (half == DoubleBlockHalf.UPPER) {
                 renderGhostAt(minecraft, pos.below(),
                         state.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER),
-                        poseStack, translucentBuffer);
+                        poseStack, blockBuffer);
             }
         }
         if (state.hasProperty(BlockStateProperties.BED_PART)
@@ -76,11 +68,11 @@ public final class BuildGhostModelRenderer {
             if (part == BedPart.FOOT) {
                 renderGhostAt(minecraft, pos.relative(facing),
                         state.setValue(BlockStateProperties.BED_PART, BedPart.HEAD),
-                        poseStack, translucentBuffer);
+                        poseStack, blockBuffer);
             } else if (part == BedPart.HEAD) {
                 renderGhostAt(minecraft, pos.relative(facing.getOpposite()),
                         state.setValue(BlockStateProperties.BED_PART, BedPart.FOOT),
-                        poseStack, translucentBuffer);
+                        poseStack, blockBuffer);
             }
         }
     }
