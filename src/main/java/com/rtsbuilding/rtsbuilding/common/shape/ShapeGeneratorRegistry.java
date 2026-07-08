@@ -29,6 +29,8 @@ public final class ShapeGeneratorRegistry {
         GENERATORS.put(AreaShape.WALL, new WallShapeGenerator());
         GENERATORS.put(AreaShape.CIRCLE, new CircleShapeGenerator());
         GENERATORS.put(AreaShape.BOX, new BoxShapeGenerator());
+        GENERATORS.put(AreaShape.CYLINDER, new CylinderShapeGenerator());
+        GENERATORS.put(AreaShape.BALL, new BallShapeGenerator());
     }
 
     private ShapeGeneratorRegistry() {

@@ -218,6 +218,8 @@ public final class BuilderScreenConstants {
     public static final ResourceLocation QUICK_BUILD_SQUARE_BLOCK = quickBuildTexture("square_block");
     public static final ResourceLocation QUICK_BUILD_WALL_BLOCK = quickBuildTexture("wall_block");
     public static final ResourceLocation QUICK_BUILD_CIRCLE_BLOCK = quickBuildTexture("circle_block");
+    public static final ResourceLocation QUICK_BUILD_CYLINDER_BLOCK = quickBuildTexture("cylinder_block");
+    public static final ResourceLocation QUICK_BUILD_BALL_BLOCK = quickBuildTexture("ball_block");
     public static final ResourceLocation QUICK_BUILD_BOX_BLOCK = quickBuildTexture("box_block");
 
     // ======================== 形状纹理资源 ========================

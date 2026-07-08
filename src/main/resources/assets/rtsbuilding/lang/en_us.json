@@ -692,5 +692,11 @@
   "screen.rtsbuilding.tooltip.shape_wall": "Wall",
   "screen.rtsbuilding.tooltip.shape_circle": "Circle",
   "screen.rtsbuilding.tooltip.shape_box": "Cube",
-  "screen.rtsbuilding.tooltip.shape_chain": "Chain"
+  "screen.rtsbuilding.tooltip.shape_chain": "Chain",
+  "screen.rtsbuilding.shape.cylinder": "Cylinder",
+  "screen.rtsbuilding.shape.ball": "Sphere",
+  "screen.rtsbuilding.shape_status.confirm_cylinder": "%s: confirm build; mouse wheel adjusts cylinder height",
+  "screen.rtsbuilding.shape_status.destroy_confirm_cylinder": "%s: confirm destroy; mouse wheel adjusts cylinder height",
+  "screen.rtsbuilding.tooltip.shape_cylinder": "Cylinder",
+  "screen.rtsbuilding.tooltip.shape_ball": "Sphere"
 }

@@ -550,14 +550,17 @@ public final class ScreenShapeController {
     }
 
     private static boolean canAdjustShapeHeight(ClientRtsController.BuildShape shape) {
-        return shape == ClientRtsController.BuildShape.WALL || shape == ClientRtsController.BuildShape.BOX;
+        return shape == ClientRtsController.BuildShape.WALL
+                || shape == ClientRtsController.BuildShape.CYLINDER
+                || shape == ClientRtsController.BuildShape.BOX;
     }
 
     public boolean adjustShapeHeightNudge(int delta) {
         if (delta == 0 || this.shapeBuildSession == null || !canAdjustShapeHeight(this.shapeBuildSession.shape())) {
             return false;
         }
-        if (this.shapeBuildSession.shape() == ClientRtsController.BuildShape.BOX
+        if ((this.shapeBuildSession.shape() == ClientRtsController.BuildShape.BOX
+                || this.shapeBuildSession.shape() == ClientRtsController.BuildShape.CYLINDER)
                 && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.NEED_THIRD_POINT
                 && this.shapeBuildSession.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
             return false;
@@ -609,7 +612,7 @@ public final class ScreenShapeController {
         }
         return switch (shape) {
             case LINE -> "1D";
-            case BOX -> "3D";
+            case CYLINDER, BALL, BOX -> "3D";
             default -> "2D";
         };
     }
@@ -692,14 +695,24 @@ public final class ScreenShapeController {
             case NEED_THIRD_POINT -> this.screen.text(destroyMode
                     ? "screen.rtsbuilding.shape_status.destroy_step_height"
                     : "screen.rtsbuilding.shape_status.step_height");
-            case READY_CONFIRM -> currentShape == ClientRtsController.BuildShape.WALL
-                    ? this.screen.text(destroyMode
-                            ? "screen.rtsbuilding.shape_status.destroy_confirm_wall"
-                            : "screen.rtsbuilding.shape_status.confirm_wall", confirmKeyLabel(destroyMode))
-                    : this.screen.text(destroyMode
-                            ? "screen.rtsbuilding.shape_status.destroy_confirm"
-                            : "screen.rtsbuilding.shape_status.confirm", confirmKeyLabel(destroyMode));
+            case READY_CONFIRM -> this.screen.text(confirmStatusKey(currentShape, destroyMode), confirmKeyLabel(destroyMode));
         };
+    }
+
+    private static String confirmStatusKey(ClientRtsController.BuildShape shape, boolean destroyMode) {
+        if (shape == ClientRtsController.BuildShape.WALL) {
+            return destroyMode
+                    ? "screen.rtsbuilding.shape_status.destroy_confirm_wall"
+                    : "screen.rtsbuilding.shape_status.confirm_wall";
+        }
+        if (shape == ClientRtsController.BuildShape.CYLINDER) {
+            return destroyMode
+                    ? "screen.rtsbuilding.shape_status.destroy_confirm_cylinder"
+                    : "screen.rtsbuilding.shape_status.confirm_cylinder";
+        }
+        return destroyMode
+                ? "screen.rtsbuilding.shape_status.destroy_confirm"
+                : "screen.rtsbuilding.shape_status.confirm";
     }
 
     private String confirmKeyLabel(boolean destroyMode) {
@@ -721,6 +734,8 @@ public final class ScreenShapeController {
             case SQUARE -> this.screen.text("screen.rtsbuilding.shape.square");
             case WALL -> this.screen.text("screen.rtsbuilding.shape.wall");
             case CIRCLE -> this.screen.text("screen.rtsbuilding.shape.circle");
+            case CYLINDER -> this.screen.text("screen.rtsbuilding.shape.cylinder");
+            case BALL -> this.screen.text("screen.rtsbuilding.shape.ball");
             case BOX -> this.screen.text("screen.rtsbuilding.shape.box");
         };
     }
@@ -838,6 +853,7 @@ public final class ScreenShapeController {
         if (shape == ClientRtsController.BuildShape.LINE
                 || shape == ClientRtsController.BuildShape.SQUARE
                 || shape == ClientRtsController.BuildShape.WALL
+                || shape == ClientRtsController.BuildShape.CYLINDER
                 || shape == ClientRtsController.BuildShape.BOX) {
             planeFace = Direction.UP;
         }
@@ -913,7 +929,7 @@ public final class ScreenShapeController {
         }
         Direction axisA;
         Direction axisB;
-        if (shape == ClientRtsController.BuildShape.BOX) {
+        if (shape == ClientRtsController.BuildShape.BOX || shape == ClientRtsController.BuildShape.CYLINDER) {
             axisA = Direction.EAST;
             axisB = Direction.SOUTH;
         } else {
@@ -1193,7 +1209,7 @@ public final class ScreenShapeController {
             return false;
         }
         return switch (input.shape()) {
-            case LINE, SQUARE, WALL, BOX -> true;
+            case LINE, SQUARE, WALL, CYLINDER, BALL, BOX -> true;
             default -> false;
         };
     }

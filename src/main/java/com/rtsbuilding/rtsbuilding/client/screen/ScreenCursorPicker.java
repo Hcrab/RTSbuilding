@@ -263,6 +263,7 @@ final class ScreenCursorPicker {
         ClientRtsController.BuildShape shape = this.controller.getBuildShape();
         if (shape == ClientRtsController.BuildShape.LINE
                 || shape == ClientRtsController.BuildShape.SQUARE
+                || shape == ClientRtsController.BuildShape.CYLINDER
                 || shape == ClientRtsController.BuildShape.BOX) {
             return Direction.UP;
         }

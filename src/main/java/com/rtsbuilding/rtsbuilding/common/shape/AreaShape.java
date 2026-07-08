@@ -23,5 +23,9 @@ public enum AreaShape {
     /** Circle / cylinder (XZ plane). */
     CIRCLE,
     /** 3D cuboid (solid box). */
-    BOX
+    BOX,
+    /** Cylinder with circular footprint and scroll-adjusted height. */
+    CYLINDER,
+    /** Sphere centered on the first point. */
+    BALL
 }

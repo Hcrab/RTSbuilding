@@ -692,5 +692,11 @@
   "screen.rtsbuilding.tooltip.shape_wall": "墙",
   "screen.rtsbuilding.tooltip.shape_circle": "圆",
   "screen.rtsbuilding.tooltip.shape_box": "体",
-  "screen.rtsbuilding.tooltip.shape_chain": "连锁"
+  "screen.rtsbuilding.tooltip.shape_chain": "连锁",
+  "screen.rtsbuilding.shape.cylinder": "圆柱",
+  "screen.rtsbuilding.shape.ball": "球体",
+  "screen.rtsbuilding.shape_status.confirm_cylinder": "%s：确认建造；滚轮调整圆柱高度",
+  "screen.rtsbuilding.shape_status.destroy_confirm_cylinder": "%s：确认破坏；滚轮调整圆柱高度",
+  "screen.rtsbuilding.tooltip.shape_cylinder": "圆柱",
+  "screen.rtsbuilding.tooltip.shape_ball": "球"
 }

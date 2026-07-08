@@ -38,6 +38,8 @@ public final class ShapeGeometryUtil {
             case SQUARE -> addSquareTargets(targets, start, end, input.planeFace(), fillMode);
             case WALL -> addWallTargets(targets, start, end, input.boxHeightOffset(), fillMode, input.connectedLine());
             case CIRCLE -> addCircleTargets(targets, start, end, input.planeFace(), fillMode);
+            case CYLINDER -> addCylinderTargets(targets, start, end, input.boxHeightOffset(), input.planeFace(), fillMode);
+            case BALL -> addBallTargets(targets, start, end, fillMode);
             case BOX -> addBoxTargets(targets, start, end, input.boxHeightOffset(), fillMode);
             default -> targets.add(start);
         }
@@ -246,6 +248,67 @@ public final class ShapeGeometryUtil {
     }
 
     /** 鐢熸垚绔嬫柟浣撴柟鍧?*/
+    /** 生成圆柱体方块：圆形底面由第二点决定，高度由滚轮/高度偏移决定。 */
+    public static void addCylinderTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
+            Direction face, ShapeBuildTypes.ShapeFillMode fillMode) {
+        Direction[] axes = resolveShapePlaneAxes(ClientRtsController.BuildShape.CYLINDER, face);
+        int dx = end.getX() - start.getX();
+        int dy = end.getY() - start.getY();
+        int dz = end.getZ() - start.getZ();
+        int a = dotDelta(dx, dy, dz, axes[0]);
+        int b = dotDelta(dx, dy, dz, axes[1]);
+        int radius = Mth.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
+                0, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+        Set<PlaneCell> filledBase = buildCircleCells(radius, true);
+        Set<PlaneCell> shellBase = buildCircleCells(radius, false);
+        int yOffset = clampShapeOffset(heightOffset);
+        int minY = Math.min(0, yOffset);
+        int maxY = Math.max(0, yOffset);
+        boolean fill = fillMode == ShapeBuildTypes.ShapeFillMode.FILL;
+        boolean singleLayer = minY == maxY;
+
+        for (int iy = minY; iy <= maxY; iy++) {
+            boolean capLayer = iy == minY || iy == maxY;
+            List<BlockPos> layerPositions = new ArrayList<>();
+            for (PlaneCell cell : filledBase) {
+                if (fill || (!singleLayer && capLayer) || shellBase.contains(cell)) {
+                    layerPositions.add(offsetPos(start.above(iy), axes[0], cell.a(), axes[1], cell.b()));
+                }
+            }
+            layerPositions.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+            targets.addAll(layerPositions);
+        }
+    }
+
+    /** 生成球体方块：A 点为球心，B 点到 A 点的距离为半径。 */
+    public static void addBallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            ShapeBuildTypes.ShapeFillMode fillMode) {
+        int dx = end.getX() - start.getX();
+        int dy = end.getY() - start.getY();
+        int dz = end.getZ() - start.getZ();
+        int radius = Mth.clamp((int) Math.round(Math.sqrt(
+                dx * (double) dx + dy * (double) dy + dz * (double) dz)),
+                0, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+        int outer2 = radius * radius;
+        int inner = Math.max(0, radius - 1);
+        int inner2 = inner * inner;
+        boolean fill = fillMode == ShapeBuildTypes.ShapeFillMode.FILL;
+        List<BlockPos> positions = new ArrayList<>();
+
+        for (int y = -radius; y <= radius; y++) {
+            for (int x = -radius; x <= radius; x++) {
+                for (int z = -radius; z <= radius; z++) {
+                    int dist2 = (x * x) + (y * y) + (z * z);
+                    if (dist2 <= outer2 && (fill || dist2 >= inner2)) {
+                        positions.add(start.offset(x, y, z));
+                    }
+                }
+            }
+        }
+        positions.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+        targets.addAll(positions);
+    }
+
     public static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeBuildTypes.ShapeFillMode fillMode) {
         int degrees = 0; // 鐢辫皟鐢ㄦ柟浼犲叆鏃嬭浆瑙掑??
         int xOffset = clampShapeOffset(end.getX() - start.getX());
@@ -320,6 +383,23 @@ public final class ShapeGeometryUtil {
     // ======================== 瀹炵敤鏂规硶 ========================
 
     /** 妫€鏌ユ槸鍚﹀钩闈㈣竟鐣屽崟鍏冩牸 */
+    /** 构建圆形平面格；fill=false 时只保留外壳。 */
+    public static Set<PlaneCell> buildCircleCells(int radius, boolean fill) {
+        int outer2 = radius * radius;
+        int inner = Math.max(0, radius - 1);
+        int inner2 = inner * inner;
+        Set<PlaneCell> cells = new HashSet<>();
+        for (int a = -radius; a <= radius; a++) {
+            for (int b = -radius; b <= radius; b++) {
+                int dist2 = (a * a) + (b * b);
+                if (dist2 <= outer2 && (fill || dist2 >= inner2)) {
+                    cells.add(new PlaneCell(a, b));
+                }
+            }
+        }
+        return fill ? fillPlaneInteriorHoles(cells) : cells;
+    }
+
     public static boolean isPlaneBoundaryCell(Set<PlaneCell> filledCells, PlaneCell cell) {
         return !filledCells.contains(new PlaneCell(cell.a() + 1, cell.b()))
                 || !filledCells.contains(new PlaneCell(cell.a() - 1, cell.b()))
@@ -498,7 +578,7 @@ public final class ShapeGeometryUtil {
     public static Direction resolveShapeBuildFace(ClientRtsController.BuildShape shape, Direction clickedFace, Vec3 rayDir) {
         if (shape == null) return clickedFace == null ? Direction.UP : clickedFace;
         return switch (shape) {
-            case LINE, SQUARE, WALL, BOX -> Direction.UP;
+            case LINE, SQUARE, WALL, CYLINDER, BOX -> Direction.UP;
             default -> clickedFace == null ? Direction.UP : clickedFace;
         };
     }
@@ -511,7 +591,9 @@ public final class ShapeGeometryUtil {
 
     /** 瑙ｆ瀽褰㈢姸鐨勫钩闈㈣酱??*/
     public static Direction[] resolveShapePlaneAxes(ClientRtsController.BuildShape shape, Direction face) {
-        if (shape == ClientRtsController.BuildShape.SQUARE || shape == ClientRtsController.BuildShape.BOX) {
+        if (shape == ClientRtsController.BuildShape.SQUARE
+                || shape == ClientRtsController.BuildShape.CYLINDER
+                || shape == ClientRtsController.BuildShape.BOX) {
             return new Direction[] { Direction.EAST, Direction.SOUTH };
         }
         if (shape == ClientRtsController.BuildShape.WALL) {
@@ -527,7 +609,7 @@ public final class ShapeGeometryUtil {
 
     /** 鍒ゆ柇褰㈢姸鏄惁闇€瑕佺涓夌偣锛堜粎绔嬫柟浣撻渶瑕侊??*/
     public static boolean requiresThirdPoint(ClientRtsController.BuildShape shape) {
-        return shape == ClientRtsController.BuildShape.BOX;
+        return shape == ClientRtsController.BuildShape.CYLINDER || shape == ClientRtsController.BuildShape.BOX;
     }
 
     // ======================== 鏀剧疆鍛戒腑缁撴灉鐢熸??========================
@@ -546,7 +628,7 @@ public final class ShapeGeometryUtil {
         if (shape == null) return List.of(ShapeBuildTypes.ShapeFillMode.FILL);
         return switch (shape) {
             case LINE -> List.of(ShapeBuildTypes.ShapeFillMode.FILL);
-            case SQUARE, WALL, CIRCLE -> List.of(ShapeBuildTypes.ShapeFillMode.FILL, ShapeBuildTypes.ShapeFillMode.HOLLOW);
+            case SQUARE, WALL, CIRCLE, CYLINDER, BALL -> List.of(ShapeBuildTypes.ShapeFillMode.FILL, ShapeBuildTypes.ShapeFillMode.HOLLOW);
             case BOX -> List.of(ShapeBuildTypes.ShapeFillMode.FILL, ShapeBuildTypes.ShapeFillMode.HOLLOW, ShapeBuildTypes.ShapeFillMode.SKELETON);
             default -> List.of(ShapeBuildTypes.ShapeFillMode.FILL);
         };

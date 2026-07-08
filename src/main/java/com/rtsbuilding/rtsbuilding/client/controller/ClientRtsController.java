@@ -3121,6 +3121,8 @@ public final class ClientRtsController {
         SQUARE,
         WALL,
         CIRCLE,
+        CYLINDER,
+        BALL,
         BOX
     }
 

@@ -62,6 +62,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             ClientRtsController.BuildShape.SQUARE,
             ClientRtsController.BuildShape.WALL,
             ClientRtsController.BuildShape.CIRCLE,
+            ClientRtsController.BuildShape.CYLINDER,
+            ClientRtsController.BuildShape.BALL,
             ClientRtsController.BuildShape.BOX
     };
 
@@ -71,6 +73,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             "screen.rtsbuilding.tooltip.shape_square",
             "screen.rtsbuilding.tooltip.shape_wall",
             "screen.rtsbuilding.tooltip.shape_circle",
+            "screen.rtsbuilding.tooltip.shape_cylinder",
+            "screen.rtsbuilding.tooltip.shape_ball",
             "screen.rtsbuilding.tooltip.shape_box"
     };
 
@@ -552,6 +556,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             case SQUARE -> QUICK_BUILD_SQUARE_BLOCK;
             case WALL -> QUICK_BUILD_WALL_BLOCK;
             case CIRCLE -> QUICK_BUILD_CIRCLE_BLOCK;
+            case CYLINDER -> QUICK_BUILD_CYLINDER_BLOCK;
+            case BALL -> QUICK_BUILD_BALL_BLOCK;
             case BOX -> QUICK_BUILD_BOX_BLOCK;
         };
         int vOffset = "active".equals(state) || "hover".equals(state) ? SHAPE_STATE_H : 0;
