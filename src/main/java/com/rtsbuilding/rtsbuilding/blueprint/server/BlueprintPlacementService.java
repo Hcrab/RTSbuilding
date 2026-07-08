@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.blueprint.server;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.blueprint.BlueprintBlockEntitySanitizer;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.blueprint.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
@@ -183,7 +184,7 @@ public final class BlueprintPlacementService {
                 skippedMissing++;
                 continue;
             }
-            applyBlockEntityTag(level, target, block);
+            applyBlockEntityTag(player, level, target, block);
 
             PlacedBlockTrackerData.get(level).mark(target);
             for (Item item : materialItems) {
@@ -241,7 +242,7 @@ public final class BlueprintPlacementService {
         }
     }
 
-    private static void applyBlockEntityTag(ServerLevel level, BlockPos target, RtsBlueprintBlock block) {
+    private static void applyBlockEntityTag(ServerPlayer player, ServerLevel level, BlockPos target, RtsBlueprintBlock block) {
         if (level == null || target == null || block == null || !block.hasBlockEntityTag()) {
             return;
         }
@@ -249,7 +250,10 @@ public final class BlueprintPlacementService {
         if (blockEntity == null) {
             return;
         }
-        CompoundTag tag = block.blockEntityTag().copy();
+        CompoundTag tag = blueprintBlockEntityTagForPlacement(player, block);
+        if (tag == null || tag.isEmpty()) {
+            return;
+        }
         tag.putInt("x", target.getX());
         tag.putInt("y", target.getY());
         tag.putInt("z", target.getZ());
@@ -260,6 +264,16 @@ public final class BlueprintPlacementService {
             level.sendBlockUpdated(target, state, state, 3);
         } catch (RuntimeException ignored) {
         }
+    }
+
+    private static CompoundTag blueprintBlockEntityTagForPlacement(ServerPlayer player, RtsBlueprintBlock block) {
+        if (block == null || block.blockEntityTag() == null || block.blockEntityTag().isEmpty()) {
+            return null;
+        }
+        if (player != null && player.isCreative() && player.canUseGameMasterBlocks()) {
+            return block.blockEntityTag().copy();
+        }
+        return BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(block.blockEntityTag());
     }
 
     private static boolean canStillPlace(ServerPlayer player, ServerLevel level, BlockPos target) {

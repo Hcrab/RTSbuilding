@@ -500,15 +500,10 @@ public final class BuilderScreen extends Screen {
                 this.cameraInput.stopActiveMining();
                 if (isWorldArea(mouseX, mouseY)) {
                     BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                    if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
-                        if (!BlueprintPanel.isCaptureSelectionComplete()) {
-                            BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
-                            return true;
-                        }
-                        if (BlueprintPanel.toggleCaptureBlockExclusion(hit.getBlockPos())) {
-                            return true;
-                        }
-                    }
+                    BlueprintPanel.handleCaptureWorldAction(
+                            hit,
+                            this.cursorPicker.currentRayOrigin(),
+                            this.cursorPicker.computeCursorRayDirection());
                 }
                 return true;
             }
@@ -684,6 +679,10 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && BlueprintPanel.releaseCaptureActiveHandleIfDragged()) {
+            return true;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && this.cullingManager.isManagementMode()
                 && this.cullingManager.releaseActiveHandleIfDragged()) {
             return true;
@@ -818,12 +817,12 @@ public final class BuilderScreen extends Screen {
         }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
             if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                    && !BlueprintPanel.isCaptureSelectionComplete()
                     && isWorldArea(mouseX, mouseY)) {
                 BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
-                    BlueprintPanel.acceptCapturePoint(hit.getBlockPos());
-                }
+                BlueprintPanel.handleCaptureWorldAction(
+                        hit,
+                        this.cursorPicker.currentRayOrigin(),
+                        this.cursorPicker.computeCursorRayDirection());
             }
             return true;
         }
@@ -1045,6 +1044,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.guidePanel.isOpen() || this.gearMenuPanel.isOpen()) {
+            return true;
+        }
+        if (BlueprintPanel.mouseScrolledCaptureHeight(scrollY, isAltDown())) {
             return true;
         }
         if (this.cullingManager.isManagementMode()
@@ -1396,7 +1398,10 @@ public final class BuilderScreen extends Screen {
         renderStorageScanPopup(guiGraphics);
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
             BlockHitResult hit = isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
-            BlueprintPanel.updateCaptureHoverPoint(hit == null ? null : hit.getBlockPos());
+            BlueprintPanel.updateCaptureHover(
+                    isWorldArea(mouseX, mouseY) ? this.cursorPicker.currentRayOrigin() : null,
+                    isWorldArea(mouseX, mouseY) ? this.cursorPicker.computeCursorRayDirection() : null,
+                    hit == null ? null : hit.getBlockPos());
         }
         this.blueprintWindowPanel.syncWithBlueprintState();
         this.blueprintMaterialWindowPanel.syncWithBlueprintState();
@@ -2089,6 +2094,11 @@ public final class BuilderScreen extends Screen {
     private boolean handleBoxHandleDrag(int button, double dragX, double dragY) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
+        }
+        Direction blueprintDirection = BlueprintPanel.getCaptureActiveHandleDirection();
+        if (BlueprintPanel.isCaptureModeActive() && blueprintDirection != null) {
+            double[] axis = screenAxisForDirection(blueprintDirection);
+            return BlueprintPanel.mouseDraggedCaptureHandle(dragX, dragY, axis[0], axis[1]);
         }
         Direction cullingDirection = this.cullingManager.activeHandleDirection();
         if (this.cullingManager.isManagementMode() && cullingDirection != null) {
