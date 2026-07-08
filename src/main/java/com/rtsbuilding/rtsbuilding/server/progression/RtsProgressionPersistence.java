@@ -70,6 +70,19 @@ final class RtsProgressionPersistence {
         return vanillaTeam == null ? "" : "scoreboard:" + vanillaTeam.getName();
     }
 
+    static String sharedProgressionLabel(ServerPlayer player) {
+        if (!RtsProgressionManager.isEnabled() || player == null
+                || !Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.get()) {
+            return "";
+        }
+        String ftbLabel = RtsFtbCompat.progressionTeamLabel(player);
+        if (ftbLabel != null && !ftbLabel.isBlank()) {
+            return ftbLabel;
+        }
+        Team vanillaTeam = player.getTeam();
+        return vanillaTeam == null ? "" : vanillaTeam.getName();
+    }
+
     static RtsSharedProgressionData sharedProgressionData(ServerPlayer player) {
         ServerLevel overworld = player.getServer().getLevel(Level.OVERWORLD);
         return RtsSharedProgressionData.get(overworld == null ? player.serverLevel() : overworld);

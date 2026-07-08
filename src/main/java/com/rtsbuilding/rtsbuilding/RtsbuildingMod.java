@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding;
 
 import com.mojang.logging.LogUtils;
 import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
+import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
+import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
@@ -12,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBenchmarkCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsGuiCompatSetupCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
@@ -63,6 +66,8 @@ public final class RtsbuildingMod {
         modEventBus.addListener(this::commonSetup);
 
         ENTITY_TYPES.register(modEventBus);
+        RtsItems.register(modEventBus);
+        RtsCreativeTabs.register(modEventBus);
         RtsForgePayloadRegistrar.register();
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
@@ -91,6 +96,7 @@ public final class RtsbuildingMod {
                 RtsCameraManager.cleanupOrphanCameras(serverPlayer.getServer());
                 RtsDamageFeedbackManager.remember(serverPlayer);
                 RtsProgressionManager.onPlayerLogin(serverPlayer);
+                RtsPluginService.syncRelatedPlayers(serverPlayer);
                 RtsWorkflowEngine.getInstance().loadPlayerFromStore(serverPlayer.getServer(), serverPlayer);
             }
         }

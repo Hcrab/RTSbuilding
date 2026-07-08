@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {"tag": "forge:ingots/iron"},
+    "P": {"item": "rtsbuilding:range_extension_i"},
+    "R": {"tag": "forge:dusts/redstone"}
+  },
+  "pattern": [
+    " I ",
+    "RPR",
+    " I "
+  ],
+  "result": {"count": 1, "item": "rtsbuilding:range_extension_ii"}
+}

@@ -19,6 +19,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
@@ -247,6 +248,7 @@ public final class ClientRtsController {
     private boolean progressionBypassHomeRadius;
     private final Set<String> unlockedProgressionNodes = new HashSet<>();
     private final Set<String> unlockableProgressionNodes = new HashSet<>();
+    private final PluginStateManager pluginStateManager = new PluginStateManager();
     private double storagePanelXNormalized;
     private double storagePanelYNormalized;
     private double storagePanelWidthNormalized;
@@ -363,6 +365,18 @@ public final class ClientRtsController {
 
     public Set<String> getUnlockableProgressionNodes() {
         return Collections.unmodifiableSet(this.unlockableProgressionNodes);
+    }
+
+    public List<PluginStateManager.InstalledPluginView> getInstalledPlugins() {
+        return this.pluginStateManager.installedPlugins();
+    }
+
+    public String getPluginTeamName() {
+        return this.pluginStateManager.teamName();
+    }
+
+    public boolean hasInstalledPlugin(String pluginId) {
+        return this.pluginStateManager.hasPlugin(pluginId);
     }
 
     public BuilderMode getMode() {
@@ -2230,6 +2244,22 @@ public final class ClientRtsController {
             clearProgressionLocksForDisabled(payload.radiusBlocks(), payload.fluidCapacityBuckets(), payload.ultimineLimit());
         }
         RtsProgressionNodes.applySyncedCostOverrides(payload.costOverrides());
+    }
+
+    public void applyPluginState(S2CRtsPluginStatePayload payload) {
+        this.pluginStateManager.applyPluginState(payload);
+    }
+
+    public void requestPluginState() {
+        RtsClientPacketGateway.sendRequestPlugins();
+    }
+
+    public void installPluginFromInventorySlot(int inventorySlot) {
+        RtsClientPacketGateway.sendInstallPluginFromInventorySlot(inventorySlot);
+    }
+
+    public void uninstallPlugin(String pluginId) {
+        RtsClientPacketGateway.sendUninstallPlugin(pluginId);
     }
 
     private void clearProgressionLocksForDisabled() {

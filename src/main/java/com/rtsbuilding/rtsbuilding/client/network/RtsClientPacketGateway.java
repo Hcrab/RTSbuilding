@@ -13,6 +13,9 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPa
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsBeginHomeSelectionPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
+import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsInstallPluginPayload;
+import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsRequestPluginsPayload;
+import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsUninstallPluginPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsCloseRemoteMenuPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFillInventoryPayload;
@@ -91,6 +94,18 @@ public final class RtsClientPacketGateway {
 
     public static void sendBeginHomeSelection() {
         PacketDistributor.sendToServer(new C2SRtsBeginHomeSelectionPayload());
+    }
+
+    public static void sendRequestPlugins() {
+        PacketDistributor.sendToServer(new C2SRtsRequestPluginsPayload());
+    }
+
+    public static void sendInstallPluginFromInventorySlot(int inventorySlot) {
+        PacketDistributor.sendToServer(new C2SRtsInstallPluginPayload(inventorySlot));
+    }
+
+    public static void sendUninstallPlugin(String pluginId) {
+        PacketDistributor.sendToServer(new C2SRtsUninstallPluginPayload(pluginId == null ? "" : pluginId));
     }
 
     public static void sendToggleCamera(boolean startAtPlayerHead) {

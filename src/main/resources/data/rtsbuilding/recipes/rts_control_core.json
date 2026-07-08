@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {"tag": "forge:gems/amethyst"},
+    "E": {"item": "minecraft:ender_eye"},
+    "R": {"tag": "forge:dusts/redstone"}
+  },
+  "pattern": [
+    " R ",
+    "AEA",
+    " R "
+  ],
+  "result": {"count": 1, "item": "rtsbuilding:rts_control_core"}
+}

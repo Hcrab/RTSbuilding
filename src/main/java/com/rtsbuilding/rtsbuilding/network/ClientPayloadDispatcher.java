@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
@@ -122,6 +123,13 @@ public final class ClientPayloadDispatcher {
         if (!IS_CLIENT) return;
         if (payload instanceof S2CRtsDamageFeedbackPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleDamageFeedback(p, ctx);
+        }
+    }
+
+    public static void dispatchPlugin(Object payload, IPayloadContext ctx) {
+        if (!IS_CLIENT) return;
+        if (payload instanceof S2CRtsPluginStatePayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handlePluginState(p, ctx);
         }
     }
 }

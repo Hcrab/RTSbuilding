@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "G": {"tag": "forge:glass_panes"},
+    "L": {"tag": "forge:gems/lapis"},
+    "R": {"tag": "forge:dusts/redstone"}
+  },
+  "pattern": [
+    "GLG",
+    "RLR",
+    "GLG"
+  ],
+  "result": {"count": 1, "item": "rtsbuilding:range_culling_plugin"}
+}

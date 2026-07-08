@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 
 import java.util.*;
 
@@ -69,20 +70,11 @@ public final class RtsProgressionManager {
     // ======================================================================
 
     public static boolean canUse(ServerPlayer player, RtsFeature feature) {
-        if (!isEnabled()) {
-            return true;
-        }
-        if (player == null || feature == null) {
-            return false;
-        }
-        return derive(player).features().contains(feature);
+        return RtsPluginService.canUse(player, feature);
     }
 
     public static double getActionRadius(ServerPlayer player) {
-        if (!isEnabled()) {
-            return Config.maxActionRadiusBlocks();
-        }
-        return Math.max(1.0D, derive(player).radiusBlocks());
+        return RtsPluginService.actionRadius(player);
     }
 
     public static int getFluidCapacityBuckets(ServerPlayer player) {
@@ -100,7 +92,7 @@ public final class RtsProgressionManager {
     }
 
     public static boolean canBypassHomeRadius(ServerPlayer player) {
-        return !isEnabled() || derive(player).bypassHomeRadius();
+        return RtsPluginService.canBypassHomeRadius(player);
     }
 
     // ======================================================================
@@ -129,6 +121,14 @@ public final class RtsProgressionManager {
 
     public static String sharedProgressionKey(ServerPlayer player) {
         return RtsProgressionPersistence.sharedProgressionKey(player);
+    }
+
+    public static String sharedProgressionLabel(ServerPlayer player) {
+        return RtsProgressionPersistence.sharedProgressionLabel(player);
+    }
+
+    public static com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData sharedProgressionData(ServerPlayer player) {
+        return RtsProgressionPersistence.sharedProgressionData(player);
     }
 
     public static void beginHomeSelection(ServerPlayer player) {
