@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
@@ -552,7 +553,8 @@ public final class RtsUltimineProcessor {
         ServerLevel level = player.serverLevel();
         return RtsMiningTargetQueue.collectExplicitDestroyTargets(
                 positions,
-                pos -> RtsLinkedStorageResolver.canAccessWorldTarget(player, pos),
+                pos -> RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
+                        && RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN),
                 pos -> {
             BlockState state = level.getBlockState(pos);
             // FIXED: No longer incorrectly excludes waterlogged blocks
@@ -608,6 +610,9 @@ public final class RtsUltimineProcessor {
             session.mining.ultimineProcessedTargets++;
 
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, target, session.mining.miningFace)) {
                 continue;
             }
             BlockState targetState = level.getBlockState(target);
@@ -676,7 +681,8 @@ public final class RtsUltimineProcessor {
         if (!targets.isEmpty()) {
             List<BlockPos> validTargets = new ArrayList<>();
             for (BlockPos target : targets) {
-                if (RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                if (RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
+                        && RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
                     validTargets.add(target);
                 }
             }
@@ -688,6 +694,9 @@ public final class RtsUltimineProcessor {
         while (!targets.isEmpty()) {
             BlockPos target = targets.removeFirst();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
                 continue;
             }
             RtsMiningStateMachine.destroyMinedBlock(player, session, target, toolSlot);

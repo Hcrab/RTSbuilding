@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.*;
 import net.minecraft.core.BlockPos;
@@ -124,6 +125,9 @@ public final class RtsPlacementQuickBuild {
             return false;
         }
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, targetPos)) {
+            return false;
+        }
+        if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return false;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.progression;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
+import com.rtsbuilding.rtsbuilding.compat.openpac.RtsOpenPacCompat;
 import com.rtsbuilding.rtsbuilding.progression.RtsIngredientCost;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
@@ -62,6 +63,10 @@ final class RtsProgressionPersistence {
                 || !Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.get()) {
             return "";
         }
+        String openPacTeamKey = RtsOpenPacCompat.progressionTeamKey(player);
+        if (openPacTeamKey != null && !openPacTeamKey.isBlank()) {
+            return openPacTeamKey;
+        }
         String ftbTeamKey = RtsFtbCompat.progressionTeamKey(player);
         if (ftbTeamKey != null && !ftbTeamKey.isBlank()) {
             return ftbTeamKey;
@@ -74,6 +79,10 @@ final class RtsProgressionPersistence {
         if (!RtsProgressionManager.isEnabled() || player == null
                 || !Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.get()) {
             return "";
+        }
+        String openPacLabel = RtsOpenPacCompat.progressionTeamLabel(player);
+        if (openPacLabel != null && !openPacLabel.isBlank()) {
+            return openPacLabel;
         }
         String ftbLabel = RtsFtbCompat.progressionTeamLabel(player);
         if (ftbLabel != null && !ftbLabel.isBlank()) {

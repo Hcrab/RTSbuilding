@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsMiningService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
@@ -59,6 +60,10 @@ final class RtsGuiBindingHelper {
         if (pos == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return RtsStorageBindings.UpdateResult.none();
         }
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
 
         ServerLevel level = player.serverLevel();
         MenuProvider provider = resolveBindableMenuProvider(level, pos);
@@ -109,6 +114,10 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, binding.pos())) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, binding.pos(), binding.face(), InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 

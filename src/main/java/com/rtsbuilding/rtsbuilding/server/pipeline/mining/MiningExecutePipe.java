@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.sync.HistoryRecordPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
@@ -55,6 +56,9 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
 
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return PipelineResult.failure("Cannot access world target");
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, face == null ? Direction.DOWN : face)) {
+            return PipelineResult.failure("Cannot break protected target");
         }
         if (ctx.isAllowPlacedBlockRecovery()
                 && RtsMiningValidator.tryRecoverPlacedBlock(player, session, pos, face)) {

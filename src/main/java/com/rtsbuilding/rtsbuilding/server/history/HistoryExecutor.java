@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -78,6 +79,7 @@ public final class HistoryExecutor {
         for (HistoryBlockRecord record : blocks) {
             BlockPos pos = record.pos();
             if (!level.isLoaded(pos)) continue;
+            if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
 
             BlockState currentState = level.getBlockState(pos);
             if (!currentState.isAir() && !currentState.canBeReplaced()) {
@@ -166,6 +168,7 @@ public final class HistoryExecutor {
         for (HistoryBlockRecord record : blocks) {
             BlockPos pos = record.pos();
             if (!level.isLoaded(pos)) continue;
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, net.minecraft.core.Direction.UP)) continue;
 
             BlockState currentState = level.getBlockState(pos);
             if (currentState.isAir()) continue; // 方块已不存在

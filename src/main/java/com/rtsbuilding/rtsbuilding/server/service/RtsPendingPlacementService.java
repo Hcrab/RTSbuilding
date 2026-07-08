@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
@@ -280,6 +281,9 @@ public final class RtsPendingPlacementService {
             BlockState currentState = player.serverLevel().getBlockState(pos);
             Block currentBlock = currentState.getBlock();
             if (currentBlock == expectedBlock || currentState.isAir() || currentState.canBeReplaced()) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.UP)) {
                 continue;
             }
 

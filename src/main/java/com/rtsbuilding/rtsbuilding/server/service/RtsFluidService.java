@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
@@ -12,6 +13,8 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.items.IItemHandler;
 
@@ -105,6 +108,8 @@ public final class RtsFluidService {
             return false;
         }
         if (level.mayInteract(player, pos)
+                && RtsClaimProtectionService.canInteractBlock(
+                        player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
                 && RtsCameraManager.isWithinActionRange(player, pos)
                 && RtsProgressionManager.canAccessHomeRadius(player, pos)) {
             return true;
@@ -117,6 +122,7 @@ public final class RtsFluidService {
             return false;
         }
         return level.mayInteract(player, below)
+                && RtsClaimProtectionService.canPlaceBlock(player, pos)
                 && RtsCameraManager.isWithinActionRange(player, pos)
                 && RtsProgressionManager.canAccessHomeRadius(player, pos);
     }

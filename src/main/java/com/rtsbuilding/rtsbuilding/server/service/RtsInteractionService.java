@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
@@ -121,6 +122,22 @@ public final class RtsInteractionService {
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
                 ? SoundService.createSoundStack(itemId)
                 : toolSnapshot.copy();
+        ItemStack protectionStack = sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND
+                ? ItemStack.EMPTY : soundStack;
+        if (targetEntity != null && !RtsClaimProtectionService.canInteractEntity(
+                player, targetEntity, InteractionHand.MAIN_HAND, protectionStack, false)) {
+            return;
+        }
+        if (blockHit != null) {
+            if (!RtsClaimProtectionService.canInteractBlock(
+                    player, effectiveBlockPos, face, InteractionHand.MAIN_HAND, protectionStack)) {
+                return;
+            }
+            if (protectionStack.getItem() instanceof BlockItem && !RtsClaimProtectionService.canPlaceBlock(
+                    player, placementTargetPos(level, effectiveBlockPos, face))) {
+                return;
+            }
+        }
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
 
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
@@ -172,6 +189,13 @@ public final class RtsInteractionService {
 
     private static int clampHotbarSlot(int slot) {
         return Math.max(0, Math.min(8, slot));
+    }
+
+    private static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
+        if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
+            return clickedPos;
+        }
+        return clickedPos.relative(face == null ? Direction.UP : face);
     }
 
     public static InteractionResult interactWithToolSlot(ServerPlayer player, ServerLevel level, Entity targetEntity,

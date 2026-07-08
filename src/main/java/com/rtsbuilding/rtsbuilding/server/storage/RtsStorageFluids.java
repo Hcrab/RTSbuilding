@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import net.minecraft.core.BlockPos;
@@ -85,7 +86,7 @@ public final class RtsStorageFluids {
         ServerLevel level = player.serverLevel();
         FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
 
-        int filledIntoBlock = fillFluidHandlerAtTarget(level, clickedPos, face, transfer);
+        int filledIntoBlock = fillFluidHandlerAtTarget(level, player, clickedPos, face, transfer);
         if (filledIntoBlock > 0) {
             int consumed = extractFluidFromNetwork(session, safeFluidHandlers, fluid, filledIntoBlock, true);
             if (consumed > 0) {
@@ -404,9 +405,13 @@ public final class RtsStorageFluids {
         return !generic.isEmpty() && generic.getFluid() == fluid ? generic : FluidStack.EMPTY;
     }
 
-    private static int fillFluidHandlerAtTarget(ServerLevel level, BlockPos clickedPos, Direction face,
+    private static int fillFluidHandlerAtTarget(ServerLevel level, ServerPlayer player, BlockPos clickedPos, Direction face,
             FluidStack fluidStack) {
-        if (fluidStack.isEmpty() || !level.hasChunkAt(clickedPos)) {
+        if (fluidStack.isEmpty() || clickedPos == null || face == null || !level.hasChunkAt(clickedPos)) {
+            return 0;
+        }
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
             return 0;
         }
         List<IFluidHandler> candidates = new ArrayList<>();
@@ -417,7 +422,8 @@ public final class RtsStorageFluids {
         }
 
         BlockPos adjacent = clickedPos.relative(face);
-        if (level.hasChunkAt(adjacent)) {
+        if (level.hasChunkAt(adjacent) && RtsClaimProtectionService.canInteractBlock(
+                player, adjacent, face.getOpposite(), InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
             addFluidHandlerCandidate(level, adjacent, face.getOpposite(), candidates);
             addFluidHandlerCandidate(level, adjacent, null, candidates);
             for (Direction direction : Direction.values()) {
@@ -464,6 +470,9 @@ public final class RtsStorageFluids {
         if (!canPlaceFluidAt(level, player, pos, fluidStack, placementHit)) {
             return false;
         }
+        if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) {
+            return false;
+        }
 
         Fluid fluid = fluidStack.getFluid();
         BlockState state = level.getBlockState(pos);
@@ -494,6 +503,9 @@ public final class RtsStorageFluids {
         boolean isDestNonSolid = !state.isSolid();
         boolean isDestReplaceable = state.canBeReplaced(context);
         if ((isDestNonSolid || isDestReplaceable) && !state.liquid()) {
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, placementHit.getDirection())) {
+                return false;
+            }
             level.destroyBlock(pos, true);
         }
         return level.setBlock(pos, placeState, 11);

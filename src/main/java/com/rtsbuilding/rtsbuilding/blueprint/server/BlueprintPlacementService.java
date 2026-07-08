@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBlueprintService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import net.minecraft.core.BlockPos;
@@ -278,6 +279,9 @@ public final class BlueprintPlacementService {
 
     private static boolean canStillPlace(ServerPlayer player, ServerLevel level, BlockPos target) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+            return false;
+        }
+        if (!RtsClaimProtectionService.canPlaceBlock(player, target)) {
             return false;
         }
         if (level.getBlockEntity(target) != null) {

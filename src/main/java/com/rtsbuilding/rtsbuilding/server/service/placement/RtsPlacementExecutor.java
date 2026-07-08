@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.service.SoundService;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.*;
@@ -118,6 +119,10 @@ public final class RtsPlacementExecutor {
     private static boolean placeWithForcedEmptyHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
             BlockPos clickedPos, BlockHitResult hit, Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext,
             boolean forcePlace) {
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, clickedPos, hit.getDirection(), InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return false;
+        }
         AbstractContainerMenu menuBeforeEmptyUse = player.containerMenu;
         TemporaryContextSwitcher.UseOnOutcome emptyUse = TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
@@ -163,6 +168,14 @@ public final class RtsPlacementExecutor {
             boolean forcePlace, boolean refreshStoragePage) {
         ItemStack sourceSnapshot = player.getMainHandItem().copy();
         boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof BlockItem;
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, clickedPos, face, InteractionHand.MAIN_HAND, sourceSnapshot)) {
+            return false;
+        }
+        if (sourcePlacesBlock && !RtsClaimProtectionService.canPlaceBlock(
+                player, placementTargetPos(level, clickedPos, face))) {
+            return false;
+        }
         if (skipIfOccupied && sourcePlacesBlock) {
             if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
@@ -258,6 +271,15 @@ public final class RtsPlacementExecutor {
 
         Item item = BuiltInRegistries.ITEM.get(id);
         ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
+        ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : preferredStack.copyWithCount(1);
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, clickedPos, face, InteractionHand.MAIN_HAND, protectionStack)) {
+            return false;
+        }
+        if (item instanceof BlockItem && !RtsClaimProtectionService.canPlaceBlock(
+                player, placementTargetPos(level, clickedPos, face))) {
+            return false;
+        }
         if (skipIfOccupied && item instanceof BlockItem) {
             if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
@@ -331,6 +353,13 @@ public final class RtsPlacementExecutor {
 
         RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
         return true;
+    }
+
+    private static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
+        if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
+            return clickedPos;
+        }
+        return clickedPos.relative(face);
     }
 
     private static void recordMainHandResult(ServerPlayer player, RtsStorageSession session, ServerLevel level,

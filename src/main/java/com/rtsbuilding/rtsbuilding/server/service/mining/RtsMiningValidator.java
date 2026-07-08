@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
@@ -126,6 +127,9 @@ public final class RtsMiningValidator {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return false;
         }
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
+            return false;
+        }
         if (creative) {
             return true;
         }
@@ -242,6 +246,9 @@ public final class RtsMiningValidator {
             ServerPlayer player, BlockPos seed, int toolSlot, ItemStack linkedTool,
             boolean selectedToolRequested, int limit, boolean creative, byte mode) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, seed)) {
+            return new java.util.ArrayDeque<>();
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, seed, Direction.DOWN)) {
             return new java.util.ArrayDeque<>();
         }
 

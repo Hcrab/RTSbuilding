@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
@@ -13,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -175,6 +177,10 @@ public final class RtsPlacementService {
         }
         RtsStorageSession session = RtsSessionService.getIfPresent(player);
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+            return;
+        }
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);

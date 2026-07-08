@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.*;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import net.minecraft.core.BlockPos;
@@ -10,6 +11,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.Level;
 
 /**
@@ -53,6 +55,8 @@ public final class RtsBindingService {
     public static void linkStorage(ServerPlayer player, BlockPos pos, byte linkMode) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.LINK_STORAGE)) return;
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) return;
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) return;
         RtsStorageSession session = RtsSessionService.getOrCreate(player);
         applyUpdate(player, session, RtsStorageBindings.linkStorage(player, session, pos, linkMode));
     }

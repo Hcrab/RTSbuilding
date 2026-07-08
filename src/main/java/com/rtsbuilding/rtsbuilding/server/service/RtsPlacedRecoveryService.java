@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.*;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -75,6 +76,9 @@ public final class RtsPlacedRecoveryService {
                 return;
             }
             targetPos = adjacent;
+        }
+        if (!RtsClaimProtectionService.canBreakBlock(player, targetPos, face != null ? face : Direction.UP)) {
+            return;
         }
 
         BlockState state = level.getBlockState(targetPos);
