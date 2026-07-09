@@ -48,6 +48,8 @@ public interface IWorkflowEngine {
 
     void deleteWorkflow(ServerPlayer player, int entryId);
 
+    void setWorkflowProtected(ServerPlayer player, int entryId, boolean protectedWorkflow);
+
     void cancelAll(ServerPlayer player);
 
     void clearPlayerData(UUID playerId);

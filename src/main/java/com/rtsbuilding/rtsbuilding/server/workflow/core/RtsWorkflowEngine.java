@@ -52,9 +52,17 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.empty();
         }
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
+        if (slots.isFull()) {
+            RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
+            if (replaced != null) {
+                fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
+                RtsbuildingMod.LOGGER.info("[Workflow] {} auto-replaced workflow #{}: {}",
+                        player.getGameProfile().getName(), replaced.id(), replaced.type());
+            }
+        }
         RtsWorkflowEntry entry = slots.addEntry(priority == null ? RtsWorkflowPriority.NORMAL : priority);
         if (entry == null) {
-            player.displayClientMessage(Component.literal("§c工作流已满，无法开始新的远程任务。"), true);
+            player.displayClientMessage(Component.literal("§c工作流已满且都被保护，无法开始新的远程任务。"), true);
             RtsbuildingMod.LOGGER.warn("[Workflow] {} workflow slots are full", player.getGameProfile().getName());
             return Optional.empty();
         }
@@ -206,6 +214,26 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         } else {
             this.syncService.sendIdle(player);
         }
+    }
+
+    @Override
+    public void setWorkflowProtected(ServerPlayer player, int entryId, boolean protectedWorkflow) {
+        if (player == null) {
+            return;
+        }
+        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), player.level().dimension());
+        if (slots == null) {
+            return;
+        }
+        RtsWorkflowEntry entry = slots.findEntryById(entryId);
+        if (entry == null || !entry.isOccupied()) {
+            return;
+        }
+        entry.setProtectedWorkflow(protectedWorkflow);
+        this.syncService.notifyPlayer(player, slots);
+        player.displayClientMessage(Component.literal(protectedWorkflow
+                ? "§b工作流已设为不被覆盖。"
+                : "§7工作流已允许自动覆盖。"), true);
     }
 
     @Override

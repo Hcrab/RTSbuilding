@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -54,6 +56,42 @@ public final class RaycastHelper {
      * @param reach 灏勭嚎鏈€澶ц窛绂?
      * @return 瀹炰綋鍛戒腑缁撴灉锛屾湭鍛戒腑鍒欒繑鍥瀗ull
      */
+    /**
+     * 使用范围剔除感知的方块射线。
+     *
+     * <p>黄色交互框、真实点击和远程放置需要共用同一套“被剔除方块当作透明”的规则，
+     * 否则玩家看到的目标会停在隐藏屋顶/墙体上，真正想操作的室内方块无法被选中。</p>
+     */
+    public static BlockHitResult raycastBlockFromCursorThroughCulling(Minecraft minecraft, Vec3 camPos, Vec3 direction,
+            double maxReach, boolean includeFluidSource) {
+        if (minecraft == null || minecraft.level == null || minecraft.getCameraEntity() == null) {
+            return null;
+        }
+        ClipContext.Fluid fluidMode = includeFluidSource ? ClipContext.Fluid.SOURCE_ONLY : ClipContext.Fluid.NONE;
+        return RtsCullingRayClipper.clip(
+                camPos,
+                direction,
+                maxReach,
+                (start, end) -> minecraft.level.clip(new ClipContext(
+                        start,
+                        end,
+                        ClipContext.Block.OUTLINE,
+                        fluidMode,
+                        minecraft.getCameraEntity())),
+                new RtsCullingRayClipper.CullingQuery() {
+                    @Override
+                    public boolean shouldCull(BlockPos pos) {
+                        return RtsCullingClientState.shouldCull(pos);
+                    }
+
+                    @Override
+                    public double distanceAfterCulledBlock(Vec3 origin, Vec3 rayDirection, BlockPos pos,
+                            double maxDistance) {
+                        return RtsCullingClientState.distanceAfterCulledBlock(origin, rayDirection, pos, maxDistance);
+                    }
+                });
+    }
+
     public static EntityHitResult raycastEntityFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to, Vec3 viewDir,
             double reach) {
         Entity cameraEntity = minecraft.getCameraEntity();

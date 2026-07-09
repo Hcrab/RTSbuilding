@@ -29,6 +29,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPauseWorkflowPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetWorkflowProtectedPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsQuestDetectPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsQuickDropPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsRequestProgressionStatePayload;
@@ -50,6 +51,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsUnlockProgressionNodePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 
 import net.minecraft.core.BlockPos;
@@ -176,6 +178,10 @@ public final class RtsClientPacketGateway {
 
     public static void sendPauseWorkflow(int entryId) {
         PacketDistributor.sendToServer(new C2SRtsPauseWorkflowPayload(entryId));
+    }
+
+    public static void sendSetWorkflowProtected(int workflowEntryId, boolean protectedWorkflow) {
+        PacketDistributor.sendToServer(new C2SRtsSetWorkflowProtectedPayload(workflowEntryId, protectedWorkflow));
     }
 
     public static void sendDeleteWorkflow(int workflowEntryId) {
@@ -337,6 +343,7 @@ public final class RtsClientPacketGateway {
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
         }
+        RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
         PacketDistributor.sendToServer(new C2SRtsPlacePayload(
                 hit.getBlockPos(),
                 (byte) hit.getDirection().get3DDataValue(),
@@ -380,6 +387,7 @@ public final class RtsClientPacketGateway {
                 continue;
             }
             positions.add(hit.getBlockPos().immutable());
+            RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
             if (positions.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
                 break;
             }
@@ -411,6 +419,7 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendPlaceFluid(BlockHitResult hit, boolean forcePlace, String fluidId, Vec3 rayOrigin, Vec3 rayDir) {
+        RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection());
         PacketDistributor.sendToServer(new C2SRtsPlaceFluidPayload(
                 hit.getBlockPos(),
                 (byte) hit.getDirection().get3DDataValue(),

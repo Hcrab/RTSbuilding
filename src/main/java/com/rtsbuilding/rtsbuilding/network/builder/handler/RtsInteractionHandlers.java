@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetWorkflowProtectedPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.Direction;
@@ -116,6 +117,17 @@ public final class RtsInteractionHandlers {
                     serverPlayer.displayClientMessage(Component.literal("§e已暂停 RTS 任务。"), true);
                 }
             });
+        });
+    }
+
+    public static void handleSetWorkflowProtected(C2SRtsSetWorkflowProtectedPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsWorkflowEngine.getInstance().setWorkflowProtected(
+                        serverPlayer,
+                        payload.workflowEntryId(),
+                        payload.protectedWorkflow());
+            }
         });
     }
 

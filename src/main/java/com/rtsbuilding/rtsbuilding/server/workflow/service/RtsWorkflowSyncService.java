@@ -59,6 +59,7 @@ public final class RtsWorkflowSyncService {
                 status.detailMessage(),
                 status.suspended() ? (byte) 1 : (byte) 0,
                 status.paused() ? (byte) 1 : (byte) 0,
+                status.protectedWorkflow() ? (byte) 1 : (byte) 0,
                 status.entryId());
     }
 }

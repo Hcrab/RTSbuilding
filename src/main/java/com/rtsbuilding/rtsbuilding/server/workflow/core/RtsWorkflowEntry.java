@@ -31,6 +31,7 @@ public final class RtsWorkflowEntry {
     private static final String NBT_DETAIL = "detail";
     private static final String NBT_SUSPENDED = "suspended";
     private static final String NBT_PAUSED = "paused";
+    private static final String NBT_PROTECTED = "protected";
     private static final String NBT_CREATED_AT = "created_at";
     private static final String NBT_LAST_UPDATED_AT = "last_updated_at";
     private static final String NBT_EXTRA_DATA = "extra_data";
@@ -47,6 +48,7 @@ public final class RtsWorkflowEntry {
     private String detailMessage = "";
     private boolean suspended;
     private boolean paused;
+    private boolean protectedWorkflow;
     private @Nullable CompoundTag extraData;
 
     public RtsWorkflowEntry(int id) {
@@ -95,6 +97,14 @@ public final class RtsWorkflowEntry {
         return this.paused;
     }
 
+    public boolean protectedWorkflow() {
+        return this.protectedWorkflow;
+    }
+
+    public long createdAt() {
+        return this.createdAt;
+    }
+
     public long lastUpdatedAt() {
         return this.lastUpdatedAt;
     }
@@ -130,6 +140,7 @@ public final class RtsWorkflowEntry {
                 this.detailMessage,
                 this.suspended,
                 this.paused,
+                this.protectedWorkflow,
                 this.id);
     }
 
@@ -196,6 +207,11 @@ public final class RtsWorkflowEntry {
         touch();
     }
 
+    public void setProtectedWorkflow(boolean protectedWorkflow) {
+        this.protectedWorkflow = protectedWorkflow;
+        touch();
+    }
+
     void touch() {
         this.lastUpdatedAt = System.currentTimeMillis();
     }
@@ -220,6 +236,7 @@ public final class RtsWorkflowEntry {
         tag.putString(NBT_DETAIL, this.detailMessage);
         tag.putBoolean(NBT_SUSPENDED, this.suspended);
         tag.putBoolean(NBT_PAUSED, this.paused);
+        tag.putBoolean(NBT_PROTECTED, this.protectedWorkflow);
         tag.putLong(NBT_CREATED_AT, this.createdAt);
         tag.putLong(NBT_LAST_UPDATED_AT, this.lastUpdatedAt);
         if (this.extraData != null && !this.extraData.isEmpty()) {
@@ -253,6 +270,7 @@ public final class RtsWorkflowEntry {
         entry.detailMessage = tag.getString(NBT_DETAIL);
         entry.suspended = tag.getBoolean(NBT_SUSPENDED);
         entry.paused = tag.getBoolean(NBT_PAUSED);
+        entry.protectedWorkflow = tag.getBoolean(NBT_PROTECTED);
         if (tag.contains(NBT_CREATED_AT)) {
             entry.createdAt = tag.getLong(NBT_CREATED_AT);
         }
@@ -263,5 +281,9 @@ public final class RtsWorkflowEntry {
             entry.extraData = tag.getCompound(NBT_EXTRA_DATA).copy();
         }
         return entry;
+    }
+
+    void setCreatedAtRaw(long createdAt) {
+        this.createdAt = createdAt;
     }
 }

@@ -735,6 +735,7 @@ public final class ClientRtsController {
                 payload.detailMessage(),
                 payload.suspended() != 0,
                 payload.paused() != 0,
+                payload.protectedWorkflow() != 0,
                 payload.workflowEntryId());
     }
 
@@ -1887,6 +1888,10 @@ public final class ClientRtsController {
     }
 
     private void markStorageScanStarted() {
+        if (!RtsClientUiStateStore.isShowStorageReadyPopupEnabled()) {
+            clearStorageScanState();
+            return;
+        }
         this.storageScanRunning = true;
         this.storageScanStartedAtMs = System.currentTimeMillis();
         this.storageScanVisibleUntilMs = 0L;
@@ -1906,6 +1911,10 @@ public final class ClientRtsController {
         this.storageScanRunning = false;
         this.storageScanStartedAtMs = 0L;
         this.storageScanVisibleUntilMs = 0L;
+    }
+
+    public void clearStorageScanPopupState() {
+        clearStorageScanState();
     }
 
     private void clearStorageViewDirty() {
@@ -2198,12 +2207,8 @@ public final class ClientRtsController {
         BlockPos pos = payload.pos();
         int stage = payload.stage();
         if (stage < 0) {
-            if (this.mineRenderPos != null) {
-                minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-                this.mineRenderPos = null;
-            } else {
-                minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, pos, -1);
-            }
+            clearActiveMineTargetIfMatches(pos);
+            clearMineProgressRender(pos);
             this.mineRenderStage = -1;
             return;
         }
@@ -2782,10 +2787,29 @@ public final class ClientRtsController {
         if (this.activeMinePos == null || this.activeMineFace < 0) {
             return;
         }
-        RtsClientPacketGateway.sendMineAbort(this.activeMinePos, this.activeMineFace, toolSlot);
+        BlockPos abortPos = this.activeMinePos;
+        RtsClientPacketGateway.sendMineAbort(abortPos, this.activeMineFace, toolSlot);
+        clearMineProgressRender(abortPos);
         this.activeMinePos = null;
         this.activeMineFace = -1;
         this.mineRenderStage = -1;
+    }
+
+    private void clearMineProgressRender(BlockPos fallbackPos) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null
+                && this.mineRenderPos != null
+                && (fallbackPos == null || this.mineRenderPos.equals(fallbackPos))) {
+            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
+            this.mineRenderPos = null;
+        }
+    }
+
+    private void clearActiveMineTargetIfMatches(BlockPos pos) {
+        if (pos != null && this.activeMinePos != null && this.activeMinePos.equals(pos)) {
+            this.activeMinePos = null;
+            this.activeMineFace = -1;
+        }
     }
 
     private String selectedMiningToolItemId() {

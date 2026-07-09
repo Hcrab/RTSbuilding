@@ -100,15 +100,18 @@ public final class TopBarPanel {
 
         // ---- Status bar row 2: storage, auto-store, fill, rotation, undo/redo ----
         String shapeStatus = screen.isQuickBuildOpen() ? screen.pendingShapeStatusText() : "";
-        String row2 = linked + (this.controller.isAutoStoreMinedDrops()
-                ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
-                : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
-                + (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL) ? "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off")) : "")
-                + (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE) ? "    " + screen.text("screen.rtsbuilding.status.shape", screen.activeQuickBuildShapeLabel()) : "")
+        String quickBuildStatus = screen.canUseQuickBuild()
+                ? "    " + screen.text("screen.rtsbuilding.status.shape", screen.activeQuickBuildShapeLabel())
                 + "    " + screen.text("screen.rtsbuilding.status.fill", screen.fillModeLabel(screen.getShapeFillMode()))
                 + "    " + screen.text("screen.rtsbuilding.status.rotation", screen.getShapeRotateDegrees())
                 + "    " + screen.text("screen.rtsbuilding.status.undo_redo", screen.getShapeUndoSize(), screen.getShapeRedoSize())
                 + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
+                : "";
+        String row2 = linked + (this.controller.isAutoStoreMinedDrops()
+                ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
+                : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
+                + (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL) ? "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off")) : "")
+                + quickBuildStatus
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         int statusX = 8;
@@ -235,7 +238,7 @@ public final class TopBarPanel {
         x += 8;
 
         // ---- Action buttons (center group) ----
-        if (screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)) {
+        if (screen.canUseQuickBuild()) {
             layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
             x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
         }

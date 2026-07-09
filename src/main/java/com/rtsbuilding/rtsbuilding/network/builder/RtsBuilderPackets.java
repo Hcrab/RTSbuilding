@@ -94,6 +94,11 @@ public final class RtsBuilderPackets {
                 RtsInteractionHandlers::handleDeleteWorkflow);
 
         registrar.playToServer(
+                C2SRtsSetWorkflowProtectedPayload.TYPE,
+                C2SRtsSetWorkflowProtectedPayload.STREAM_CODEC,
+                RtsInteractionHandlers::handleSetWorkflowProtected);
+
+        registrar.playToServer(
                 C2SRtsScanResumePlacementPayload.TYPE,
                 C2SRtsScanResumePlacementPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handleScanResumePlacement);

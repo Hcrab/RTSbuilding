@@ -595,6 +595,9 @@ public final class RtsUltimineProcessor {
         ServerLevel level = player.serverLevel();
         int processedThisTick = 0;
         int workflowProgressDelta = 0;
+        boolean autoStoreDrops = RtsMiningValidator.canAutoStoreDrops(player, session);
+        List<BlockPos> dropsToAbsorb = new ArrayList<>();
+        boolean finishAfterThisTick = false;
         while (RtsMiningTargetQueue.canProcessAnotherTargetThisTick(processedThisTick, session.mining.ultimineTargets)) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
                 markWorkflowProgress(workflowToken, workflowProgressDelta);
@@ -637,14 +640,23 @@ public final class RtsUltimineProcessor {
                 // Record any collateral multi-block destruction
                 recordCollateralBlocks(level, session, neighborRecords, target);
             }
-            if (result.broken() && RtsMiningValidator.canAutoStoreDrops(player, session)) {
-                RtsDropAbsorber.absorbMinedDropsImmediately(player, session, target);
+            if (result.broken() && autoStoreDrops) {
+                dropsToAbsorb.add(target.immutable());
             }
             if (result.broken() && RtsMiningValidator.isToolNearBreak(player, session)) {
-                markWorkflowProgress(workflowToken, workflowProgressDelta);
-                finishUltimineBatch(player, session);
-                return;
+                finishAfterThisTick = true;
+                break;
             }
+        }
+
+        if (!dropsToAbsorb.isEmpty()
+                && RtsDropAbsorber.absorbMinedDropsBatch(player, session, dropsToAbsorb)) {
+            RtsPageService.markStorageViewDirty(player, session);
+        }
+        if (finishAfterThisTick) {
+            markWorkflowProgress(workflowToken, workflowProgressDelta);
+            finishUltimineBatch(player, session);
+            return;
         }
 
         markWorkflowProgress(workflowToken, workflowProgressDelta);

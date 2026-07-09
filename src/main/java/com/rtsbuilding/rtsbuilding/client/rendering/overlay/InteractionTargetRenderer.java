@@ -79,7 +79,7 @@ public final class InteractionTargetRenderer {
         Vec3 viewDir = resolveHighlightRayDirection(minecraft);
         Vec3 rayEnd = camPos.add(viewDir.scale(MAX_REACH));
 
-        BlockHitResult blockHit = resolveHighlightBlockHit(minecraft, camPos, rayEnd);
+        BlockHitResult blockHit = resolveHighlightBlockHit(minecraft, camPos, viewDir);
         EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(
                 minecraft, camPos, rayEnd, viewDir, MAX_REACH);
 
@@ -142,11 +142,8 @@ public final class InteractionTargetRenderer {
         return RaycastHelper.computeCursorRayDirection(minecraft);
     }
 
-    private static BlockHitResult resolveHighlightBlockHit(Minecraft minecraft, Vec3 camPos, Vec3 rayEnd) {
-        if (minecraft.screen instanceof BuilderScreen builderScreen) {
-            return builderScreen.pickBlockHit();
-        }
-        return RaycastHelper.raycastBlockFromCursor(minecraft, camPos, rayEnd, false);
+    private static BlockHitResult resolveHighlightBlockHit(Minecraft minecraft, Vec3 camPos, Vec3 viewDir) {
+        return RaycastHelper.raycastBlockFromCursorThroughCulling(minecraft, camPos, viewDir, MAX_REACH, false);
     }
 
     static boolean shouldSuppressForBuilderUi(boolean cursorInWorld, boolean coveredByFloatingWindow,

@@ -270,6 +270,12 @@ public final class BuilderScreen extends Screen {
     /** 切换存储刷新完成后的“已就绪”提示。 */
     public void toggleShowStorageReadyPopup() {
         RtsClientUiStateStore.setShowStorageReadyPopupEnabled(!RtsClientUiStateStore.isShowStorageReadyPopupEnabled());
+        if (!RtsClientUiStateStore.isShowStorageReadyPopupEnabled()) {
+            clearStorageScanPopupState();
+        }
+    }
+    public void clearStorageScanPopupState() {
+        this.controller.clearStorageScanPopupState();
     }
     /** 切换安静刷新模式。 */
     public void toggleStorageRefreshQuietEnabled() {
@@ -321,11 +327,37 @@ public final class BuilderScreen extends Screen {
     }
     /** Returns whether the quick-build panel is currently open. */
     public boolean isQuickBuildOpen() {
-        return this.quickBuildPanel.isQuickBuildOpen();
+        return canUseQuickBuild() && this.quickBuildPanel.isQuickBuildOpen();
     }
     /** Opens or closes the quick-build panel. */
     public void setQuickBuildOpen(boolean open) {
+        if (open && !canUseQuickBuild()) {
+            showQuickBuildLockedMessage();
+            this.quickBuildPanel.setQuickBuildOpen(false);
+            return;
+        }
         this.quickBuildPanel.setQuickBuildOpen(open);
+    }
+    /** Returns whether quick-build/remote shape placement is unlocked for the player. */
+    public boolean canUseQuickBuild() {
+        return hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE);
+    }
+    /** Syncs active shape state so a hidden or locked quick-build panel cannot affect normal placement. */
+    public void syncQuickBuildActiveState() {
+        if (!this.quickBuildPanel.isQuickBuildOpen() || !canUseQuickBuild()) {
+            this.controller.setBuildShape(ClientRtsController.BuildShape.BLOCK);
+            this.shapeController.clearShapeBuildSession();
+            ensureFillModeForShape(ClientRtsController.BuildShape.BLOCK);
+            return;
+        }
+        ensureFillModeForShape(this.controller.getBuildShape());
+    }
+    /** Shows the remote-placement locked hint without covering the RTS panels. */
+    public void showQuickBuildLockedMessage() {
+        if (this.minecraft != null && this.minecraft.player != null) {
+            this.minecraft.player.displayClientMessage(
+                    Component.translatable("message.rtsbuilding.quick_build.remote_place_locked"), true);
+        }
     }
     /** Returns the Minecraft client instance for access by sub-panels and utilities. */
     public net.minecraft.client.Minecraft getMinecraft() {
@@ -672,6 +704,10 @@ public final class BuilderScreen extends Screen {
         if (this.interactionWheelPanel.isOpen()) {
             return true;
         }
+        if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
+            this.cameraInput.stopActiveMining();
+            return true;
+        }
         if (this.floatingWindowLayer.mouseReleased(mouseX, mouseY, button)) {
             return true;
         }
@@ -685,10 +721,6 @@ public final class BuilderScreen extends Screen {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && this.cullingManager.isManagementMode()
                 && this.cullingManager.releaseActiveHandleIfDragged()) {
-            return true;
-        }
-        if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
-            this.cameraInput.stopActiveMining();
             return true;
         }
         if (this.cameraInput.isRightDragActive(button)) {
@@ -908,6 +940,15 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
+                if (!forcePlace && !rangeDestroyMode) {
+                    this.shapeController.clearShapeBuildSession();
+                    this.controller.interactBlockWithPinnedItem(
+                            target.blockHit(),
+                            this.controller.getSelectedItemId(),
+                            target.rayOrigin(),
+                            target.rayDir());
+                    return true;
+                }
                 if (rangeDestroyMode) {
                     this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
                     this.shapeController.recordSinglePlacementForUndo(
@@ -970,12 +1011,20 @@ public final class BuilderScreen extends Screen {
             }
         } else if (target.blockHit() != null) {
             if (hasMainHandItem()) {
-                this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
-                this.shapeController.recordSinglePlacementForUndo(
-                        target.blockHit(),
-                        InteractionTypes.PlacementReplayKind.TOOL_SLOT,
-                        "",
-                        getSelectedToolSlot());
+                if (forcePlace) {
+                    this.controller.placeSelected(target.blockHit(), true, target.rayOrigin(), target.rayDir());
+                    this.shapeController.recordSinglePlacementForUndo(
+                            target.blockHit(),
+                            InteractionTypes.PlacementReplayKind.TOOL_SLOT,
+                            "",
+                            getSelectedToolSlot());
+                } else {
+                    this.controller.interactBlockWithToolSlot(
+                            target.blockHit(),
+                            getSelectedToolSlot(),
+                            target.rayOrigin(),
+                            target.rayDir());
+                }
             } else {
                 this.controller.interactEmpty(target.blockHit(), target.rayOrigin(), target.rayDir());
             }
@@ -1269,6 +1318,12 @@ public final class BuilderScreen extends Screen {
     @Override
     /** Handles key release for funnel hotkey and camera vertical movement states. */
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+        if (this.cameraInput.isLeftMiningActive()
+                && this.cameraInput.isKeyboardMining()
+                && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
+            this.cameraInput.stopActiveMining();
+            return true;
+        }
         if (ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode) && this.funnelHotkeyHeld) {
             this.funnelHotkeyHeld = false;
             deactivateFunnelHotkey();
@@ -1813,6 +1868,7 @@ public final class BuilderScreen extends Screen {
         this.shapeController.setLineConnected(state.lineConnected);
         this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360));
         this.shapeController.ensureFillModeForShape(this.controller.getBuildShape());
+        syncQuickBuildActiveState();
     }
     /**
      * Persists the current UI state (shape, fill mode, rotation, panel toggles,
@@ -1824,7 +1880,7 @@ public final class BuilderScreen extends Screen {
         state.fillMode = this.shapeController.getShapeFillMode().name();
         state.lineConnected = this.shapeController.isLineConnected();
         state.rotationDegrees = this.shapeController.getShapeRotateDegrees();
-        state.quickBuildOpen = this.quickBuildPanel.isQuickBuildOpen();
+        state.quickBuildOpen = isQuickBuildOpen();
         state.quickBuildMode = this.quickBuildPanel.getQuickBuildModeName();
         state.quickBuildDestroyChainSelected = this.quickBuildPanel.isDestroyChainSelected();
         state.quickBuildChainDestroyLimit = this.quickBuildPanel.getChainDestroyLimit();
@@ -1960,10 +2016,20 @@ public final class BuilderScreen extends Screen {
     }
     /** Toggles the quick-build panel open/closed. */
     public void toggleQuickBuild() {
+        if (!this.quickBuildPanel.isQuickBuildOpen() && !canUseQuickBuild()) {
+            showQuickBuildLockedMessage();
+            this.quickBuildPanel.setQuickBuildOpen(false);
+            return;
+        }
         this.quickBuildPanel.toggleOpen();
     }
     /** Toggles the ultimine panel open/closed. */
     public void toggleUltimine() {
+        if (!canUseQuickBuild()) {
+            showQuickBuildLockedMessage();
+            this.quickBuildPanel.setQuickBuildOpen(false);
+            return;
+        }
         this.quickBuildPanel.setQuickBuildOpen(true);
         this.quickBuildPanel.setQuickBuildModeName("DESTROY");
         this.quickBuildPanel.setDestroyChainSelected(true);

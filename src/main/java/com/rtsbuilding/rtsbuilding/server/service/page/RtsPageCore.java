@@ -284,11 +284,14 @@ public final class RtsPageCore {
             itemCounts.add(e.count());
         }
 
-        List<String> totalItemIds = new ArrayList<>(counts.size());
-        List<Long> totalItemCounts = new ArrayList<>(counts.size());
-        for (var entry : counts.entrySet()) {
-            totalItemIds.add(entry.getKey());
-            totalItemCounts.add(entry.getValue());
+        boolean totalCountsSnapshot = shouldSendTotalCountsSnapshot(session.browser.search);
+        List<String> totalItemIds = totalCountsSnapshot ? new ArrayList<>(counts.size()) : List.of();
+        List<Long> totalItemCounts = totalCountsSnapshot ? new ArrayList<>(counts.size()) : List.of();
+        if (totalCountsSnapshot) {
+            for (var entry : counts.entrySet()) {
+                totalItemIds.add(entry.getKey());
+                totalItemCounts.add(entry.getValue());
+            }
         }
 
         List<String> fluidIds = new ArrayList<>(sortedFluidEntries.size());
@@ -345,6 +348,10 @@ public final class RtsPageCore {
     }
 
     // ---- helpers ---------------------------------------------------------------
+
+    static boolean shouldSendTotalCountsSnapshot(String search) {
+        return search == null || search.isBlank();
+    }
 
     public static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
         if (handler instanceof ReportedCountItemHandler reported) {

@@ -123,6 +123,21 @@ public final class RtsWorkflowSlotManager {
         return false;
     }
 
+    public synchronized @Nullable RtsWorkflowEntry removeOldestReplaceableEntry() {
+        RtsWorkflowEntry candidate = null;
+        for (RtsWorkflowEntry entry : this.entries) {
+            if (entry.isOccupied()
+                    && !entry.protectedWorkflow()
+                    && (candidate == null || entry.createdAt() < candidate.createdAt())) {
+                candidate = entry;
+            }
+        }
+        if (candidate != null) {
+            this.entries.remove(candidate);
+        }
+        return candidate;
+    }
+
     public synchronized List<RtsWorkflowEntry> occupiedEntries() {
         List<RtsWorkflowEntry> result = new ArrayList<>();
         for (RtsWorkflowEntry entry : this.entries) {
@@ -143,7 +158,9 @@ public final class RtsWorkflowSlotManager {
         Iterator<RtsWorkflowEntry> iterator = this.entries.iterator();
         while (iterator.hasNext()) {
             RtsWorkflowEntry entry = iterator.next();
-            if (entry.isOccupied() && now - entry.lastUpdatedAt() > maxIdleMillis) {
+            if (entry.isOccupied()
+                    && !entry.protectedWorkflow()
+                    && now - entry.lastUpdatedAt() > maxIdleMillis) {
                 removed.add(entry.id());
                 iterator.remove();
             }

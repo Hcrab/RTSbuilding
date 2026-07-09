@@ -10,7 +10,6 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 
 import java.util.List;
 
@@ -425,12 +424,22 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     protected boolean canShowWindow() {
-        return super.canShowWindow() && screen.hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE);
+        return super.canShowWindow() && screen.canUseQuickBuild();
     }
 
     @Override
     protected void onClose() {
+        restoreSingleBlockCursor();
         screen.persistUiState();
+    }
+
+    private void restoreSingleBlockCursor() {
+        if (this.controller != null) {
+            this.controller.setBuildShape(ClientRtsController.BuildShape.BLOCK);
+        }
+        if (this.screen != null) {
+            this.screen.clearShapeBuildSession();
+        }
     }
 
     public boolean isQuickBuildOpen() {
