@@ -1496,6 +1496,7 @@ public final class ScreenShapeController {
         }
         boolean strictEmptyLock = shouldSkipOccupiedReadyShapeTargets(input);
         boolean uniformPlacement = shouldUseUniformShapePlanePlacement(input);
+        ItemStack placementStack = resolveShapePlacementStackForContext();
         LinkedHashSet<BlockPos> resolved = new LinkedHashSet<>(targets.size());
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null) {
@@ -1504,8 +1505,8 @@ public final class ScreenShapeController {
                     continue;
                 }
                 BlockPos placePos = uniformPlacement
-                        ? resolveUniformShapePlacementTargetPos(input, clickedPos)
-                        : resolvePlacementTargetPos(clickedPos, input.placementFace());
+                        ? resolveUniformShapePlacementTargetPos(input, clickedPos, placementStack)
+                        : resolvePlacementTargetPos(clickedPos, input.placementFace(), placementStack);
                 if (placePos != null) {
                     resolved.add(placePos.immutable());
                 }
@@ -1517,14 +1518,14 @@ public final class ScreenShapeController {
                 continue;
             }
             BlockPos placePos = uniformPlacement
-                    ? resolveUniformShapePlacementTargetPos(input, clickedPos)
-                    : resolvePlacementTargetPos(clickedPos, input.placementFace());
+                    ? resolveUniformShapePlacementTargetPos(input, clickedPos, placementStack)
+                    : resolvePlacementTargetPos(clickedPos, input.placementFace(), placementStack);
             if (placePos == null) {
                 continue;
             }
             if (strictEmptyLock
                     && mc.level.hasChunkAt(placePos)
-                    && !mc.level.getBlockState(placePos).canBeReplaced()) {
+                    && !canReplaceForShapePlacement(placePos, input.placementFace(), placementStack)) {
                 continue;
             }
             resolved.add(placePos.immutable());
@@ -1543,6 +1544,10 @@ public final class ScreenShapeController {
     }
 
     private BlockPos resolvePlacementTargetPos(BlockPos clickedPos, Direction face) {
+        return resolvePlacementTargetPos(clickedPos, face, resolveShapePlacementStackForContext());
+    }
+
+    private BlockPos resolvePlacementTargetPos(BlockPos clickedPos, Direction face, ItemStack placementStack) {
         Minecraft mc = this.screen.getMinecraft();
         if (clickedPos == null || face == null || mc == null || mc.level == null) {
             return null;
@@ -1550,10 +1555,15 @@ public final class ScreenShapeController {
         if (!mc.level.hasChunkAt(clickedPos)) {
             return clickedPos;
         }
-        return mc.level.getBlockState(clickedPos).canBeReplaced() ? clickedPos : clickedPos.relative(face);
+        return canReplaceForShapePlacement(clickedPos, face, placementStack) ? clickedPos : clickedPos.relative(face);
     }
 
     private BlockPos resolveUniformShapePlacementTargetPos(ShapeBuildTypes.Input input, BlockPos clickedPos) {
+        return resolveUniformShapePlacementTargetPos(input, clickedPos, resolveShapePlacementStackForContext());
+    }
+
+    private BlockPos resolveUniformShapePlacementTargetPos(ShapeBuildTypes.Input input, BlockPos clickedPos,
+                                                          ItemStack placementStack) {
         if (input == null || clickedPos == null) {
             return null;
         }
@@ -1562,7 +1572,7 @@ public final class ScreenShapeController {
         if (anchor == null || face == null) {
             return clickedPos;
         }
-        BlockPos anchorPlaced = resolvePlacementTargetPos(anchor, face);
+        BlockPos anchorPlaced = resolvePlacementTargetPos(anchor, face, placementStack);
         if (anchorPlaced == null) {
             return clickedPos;
         }
@@ -1570,6 +1580,41 @@ public final class ScreenShapeController {
                 anchorPlaced.getX() - anchor.getX(),
                 anchorPlaced.getY() - anchor.getY(),
                 anchorPlaced.getZ() - anchor.getZ());
+    }
+
+    private boolean canReplaceForShapePlacement(BlockPos clickedPos, Direction face, ItemStack placementStack) {
+        Minecraft mc = this.screen.getMinecraft();
+        if (clickedPos == null || face == null || mc == null || mc.level == null || !mc.level.hasChunkAt(clickedPos)) {
+            return false;
+        }
+        BlockState state = mc.level.getBlockState(clickedPos);
+        BlockPlaceContext context = createShapePlacementContext(clickedPos, face, placementStack);
+        return context == null ? state.canBeReplaced() : state.canBeReplaced(context);
+    }
+
+    private BlockPlaceContext createShapePlacementContext(BlockPos clickedPos, Direction face, ItemStack placementStack) {
+        Minecraft mc = this.screen.getMinecraft();
+        if (clickedPos == null || face == null || placementStack == null || placementStack.isEmpty()
+                || mc == null || mc.level == null || mc.player == null) {
+            return null;
+        }
+        return new BlockPlaceContext(
+                mc.level,
+                mc.player,
+                InteractionHand.MAIN_HAND,
+                placementStack,
+                ShapeGeometryUtil.createShapePlacementHit(clickedPos, face));
+    }
+
+    private ItemStack resolveShapePlacementStackForContext() {
+        if (this.controller.hasSelectedItem()) {
+            return this.controller.getSelectedItemPreview();
+        }
+        Minecraft mc = this.screen.getMinecraft();
+        if (mc != null && mc.player != null) {
+            return mc.player.getMainHandItem();
+        }
+        return ItemStack.EMPTY;
     }
 
     private boolean shouldSkipOccupiedReadyShapeTargets(ShapeBuildTypes.Input input) {

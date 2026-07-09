@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.constants.VanillaTypes;
@@ -10,6 +11,7 @@ import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.MenuType;
@@ -22,12 +24,29 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class RtsCraftTerminalJeiTransferHandler
         implements IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> {
+    private static final int CRAFT_GRID_SLOT_START = 1;
+    private static final int CRAFT_GRID_SLOT_COUNT = 9;
+    private static final int INVENTORY_SLOT_START = 10;
+    private static final int INVENTORY_SLOT_COUNT = 36;
+
+    private final IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> vanillaDelegate;
+
     public RtsCraftTerminalJeiTransferHandler(IRecipeTransferHandlerHelper transferHelper) {
-        // Keep constructor signature for JEI registration helper compatibility.
+        Objects.requireNonNull(transferHelper, "transferHelper");
+        this.vanillaDelegate = transferHelper.createUnregisteredRecipeTransferHandler(
+                transferHelper.createBasicRecipeTransferInfo(
+                        CraftingMenu.class,
+                        MenuType.CRAFTING,
+                        RecipeTypes.CRAFTING,
+                        CRAFT_GRID_SLOT_START,
+                        CRAFT_GRID_SLOT_COUNT,
+                        INVENTORY_SLOT_START,
+                        INVENTORY_SLOT_COUNT));
     }
 
     @Override
@@ -48,6 +67,9 @@ public final class RtsCraftTerminalJeiTransferHandler
     @Override
     public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,
             IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
+        if (!isRtsCraftTerminalScreen(container)) {
+            return this.vanillaDelegate.transferRecipe(container, recipe, recipeSlots, player, maxTransfer, doTransfer);
+        }
         if (!doTransfer) {
             return null;
         }
@@ -58,6 +80,13 @@ public final class RtsCraftTerminalJeiTransferHandler
                 maxTransfer,
                 true));
         return null;
+    }
+
+    private static boolean isRtsCraftTerminalScreen(CraftingMenu container) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null
+                && minecraft.screen instanceof RtsCraftTerminalScreen screen
+                && screen.getMenu() == container;
     }
 
     private static List<ItemStack> buildIngredientPrototypes(CraftingRecipe recipe, IRecipeSlotsView recipeSlots) {
