@@ -192,11 +192,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
             drawScaleRow(g, mouseX, mouseY, rowY, x, w);
             rowY += SCALE_ROW_H;
             drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.debug_button",
-                    "screen.rtsbuilding.settings.debug_button.hint",
-                    this.debugButtonVisible());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.debug_button.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.player_status_overlay",
                     "screen.rtsbuilding.settings.player_status_overlay.hint",
                     this.controller.isPlayerStatusOverlayEnabled());
@@ -468,17 +463,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
             }
             rowY += SCALE_ROW_H;
             if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.debug_button.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.debug_button.hint"))) {
-                screen.toggleDebugButton();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.debug_button.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.player_status_overlay.hint")) {
                 return;
             }
@@ -740,10 +724,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return screen.rtsGuiScaleLabel();
     }
 
-    private boolean debugButtonVisible() {
-        return screen.isDebugButtonVisible();
-    }
-
     private String text(String key, Object... args) {
         return Component.translatable(key, args).getString();
     }
@@ -772,7 +752,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
         height += SECTION_GAP;
         height += sectionHeight(this.displayExpanded,
                 SCALE_ROW_H
-                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.debug_button.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.player_status_overlay.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint")

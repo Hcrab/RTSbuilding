@@ -322,7 +322,7 @@ public final class RtsMiningStateMachine {
         if (broken) {
             BlockState resultState = player.serverLevel().getBlockState(pos);
             RtsMiningNetworkHelper.sendBreakAnimation(player, pos, beforeState, resultState);
-            RtsPlacementSound.playRemoteBlockBreakSound(player, player.serverLevel(), pos);
+            RtsPlacementSound.playRemoteBlockBreakSound(player, player.serverLevel(), pos, beforeState);
         }
         return new MiningBreakResult(broken, remainder);
     }

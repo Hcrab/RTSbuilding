@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
@@ -91,7 +92,8 @@ public final class ShapeGhostRenderer {
         }
 
         if (preview.chainDestroyPreview()) {
-            UltimineGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer);
+            float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
+            UltimineGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress);
             return;
         }
 
@@ -216,14 +218,24 @@ public final class ShapeGhostRenderer {
         if (controller == null) {
             return 0.0F;
         }
+        float miningStageProgress = miningStageProgress(controller, preview);
+        if (preview != null && preview.chainDestroyPreview() && miningStageProgress > 0.0F) {
+            return miningStageProgress;
+        }
+        RtsWorkflowStatus workflow = controller.findActiveDestroyWorkflow();
+        if (workflow != null && workflow.totalBlocks() > 0) {
+            return clamp01((float) workflow.completedBlocks() / (float) workflow.totalBlocks());
+        }
+        return miningStageProgress;
+    }
+
+    private static float miningStageProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
+        if (controller == null || preview == null) {
+            return 0.0F;
+        }
         BlockPos progressPos = controller.getMineProgressPos();
         if (progressPos == null || !previewContains(preview, progressPos)) {
             return 0.0F;
-        }
-        int processed = controller.getUltimineProgressProcessed();
-        int total = controller.getUltimineProgressTotal();
-        if (processed > 0 && total > 0) {
-            return 1.0F;
         }
         int stage = controller.getMineProgressStage();
         if (stage < 0) {
@@ -231,7 +243,6 @@ public final class ShapeGhostRenderer {
         }
         return clamp01((Math.min(9, stage) + 1) / 10.0F);
     }
-
     private static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
         return preview != null && pos != null && (contains(preview.blocks(), pos) || contains(preview.emptyBlocks(), pos));
     }

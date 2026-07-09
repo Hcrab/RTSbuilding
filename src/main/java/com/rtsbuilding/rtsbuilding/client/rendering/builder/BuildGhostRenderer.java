@@ -59,6 +59,6 @@ public final class BuildGhostRenderer {
     }
 
     static boolean shouldRenderWireframe(ClientRtsController.BuildShape shape, boolean placementWireframeEnabled) {
-        return shape != ClientRtsController.BuildShape.BLOCK || placementWireframeEnabled;
+        return placementWireframeEnabled;
     }
 }

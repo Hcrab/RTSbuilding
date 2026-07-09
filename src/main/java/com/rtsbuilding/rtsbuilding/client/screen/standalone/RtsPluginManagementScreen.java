@@ -57,7 +57,9 @@ public final class RtsPluginManagementScreen extends Screen {
     @Override
     protected void init() {
         this.controller.requestPluginState();
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> onClose())
+        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> {
+                    onClose();
+                })
                 .bounds(this.width - 86, this.height - 28, 74, 20)
                 .build());
     }

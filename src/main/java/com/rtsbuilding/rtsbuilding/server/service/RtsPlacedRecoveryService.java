@@ -97,7 +97,7 @@ public final class RtsPlacedRecoveryService {
             return;
         }
 
-        RtsPlacementSound.playRemoteBlockBreakSound(player, level, targetPos);
+        RtsPlacementSound.playRemoteBlockBreakSound(player, level, targetPos, state);
         tracker.clear(targetPos);
         List<ItemEntity> droppedEntities = collectNewNearbyDrops(level, targetPos, dropIdsBeforeBreak);
         enqueueRecoveryJob(player, session, targetPos, droppedEntities);

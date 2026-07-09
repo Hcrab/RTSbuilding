@@ -67,6 +67,10 @@ public final class Config {
             .comment("Require a configurable keyboard key for the final multi-block placement/destroy confirmation instead of confirming with the mouse click used to select the range.")
             .define("requireKeyboardBatchConfirm", true);
 
+    public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = BUILDER
+            .comment("Maximum RTS remote block action sounds emitted per player per tick.")
+            .defineInRange("placement.remotePlaceSoundsPerTick", 1, 0, 16);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private Config() {
@@ -186,6 +190,10 @@ public final class Config {
 
     public static boolean isKeyboardBatchConfirmEnabled() {
         return REQUIRE_KEYBOARD_BATCH_CONFIRM.get();
+    }
+
+    public static int remotePlaceSoundsPerTick() {
+        return REMOTE_PLACE_SOUNDS_PER_TICK.get();
     }
 
     public static void setKeyboardBatchConfirmEnabled(boolean enabled) {

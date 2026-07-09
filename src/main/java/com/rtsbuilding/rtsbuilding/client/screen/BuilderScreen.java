@@ -152,8 +152,6 @@ public final class BuilderScreen extends Screen {
     private final RtsResumePlacementPanel resumePlacementPanel = new RtsResumePlacementPanel();
     /** Front-to-back input routing for movable RTS windows. */
     private final RtsFloatingWindowLayer floatingWindowLayer;
-    /** Whether the debug button is visible in the top bar (for dev/diagnostic use). */
-    private boolean debugButtonVisible = false;
     /** Whether the user is currently dragging the input sensitivity slider. */
     private boolean draggingInputSensitivity = false;
     /** Timestamp (System.currentTimeMillis) when the last damage flash was triggered, or -1 if none. */
@@ -250,14 +248,6 @@ public final class BuilderScreen extends Screen {
     /** Sets which funnel buffer entry is currently hovered, for tooltip rendering. */
     public void setHoveredFunnelBufferEntry(int index) {
         this.funnelBufferPanel.setHoveredEntry(index);
-    }
-    /** Toggles the visibility of the debug button in the top bar. */
-    public void toggleDebugButton() {
-        this.debugButtonVisible = !this.debugButtonVisible;
-    }
-    /** Returns whether the debug button is currently visible in the top bar. */
-    public boolean isDebugButtonVisible() {
-        return this.debugButtonVisible;
     }
     /** 切换容器覆盖层是否显示。 */
     public void toggleContainerOverlayEnabled() {
@@ -940,7 +930,7 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
-                if (!forcePlace && !rangeDestroyMode) {
+                if (!forcePlace && !rangeDestroyMode && this.controller.getBuildShape() == ClientRtsController.BuildShape.BLOCK) {
                     this.shapeController.clearShapeBuildSession();
                     this.controller.interactBlockWithPinnedItem(
                             target.blockHit(),
@@ -1533,7 +1523,6 @@ public final class BuilderScreen extends Screen {
                 renderLeftDockedTooltip(guiGraphics, Component.translatable("screen.rtsbuilding.tooltip.empty_hand"));
                 renderLeftDockedTooltipDetail(guiGraphics, text("screen.rtsbuilding.tooltip.empty_hand_detail"), 0xFFD8B8);
             }
-            renderDiscoverabilityTooltips(guiGraphics, mouseX, mouseY);
             boolean funnelCursor = shouldRenderFunnelCursor();
             if (funnelCursor) {
                 updateNativeCursorVisibility(true);
@@ -1847,9 +1836,7 @@ public final class BuilderScreen extends Screen {
         this.controller.setInvertPanDragY(state.invertPanDragY);
         this.controller.setSmoothCamera(state.smoothCamera);
         this.controller.setDamageSoundEnabled(state.damageSoundEnabled);
-        this.controller.setDamageAutoReturnEnabled(state.damageAutoReturnEnabled);
-        this.debugButtonVisible = state.debugButtonVisible;
-        int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
+        this.controller.setDamageAutoReturnEnabled(state.damageAutoReturnEnabled);        int sensitivityPresetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
         double sensitivityFraction = sensitivityPresetCount <= 1
                 ? 0.0D
                 : Mth.clamp(state.inputSensitivityIndex, 0, sensitivityPresetCount - 1) / (double) (sensitivityPresetCount - 1);
@@ -1898,9 +1885,7 @@ public final class BuilderScreen extends Screen {
         state.invertPanDragY = this.controller.isInvertPanDragY();
         state.smoothCamera = this.controller.isSmoothCamera();
         state.damageSoundEnabled = this.controller.isDamageSoundEnabled();
-        state.damageAutoReturnEnabled = this.controller.isDamageAutoReturnEnabled();
-        state.debugButtonVisible = this.debugButtonVisible;
-        RtsClientUiStateStore.save(state);
+        state.damageAutoReturnEnabled = this.controller.isDamageAutoReturnEnabled();        RtsClientUiStateStore.save(state);
     }
     /** Adjusts the fixed RTS GUI scale by a delta and persists the change. */
     public void adjustRtsGuiScale(double delta) {
@@ -2242,94 +2227,6 @@ public final class BuilderScreen extends Screen {
         }
         this.controller.quickDropSelectedItem(dropItemId, 1, dropPos);
     }
-    /** Copies a debug snapshot string to the system clipboard and shows a confirmation message. */
-    public void copyDebugSnapshotToClipboard() {
-        if (this.minecraft == null) {
-            return;
-        }
-        this.minecraft.keyboardHandler.setClipboard(buildDebugSnapshot());
-        if (this.minecraft.player != null) {
-            this.minecraft.player.displayClientMessage(Component.translatable("screen.rtsbuilding.debug.copied"), true);
-        }
-    }
-    /**
-     * Builds a multi-line debug snapshot string containing the current screen state,
-     * controller mode, storage info, shape settings, camera preferences, and player data.
-     */
-    private String buildDebugSnapshot() {
-        StringBuilder out = new StringBuilder(512);
-        out.append("RTSBuilding debug snapshot\n");
-        out.append("screen=").append(this.width).append('x').append(this.height)
-                .append(" uiScale=").append(rtsGuiScaleLabel()).append('\n');
-        out.append("mode=").append(this.controller.getMode())
-                .append(" topAction=").append(this.topBarPanel.topActionForMode())
-                .append(" quickBuild=").append(this.quickBuildPanel.isQuickBuildOpen())
-                .append(" ultimine=").append(this.ultiminePanel.isOpen())
-                .append(" debugButton=").append(this.debugButtonVisible)
-                .append(" invertPanDragX=").append(this.controller.isInvertPanDragX())
-                .append(" invertPanDragY=").append(this.controller.isInvertPanDragY())
-                .append(" smoothCamera=").append(this.controller.isSmoothCamera())
-                .append('\n');
-        out.append("storageLinked=").append(this.controller.isStorageLinked())
-                .append(" name=").append(this.controller.getLinkedStorageName())
-                .append(" page=").append(this.controller.getStoragePage() + 1)
-                .append('/').append(Math.max(1, this.controller.getStorageTotalPages()))
-                .append(" entries=").append(this.controller.getStorageEntries().size())
-                .append('/').append(this.controller.getStorageTotalEntries())
-                .append(" revision=").append(this.controller.getStorageRevision())
-                .append('\n');
-        out.append("storageSearch=\"").append(this.controller.getStorageSearch())
-                .append("\" category=").append(this.controller.getStorageCategory())
-                .append(" sort=").append(this.controller.getStorageSort())
-                .append(this.controller.isStorageSortAscending() ? ":asc" : ":desc")
-                .append('\n');
-        out.append("selectedItem=").append(this.controller.getSelectedItemId())
-                .append(" label=\"").append(this.controller.getSelectedItemLabel())
-                .append("\" selectedFluid=").append(this.controller.getSelectedFluidId())
-                .append(" fluidLabel=\"").append(this.controller.getSelectedFluidLabel()).append("\"\n");
-        out.append("shape=").append(this.controller.getBuildShape())
-                .append(" fill=").append(this.shapeController.getShapeFillMode())
-                .append(" rotation=").append(this.shapeController.getShapeRotateDegrees())
-                .append(" pending=").append(this.shapeController.pendingShapeStatusText())
-                .append('\n');
-        out.append("cameraHeadStart=").append(this.controller.isStartCameraAtPlayerHead())
-                .append(" allowPlacedRecovery=").append(this.controller.isAllowPlacedBlockRecovery())
-                .append(" chunkCurtain=").append(this.controller.isChunkCurtainVisible())
-                .append(" funnel=").append(this.controller.isFunnelEnabled())
-                .append('\n');
-        if (this.minecraft != null && this.minecraft.player != null) {
-            BlockPos pos = this.minecraft.player.blockPosition();
-            out.append("player=").append(pos.getX()).append(',').append(pos.getY()).append(',').append(pos.getZ())
-                    .append(" creative=").append(this.minecraft.player.isCreative())
-                    .append('\n');
-        }
-        return out.toString();
-    }
-    /**
-     * Renders discoverability tooltips for stable UI elements when hovered.
-     */
-    private void renderDiscoverabilityTooltips(GuiGraphics g, int mouseX, int mouseY) {
-        if (this.guidePanel.isOpen() || this.interactionWheelPanel.isOpen()) {
-            return;
-        }
-        if (mouseY >= 42 && mouseY <= 56) {
-            g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.undo_redo_keys"), mouseX, mouseY);
-            return;
-        }
-        for (TopBarTypes.TopBarButtonLayout button : this.topBarPanel.buildTopBarButtonLayouts()) {
-            if (button.id() == TopBarTypes.TopBarButtonId.QUICK_BUILD
-                    && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
-                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.quick_build_toggle"), mouseX, mouseY);
-                return;
-            }
-            if (button.id() == TopBarTypes.TopBarButtonId.RANGE_CULLING
-                    && inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
-                g.renderTooltip(this.font, Component.translatable("screen.rtsbuilding.tooltip.range_culling_toggle"), mouseX, mouseY);
-                return;
-            }
-        }
-    }
-
     /**
      * Removes focus from any focused search box (storage or craft search).
      */

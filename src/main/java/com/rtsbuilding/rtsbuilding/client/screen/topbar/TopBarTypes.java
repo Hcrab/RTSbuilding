@@ -33,7 +33,6 @@ public final class TopBarTypes {
         ULTIMINE,
         RANGE_CULLING,
         CHUNK_VIEW,
-        DEBUG,
         GEAR,
         SENSITIVITY,
         AUTO_STORE,

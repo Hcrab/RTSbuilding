@@ -326,6 +326,15 @@ public final class BuilderScreenConstants {
     /** 区块视图，按下。 */
     public static final ResourceLocation TOPBAR_CHUNK_VIEW_PRESSED = topbarTexture("chunk_view_pressed");
 
+    /** 范围剔除（未激活） */
+    public static final ResourceLocation TOPBAR_RANGE_CULLING_INACTIVE = topbarTexture("filter_block_inactive");
+    /** 范围剔除（悬停） */
+    public static final ResourceLocation TOPBAR_RANGE_CULLING_HOVER = topbarTexture("filter_block_hover");
+    /** 范围剔除（已激活） */
+    public static final ResourceLocation TOPBAR_RANGE_CULLING_ACTIVE = topbarTexture("filter_block_active");
+    /** 范围剔除（按下） */
+    public static final ResourceLocation TOPBAR_RANGE_CULLING_PRESSED = topbarTexture("filter_block_pressed");
+
     /** 设置齿轮，非活跃。 */
     public static final ResourceLocation TOPBAR_GEAR_INACTIVE = topbarTexture("settings_gear_inactive");
     /** 设置齿轮，悬停。 */

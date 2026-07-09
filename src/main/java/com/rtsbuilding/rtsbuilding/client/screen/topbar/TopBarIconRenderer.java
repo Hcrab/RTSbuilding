@@ -44,8 +44,7 @@ public final class TopBarIconRenderer {
      * @param cy     the Y coordinate of the icon center
      * @param color  the base ARGB color for the icon outline or fill
      * @param active whether the button is in its active (toggled-on) state; affects accent colors
-     * @param font   the {@link Font} used for text-based icons (DEBUG); may be {@code null} for
-     *               purely pixel-art icons
+     * @param font   用于文字类图标的 {@link Font}；纯像素图标可为 {@code null}
      */
     public static void renderIcon(TopBarTypes.TopBarButtonId id, GuiGraphics g, int cx, int cy, int color, boolean active, Font font) {
         switch (id) {
@@ -58,7 +57,6 @@ public final class TopBarIconRenderer {
             case QUEST_DETECT -> drawQuestCheckIcon(g, cx, cy, color);
             case CHUNK_VIEW -> drawChunkCurtainIcon(g, cx, cy, color, active);
             case RANGE_CULLING -> drawRangeCullingIcon(g, cx, cy, color, active);
-            case DEBUG -> drawDebugIcon(g, cx, cy, color, font);
             case GEAR -> drawGearIcon(g, cx, cy, color);
             default -> {
                 // No icon defined for this button type (e.g. GUIDE is rendered as plain text elsewhere)
@@ -74,7 +72,7 @@ public final class TopBarIconRenderer {
      * The method resolves these from the constants defined in
      * {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants}.
      * <p>
-     * Buttons without a texture-based icon (e.g. DEBUG, GUIDE) return {@code null}.
+     * Buttons without a texture-based icon return {@code null}.
      *
      * @param id      the button identifier
      * @param active  whether the button is in its activated/toggled state
@@ -133,6 +131,12 @@ public final class TopBarIconRenderer {
                 case "pressed" -> TOPBAR_CHUNK_VIEW_PRESSED;
                 case "hover" -> TOPBAR_CHUNK_VIEW_HOVER;
                 default -> TOPBAR_CHUNK_VIEW_INACTIVE;
+            };
+            case RANGE_CULLING -> switch (state) {
+                case "active" -> TOPBAR_RANGE_CULLING_ACTIVE;
+                case "pressed" -> TOPBAR_RANGE_CULLING_PRESSED;
+                case "hover" -> TOPBAR_RANGE_CULLING_HOVER;
+                default -> TOPBAR_RANGE_CULLING_INACTIVE;
             };
             case GEAR -> switch (state) {
                 case "active" -> TOPBAR_GEAR_ACTIVE;
@@ -271,8 +275,7 @@ public final class TopBarIconRenderer {
     }
 
     /**
-     * 绘制范围剔除按钮：空心盒表示隐藏区域，斜线表示射线会穿透。
-     */
+     * 缂佹ê鍩楅懠鍐ㄦ纯閸撴棃娅庨幐澶愭尦閿涙氨鈹栬箛鍐磪鐞涖劎銇氶梾鎰閸栧搫鐓欓敍灞炬灘缁捐儻銆冪粈鍝勭殸缁惧じ绱扮粚鍧椻偓蹇嬧偓?     */
     private static void drawRangeCullingIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
         int fill = active ? 0x884AA8FF : 0x221D2530;
         int slash = active ? 0xFFFFD45A : 0xFF88BEF4;
@@ -317,15 +320,6 @@ public final class TopBarIconRenderer {
         g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF1B222C);
     }
 
-    /**
-     * Draws the DEBUG icon: a rounded square with a letter "D" and a cyan glow.
-     */
-    private static void drawDebugIcon(GuiGraphics g, int cx, int cy, int color, Font font) {
-        g.fill(cx - 7, cy - 7, cx + 7, cy + 7, 0x3328D4FF);
-        g.fill(cx - 5, cy - 5, cx + 5, cy + 5, color);
-        g.fill(cx - 2, cy - 2, cx + 2, cy + 2, 0xFF1B222C);
-        g.drawCenteredString(font, "D", cx, cy - 4, 0xFF1B222C);
-    }
 
     // ======================== Internal Helper ========================
 

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -26,7 +27,6 @@ import java.util.UUID;
  */
 public final class RtsPlacementSound {
 
-    private static final int MAX_SOUNDS_PER_TICK = 1;
     private static final Map<UUID, Integer> PER_PLAYER_SOUNDS_THIS_TICK = new HashMap<>();
     private static long SOUND_RESET_TICK = -1L;
 
@@ -60,17 +60,9 @@ public final class RtsPlacementSound {
         if (state.isAir()) {
             return;
         }
-        // Per-player per-tick throttle: max 2 sounds/tick
-        long currentTick = level.getGameTime();
-        if (currentTick != SOUND_RESET_TICK) {
-            SOUND_RESET_TICK = currentTick;
-            PER_PLAYER_SOUNDS_THIS_TICK.clear();
-        }
-        int count = PER_PLAYER_SOUNDS_THIS_TICK.getOrDefault(player.getUUID(), 0);
-        if (count >= MAX_SOUNDS_PER_TICK) {
+        if (!tryConsumeSoundBudget(player, level)) {
             return;
         }
-        PER_PLAYER_SOUNDS_THIS_TICK.put(player.getUUID(), count + 1);
         SoundType soundType = state.getSoundType(level, pos, player);
         Vec3 soundPos = cameraOrEyePos(player);
         SoundService.sendDirectSound(
@@ -88,15 +80,14 @@ public final class RtsPlacementSound {
      * Plays the block-break sound for a remotely mined/destroyed block.
      */
     public static void playRemoteBlockBreakSound(ServerPlayer player, ServerLevel level,
-                                                  BlockPos pos) {
-        if (player == null || level == null || pos == null || !level.hasChunkAt(pos)) {
+                                                  BlockPos pos, BlockState brokenState) {
+        if (player == null || level == null || pos == null || brokenState == null || !level.hasChunkAt(pos)) {
             return;
         }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
+        if (brokenState.isAir() || !tryConsumeSoundBudget(player, level)) {
             return;
         }
-        SoundType soundType = state.getSoundType(level, pos, player);
+        SoundType soundType = brokenState.getSoundType(level, pos, player);
         Vec3 soundPos = cameraOrEyePos(player);
         SoundService.sendDirectSound(
                 player,
@@ -107,6 +98,21 @@ public final class RtsPlacementSound {
                 soundPos.z,
                 (soundType.getVolume() + 1.0F) / 2.0F,
                 soundType.getPitch() * 0.8F);
+    }
+
+    private static boolean tryConsumeSoundBudget(ServerPlayer player, ServerLevel level) {
+        long currentTick = level.getGameTime();
+        if (currentTick != SOUND_RESET_TICK) {
+            SOUND_RESET_TICK = currentTick;
+            PER_PLAYER_SOUNDS_THIS_TICK.clear();
+        }
+        int maxSounds = Config.remotePlaceSoundsPerTick();
+        int count = PER_PLAYER_SOUNDS_THIS_TICK.getOrDefault(player.getUUID(), 0);
+        if (maxSounds <= 0 || count >= maxSounds) {
+            return false;
+        }
+        PER_PLAYER_SOUNDS_THIS_TICK.put(player.getUUID(), count + 1);
+        return true;
     }
 
     private static Vec3 cameraOrEyePos(ServerPlayer player) {

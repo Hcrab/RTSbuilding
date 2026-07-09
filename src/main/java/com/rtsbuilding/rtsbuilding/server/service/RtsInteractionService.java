@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
@@ -32,6 +33,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -305,12 +307,14 @@ public final class RtsInteractionService {
 
     public static InteractionResult interactWithLinkedItem(ServerPlayer player, ServerLevel level, RtsStorageSession session,
             Entity targetEntity, BlockHitResult blockHit, Vec3 hit, String itemId, RayContext rayContext) {
-        if (itemId == null || itemId.isBlank() || !RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
+        if (itemId == null || itemId.isBlank()) {
             return InteractionResult.PASS;
         }
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
+        boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
+        boolean creativeSource = player.isCreative();
+        if (!canUseSelectedItemSource(!activeLinked.isEmpty(), includePlayerMainInventory, creativeSource)) {
             return InteractionResult.PASS;
         }
 
@@ -322,7 +326,8 @@ public final class RtsInteractionService {
             return InteractionResult.PASS;
         }
 
-        ItemStack extracted = RtsTransferExtractor.extractOneFromNetwork(extractHandlers, player, BuiltInRegistries.ITEM.get(id));
+        Item item = BuiltInRegistries.ITEM.get(id);
+        ItemStack extracted = extractSelectedItem(player, extractHandlers, item, includePlayerMainInventory, creativeSource);
         if (extracted.isEmpty()) {
             return InteractionResult.PASS;
         }
@@ -358,12 +363,27 @@ public final class RtsInteractionService {
             ItemStack afterSecondaryOn = secondaryOn.remainder().isEmpty() ? afterPrimaryUse : secondaryOn.remainder().copy();
             return InteractionHelper.useItemWithMainHand(player, level, afterSecondaryOn, true);
                 });
-        if (!outcome.remainder().isEmpty()) {
+        if (!creativeSource && !outcome.remainder().isEmpty()) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, outcome.remainder());
         }
         // Force-refresh slot cache and invalidate page cache after linked-item interaction
         RtsStorageTickService.INSTANCE.forceRefresh(player);
         session.transfer.pageDataVersion.incrementAndGet();
         return outcome.result();
+    }
+    static boolean canUseSelectedItemSource(boolean hasLinkedHandlers, boolean includePlayerMainInventory,
+            boolean creativeSource) {
+        return hasLinkedHandlers || includePlayerMainInventory || creativeSource;
+    }
+
+    private static ItemStack extractSelectedItem(ServerPlayer player, List<IItemHandler> extractHandlers, Item item,
+            boolean includePlayerMainInventory, boolean creativeSource) {
+        if (creativeSource) {
+            return new ItemStack(item);
+        }
+        if (includePlayerMainInventory) {
+            return RtsTransferExtractor.extractOneFromNetwork(extractHandlers, player, item);
+        }
+        return RtsTransferExtractor.extractOneFromLinked(extractHandlers, item);
     }
 }

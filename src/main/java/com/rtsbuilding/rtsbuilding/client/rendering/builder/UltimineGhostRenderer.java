@@ -58,7 +58,7 @@ public final class UltimineGhostRenderer extends RenderStateShard {
     }
 
     static void render(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress) {
         List<BlockPos> blocks = preview.blocks();
         if (blocks == null || blocks.isEmpty()) {
             return;
@@ -77,10 +77,13 @@ public final class UltimineGhostRenderer extends RenderStateShard {
         float r = 1.00F * breath;
         float g = 0.72F * breath;
         float b = 0.24F * breath;
+        float edgeR = lerp(r, 0.38F, progress);
+        float edgeG = lerp(g, 1.00F, progress);
+        float edgeB = lerp(b, 0.42F, progress);
 
-        renderPass1(edges, poseStack.last().pose(), lineBuffer, r, g, b, 0.95F);
-        renderPass2(edges, poseStack.last().pose(), r, g, b, 0.34F);
-        renderFill(outerBlocks, poseStack, fillBuffer, r, g, b, 0.08F);
+        renderPass1(edges, poseStack.last().pose(), lineBuffer, edgeR, edgeG, edgeB, 0.95F);
+        renderPass2(edges, poseStack.last().pose(), edgeR, edgeG, edgeB, 0.34F);
+        renderFill(outerBlocks, poseStack, fillBuffer, edgeR, edgeG, edgeB, 0.08F);
     }
 
     static void renderPass1(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
@@ -155,6 +158,10 @@ public final class UltimineGhostRenderer extends RenderStateShard {
                     pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1,
                     r, g, b, fillA);
         }
+    }
+
+    private static float lerp(float from, float to, float amount) {
+        return from + (to - from) * Math.max(0.0F, Math.min(1.0F, amount));
     }
 
     private static int channel(float value) {
