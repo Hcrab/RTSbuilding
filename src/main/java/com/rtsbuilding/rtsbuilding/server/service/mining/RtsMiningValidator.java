@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
@@ -37,10 +38,10 @@ public final class RtsMiningValidator {
     public static final int ULTIMINE_MAX_BLOCKS = 256;
 
     /** Max blocks per dimension for area mine (X, Y, Z). */
-    public static final int AREA_MINE_MAX_SIZE = 12;
+    public static final int AREA_MINE_MAX_SIZE = 36;
 
     /** Maximum explicit shape-destroy targets accepted from Quick Build. */
-    public static final int AREA_DESTROY_MAX_TARGETS = 32768;
+    public static final int AREA_DESTROY_MAX_TARGETS = 98304;
 
     /** How many ultimine targets are processed in a single tick. */
     public static final int ULTIMINE_BLOCKS_PER_TICK = 8;
@@ -51,12 +52,46 @@ public final class RtsMiningValidator {
     private RtsMiningValidator() {
     }
 
+    public static int ultimineMaxBlocks() {
+        return configIntOrDefault(Config::ultimineMaxBlocks, ULTIMINE_MAX_BLOCKS);
+    }
+
+    public static int areaMineMaxSize() {
+        return configIntOrDefault(Config::areaMineMaxSize, AREA_MINE_MAX_SIZE);
+    }
+
+    public static int areaMineMaxVolume() {
+        return configIntOrDefault(
+                Config::areaMineMaxVolume,
+                AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE);
+    }
+
+    public static int areaMineMaxWidth() {
+        return configIntOrDefault(Config::areaMineMaxWidth, areaMineMaxSize());
+    }
+
+    public static int areaMineMaxHeight() {
+        return configIntOrDefault(Config::areaMineMaxHeight, areaMineMaxSize());
+    }
+
+    public static int areaMineMaxDepth() {
+        return configIntOrDefault(Config::areaMineMaxDepth, areaMineMaxSize());
+    }
+
     public static int areaDestroyMaxTargets() {
-        return AREA_DESTROY_MAX_TARGETS;
+        return configIntOrDefault(Config::areaDestroyMaxTargets, AREA_DESTROY_MAX_TARGETS);
     }
 
     public static int ultimineBlocksPerTick() {
-        return ULTIMINE_BLOCKS_PER_TICK;
+        return configIntOrDefault(Config::ultimineBlocksPerTick, ULTIMINE_BLOCKS_PER_TICK);
+    }
+
+    private static int configIntOrDefault(java.util.function.IntSupplier getter, int fallback) {
+        try {
+            return Math.max(1, getter.getAsInt());
+        } catch (IllegalStateException ignored) {
+            return fallback;
+        }
     }
 
     // =========================================================================

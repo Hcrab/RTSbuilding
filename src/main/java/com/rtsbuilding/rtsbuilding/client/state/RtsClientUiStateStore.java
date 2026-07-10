@@ -125,6 +125,36 @@ public final class RtsClientUiStateStore {
         save(state);
     }
 
+    public static synchronized boolean isRtsSoundsEnabled() {
+        return load().rtsSoundsEnabled;
+    }
+
+    public static synchronized void setRtsSoundsEnabled(boolean enabled) {
+        UiState state = load();
+        state.rtsSoundsEnabled = enabled;
+        save(state);
+    }
+
+    public static synchronized boolean isRtsBreakSoundsEnabled() {
+        return load().rtsBreakSoundsEnabled;
+    }
+
+    public static synchronized void setRtsBreakSoundsEnabled(boolean enabled) {
+        UiState state = load();
+        state.rtsBreakSoundsEnabled = enabled;
+        save(state);
+    }
+
+    public static synchronized int getRtsBlockSoundsPerTick() {
+        return Math.max(1, Math.min(16, load().rtsBlockSoundsPerTick));
+    }
+
+    public static synchronized void setRtsBlockSoundsPerTick(int value) {
+        UiState state = load();
+        state.rtsBlockSoundsPerTick = Math.max(1, Math.min(16, value));
+        save(state);
+    }
+
     public static final class UiState {
         public String buildShape = "BLOCK";
         public String fillMode = "FILL";
@@ -134,6 +164,14 @@ public final class RtsClientUiStateStore {
         public String quickBuildMode = "BUILD";
         public boolean quickBuildDestroyChainSelected = true;
         public int quickBuildChainDestroyLimit = 64;
+        public boolean advancedShapeSquare = false;
+        public boolean advancedShapeWall = false;
+        public boolean advancedShapeCircle = false;
+        public boolean advancedShapeCylinder = false;
+        public boolean advancedShapeBall = false;
+        public boolean advancedShapeBox = false;
+        public boolean circleVertical = false;
+        public boolean cylinderVertical = false;
         public boolean ultimineOpen = false;
         public int ultimineLimit = 64;
         public String ultimineMode = "CHAIN";
@@ -141,6 +179,10 @@ public final class RtsClientUiStateStore {
         public boolean chunkCurtainVisible = false;
         public double rtsGuiScale = 2.0D;
         public int inputSensitivityIndex = 2;
+        public int panDragSensitivityIndex = -1;
+        public int rotateViewSensitivityIndex = -1;
+        public int keyboardMoveSensitivityIndex = -1;
+        public int wheelZoomSensitivityIndex = -1;
         public boolean startCameraAtPlayerHead = false;
         public boolean allowPlacedBlockRecovery = false;
         public boolean toolProtectionEnabled = true;
@@ -149,6 +191,9 @@ public final class RtsClientUiStateStore {
         public boolean invertPanDragY = false;
         public boolean smoothCamera = true;
         public boolean damageSoundEnabled = true;
+        public boolean rtsSoundsEnabled = true;
+        public boolean rtsBreakSoundsEnabled = true;
+        public int rtsBlockSoundsPerTick = 8;
         public boolean damageAutoReturnEnabled = true;
         public boolean debugButtonVisible = false;
         public boolean containerOverlayEnabled = false;
@@ -174,6 +219,14 @@ public final class RtsClientUiStateStore {
             clean.quickBuildMode = sanitizeEnum(this.quickBuildMode, "BUILD");
             clean.quickBuildDestroyChainSelected = this.quickBuildDestroyChainSelected;
             clean.quickBuildChainDestroyLimit = Math.max(1, Math.min(256, this.quickBuildChainDestroyLimit));
+            clean.advancedShapeSquare = this.advancedShapeSquare;
+            clean.advancedShapeWall = this.advancedShapeWall;
+            clean.advancedShapeCircle = this.advancedShapeCircle;
+            clean.advancedShapeCylinder = this.advancedShapeCylinder;
+            clean.advancedShapeBall = this.advancedShapeBall;
+            clean.advancedShapeBox = this.advancedShapeBox;
+            clean.circleVertical = this.circleVertical;
+            clean.cylinderVertical = this.cylinderVertical;
             clean.ultimineOpen = false;
             clean.ultimineLimit = Math.max(1, Math.min(256, this.ultimineLimit));
             clean.ultimineMode = sanitizeEnum(this.ultimineMode, "CHAIN");
@@ -181,6 +234,10 @@ public final class RtsClientUiStateStore {
             clean.chunkCurtainVisible = this.chunkCurtainVisible;
             clean.rtsGuiScale = sanitizeScale(this.rtsGuiScale);
             clean.inputSensitivityIndex = Math.max(0, Math.min(32, this.inputSensitivityIndex));
+            clean.panDragSensitivityIndex = sanitizeSensitivityIndex(this.panDragSensitivityIndex, clean.inputSensitivityIndex);
+            clean.rotateViewSensitivityIndex = sanitizeSensitivityIndex(this.rotateViewSensitivityIndex, clean.inputSensitivityIndex);
+            clean.keyboardMoveSensitivityIndex = sanitizeSensitivityIndex(this.keyboardMoveSensitivityIndex, clean.inputSensitivityIndex);
+            clean.wheelZoomSensitivityIndex = sanitizeSensitivityIndex(this.wheelZoomSensitivityIndex, clean.inputSensitivityIndex);
             clean.startCameraAtPlayerHead = this.startCameraAtPlayerHead;
             clean.allowPlacedBlockRecovery = this.allowPlacedBlockRecovery;
             clean.toolProtectionEnabled = this.toolProtectionEnabled;
@@ -189,6 +246,9 @@ public final class RtsClientUiStateStore {
             clean.invertPanDragY = this.invertPanDragY;
             clean.smoothCamera = this.smoothCamera;
             clean.damageSoundEnabled = this.damageSoundEnabled;
+            clean.rtsSoundsEnabled = this.rtsSoundsEnabled;
+            clean.rtsBreakSoundsEnabled = this.rtsBreakSoundsEnabled;
+            clean.rtsBlockSoundsPerTick = Math.max(1, Math.min(16, this.rtsBlockSoundsPerTick));
             clean.damageAutoReturnEnabled = this.damageAutoReturnEnabled;
             clean.debugButtonVisible = this.debugButtonVisible;
             clean.containerOverlayEnabled = this.containerOverlayEnabled;
@@ -237,6 +297,11 @@ public final class RtsClientUiStateStore {
             }
             double snapped = Math.round(value / 0.5D) * 0.5D;
             return Math.max(1.0D, Math.min(4.0D, snapped));
+        }
+
+        private static int sanitizeSensitivityIndex(int value, int fallback) {
+            int resolved = value < 0 ? fallback : value;
+            return Math.max(0, Math.min(32, resolved));
         }
 
         private static List<String> sanitizeKeys(List<String> values) {

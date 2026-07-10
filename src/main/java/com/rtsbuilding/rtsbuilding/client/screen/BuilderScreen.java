@@ -39,6 +39,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineMode;
@@ -46,6 +48,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltiminePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
@@ -284,11 +287,11 @@ public final class BuilderScreen extends Screen {
         return this.draggingInputSensitivity;
     }
     /** Returns the current shape fill mode (e.g. FILL, HOLLOW, WIREFRAME). Delegates to the shape controller. */
-    public ShapeBuildTypes.ShapeFillMode getShapeFillMode() {
+    public ShapeFillMode getShapeFillMode() {
         return this.shapeController.getShapeFillMode();
     }
     /** Sets the shape fill mode via the shape controller. */
-    public void setShapeFillMode(ShapeBuildTypes.ShapeFillMode mode) {
+    public void setShapeFillMode(ShapeFillMode mode) {
         this.shapeController.setShapeFillMode(mode);
     }
     /** Returns the current shape rotation in degrees. Delegates to the shape controller. */
@@ -312,7 +315,7 @@ public final class BuilderScreen extends Screen {
         return this.shapeController.getConfirmedRangeDestroyPreviews();
     }
     /** Ensures the current fill mode is compatible with the given shape type, adjusting if necessary. */
-    public void ensureFillModeForShape(ClientRtsController.BuildShape shape) {
+    public void ensureFillModeForShape(BuildShape shape) {
         this.shapeController.ensureFillModeForShape(shape);
     }
     /** Returns whether the quick-build panel is currently open. */
@@ -335,9 +338,9 @@ public final class BuilderScreen extends Screen {
     /** Syncs active shape state so a hidden or locked quick-build panel cannot affect normal placement. */
     public void syncQuickBuildActiveState() {
         if (!this.quickBuildPanel.isQuickBuildOpen() || !canUseQuickBuild()) {
-            this.controller.setBuildShape(ClientRtsController.BuildShape.BLOCK);
+            this.controller.setBuildShape(BuildShape.BLOCK);
             this.shapeController.clearShapeBuildSession();
-            ensureFillModeForShape(ClientRtsController.BuildShape.BLOCK);
+            ensureFillModeForShape(BuildShape.BLOCK);
             return;
         }
         ensureFillModeForShape(this.controller.getBuildShape());
@@ -458,7 +461,6 @@ public final class BuilderScreen extends Screen {
     public void tick() {
         super.tick();
         enforceBlueprintPlacementModeLock();
-        this.shapeController.updateAltShapeWheelLifecycle();
         if (this.controller.getMode() == BuilderMode.FUNNEL && this.controller.isFunnelEnabled()) {
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
             if (hit != null) {
@@ -592,6 +594,15 @@ public final class BuilderScreen extends Screen {
                 }
             }
         }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && isAdvancedShapeMode()
+                && isWorldArea(mouseX, mouseY)
+                && !isMouseOverFloatingWindow(mouseX, mouseY)
+                && this.shapeController.clickAdvancedRangeDestroyHandle(
+                        this.cursorPicker.currentRayOrigin(),
+                        this.cursorPicker.computeCursorRayDirection())) {
+            return true;
+        }
         if (handleBatchConfirmMouse(mouseX, mouseY, button)) {
             return true;
         }
@@ -711,6 +722,10 @@ public final class BuilderScreen extends Screen {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && this.cullingManager.isManagementMode()
                 && this.cullingManager.releaseActiveHandleIfDragged()) {
+            return true;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && this.shapeController.releaseAdvancedRangeDestroyHandleIfDragged()) {
             return true;
         }
         if (this.cameraInput.isRightDragActive(button)) {
@@ -930,7 +945,7 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
-                if (!forcePlace && !rangeDestroyMode && this.controller.getBuildShape() == ClientRtsController.BuildShape.BLOCK) {
+                if (!forcePlace && !rangeDestroyMode && this.controller.getBuildShape() == BuildShape.BLOCK) {
                     this.shapeController.clearShapeBuildSession();
                     this.controller.interactBlockWithPinnedItem(
                             target.blockHit(),
@@ -962,7 +977,7 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (target.blockHit() != null
-                && this.controller.getBuildShape() != ClientRtsController.BuildShape.BLOCK
+                && this.controller.getBuildShape() != BuildShape.BLOCK
                 && !rangeDestroyMode
                 && canUseToolSlotShapeSource()) {
             this.shapeController.placeWithShape(
@@ -1044,7 +1059,7 @@ public final class BuilderScreen extends Screen {
                 && !this.controller.hasSelectedItem()
                 && !this.controller.hasSelectedFluid()
                 && !this.controller.isEmptyHandSelected()
-                && this.controller.getBuildShape() == ClientRtsController.BuildShape.BLOCK;
+                && this.controller.getBuildShape() == BuildShape.BLOCK;
     }
 
     /**
@@ -1093,6 +1108,10 @@ public final class BuilderScreen extends Screen {
                 && this.cullingManager.handleScroll(scrollY, isAltDown())) {
             return true;
         }
+        if (this.shapeController.advancedRangeDestroyActiveHandle() != null
+                && this.shapeController.scrollAdvancedRangeDestroyHandle(scrollY, isAltDown())) {
+            return true;
+        }
         if (isInsideBottomPanel(mouseX, mouseY)) {
             return this.bottomPanel.handleMouseScrolled(mouseX, mouseY, scrollY);
         }
@@ -1131,6 +1150,9 @@ public final class BuilderScreen extends Screen {
         if (BlueprintPanel.isCaptureModeActive() && BlueprintPanel.keyPressed(keyCode, scanCode, this.controller)) {
             return true;
         }
+        if (BlueprintPanel.isPlacementSessionActive() && BlueprintPanel.keyPressed(keyCode, scanCode, this.controller)) {
+            return true;
+        }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
                 && BlueprintPanel.keyPressed(keyCode, scanCode, this.controller)) {
             return true;
@@ -1140,6 +1162,22 @@ public final class BuilderScreen extends Screen {
                 RtsClientPacketGateway.sendToggleCamera(this.controller.isStartCameraAtPlayerHead());
             }
             return true;
+        }
+        if (!isSearchFocused()) {
+            if (this.cullingManager.isManagementMode()
+                    && this.cullingManager.handleKey(keyCode, scanCode, modifiers)) {
+                return true;
+            }
+            RtsSelectionNudge.Delta nudge = RtsSelectionNudge.fromKey(keyCode, scanCode);
+            if (nudge != null) {
+                if (this.cullingManager.isManagementMode()) {
+                    this.cullingManager.nudgeSelectedBox(nudge.dx(), nudge.dy(), nudge.dz());
+                    return true;
+                }
+                if (this.shapeController.nudgeCurrentShapeSelection(nudge.dx(), nudge.dy(), nudge.dz())) {
+                    return true;
+                }
+            }
         }
         if (this.ultiminePanel.isLimitEditing()) {
             return this.ultiminePanel.handleKeyPressed(keyCode);
@@ -1156,9 +1194,6 @@ public final class BuilderScreen extends Screen {
         }
         if (hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
             return this.shapeController.undoLastPlacementBatch();
-        }
-        if (hasControlDown() && keyCode == GLFW.GLFW_KEY_Y) {
-            return this.shapeController.redoLastPlacementBatch();
         }
         if (!isSearchFocused()
                 && this.shapeController.canAdjustCurrentShapeHeight()
@@ -1820,6 +1855,14 @@ public final class BuilderScreen extends Screen {
         this.quickBuildPanel.setQuickBuildModeName(state.quickBuildMode);
         this.quickBuildPanel.setDestroyChainSelected(state.quickBuildDestroyChainSelected);
         this.quickBuildPanel.setChainDestroyLimit(state.quickBuildChainDestroyLimit);
+        this.quickBuildPanel.setAdvancedShape(BuildShape.SQUARE, state.advancedShapeSquare);
+        this.quickBuildPanel.setAdvancedShape(BuildShape.WALL, state.advancedShapeWall);
+        this.quickBuildPanel.setAdvancedShape(BuildShape.CIRCLE, state.advancedShapeCircle);
+        this.quickBuildPanel.setAdvancedShape(BuildShape.CYLINDER, state.advancedShapeCylinder);
+        this.quickBuildPanel.setAdvancedShape(BuildShape.BALL, state.advancedShapeBall);
+        this.quickBuildPanel.setAdvancedShape(BuildShape.BOX, state.advancedShapeBox);
+        this.quickBuildPanel.setRoundShapeVertical(BuildShape.CIRCLE, state.circleVertical);
+        this.quickBuildPanel.setRoundShapeVertical(BuildShape.CYLINDER, state.cylinderVertical);
         this.ultiminePanel.setOpen(false);
         this.ultiminePanel.setLimit(state.ultimineLimit);
         try {
@@ -1841,16 +1884,20 @@ public final class BuilderScreen extends Screen {
                 ? 0.0D
                 : Mth.clamp(state.inputSensitivityIndex, 0, sensitivityPresetCount - 1) / (double) (sensitivityPresetCount - 1);
         this.controller.setInputSensitivityByFraction(sensitivityFraction);
+        this.controller.setPanDragSensitivityByFraction(sensitivityFraction(state.panDragSensitivityIndex, sensitivityPresetCount));
+        this.controller.setRotateViewSensitivityByFraction(sensitivityFraction(state.rotateViewSensitivityIndex, sensitivityPresetCount));
+        this.controller.setKeyboardMoveSensitivityByFraction(sensitivityFraction(state.keyboardMoveSensitivityIndex, sensitivityPresetCount));
+        this.controller.setWheelZoomSensitivityByFraction(sensitivityFraction(state.wheelZoomSensitivityIndex, sensitivityPresetCount));
         this.controller.setChunkCurtainVisible(state.chunkCurtainVisible);
         try {
-            this.controller.setBuildShape(ClientRtsController.BuildShape.valueOf(state.buildShape));
+            this.controller.setBuildShape(BuildShape.valueOf(state.buildShape));
         } catch (IllegalArgumentException ignored) {
-            this.controller.setBuildShape(ClientRtsController.BuildShape.BLOCK);
+            this.controller.setBuildShape(BuildShape.BLOCK);
         }
         try {
-            this.shapeController.setShapeFillMode(ShapeBuildTypes.ShapeFillMode.valueOf(state.fillMode));
+            this.shapeController.setShapeFillMode(ShapeFillMode.valueOf(state.fillMode));
         } catch (IllegalArgumentException ignored) {
-            this.shapeController.setShapeFillMode(ShapeBuildTypes.ShapeFillMode.FILL);
+            this.shapeController.setShapeFillMode(ShapeFillMode.FILL);
         }
         this.shapeController.setLineConnected(state.lineConnected);
         this.shapeController.rotateToDegrees(Math.floorMod(state.rotationDegrees, 360));
@@ -1871,12 +1918,24 @@ public final class BuilderScreen extends Screen {
         state.quickBuildMode = this.quickBuildPanel.getQuickBuildModeName();
         state.quickBuildDestroyChainSelected = this.quickBuildPanel.isDestroyChainSelected();
         state.quickBuildChainDestroyLimit = this.quickBuildPanel.getChainDestroyLimit();
+        state.advancedShapeSquare = this.quickBuildPanel.isAdvancedShape(BuildShape.SQUARE);
+        state.advancedShapeWall = this.quickBuildPanel.isAdvancedShape(BuildShape.WALL);
+        state.advancedShapeCircle = this.quickBuildPanel.isAdvancedShape(BuildShape.CIRCLE);
+        state.advancedShapeCylinder = this.quickBuildPanel.isAdvancedShape(BuildShape.CYLINDER);
+        state.advancedShapeBall = this.quickBuildPanel.isAdvancedShape(BuildShape.BALL);
+        state.advancedShapeBox = this.quickBuildPanel.isAdvancedShape(BuildShape.BOX);
+        state.circleVertical = this.quickBuildPanel.isRoundShapeVertical(BuildShape.CIRCLE);
+        state.cylinderVertical = this.quickBuildPanel.isRoundShapeVertical(BuildShape.CYLINDER);
         state.ultimineOpen = false;
         state.ultimineLimit = this.quickBuildPanel.getChainDestroyLimit();
         state.ultimineMode = this.ultiminePanel.getMode().name();
         state.chunkCurtainVisible = this.controller.isChunkCurtainVisible();
         state.rtsGuiScale = sanitizeRtsGuiScale(this.fixedRtsGuiScale);
         state.inputSensitivityIndex = this.controller.getInputSensitivityIndex();
+        state.panDragSensitivityIndex = this.controller.getPanDragSensitivityIndex();
+        state.rotateViewSensitivityIndex = this.controller.getRotateViewSensitivityIndex();
+        state.keyboardMoveSensitivityIndex = this.controller.getKeyboardMoveSensitivityIndex();
+        state.wheelZoomSensitivityIndex = this.controller.getWheelZoomSensitivityIndex();
         state.startCameraAtPlayerHead = this.controller.isStartCameraAtPlayerHead();
         state.allowPlacedBlockRecovery = this.controller.isAllowPlacedBlockRecovery();
         state.toolProtectionEnabled = this.controller.isToolProtectionEnabled();
@@ -1886,6 +1945,12 @@ public final class BuilderScreen extends Screen {
         state.smoothCamera = this.controller.isSmoothCamera();
         state.damageSoundEnabled = this.controller.isDamageSoundEnabled();
         state.damageAutoReturnEnabled = this.controller.isDamageAutoReturnEnabled();        RtsClientUiStateStore.save(state);
+    }
+
+    private static double sensitivityFraction(int index, int presetCount) {
+        return presetCount <= 1
+                ? 0.0D
+                : Mth.clamp(index, 0, presetCount - 1) / (double) (presetCount - 1);
     }
     /** Adjusts the fixed RTS GUI scale by a delta and persists the change. */
     public void adjustRtsGuiScale(double delta) {
@@ -1946,6 +2011,18 @@ public final class BuilderScreen extends Screen {
     public boolean isQuickBuildRangeDestroyChainMode() {
         return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
     }
+    public boolean isAdvancedRangeDestroyBoxMode() {
+        return isAdvancedShapeMode();
+    }
+    public boolean isAdvancedRangeDestroyShapeMode() {
+        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isAdvancedRangeDestroyShapeMode();
+    }
+    public boolean isAdvancedShapeMode() {
+        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isAdvancedShapeMode();
+    }
+    public boolean isRoundShapeVertical(BuildShape shape) {
+        return this.quickBuildPanel.isQuickBuildOpen() && this.quickBuildPanel.isRoundShapeVertical(shape);
+    }
     /** Player-facing shape label for the top status row. */
     public String activeQuickBuildShapeLabel() {
         if (isQuickBuildRangeDestroyChainMode()) {
@@ -1957,6 +2034,12 @@ public final class BuilderScreen extends Screen {
     public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
         if (!isQuickBuildRangeDestroyMode() || isQuickBuildRangeDestroyChainMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
+        }
+        if (isAdvancedShapeMode()
+                && this.shapeController.clickAdvancedRangeDestroyHandle(
+                        this.cursorPicker.currentRayOrigin(),
+                        this.cursorPicker.computeCursorRayDirection())) {
+            return true;
         }
         if (this.shapeController.isAwaitingBatchDestroyConfirm()) {
             if (Config.isKeyboardBatchConfirmEnabled()) {
@@ -1985,7 +2068,7 @@ public final class BuilderScreen extends Screen {
     }
     /** Returns the number of available redo steps for shape placement. */
     public int getShapeRedoSize() {
-        return this.shapeController.getShapeRedoSize();
+        return 0;
     }
     /** Returns the pending GUI bind slot index, or -1 if not binding. */
     public int getPendingGuiBindSlot() {
@@ -2156,6 +2239,11 @@ public final class BuilderScreen extends Screen {
             double[] axis = screenAxisForDirection(cullingDirection);
             return this.cullingManager.handleActiveHandleDrag(dragX, dragY, axis[0], axis[1]);
         }
+        Direction advancedDirection = this.shapeController.advancedRangeDestroyActiveHandle();
+        if (advancedDirection != null) {
+            double[] axis = screenAxisForDirection(advancedDirection);
+            return this.shapeController.dragAdvancedRangeDestroyHandle(dragX, dragY, axis[0], axis[1]);
+        }
         return false;
     }
 
@@ -2186,15 +2274,20 @@ public final class BuilderScreen extends Screen {
     private void updateRangeCullingHover(double mouseX, double mouseY) {
         if (!this.cullingManager.isManagementMode()) {
             this.cullingManager.updateHover(null, null);
-            return;
-        }
-        if (!isWorldArea(mouseX, mouseY) || isMouseOverFloatingWindow(mouseX, mouseY)) {
+        } else if (!isWorldArea(mouseX, mouseY) || isMouseOverFloatingWindow(mouseX, mouseY)) {
             this.cullingManager.updateHover(null, null);
-            return;
+        } else {
+            this.cullingManager.updateHover(
+                    this.cursorPicker.currentRayOrigin(),
+                    this.cursorPicker.computeCursorRayDirection());
         }
-        this.cullingManager.updateHover(
-                this.cursorPicker.currentRayOrigin(),
-                this.cursorPicker.computeCursorRayDirection());
+        boolean enabled = isAdvancedShapeMode()
+                && isWorldArea(mouseX, mouseY)
+                && !isMouseOverFloatingWindow(mouseX, mouseY);
+        this.shapeController.updateAdvancedRangeDestroyHover(
+                enabled ? this.cursorPicker.currentRayOrigin() : null,
+                enabled ? this.cursorPicker.computeCursorRayDirection() : null,
+                enabled);
     }
     /**
      * Drops one item of the currently selected item (or the tool slot item) at the
@@ -2795,11 +2888,11 @@ public final class BuilderScreen extends Screen {
         };
     }
     /** Returns the localized label for the given shape fill mode. */
-    public String fillModeLabel(ShapeBuildTypes.ShapeFillMode mode) {
+    public String fillModeLabel(ShapeFillMode mode) {
         return this.shapeController.fillModeLabel(mode);
     }
     /** Returns the localized dimension label (e.g. "3x3x3") for the given build shape. */
-    public static String shapeDimensionLabel(ClientRtsController.BuildShape shape) {
+    public static String shapeDimensionLabel(BuildShape shape) {
         return ScreenShapeController.shapeDimensionLabel(shape);
     }
     /** Returns a text description of the current shape's dimensions (e.g. "5x3x5"). */
@@ -2815,7 +2908,7 @@ public final class BuilderScreen extends Screen {
         return this.shapeController.pendingShapeStatusText();
     }
     /** Returns the localized display label for the given build shape. */
-    public String shapeLabel(ClientRtsController.BuildShape shape) {
+    public String shapeLabel(BuildShape shape) {
         return this.shapeController.shapeLabel(shape);
     }
 

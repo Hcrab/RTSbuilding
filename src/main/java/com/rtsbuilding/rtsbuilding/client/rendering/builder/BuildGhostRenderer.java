@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -24,7 +24,8 @@ public final class BuildGhostRenderer {
     }
 
     static void render(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
-            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
+            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
+            boolean renderBlockGhost, boolean renderWireframe) {
         if (preview == null) {
             return;
         }
@@ -35,8 +36,6 @@ public final class BuildGhostRenderer {
 
         BlockPos targetPos = blocks.get(0);
         BlockState blockState = BuildGhostBlockStateResolver.resolve(minecraft, targetPos);
-        boolean renderBlockGhost = Config.isPlacementBlockGhostPreviewEnabled() && blocks.size() <= 1;
-
         if (renderBlockGhost) {
             if (blockState != null && !blockState.isAir() && blockState.getRenderShape() == RenderShape.MODEL) {
                 BuildGhostModelRenderer.renderModels(minecraft, blocks, poseStack, blockState);
@@ -52,13 +51,12 @@ public final class BuildGhostRenderer {
             }
         }
 
-        if (shouldRenderWireframe(ClientRtsController.get().getBuildShape(),
-                Config.isPlacementWireframePreviewEnabled())) {
-            BuildGhostWireframeRenderer.renderWireframes(blocks, poseStack, lineBuffer);
+        if (renderWireframe) {
+            BuildGhostWireframeRenderer.renderWireframes(blocks, poseStack, lineBuffer, preview.readyConfirm());
         }
     }
 
-    static boolean shouldRenderWireframe(ClientRtsController.BuildShape shape, boolean placementWireframeEnabled) {
-        return placementWireframeEnabled;
+    static boolean shouldRenderWireframe(BuildShape shape, boolean placementWireframeEnabled) {
+        return shape != BuildShape.BLOCK || placementWireframeEnabled;
     }
 }

@@ -156,7 +156,7 @@ final class RtsPluginTeamService {
         }
     }
 
-    private static boolean canAddWithoutTeamConflict(List<StoredPlugin> installed, RtsInstalledPlugin plugin) {
+    static boolean canAddWithoutTeamConflict(List<StoredPlugin> installed, RtsInstalledPlugin plugin) {
         RtsPluginDefinition definition = RtsPluginRegistry.byId(plugin.pluginId());
         if (definition == null) {
             return false;

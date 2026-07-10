@@ -2,58 +2,44 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 
 import java.util.List;
 
 /**
- * Quick Build 形状预览的总入口。
+ * Entry-point facade that coordinates all in-world ghost preview rendering
+ * for shape building and destruction modes within the {@link BuilderScreen}.
  *
- * <p>这个类只负责根据预览状态分发到具体 renderer：建造预览、
- * 未确认破坏预览、连锁破坏预览，以及确认后的合并骨架。确认后的骨架缓存、
- * 逐块侵蚀和 no-depth 兜底线统一由 {@link MergedSkeletonRenderer} 拥有。
+ * <p>Delegates to specialized renderers based on the
+ * {@link ShapeDataRecords.GhostPreview} state:
+ * <ul>
+ *   <li>{@link BuildGhostRenderer} — translucent block models / fallback outlines for placement</li>
+ *   <li>{@link DestructiveGhostRenderer} — per-block coloured outlines + envelope for range destroy</li>
+ *   <li>{@link UltimineGhostRenderer} — FTB Ultimine style chain-mining ghost</li>
+ *   <li>{@link MergedSkeletonRenderer} — merged outer-perimeter skeleton for confirmed work areas</li>
+ * </ul>
  */
 public final class ShapeGhostRenderer {
-    private static final double BOUNDARY_PADDING = 0.02D;
+
+    // ── Smoothed destroy progress state (shared across all rendering modes) ──
 
     private static float smoothedDestroyProgress;
     private static long smoothedDestroyProgressMs;
     private static int smoothedDestroyProgressKey;
+    private static final long DESTROY_COMPLETE_FADE_MS = 180L;
+    private static int destroyVisualKey;
+    private static int destroyCompletePreviewKey;
+    private static long destroyCompleteFadeStartMs;
+    private static boolean destroyVisualComplete;
 
     private ShapeGhostRenderer() {
-    }
-
-    public static void renderShapeGhostPreview(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer,
-            VertexConsumer fillBuffer) {
-        if (!(minecraft.screen instanceof BuilderScreen screen)) {
-            return;
-        }
-
-        boolean sawConfirmedWorkArea = false;
-        for (ShapeDataRecords.GhostPreview preview : screen.getConfirmedRangeDestroyPreviews()) {
-            sawConfirmedWorkArea |= isConfirmedDestructiveWorkArea(preview);
-            renderGhostPreview(minecraft, preview, poseStack, lineBuffer, fillBuffer);
-        }
-        ShapeDataRecords.GhostPreview currentPreview = screen.getShapeGhostPreview();
-        if (!(sawConfirmedWorkArea && isUnconfirmedDestructivePreview(currentPreview))) {
-            sawConfirmedWorkArea |= isConfirmedDestructiveWorkArea(currentPreview);
-            renderGhostPreview(minecraft, currentPreview, poseStack, lineBuffer, fillBuffer);
-        }
-        if (!sawConfirmedWorkArea) {
-            MergedSkeletonRenderer.clearCache();
-        }
-    }
-
-    public static void markDestroyed(BlockPos pos) {
-        MergedSkeletonRenderer.markDestroyed(pos);
     }
 
     public static void clearDeferredNoDepthPasses() {
@@ -64,140 +50,217 @@ public final class ShapeGhostRenderer {
         UltimineGhostRenderer.flushDeferredNoDepthPasses();
     }
 
-    private static void renderGhostPreview(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
-            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
-        if (preview == null) {
+    private record DestroyVisualState(float progress, float alpha, boolean fading) {
+        private boolean hidden() {
+            return alpha <= 0.0F;
+        }
+    }
+
+    // ===== Entry point =====
+
+    /**
+     * Entry-point called each frame. Iterates over confirmed range-destroy
+     * previews and the current shape ghost preview, dispatching each to
+     * {@link #renderGhostPreview}.
+     */
+    public static void renderShapeGhostPreview(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer,
+            VertexConsumer fillBuffer) {
+        if (!(minecraft.screen instanceof BuilderScreen screen)) {
             return;
         }
+
+        boolean sawConfirmedDestructiveWorkArea = false;
+        for (ShapeDataRecords.GhostPreview preview : screen.getConfirmedRangeDestroyPreviews()) {
+            sawConfirmedDestructiveWorkArea |= isConfirmedDestructiveWorkArea(preview);
+            renderGhostPreview(minecraft, preview, poseStack, lineBuffer, fillBuffer, null);
+        }
+        ShapeDataRecords.GhostPreview currentPreview = screen.getShapeGhostPreview();
+        sawConfirmedDestructiveWorkArea |= isConfirmedDestructiveWorkArea(currentPreview);
+        renderGhostPreview(
+                minecraft,
+                currentPreview,
+                poseStack,
+                lineBuffer,
+                fillBuffer,
+                screen.getShapeController().shapeSelectionRenderAabb());
+        if (!sawConfirmedDestructiveWorkArea) {
+            MergedSkeletonRenderer.clearCache();
+        }
+    }
+
+    /**
+     * Records a block as destroyed for incremental skeleton updates.
+     * Delegates to {@link MergedSkeletonRenderer#markDestroyed(BlockPos)}.
+     */
+    public static void markDestroyed(BlockPos pos) {
+        MergedSkeletonRenderer.markDestroyed(pos);
+    }
+
+    // ===== Ghost preview dispatch =====
+
+    private static void renderGhostPreview(Minecraft minecraft, ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, AABB selectionAabb) {
+        if (preview == null) return;
+
+        // Clip preview blocks to the RTS boundary; blocks outside the boundary are not rendered
         preview = clampPreviewToBounds(preview);
-        if (preview == null) {
-            return;
-        }
-        if (!preview.chainDestroyPreview() && isEmpty(preview.blocks()) && isEmpty(preview.emptyBlocks())) {
+        if (preview == null) return;
+
+        // Ultimine ghost always tries to render; skip early-exit for ultimine
+        if (!preview.chainDestroyPreview() && preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty()) {
             return;
         }
 
+        // ── Confirmed destructive work area ──
         if (preview.destructive() && preview.confirmedWorkArea()) {
-            float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
-            if (preview.chainDestroyPreview()) {
-                MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer,
-                        progress);
-            } else if (Config.isRangeDestroySkeletonEnabled()) {
-                MergedSkeletonRenderer.renderConfirmedRangeDestroy(preview, poseStack, lineBuffer, fillBuffer,
-                        progress);
-            } else {
-                DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
+            DestroyVisualState visual = destroyVisualState(ClientRtsController.get(), preview);
+            if (visual.hidden()) {
+                return;
             }
+            if (preview.chainDestroyPreview()) {
+                if (visual.fading()) {
+                    MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
+                            1.0F, 0.30F, 0.035F, visual.alpha());
+                } else {
+                    MergedSkeletonRenderer.renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer,
+                            fillBuffer, visual.progress(), visual.alpha());
+                }
+                return;
+            }
+            if (com.rtsbuilding.rtsbuilding.Config.isRangeDestroySkeletonEnabled()) {
+                renderConfirmedRangeDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, visual);
+                return;
+            }
+            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
+                    visual.progress(), visual.alpha());
             return;
         }
 
+        // ── Wireframe mode (debug/config toggle) ──
+        // ── Ultimine (chain-mining) ghost ──
         if (preview.chainDestroyPreview()) {
             float progress = smoothedDestroyProgress(ClientRtsController.get(), preview);
             UltimineGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, progress);
             return;
         }
 
+        // ── Destructive (range-destroy) ghost ──
         if (preview.destructive()) {
-            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer, 0.0F, 1.0F);
+            float progress = preview.confirmedWorkArea() ? smoothedDestroyProgress(ClientRtsController.get(), preview) : 0.0F;
+            DestructiveGhostRenderer.render(
+                    preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F, selectionAabb);
             return;
         }
 
-        BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer);
+        // ── Build mode (placement ghost) ──
+        // 批量建造不提前渲染整片方块虚影，避免库存不足时误导玩家以为所有目标都会放置。
+        boolean usePlacementLayerSettings = shouldUsePlacementPreviewSettings(preview);
+        boolean renderBlockGhost = preview.blocks().size() <= 1
+                && (usePlacementLayerSettings
+                        ? com.rtsbuilding.rtsbuilding.Config.isPlacementBlockGhostPreviewEnabled()
+                        : true);
+        BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer,
+                renderBlockGhost,
+                shouldRenderPlacementWireframe(preview));
     }
 
-    static void renderDestructiveGhost(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
-        float alpha = clamp01(alphaMultiplier);
-        if (alpha <= 0.0F) {
+    static boolean shouldRenderPlacementWireframe(ShapeDataRecords.GhostPreview preview) {
+        return shouldRenderPlacementWireframe(
+                preview,
+                com.rtsbuilding.rtsbuilding.Config.isPlacementWireframePreviewEnabled());
+    }
+
+    static boolean shouldRenderPlacementWireframe(ShapeDataRecords.GhostPreview preview, boolean configEnabled) {
+        if (preview == null || preview.blocks().isEmpty()) {
+            return false;
+        }
+        if (preview.blocks().size() > 1) {
+            return true;
+        }
+        return configEnabled;
+    }
+
+    // ===== Range-destroy confirmed work area handling =====
+
+    private static void renderConfirmedRangeDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, DestroyVisualState visual) {
+        ClientRtsController controller = ClientRtsController.get();
+
+        if (visual.fading()) {
+            MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
+                    1.0F, 0.30F, 0.030F, visual.alpha());
             return;
         }
-
-        if (!isEmpty(preview.blocks()) || !isEmpty(preview.emptyBlocks())) {
-            float envLineR = lerp(1.00F, 0.38F, progress);
-            float envLineG = lerp(0.86F, 1.00F, progress);
-            float envLineB = lerp(0.22F, 0.42F, progress);
-            float envFillR = lerp(1.00F, 0.30F, progress);
-            float envFillG = lerp(0.86F, 0.95F, progress);
-            float envFillB = lerp(0.18F, 0.36F, progress);
-            renderGhostEnvelope(
-                    poseStack, lineBuffer, fillBuffer,
-                    preview.blocks(), preview.emptyBlocks(),
-                    envLineR, envLineG, envLineB, 0.78F * alpha,
-                    envFillR, envFillG, envFillB, 0.10F * alpha);
-        }
-
-        DestructiveCellColors colors = DestructiveCellColors.forConfirmState(preview.readyConfirm());
-        float lineR = lerp(colors.lineR(), 0.38F, progress);
-        float lineG = lerp(colors.lineG(), 1.00F, progress);
-        float lineB = lerp(colors.lineB(), 0.42F, progress);
-        float fillR = lerp(colors.fillR(), 0.30F, progress);
-        float fillG = lerp(colors.fillG(), 0.95F, progress);
-        float fillB = lerp(colors.fillB(), 0.36F, progress);
-
-        for (BlockPos pos : preview.blocks()) {
-            double minX = pos.getX() + 0.03D;
-            double minY = pos.getY() + 0.03D;
-            double minZ = pos.getZ() + 0.03D;
-            double maxX = pos.getX() + 0.97D;
-            double maxY = pos.getY() + 0.97D;
-            double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    fillR, fillG, fillB, colors.fillA() * alpha);
-            LevelRenderer.renderLineBox(
-                    poseStack, lineBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    lineR, lineG, lineB, colors.lineA() * alpha);
-        }
-    }
-
-    private static boolean isConfirmedDestructiveWorkArea(ShapeDataRecords.GhostPreview preview) {
-        return preview != null && preview.destructive() && preview.confirmedWorkArea();
-    }
-
-    private static boolean isUnconfirmedDestructivePreview(ShapeDataRecords.GhostPreview preview) {
-        return preview != null && preview.destructive() && !preview.confirmedWorkArea();
-    }
-
-    private static void renderGhostEnvelope(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
-            List<BlockPos> primaryBlocks, List<BlockPos> envelopeBlocks,
-            float lineR, float lineG, float lineB, float lineA,
-            float fillR, float fillG, float fillB, float fillA) {
-        Bounds bounds = Bounds.from(primaryBlocks, envelopeBlocks);
-        if (bounds == null) {
+        if (hasStartedDestroyBatch(controller, preview)) {
+            MergedSkeletonRenderer.renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
+                    visual.progress(), 0.30F, 0.030F, visual.alpha());
             return;
         }
-        double minX = bounds.minX() - BOUNDARY_PADDING;
-        double minY = bounds.minY() - BOUNDARY_PADDING;
-        double minZ = bounds.minZ() - BOUNDARY_PADDING;
-        double maxX = bounds.maxX() + 1.0D + BOUNDARY_PADDING;
-        double maxY = bounds.maxY() + 1.0D + BOUNDARY_PADDING;
-        double maxZ = bounds.maxZ() + 1.0D + BOUNDARY_PADDING;
-
-        LevelRenderer.addChainedFilledBoxVertices(
-                poseStack, fillBuffer,
-                minX, minY, minZ,
-                maxX, maxY, maxZ,
-                fillR, fillG, fillB, fillA);
-        LevelRenderer.renderLineBox(
-                poseStack, lineBuffer,
-                minX, minY, minZ,
-                maxX, maxY, maxZ,
-                lineR, lineG, lineB, lineA);
+        if (MergedSkeletonRenderer.hasCachedSkeleton(preview)) {
+            if (MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
+                    visual.progress(), 0.30F, 0.030F, visual.alpha())) {
+                return;
+            }
+        }
+        if (MergedSkeletonRenderer.hasSkeletonCacheForPreview(preview)) {
+            return;
+        }
+        DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
+                visual.progress(), visual.alpha());
     }
 
-    private static float smoothedDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
-        int key = previewKey(preview);
+    // ===== Smoothed destroy progress =====
+
+    private static DestroyVisualState destroyVisualState(ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview) {
+        int previewKey = previewKey(preview);
+        if (previewKey != destroyVisualKey) {
+            destroyVisualKey = previewKey;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean active = hasActiveDestroyProgress(controller, preview);
+        boolean complete = hasCompletedDestroyProgress(controller, preview);
+        if (active && !complete) {
+            if (previewKey == destroyCompletePreviewKey) {
+                destroyVisualComplete = false;
+                destroyCompletePreviewKey = 0;
+                destroyCompleteFadeStartMs = 0L;
+            }
+            return new DestroyVisualState(smoothedDestroyProgress(controller, preview), 1.0F, false);
+        }
+
+        boolean recentComplete = hasRecentDestroyCompletion(controller, preview, now);
+        boolean completedPreview = destroyVisualComplete && previewKey == destroyCompletePreviewKey;
+        if (complete || recentComplete || completedPreview) {
+            if (!completedPreview) {
+                destroyVisualComplete = true;
+                destroyCompletePreviewKey = previewKey;
+                long completedAt = controller == null ? 0L : controller.getMineProgressCompletedAtMs();
+                destroyCompleteFadeStartMs = completedAt > 0L ? completedAt : now;
+            }
+            long elapsed = Math.max(0L, now - destroyCompleteFadeStartMs);
+            float alpha = RenderingUtil.clamp01(1.0F - elapsed / (float) DESTROY_COMPLETE_FADE_MS);
+            return new DestroyVisualState(1.0F, alpha, true);
+        }
+
+        return new DestroyVisualState(smoothedDestroyProgress(controller, preview), 1.0F, false);
+    }
+
+    static float smoothedDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
+        int previewKey = previewKey(preview);
         float target = rawDestroyProgress(controller, preview);
         long now = System.currentTimeMillis();
-        if (key != smoothedDestroyProgressKey || smoothedDestroyProgressMs <= 0L) {
-            smoothedDestroyProgressKey = key;
+        if (previewKey != smoothedDestroyProgressKey) {
+            smoothedDestroyProgressKey = previewKey;
             smoothedDestroyProgressMs = now;
             smoothedDestroyProgress = target;
-            return clamp01(smoothedDestroyProgress);
+            return smoothedDestroyProgress;
+        }
+        if (smoothedDestroyProgressMs <= 0L) {
+            smoothedDestroyProgressMs = now;
+            smoothedDestroyProgress = target;
+            return smoothedDestroyProgress;
         }
         float deltaSeconds = Math.min(0.10F, Math.max(0.0F, (now - smoothedDestroyProgressMs) / 1000.0F));
         smoothedDestroyProgressMs = now;
@@ -211,21 +274,24 @@ public final class ShapeGhostRenderer {
         if (target <= 0.0F && smoothedDestroyProgress < 0.01F) {
             smoothedDestroyProgress = 0.0F;
         }
-        return clamp01(smoothedDestroyProgress);
+        return RenderingUtil.clamp01(smoothedDestroyProgress);
     }
 
     private static float rawDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
-        if (controller == null) {
-            return 0.0F;
-        }
+        if (controller == null) return 0.0F;
+
         float miningStageProgress = miningStageProgress(controller, preview);
         if (preview != null && preview.chainDestroyPreview() && miningStageProgress > 0.0F) {
             return miningStageProgress;
         }
+
+        // 主数据源：工作流进度（稳定，仅在工作流同步时才变化）
         RtsWorkflowStatus workflow = controller.findActiveDestroyWorkflow();
         if (workflow != null && workflow.totalBlocks() > 0) {
-            return clamp01((float) workflow.completedBlocks() / (float) workflow.totalBlocks());
+            return RenderingUtil.clamp01((float) workflow.completedBlocks() / (float) workflow.totalBlocks());
         }
+
+        // 次级 fallback：无工作流时的单方块挖掘破坏阶段
         return miningStageProgress;
     }
 
@@ -238,32 +304,72 @@ public final class ShapeGhostRenderer {
             return 0.0F;
         }
         int stage = controller.getMineProgressStage();
-        if (stage < 0) {
-            return 0.0F;
-        }
-        return clamp01((Math.min(9, stage) + 1) / 10.0F);
-    }
-    private static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
-        return preview != null && pos != null && (contains(preview.blocks(), pos) || contains(preview.emptyBlocks(), pos));
+        return stage < 0 ? 0.0F : RenderingUtil.clamp01((Math.min(9, stage) + 1) / 10.0F);
     }
 
-    private static boolean contains(List<BlockPos> blocks, BlockPos pos) {
-        if (blocks == null || pos == null) {
-            return false;
+    // ===== Utility methods =====
+
+    private static boolean isConfirmedDestructiveWorkArea(ShapeDataRecords.GhostPreview preview) {
+        return preview != null && preview.destructive() && preview.confirmedWorkArea();
+    }
+
+    static boolean hasStartedDestroyBatch(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
+        if (controller == null || preview == null) return false;
+        BlockPos progressPos = controller.getMineProgressPos();
+        RtsWorkflowStatus workflow = controller.findActiveDestroyWorkflow();
+        int processed = workflow != null ? workflow.completedBlocks() : 0;
+        int total = workflow != null ? workflow.totalBlocks() : 0;
+        return progressPos != null
+                && previewContains(preview, progressPos)
+                && processed > 0
+                && total > 0;
+    }
+
+    private static boolean hasActiveDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
+        if (controller == null || preview == null) return false;
+        BlockPos progressPos = controller.getMineProgressPos();
+        if (progressPos == null || !previewContains(preview, progressPos)) return false;
+        RtsWorkflowStatus workflow = controller.findActiveDestroyWorkflow();
+        if (workflow != null && workflow.totalBlocks() > 0) {
+            return true;
         }
-        for (BlockPos block : blocks) {
-            if (pos.equals(block)) {
-                return true;
-            }
-        }
-        return false;
+        return controller.getMineProgressStage() >= 0;
+    }
+
+    private static boolean hasCompletedDestroyProgress(ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview) {
+        if (controller == null || preview == null) return false;
+        BlockPos progressPos = controller.getMineProgressPos();
+        RtsWorkflowStatus workflow = controller.findActiveDestroyWorkflow();
+        int total = workflow != null ? workflow.totalBlocks() : 0;
+        int processed = workflow != null ? workflow.completedBlocks() : -1;
+        return progressPos != null
+                && previewContains(preview, progressPos)
+                && total > 0
+                && processed >= total;
+    }
+
+    private static boolean hasRecentDestroyCompletion(ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview, long now) {
+        if (controller == null || preview == null) return false;
+        long completedAt = controller.getMineProgressCompletedAtMs();
+        return completedAt > 0L
+                && now - completedAt <= DESTROY_COMPLETE_FADE_MS
+                && previewContains(preview, controller.getMineProgressCompletedPos());
+    }
+
+    static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
+        if (preview == null || pos == null) return false;
+        return RenderingUtil.contains(preview.blocks(), pos) || RenderingUtil.contains(preview.emptyBlocks(), pos);
+    }
+
+    private static boolean shouldUsePlacementPreviewSettings(ShapeDataRecords.GhostPreview preview) {
+        return preview != null && preview.readyConfirm();
     }
 
     private static int previewKey(ShapeDataRecords.GhostPreview preview) {
-        Bounds bounds = preview == null ? null : Bounds.from(preview.blocks(), preview.emptyBlocks());
-        if (bounds == null) {
-            return 0;
-        }
+        RenderingUtil.Bounds bounds = preview == null ? null : RenderingUtil.Bounds.from(preview.blocks(), preview.emptyBlocks());
+        if (bounds == null) return 0;
         int result = 17;
         result = 31 * result + bounds.minX();
         result = 31 * result + bounds.minY();
@@ -276,99 +382,37 @@ public final class ShapeGhostRenderer {
         return result;
     }
 
+    /**
+     * Clips block positions in a GhostPreview to the RTS boundary range.
+     * <p>
+     * Returns {@code null} to skip rendering if all blocks lie outside the boundary.
+     */
     private static ShapeDataRecords.GhostPreview clampPreviewToBounds(ShapeDataRecords.GhostPreview preview) {
-        if (preview == null) {
-            return null;
-        }
+        if (preview == null) return null;
         ClientRtsController controller = ClientRtsController.get();
-        if (!controller.hasBounds()) {
-            return preview;
-        }
-        List<BlockPos> filteredBlocks = RenderingUtil.filterBlocksWithinBounds(
-                preview.blocks(), controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
-        List<BlockPos> filteredEmptyBlocks = RenderingUtil.filterBlocksWithinBounds(
-                preview.emptyBlocks(), controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        if (!controller.hasBounds()) return preview;
+
+        double ax = controller.getAnchorX();
+        double az = controller.getAnchorZ();
+        double r = controller.getMaxRadius();
+
+        List<BlockPos> filteredBlocks = RenderingUtil.filterBlocksWithinBounds(preview.blocks(), ax, az, r);
+        List<BlockPos> filteredEmptyBlocks = RenderingUtil.filterBlocksWithinBounds(preview.emptyBlocks(), ax, az, r);
+
+        // If both lists are the original objects, no blocks were filtered out
         if (filteredBlocks == preview.blocks() && filteredEmptyBlocks == preview.emptyBlocks()) {
             return preview;
         }
-        if (isEmpty(filteredBlocks) && isEmpty(filteredEmptyBlocks)) {
+
+        // If all blocks are outside the boundary, return null to skip rendering
+        if (filteredBlocks.isEmpty() && filteredEmptyBlocks.isEmpty()) {
             return null;
         }
+
         return new ShapeDataRecords.GhostPreview(
-                filteredBlocks,
-                preview.readyConfirm(),
-                preview.destructive(),
-                filteredEmptyBlocks,
-                preview.chainDestroyPreview(),
-                preview.confirmedWorkArea());
+                filteredBlocks, preview.readyConfirm(), preview.destructive(),
+                filteredEmptyBlocks, preview.chainDestroyPreview(), preview.confirmedWorkArea());
     }
 
-    private static boolean isEmpty(List<BlockPos> blocks) {
-        return blocks == null || blocks.isEmpty();
-    }
 
-    private static float lerp(float from, float to, float amount) {
-        return from + (to - from) * clamp01(amount);
-    }
-
-    private static float clamp01(float value) {
-        return Math.max(0.0F, Math.min(1.0F, value));
-    }
-
-    private record Bounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-        private static Bounds from(List<BlockPos> first, List<BlockPos> second) {
-            MutableBounds bounds = new MutableBounds();
-            bounds.include(first);
-            bounds.include(second);
-            return bounds.toBounds();
-        }
-    }
-
-    private static final class MutableBounds {
-        private int minX = Integer.MAX_VALUE;
-        private int minY = Integer.MAX_VALUE;
-        private int minZ = Integer.MAX_VALUE;
-        private int maxX = Integer.MIN_VALUE;
-        private int maxY = Integer.MIN_VALUE;
-        private int maxZ = Integer.MIN_VALUE;
-        private boolean hasAny;
-
-        private void include(List<BlockPos> blocks) {
-            if (blocks == null) {
-                return;
-            }
-            for (BlockPos pos : blocks) {
-                if (pos == null) {
-                    continue;
-                }
-                this.minX = Math.min(this.minX, pos.getX());
-                this.minY = Math.min(this.minY, pos.getY());
-                this.minZ = Math.min(this.minZ, pos.getZ());
-                this.maxX = Math.max(this.maxX, pos.getX());
-                this.maxY = Math.max(this.maxY, pos.getY());
-                this.maxZ = Math.max(this.maxZ, pos.getZ());
-                this.hasAny = true;
-            }
-        }
-
-        private Bounds toBounds() {
-            return this.hasAny ? new Bounds(this.minX, this.minY, this.minZ, this.maxX, this.maxY, this.maxZ) : null;
-        }
-    }
-
-    private record DestructiveCellColors(
-            float lineR, float lineG, float lineB, float lineA,
-            float fillR, float fillG, float fillB, float fillA) {
-        private static DestructiveCellColors forConfirmState(boolean readyConfirm) {
-            return new DestructiveCellColors(
-                    1.00F,
-                    readyConfirm ? 0.95F : 0.46F,
-                    readyConfirm ? 0.45F : 0.64F,
-                    readyConfirm ? 0.95F : 0.62F,
-                    1.00F,
-                    readyConfirm ? 0.72F : 0.25F,
-                    readyConfirm ? 0.24F : 0.44F,
-                    readyConfirm ? 0.22F : 0.07F);
-        }
-    }
 }

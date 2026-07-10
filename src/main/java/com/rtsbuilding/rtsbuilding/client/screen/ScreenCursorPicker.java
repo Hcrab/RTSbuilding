@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -245,8 +246,8 @@ final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (camPos == null || dir == null) {
             return null;
         }
-        if (this.controller.getBuildShape() == ClientRtsController.BuildShape.BLOCK
-                && (this.shapeController.getShapeBuildSession() == null || this.shapeController.getShapeBuildSession().shape() == ClientRtsController.BuildShape.BLOCK)) {
+        if (this.controller.getBuildShape() == BuildShape.BLOCK
+                && (this.shapeController.getShapeBuildSession() == null || this.shapeController.getShapeBuildSession().shape() == BuildShape.BLOCK)) {
             return null;
         }
         Direction face = resolveAirShapeFace(dir);
@@ -325,14 +326,14 @@ final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (this.shapeController.getShapeBuildSession() != null && this.shapeController.getShapeBuildSession().planeFace() != null) {
             return this.shapeController.getShapeBuildSession().planeFace();
         }
-        ClientRtsController.BuildShape shape = this.controller.getBuildShape();
-        if (shape == ClientRtsController.BuildShape.LINE
-                || shape == ClientRtsController.BuildShape.SQUARE
-                || shape == ClientRtsController.BuildShape.CYLINDER
-                || shape == ClientRtsController.BuildShape.BOX) {
+        BuildShape shape = this.controller.getBuildShape();
+        if (shape == BuildShape.LINE
+                || shape == BuildShape.SQUARE
+                || shape == BuildShape.CYLINDER
+                || shape == BuildShape.BOX) {
             return Direction.UP;
         }
-        if (shape == ClientRtsController.BuildShape.WALL) {
+        if (shape == BuildShape.WALL) {
             return Direction.UP;
         }
         return Direction.getNearest(-dir.x, -dir.y, -dir.z);

@@ -4,6 +4,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Shared six-direction box handle interaction state.
@@ -53,15 +54,25 @@ public final class RtsBoxHandleInteraction {
     }
 
     public void updateHover(RtsCullingBox box, Vec3 origin, Vec3 rayDirection, boolean enabled) {
+        updateHover(box, origin, rayDirection, enabled, null);
+    }
+
+    public void updateHover(RtsCullingBox box, Vec3 origin, Vec3 rayDirection, boolean enabled,
+            Set<Direction> allowedDirections) {
         hoveredDirection = null;
         if (!enabled || activeDirection != null) {
             return;
         }
-        hoveredDirection = nearestHandle(box, origin, rayDirection).orElse(null);
+        hoveredDirection = nearestHandle(box, origin, rayDirection, allowedDirections).orElse(null);
     }
 
     public ClickResult clickHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection) {
-        Optional<Direction> hit = nearestHandle(box, origin, rayDirection);
+        return clickHandle(box, origin, rayDirection, null);
+    }
+
+    public ClickResult clickHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection,
+            Set<Direction> allowedDirections) {
+        Optional<Direction> hit = nearestHandle(box, origin, rayDirection, allowedDirections);
         if (hit.isEmpty()) {
             return ClickResult.none();
         }
@@ -111,8 +122,9 @@ public final class RtsBoxHandleInteraction {
         return sink.resize(activeDirection, steps);
     }
 
-    private static Optional<Direction> nearestHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection) {
-        return RtsCullingAxisHandle.nearestHit(box, origin, rayDirection, HANDLE_RAY_DISTANCE)
+    private static Optional<Direction> nearestHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection,
+            Set<Direction> allowedDirections) {
+        return RtsCullingAxisHandle.nearestHit(box, origin, rayDirection, HANDLE_RAY_DISTANCE, allowedDirections)
                 .map(RtsCullingAxisHandle.HandleHit::direction);
     }
 

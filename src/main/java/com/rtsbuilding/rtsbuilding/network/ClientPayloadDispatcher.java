@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
@@ -76,6 +77,8 @@ public final class ClientPayloadDispatcher {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handlePlaceAnimation(p, ctx);
         } else if (payload instanceof S2CRtsBreakAnimationPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleBreakAnimation(p, ctx);
+        } else if (payload instanceof S2CRtsBlockActionSoundPayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleBlockActionSound(p, ctx);
         } else if (payload instanceof S2CRtsUltimineProgressPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleUltimineProgress(p, ctx);
         } else if (payload instanceof S2CRtsWorkflowProgressPayload p) {

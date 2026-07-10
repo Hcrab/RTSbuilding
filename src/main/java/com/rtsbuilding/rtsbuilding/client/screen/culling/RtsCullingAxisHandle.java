@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * World-space axis handles for a range-culling box.
@@ -34,28 +35,44 @@ public final class RtsCullingAxisHandle {
     }
 
     public static List<Handle> handles(AABB box) {
+        return handles(box, null);
+    }
+
+    public static List<Handle> handles(AABB box, Set<Direction> allowedDirections) {
         if (box == null) {
             return List.of();
         }
         List<Handle> result = new ArrayList<>(6);
-        result.add(handle(box, Direction.EAST));
-        result.add(handle(box, Direction.WEST));
-        result.add(handle(box, Direction.UP));
-        result.add(handle(box, Direction.DOWN));
-        result.add(handle(box, Direction.SOUTH));
-        result.add(handle(box, Direction.NORTH));
+        addHandleIfAllowed(result, box, Direction.EAST, allowedDirections);
+        addHandleIfAllowed(result, box, Direction.WEST, allowedDirections);
+        addHandleIfAllowed(result, box, Direction.UP, allowedDirections);
+        addHandleIfAllowed(result, box, Direction.DOWN, allowedDirections);
+        addHandleIfAllowed(result, box, Direction.SOUTH, allowedDirections);
+        addHandleIfAllowed(result, box, Direction.NORTH, allowedDirections);
         return result;
     }
 
     public static Optional<HandleHit> nearestHit(RtsCullingBox box, Vec3 origin, Vec3 direction, double maxDistance) {
+        return nearestHit(box, origin, direction, maxDistance, null);
+    }
+
+    public static Optional<HandleHit> nearestHit(RtsCullingBox box, Vec3 origin, Vec3 direction, double maxDistance,
+            Set<Direction> allowedDirections) {
         if (box == null || origin == null || direction == null || direction.lengthSqr() < EPSILON) {
             return Optional.empty();
         }
         Vec3 normalized = direction.normalize();
-        return handles(box).stream()
+        return handles(box.asAabb(), allowedDirections).stream()
                 .map(handle -> handle.hit(origin, normalized, maxDistance))
                 .flatMap(Optional::stream)
                 .min(Comparator.comparingDouble(HandleHit::distance));
+    }
+
+    private static void addHandleIfAllowed(List<Handle> result, AABB box, Direction direction,
+            Set<Direction> allowedDirections) {
+        if (allowedDirections == null || allowedDirections.contains(direction)) {
+            result.add(handle(box, direction));
+        }
     }
 
     private static Handle handle(AABB box, Direction direction) {

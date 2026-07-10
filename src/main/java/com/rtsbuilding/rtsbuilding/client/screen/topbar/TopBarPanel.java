@@ -1,15 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
-
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.fml.ModList;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -24,7 +22,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
  * <p>
  * This panel is owned by {@link BuilderScreen} and is the single point of contact
  * between the screen layer and the top bar UI data. It holds no direct rendering
- * state of its own ??the appearance of each button is computed fresh every frame.
+ * state of its own — the appearance of each button is computed fresh every frame.
  * <p>
  * <b>Key responsibilities:</b>
  * <ul>
@@ -98,27 +96,20 @@ public final class TopBarPanel {
                 : screen.text("screen.rtsbuilding.status.storage_not_linked");
         String row1 = modeText;
 
-        // ---- Status bar row 2: storage, auto-store, fill, rotation, undo/redo ----
+        // ---- Status bar row 2: storage, auto-store, funnel, active workflow hint ----
         String shapeStatus = screen.isQuickBuildOpen() ? screen.pendingShapeStatusText() : "";
-        String quickBuildStatus = screen.canUseQuickBuild()
-                ? "    " + screen.text("screen.rtsbuilding.status.shape", screen.activeQuickBuildShapeLabel())
-                + "    " + screen.text("screen.rtsbuilding.status.fill", screen.fillModeLabel(screen.getShapeFillMode()))
-                + "    " + screen.text("screen.rtsbuilding.status.rotation", screen.getShapeRotateDegrees())
-                + "    " + screen.text("screen.rtsbuilding.status.undo_redo", screen.getShapeUndoSize(), screen.getShapeRedoSize())
-                + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
-                : "";
         String row2 = linked + (this.controller.isAutoStoreMinedDrops()
                 ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
                 : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
-                + (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL) ? "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off")) : "")
-                + quickBuildStatus
+                + "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"))
+                + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         int statusX = 8;
         int statusW = Math.max(40, screen.width - 16);
-        g.drawString(screen.font(), screen.trimToWidth(row1, statusW), statusX, 33, 0xF0F0F0);
+        g.drawString(screen.font(), screen.trimToWidth(row1, statusW), statusX, 33, 0xF0F0F0, false);
         g.drawString(screen.font(), screen.trimToWidth(row2, statusW), statusX, 44,
-                this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE);
+                this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
     }
 
     // ======================== Click Handling ========================
@@ -169,31 +160,24 @@ public final class TopBarPanel {
                 }
                 case QUICK_BUILD -> {
                     screen.toggleQuickBuild();
-                    screen.closeGearMenu();
                     screen.persistUiState();
                 }
-                case RANGE_CULLING -> {
-                    screen.toggleRangeCullingManagement();
-                    screen.closeGearMenu();
-                }
                 case QUEST_DETECT -> {
-                    screen.closeGearMenu();
                     this.controller.detectQuestsNow();
                 }
                 case CHUNK_VIEW -> {
                     this.controller.setChunkCurtainVisible(!this.controller.isChunkCurtainVisible());
                     screen.persistUiState();
                 }
+                case RANGE_CULLING -> screen.toggleRangeCullingManagement();
                 case GUIDE -> {
                     screen.toggleTopGuide(button.x() + button.width() / 2, 4 + TOP_BUTTON_H);
-                    screen.closeGearMenu();
                 }
                 case GEAR -> screen.toggleGearMenu();
                 default -> { /* no-op for unrecognised button IDs */ }
             }
             return true;
         }
-        screen.closeGearMenu();
         return false;
     }
 
@@ -203,7 +187,7 @@ public final class TopBarPanel {
      * Builds the ordered list of all top bar button layouts for the current frame.
      * <p>
      * Buttons are arranged left-to-right: mode buttons first (INTERACT, LINK,
-     * FUNNEL, ROTATE ??each gated by progression), then a separator, then action
+     * FUNNEL, ROTATE — each gated by progression), then a separator, then action
      * buttons (QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GUIDE), then a
      * right-aligned GEAR button.
      * <p>
@@ -219,27 +203,17 @@ public final class TopBarPanel {
         // ---- Mode buttons (left group) ----
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.INTERACT, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.INTERACT));
         x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        if (screen.hasProgressionNode(RtsProgressionNodes.STORAGE_LINK)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
-            x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        if (screen.hasProgressionNode(RtsProgressionNodes.FUNNEL)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
-            x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        if (screen.hasProgressionNode(RtsProgressionNodes.ROTATE_BLOCK)) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
-            x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        }
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
+        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
+        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
+        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
         x += 8;
 
         // ---- Action buttons (center group) ----
         if (screen.canUseQuickBuild()) {
             layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        if (screen.canUseRangeCulling()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, x, TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
             x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
         }
         if (isFtbQuestIntegrationLoaded()) {
@@ -248,6 +222,10 @@ public final class TopBarPanel {
         }
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.CHUNK_VIEW, x, TOP_ICON_BUTTON_W, "", true, this.controller.isChunkCurtainVisible()));
         x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        if (screen.canUseRangeCulling()) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, x, TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
+            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        }
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GUIDE, x, TOP_ICON_BUTTON_W, "", true, screen.isGuideOpen()));
 
         // ---- Right-aligned buttons ----
@@ -290,7 +268,8 @@ public final class TopBarPanel {
         g.hLine(x, x + w, y + h, 0xFF0D0E10);
         g.vLine(x, y, y + h, 0xFF5B6673);
         g.vLine(x + w, y, y + h, 0xFF0D0E10);
-        g.drawCenteredString(screen.font(), screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
+                screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
     }
 
     /**
@@ -345,7 +324,7 @@ public final class TopBarPanel {
         int cx = x + (w / 2);
         int cy = y + (h / 2);
         if (button.id() == TopBarTypes.TopBarButtonId.GUIDE) {
-            g.drawCenteredString(screen.font(), "i", cx, y + 7, icon);
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), "i", cx, y + 7, icon);
         } else {
             TopBarIconRenderer.renderIcon(button.id(), g, cx, cy, icon, button.active(), screen.font());
         }

@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 
-import com.rtsbuilding.rtsbuilding.client.screen.ScreenShapeController;
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
@@ -60,7 +59,7 @@ public final class ShapeBuildTypes {
      * @param connectedLine  true when LINE/WALL should fill face-adjacent bridge blocks
      */
     public record Input(
-            ClientRtsController.BuildShape shape,
+            BuildShape shape,
             Direction planeFace,
             Direction placementFace,
             BlockPos pointA,
@@ -85,7 +84,7 @@ public final class ShapeBuildTypes {
      * @param boxHeightMouseBaseY screen Y at which height-drag started
      */
     public record Session(
-            ClientRtsController.BuildShape shape,
+            BuildShape shape,
             Direction planeFace,
             Direction placementFace,
             BlockPos pointA,
@@ -93,24 +92,6 @@ public final class ShapeBuildTypes {
             Phase phase,
             int boxHeightOffset,
             double boxHeightMouseBaseY) {}
-
-    /**
-     * Shape fill mode enum.
-     * <p>
-     * Defines how a multi-block shape is filled when generating block
-     * positions during the shape-build pipeline:
-     * <ul>
-     *   <li>{@link #FILL} ??every interior position is included (solid fill)</li>
-     *   <li>{@link #HOLLOW} ??only the outer shell is included (walls, surface)</li>
-     *   <li>{@link #SKELETON} ??only edge skeleton is included (BOX only,
-     *       shows the 12 edges of a cuboid)</li>
-     * </ul>
-     */
-    public enum ShapeFillMode {
-        FILL,
-        HOLLOW,
-        SKELETON
-    }
 
     private ShapeBuildTypes() {}
 }

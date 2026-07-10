@@ -13,6 +13,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 
 import java.util.List;
 
@@ -23,6 +25,9 @@ import java.util.List;
  * decide install legality or mutate persistent state directly.
  */
 public class RtsPluginItem extends Item {
+    private static final String REMOTE_CONTROL_PLUGIN = "remote_control_plugin";
+    private static final String STORAGE_INTEGRATION_PLUGIN = "storage_integration_plugin";
+
     public RtsPluginItem(Properties properties) {
         super(properties);
     }
@@ -43,8 +48,64 @@ public class RtsPluginItem extends Item {
             TooltipFlag tooltipFlag) {
         ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (itemId != null && RtsbuildingMod.MODID.equals(itemId.getNamespace())) {
-            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin." + itemId.getPath())
+            String pluginPath = itemId.getPath();
+            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin." + pluginPath)
                     .withStyle(ChatFormatting.GRAY));
+            appendDependencyTooltip(pluginPath, tooltipComponents);
+        }
+    }
+
+    private static void appendDependencyTooltip(String pluginPath, List<Component> tooltipComponents) {
+        List<String> dependencies = dependenciesFor(pluginPath);
+        if (dependencies.isEmpty()) {
+            return;
+        }
+        if (!isControlDown()) {
+            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.hold_ctrl")
+                    .withStyle(ChatFormatting.DARK_GRAY));
+            return;
+        }
+        tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.title")
+                .withStyle(ChatFormatting.DARK_GRAY));
+        for (String dependency : dependencies) {
+            tooltipComponents.add(Component.translatable(
+                            "tooltip.rtsbuilding.plugin.dependencies.requires",
+                            styledPluginName(dependency))
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static List<String> dependenciesFor(String pluginPath) {
+        return switch (pluginPath) {
+            case "chain_break_plugin", "area_destroy_plugin", "blueprint_plugin" -> List.of(REMOTE_CONTROL_PLUGIN);
+            case "craft_terminal_plugin" -> List.of(STORAGE_INTEGRATION_PLUGIN);
+            default -> List.of();
+        };
+    }
+
+    private static Component styledPluginName(String pluginPath) {
+        return Component.translatable("item.rtsbuilding." + pluginPath)
+                .withStyle(colorFor(pluginPath));
+    }
+
+    private static ChatFormatting colorFor(String pluginPath) {
+        return switch (pluginPath) {
+            case REMOTE_CONTROL_PLUGIN -> ChatFormatting.AQUA;
+            case STORAGE_INTEGRATION_PLUGIN -> ChatFormatting.GREEN;
+            default -> ChatFormatting.GOLD;
+        };
+    }
+
+    private static boolean isControlDown() {
+        return FMLEnvironment.dist == Dist.CLIENT && ClientKeyState.isControlDown();
+    }
+
+    private static final class ClientKeyState {
+        private ClientKeyState() {
+        }
+
+        private static boolean isControlDown() {
+            return net.minecraft.client.gui.screens.Screen.hasControlDown();
         }
     }
 }

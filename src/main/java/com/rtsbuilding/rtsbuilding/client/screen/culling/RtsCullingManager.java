@@ -335,6 +335,28 @@ public final class RtsCullingManager {
         return false;
     }
 
+    public boolean nudgeSelectedBox(int dx, int dy, int dz) {
+        if (selectedId < 0 || (dx == 0 && dy == 0 && dz == 0)) {
+            return false;
+        }
+        for (int i = 0; i < boxes.size(); i++) {
+            RtsCullingBox box = boxes.get(i);
+            if (box.id() != selectedId) {
+                continue;
+            }
+            RtsCullingBox moved = new RtsCullingBox(
+                    box.id(),
+                    box.min().offset(dx, dy, dz),
+                    box.max().offset(dx, dy, dz));
+            boxAnimator.animate(box, moved);
+            boxes.set(i, moved);
+            markBoxDirty(box);
+            markBoxDirty(moved);
+            return true;
+        }
+        return false;
+    }
+
     public boolean shouldCullWorldBlock(BlockPos pos) {
         RtsCullingBox preview = activePreviewBox();
         if ((!hasWorldCullBoxes() && preview == null) || pos == null) {

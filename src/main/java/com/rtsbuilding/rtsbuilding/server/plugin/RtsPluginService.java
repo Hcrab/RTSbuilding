@@ -166,6 +166,15 @@ public final class RtsPluginService {
         }
     }
 
+    public static void migrateLegacySkillTree(ServerPlayer player) {
+        List<RtsPluginDefinition> migrated = RtsLegacySkillTreeMigration.migrate(player);
+        if (migrated.isEmpty()) {
+            return;
+        }
+        player.displayClientMessage(RtsLegacySkillTreeMigration.migrationMessage(migrated), false);
+        syncRelatedPlayers(player);
+    }
+
     public static List<RtsInstalledPlugin> installedPlugins(ServerPlayer player) {
         if (player == null) {
             return List.of();

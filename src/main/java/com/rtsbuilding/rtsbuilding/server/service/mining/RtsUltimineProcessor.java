@@ -86,7 +86,7 @@ public final class RtsUltimineProcessor {
         if (progressionLimit <= 0) {
             return;
         }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
 
         if (player.isCreative()) {
             Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
@@ -164,13 +164,7 @@ public final class RtsUltimineProcessor {
             return;
         }
 
-        // Clamp bounds
-        int clampedMinX = minX;
-        int clampedMaxX = Math.min(clampedMinX + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxX);
-        int clampedMinZ = minZ;
-        int clampedMaxZ = Math.min(clampedMinZ + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxZ);
-        int clampedMinY = minY;
-        int clampedMaxY = Math.min(clampedMinY + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxY);
+        AreaMineBounds bounds = clampAreaMineBounds(minX, maxX, minY, maxY, minZ, maxZ);
 
         RtsMiningStateMachine.stopActiveMining(player, session);
         boolean selectedToolRequested = !player.isCreative() && RtsMiningValidator.isSelectedMiningToolRequested(toolItemId, toolPrototype);
@@ -184,9 +178,9 @@ public final class RtsUltimineProcessor {
         // Use shared shape system
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
                 player.serverLevel(),
-                clampedMinX, clampedMaxX,
-                clampedMinY, clampedMaxY,
-                clampedMinZ, clampedMaxZ,
+                bounds.minX(), bounds.maxX(),
+                bounds.minY(), bounds.maxY(),
+                bounds.minZ(), bounds.maxZ(),
                 player,
                 shapeType, fillType);
         Deque<BlockPos> targets = new ArrayDeque<>(candidatePositions);
@@ -314,7 +308,7 @@ public final class RtsUltimineProcessor {
         if (progressionLimit <= 0) {
             return completePipelineWithoutActiveBatch(player, session, lease);
         }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
         boolean creative = player.isCreative();
         Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot,
                 creative ? ItemStack.EMPTY : lease.stack(),
@@ -342,18 +336,13 @@ public final class RtsUltimineProcessor {
             return completePipelineWithoutActiveBatch(player, session, lease);
         }
 
-        int clampedMinX = minX;
-        int clampedMaxX = Math.min(clampedMinX + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxX);
-        int clampedMinZ = minZ;
-        int clampedMaxZ = Math.min(clampedMinZ + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxZ);
-        int clampedMinY = minY;
-        int clampedMaxY = Math.min(clampedMinY + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxY);
+        AreaMineBounds bounds = clampAreaMineBounds(minX, maxX, minY, maxY, minZ, maxZ);
 
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
                 player.serverLevel(),
-                clampedMinX, clampedMaxX,
-                clampedMinY, clampedMaxY,
-                clampedMinZ, clampedMaxZ,
+                bounds.minX(), bounds.maxX(),
+                bounds.minY(), bounds.maxY(),
+                bounds.minZ(), bounds.maxZ(),
                 player,
                 shapeType, fillType);
         return beginPipelineBatch(player, session, new ArrayDeque<>(candidatePositions), Direction.DOWN, slot,
@@ -444,7 +433,7 @@ public final class RtsUltimineProcessor {
             RtsToolLeaseManager.returnMiningTool(player, session, lease);
             return 0;
         }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
         boolean creative = player.isCreative();
         Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot,
                 creative ? ItemStack.EMPTY : lease.stack(),
@@ -467,18 +456,13 @@ public final class RtsUltimineProcessor {
             return 0;
         }
 
-        int clampedMinX = minX;
-        int clampedMaxX = Math.min(clampedMinX + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxX);
-        int clampedMinZ = minZ;
-        int clampedMaxZ = Math.min(clampedMinZ + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxZ);
-        int clampedMinY = minY;
-        int clampedMaxY = Math.min(clampedMinY + RtsMiningValidator.AREA_MINE_MAX_SIZE - 1, maxY);
+        AreaMineBounds bounds = clampAreaMineBounds(minX, maxX, minY, maxY, minZ, maxZ);
 
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
                 player.serverLevel(),
-                clampedMinX, clampedMaxX,
-                clampedMinY, clampedMaxY,
-                clampedMinZ, clampedMaxZ,
+                bounds.minX(), bounds.maxX(),
+                bounds.minY(), bounds.maxY(),
+                bounds.minZ(), bounds.maxZ(),
                 player,
                 shapeType, fillType);
         return queuePipelineBatch(player, session, new ArrayDeque<>(candidatePositions), Direction.DOWN,
@@ -568,6 +552,39 @@ public final class RtsUltimineProcessor {
             }
             return true;
                 });
+    }
+
+    /**
+     * 在服务端统一限制范围挖掘盒，客户端预览和任何手工构造的数据包都必须服从同一组上限。
+     * 缩减只收紧各轴终点，不会让整个选择盒越界平移。
+     */
+    private static AreaMineBounds clampAreaMineBounds(
+            int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
+        int safeMinX = Math.min(minX, maxX);
+        int safeMinY = Math.min(minY, maxY);
+        int safeMinZ = Math.min(minZ, maxZ);
+        int width = Math.min(Math.abs(maxX - minX) + 1, RtsMiningValidator.areaMineMaxWidth());
+        int height = Math.min(Math.abs(maxY - minY) + 1, RtsMiningValidator.areaMineMaxHeight());
+        int depth = Math.min(Math.abs(maxZ - minZ) + 1, RtsMiningValidator.areaMineMaxDepth());
+        int maxVolume = RtsMiningValidator.areaMineMaxVolume();
+        while ((long) width * height * depth > maxVolume) {
+            if (height >= width && height >= depth && height > 1) {
+                height--;
+            } else if (width >= depth && width > 1) {
+                width--;
+            } else if (depth > 1) {
+                depth--;
+            } else {
+                break;
+            }
+        }
+        return new AreaMineBounds(
+                safeMinX, safeMinX + width - 1,
+                safeMinY, safeMinY + height - 1,
+                safeMinZ, safeMinZ + depth - 1);
+    }
+
+    private record AreaMineBounds(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
     }
 
     // =========================================================================

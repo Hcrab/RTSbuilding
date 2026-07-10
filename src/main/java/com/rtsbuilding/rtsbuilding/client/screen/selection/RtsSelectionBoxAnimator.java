@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 
+import java.util.function.LongSupplier;
+
 /**
  * 世界空间盒子编辑器的视觉补间状态。
  *
@@ -14,31 +16,49 @@ public final class RtsSelectionBoxAnimator {
     private static final long DEFAULT_DURATION_MS = 90L;
 
     private final long durationMs;
+    private final LongSupplier clock;
     private int animatedBoxId = -1;
     private AABB animatedStartAabb;
     private AABB animatedEndAabb;
     private long animatedStartMillis;
 
     public RtsSelectionBoxAnimator() {
-        this(DEFAULT_DURATION_MS);
+        this(DEFAULT_DURATION_MS, System::currentTimeMillis);
     }
 
     RtsSelectionBoxAnimator(long durationMs) {
+        this(durationMs, System::currentTimeMillis);
+    }
+
+    RtsSelectionBoxAnimator(long durationMs, LongSupplier clock) {
         this.durationMs = Math.max(1L, durationMs);
+        this.clock = clock == null ? System::currentTimeMillis : clock;
     }
 
     public AABB renderAabb(RtsCullingBox box) {
         if (box == null) {
             return null;
         }
+        long now = this.clock.getAsLong();
+        AABB target = box.asAabb();
         if (box.id() != animatedBoxId || animatedStartAabb == null || animatedEndAabb == null) {
-            return box.asAabb();
+            animatedBoxId = box.id();
+            animatedStartAabb = target;
+            animatedEndAabb = target;
+            animatedStartMillis = now;
+            return target;
         }
-        long now = System.currentTimeMillis();
+        if (!animatedEndAabb.equals(target)) {
+            animatedStartAabb = currentAnimatedAabb(now);
+            animatedEndAabb = target;
+            animatedStartMillis = now;
+        }
         double raw = Mth.clamp((double) (now - animatedStartMillis) / (double) durationMs, 0.0D, 1.0D);
         if (raw >= 1.0D) {
-            clear();
-            return box.asAabb();
+            animatedStartAabb = target;
+            animatedEndAabb = target;
+            animatedStartMillis = now;
+            return target;
         }
         return lerpAabb(animatedStartAabb, animatedEndAabb, easeOutCubic(raw));
     }
@@ -47,7 +67,7 @@ public final class RtsSelectionBoxAnimator {
         if (from == null || to == null || from.equals(to)) {
             return;
         }
-        long now = System.currentTimeMillis();
+        long now = this.clock.getAsLong();
         AABB visualStart = from.id() == animatedBoxId && animatedStartAabb != null && animatedEndAabb != null
                 ? currentAnimatedAabb(now)
                 : from.asAabb();

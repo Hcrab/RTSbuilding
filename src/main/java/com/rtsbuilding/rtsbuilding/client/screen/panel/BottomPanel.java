@@ -909,6 +909,7 @@ public final class BottomPanel {
             if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
                 BlueprintPanel.reload();
             } else if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
+                RtsCreativeItemCatalog.get().forceRefresh();
                 this.creativePage = 0;
             } else {
                 this.controller.refreshStoragePage();

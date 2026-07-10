@@ -67,9 +67,43 @@ public final class Config {
             .comment("Require a configurable keyboard key for the final multi-block placement/destroy confirmation instead of confirming with the mouse click used to select the range.")
             .define("requireKeyboardBatchConfirm", true);
 
+    // ---- 服务端运行限制 ----
+
+    public static final ForgeConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = BUILDER
+            .comment("Maximum blocks collected by one RTS chain mining request.")
+            .defineInRange("mining.ultimineMaxBlocks", 256, 1, 4096);
+
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_SIZE = BUILDER
+            .comment("Maximum block count per dimension for RTS area mining selections.")
+            .defineInRange("mining.areaMineMaxSize", 36, 1, 64);
+
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_VOLUME = BUILDER
+            .comment("Maximum covered volume, width * height * depth, accepted by one RTS area mining selection.")
+            .defineInRange("mining.areaMineMaxVolume", 46656, 1, 262144);
+
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_WIDTH = BUILDER
+            .comment("Maximum X-axis width accepted by one RTS area mining selection.")
+            .defineInRange("mining.areaMineMaxWidth", 36, 1, 256);
+
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_HEIGHT = BUILDER
+            .comment("Maximum Y-axis height accepted by one RTS area mining selection.")
+            .defineInRange("mining.areaMineMaxHeight", 36, 1, 256);
+
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_DEPTH = BUILDER
+            .comment("Maximum Z-axis depth accepted by one RTS area mining selection.")
+            .defineInRange("mining.areaMineMaxDepth", 36, 1, 256);
+
+    public static final ForgeConfigSpec.IntValue AREA_DESTROY_MAX_TARGETS = BUILDER
+            .comment("Maximum explicit positions accepted by one RTS area destroy request.")
+            .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
+
+    public static final ForgeConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = BUILDER
+            .comment("Maximum queued chain mining targets processed per player per server tick.")
+            .defineInRange("mining.ultimineBlocksPerTick", 8, 1, 128);
+
     public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = BUILDER
-            .comment("Maximum RTS remote block action sounds emitted per player per tick.")
-            .defineInRange("placement.remotePlaceSoundsPerTick", 1, 0, 16);
+            .comment("Maximum RTS remote block action sounds sent per player per tick. Excess sounds are dropped.")
+            .defineInRange("placement.remoteBlockActionSoundsPerTick", 16, 0, 16);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
@@ -94,7 +128,7 @@ public final class Config {
             boolean blueprintsEnabled, int maxBlueprintBlocks, Map<String, String> costOverrides) {
         ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
         SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
-        MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
+        MAX_ACTION_RADIUS_BLOCKS.set(clampInt(radiusBlocks, 48, 512));
         ENABLE_BLUEPRINTS.set(blueprintsEnabled);
         MAX_BLUEPRINT_BLOCKS.set(Math.max(1, Math.min(200000, maxBlueprintBlocks)));
         setProgressionCostOverrides(costOverrides);
@@ -115,6 +149,31 @@ public final class Config {
 
     public static void setBlockGhostPreviewEnabled(boolean enabled) {
         USE_BLOCK_GHOST_PREVIEW.set(enabled);
+        SPEC.save();
+    }
+
+    public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
+            boolean blueprintsEnabled, int maxBlueprintBlocks) {
+        saveProgressionSettings(
+                survivalEnabled,
+                shareWithTeams,
+                radiusBlocks,
+                blueprintsEnabled,
+                maxBlueprintBlocks,
+                progressionCostOverrides());
+    }
+
+    public static void saveAreaMineLimitSettings(int maxWidth, int maxHeight, int maxDepth,
+            int maxVolume, int maxTargets) {
+        int width = clampInt(maxWidth, 1, 256);
+        int height = clampInt(maxHeight, 1, 256);
+        int depth = clampInt(maxDepth, 1, 256);
+        AREA_MINE_MAX_WIDTH.set(width);
+        AREA_MINE_MAX_HEIGHT.set(height);
+        AREA_MINE_MAX_DEPTH.set(depth);
+        AREA_MINE_MAX_VOLUME.set(clampInt(maxVolume, 1, 262144));
+        AREA_DESTROY_MAX_TARGETS.set(clampInt(maxTargets, 1, 262144));
+        AREA_MINE_MAX_SIZE.set(clampInt(Math.max(width, Math.max(height, depth)), 1, 64));
         SPEC.save();
     }
 
@@ -246,6 +305,42 @@ public final class Config {
             }
         }
         PROGRESSION_COST_OVERRIDES.set(encoded);
+    }
+
+    public static int ultimineMaxBlocks() {
+        return ULTIMINE_MAX_BLOCKS.get();
+    }
+
+    public static int areaMineMaxSize() {
+        return AREA_MINE_MAX_SIZE.get();
+    }
+
+    public static int areaMineMaxVolume() {
+        return AREA_MINE_MAX_VOLUME.get();
+    }
+
+    public static int areaMineMaxWidth() {
+        return AREA_MINE_MAX_WIDTH.get();
+    }
+
+    public static int areaMineMaxHeight() {
+        return AREA_MINE_MAX_HEIGHT.get();
+    }
+
+    public static int areaMineMaxDepth() {
+        return AREA_MINE_MAX_DEPTH.get();
+    }
+
+    public static int areaDestroyMaxTargets() {
+        return AREA_DESTROY_MAX_TARGETS.get();
+    }
+
+    public static int ultimineBlocksPerTick() {
+        return ULTIMINE_BLOCKS_PER_TICK.get();
+    }
+
+    private static int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 }
 

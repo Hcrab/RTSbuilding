@@ -137,7 +137,7 @@ public final class RtsPlacementService {
                             .rayDirX(rayDirX)
                             .rayDirY(rayDirY)
                             .rayDirZ(rayDirZ)
-                            .quickBuild(false)
+                            .quickBuild(true)
                             .forceEmptyHand(false)
                             .sendRemoteHint(true)
                             .totalBlocks(sanitized.size())

@@ -8,26 +8,45 @@ import net.minecraft.core.BlockPos;
 import java.util.List;
 
 /**
- * 建造 preview 线框渲染器。
- *
- * <p>线框是范围选择阶段的基础反馈，不受“方块虚影预览”设置影响。
- * 为了和玩家预期保持一致，这里始终使用蓝色线框。</p>
+ * Wireframe renderer for single-block ghost previews.
+ * <p>
+ * Renders block outline wireframes. Build previews deliberately stay blue even
+ * at the final confirmation step, because this layer is only a preview of
+ * future positions, not a server-confirmed placement animation.
  */
 public final class BuildGhostWireframeRenderer {
     private BuildGhostWireframeRenderer() {
     }
 
+    /**
+     * Renders wireframes at all target positions.
+     *
+     * @param blocks       Target block positions
+     * @param poseStack    Pose stack for coordinate transforms
+     * @param lineBuffer   Line vertex buffer
+     * @param readyConfirm Kept for call-site compatibility; preview colour is constant.
+     */
     public static void renderWireframes(List<BlockPos> blocks, PoseStack poseStack,
-            VertexConsumer lineBuffer) {
+            VertexConsumer lineBuffer, boolean readyConfirm) {
         if (blocks == null || blocks.isEmpty()) {
             return;
         }
+        float lineR = 0.30F;
+        float lineG = 0.75F;
+        float lineB = 1.00F;
+
         for (BlockPos pos : blocks) {
+            double minX = pos.getX() + 0.03D;
+            double minY = pos.getY() + 0.03D;
+            double minZ = pos.getZ() + 0.03D;
+            double maxX = pos.getX() + 0.97D;
+            double maxY = pos.getY() + 0.97D;
+            double maxZ = pos.getZ() + 0.97D;
             LevelRenderer.renderLineBox(
                     poseStack, lineBuffer,
-                    pos.getX() + 0.03D, pos.getY() + 0.03D, pos.getZ() + 0.03D,
-                    pos.getX() + 0.97D, pos.getY() + 0.97D, pos.getZ() + 0.97D,
-                    0.30F, 0.75F, 1.00F, 0.95F);
+                    minX, minY, minZ,
+                    maxX, maxY, maxZ,
+                    lineR, lineG, lineB, 0.70F);
         }
     }
 }

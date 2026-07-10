@@ -7,6 +7,8 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
 
+import java.util.Set;
+
 /**
  * 世界空间盒子编辑手柄的统一渲染器。
  *
@@ -32,10 +34,15 @@ public final class RtsBoxHandleRenderer {
 
     public static void renderAxisHandles(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             AABB box, Direction hoveredDirection, Direction activeDirection) {
+        renderAxisHandles(poseStack, lineBuffer, fillBuffer, box, hoveredDirection, activeDirection, null);
+    }
+
+    public static void renderAxisHandles(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
+            AABB box, Direction hoveredDirection, Direction activeDirection, Set<Direction> allowedDirections) {
         if (box == null) {
             return;
         }
-        for (RtsCullingAxisHandle.Handle handle : RtsCullingAxisHandle.handles(box)) {
+        for (RtsCullingAxisHandle.Handle handle : RtsCullingAxisHandle.handles(box, allowedDirections)) {
             boolean hovered = handle.direction() == hoveredDirection;
             boolean active = handle.direction() == activeDirection;
             AxisColor axisColor = color(handle.axis());

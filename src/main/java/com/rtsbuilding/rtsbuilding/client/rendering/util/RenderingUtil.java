@@ -17,6 +17,30 @@ public final class RenderingUtil {
     private RenderingUtil() {
     }
 
+    public static float lerp(float from, float to, float amount) {
+        return from + (to - from) * clamp01(amount);
+    }
+
+    public static float clamp01(float value) {
+        return Math.max(0.0F, Math.min(1.0F, value));
+    }
+
+    public static boolean isEmpty(List<BlockPos> blocks) {
+        return blocks == null || blocks.isEmpty();
+    }
+
+    public static boolean contains(List<BlockPos> blocks, BlockPos pos) {
+        if (blocks == null || pos == null) {
+            return false;
+        }
+        for (BlockPos block : blocks) {
+            if (pos.equals(block)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean isWithinBounds(BlockPos pos, double anchorX, double anchorZ, double maxRadius) {
         if (pos == null) {
             return false;
@@ -69,5 +93,49 @@ public final class RenderingUtil {
         consumer.vertex(matrix, (float) x2, (float) y2, (float) z2).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) x3, (float) y3, (float) z3).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) x4, (float) y4, (float) z4).color(r, g, b, a).endVertex();
+    }
+
+    /** 两组方块位置的并集包围盒。 */
+    public record Bounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+        public static Bounds from(List<BlockPos> first, List<BlockPos> second) {
+            MutableBounds bounds = new MutableBounds();
+            bounds.include(first);
+            bounds.include(second);
+            return bounds.toBounds();
+        }
+    }
+
+    public static final class MutableBounds {
+        private int minX = Integer.MAX_VALUE;
+        private int minY = Integer.MAX_VALUE;
+        private int minZ = Integer.MAX_VALUE;
+        private int maxX = Integer.MIN_VALUE;
+        private int maxY = Integer.MIN_VALUE;
+        private int maxZ = Integer.MIN_VALUE;
+        private boolean hasAny;
+
+        public void include(List<BlockPos> blocks) {
+            if (blocks == null) {
+                return;
+            }
+            for (BlockPos pos : blocks) {
+                if (pos == null) {
+                    continue;
+                }
+                this.minX = Math.min(this.minX, pos.getX());
+                this.minY = Math.min(this.minY, pos.getY());
+                this.minZ = Math.min(this.minZ, pos.getZ());
+                this.maxX = Math.max(this.maxX, pos.getX());
+                this.maxY = Math.max(this.maxY, pos.getY());
+                this.maxZ = Math.max(this.maxZ, pos.getZ());
+                this.hasAny = true;
+            }
+        }
+
+        public Bounds toBounds() {
+            return this.hasAny
+                    ? new Bounds(this.minX, this.minY, this.minZ, this.maxX, this.maxY, this.maxZ)
+                    : null;
+        }
     }
 }

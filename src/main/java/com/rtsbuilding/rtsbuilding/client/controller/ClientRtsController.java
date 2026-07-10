@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
@@ -158,6 +159,10 @@ public final class ClientRtsController {
 
     private float rotateSensitivity = 5.00F;
     private int inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+    private int panDragSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+    private int rotateViewSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+    private int keyboardMoveSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
+    private int wheelZoomSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
 
     private BuilderMode mode = BuilderMode.INTERACT;
     private boolean storageCollapsed;
@@ -215,6 +220,8 @@ public final class ClientRtsController {
     private int activeMineToolSlot;
     private BlockPos mineRenderPos;
     private int mineRenderStage = -1;
+    private BlockPos mineProgressCompletedPos;
+    private long mineProgressCompletedAtMs;
     private int ultimineProgressProcessed = -1;
     private int ultimineProgressTotal = 0;
     private final RtsWorkflowStatus[] workflowStatuses = new RtsWorkflowStatus[CLIENT_MAX_WORKFLOWS];
@@ -269,6 +276,11 @@ public final class ClientRtsController {
         this.smoothCamera = uiState.smoothCamera;
         this.damageSoundEnabled = uiState.damageSoundEnabled;
         this.damageAutoReturnEnabled = uiState.damageAutoReturnEnabled;
+        this.panDragSensitivityIndex = sanitizeSensitivityIndex(uiState.panDragSensitivityIndex);
+        this.rotateViewSensitivityIndex = sanitizeSensitivityIndex(uiState.rotateViewSensitivityIndex);
+        this.keyboardMoveSensitivityIndex = sanitizeSensitivityIndex(uiState.keyboardMoveSensitivityIndex);
+        this.wheelZoomSensitivityIndex = sanitizeSensitivityIndex(uiState.wheelZoomSensitivityIndex);
+        this.inputSensitivityIndex = this.rotateViewSensitivityIndex;
         applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
         this.storageCategories.add("all");
         for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
@@ -885,7 +897,7 @@ public final class ClientRtsController {
     }
 
     public String getInputSensitivityLabel() {
-        return String.format(Locale.ROOT, "x%.2f", getInputSensitivityScale());
+        return sensitivityLabel(this.rotateViewSensitivityIndex);
     }
 
     public int getInputSensitivityIndex() {
@@ -900,13 +912,74 @@ public final class ClientRtsController {
     }
 
     public void setInputSensitivityByFraction(double fraction) {
-        double clamped = Mth.clamp(fraction, 0.0D, 1.0D);
-        int next = (int) Math.round(clamped * (INPUT_SENS_PRESETS.length - 1));
-        this.inputSensitivityIndex = Mth.clamp(next, 0, INPUT_SENS_PRESETS.length - 1);
+        int next = sensitivityIndexFromFraction(fraction);
+        this.inputSensitivityIndex = next;
+        this.panDragSensitivityIndex = next;
+        this.rotateViewSensitivityIndex = next;
+        this.keyboardMoveSensitivityIndex = next;
+        this.wheelZoomSensitivityIndex = next;
     }
 
     public void cycleInputSensitivity() {
-        this.inputSensitivityIndex = (this.inputSensitivityIndex + 1) % INPUT_SENS_PRESETS.length;
+        int next = (getInputSensitivityIndex() + 1) % INPUT_SENS_PRESETS.length;
+        this.inputSensitivityIndex = next;
+        this.panDragSensitivityIndex = next;
+        this.rotateViewSensitivityIndex = next;
+        this.keyboardMoveSensitivityIndex = next;
+        this.wheelZoomSensitivityIndex = next;
+    }
+
+    public String getPanDragSensitivityLabel() {
+        return sensitivityLabel(this.panDragSensitivityIndex);
+    }
+
+    public int getPanDragSensitivityIndex() {
+        this.panDragSensitivityIndex = sanitizeSensitivityIndex(this.panDragSensitivityIndex);
+        return this.panDragSensitivityIndex;
+    }
+
+    public void setPanDragSensitivityByFraction(double fraction) {
+        this.panDragSensitivityIndex = sensitivityIndexFromFraction(fraction);
+    }
+
+    public String getRotateViewSensitivityLabel() {
+        return sensitivityLabel(this.rotateViewSensitivityIndex);
+    }
+
+    public int getRotateViewSensitivityIndex() {
+        this.rotateViewSensitivityIndex = sanitizeSensitivityIndex(this.rotateViewSensitivityIndex);
+        return this.rotateViewSensitivityIndex;
+    }
+
+    public void setRotateViewSensitivityByFraction(double fraction) {
+        this.rotateViewSensitivityIndex = sensitivityIndexFromFraction(fraction);
+        this.inputSensitivityIndex = this.rotateViewSensitivityIndex;
+    }
+
+    public String getKeyboardMoveSensitivityLabel() {
+        return sensitivityLabel(this.keyboardMoveSensitivityIndex);
+    }
+
+    public int getKeyboardMoveSensitivityIndex() {
+        this.keyboardMoveSensitivityIndex = sanitizeSensitivityIndex(this.keyboardMoveSensitivityIndex);
+        return this.keyboardMoveSensitivityIndex;
+    }
+
+    public void setKeyboardMoveSensitivityByFraction(double fraction) {
+        this.keyboardMoveSensitivityIndex = sensitivityIndexFromFraction(fraction);
+    }
+
+    public String getWheelZoomSensitivityLabel() {
+        return sensitivityLabel(this.wheelZoomSensitivityIndex);
+    }
+
+    public int getWheelZoomSensitivityIndex() {
+        this.wheelZoomSensitivityIndex = sanitizeSensitivityIndex(this.wheelZoomSensitivityIndex);
+        return this.wheelZoomSensitivityIndex;
+    }
+
+    public void setWheelZoomSensitivityByFraction(double fraction) {
+        this.wheelZoomSensitivityIndex = sensitivityIndexFromFraction(fraction);
     }
 
     public void increaseRotateSensitivity() {
@@ -1328,9 +1401,10 @@ public final class ClientRtsController {
         tickStorageAutoRefresh();
 
         CameraInput cameraInput = readCameraInput(minecraft);
-        float forward = cameraInput.forward;
-        float strafe = cameraInput.strafe;
-        float vertical = cameraInput.vertical;
+        float keyboardScale = getKeyboardMoveSensitivityScale();
+        float forward = cameraInput.forward * keyboardScale;
+        float strafe = cameraInput.strafe * keyboardScale;
+        float vertical = cameraInput.vertical * keyboardScale;
         boolean fast = cameraInput.fast;
 
         float safeRawX = Mth.clamp(this.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
@@ -1346,10 +1420,10 @@ public final class ClientRtsController {
             this.emaRotateY *= ROT_EMA_DECAY;
         }
 
-        float inputSensScale = getInputSensitivityScale();
-        float rotateXForTick = Mth.clamp(this.emaRotateX * this.rotateSensitivity * inputSensScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float rotateYForTick = Mth.clamp(this.emaRotateY * this.rotateSensitivity * inputSensScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float scrollForTick = this.pendingScroll * inputSensScale;
+        float rotateSensitivityScale = getRotateViewSensitivityScale();
+        float rotateXForTick = Mth.clamp(this.emaRotateX * this.rotateSensitivity * rotateSensitivityScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float rotateYForTick = Mth.clamp(this.emaRotateY * this.rotateSensitivity * rotateSensitivityScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float scrollForTick = this.pendingScroll;
         if (Math.abs(rotateXForTick) < CAMERA_INPUT_EPSILON) {
             rotateXForTick = 0.0F;
             this.emaRotateX = 0.0F;
@@ -1482,8 +1556,9 @@ public final class ClientRtsController {
     public void queuePanDrag(double dragX, double dragY) {
         float signedDragX = (float) dragX;
         float signedDragY = (float) dragY;
-        float panX = this.invertPanDragX ? signedDragX : -signedDragX;
-        float panY = this.invertPanDragY ? signedDragY : -signedDragY;
+        float scale = getPanDragSensitivityScale();
+        float panX = (this.invertPanDragX ? signedDragX : -signedDragX) * scale;
+        float panY = (this.invertPanDragY ? signedDragY : -signedDragY) * scale;
         this.pendingPanX += panX;
         this.pendingPanY += panY;
         if (this.smoothCamera) {
@@ -1500,10 +1575,11 @@ public final class ClientRtsController {
     }
 
     public void queueScroll(double scrollY) {
-        this.pendingScroll += (float) scrollY;
+        float scroll = (float) scrollY * getWheelZoomSensitivityScale();
+        this.pendingScroll += scroll;
         if (this.smoothCamera) {
             applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-                    (float) scrollY * getInputSensitivityScale(), 0, false);
+                    scroll, 0, false);
         }
     }
 
@@ -1515,7 +1591,7 @@ public final class ClientRtsController {
     }
 
     private void applyImmediateRotation(float dragX, float dragY) {
-        float sens = getInputSensitivityScale() * this.rotateSensitivity;
+        float sens = getRotateViewSensitivityScale() * this.rotateSensitivity;
         float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
         float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
         applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, yawDelta, pitchDelta, 0.0F, 0, false);
@@ -2132,7 +2208,7 @@ public final class ClientRtsController {
         if (minecraft.screen instanceof BuilderScreen builderScreen) {
             builderScreen.triggerDamageFlash();
         }
-        if (this.damageSoundEnabled) {
+        if (RtsClientUiStateStore.isRtsSoundsEnabled() && this.damageSoundEnabled) {
             float volume = Mth.clamp(0.45F + Math.max(0.0F, payload.amount()) * 0.08F, 0.45F, 1.2F);
             minecraft.player.playSound(SoundEvents.PLAYER_HURT, volume, 1.0F);
         }
@@ -2207,6 +2283,10 @@ public final class ClientRtsController {
         BlockPos pos = payload.pos();
         int stage = payload.stage();
         if (stage < 0) {
+            if (pos != null && pos.equals(this.mineRenderPos) && this.mineRenderStage >= 9) {
+                this.mineProgressCompletedPos = pos.immutable();
+                this.mineProgressCompletedAtMs = System.currentTimeMillis();
+            }
             clearActiveMineTargetIfMatches(pos);
             clearMineProgressRender(pos);
             this.mineRenderStage = -1;
@@ -2844,6 +2924,14 @@ public final class ClientRtsController {
         return this.mineRenderPos;
     }
 
+    public BlockPos getMineProgressCompletedPos() {
+        return this.mineProgressCompletedPos;
+    }
+
+    public long getMineProgressCompletedAtMs() {
+        return this.mineProgressCompletedAtMs;
+    }
+
     private void beginRemoteMenuOpenGrace() {
         this.pendingRemoteMenuOpenTicks = Math.max(this.pendingRemoteMenuOpenTicks, REMOTE_MENU_OPEN_GRACE_TICKS);
         this.screenlessRemoteMenuTicks = 0;
@@ -2992,9 +3080,9 @@ public final class ClientRtsController {
         }
 
         applyLocalPrediction(
-                input.forward * tickDelta,
-                input.strafe * tickDelta,
-                input.vertical * tickDelta,
+                input.forward * getKeyboardMoveSensitivityScale() * tickDelta,
+                input.strafe * getKeyboardMoveSensitivityScale() * tickDelta,
+                input.vertical * getKeyboardMoveSensitivityScale() * tickDelta,
                 0.0F,
                 0.0F,
                 0.0F,
@@ -3041,7 +3129,7 @@ public final class ClientRtsController {
         double targetY = this.localY;
         double targetZ = this.localZ;
 
-        float safeVertical = Mth.clamp(vertical, -1.0F, 1.0F);
+        float safeVertical = Mth.clamp(vertical, -4.0F, 4.0F);
         double dx = (-sin * forward + cos * strafe) * speed;
         double dz = (cos * forward + sin * strafe) * speed;
 
@@ -3096,10 +3184,39 @@ public final class ClientRtsController {
     }
 
     private float getInputSensitivityScale() {
-        if (this.inputSensitivityIndex < 0 || this.inputSensitivityIndex >= INPUT_SENS_PRESETS.length) {
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-        }
-        return INPUT_SENS_PRESETS[this.inputSensitivityIndex];
+        return getRotateViewSensitivityScale();
+    }
+
+    private float getPanDragSensitivityScale() {
+        return INPUT_SENS_PRESETS[getPanDragSensitivityIndex()];
+    }
+
+    private float getRotateViewSensitivityScale() {
+        return INPUT_SENS_PRESETS[getRotateViewSensitivityIndex()];
+    }
+
+    private float getKeyboardMoveSensitivityScale() {
+        return INPUT_SENS_PRESETS[getKeyboardMoveSensitivityIndex()];
+    }
+
+    private float getWheelZoomSensitivityScale() {
+        return INPUT_SENS_PRESETS[getWheelZoomSensitivityIndex()];
+    }
+
+    private static String sensitivityLabel(int index) {
+        return String.format(Locale.ROOT, "x%.2f", INPUT_SENS_PRESETS[sanitizeSensitivityIndex(index)]);
+    }
+
+    private static int sensitivityIndexFromFraction(double fraction) {
+        double clamped = Mth.clamp(fraction, 0.0D, 1.0D);
+        return Mth.clamp(
+                (int) Math.round(clamped * (INPUT_SENS_PRESETS.length - 1)),
+                0,
+                INPUT_SENS_PRESETS.length - 1);
+    }
+
+    private static int sanitizeSensitivityIndex(int index) {
+        return Mth.clamp(index, 0, INPUT_SENS_PRESETS.length - 1);
     }
 
     private static String normalizeCategory(String category) {
@@ -3167,17 +3284,6 @@ public final class ClientRtsController {
             String mod,
             String name,
             List<CraftRecipeOption> recipeOptions) {
-    }
-
-    public enum BuildShape {
-        BLOCK,
-        LINE,
-        SQUARE,
-        WALL,
-        CIRCLE,
-        CYLINDER,
-        BALL,
-        BOX
     }
 
     private static final class CameraInput {

@@ -224,6 +224,7 @@ public final class RtsProgressionManager {
         if (RtsProgressionPersistence.ensureStarterUnlocked(unlocked) || !sharedKey.isBlank()) {
             RtsProgressionPersistence.saveUnlockedNodes(player, unlocked);
         }
+        RtsPluginService.migrateLegacySkillTree(player);
         syncToPlayer(player);
     }
 

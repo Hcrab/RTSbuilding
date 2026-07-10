@@ -18,7 +18,7 @@ public record C2SRtsAreaDestroyPayload(
         String toolItemId,
         ItemStack toolPrototype,
         boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final int MAX_POSITIONS = 32768;
+    public static final int MAX_POSITIONS = 98304;
 
     public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_area_destroy"), C2SRtsAreaDestroyPayload.class);
 

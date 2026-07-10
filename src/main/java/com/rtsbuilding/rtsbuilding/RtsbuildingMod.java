@@ -20,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsGuiCompatSetupCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -128,6 +129,7 @@ public final class RtsbuildingMod {
                 RtsPendingPlacementService.clearPlayerScanCache(serverPlayer.getUUID());
                 RtsSessionService.onPlayerLogout(serverPlayer);
                 RtsProgressionManager.onPlayerLogout(serverPlayer);
+                RtsPlacementSound.forgetPlayer(serverPlayer.getUUID());
                 ServerHistoryManager.clear(serverPlayer.getUUID());
             }
         }

@@ -14,8 +14,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +29,7 @@ public final class RtsSharedProgressionData extends SavedData {
     private static final String KEY_HOME_POS = "home_pos";
     private static final String KEY_HOME_DIMENSION = "home_dimension";
     private static final String KEY_HOME_SET_GAME_TIME = "home_set_game_time";
+    private static final String KEY_PLUGIN_MIGRATION_VERSION = "plugin_migration_version";
     private static final String KEY_PLUGINS = "plugins";
     private static final String KEY_PLUGIN_ID = "plugin_id";
     private static final String KEY_PLUGIN_STACK = "stack";
@@ -68,6 +69,8 @@ public final class RtsSharedProgressionData extends SavedData {
                     progression.homeSetGameTime = groupTag.getLong(KEY_HOME_SET_GAME_TIME);
                 }
             }
+
+            progression.pluginMigrationVersion = groupTag.getInt(KEY_PLUGIN_MIGRATION_VERSION);
 
             ListTag plugins = groupTag.getList(KEY_PLUGINS, Tag.TAG_COMPOUND);
             for (int pluginIndex = 0; pluginIndex < plugins.size(); pluginIndex++) {
@@ -169,6 +172,33 @@ public final class RtsSharedProgressionData extends SavedData {
         setDirty();
     }
 
+    public LinkedHashSet<ResourceLocation> legacyUnlockedNodes(String groupKey) {
+        if (groupKey == null || groupKey.isBlank()) {
+            return new LinkedHashSet<>();
+        }
+        SharedProgression progression = this.groups.get(groupKey);
+        if (progression == null || progression.unlockedNodes.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
+        return new LinkedHashSet<>(progression.unlockedNodes);
+    }
+
+    public int pluginMigrationVersion(String groupKey) {
+        if (groupKey == null || groupKey.isBlank()) {
+            return 0;
+        }
+        SharedProgression progression = this.groups.get(groupKey);
+        return progression == null ? 0 : progression.pluginMigrationVersion;
+    }
+
+    public void setPluginMigrationVersion(String groupKey, int version) {
+        if (groupKey == null || groupKey.isBlank()) {
+            return;
+        }
+        group(groupKey).pluginMigrationVersion = Math.max(0, version);
+        setDirty();
+    }
+
     private SharedProgression group(String groupKey) {
         return this.groups.computeIfAbsent(groupKey, ignored -> new SharedProgression());
     }
@@ -198,6 +228,10 @@ public final class RtsSharedProgressionData extends SavedData {
                 groupTag.putLong(KEY_HOME_POS, progression.homePos.asLong());
                 groupTag.putString(KEY_HOME_DIMENSION, progression.homeDimension.location().toString());
                 groupTag.putLong(KEY_HOME_SET_GAME_TIME, progression.homeSetGameTime);
+            }
+
+            if (progression.pluginMigrationVersion > 0) {
+                groupTag.putInt(KEY_PLUGIN_MIGRATION_VERSION, progression.pluginMigrationVersion);
             }
 
             if (!progression.plugins.isEmpty()) {
@@ -245,6 +279,7 @@ public final class RtsSharedProgressionData extends SavedData {
         private BlockPos homePos;
         private ResourceKey<Level> homeDimension;
         private long homeSetGameTime;
+        private int pluginMigrationVersion;
         private final List<SharedPlugin> plugins = new ArrayList<>();
     }
 }

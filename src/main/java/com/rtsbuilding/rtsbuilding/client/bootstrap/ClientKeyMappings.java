@@ -121,11 +121,35 @@ public final class ClientKeyMappings {
             "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_UP_SECONDARY = new KeyMapping(
             "key.rtsbuilding.camera_up_secondary",
-            GLFW.GLFW_KEY_UP,
+            GLFW.GLFW_KEY_UNKNOWN,
             "key.categories.rtsbuilding");
     public static final KeyMapping CAMERA_DOWN = new KeyMapping(
             "key.rtsbuilding.camera_down_arrow",
+            GLFW.GLFW_KEY_LEFT_SHIFT,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping SELECTION_NUDGE_FORWARD = new KeyMapping(
+            "key.rtsbuilding.selection_nudge_forward",
+            GLFW.GLFW_KEY_UP,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping SELECTION_NUDGE_BACK = new KeyMapping(
+            "key.rtsbuilding.selection_nudge_back",
             GLFW.GLFW_KEY_DOWN,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping SELECTION_NUDGE_LEFT = new KeyMapping(
+            "key.rtsbuilding.selection_nudge_left",
+            GLFW.GLFW_KEY_LEFT,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping SELECTION_NUDGE_RIGHT = new KeyMapping(
+            "key.rtsbuilding.selection_nudge_right",
+            GLFW.GLFW_KEY_RIGHT,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping SELECTION_NUDGE_UP = new KeyMapping(
+            "key.rtsbuilding.selection_nudge_up",
+            GLFW.GLFW_KEY_PAGE_UP,
+            "key.categories.rtsbuilding");
+    public static final KeyMapping SELECTION_NUDGE_DOWN = new KeyMapping(
+            "key.rtsbuilding.selection_nudge_down",
+            GLFW.GLFW_KEY_PAGE_DOWN,
             "key.categories.rtsbuilding");
 
     private ClientKeyMappings() {
@@ -157,6 +181,12 @@ public final class ClientKeyMappings {
         event.register(CAMERA_UP);
         event.register(CAMERA_UP_SECONDARY);
         event.register(CAMERA_DOWN);
+        event.register(SELECTION_NUDGE_FORWARD);
+        event.register(SELECTION_NUDGE_BACK);
+        event.register(SELECTION_NUDGE_LEFT);
+        event.register(SELECTION_NUDGE_RIGHT);
+        event.register(SELECTION_NUDGE_UP);
+        event.register(SELECTION_NUDGE_DOWN);
         migrateLegacyDragDefaults();
     }
 

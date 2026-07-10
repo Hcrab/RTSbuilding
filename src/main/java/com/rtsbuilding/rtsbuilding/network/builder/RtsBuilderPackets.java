@@ -124,6 +124,11 @@ public final class RtsBuilderPackets {
                 ClientPayloadDispatcher::dispatchBuilder);
 
         registrar.playToClient(
+                S2CRtsBlockActionSoundPayload.TYPE,
+                S2CRtsBlockActionSoundPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
+        registrar.playToClient(
                 S2CRtsUltimineProgressPayload.TYPE,
                 S2CRtsUltimineProgressPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);

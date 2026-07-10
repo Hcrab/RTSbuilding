@@ -32,8 +32,9 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private static final int CONTENT_TOP_PADDING = 8;
     private static final int SECTION_HEADER_H = 22;
     private static final int SECTION_GAP = 6;
-    private static final int SENSITIVITY_ROW_H = 68;
+    private static final int SENSITIVITY_ROW_H = 46;
     private static final int SCALE_ROW_H = 34;
+    private static final int SOUND_LIMIT_ROW_H = 38;
     private static final int SIMPLE_TOGGLE_ROW_H = 28;
     private static final int HINT_TOGGLE_ROW_H = 34;
     private static final int HINT_LINE_H = 10;
@@ -43,8 +44,23 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private boolean controlsExpanded = false;
     private boolean displayExpanded = false;
     private boolean helpersExpanded = false;
+    private boolean soundExpanded = false;
     private boolean animationExpanded = false;
     private final Set<String> expandedHintKeys = new HashSet<>();
+    private SensitivityControl draggingSensitivityControl = null;
+
+    private enum SensitivityControl {
+        PAN_DRAG("screen.rtsbuilding.settings.sensitivity.pan_drag"),
+        ROTATE_VIEW("screen.rtsbuilding.settings.sensitivity.rotate_view"),
+        KEYBOARD_MOVE("screen.rtsbuilding.settings.sensitivity.keyboard_move"),
+        WHEEL_ZOOM("screen.rtsbuilding.settings.sensitivity.wheel_zoom");
+
+        private final String labelKey;
+
+        SensitivityControl(String labelKey) {
+            this.labelKey = labelKey;
+        }
+    }
 
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
@@ -162,8 +178,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
         rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
                 "screen.rtsbuilding.settings.category.controls", this.controlsExpanded);
         if (this.controlsExpanded) {
-            drawSensitivityRow(g, rowY, x, w);
-            rowY += SENSITIVITY_ROW_H;
+            for (SensitivityControl control : SensitivityControl.values()) {
+                drawSensitivityRow(g, rowY, x, w, control);
+                rowY += SENSITIVITY_ROW_H;
+            }
             drawSimpleToggleRow(g, mouseX, mouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.head_start",
                     this.controller.isStartCameraAtPlayerHead());
@@ -247,11 +265,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     this.controller.isToolProtectionEnabled());
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint");
             drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.damage_sound",
-                    "screen.rtsbuilding.settings.damage_sound.hint",
-                    this.controller.isDamageSoundEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.damage_auto_return",
                     "screen.rtsbuilding.settings.damage_auto_return.hint",
                     this.controller.isDamageAutoReturnEnabled());
@@ -261,6 +274,29 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.bd_network.hint",
                     this.controller.isBdNetworkEnabled());
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint");
+        }
+        rowY += SECTION_GAP;
+
+        rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
+                "screen.rtsbuilding.settings.category.sound", this.soundExpanded);
+        if (this.soundExpanded) {
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.rts_sounds",
+                    "screen.rtsbuilding.settings.rts_sounds.hint",
+                    RtsClientUiStateStore.isRtsSoundsEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint");
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.break_sounds",
+                    "screen.rtsbuilding.settings.break_sounds.hint",
+                    RtsClientUiStateStore.isRtsBreakSoundsEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint");
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.damage_sound",
+                    "screen.rtsbuilding.settings.damage_sound.hint",
+                    this.controller.isDamageSoundEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
+            drawSoundLimitRow(g, mouseX, mouseY, rowY, x, w);
+            rowY += SOUND_LIMIT_ROW_H;
         }
         rowY += SECTION_GAP;
 
@@ -320,25 +356,21 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return y + SECTION_HEADER_H;
     }
 
-    private void drawSensitivityRow(GuiGraphics g, int rowY, int x, int w) {
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.settings.sensitivity"),
-                x + 16, rowY + 6, 0xC8D3DF, false);
-        g.drawString(screen.font(), this.controller.getInputSensitivityLabel(),
-                x + w - 60, rowY + 6, 0xEAF4FF, false);
+    private void drawSensitivityRow(GuiGraphics g, int rowY, int x, int w, SensitivityControl control) {
+        g.drawString(screen.font(), Component.translatable(control.labelKey),
+                x + 16, rowY + 5, 0xC8D3DF, false);
+        g.drawString(screen.font(), sensitivityLabel(control),
+                x + w - 60, rowY + 5, 0xEAF4FF, false);
 
         int trackX = x + 16;
-        int trackY = rowY + 28;
+        int trackY = rowY + 24;
         int trackW = w - 32;
         g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
         g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
         int presetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
-        int knobX = trackX + (int) Math.round((this.controller.getInputSensitivityIndex()
+        int knobX = trackX + (int) Math.round((sensitivityIndex(control)
                 / (double) Math.max(1, presetCount - 1)) * trackW);
         g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8, 0xFF5FE36C);
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.settings.slow"),
-                trackX, trackY + 10, 0xB5C1CE, false);
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.settings.fast"),
-                trackX + trackW - 24, trackY + 10, 0xB5C1CE, false);
     }
 
     private void drawScaleRow(GuiGraphics g, int mouseX, int mouseY, int rowY, int x, int w) {
@@ -352,6 +384,25 @@ public final class GearMenuPanel extends RtsWindowPanel {
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), rtsGuiScaleLabel(),
                 valueX + 28, rowY + 13, 0xEAF4FF);
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 6, 22, 22, "+", false);
+    }
+
+    private void drawSoundLimitRow(GuiGraphics g, int mouseX, int mouseY, int rowY, int x, int w) {
+        int minusX = x + w - 124;
+        int valueX = minusX + 26;
+        int plusX = valueX + 60;
+        g.drawString(screen.font(), trimToWidth(
+                        text("screen.rtsbuilding.settings.block_sounds_per_tick"), w - 156),
+                x + 16, rowY + 3, 0xC8D3DF, false);
+        g.drawString(screen.font(), trimToWidth(
+                        text("screen.rtsbuilding.settings.block_sounds_per_tick.hint"), w - 156),
+                x + 16, rowY + 18, 0x9FB0C2, false);
+        drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 8, 22, 22, "-", false);
+        RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 8, 56, 22,
+                0xCC1A232E, 0xFF566B80, 0xFF0D1218);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
+                Integer.toString(RtsClientUiStateStore.getRtsBlockSoundsPerTick()),
+                valueX + 28, rowY + 15, 0xEAF4FF);
+        drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 8, 22, 22, "+", false);
     }
 
     private void drawSimpleToggleRow(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
@@ -398,11 +449,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_HEADER_H;
         if (this.controlsExpanded) {
-            if (inside(mouseX, contentMouseY, x + 16, rowY + 20, w - 32, 24)) {
-                this.controller.setInputSensitivityByFraction(calcSensitivityFraction(mouseX, x, w));
-                return;
+            for (SensitivityControl control : SensitivityControl.values()) {
+                if (inside(mouseX, contentMouseY, x + 16, rowY + 16, w - 32, 22)) {
+                    setSensitivityByFraction(control, calcSensitivityFraction(mouseX, x, w));
+                    this.draggingSensitivityControl = control;
+                    return;
+                }
+                rowY += SENSITIVITY_ROW_H;
             }
-            rowY += SENSITIVITY_ROW_H;
             if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24, SIMPLE_TOGGLE_ROW_H)) {
                 this.controller.toggleStartCameraAtPlayerHead();
                 screen.persistUiState();
@@ -571,17 +625,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint");
             if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.damage_sound.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint"))) {
-                this.controller.toggleDamageSoundEnabled();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.damage_auto_return.hint")) {
                 return;
             }
@@ -602,6 +645,62 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 return;
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint");
+        }
+        rowY += SECTION_GAP;
+
+        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
+            this.soundExpanded = !this.soundExpanded;
+            clampScroll();
+            screen.persistUiState();
+            return;
+        }
+        rowY += SECTION_HEADER_H;
+        if (this.soundExpanded) {
+            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.rts_sounds.hint")) {
+                return;
+            }
+            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint"))) {
+                RtsClientUiStateStore.setRtsSoundsEnabled(!RtsClientUiStateStore.isRtsSoundsEnabled());
+                return;
+            }
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint");
+            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.break_sounds.hint")) {
+                return;
+            }
+            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint"))) {
+                RtsClientUiStateStore.setRtsBreakSoundsEnabled(
+                        !RtsClientUiStateStore.isRtsBreakSoundsEnabled());
+                return;
+            }
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint");
+            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.damage_sound.hint")) {
+                return;
+            }
+            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint"))) {
+                this.controller.toggleDamageSoundEnabled();
+                screen.persistUiState();
+                return;
+            }
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
+            int minusX = x + w - 124;
+            int plusX = minusX + 86;
+            if (inside(mouseX, contentMouseY, minusX, rowY + 8, 22, 22)) {
+                RtsClientUiStateStore.setRtsBlockSoundsPerTick(
+                        RtsClientUiStateStore.getRtsBlockSoundsPerTick() - 1);
+                return;
+            }
+            if (inside(mouseX, contentMouseY, plusX, rowY + 8, 22, 22)) {
+                RtsClientUiStateStore.setRtsBlockSoundsPerTick(
+                        RtsClientUiStateStore.getRtsBlockSoundsPerTick() + 1);
+                return;
+            }
+            rowY += SOUND_LIMIT_ROW_H;
         }
         rowY += SECTION_GAP;
 
@@ -695,6 +794,53 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
     }
 
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (this.draggingSensitivityControl != null && button == 0) {
+            setSensitivityByFraction(this.draggingSensitivityControl,
+                    calcSensitivityFraction(mouseX, contentX(), contentWidth()));
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && this.draggingSensitivityControl != null) {
+            this.draggingSensitivityControl = null;
+            screen.persistUiState();
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private String sensitivityLabel(SensitivityControl control) {
+        return switch (control) {
+            case PAN_DRAG -> this.controller.getPanDragSensitivityLabel();
+            case ROTATE_VIEW -> this.controller.getRotateViewSensitivityLabel();
+            case KEYBOARD_MOVE -> this.controller.getKeyboardMoveSensitivityLabel();
+            case WHEEL_ZOOM -> this.controller.getWheelZoomSensitivityLabel();
+        };
+    }
+
+    private int sensitivityIndex(SensitivityControl control) {
+        return switch (control) {
+            case PAN_DRAG -> this.controller.getPanDragSensitivityIndex();
+            case ROTATE_VIEW -> this.controller.getRotateViewSensitivityIndex();
+            case KEYBOARD_MOVE -> this.controller.getKeyboardMoveSensitivityIndex();
+            case WHEEL_ZOOM -> this.controller.getWheelZoomSensitivityIndex();
+        };
+    }
+
+    private void setSensitivityByFraction(SensitivityControl control, double fraction) {
+        switch (control) {
+            case PAN_DRAG -> this.controller.setPanDragSensitivityByFraction(fraction);
+            case ROTATE_VIEW -> this.controller.setRotateViewSensitivityByFraction(fraction);
+            case KEYBOARD_MOVE -> this.controller.setKeyboardMoveSensitivityByFraction(fraction);
+            case WHEEL_ZOOM -> this.controller.setWheelZoomSensitivityByFraction(fraction);
+        }
+    }
+
     private boolean handleHintExpandClick(double mouseX, double mouseY, int x, int w, int rowY, String hintKey) {
         if (!hintCanExpand(x, w, hintKey)) {
             return false;
@@ -744,7 +890,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int x = contentX();
         int w = contentWidth();
         int height = sectionHeight(this.controlsExpanded,
-                SENSITIVITY_ROW_H
+                (SENSITIVITY_ROW_H * SensitivityControl.values().length)
                         + SIMPLE_TOGGLE_ROW_H
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_x_invert.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint")
@@ -764,9 +910,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_auto_refresh.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placed_recovery.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint")
-                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_auto_return.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint"));
+        height += SECTION_GAP;
+        height += sectionHeight(this.soundExpanded,
+                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint")
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint")
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint")
+                        + SOUND_LIMIT_ROW_H);
         height += SECTION_GAP;
         height += sectionHeight(this.animationExpanded,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint")
