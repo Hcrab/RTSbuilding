@@ -314,7 +314,7 @@ public final class RtsUltimineProcessor {
                 creative ? ItemStack.EMPTY : lease.stack(),
                 creative ? false : selectedToolRequested, limit, creative, mode);
         return beginPipelineBatch(player, session, targets, face, slot, lease,
-                selectedToolRequested, toolProtectionEnabled, workflowEntryId);
+                selectedToolRequested, toolProtectionEnabled, workflowEntryId, BatchStartMode.WAIT_FOR_SEED);
     }
 
     /**
@@ -346,7 +346,7 @@ public final class RtsUltimineProcessor {
                 player,
                 shapeType, fillType);
         return beginPipelineBatch(player, session, new ArrayDeque<>(candidatePositions), Direction.DOWN, slot,
-                lease, selectedToolRequested, toolProtectionEnabled, workflowEntryId);
+                lease, selectedToolRequested, toolProtectionEnabled, workflowEntryId, BatchStartMode.WAIT_FOR_SEED);
     }
 
     /**
@@ -369,12 +369,13 @@ public final class RtsUltimineProcessor {
                 creative ? ItemStack.EMPTY : lease.stack(),
                 creative ? false : selectedToolRequested, creative);
         return beginPipelineBatch(player, session, targets, Direction.DOWN, slot, lease,
-                selectedToolRequested, toolProtectionEnabled, workflowEntryId);
+                selectedToolRequested, toolProtectionEnabled, workflowEntryId, BatchStartMode.IMMEDIATE);
     }
 
     private static PipelineBatchStartResult beginPipelineBatch(ServerPlayer player, RtsStorageSession session,
             Deque<BlockPos> targets, Direction face, int slot, RtsToolLease toolLease,
-            boolean selectedToolRequested, boolean toolProtectionEnabled, int workflowEntryId) {
+            boolean selectedToolRequested, boolean toolProtectionEnabled, int workflowEntryId,
+            BatchStartMode startMode) {
         if (targets == null || targets.isEmpty()) {
             return completePipelineWithoutActiveBatch(player, session, toolLease);
         }
@@ -406,8 +407,19 @@ public final class RtsUltimineProcessor {
         session.mining.miningFace = face == null ? Direction.DOWN : face;
         session.mining.miningToolSlot = slot;
         RtsMiningNetworkHelper.sendUltimineProgress(player, 0, targetCount);
-        RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), face, slot);
+        if (startMode == BatchStartMode.WAIT_FOR_SEED) {
+            RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), face, slot);
+        } else {
+            session.mining.miningPos = null;
+            session.mining.miningProgress = 0.0F;
+            session.mining.miningStage = -1;
+        }
         return PipelineBatchStartResult.async(targetCount);
+    }
+
+    private enum BatchStartMode {
+        WAIT_FOR_SEED,
+        IMMEDIATE
     }
 
     private static PipelineBatchStartResult completePipelineWithoutActiveBatch(ServerPlayer player,

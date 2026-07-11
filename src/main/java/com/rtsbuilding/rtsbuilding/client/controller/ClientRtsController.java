@@ -64,7 +64,6 @@ import org.lwjgl.glfw.GLFW;
 import java.util.*;
 
 public final class ClientRtsController {
-    private static final ClientRtsController INSTANCE = new ClientRtsController();
     private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
     private static final int MAX_STORAGE_PAGE_SIZE = 180;
     private static final long STORAGE_AUTO_REFRESH_INTERVAL_MS = 30_000L;
@@ -296,7 +295,14 @@ public final class ClientRtsController {
     }
 
     public static ClientRtsController get() {
-        return INSTANCE;
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * 延迟创建客户端控制器，确保灵敏度预设等外部类静态常量已经完成初始化。
+     */
+    private static final class Holder {
+        private static final ClientRtsController INSTANCE = new ClientRtsController();
     }
 
     public boolean isEnabled() {

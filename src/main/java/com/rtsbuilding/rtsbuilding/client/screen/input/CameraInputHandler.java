@@ -402,6 +402,28 @@ public final class CameraInputHandler {
             return false;
         }
         screen.clearShapeBuildSession();
+        if (mc.player != null) {
+            var inventory = mc.player.getInventory();
+            RtsPickBlockPlacementSelector.Selection selection = RtsPickBlockPlacementSelector.resolve(
+                    inventory.getContainerSize(),
+                    slot -> {
+                        ItemStack candidate = inventory.getItem(slot);
+                        return !candidate.isEmpty() && candidate.getItem() == preview.getItem();
+                    });
+            if (selection.route() == RtsPickBlockPlacementSelector.Route.HOTBAR) {
+                inventory.selected = selection.slot();
+                this.controller.clearPlacementSelectionPreserveMode();
+                this.controller.setMode(BuilderMode.INTERACT);
+                return true;
+            }
+            if (selection.route() == RtsPickBlockPlacementSelector.Route.MAIN_INVENTORY
+                    && mc.gameMode != null) {
+                mc.gameMode.handlePickItem(selection.slot());
+                this.controller.clearPlacementSelectionPreserveMode();
+                this.controller.setMode(BuilderMode.INTERACT);
+                return true;
+            }
+        }
         this.controller.selectItemForPlacement(itemId.toString(), preview.getHoverName().getString(), preview);
         return true;
     }
