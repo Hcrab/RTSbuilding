@@ -20,21 +20,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(RenderChunkRegion.class)
 public abstract class RenderChunkRegionMixin {
-    @Inject(method = { "getBlockState", "m_8055_" }, at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = { "getBlockState", "m_8055_" }, at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void rtsbuilding$cullBlockState(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
             cir.setReturnValue(Blocks.AIR.defaultBlockState());
         }
     }
 
-    @Inject(method = { "getFluidState", "m_6425_" }, at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = { "getFluidState", "m_6425_" }, at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void rtsbuilding$cullFluidState(BlockPos pos, CallbackInfoReturnable<FluidState> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
             cir.setReturnValue(Blocks.AIR.defaultBlockState().getFluidState());
         }
     }
 
-    @Inject(method = { "getBlockEntity", "m_7702_" }, at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = { "getBlockEntity", "m_7702_" }, at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void rtsbuilding$cullBlockEntity(BlockPos pos, CallbackInfoReturnable<BlockEntity> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
             cir.setReturnValue(null);

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.mixin;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldSliceBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -21,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Pseudo
 @Mixin(targets = "me.jellysquid.mods.sodium.client.world.WorldSlice", remap = false)
-public abstract class EmbeddiumWorldSliceMixin {
+public abstract class EmbeddiumWorldSliceMixin implements RtsCullingWorldSliceBridge {
     @Inject(
             method = {
                     "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
@@ -29,6 +30,7 @@ public abstract class EmbeddiumWorldSliceMixin {
             },
             at = @At("HEAD"),
             cancellable = true,
+            require = 1,
             remap = false)
     private void rtsbuilding$cullBlockState(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
@@ -40,6 +42,7 @@ public abstract class EmbeddiumWorldSliceMixin {
             method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 1,
             remap = false)
     private void rtsbuilding$cullBlockState(int x, int y, int z, CallbackInfoReturnable<BlockState> cir) {
         if (RtsCullingClientState.shouldCull(new BlockPos(x, y, z))) {
@@ -54,6 +57,7 @@ public abstract class EmbeddiumWorldSliceMixin {
             },
             at = @At("HEAD"),
             cancellable = true,
+            require = 1,
             remap = false)
     private void rtsbuilding$cullFluidState(BlockPos pos, CallbackInfoReturnable<FluidState> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
@@ -68,6 +72,7 @@ public abstract class EmbeddiumWorldSliceMixin {
             },
             at = @At("HEAD"),
             cancellable = true,
+            require = 1,
             remap = false)
     private void rtsbuilding$cullBlockEntity(BlockPos pos, CallbackInfoReturnable<BlockEntity> cir) {
         if (RtsCullingClientState.shouldCull(pos)) {
@@ -79,6 +84,7 @@ public abstract class EmbeddiumWorldSliceMixin {
             method = "getBlockEntity(III)Lnet/minecraft/world/level/block/entity/BlockEntity;",
             at = @At("HEAD"),
             cancellable = true,
+            require = 1,
             remap = false)
     private void rtsbuilding$cullBlockEntity(int x, int y, int z, CallbackInfoReturnable<BlockEntity> cir) {
         if (RtsCullingClientState.shouldCull(new BlockPos(x, y, z))) {

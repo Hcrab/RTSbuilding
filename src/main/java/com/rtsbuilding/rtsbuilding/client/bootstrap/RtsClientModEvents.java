@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingMixinVerifier;
 
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
@@ -20,6 +21,7 @@ public final class RtsClientModEvents {
     public static void onClientSetup(final FMLClientSetupEvent event) {
         RtsbuildingMod.LOGGER.info("HELLO FROM CLIENT SETUP");
         RtsbuildingMod.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+        event.enqueueWork(RtsCullingMixinVerifier::verifyOptionalRendererHooks);
     }
 
     @SubscribeEvent
