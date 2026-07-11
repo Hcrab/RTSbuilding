@@ -31,6 +31,8 @@ public final class RtsCullingClientState {
     public static void clearActiveManager(RtsCullingManager manager) {
         if (activeManager == manager) {
             activeManager = null;
+            // 先停止剔除，再按盒子范围重建网格，让普通视角立即恢复真实方块。
+            manager.refreshWorldCullRendering();
         }
     }
 
