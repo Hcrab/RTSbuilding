@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderInvalidator;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -474,17 +474,23 @@ public final class RtsCullingManager {
     }
 
     private void markBoxDirty(RtsCullingBox box) {
-        if (box == null) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.levelRenderer == null || box == null) {
             return;
         }
-        RtsCullingRenderInvalidator.markBlocksDirty(box.min(), box.max());
+        mc.levelRenderer.setBlocksDirty(
+                box.min().getX() - 1, box.min().getY() - 1, box.min().getZ() - 1,
+                box.max().getX() + 1, box.max().getY() + 1, box.max().getZ() + 1);
     }
 
     private void markBlockDirty(BlockPos pos) {
-        if (pos == null) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.levelRenderer == null || pos == null) {
             return;
         }
-        RtsCullingRenderInvalidator.markBlocksDirty(pos, pos);
+        mc.levelRenderer.setBlocksDirty(
+                pos.getX() - 1, pos.getY() - 1, pos.getZ() - 1,
+                pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
     }
 
     public enum Phase {
