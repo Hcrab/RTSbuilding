@@ -85,7 +85,7 @@ and long-term maintenance.
 
 Special thanks to the following contributors:
 
-- **Yiran**: core developer. Helped with structural refactors, parts of the UI
+- **Yiran**: core developer and lead Artist. Helped with structural refactors, parts of the UI
   implementation, community management, and systematizing bug reporting and todo
   tracking.
 - **凌墨问**: core community collaborator. Helped with community outreach,
@@ -95,8 +95,7 @@ Special thanks to the following contributors:
   management.
 - **可怜Bot**: major code contributor. Helped investigate and review critical
   bugs, shaped bug-fix approaches, and submitted multiple fix pull requests.
-- **[ReConstruction-127](https://github.com/ReConstruction-127)**: contributed
-  UI icons for the top bar.
+- **[ReConstruction-127](https://github.com/ReConstruction-127)**: Lead Artist, assisted in creating most of the mod’s textures.
 - **[Eternal-Snowstorm](https://github.com/Eternal-Snowstorm)**: helped
   organize the issue templates and provided guidance on licensing.
 
@@ -186,15 +185,14 @@ On Windows:
 
 特别感谢以下贡献者：
 
-- **Yiran**：核心开发者。协助项目结构重构、部分 UI 实现与社区管理，并推动
+- **Yiran**：核心开发者。协助项目结构重构、核心美术、部分 UI 实现与社区管理，并推动
   bug 反馈与 todo 跟踪流程的系统化。
 - **凌墨问**：核心社区协作者。协助社区宣传、收集社区反馈，并开发项目记录网页。
 - **卓清婉**：重要代码贡献者。多次参与关键 bug 攻坚，提交兼容性与 QoL 改进
   PR，并协助管理 todo。
 - **可怜Bot**：重要代码贡献者。参与关键 bug 排查与审查，协助梳理整体修复
   思路，并多次提交修复 PR。
-- **[ReConstruction-127](https://github.com/ReConstruction-127)**：协助绘制顶栏
-  UI 图标。
+- **[ReConstruction-127](https://github.com/ReConstruction-127)**：核心美术、协助绘制大部分的模组贴图
 - **[Eternal-Snowstorm](https://github.com/Eternal-Snowstorm)**：协助统合 issue
   template，并在 license 相关事项上提供指导。
 
