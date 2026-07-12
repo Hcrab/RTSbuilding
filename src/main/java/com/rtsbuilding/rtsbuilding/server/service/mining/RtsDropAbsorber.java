@@ -16,7 +16,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.items.IItemHandler;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 挖掘掉落物吸收器，负责在方块被远程破坏后自动收集掉落物品。
@@ -59,31 +63,120 @@ public final class RtsDropAbsorber {
         if (player == null || center == null || insertContext == null) {
             return false;
         }
-        AABB box = new AABB(center).inflate(Config.dropScanRadius());
-        List<ItemEntity> drops = player.serverLevel().getEntitiesOfClass(
-                ItemEntity.class,
-                box,
-                entity -> entity != null && entity.isAlive() && !entity.getItem().isEmpty());
-        boolean changed = false;
-        for (ItemEntity drop : drops) {
-            ItemStack original = drop.getItem();
-            if (original.isEmpty()) {
+        return absorbDrops(player, collectDrops(player, List.of(center)), insertContext);
+    }
+
+    private static List<ItemEntity> collectDrops(ServerPlayer player, List<BlockPos> positions) {
+        Set<ItemEntity> uniqueDrops = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (BlockPos pos : positions) {
+            if (pos == null) {
                 continue;
             }
-            ItemStack remain = insertContext.store(original);
-            if (!remain.isEmpty()) {
-                remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
-            }
-            if (remain.getCount() != original.getCount()) {
+            AABB box = new AABB(pos).inflate(Config.dropScanRadius());
+            uniqueDrops.addAll(player.serverLevel().getEntitiesOfClass(
+                    ItemEntity.class,
+                    box,
+                    entity -> entity != null && entity.isAlive() && !entity.getItem().isEmpty()));
+        }
+        return List.copyOf(uniqueDrops);
+    }
+
+    private static boolean absorbDrops(ServerPlayer player, List<ItemEntity> drops, DropInsertContext insertContext) {
+        List<DropGroup> groups = groupDrops(drops);
+        boolean changed = false;
+        for (DropGroup group : groups) {
+            int remaining = group.totalCount();
+            int maxStackSize = Math.max(1, group.template().getMaxStackSize());
+            while (remaining > 0) {
+                int chunkSize = Math.min(remaining, maxStackSize);
+                ItemStack chunk = group.template().copyWithCount(chunkSize);
+                ItemStack remainder = insertContext.store(chunk);
+                if (!remainder.isEmpty()) {
+                    remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
+                }
+                int absorbed = chunkSize - remainder.getCount();
+                if (absorbed <= 0) {
+                    break;
+                }
+                remaining -= absorbed;
                 changed = true;
+                if (!remainder.isEmpty()) {
+                    break;
+                }
             }
-            if (remain.isEmpty()) {
-                drop.discard();
-            } else if (remain.getCount() != original.getCount()) {
-                drop.setItem(remain);
-            }
+            consumeAbsorbedDrops(group.entities(), group.totalCount() - remaining);
         }
         return changed;
+    }
+
+    private static List<DropGroup> groupDrops(List<ItemEntity> drops) {
+        List<DropGroup> groups = new ArrayList<>();
+        for (ItemEntity drop : drops) {
+            ItemStack stack = drop.getItem();
+            if (!drop.isAlive() || stack.isEmpty()) {
+                continue;
+            }
+            DropGroup matching = null;
+            for (DropGroup group : groups) {
+                if (ItemStack.isSameItemSameComponents(group.template(), stack)) {
+                    matching = group;
+                    break;
+                }
+            }
+            if (matching == null) {
+                matching = new DropGroup(stack.copyWithCount(1), new ArrayList<>(), 0);
+                groups.add(matching);
+            }
+            matching.entities().add(drop);
+            matching.addCount(stack.getCount());
+        }
+        return groups;
+    }
+
+    private static void consumeAbsorbedDrops(List<ItemEntity> entities, int absorbedCount) {
+        int remaining = absorbedCount;
+        for (ItemEntity entity : entities) {
+            if (remaining <= 0) {
+                return;
+            }
+            ItemStack stack = entity.getItem();
+            int consumed = Math.min(remaining, stack.getCount());
+            remaining -= consumed;
+            if (consumed == stack.getCount()) {
+                entity.discard();
+            } else {
+                entity.setItem(stack.copyWithCount(stack.getCount() - consumed));
+            }
+        }
+    }
+
+    /** 同类掉落在本 tick 内合并插入，但仍保留原实体以便精确回写未吸收部分。 */
+    private static final class DropGroup {
+        private final ItemStack template;
+        private final List<ItemEntity> entities;
+        private int totalCount;
+
+        private DropGroup(ItemStack template, List<ItemEntity> entities, int totalCount) {
+            this.template = template;
+            this.entities = entities;
+            this.totalCount = totalCount;
+        }
+
+        private ItemStack template() {
+            return template;
+        }
+
+        private List<ItemEntity> entities() {
+            return entities;
+        }
+
+        private int totalCount() {
+            return totalCount;
+        }
+
+        private void addCount(int count) {
+            totalCount += count;
+        }
     }
 
     private static DropInsertContext createInsertContext(ServerPlayer player, RtsStorageSession session) {
@@ -150,12 +243,7 @@ public final class RtsDropAbsorber {
             return false;
         }
         DropInsertContext insertContext = createInsertContext(player, session);
-        boolean changed = false;
-        for (BlockPos pos : positions) {
-            if (pos != null && absorbNearbyMinedDrops(player, pos, insertContext)) {
-                changed = true;
-            }
-        }
+        boolean changed = absorbDrops(player, collectDrops(player, positions), insertContext);
         notifyStorageChanged(player, insertContext, changed);
         if (changed) {
             QuestService.runQuestDetect(player, session, false);
