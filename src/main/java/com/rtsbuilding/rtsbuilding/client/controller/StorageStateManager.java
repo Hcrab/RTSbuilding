@@ -425,6 +425,12 @@ public final class StorageStateManager {
         if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
             return "";
         }
+        ItemStack preview = this.guiBindingPreviews[index];
+        if (preview != null && !preview.isEmpty()) {
+            // 服务端保存的 label 可能已经按服务端语言展开。优先用客户端
+            // 物品预览重新解析名称，让 AE 线缆、机器等绑定跟随玩家的当前语言。
+            return preview.getHoverName().getString();
+        }
         return this.guiBindingLabels[index];
     }
 

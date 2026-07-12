@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.model;
 
+import net.minecraft.network.chat.Component;
+
 /**
  * 工作流进度数据的统一 API 处理器。
  *
@@ -53,9 +55,9 @@ public final class RtsWorkflowProgressProcessor {
      */
     public static String formatLabel(RtsWorkflowStatus status) {
         if (status == null || !status.isActive()) return "";
-        String label = status.typeLabel();
+        String label = Component.translatable(status.typeTranslationKey()).getString();
         if (status.suspended()) {
-            label += " (搁置)";
+            label = Component.translatable("screen.rtsbuilding.workflow.suspended", label).getString();
         }
         return label;
     }

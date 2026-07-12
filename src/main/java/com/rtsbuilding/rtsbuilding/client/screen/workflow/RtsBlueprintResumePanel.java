@@ -41,7 +41,7 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
 
     @Override
     protected Component getTitle() {
-        return Component.literal("蓝图材料清单");
+        return Component.translatable("screen.rtsbuilding.workflow.blueprint_resume.title");
     }
 
     @Override
@@ -122,8 +122,9 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
         int maxW = contentWidth() - PADDING * 2;
 
         // ── 标题：进度统计 ──
-        String progress = scanData.completedCount() + " / " + scanData.totalCount()
-                + "  (剩余 " + (scanData.totalCount() - scanData.completedCount()) + ")";
+        String progress = text("screen.rtsbuilding.workflow.blueprint_resume.progress",
+                scanData.completedCount(), scanData.totalCount(),
+                scanData.totalCount() - scanData.completedCount());
         g.drawString(font, progress, x, y, 0xFFE7C46A, false);
         y += ROW_H;
 
@@ -132,11 +133,14 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
         y += 4;
 
         // ── 列标题 ──
-        g.drawString(font, "材料", x, y, 0xAAB0C0D0, false);
+        g.drawString(font, text("screen.rtsbuilding.workflow.blueprint_resume.material"),
+                x, y, 0xAAB0C0D0, false);
         int col2X = x + maxW - 130;
         int col3X = x + maxW - 70;
-        g.drawString(font, "需求", col2X, y, 0xAAB0C0D0, false);
-        g.drawString(font, "可用", col3X, y, 0xAAB0C0D0, false);
+        g.drawString(font, text("screen.rtsbuilding.workflow.blueprint_resume.required"),
+                col2X, y, 0xAAB0C0D0, false);
+        g.drawString(font, text("screen.rtsbuilding.workflow.blueprint_resume.available"),
+                col3X, y, 0xAAB0C0D0, false);
         y += ROW_H;
 
         // ── 材料列表（按 scrollOffset 偏移） ──
@@ -164,7 +168,9 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
 
             g.drawString(font, String.valueOf(req), col2X, y + 4, 0xEAF2FF, false);
             int color = enough ? 0x88F4BE : 0xFF7070;
-            g.drawString(font, enough ? String.valueOf(avail) : "缺" + missing, col3X, y + 4, color, false);
+            g.drawString(font, enough ? String.valueOf(avail)
+                            : text("screen.rtsbuilding.workflow.blueprint_resume.missing", missing),
+                    col3X, y + 4, color, false);
 
             y += ROW_H;
         }
@@ -185,7 +191,9 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
         RtsClientUiUtil.drawPanelFrame(g, x, btnY, maxW, BTN_H,
                 resumeBg, resumeBorder, 0xFF1A2A1A);
         int resumeColor = canResume ? 0xFFFFFF : 0xFF888888;
-        String btnText = canResume ? "▶ 重启放置" : "⛔ 材料不足";
+        String btnText = canResume
+                ? text("screen.rtsbuilding.workflow.blueprint_resume.restart")
+                : text("screen.rtsbuilding.workflow.blueprint_resume.insufficient_materials");
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font, btnText,
                 x + maxW / 2, btnY + 4, resumeColor);
     }
@@ -211,6 +219,10 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
             label = label.substring(0, label.length() - 1);
         }
         return label + "…";
+    }
+
+    private static String text(String key, Object... args) {
+        return Component.translatable(key, args).getString();
     }
 
     private boolean isInsideBtn(double mx, double my, double bx, double by, double bw, double bh) {

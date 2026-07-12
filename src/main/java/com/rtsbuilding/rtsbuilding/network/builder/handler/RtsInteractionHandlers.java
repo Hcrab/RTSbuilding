@@ -165,17 +165,17 @@ public final class RtsInteractionHandlers {
                         // 挂起（等待物品）→ 恢复，让管道继续 Tick
                         token.resume();
                         serverPlayer.displayClientMessage(
-                                Component.literal("§7[工作流] §a▶ 已恢复 — 继续执行"),
+                                Component.translatable("message.rtsbuilding.workflow.resumed"),
                                 true);
                     } else if (token.isPaused()) {
                         token.unpause();
                         serverPlayer.displayClientMessage(
-                                Component.literal("§7[工作流] §a▶ 已恢复 — 线程继续执行"),
+                                Component.translatable("message.rtsbuilding.workflow.thread_resumed"),
                                 true);
                     } else {
                         token.pause();
                         serverPlayer.displayClientMessage(
-                                Component.literal("§7[工作流] §e⏸ 已暂停 — 线程已暂停"),
+                                Component.translatable("message.rtsbuilding.workflow.paused"),
                                 true);
                     }
                 });

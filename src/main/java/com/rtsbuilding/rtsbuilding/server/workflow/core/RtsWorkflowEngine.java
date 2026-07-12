@@ -233,7 +233,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             RtsbuildingMod.LOGGER.warn("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
             player.displayClientMessage(
-                    Component.literal("§c工作流已满且都被保护，无法开始新的操作！"),
+                    Component.translatable("message.rtsbuilding.workflow.full_protected"),
                     true);
             return Optional.empty();
         }
@@ -512,9 +512,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         syncService.notifyPlayer(player, slots);
 
         player.displayClientMessage(
-                Component.literal(protectedWorkflow
-                        ? "§7[工作流] §b◆ 已设为不被覆盖"
-                        : "§7[工作流] §7◇ 已允许自动覆盖"),
+                Component.translatable(protectedWorkflow
+                        ? "message.rtsbuilding.workflow.protected"
+                        : "message.rtsbuilding.workflow.replaceable"),
                 true);
     }
 

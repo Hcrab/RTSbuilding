@@ -362,7 +362,8 @@ public final class RtsPendingPlacementService {
                 }
             } else {
                 player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal("§e警告：" + currentBlock.getName() + " 需要合适的工具才能掉落！"),
+                        net.minecraft.network.chat.Component.translatable(
+                                "message.rtsbuilding.placement.tool_required", currentBlock.getName()),
                         true);
             }
         }

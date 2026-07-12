@@ -171,7 +171,8 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
             entry.setSuspended(true);
-            entry.setDetailMessage("等待物品...");
+            // 详情跨网络传输翻译键，避免服务端语言固化客户端显示。
+            entry.setDetailMessage("screen.rtsbuilding.workflow.waiting_items");
             engine.fireEvent(WorkflowEventType.SUSPENDED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
         }

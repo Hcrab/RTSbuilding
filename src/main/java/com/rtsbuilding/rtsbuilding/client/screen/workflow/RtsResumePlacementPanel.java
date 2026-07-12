@@ -39,7 +39,7 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
 
     @Override
     protected Component getTitle() {
-        return Component.literal("恢复放置");
+        return Component.translatable("screen.rtsbuilding.workflow.resume_placement.title");
     }
 
     @Override
@@ -130,28 +130,42 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
         int col1X = x;
         int col2X = x + maxW - 80;
 
-        drawStat(g, font, col1X, col2X, y, "剩余位置:", String.valueOf(scanData.totalRemaining()), 0xEAF2FF);
+        drawStat(g, font, col1X, col2X, y,
+                text("screen.rtsbuilding.workflow.resume_placement.remaining"),
+                String.valueOf(scanData.totalRemaining()), 0xEAF2FF);
         y += LINE_H;
 
-        drawStat(g, font, col1X, col2X, y, "已手动放置:", String.valueOf(scanData.alreadyPlacedCount()), 0x88BEF4);
+        drawStat(g, font, col1X, col2X, y,
+                text("screen.rtsbuilding.workflow.resume_placement.already_placed"),
+                String.valueOf(scanData.alreadyPlacedCount()), 0x88BEF4);
         y += LINE_H;
 
         if (scanData.conflictCount() > 0) {
-            drawStat(g, font, col1X, col2X, y, "冲突格:", String.valueOf(scanData.conflictCount()), 0xFFC070);
+            drawStat(g, font, col1X, col2X, y,
+                    text("screen.rtsbuilding.workflow.resume_placement.conflicts"),
+                    String.valueOf(scanData.conflictCount()), 0xFFC070);
             y += LINE_H;
         }
 
-        drawStat(g, font, col1X, col2X, y, "库存可用:", String.valueOf(scanData.availableItems()), 0x88F4BE);
+        drawStat(g, font, col1X, col2X, y,
+                text("screen.rtsbuilding.workflow.resume_placement.available"),
+                String.valueOf(scanData.availableItems()), 0x88F4BE);
         y += LINE_H;
 
-        drawStat(g, font, col1X, col2X, y, "实际需要:", String.valueOf(scanData.neededItems()), 0xEAF2FF);
+        drawStat(g, font, col1X, col2X, y,
+                text("screen.rtsbuilding.workflow.resume_placement.needed"),
+                String.valueOf(scanData.neededItems()), 0xEAF2FF);
         y += LINE_H;
 
         boolean enough = scanData.missingItems() <= 0;
         if (enough) {
-            drawStat(g, font, col1X, col2X, y, "缺少:", "0 (充足)", 0x88F4BE);
+            drawStat(g, font, col1X, col2X, y,
+                    text("screen.rtsbuilding.workflow.resume_placement.missing"),
+                    text("screen.rtsbuilding.workflow.resume_placement.enough"), 0x88F4BE);
         } else {
-            drawStat(g, font, col1X, col2X, y, "缺少:", String.valueOf(scanData.missingItems()), 0xFF7070);
+            drawStat(g, font, col1X, col2X, y,
+                    text("screen.rtsbuilding.workflow.resume_placement.missing"),
+                    String.valueOf(scanData.missingItems()), 0xFF7070);
         }
         y += LINE_H + 4;
 
@@ -177,7 +191,9 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
             }
             RtsClientUiUtil.drawPanelFrame(g, x, btnY, btnW, BTN_H,
                     skipBg, enough ? 0xFF74E88C : 0xFF666666, 0xFF1A2A1A);
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, font, enough ? "⏭ 跳过" : "物品不足",
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, font, enough
+                            ? text("screen.rtsbuilding.workflow.resume_placement.skip")
+                            : text("screen.rtsbuilding.workflow.insufficient_items"),
                     x + btnW / 2, btnY + 4, enough ? 0xFFFFFF : 0x888888);
 
             // 2. 覆盖
@@ -191,7 +207,9 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
             }
             RtsClientUiUtil.drawPanelFrame(g, overwriteX, btnY, btnW, BTN_H,
                     overwriteBg, enough ? 0xFFE7C46A : 0xFF666666, enough ? 0xFF2A1A0A : 0xFF1A1A1A);
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, font, enough ? "⛏ 覆盖" : "物品不足",
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, font, enough
+                            ? text("screen.rtsbuilding.workflow.resume_placement.overwrite")
+                            : text("screen.rtsbuilding.workflow.insufficient_items"),
                     overwriteX + btnW / 2, btnY + 4, enough ? 0xFFFFFF : 0x888888);
         } else {
             // 无冲突：重启（单个按钮，满宽）
@@ -205,7 +223,8 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
             RtsClientUiUtil.drawPanelFrame(g, x, btnY, maxW, BTN_H,
                     resumeBg, enough ? 0xFF74E88C : 0xFF666666, 0xFF1A2A1A);
             RtsClientUiUtil.drawCenteredStringNoShadow(g, font,
-                    enough ? "▶ 重启" : "物品不足",
+                    enough ? text("screen.rtsbuilding.workflow.resume_placement.restart")
+                            : text("screen.rtsbuilding.workflow.insufficient_items"),
                     x + maxW / 2, btnY + 4,
                     enough ? 0xFFFFFF : 0x888888);
         }
@@ -253,6 +272,10 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
                                   String label, String value, int valueColor) {
         g.drawString(font, label, col1X, y, 0xAAB0C0D0, false);
         g.drawString(font, value, col2X, y, valueColor, false);
+    }
+
+    private static String text(String key, Object... args) {
+        return Component.translatable(key, args).getString();
     }
 
     private boolean isInsideBtn(double mx, double my, double bx, double by, double bw, double bh) {
