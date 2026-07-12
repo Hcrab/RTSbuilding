@@ -104,7 +104,6 @@ public final class RtsbuildingMod {
 
         @SubscribeEvent
         static void onServerStarted(final ServerStartedEvent event) {
-            RtsSessionService.warmCreativeTabCaches(event.getServer());
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
         }
 

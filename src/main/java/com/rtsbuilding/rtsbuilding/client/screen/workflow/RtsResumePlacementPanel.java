@@ -81,28 +81,38 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
         g.fill(x, y, x + w, y + 1, 0xFF405064);
         y += 7;
 
-        drawStat(g, font, x, y, "剩余位置", String.valueOf(this.scanData.totalRemaining()), 0xEAF2FF);
+        drawStat(g, font, x, y, text("screen.rtsbuilding.workflow.resume_placement.remaining"),
+                String.valueOf(this.scanData.totalRemaining()), 0xEAF2FF);
         y += LINE_H;
-        drawStat(g, font, x, y, "已存在同方块", String.valueOf(this.scanData.alreadyPlacedCount()), 0x88BEF4);
+        drawStat(g, font, x, y, text("screen.rtsbuilding.workflow.resume_placement.already_placed"),
+                String.valueOf(this.scanData.alreadyPlacedCount()), 0x88BEF4);
         y += LINE_H;
-        drawStat(g, font, x, y, "冲突格", String.valueOf(this.scanData.conflictCount()),
+        drawStat(g, font, x, y, text("screen.rtsbuilding.workflow.resume_placement.conflicts"),
+                String.valueOf(this.scanData.conflictCount()),
                 this.scanData.conflictCount() > 0 ? 0xFFE7C46A : 0x88F4BE);
         y += LINE_H;
-        drawStat(g, font, x, y, "库存可用", String.valueOf(this.scanData.availableItems()), 0x88F4BE);
+        drawStat(g, font, x, y, text("screen.rtsbuilding.workflow.resume_placement.available"),
+                String.valueOf(this.scanData.availableItems()), 0x88F4BE);
         y += LINE_H;
-        drawStat(g, font, x, y, "实际需要", String.valueOf(this.scanData.neededItems()), 0xEAF2FF);
+        drawStat(g, font, x, y, text("screen.rtsbuilding.workflow.resume_placement.needed"),
+                String.valueOf(this.scanData.neededItems()), 0xEAF2FF);
         y += LINE_H;
         boolean enough = this.scanData.missingItems() <= 0;
-        drawStat(g, font, x, y, "仍缺少", enough ? "0" : String.valueOf(this.scanData.missingItems()),
+        drawStat(g, font, x, y, text("screen.rtsbuilding.workflow.resume_placement.missing"),
+                enough ? text("screen.rtsbuilding.workflow.resume_placement.enough")
+                        : String.valueOf(this.scanData.missingItems()),
                 enough ? 0x88F4BE : 0xFFFF7070);
 
         int buttonY = contentY() + contentHeight() - BUTTON_H - PADDING;
         if (this.scanData.conflictCount() > 0) {
             int buttonW = (w - 4) / 2;
-            drawButton(g, font, x, buttonY, buttonW, "跳过", enough, mouseX, mouseY);
-            drawButton(g, font, x + buttonW + 4, buttonY, buttonW, "覆盖", enough, mouseX, mouseY);
+            drawButton(g, font, x, buttonY, buttonW,
+                    text("screen.rtsbuilding.workflow.resume_placement.skip"), enough, mouseX, mouseY);
+            drawButton(g, font, x + buttonW + 4, buttonY, buttonW,
+                    text("screen.rtsbuilding.workflow.resume_placement.overwrite"), enough, mouseX, mouseY);
         } else {
-            drawButton(g, font, x, buttonY, w, "重启", enough, mouseX, mouseY);
+            drawButton(g, font, x, buttonY, w,
+                    text("screen.rtsbuilding.workflow.resume_placement.restart"), enough, mouseX, mouseY);
         }
     }
 
@@ -128,7 +138,7 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
 
     @Override
     protected Component getTitle() {
-        return Component.literal("恢复放置");
+        return Component.translatable("screen.rtsbuilding.workflow.resume_placement.title");
     }
 
     @Override
@@ -171,8 +181,13 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
         int fill = enabled ? (hover ? 0xCC3AA156 : 0xCC2C873F) : 0xCC444444;
         int border = enabled ? 0xFF74E88C : 0xFF666666;
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, BUTTON_H, fill, border, 0xFF122218);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, enabled ? text : "物品不足",
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, font,
+                enabled ? text : text("screen.rtsbuilding.workflow.insufficient_items"),
                 x + w / 2, y + 4, enabled ? 0xFFFFFF : 0x888888);
+    }
+
+    private static String text(String key, Object... args) {
+        return Component.translatable(key, args).getString();
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

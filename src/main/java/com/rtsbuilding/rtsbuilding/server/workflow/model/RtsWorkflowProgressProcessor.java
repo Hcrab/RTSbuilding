@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.model;
 
+import net.minecraft.network.chat.Component;
+
 /**
  * 工作流面板渲染用的轻量格式化工具。
  */
@@ -22,11 +24,11 @@ public final class RtsWorkflowProgressProcessor {
         if (status == null || !status.isActive()) {
             return "";
         }
-        String label = status.typeLabel();
+        String label = Component.translatable(status.typeTranslationKey()).getString();
         if (status.suspended()) {
-            label += " (等待材料)";
+            label = Component.translatable("screen.rtsbuilding.workflow.suspended", label).getString();
         } else if (status.paused()) {
-            label += " (已暂停)";
+            label = Component.translatable("screen.rtsbuilding.workflow.paused", label).getString();
         }
         return label;
     }

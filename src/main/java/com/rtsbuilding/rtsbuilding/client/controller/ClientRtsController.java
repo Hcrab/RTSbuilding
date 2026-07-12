@@ -888,6 +888,11 @@ public final class ClientRtsController {
         if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
             return "";
         }
+        ItemStack preview = this.guiBindingPreviews[index];
+        if (preview != null && !preview.isEmpty()) {
+            // 服务端标签可能已经按服务端语言展开；客户端重新解析物品名以跟随玩家语言。
+            return preview.getHoverName().getString();
+        }
         return this.guiBindingLabels[index];
     }
 
@@ -2960,7 +2965,8 @@ public final class ClientRtsController {
         if (minecraft.player != null) {
             RtsClientPacketGateway.sendCloseRemoteMenu();
             minecraft.player.closeContainer();
-            minecraft.player.displayClientMessage(Component.literal("Open failed."), true);
+            minecraft.player.displayClientMessage(
+                    Component.translatable("message.rtsbuilding.gui_binding.open_failed"), true);
         }
         minecraft.setScreen(null);
     }

@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -19,7 +18,6 @@ import java.util.concurrent.ConcurrentMap;
 public final class RtsPageCreativeTabIndexer {
 
     private static final ConcurrentMap<String, java.util.Set<String>> ITEM_CREATIVE_TAB_CACHE = new ConcurrentHashMap<>();
-    private static final java.util.Set<String> BROKEN_CREATIVE_TAB_CACHE = ConcurrentHashMap.newKeySet();
     private static volatile boolean creativeTabCacheWarmNormal;
     private static volatile boolean creativeTabCacheWarmOperator;
 
@@ -30,13 +28,12 @@ public final class RtsPageCreativeTabIndexer {
         if (isCreativeTabCacheWarm(operatorTabs)) {
             return;
         }
-        rebuildCreativeTabContentsSafely(level, operatorTabs);
+        indexAvailableCreativeTabContents(operatorTabs);
         setCreativeTabCacheWarm(operatorTabs);
     }
 
     public static void clearCreativeTabCacheState() {
         ITEM_CREATIVE_TAB_CACHE.clear();
-        BROKEN_CREATIVE_TAB_CACHE.clear();
         creativeTabCacheWarmNormal = false;
         creativeTabCacheWarmOperator = false;
     }
@@ -98,35 +95,16 @@ public final class RtsPageCreativeTabIndexer {
         }
     }
 
-    private static void rebuildCreativeTabContentsSafely(ServerLevel level, boolean operatorTabs) {
-        CreativeModeTab.ItemDisplayParameters parameters = new CreativeModeTab.ItemDisplayParameters(
-                level.enabledFeatures(), operatorTabs, level.registryAccess());
-        rebuildCreativeTabContentsSafely(parameters, operatorTabs, true);
-        rebuildCreativeTabContentsSafely(parameters, operatorTabs, false);
-    }
-
-    private static void rebuildCreativeTabContentsSafely(
-            CreativeModeTab.ItemDisplayParameters parameters, boolean operatorTabs, boolean categoryTabs) {
+    /**
+     * 只索引游戏已经构建好的创造栏快照，不在服务端重新派发客户端创造栏事件。
+     */
+    private static void indexAvailableCreativeTabContents(boolean operatorTabs) {
         for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null) {
-                continue;
-            }
-            boolean category = tab.getType() == CreativeModeTab.Type.CATEGORY;
-            if (category != categoryTabs) {
+            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
                 continue;
             }
             ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
-            if (isBrokenCreativeTab(key, operatorTabs)) {
-                continue;
-            }
-            try {
-                tab.buildContents(parameters);
-                if (category) {
-                    indexCreativeTabContents(tab, key, operatorTabs);
-                }
-            } catch (RuntimeException | LinkageError ex) {
-                markBrokenCreativeTab(key, operatorTabs, ex);
-            }
+            indexCreativeTabContents(tab, key, operatorTabs);
         }
     }
 
@@ -151,29 +129,6 @@ public final class RtsPageCreativeTabIndexer {
                         return tabs;
                     });
         }
-    }
-
-    private static boolean isBrokenCreativeTab(ResourceLocation key, boolean operatorTabs) {
-        return BROKEN_CREATIVE_TAB_CACHE.contains(creativeTabModeKey(key, operatorTabs));
-    }
-
-    private static void markBrokenCreativeTab(ResourceLocation key, boolean operatorTabs, Throwable ex) {
-        String tabKey = key == null ? "unknown" : key.toString();
-        if (!BROKEN_CREATIVE_TAB_CACHE.add(creativeTabModeKey(tabKey, operatorTabs))) {
-            return;
-        }
-        RtsbuildingMod.LOGGER.warn(
-                "Skipping RTS creative tab {} for {} cache because it failed to build. "
-                        + "The RTS storage browser will continue without this tab.",
-                tabKey, operatorTabs ? "operator" : "normal", ex);
-    }
-
-    private static String creativeTabModeKey(ResourceLocation key, boolean operatorTabs) {
-        return creativeTabModeKey(key == null ? "unknown" : key.toString(), operatorTabs);
-    }
-
-    private static String creativeTabModeKey(String key, boolean operatorTabs) {
-        return (operatorTabs ? "op|" : "normal|") + key;
     }
 
     private static String creativeTabItemCacheKey(String itemId, boolean operatorTabs) {

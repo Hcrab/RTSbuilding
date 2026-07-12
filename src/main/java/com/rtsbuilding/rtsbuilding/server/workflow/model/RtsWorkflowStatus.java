@@ -79,19 +79,14 @@ public record RtsWorkflowStatus(
         return this.completedBlocks + "/" + (this.totalBlocks > 0 ? this.totalBlocks : 0);
     }
 
-    public String typeLabel() {
+    /**
+     * 返回工作流类型翻译键，由客户端按玩家当前语言解析。
+     */
+    public String typeTranslationKey() {
         if (this.type == null) {
-            return "空闲";
+            return "screen.rtsbuilding.workflow.type.idle";
         }
-        return switch (this.type) {
-            case MINE_SINGLE -> "挖掘";
-            case ULTIMINE -> "连锁挖掘";
-            case AREA_MINE -> "区域挖掘";
-            case AREA_DESTROY -> "拆除";
-            case PLACE_SINGLE -> "放置";
-            case PLACE_BATCH -> "批量放置";
-            case QUICK_BUILD -> "快速建造";
-            case STOP_MINING -> "停止挖掘";
-        };
+        return "screen.rtsbuilding.workflow.type."
+                + this.type.name().toLowerCase(java.util.Locale.ROOT);
     }
 }

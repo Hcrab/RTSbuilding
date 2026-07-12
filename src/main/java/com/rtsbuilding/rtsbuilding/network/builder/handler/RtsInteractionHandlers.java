@@ -110,11 +110,13 @@ public final class RtsInteractionHandlers {
             engine.from(serverPlayer, payload.entryId()).ifPresent(token -> {
                 if (token.isPaused()) {
                     if (token.unpause()) {
-                        serverPlayer.displayClientMessage(Component.literal("§a已继续 RTS 任务。"), true);
+                        serverPlayer.displayClientMessage(
+                                Component.translatable("message.rtsbuilding.workflow.resumed"), true);
                     }
                 } else {
                     token.pause();
-                    serverPlayer.displayClientMessage(Component.literal("§e已暂停 RTS 任务。"), true);
+                    serverPlayer.displayClientMessage(
+                            Component.translatable("message.rtsbuilding.workflow.paused"), true);
                 }
             });
         });
@@ -147,9 +149,11 @@ public final class RtsInteractionHandlers {
             var session = RtsSessionService.getIfPresent(serverPlayer);
             if (RtsPendingPlacementService.resumeWithStrategy(
                     serverPlayer, session, payload.strategy(), payload.workflowEntryId())) {
-                serverPlayer.displayClientMessage(Component.literal("§a已恢复 RTS 放置任务。"), true);
+                serverPlayer.displayClientMessage(
+                        Component.translatable("message.rtsbuilding.workflow.resume_placement_success"), true);
             } else {
-                serverPlayer.displayClientMessage(Component.literal("§c没有找到可恢复的 RTS 放置任务。"), true);
+                serverPlayer.displayClientMessage(
+                        Component.translatable("message.rtsbuilding.workflow.no_pending_placement"), true);
             }
         });
     }
@@ -167,7 +171,8 @@ public final class RtsInteractionHandlers {
             int workflowEntryId) {
         RtsResumeScanResult result = RtsPendingPlacementService.scanPendingJob(player, session, workflowEntryId);
         if (result == null) {
-            player.displayClientMessage(Component.literal("§c没有找到可恢复的 RTS 放置任务。"), true);
+            player.displayClientMessage(
+                    Component.translatable("message.rtsbuilding.workflow.no_pending_placement"), true);
             return;
         }
         PacketDistributor.sendToPlayer(player, new S2CRtsResumePlacementScanPayload(

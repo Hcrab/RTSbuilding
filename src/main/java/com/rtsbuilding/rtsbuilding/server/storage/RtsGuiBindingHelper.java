@@ -68,7 +68,8 @@ final class RtsGuiBindingHelper {
         ServerLevel level = player.serverLevel();
         MenuProvider provider = resolveBindableMenuProvider(level, pos);
         if (!canBindGuiTarget(level, pos)) {
-            player.displayClientMessage(Component.literal("Target has no bindable GUI."), true);
+            player.displayClientMessage(Component.translatable(
+                    "message.rtsbuilding.gui_binding.no_bindable_gui"), true);
             return RtsStorageBindings.UpdateResult.none();
         }
 
@@ -110,7 +111,8 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
         if (!player.serverLevel().dimension().equals(binding.dimension())) {
-            player.displayClientMessage(Component.literal("Bound GUI is in another dimension."), true);
+            player.displayClientMessage(Component.translatable(
+                    "message.rtsbuilding.gui_binding.other_dimension"), true);
             return RtsStorageBindings.UpdateResult.none();
         }
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, binding.pos())) {
@@ -149,14 +151,16 @@ final class RtsGuiBindingHelper {
         if (!interactResult.consumesAction()) {
             MenuProvider provider = resolveBindableMenuProvider(level, pos);
             if (provider == null) {
-                player.displayClientMessage(Component.literal("Bound target did not open a GUI."), true);
+                player.displayClientMessage(Component.translatable(
+                        "message.rtsbuilding.gui_binding.open_failed"), true);
                 return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
             }
             player.openMenu(provider);
             if (player.containerMenu != null && player.containerMenu != menuBeforeInteract) {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, player.containerMenu, pos);
             } else {
-                player.displayClientMessage(Component.literal("Bound target did not open a GUI."), true);
+                player.displayClientMessage(Component.translatable(
+                        "message.rtsbuilding.gui_binding.open_failed"), true);
             }
         }
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);

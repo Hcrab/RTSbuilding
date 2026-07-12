@@ -62,7 +62,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         }
         RtsWorkflowEntry entry = slots.addEntry(priority == null ? RtsWorkflowPriority.NORMAL : priority);
         if (entry == null) {
-            player.displayClientMessage(Component.literal("§c工作流已满且都被保护，无法开始新的远程任务。"), true);
+            player.displayClientMessage(
+                    Component.translatable("message.rtsbuilding.workflow.full_protected"), true);
             RtsbuildingMod.LOGGER.warn("[Workflow] {} workflow slots are full", player.getGameProfile().getName());
             return Optional.empty();
         }
@@ -231,9 +232,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         }
         entry.setProtectedWorkflow(protectedWorkflow);
         this.syncService.notifyPlayer(player, slots);
-        player.displayClientMessage(Component.literal(protectedWorkflow
-                ? "§b工作流已设为不被覆盖。"
-                : "§7工作流已允许自动覆盖。"), true);
+        player.displayClientMessage(Component.translatable(protectedWorkflow
+                ? "message.rtsbuilding.workflow.protected"
+                : "message.rtsbuilding.workflow.replaceable"), true);
     }
 
     @Override
