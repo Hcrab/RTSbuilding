@@ -237,7 +237,7 @@
   "screen.rtsbuilding.culling.delete_hint": "Click arrow + scroll: resize XYZ",
   "screen.rtsbuilding.top_hint.guide": "Need help? Click i or visit rts.ciallo.ltd",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
-  "chat.rtsbuilding.intro.version_warning": "Current version: release 1.1.5. Usage guide: %s. This is a very new release; if it proves unstable, return to 1.1.2.",
+  "chat.rtsbuilding.intro.version_warning": "Current RTS Building mod version: release 1.1.5. Usage guide: %s. This is a very new release; if it proves unstable, return to 1.1.2.",
   "chat.rtsbuilding.intro.feedback": "Feedback links: Discord %s | GitHub %s | QQ group %s. If RTSBuilding helps you, a GitHub star would mean a lot.",
   "chat.rtsbuilding.intro.config_hint": "Small i buttons open tutorials for panels and overlays.",
   "chat.rtsbuilding.intro.dismiss": "[Don't remind me again]",

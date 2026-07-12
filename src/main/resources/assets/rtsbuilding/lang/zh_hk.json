@@ -237,7 +237,7 @@
   "screen.rtsbuilding.culling.delete_hint": "點擊箭頭 + 滾輪：調整 XYZ",
   "screen.rtsbuilding.top_hint.guide": "不會操作，點 i，或訪問 rts.ciallo.ltd",
   "chat.rtsbuilding.intro.rts_key": "按 %s 可以開啟 RTS 建造/儲存模式。",
-  "chat.rtsbuilding.intro.version_warning": "目前版本是正式版 1.1.5。詳細使用說明見：%s。這是一個非常新的版本；如遇不穩定問題，可退回 1.1.2。",
+  "chat.rtsbuilding.intro.version_warning": "RTS Building 模組目前版本是正式版 1.1.5。詳細使用說明見：%s。這是一個非常新的版本；如遇不穩定問題，可退回 1.1.2。",
   "chat.rtsbuilding.intro.feedback": "回饋入口：Discord %s | GitHub %s | QQ 群 %s。如果 RTSBuilding 對你有幫助，也歡迎在 GitHub 點一個 star。",
   "chat.rtsbuilding.intro.config_hint": "看到小 i 按鈕就能開啟對應面板/懸浮窗教學。",
   "chat.rtsbuilding.intro.dismiss": "[不要再提醒了]",
