@@ -1,0 +1,38 @@
+package com.rtsbuilding.rtsbuilding.server.task;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class TaskRecordTest {
+    private static final TaskPayload EMPTY = new TaskPayload() { };
+
+    @Test
+    void resourceWaitPromotesTransientTaskAndResumeKeepsProgress() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.PLACEMENT,
+                EMPTY, 8, 0L);
+
+        task.apply(TaskStepResult.continueWith(3), 10L);
+        task.apply(TaskStepResult.waitForResource(), 20L);
+
+        assertEquals(3, task.completedUnits());
+        assertEquals(TaskStatus.WAITING_RESOURCE, task.status());
+        assertEquals(TaskVisibility.PERSISTENT, task.visibility());
+
+        task.resume(30L);
+        task.apply(TaskStepResult.complete(5), 40L);
+        assertEquals(8, task.completedUnits());
+        assertEquals(TaskStatus.COMPLETED, task.status());
+    }
+
+    @Test
+    void shortSuccessfulTaskStaysTransient() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.MINING,
+                EMPTY, 1, 0L);
+        task.apply(TaskStepResult.complete(1), 500_000_000L);
+        task.promoteIfLongRunning(500_000_000L, 1_000_000_000L);
+        assertEquals(TaskVisibility.TRANSIENT, task.visibility());
+    }
+}
