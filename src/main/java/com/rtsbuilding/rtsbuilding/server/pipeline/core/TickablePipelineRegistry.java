@@ -24,7 +24,11 @@ public final class TickablePipelineRegistry {
 
     private final Map<UUID, Map<ResourceKey<Level>, List<ActivePipeline>>> activePipelines =
             new ConcurrentHashMap<>();
-    private final Map<Integer, ActivePipeline> entryIdIndex = new ConcurrentHashMap<>();
+    private final Map<PipelineKey, ActivePipeline> entryIdIndex = new ConcurrentHashMap<>();
+
+    /** 工作流条目只在玩家自己的维度空间内唯一，不能只用整数 ID 建全局索引。 */
+    private record PipelineKey(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+    }
 
     private TickablePipelineRegistry() {
     }
@@ -65,7 +69,7 @@ public final class TickablePipelineRegistry {
                 .computeIfAbsent(player.level().dimension(), ignored -> new ArrayList<>())
                 .add(active);
         if (active.entryId() >= 0) {
-            this.entryIdIndex.put(active.entryId(), active);
+            this.entryIdIndex.put(new PipelineKey(player.getUUID(), active.dimension(), active.entryId()), active);
         }
     }
 
@@ -95,10 +99,9 @@ public final class TickablePipelineRegistry {
         if (player == null) {
             return null;
         }
-        ActivePipeline active = this.entryIdIndex.get(workflowEntryId);
-        return active != null && active.player().getUUID().equals(player.getUUID())
-                ? active.context()
-                : null;
+        ActivePipeline active = this.entryIdIndex.get(new PipelineKey(
+                player.getUUID(), player.level().dimension(), workflowEntryId));
+        return active == null ? null : active.context();
     }
 
     private void doTickAll() {
@@ -114,6 +117,10 @@ public final class TickablePipelineRegistry {
             while (dimensionIt.hasNext()) {
                 Map.Entry<ResourceKey<Level>, List<ActivePipeline>> dimensionEntry = dimensionIt.next();
                 List<ActivePipeline> pipelines = dimensionEntry.getValue();
+                if (!pipelines.isEmpty()
+                        && !dimensionEntry.getKey().equals(pipelines.get(0).player().level().dimension())) {
+                    continue;
+                }
                 pipelines.removeIf(this::shouldRemoveAfterTick);
                 if (pipelines.isEmpty()) {
                     dimensionIt.remove();
@@ -129,9 +136,9 @@ public final class TickablePipelineRegistry {
         int entryId = active.entryId();
         if (entryId >= 0) {
             var entry = RtsWorkflowEngine.getInstance()
-                    .findEntryByPlayer(active.player(), entryId);
+                    .findEntryByPlayer(active.player().getUUID(), active.dimension(), entryId);
             if (entry == null) {
-                this.entryIdIndex.remove(entryId);
+                removeFromIndex(active);
                 return true;
             }
             if (entry.paused() || entry.suspended()) {
@@ -140,7 +147,7 @@ public final class TickablePipelineRegistry {
         }
         boolean done = active.tick().isPresent();
         if (done && entryId >= 0) {
-            this.entryIdIndex.remove(entryId);
+            removeFromIndex(active);
         }
         return done;
     }
@@ -148,8 +155,16 @@ public final class TickablePipelineRegistry {
     private void removeFromIndex(List<ActivePipeline> pipelines) {
         for (ActivePipeline active : pipelines) {
             if (active.entryId() >= 0) {
-                this.entryIdIndex.remove(active.entryId());
+                removeFromIndex(active);
             }
         }
+    }
+
+    private void removeFromIndex(ActivePipeline active) {
+        if (active.entryId() < 0) {
+            return;
+        }
+        this.entryIdIndex.remove(new PipelineKey(
+                active.player().getUUID(), active.dimension(), active.entryId()), active);
     }
 }

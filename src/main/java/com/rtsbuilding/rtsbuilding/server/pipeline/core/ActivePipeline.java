@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
@@ -14,6 +16,7 @@ public final class ActivePipeline {
     private final ServerPlayer player;
     private final PipelineContext context;
     private final TickablePipe pipe;
+    private final ResourceKey<Level> dimension;
     private final int workflowEntryId;
     private boolean completed;
 
@@ -21,6 +24,7 @@ public final class ActivePipeline {
         this.player = player;
         this.context = context;
         this.pipe = pipe;
+        this.dimension = player.level().dimension();
         Integer cached = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
         this.workflowEntryId = cached == null ? -1 : cached;
     }
@@ -39,6 +43,11 @@ public final class ActivePipeline {
 
     public boolean isCompleted() {
         return this.completed;
+    }
+
+    /** 返回注册时的维度；玩家切维后仍可精确移除旧索引。 */
+    public ResourceKey<Level> dimension() {
+        return this.dimension;
     }
 
     public Optional<PipelineResult> tick() {
