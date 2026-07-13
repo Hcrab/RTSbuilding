@@ -1,16 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.component;
 
 import com.mojang.math.Axis;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -27,10 +27,10 @@ public class CollapsibleSection {
 
     private static final int SECTION_HEADER_H = 22;
 
-    // ======================== 折叠标题栏背景贴图 (fold_ui.png) ========================
+    // ======================== 折叠标题栏背景贴图 (base_ui_3.png) ========================
 
     private static final ResourceLocation FOLD_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/fold_ui.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_3.png");
     private static final int FOLD_TEX_W = 32;
     private static final int FOLD_TEX_FILE_H = 32;
     private static final int FOLD_TEX_STATE_H = 16;
@@ -46,12 +46,12 @@ public class CollapsibleSection {
     // ======================== 折叠箭头贴图 ========================
 
     private static final ResourceLocation FOLD_ARROW_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/fold_arrow.png");
+            "rtsbuilding:textures/gui/base/arrow.png");
     /** 源区域宽度（单帧 512px）——等于 {@link TextureInfo#halfWidth()} */
     private static final int FOLD_ARROW_TEX_W = 512;
     /** 贴图文件总宽度（双主题翻倍为 1024）——等于 {@link TextureInfo#fullWidth()} */
     private static final int FOLD_ARROW_TEX_FILE_W = 1024;
-    private static final int FOLD_ARROW_TEX_FILE_H = 1024;
+    private static final int FOLD_ARROW_TEX_FILE_H = 512;
     private static final int FOLD_ARROW_STATE_H = 512;
 
     private static final TextureInfo FOLD_ARROW_TEX_INFO = new TextureInfo(
@@ -165,6 +165,7 @@ public class CollapsibleSection {
 
     /**
      * 渲染折叠箭头（矢量缩放 + 旋转动画）。
+     * <p>初始态顺时针旋转 90°（箭头朝下），展开态在此基础上再旋 90°（箭头朝上）。</p>
      */
     private void renderArrow(GuiGraphics g, int x, int y) {
         this.arrowAnim.tick();
@@ -173,7 +174,7 @@ public class CollapsibleSection {
         // 位移至箭头中心，绕 Z 轴旋转，再移回
         float halfBtn = FOLD_BTN_SIZE / 2.0f;
         g.pose().translate(halfBtn, halfBtn, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees(this.arrowAnim.getValue() * 90.0f));
+        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.getValue()) * 90.0f));
         g.pose().translate(-halfBtn, -halfBtn, 0);
         SpriteRegion arrowRegion = new SpriteRegion(FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_TEX_W, FOLD_ARROW_STATE_H)
                 .withTheme();

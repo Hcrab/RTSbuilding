@@ -199,6 +199,16 @@ public final class RtsAggregateStorage {
         }
     }
 
+    /**
+     * 将所有缓存处理器的物品按完整组件身份（含耐久等）汇总到给定的映射中。
+     * 与 {@link #getAvailableItems} 不同，此方法区分不同组件的同类型物品。
+     */
+    public void getAvailableEntries(Map<ItemStack, Long> out) {
+        for (CachedHandlerSlot cs : this.flatOrdered) {
+            cs.cache.getAvailableEntries(out);
+        }
+    }
+
     // ---- 周期更新 -----------------------------------------------------------
 
     /**

@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 
-import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.building.BuildingModule;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
 import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
 import com.rtsbuilding.rtsbuilding.client.screen.event.model.KeyPressEvent;

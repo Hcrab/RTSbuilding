@@ -6,9 +6,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.base.overlay.DownOverlayL
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.overlay.LeftDownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.overlay.RightDownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;

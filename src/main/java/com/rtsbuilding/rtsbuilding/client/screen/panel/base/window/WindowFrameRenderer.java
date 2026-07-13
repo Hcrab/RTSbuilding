@@ -166,7 +166,7 @@ public final class WindowFrameRenderer {
         float gr = (float) (tint >> 8 & 0xFF) / 255.0F;
         float b = (float) (tint & 0xFF) / 255.0F;
         g.setColor(r, gr, b, a);
-        // +3/-6 偏移原因：drag_ui.png 的九宫格边框为 4px（PANEL_BORDER=4），
+        // +3/-6 偏移原因：base_ui_2.png 的九宫格边框为 4px（PANEL_BORDER=4），
         // 拖拽面板背景渲染时在窗口区域内缩进 1px（左侧+3 = border-1，右侧同理），
         // 使标题栏背景与面板背景的四角九宫格无缝拼接，避免边缘重叠
         SpriteRenderer.drawNineSliceDragPanel(g, ctx.windowX() + 3, ctx.windowY() + 3,

@@ -6,13 +6,13 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.base.button.AbstractButto
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup.DebugMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -45,13 +45,13 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
 
     // 折叠箭头（仅 btn_right 使用）
     private static final ResourceLocation FOLD_ARROW =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/base/fold_arrow.png");
+            ResourceLocation.tryParse("rtsbuilding:textures/gui/base/arrow.png");
     private static final int FOLD_ARROW_HALF_W = 512;
     private static final int FOLD_ARROW_STATE_H = 512;
     /** 折叠箭头贴图文件总宽度（双主题翻倍） */
     private static final int FOLD_ARROW_TEX_W = 1024;
     /** 折叠箭头贴图文件总高度 */
-    private static final int FOLD_ARROW_TEX_H = 1024;
+    private static final int FOLD_ARROW_TEX_H = 512;
     private static final int FOLD_ARROW_SIZE = 8;
 
     /** 折叠箭头贴图元数据（避免每帧 new） */
@@ -134,7 +134,7 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         g.pose().pushPose();
         float halfArrow = FOLD_ARROW_SIZE / 2.0f;
         g.pose().translate(arrowX + halfArrow, arrowY + halfArrow, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees(arrowRotateAnim.getValue() * 90.0f));
+        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + arrowRotateAnim.getValue()) * 90.0f));
         g.pose().translate(-halfArrow, -halfArrow, 0);
         SpriteRegion arrowRegion = new SpriteRegion(
                 FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();

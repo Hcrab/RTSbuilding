@@ -1,11 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.SliderTextureConstants;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
@@ -44,49 +42,18 @@ public class ScrollBar {
     // 滑块比轨道左右各宽 1px（视觉凸出），由 THUMB_W - TRACK_W 推算
     private static final int MIN_THUMB_SIZE = 12;
 
-    /** 渲染时轨道厚度（竖向=宽度，横向=高度，固定 3px） */
-    private static final int TRACK_THICKNESS = 3;
-    /** 渲染时滑块厚度（竖向=宽度，横向=高度，固定 5px） */
-    private static final int THUMB_THICKNESS = 5;
-
-    // ======================== 贴图常量 ========================
-
-    /** 贴图文件尺寸（两张贴图通用：32×32，水平双主题↔亮暗，垂直分半↔正常/移动） */
-    private static final int TEX_W = 32;
-    private static final int TEX_H = 32;
-    /** 贴图单一主题半区尺寸 */
-    private static final int HALF_W = 16;
-    private static final int HALF_H = 16;
-    /** 状态切换垂直偏移（正常态 0-16，移动态 16-32） */
-    private static final int STATE_OFFSET = HALF_H;
-    /** 九宫格边框 */
-    private static final int BORDER = 2;
+    /** 渲染时轨道厚度（竖向=宽度，横向=高度，固定 7px） */
+    private static final int TRACK_THICKNESS = 7;
+    /** 渲染时滑块厚度（竖向=宽度，横向=高度，永远比滑条宽 2px） */
+    private static final int THUMB_THICKNESS = TRACK_THICKNESS + 2;
+    /** 上边缘往下缩小像素数 */
+    private static final int TOP_SHRINK = 1;
 
     /** 方向枚举 */
     public enum Orientation {
         VERTICAL,
         HORIZONTAL
     }
-
-    /** 轨道贴图（mouse_wheel.png） */
-    private static final ResourceLocation TRACK_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/mouse_wheel.png");
-    private static final TextureInfo TRACK_TEX_INFO = new TextureInfo(
-            TRACK_TEXTURE, TEX_W, TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion TRACK_NINE_SLICE = new NineSliceRegion(
-            new SpriteRegion(TRACK_TEX_INFO, 0, 0, HALF_W, HALF_H), BORDER);
-
-    /** 滑块贴图（slider.png） */
-    private static final ResourceLocation THUMB_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/slider.png");
-    private static final TextureInfo THUMB_TEX_INFO = new TextureInfo(
-            THUMB_TEXTURE, TEX_W, TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion THUMB_NINE_SLICE = new NineSliceRegion(
-            new SpriteRegion(THUMB_TEX_INFO, 0, 0, HALF_W, HALF_H), BORDER);
 
     // ======================== 状态字段 ========================
 
@@ -230,10 +197,12 @@ public class ScrollBar {
      */
     public boolean handleClick(double mouseX, double mouseY, int barX, int barY, int barLength) {
         if (this.maxScroll <= 0) return false;
-        if (!isInsideBar(mouseX, mouseY, barX, barY, barLength)) return false;
+        int barYOff = barY + TOP_SHRINK;
+        int barLenOff = barLength - TOP_SHRINK;
+        if (!isInsideBar(mouseX, mouseY, barX, barYOff, barLenOff)) return false;
 
-        int thumbLen = computeThumbLength(barLength);
-        int thumbPos = computeThumbPos(barX, barY, barLength, thumbLen);
+        int thumbLen = computeThumbLength(barLenOff);
+        int thumbPos = computeThumbPos(barX, barYOff, barLenOff, thumbLen);
 
         // 根据方向选择使用的鼠标坐标
         double mouseAlong = orientation == Orientation.VERTICAL ? mouseY : mouseX;
@@ -296,26 +265,29 @@ public class ScrollBar {
     public void render(GuiGraphics g, int barX, int barY, int barLength) {
         if (this.maxScroll <= 0) return;
 
-        int thumbLen = computeThumbLength(barLength);
-        int thumbPos = computeThumbPos(barX, barY, barLength, thumbLen);
+        int renderY = barY + TOP_SHRINK;
+        int renderLen = barLength - TOP_SHRINK;
+        if (renderLen <= 0) return;
+        int thumbLen = computeThumbLength(renderLen);
+        int thumbPos = computeThumbPos(barX, renderY, renderLen, thumbLen);
 
         // 激活状态下切换为下层贴图（拖拽或悬停时显示高亮态）
         boolean active = this.dragging || this.hovering;
 
         if (orientation == Orientation.VERTICAL) {
             // 纵向滑条（TRACK_THICKNESS px 宽，垂直平铺填充）
-            NineSliceRegion track = active ? TRACK_NINE_SLICE.withVOffset(STATE_OFFSET) : TRACK_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, barY, TRACK_THICKNESS, barLength);
+            NineSliceRegion track = active ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
+            SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, renderY, TRACK_THICKNESS, renderLen);
             // 纵向滑块（THUMB_THICKNESS px 宽，以滑条为中心左右各凸出 1px）
-            NineSliceRegion thumb = active ? THUMB_NINE_SLICE.withVOffset(STATE_OFFSET) : THUMB_NINE_SLICE;
+            NineSliceRegion thumb = active ? SliderTextureConstants.THUMB_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.THUMB_NINE_SLICE;
             SpriteRenderer.drawNineSlice(g, thumb.withTheme(), barX - 1, thumbPos, THUMB_THICKNESS, thumbLen);
         } else {
             // 横向滑条（TRACK_THICKNESS px 高，水平平铺填充）
-            NineSliceRegion track = active ? TRACK_NINE_SLICE.withVOffset(STATE_OFFSET) : TRACK_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, barY, barLength, TRACK_THICKNESS);
+            NineSliceRegion track = active ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
+            SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, renderY, renderLen, TRACK_THICKNESS);
             // 横向滑块（THUMB_THICKNESS px 高，以滑条为中心上下各凸出 1px）
-            NineSliceRegion thumb = active ? THUMB_NINE_SLICE.withVOffset(STATE_OFFSET) : THUMB_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, thumb.withTheme(), thumbPos, barY - 1, thumbLen, THUMB_THICKNESS);
+            NineSliceRegion thumb = active ? SliderTextureConstants.THUMB_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.THUMB_NINE_SLICE;
+            SpriteRenderer.drawNineSlice(g, thumb.withTheme(), thumbPos, renderY - 1, thumbLen, THUMB_THICKNESS);
         }
     }
 

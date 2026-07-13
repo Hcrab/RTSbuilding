@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorGroup;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -37,15 +37,16 @@ public final class SwatchSelectorComponent {
      * @param group            颜色组
      * @param activeSlotIndex  当前选中的色块索引
      * @param sectionTop       选择器区域顶部 Y
+     * @param contentX         内容区域左边界 X（面板 contentX，用于正确跟随面板移动）
      */
     public void render(GuiGraphics g, int mouseX, int mouseY,
-                       ColorGroup group, int activeSlotIndex, int sectionTop) {
+                       ColorGroup group, int activeSlotIndex, int sectionTop, int contentX) {
         if (group == null || group.size() <= 1) return;
 
         Font font = Minecraft.getInstance().font;
         int textColor = ThemeManager.getTextColor();
         int swatchY = sectionTop + (ROW_H - SWATCH_SIZE) / 2;
-        int itemX = LEFT_PADDING;
+        int itemX = contentX + LEFT_PADDING;
 
         for (int i = 0; i < group.size(); i++) {
             String name = group.slot(i).displayName();
@@ -78,12 +79,12 @@ public final class SwatchSelectorComponent {
      * @param sectionTop     选择器区域顶部 Y
      * @return 被点击的色块索引，或 -1 表示未命中
      */
-    public int hitTest(double mouseX, double mouseY, ColorGroup group, int sectionTop) {
+    public int hitTest(double mouseX, double mouseY, ColorGroup group, int sectionTop, int contentX) {
         if (group == null || group.size() <= 1) return -1;
 
         Font font = Minecraft.getInstance().font;
         int swatchY = sectionTop + (ROW_H - SWATCH_SIZE) / 2;
-        int itemX = LEFT_PADDING;
+        int itemX = contentX + LEFT_PADDING;
 
         for (int i = 0; i < group.size(); i++) {
             String name = group.slot(i).displayName();

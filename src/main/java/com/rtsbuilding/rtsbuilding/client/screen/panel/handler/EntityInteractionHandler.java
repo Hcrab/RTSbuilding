@@ -5,13 +5,14 @@ import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
+import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
 import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
 import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseClickEvent;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.BlockEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.EntityEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectionHighlight;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
@@ -22,7 +23,6 @@ import net.minecraft.world.entity.animal.horse.AbstractHorse;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.vehicle.ContainerEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -39,8 +39,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.
 /**
  * 交互目标处理器——处理交互模式下与生物/方块的远程交互。
  *
- * <p>注册到 {@link com.rtsbuilding.rtsbuilding.client.screen.event.EventDispatcher}
- * 的 {@link com.rtsbuilding.rtsbuilding.client.screen.event.EventDispatcher#P_ENTITY_INTERACT}
+ * <p>注册到 {@link EventDispatcher}
+ * 的 {@link EventDispatcher#P_ENTITY_INTERACT}
  * 优先级（50）：</p>
  * <ul>
  *   <li><b>点击模式 + 交互模式 + 右键</b> → 检测悬停目标，直接交互</li>

@@ -5,11 +5,14 @@ import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.Fluid;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -18,9 +21,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public final class RtsAe2Compat {
     public interface ReportedCountItemHandler extends com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler {
@@ -52,6 +53,47 @@ public final class RtsAe2Compat {
             return null;
         }
         return new Ae2NetworkItemHandler(player, storageService, REFLECTION);
+    }
+
+    /**
+     * 检测指定方块位置是否为 AE2 网络节点（控制器、终端、线缆等）。
+     */
+    public static boolean isPositionAE2Node(ServerPlayer player, BlockPos pos) {
+        if (player == null || pos == null || REFLECTION == null) {
+            return false;
+        }
+        ServerLevel level = player.serverLevel();
+        if (level == null || !level.hasChunkAt(pos)) {
+            return false;
+        }
+        return REFLECTION.findStorageService(level, pos) != null;
+    }
+
+    /**
+     * 从 AE2 网络中指定方块位置收集所有流体条目，追加到 amounts / capacities 映射中。
+     * <p>通过 {@code skipFluidIds} 跳过已被常规流体处理器计数的流体 ID，避免双倍计数。</p>
+     *
+     * @param player      玩家
+     * @param pos         方块位置（通常是 AE2 控制器/终端/线缆等网络节点）
+     * @param amounts     输出：流体 ID → 总量（mB）
+     * @param capacities  输出：流体 ID → 总容量（mB）
+     * @param skipFluidIds 已通过常规 handler 计数的流体 ID 集合，AE2 收集时会跳过这些 ID
+     */
+    public static void collectNetworkFluids(ServerPlayer player, BlockPos pos,
+                                             Map<String, Long> amounts, Map<String, Long> capacities,
+                                             java.util.Set<String> skipFluidIds) {
+        if (player == null || pos == null || REFLECTION == null || amounts == null || capacities == null) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        if (level == null || !level.hasChunkAt(pos)) {
+            return;
+        }
+        Object storageService = REFLECTION.findStorageService(level, pos);
+        if (storageService == null) {
+            return;
+        }
+        REFLECTION.collectFluidsFromStorage(storageService, amounts, capacities, skipFluidIds);
     }
 
     public static long getReportedCount(IItemHandler handler, int slot, ItemStack fallbackStack) {
@@ -324,6 +366,9 @@ public final class RtsAe2Compat {
         private final Class<?> aeItemKeyClass;
         private final Method aeItemKeyOfStack;
         private final Method aeItemKeyToStack;
+        /** AEFluidKey 反射——用于从 AE2 网络收集流体条目 */
+        private final Class<?> aeFluidKeyClass;
+        private final Method aeFluidKeyGetFluid;
         private final Method meStorageInsert;
         private final Method meStorageExtract;
         private final Class<?> actionableClass;
@@ -348,6 +393,8 @@ public final class RtsAe2Compat {
                 Class<?> aeItemKeyClass,
                 Method aeItemKeyOfStack,
                 Method aeItemKeyToStack,
+                Class<?> aeFluidKeyClass,
+                Method aeFluidKeyGetFluid,
                 Method meStorageInsert,
                 Method meStorageExtract,
                 Class<?> actionableClass,
@@ -370,6 +417,8 @@ public final class RtsAe2Compat {
             this.aeItemKeyClass = aeItemKeyClass;
             this.aeItemKeyOfStack = aeItemKeyOfStack;
             this.aeItemKeyToStack = aeItemKeyToStack;
+            this.aeFluidKeyClass = aeFluidKeyClass;
+            this.aeFluidKeyGetFluid = aeFluidKeyGetFluid;
             this.meStorageInsert = meStorageInsert;
             this.meStorageExtract = meStorageExtract;
             this.actionableClass = actionableClass;
@@ -413,6 +462,9 @@ public final class RtsAe2Compat {
                 Method aeItemKeyOfStack = aeItemKeyClass.getMethod("of", ItemStack.class);
                 Method aeItemKeyToStack = aeItemKeyClass.getMethod("toStack", int.class);
 
+                Class<?> aeFluidKeyClass = Class.forName("appeng.api.stacks.AEFluidKey");
+                Method aeFluidKeyGetFluid = aeFluidKeyClass.getMethod("getFluid");
+
                 Class<?> meStorageClass = Class.forName("appeng.api.storage.MEStorage");
                 Method meStorageGetAvailableStacks = meStorageClass.getMethod("getAvailableStacks", keyCounterClass);
                 Class<?> aeKeyClass = Class.forName("appeng.api.stacks.AEKey");
@@ -445,6 +497,8 @@ public final class RtsAe2Compat {
                         aeItemKeyClass,
                         aeItemKeyOfStack,
                         aeItemKeyToStack,
+                        aeFluidKeyClass,
+                        aeFluidKeyGetFluid,
                         meStorageInsert,
                         meStorageExtract,
                         actionableClass,
@@ -574,6 +628,52 @@ public final class RtsAe2Compat {
             }
             Object key = invoke(this.aeItemKeyOfStack, null, stack);
             return this.aeItemKeyClass.isInstance(key) ? key : null;
+        }
+
+        /**
+         * 从 AE2 存储中收集所有流体条目，填充到 amounts / capacities 映射中。
+         * <p>使用缓存清单（{@code getCachedInventory}），避免全网络扫描。</p>
+         */
+        private void collectFluidsFromStorage(Object storageService,
+                                               Map<String, Long> amounts, Map<String, Long> capacities,
+                                               Set<String> skipFluidIds) {
+            try {
+                Object meStorage = invoke(this.storageServiceGetInventory, storageService);
+                if (meStorage == null) return;
+
+                Object keyCounter = invoke(this.storageServiceGetCachedInventory, storageService);
+                if (keyCounter == null) {
+                    keyCounter = this.keyCounterConstructor.newInstance();
+                    if (keyCounter == null) return;
+                    invoke(this.meStorageGetAvailableStacks, meStorage, keyCounter);
+                }
+
+                Iterator<?> iterator = (Iterator<?>) invoke(this.keyCounterIterator, keyCounter);
+                if (iterator == null) return;
+
+                while (iterator.hasNext()) {
+                    Object entry = iterator.next();
+                    Object key = invoke(this.keyEntryGetKey, entry);
+                    if (key == null || !this.aeFluidKeyClass.isInstance(key)) continue;
+
+                    long amount = asLong(invoke(this.keyEntryGetLongValue, entry));
+                    if (amount <= 0L) continue;
+
+                    Object fluidObj = invoke(this.aeFluidKeyGetFluid, key);
+                    if (!(fluidObj instanceof Fluid fluid)) continue;
+
+                    ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(fluid);
+                    if (fluidId == null) continue;
+
+                    String id = fluidId.toString();
+                    // 跳过已被常规流体处理器计数的流体 ID，避免存储总线连接容器的双倍计数
+                    if (skipFluidIds != null && skipFluidIds.contains(id)) continue;
+
+                    amounts.merge(id, amount, Long::sum);
+                    capacities.merge(id, amount, Long::sum);
+                }
+            } catch (ReflectiveOperationException ignored) {
+            }
         }
 
         private ItemStack toStack(Object key, int count) {

@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.popup;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**

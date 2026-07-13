@@ -12,7 +12,7 @@ import net.minecraft.resources.ResourceLocation;
  * <pre>{@code
  * // 文件顶部定义
  * private static final TextureInfo UI_TEX = new TextureInfo(
- *     ResourceLocation.tryParse("rtsbuilding:textures/gui/base/ui.png"),
+ *     ResourceLocation.tryParse("rtsbuilding:textures/gui/base/base_ui/base_ui_1.png"),
  *     32, 32, ThemeLayout.HORIZONTAL_PAIR, FilterMode.PIXEL);
  *
  * // 创建精灵帧

@@ -1,14 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -43,18 +42,18 @@ public class ThemeSwitchComponent {
 
     // ======================== 开关贴图参数 ========================
 
-    /** switch_ground.png：64×128，横向左右各半（左=暗色，右=明亮），纵向 4 个 32×32 状态 */
+    /** switch_ground.png：48×32，水平双主题（左暗右亮），纵向 2 状态（0-16=关、16-32=开），不使用九宫格 */
     private static final ResourceLocation SWITCH_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/switch_ground.png");
-    private static final int SWITCH_TEX_W = 64;
-    private static final int SWITCH_TEX_H = 128;
-    private static final int SWITCH_STATE_H = 32;
+    private static final int SWITCH_TEX_W = 48;
+    private static final int SWITCH_TEX_H = 32;
+    private static final int SWITCH_FRAME_H = 16;
 
-    /** switch_slider.png：32×64，横向左右各半（左=暗色，右=明亮），纵向 4 个 16×16 状态 */
+    /** base_ui_5.png：32×48，横向左右各半（左=暗色，右=明亮），纵向 0-16 常态、16-32 悬浮 */
     private static final ResourceLocation SLIDER_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/switch_slider.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_5.png");
     private static final int SLIDER_TEX_W = 32;
-    private static final int SLIDER_TEX_H = 64;
+    private static final int SLIDER_TEX_H = 48;
     private static final int SLIDER_FRAME_W = 16;
     private static final int SLIDER_FRAME_H = 16;
 
@@ -63,20 +62,12 @@ public class ThemeSwitchComponent {
 
     private static final int SLIDER_V_DEFAULT       = 0;
     private static final int SLIDER_V_HOVER_DEFAULT  = 16;
-    private static final int SLIDER_V_TOGGLED        = 32;
-    private static final int SLIDER_V_HOVER_TOGGLED  = 48;
 
-    private static final int U_DARK          = 0;   // 左侧：暗色主题
-    private static final int U_LIGHT          = 32;  // 右侧：明亮主题
 
-    private static final int V_DEFAULT       = 0;   // 默认（关闭）
-    private static final int V_HOVER_DEFAULT  = 32;  // 悬浮默认
-    private static final int V_TOGGLED        = 64;  // 已开启
-    private static final int V_HOVER_TOGGLED  = 96;  // 悬浮已开启
 
     // ======================== 预计算 TextureInfo 常量 ========================
 
-    /** 开关背景贴图元数据（避免每帧 new） */
+    /** 开关背景贴图元数据（水平双主题，通过 halfWidth() 获取帧宽 24） */
     private static final TextureInfo SWITCH_TEX_INFO = new TextureInfo(
             SWITCH_TEXTURE, SWITCH_TEX_W, SWITCH_TEX_H,
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
@@ -141,7 +132,6 @@ public class ThemeSwitchComponent {
         float slideOffset = slideAnim.getValue();
 
         int sliderX = switchX + Math.round(slideOffset);
-        int sliderY = switchY + (SIZE - SLIDER_FRAME_W) / 2;
 
         // ---------- 悬浮检测 ----------
         boolean hovered = mouseX >= areaX && mouseX < areaX + AREA_W
@@ -149,21 +139,22 @@ public class ThemeSwitchComponent {
 
         float hoverT = this.hoverState.update(hovered);
 
-        // ---------- 渲染滑条背景 ----------
-        int bgU = lightMode ? U_LIGHT : U_DARK;
-        int bgVDefault = on ? V_TOGGLED : V_DEFAULT;
-        int bgVHover   = on ? V_HOVER_TOGGLED : V_HOVER_DEFAULT;
+        // ---------- 渲染滑条背景（等比缩放，按 24:16 = 3:2 比例，避免拉伸）---------
+        int bgHalfW = SWITCH_TEX_INFO.halfWidth();  // = 24
+        int bgH = SIZE * SWITCH_FRAME_H / bgHalfW;  // = 32*16/24 = 21
+        int bgY = switchY + (SIZE - bgH) / 2;        // 背景垂直居中
 
         if (SWITCH_TEXTURE != null) {
-            renderSwitchFrame(g, SWITCH_TEX_INFO,
-                    switchX, switchY, SIZE, SWITCH_STATE_H,
-                    bgU, bgVDefault, bgVHover, hoverT);
+            SpriteRegion bgRegion = new SpriteRegion(SWITCH_TEX_INFO, 0, 0, bgHalfW, SWITCH_FRAME_H);
+            SpriteRenderer.drawSprite(g, bgRegion.withThemeAndVOffset(on ? SWITCH_FRAME_H : 0),
+                    switchX, bgY, SIZE, bgH);
         }
 
-        // ---------- 渲染滑块 ----------
+        // ---------- 渲染滑块（在背景范围内垂直居中）---------
+        int sliderY = bgY + (bgH - SLIDER_FRAME_H) / 2;
         int sliderU = lightMode ? SLIDER_U_LIGHT : SLIDER_U_DARK;
-        int slVDefault = on ? SLIDER_V_TOGGLED : SLIDER_V_DEFAULT;
-        int slVHover   = on ? SLIDER_V_HOVER_TOGGLED : SLIDER_V_HOVER_DEFAULT;
+        int slVDefault = SLIDER_V_DEFAULT;
+        int slVHover   = SLIDER_V_HOVER_DEFAULT;
 
         if (SLIDER_TEXTURE != null) {
             renderSwitchFrame(g, SLIDER_TEX_INFO,

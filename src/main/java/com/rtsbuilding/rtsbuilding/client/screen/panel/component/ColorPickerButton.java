@@ -1,15 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorGroup;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorPickerPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorSource;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -18,7 +18,7 @@ import javax.annotation.Nullable;
 /**
  * 调色盘按钮组件——渲染一个带颜色轮盘图标的按钮，点击后切换调色盘面板显隐。
  *
- * <p>按钮背景使用 fold_ui.png 九宫格精灵图（32×32，水平左暗右亮双主题），
+ * <p>按钮背景使用 base_ui_3.png 九宫格精灵图（32×32，水平左暗右亮双主题），
  * 0-16 为正常态、16-32 为悬浮态，通过 {@link HoverStateManager} 管理
  * 悬浮动画过渡。图标居中绘制在九宫格背景之上。</p>
  *
@@ -40,11 +40,11 @@ import javax.annotation.Nullable;
  */
 public class ColorPickerButton {
 
-    // ======================== 按钮背景贴图 (fold_ui.png) ========================
+    // ======================== 按钮背景贴图 (base_ui_3.png) ========================
 
-    /** fold_ui.png：32×32，水平左暗右亮，垂直上正常下悬浮 */
+    /** base_ui_3.png：32×32，水平左暗右亮，垂直上正常下悬浮 */
     private static final ResourceLocation FOLD_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/fold_ui.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_3.png");
     private static final int FOLD_TEX_W = 32;
     private static final int FOLD_TEX_FILE_H = 32;
     /** 单个状态高度（0-16=正常态，16-32=悬浮态） */
@@ -153,7 +153,7 @@ public class ColorPickerButton {
                 && mouseY >= btnY && mouseY < btnY + BTN_SIZE;
         float t = this.hoverState.update(hovering);
 
-        // 2) 九宫格背景（fold_ui.png）——正常态(vOffset=0) / 悬浮态(vOffset=16) 交叉淡入淡出
+        // 2) 九宫格背景（base_ui_3.png）——正常态(vOffset=0) / 悬浮态(vOffset=16) 交叉淡入淡出
         CrossFadeRenderer.render(t,
                 () -> renderBackground(g, btnX, btnY, 0),
                 () -> renderBackground(g, btnX, btnY, FOLD_TEX_STATE_H));

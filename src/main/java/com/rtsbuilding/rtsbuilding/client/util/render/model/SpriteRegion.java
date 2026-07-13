@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.util.render.model;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 
 /**

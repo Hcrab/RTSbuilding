@@ -2,11 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.BlockEntry;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.EntityEntry;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectableEntry;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.select.*;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;

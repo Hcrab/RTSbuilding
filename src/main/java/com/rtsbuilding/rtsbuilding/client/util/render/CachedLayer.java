@@ -6,7 +6,6 @@ import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * 九宫格瓷砖指令缓存层——缓存九宫格展开后的瓷砖坐标，避免每帧重复计算。

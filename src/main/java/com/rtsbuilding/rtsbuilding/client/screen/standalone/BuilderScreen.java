@@ -1,10 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
-import com.rtsbuilding.rtsbuilding.client.render.pass.*;
+import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.*;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelRegistry;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.RenderLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
@@ -13,44 +17,26 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.container.ContainerScreen
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.gear.GearMenuPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.*;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.CharEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.KeyPressEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.KeyReleaseEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseClickEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseDragEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseMoveEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseReleaseEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseScrollEvent;
-import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.CONSUMED;
-import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.PASS;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelRegistry;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.RenderLayer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.BindModeMouseHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.BuilderScreenMovementHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.BuilderScreenScaleManager;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.CameraPersistenceHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.CursorStyleManager;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.CursorWrapHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.handler.EntityInteractionHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
 import java.util.List;
+
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.CONSUMED;
+import static com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult.PASS;
 
 /**
  * 薄调度器 BuilderScreen
@@ -573,6 +559,11 @@ public class BuilderScreen extends Screen {
 
         cursorStyleManager.update(mouseX, mouseY);
         cursorWrapHandler.applyWrapIfPending();
+
+        // 7. 渲染 F3 调试覆盖层（BuilderScreen 渲染的黑色填充会盖住原版 F3）
+        if (Minecraft.getInstance().gui.getDebugOverlay().showDebugScreen()) {
+            Minecraft.getInstance().gui.getDebugOverlay().render(guiGraphics);
+        }
     }
 
     // ======================================================================

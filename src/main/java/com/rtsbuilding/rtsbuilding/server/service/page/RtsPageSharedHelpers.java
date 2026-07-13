@@ -29,8 +29,8 @@ import java.util.Set;
  */
 public final class RtsPageSharedHelpers {
 
-    public static final int DEFAULT_PAGE_SIZE = 90;
-    public static final int MAX_PAGE_SIZE = 180;
+    public static final int DEFAULT_PAGE_SIZE = 100000;
+    public static final int MAX_PAGE_SIZE = 100000;
     static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     static final String CATEGORY_ALL = "all";
     static final String CATEGORY_MOD_PREFIX = "mod|";

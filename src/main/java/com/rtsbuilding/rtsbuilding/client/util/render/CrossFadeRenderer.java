@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.util.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
 
 /**
  * 交叉淡入淡出渲染器——在两种渲染状态之间以指定进度 t 进行过渡。

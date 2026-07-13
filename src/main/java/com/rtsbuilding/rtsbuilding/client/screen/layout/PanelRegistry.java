@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
 import com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher.EventDispatcher;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;

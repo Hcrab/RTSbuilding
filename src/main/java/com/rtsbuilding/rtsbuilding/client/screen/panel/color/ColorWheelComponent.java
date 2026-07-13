@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -48,14 +48,15 @@ public class ColorWheelComponent {
 
     private static final ResourceLocation INDICATOR_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/color/color_palette_indicator.png");
-    private static final int INDICATOR_TEX_W = 72;
+    /** 贴图总宽度（水平双主题，半区宽度通过 halfWidth() 自动获取） */
+    private static final int INDICATOR_TEX_W = 144;
     private static final int INDICATOR_TEX_H = 216;
-    /** 每个状态的贴图高度（72px） */
+    /** 每个状态的贴图高度（72px，216/3=72） */
     private static final int INDICATOR_STATE_H = 72;
 
     private static final TextureInfo INDICATOR_TEX_INFO = new TextureInfo(
             INDICATOR_TEXTURE, INDICATOR_TEX_W, INDICATOR_TEX_H,
-            TextureInfo.ThemeLayout.NONE, TextureInfo.FilterMode.PIXEL);
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
     /** 指示点在屏幕上的绘制尺寸 */
     private static final int INDICATOR_DRAW_SIZE = 5;
 
@@ -163,8 +164,8 @@ public class ColorWheelComponent {
 
         SpriteRegion region = new SpriteRegion(
                 INDICATOR_TEX_INFO, 0, stateVOffset,
-                INDICATOR_TEX_W, INDICATOR_STATE_H);
-        SpriteRenderer.drawSprite(g, region,
+                INDICATOR_TEX_INFO.halfWidth(), INDICATOR_STATE_H);
+        SpriteRenderer.drawSprite(g, region.withTheme(),
                 dotCenterX - halfDot, dotCenterY - halfDot,
                 INDICATOR_DRAW_SIZE, INDICATOR_DRAW_SIZE);
     }

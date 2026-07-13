@@ -1,11 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.popup;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.popup.BasePopup;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -56,17 +54,15 @@ public final class DebugMenuPopup extends BasePopup {
 
     // ======================== 外观常量 ========================
 
-    /** 模式按钮贴图（1024×1536，横向双主题，纵向 3 状态：正常/悬浮/按下） */
+    /** 模式按钮贴图（base_ui_5.png，32×48，横向左右各半（暗/亮主题），纵向 0-16/16-32/32-48 三状态，不使用精灵图） */
     private static final ResourceLocation MODE_BUTTON_TEXTURE =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/base/mode_button.png");
-    private static final int MODE_BTN_TEX_W = 1024;
-    private static final int MODE_BTN_TEX_H = 1536;
-    /** 单主题半区宽度 */
-    private static final int MODE_BTN_HALF_W = 512;
-    /** 单个状态高度 */
-    private static final int MODE_BTN_STATE_H = 512;
+            ResourceLocation.tryParse("rtsbuilding:textures/gui/base/base_ui/base_ui_5.png");
+    private static final int MODE_BTN_TEX_W = 32;
+    private static final int MODE_BTN_TEX_H = 48;
     /** 按钮绘制尺寸 */
-    private static final int MODE_BTN_SIZE = 12;
+    private static final int MODE_BTN_SIZE = 16;
+    /** 按钮贴图单状态高度 */
+    private static final int MODE_BTN_STATE_H = 16;
 
     /** 按钮与文字的间距 */
     private static final int BTN_TEXT_GAP = 4;
@@ -285,19 +281,28 @@ public final class DebugMenuPopup extends BasePopup {
         int textY = itemY + (getItemHeight() - Minecraft.getInstance().font.lineHeight) / 2 + 1;
         TextRenderer.draw(g, label, textX, textY, textColor);
 
-        // 模式按钮精灵图（靠右对齐）
+        // 模式按钮（靠右对齐）- 横向左右各半（暗/亮主题），纵向 0-16正常 16-32悬浮 32-48按下
         int btnX = x + getPopupWidth() - getPadH() - MODE_BTN_SIZE;
         int btnY = itemY + (getItemHeight() - MODE_BTN_SIZE) / 2;
 
-        TextureInfo modeBtnInfo = new TextureInfo(
-                MODE_BUTTON_TEXTURE, MODE_BTN_TEX_W, MODE_BTN_TEX_H,
-                TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-                TextureInfo.FilterMode.PIXEL);
-        SpriteRegion normal = new SpriteRegion(modeBtnInfo, 0, 0, MODE_BTN_HALF_W, MODE_BTN_STATE_H);
-        SpriteRegion hovered = normal.withVOffset(MODE_BTN_STATE_H);
-        SpriteRegion selected = normal.withVOffset(MODE_BTN_STATE_H * 2);
-        SpriteRenderer.drawStateSprite(g, normal, hovered, selected, states[index], hoverT,
-                btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE);
+        boolean sel = states[index];
+        boolean lightMode = ThemeManager.getInstance().isLightMode();
+        if (sel) {
+            // 选中态：按下状态（V=32），根据主题选半区
+            g.blit(MODE_BUTTON_TEXTURE, btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE,
+                    lightMode ? 16 : 0, 32, MODE_BTN_TEX_W / 2, MODE_BTN_STATE_H,
+                    MODE_BTN_TEX_W, MODE_BTN_TEX_H);
+        } else {
+            // 非选中态：正常↔悬浮交叉淡入淡出
+            int u = lightMode ? 16 : 0;
+            CrossFadeRenderer.render(hoverT,
+                    () -> g.blit(MODE_BUTTON_TEXTURE, btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE,
+                            u, 0, MODE_BTN_TEX_W / 2, MODE_BTN_STATE_H,
+                            MODE_BTN_TEX_W, MODE_BTN_TEX_H),
+                    () -> g.blit(MODE_BUTTON_TEXTURE, btnX, btnY, MODE_BTN_SIZE, MODE_BTN_SIZE,
+                            u, 16, MODE_BTN_TEX_W / 2, MODE_BTN_STATE_H,
+                            MODE_BTN_TEX_W, MODE_BTN_TEX_H));
+        }
     }
 
     @Override

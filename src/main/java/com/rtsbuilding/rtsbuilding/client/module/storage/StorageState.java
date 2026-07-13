@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.module.storage;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
@@ -10,6 +11,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.FluidUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,8 +46,10 @@ public final class StorageState {
     private final List<String> linkedIconItemIds = new ArrayList<>();
     /** 已链接存储的优先级列表（与 linkedStorageEntries 顺序一致） */
     private final List<Integer> linkedPriorities = new ArrayList<>();
-    private int storagePage, storagePageSize = 90, storageTotalPages = 1, storageTotalEntries;
+    private int storagePage, storagePageSize = 100000, storageTotalPages = 1, storageTotalEntries;
     private int storageRevision;
+    /** 页面请求计数器——每次 requestStoragePage() 时递增，供 UI 层检测新的请求 */
+    private int pageRequestCount;
     private String storageSearch = "", storageCategory = "all";
     private int storageSort;
     private boolean storageSortAscending;
@@ -90,6 +97,8 @@ public final class StorageState {
     // ======================================================================
 
     private static final long AUTO_REFRESH_MS = 30_000L;
+    /** 扫描请求超时时间，超过此时间无响应则重置扫描状态，防止 scanRunning 永久卡死 */
+    private static final long SCAN_TIMEOUT_MS = 10_000L;
     private boolean autoRefreshEnabled;
 
     StorageState() {
@@ -112,6 +121,7 @@ public final class StorageState {
     void requestStoragePage(int page) {
         this.scanRunning = true;
         this.scanStartedMs = System.currentTimeMillis();
+        this.pageRequestCount++;
         RtsClientPacketGateway.sendRequestStoragePage(page, storageSearch, storageCategory,
                 com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort.byId(storageSort), storageSortAscending, storagePageSize);
     }
@@ -172,7 +182,26 @@ public final class StorageState {
             ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
             if (id == null) continue;
             this.storageEntries.add(new com.rtsbuilding.rtsbuilding.client.record.StorageEntry(
-                    preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath()));
+                    preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath(),
+                    (byte) 0));
+        }
+
+        // 处理流体条目
+        int fluidSize = Math.min(payload.fluidIds().size(),
+                Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
+        for (int i = 0; i < fluidSize; i++) {
+            String fluidId = payload.fluidIds().get(i);
+            ResourceLocation id = ResourceLocation.tryParse(fluidId);
+            if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) continue;
+            Fluid fluid = BuiltInRegistries.FLUID.get(id);
+            FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
+            ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
+            String label = fluid.getFluidType().getDescription(fluidStack).getString();
+            this.fluidEntries.add(new FluidEntry(
+                    fluidId, label,
+                    payload.fluidAmounts().get(i),
+                    payload.fluidCapacities().get(i),
+                    id.getNamespace(), id.getPath(), preview));
         }
     }
 
@@ -213,6 +242,12 @@ public final class StorageState {
     // ======================================================================
 
     void tickAutoRefresh(long now) {
+        // 扫描超时保护：请求卡住太久则重置，标记脏状态让自动刷新接手
+        if (this.scanRunning && now - this.scanStartedMs > SCAN_TIMEOUT_MS) {
+            this.scanRunning = false;
+            this.viewDirty = true;
+            this.viewDirtySinceMs = now;
+        }
         if (!this.viewDirty || this.scanRunning) return;
         if (this.viewDirtySinceMs <= 0L) {
             this.viewDirtySinceMs = now;
@@ -275,6 +310,8 @@ public final class StorageState {
         return storageLinked || !linkedPositions.isEmpty() || !storageEntries.isEmpty() || !fluidEntries.isEmpty();
     }
     public int getRevision() { return storageRevision; }
+    /** 获取页面请求计数器，供 UI 组件检测数据更新 */
+    public int getPageRequestCount() { return pageRequestCount; }
     public List<Object> getStorageEntries() { return storageEntries; }
     public List<Object> getFluidEntries() { return fluidEntries; }
     public List<Object> getRecentEntries() { return recentEntries; }

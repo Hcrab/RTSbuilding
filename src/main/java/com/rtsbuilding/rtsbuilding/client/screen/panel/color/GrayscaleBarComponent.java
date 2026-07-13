@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -25,20 +25,21 @@ public class GrayscaleBarComponent {
 
     // ======================== 灰度条指示器贴图 ========================
 
+    /** base_ui_5.png：32×48，水平双主题，垂直三态各 16px（y 0-16/16-32/32-48） */
     private static final ResourceLocation GRAYSCALE_INDICATOR_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/color/grayscale_indicator_dot.png");
-    private static final int GRAYSCALE_INDICATOR_TEX_W = 12;
-    private static final int GRAYSCALE_INDICATOR_TEX_H = 24;
-    /** 每个状态的贴图高度（8px） */
-    private static final int GRAYSCALE_INDICATOR_STATE_H = 8;
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_5.png");
+    private static final int GRAYSCALE_INDICATOR_TEX_W = 32;
+    private static final int GRAYSCALE_INDICATOR_TEX_H = 48;
+    /** 每个状态的贴图高度（16px，48/3=16） */
+    private static final int GRAYSCALE_INDICATOR_STATE_H = 16;
 
     private static final TextureInfo GRAYSCALE_INDICATOR_TEX_INFO = new TextureInfo(
             GRAYSCALE_INDICATOR_TEXTURE, GRAYSCALE_INDICATOR_TEX_W, GRAYSCALE_INDICATOR_TEX_H,
-            TextureInfo.ThemeLayout.NONE, TextureInfo.FilterMode.PIXEL);
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
 
     /** 灰度条指示器在屏幕上的绘制尺寸 */
     private static final int INDICATOR_DRAW_W = 12;
-    private static final int INDICATOR_DRAW_H = 8;
+    private static final int INDICATOR_DRAW_H = 12;
 
     // ======================== 渲染 ========================
 
@@ -108,8 +109,8 @@ public class GrayscaleBarComponent {
 
         SpriteRegion region = new SpriteRegion(
                 GRAYSCALE_INDICATOR_TEX_INFO, 0, stateVOffset,
-                GRAYSCALE_INDICATOR_TEX_W, GRAYSCALE_INDICATOR_STATE_H);
-        SpriteRenderer.drawSprite(g, region, drawX, drawY,
+                GRAYSCALE_INDICATOR_TEX_INFO.halfWidth(), GRAYSCALE_INDICATOR_STATE_H);
+        SpriteRenderer.drawSprite(g, region.withTheme(), drawX, drawY,
                 INDICATOR_DRAW_W, INDICATOR_DRAW_H);
     }
 

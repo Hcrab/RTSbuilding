@@ -34,6 +34,14 @@ final class FreeCameraMode {
     private static final double MAX_HEIGHT_OFFSET = 110.0D;
     private static final float MIN_PITCH = -90.0F;
     private static final float MAX_PITCH = 90.0F;
+    // —— EMA 旋转平滑参数（移植自旧版 CameraOrbitService）
+    private static final float ROT_EMA_ALPHA = 0.28F;
+    private static final float ROT_EMA_DECAY = 0.78F;
+    private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
+
+    // —— EMA 累积值（每帧衰减，无输入时快速归零）
+    private float emaRotateX;
+    private float emaRotateY;
 
     // ======================================================================
     //  Entry point
@@ -51,9 +59,27 @@ final class FreeCameraMode {
         float rawX = Mth.clamp(state.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
         float rawY = Mth.clamp(state.pendingRawRotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
 
+        // EMA 平滑——指数移动平均，消除鼠标微抖动
+        this.emaRotateX += (rawX - this.emaRotateX) * ROT_EMA_ALPHA;
+        this.emaRotateY += (rawY - this.emaRotateY) * ROT_EMA_ALPHA;
+
+        // 输入接近零时快速衰减，避免平滑滞后
+        if (Math.abs(rawX) < CAMERA_INPUT_EPSILON) this.emaRotateX *= ROT_EMA_DECAY;
+        if (Math.abs(rawY) < CAMERA_INPUT_EPSILON) this.emaRotateY *= ROT_EMA_DECAY;
+
         float sensScale = state.inputSensitivity;
-        float rotateXForTick = rawX * state.rotateSensitivity * sensScale;
-        float rotateYForTick = rawY * state.rotateSensitivity * sensScale;
+        float rotateXForTick = this.emaRotateX * state.rotateSensitivity * sensScale;
+        float rotateYForTick = this.emaRotateY * state.rotateSensitivity * sensScale;
+
+        // 平滑后仍低于阈值则强制归零（彻底停住）
+        if (Math.abs(rotateXForTick) < CAMERA_INPUT_EPSILON) {
+            rotateXForTick = 0.0F;
+            this.emaRotateX = 0.0F;
+        }
+        if (Math.abs(rotateYForTick) < CAMERA_INPUT_EPSILON) {
+            rotateYForTick = 0.0F;
+            this.emaRotateY = 0.0F;
+        }
 
         state.localYaw += rotateXForTick * ROTATE_GAIN_X;
         if (state.pendingRotateSteps != 0) {
@@ -99,6 +125,14 @@ final class FreeCameraMode {
             state.localZ = Mth.clamp(state.localZ + dragDz, state.anchorZ - half, state.anchorZ + half);
         }
         state.localHeightOffset = state.localY - state.anchorY;
+    }
+
+    /**
+     * 重置 EMA 累积值——在摄像机启用/恢复时调用。
+     */
+    void resetEma() {
+        this.emaRotateX = 0.0F;
+        this.emaRotateY = 0.0F;
     }
 
     // ======================================================================

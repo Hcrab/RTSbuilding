@@ -18,7 +18,7 @@ import net.minecraft.resources.ResourceLocation;
  * <ul>
  *   <li>{@link #drawNineSlicePanel} — 面板背景（含悬浮高亮）</li>
  *   <li>{@link #drawNineSliceDragPanel} — 拖拽标题栏背景</li>
- *   <li>{@link #drawNineSliceFloatingPanel} — 浮窗/提示框背景</li>
+ *   <li>{@link #drawNineSliceFloatingPanel} — 浮窗/提示框背景（含悬浮高亮）</li>
  * </ul>
  *
  * <p>每帧渲染流程：</p>
@@ -33,11 +33,11 @@ public final class SpriteRenderer {
     // ======================== 面板贴图常量 ========================
 
     private static final ResourceLocation PANEL_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/ui.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_1.png");
     private static final ResourceLocation DRAG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/drag_ui.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_6.png");
     private static final ResourceLocation FLOATING_UI_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/floating_ui.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
 
     /** 面板背景贴图（32×32，水平双主题，2状态，像素过滤） */
     private static final int PANEL_TEX_W = 32;
@@ -46,14 +46,15 @@ public final class SpriteRenderer {
     private static final int PANEL_TEX_HOVER_V_OFFSET = 16;
     private static final int PANEL_BORDER = 4;
 
-    /** 浮窗背景贴图（32×16，水平双主题，像素过滤） */
+    /** 浮窗背景贴图（32×48，水平双主题，2状态，像素过滤） */
     private static final int FLOATING_TEX_W = 32;
-    private static final int FLOATING_TEX_FILE_H = 16;
+    private static final int FLOATING_TEX_FILE_H = 48;
     private static final int FLOATING_STATE_H = 16;
+    private static final int FLOATING_TEX_HOVER_V_OFFSET = 16;
     private static final int FLOATING_BORDER = 2;
 
     /** 拖拽栏贴图 */
-    private static final int DRAG_TEX_FILE_H = 16;
+    private static final int DRAG_TEX_FILE_H = 32;
 
     private static final TextureInfo PANEL_TEX_INFO = new TextureInfo(
             PANEL_TEXTURE, PANEL_TEX_W, PANEL_TEX_FILE_H,
@@ -183,11 +184,12 @@ public final class SpriteRenderer {
                 r.regionWidth(), r.regionHeight(), DRAG_NINE_SLICE.border(), x, y, w, h);
     }
 
-    /** 浮窗/悬浮提示九宫格背景——零中间对象分配 */
-    public static void drawNineSliceFloatingPanel(GuiGraphics g, int x, int y, int w, int h) {
+    /** 浮窗/悬浮提示九宫格背景（支持悬浮高亮）——零中间对象分配 */
+    public static void drawNineSliceFloatingPanel(GuiGraphics g, int x, int y, int w, int h, boolean hovered) {
+        int vOffset = hovered ? FLOATING_TEX_HOVER_V_OFFSET : 0;
         SpriteRegion r = FLOATING_NINE_SLICE.region();
         int themeOffset = getThemeOffset(r);
-        drawNineSliceRaw(g, r.texture(), r.u() + themeOffset, r.v(),
+        drawNineSliceRaw(g, r.texture(), r.u() + themeOffset, r.v() + vOffset,
                 r.regionWidth(), r.regionHeight(), FLOATING_NINE_SLICE.border(), x, y, w, h);
     }
 

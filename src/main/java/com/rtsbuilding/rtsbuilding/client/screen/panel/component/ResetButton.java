@@ -1,18 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
 /**
  * 重置按钮组件——在每个设置条目右侧渲染一个重置图标按钮，点击后恢复该条目的默认值。
  *
- * <p>使用 reset.png 贴图：128×128，水平双主题布局（左暗右亮），
- * 0-64 为正常态，64-128 为悬浮态，按钮绘制尺寸为 24×24。</p>
+ * <p>使用 base_ui_2.png 九宫格作为按钮背景（0-16=正常，16-32=悬浮），
+ * 再叠加上 reset.png（128×64，水平双主题）作为重置图标，按钮绘制尺寸为 16×16。</p>
  *
  * <p>用法：</p>
  * <pre>{@code
@@ -30,21 +31,41 @@ import net.minecraft.resources.ResourceLocation;
  */
 public class ResetButton {
 
-    // ======================== 贴图规格 ========================
+    // ======================== 按钮背景贴图（base_ui_2.png）=======================
 
-    /** reset.png：128×128，水平左暗右亮，垂直上正常下悬浮 */
+    /** base_ui_2.png：32×48，水平双主题，Y轴仅使用0-32，0-16=正常，16-32=悬浮 */
+    private static final ResourceLocation BASE_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
+    private static final int BASE_TEX_W = 32;
+    private static final int BASE_TEX_H = 48;
+    /** 单状态高度（0-16=正常，16-32=悬浮） */
+    private static final int BASE_STATE_H = 16;
+    private static final int BASE_BORDER = 4;
+    private static final TextureInfo BASE_TEX_INFO = new TextureInfo(
+            BASE_TEXTURE, BASE_TEX_W, BASE_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion BASE_NINE_SLICE = NineSliceRegion.fullTheme(
+            BASE_TEX_INFO, BASE_STATE_H, BASE_BORDER);
+
+    // ======================== 重置图标贴图（reset.png）=======================
+
+    /** reset.png：128×64，水平双主题（左暗右亮） */
     private static final ResourceLocation RESET_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/reset.png");
-    private static final int TEX_SIZE = 128;
-    /** 单个状态尺寸（0-64 = 正常态，64-128 = 悬浮态） */
-    private static final int STATE_SIZE = 64;
-    /** 按钮绘制尺寸 */
-    public static final int BTN_SIZE = 12;
-
+    private static final int RESET_TEX_W = 128;
+    private static final int RESET_TEX_H = 64;
     private static final TextureInfo RESET_TEX_INFO = new TextureInfo(
-            RESET_TEXTURE, TEX_SIZE, TEX_SIZE,
+            RESET_TEXTURE, RESET_TEX_W, RESET_TEX_H,
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
             TextureInfo.FilterMode.NORMAL);
+    /** 重置图标区域（半区64×64） */
+    private static final SpriteRegion RESET_SPRITE = new SpriteRegion(
+            RESET_TEX_INFO, 0, 0, RESET_TEX_W / 2, RESET_TEX_H);
+
+    // ======================== 按钮尺寸 ========================
+
+    /** 按钮绘制尺寸（与切换按钮滑块高度对齐） */
+    public static final int BTN_SIZE = 16;
 
     // ======================== 内部状态 ========================
 
@@ -86,13 +107,13 @@ public class ResetButton {
                 && my >= btnY && my < btnY + BTN_SIZE;
         float t = this.hoverState.update(hovering);
 
-        // 2) 交叉淡入淡出正常态 / 悬浮态
-        SpriteRegion normalRegion = new SpriteRegion(RESET_TEX_INFO, 0, 0, STATE_SIZE, STATE_SIZE);
-        SpriteRegion hoverRegion = new SpriteRegion(RESET_TEX_INFO, 0, STATE_SIZE, STATE_SIZE, STATE_SIZE);
-
+        // 2) 绘制按钮背景（base_ui_2.png 九宫格，正常/悬浮交叉淡入淡出）
         CrossFadeRenderer.render(t,
-                () -> SpriteRenderer.drawSprite(g, normalRegion.withTheme(), btnX, btnY, BTN_SIZE, BTN_SIZE),
-                () -> SpriteRenderer.drawSprite(g, hoverRegion.withTheme(), btnX, btnY, BTN_SIZE, BTN_SIZE));
+                () -> SpriteRenderer.drawNineSlice(g, BASE_NINE_SLICE.withTheme(), btnX, btnY, BTN_SIZE, BTN_SIZE),
+                () -> SpriteRenderer.drawNineSlice(g, BASE_NINE_SLICE.withTheme().withVOffset(BASE_STATE_H), btnX, btnY, BTN_SIZE, BTN_SIZE));
+
+        // 3) 绘制重置图标（reset.png）叠在背景上方
+        SpriteRenderer.drawSprite(g, RESET_SPRITE.withTheme(), btnX, btnY, BTN_SIZE, BTN_SIZE);
     }
 
     // ======================== 交互 ========================

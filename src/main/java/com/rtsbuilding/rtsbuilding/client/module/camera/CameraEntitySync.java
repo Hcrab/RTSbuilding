@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.client.module.camera;
 
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 
 /**
@@ -10,56 +9,27 @@ import net.minecraft.world.entity.EntityType;
  *
  * <p>职责：</p>
  * <ul>
- *   <li>确保每 tick 存在一个与 RTS 摄像机姿态一致的本地镜像实体</li>
+ *   <li>确保存在一个与 RTS 摄像机姿态一致的本地镜像实体</li>
  *   <li>通过 {@code mc.setCameraEntity()} 将摄像机实体设为主渲染视角</li>
- *   <li>10 tick 冷却防抖，防止频繁切换导致渲染抖动</li>
+ *   <li>实体位置在 {@link CameraModule#onRenderFrame} 中帧率级更新，
+ *       通过 {@link #snapToState} 直接设置 xo=x, yRotO=yRot，消除 20Hz tick 插值跳跃</li>
  * </ul>
+ *
+ * <p>注意：不再在 {@link CameraModule#tick} 中调用 sync()，实体仅由帧率级驱动。</p>
  */
 final class CameraEntitySync {
 
-    private static final int RESTORE_COOLDOWN_TICKS = 10;
-
     /** 本地镜像摄像机实体 */
     RtsCameraEntity localMirrorCamera;
-    /** 设置摄像机实体的冷却计数器 */
-    int cameraRestoreCooldown;
     /** 缓存的实体类型 */
     private EntityType<RtsCameraEntity> cachedCameraEntityType;
 
     /**
-     * 每 tick 同步实体位置和视角，必要时切换 {@code mc.cameraEntity}。
-     * <p>仅在 {@link CameraModule#tick} 和开启相机时调用。</p>
+     * 确保镜像实体存在——若为 null 或 level 变化则新建。
+     * 可在 {@code enableCamera()} 或 {@code tick()} 中调用。
      */
-    void sync(Minecraft mc, CameraState state) {
-        if (mc.level == null || !state.localReady) return;
-        ensureMirrorCamera(mc);
-        if (localMirrorCamera != null) {
-            // 归一化 prevYaw 使其靠近 localYaw，避免跨 ±180° 边界时插值走远路
-            // 例如 prevYaw=179°, localYaw=-1° 时，归一化为 -181°→实际存 -179° 等效角
-            float normPrevYaw = state.localYaw + Mth.wrapDegrees(state.prevYaw - state.localYaw);
-            localMirrorCamera.snapInterpolated(
-                    state.prevX, state.prevY, state.prevZ, normPrevYaw, state.prevPitch,
-                    state.localX, state.localY, state.localZ, state.localYaw, state.localPitch);
-            // 传递轨道参数实现圆弧插值
-            localMirrorCamera.setOrbitInterp(
-                    state.prevOrbitAngle, state.prevOrbitPitch, state.prevOrbitRadius,
-                    state.orbitAngle, state.orbitPitch, state.orbitRadius,
-                    state.orbitTargetX, state.orbitTargetY, state.orbitTargetZ,
-                    state.orbitMode);
-            if (mc.getCameraEntity() != localMirrorCamera) {
-                if (cameraRestoreCooldown <= 0) {
-                    mc.setCameraEntity(localMirrorCamera);
-                    cameraRestoreCooldown = RESTORE_COOLDOWN_TICKS;
-                } else {
-                    cameraRestoreCooldown--;
-                }
-            } else if (cameraRestoreCooldown > 0) {
-                cameraRestoreCooldown--;
-            }
-        }
-    }
-
-    private void ensureMirrorCamera(Minecraft mc) {
+    void ensureMirrorCamera(Minecraft mc) {
+        if (mc.level == null) return;
         if (localMirrorCamera != null && localMirrorCamera.level() == mc.level) return;
         if (cachedCameraEntityType == null) {
             cachedCameraEntityType = (EntityType<RtsCameraEntity>) com.rtsbuilding.rtsbuilding.common.RtsEntities.RTS_CAMERA_ENTITY.get();
@@ -67,17 +37,13 @@ final class CameraEntitySync {
         localMirrorCamera = new RtsCameraEntity(cachedCameraEntityType, mc.level);
     }
 
-    /** 将当前姿态保存为上一帧插值基准。 */
-    void savePrevState(CameraState state) {
-        state.prevX = state.localX;
-        state.prevY = state.localY;
-        state.prevZ = state.localZ;
-        state.prevYaw = state.localYaw;
-        state.prevPitch = state.localPitch;
-        // 保存轨道参数供 partialTick 圆弧插值
-        state.prevOrbitAngle = state.orbitAngle;
-        state.prevOrbitPitch = state.orbitPitch;
-        state.prevOrbitRadius = state.orbitRadius;
+    /**
+     * 将镜像实体设为主渲染视角。仅在 {@code enableCamera()} 中调用一次。
+     */
+    void setAsCameraEntity(Minecraft mc) {
+        if (localMirrorCamera != null && mc.getCameraEntity() != localMirrorCamera) {
+            mc.setCameraEntity(localMirrorCamera);
+        }
     }
 
     /**
@@ -93,9 +59,8 @@ final class CameraEntitySync {
         }
     }
 
-    /** 清理实体引用和冷却状态。 */
+    /** 清理实体引用。 */
     void clear() {
         localMirrorCamera = null;
-        cameraRestoreCooldown = 0;
     }
 }

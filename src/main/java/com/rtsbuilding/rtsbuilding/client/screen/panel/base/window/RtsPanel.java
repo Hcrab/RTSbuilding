@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.window;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.model.PanelBounds;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.model.ResizeEdge;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.handler.PanelDragHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.handler.PanelResizeHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.model.PanelBounds;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.model.ResizeEdge;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
@@ -693,14 +693,14 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     /** 内容区域左上角 X（窗口内左边框偏移 1px） */
     protected int contentX() { return bounds.getX() + 1; }
 
-    /** 内容区域左上角 Y（标题栏下方偏移 2px） */
-    protected int contentY() { return bounds.getY() + getTitleBarHeight() + 2; }
+    /** 内容区域左上角 Y（标题栏下方偏移 3px） */
+    protected int contentY() { return bounds.getY() + getTitleBarHeight() + 3; }
 
     /** 内容区域宽度（窗口宽度减去左右边框各 1px） */
     protected int contentWidth() { return Math.max(0, bounds.getWidth() - 2); }
 
     /** 内容区域高度（窗口高度减去标题栏和底部边框） */
-    protected int contentHeight() { return Math.max(0, bounds.getHeight() - getTitleBarHeight() - 8); }
+    protected int contentHeight() { return Math.max(0, bounds.getHeight() - getTitleBarHeight() - 7); }
 
     // ------- 键盘/滚轮事件 -------
 

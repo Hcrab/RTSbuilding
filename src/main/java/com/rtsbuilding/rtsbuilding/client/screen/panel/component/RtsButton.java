@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -44,13 +44,6 @@ public class RtsButton extends AbstractButton {
     /** 悬浮状态管理器 */
     private final HoverStateManager hoverState = new HoverStateManager();
 
-
-    /**
-     * 创建纯色按钮。
-     */
-    public RtsButton(int x, int y, int width, int height, Component message, OnPress onPress) {
-        this(x, y, width, height, message, null, 0, 0, 0, 0, onPress);
-    }
 
     /**
      * 创建带纹理的按钮，支持悬停状态切换。
@@ -92,17 +85,6 @@ public class RtsButton extends AbstractButton {
             this.normalRegion = null;
             this.hoveredRegion = null;
         }
-    }
-
-    /**
-     * 创建带纹理的按钮（旧版兼容，悬停时使用相同纹理）。
-     */
-    public RtsButton(int x, int y, int width, int height, Component message,
-                     ResourceLocation textureLocation, int textureU, int textureV,
-                     int textureWidth, int textureHeight, OnPress onPress) {
-        this(x, y, width, height, message, textureLocation, textureU, textureV,
-             textureWidth, textureHeight, textureV, textureHeight,
-             textureWidth, textureHeight, onPress);
     }
 
     @Override

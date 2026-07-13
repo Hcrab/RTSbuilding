@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.handler;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -12,12 +14,12 @@ import java.util.List;
 /**
  * 相机持久化处理器——管理相机模式/目标坐标的状态持久化。
  *
- * <p>从 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel}
+ * <p>从 {@link TopBarPanel}
  * 提取，消除 TopBarPanel「管 UI 还管相机」的越权问题。
  * 本类仅实现 {@link RtsPanelApi} 的 {@link #persistableProperties()} 方法，
  * 其余方法均为空实现。</p>
  *
- * <p>注册到 {@link com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager}，
+ * <p>注册到 {@link RtsScreenUiStateManager}，
  * 与各面板并列，统一在 BuilderScreen init/save 时加载/保存。</p>
  */
 public final class CameraPersistenceHandler implements RtsPanelApi {

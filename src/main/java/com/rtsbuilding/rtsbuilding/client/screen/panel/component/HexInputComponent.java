@@ -1,19 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.EasingFunctions;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import com.rtsbuilding.rtsbuilding.client.util.animate.EasingFunctions;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
@@ -47,7 +47,7 @@ public class HexInputComponent {
     // ======================== 输入框贴图 ========================
 
     private static final ResourceLocation INPUT_BOX_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/input_box.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_4.png");
     private static final int INPUT_BOX_TEX_W = 32;
     private static final int INPUT_BOX_TEX_H = 32;
     private static final int INPUT_BOX_STATE_H = 16;
@@ -61,7 +61,7 @@ public class HexInputComponent {
     // ======================== 模式按钮贴图 ========================
 
     private static final ResourceLocation MODE_BTN_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/fold_ui.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_3.png");
     private static final int MODE_BTN_TEX_W = 32;
     private static final int MODE_BTN_TEX_H = 32;
     private static final int MODE_BTN_STATE_H = 16;

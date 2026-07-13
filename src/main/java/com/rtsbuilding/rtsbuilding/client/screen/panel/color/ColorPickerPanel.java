@@ -2,19 +2,17 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.color;
 
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorGroup;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.color.ColorSource;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ColorPreviewComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.HexInputComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.SwatchSelectorComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -278,7 +276,7 @@ public class ColorPickerPanel extends RtsPanel {
 
         try (BlendScope blend = BlendScope.normal()) {
             // 浮窗背景（向右延伸以囊括灰度条）
-            SpriteRenderer.drawNineSliceFloatingPanel(g, panelX, panelY, panelW, panelH);
+            SpriteRenderer.drawNineSliceFloatingPanel(g, panelX, panelY, panelW, panelH, false);
 
             // 轮盘
             wheelComponent.renderWheel(g, wheelImgX, wheelImgY);
@@ -311,7 +309,7 @@ public class ColorPickerPanel extends RtsPanel {
 
         // ---- 4. 色块选择器（委托给 SwatchSelectorComponent）----
         int swatchSectionTop = hexInputY + HexInputComponent.INPUT_H + 3;
-        swatchSelector.render(g, mouseX, mouseY, colorGroup, activeSlotIndex, swatchSectionTop);
+        swatchSelector.render(g, mouseX, mouseY, colorGroup, activeSlotIndex, swatchSectionTop, cx);
 
         // ---- 5. 色调和饱和度滑条 ----
         int wheelSectionBottom = panelY + panelH;
@@ -365,7 +363,7 @@ public class ColorPickerPanel extends RtsPanel {
             int previewY = wheelLayout[1] + wheelLayout[3] + 6;
             int hexInputY = previewY + ColorPreviewComponent.PREVIEW_BAR_H + 3;
             int swatchSectionTop = hexInputY + HexInputComponent.INPUT_H + 3;
-            int hitIndex = swatchSelector.hitTest(mouseX, mouseY, colorGroup, swatchSectionTop);
+            int hitIndex = swatchSelector.hitTest(mouseX, mouseY, colorGroup, swatchSectionTop, cx);
             if (hitIndex >= 0) {
                 switchToSlot(hitIndex);
                 return;

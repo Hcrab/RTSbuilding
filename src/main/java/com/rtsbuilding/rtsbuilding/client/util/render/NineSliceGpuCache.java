@@ -15,8 +15,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Objects;
-
 /**
  * GPU 加速九宫格渲染缓存——使用 FBO 将平铺拼装结果渲染到 GPU 纹理，
  * 后续帧直接以单次 blit 绘制，避免每帧重复的循环平铺开销。

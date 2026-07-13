@@ -4,15 +4,15 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.popup.BasePopup;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -26,7 +26,7 @@ import java.util.function.Consumer;
  * <p>三种模式（以弹出列表顺序排列）：交互模式（默认）、建造模式、蓝图模式。
  * 每种模式配有专属图标贴图，由 lang 集中管理显示名称。</p>
  *
- * <p>背景贴图 {@code mode.png} 规格：128×64，水平双主题，纵向正常(0~32)与悬浮(32~64)两状态。</p>
+ * <p>背景贴图 {@code base_ui_6.png} 规格：32×32，水平双主题，纵向正常(0~16)与悬浮(16~32)两状态。</p>
  */
 public final class ModeSwitcher {
 
@@ -50,15 +50,15 @@ public final class ModeSwitcher {
         }
     }
 
-    // ======================== 背景贴图（mode.png）=======================
+    // ======================== 背景贴图（base_ui_6.png）=======================
 
-    /** 模式切换器背景（128×64，水平双主题，纵向 2 状态） */
+    /** 模式切换器背景（32×32，水平双主题，纵向 2 状态：0-16=正常，16-32=悬浮） */
     private static final ResourceLocation MODE_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/top/mode.png");
-    private static final int MODE_BG_TEX_W = 128;
-    private static final int MODE_BG_TEX_H = 64;
-    /** 正常态源高度 = 32（v=0~32） */
-    private static final int MODE_BG_NORMAL_H = 32;
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_6.png");
+    private static final int MODE_BG_TEX_W = 32;
+    private static final int MODE_BG_TEX_H = 32;
+    /** 正常态源高度 = 16（v=0~16） */
+    private static final int MODE_BG_NORMAL_H = 16;
     /** 九宫格边框宽度 */
     private static final int MODE_BG_BORDER = 4;
 
@@ -101,11 +101,11 @@ public final class ModeSwitcher {
 
     // ======================== 折叠箭头贴图 ========================
 
-    /** 折叠箭头（复用 base/fold_arrow.png，规格参见 UtilityButtonGroup） */
+    /** 折叠箭头（复用 base/arrow.png） */
     private static final ResourceLocation FOLD_ARROW_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/fold_arrow.png");
+            "rtsbuilding:textures/gui/base/arrow.png");
     private static final int FOLD_ARROW_TEX_W = 1024;
-    private static final int FOLD_ARROW_TEX_H = 1024;
+    private static final int FOLD_ARROW_TEX_H = 512;
     private static final int FOLD_ARROW_HALF_W = 512;
     private static final int FOLD_ARROW_STATE_H = 512;
 
@@ -325,7 +325,7 @@ public final class ModeSwitcher {
         }
     }
 
-    /** 渲染折叠箭头（带旋转动画：闭合 0°，展开 90°） */
+    /** 渲染折叠箭头（初始态顺时针旋转 90°，展开态在此基础上再旋 90°） */
     private void renderArrow(GuiGraphics g, int x, int y) {
         this.arrowAnim.tick();
         SpriteRegion arrowRegion = new SpriteRegion(
@@ -334,7 +334,7 @@ public final class ModeSwitcher {
         g.pose().translate(x, y, 0);
         float half = ARROW_SIZE / 2.0f;
         g.pose().translate(half, half, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees(this.arrowAnim.getValue() * 90.0f));
+        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.getValue()) * 90.0f));
         g.pose().translate(-half, -half, 0);
         SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, ARROW_SIZE, ARROW_SIZE);
         g.pose().popPose();

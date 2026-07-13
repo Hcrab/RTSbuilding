@@ -1,19 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.event.dispatcher;
 
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.CharEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.EventResult;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.KeyPressEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.KeyReleaseEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseClickEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseDragEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseMoveEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseReleaseEvent;
-import com.rtsbuilding.rtsbuilding.client.screen.event.model.MouseScrollEvent;
+import com.rtsbuilding.rtsbuilding.client.screen.event.model.*;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Predicate;
 
 /**
  * 事件分发器——以优先级顺序将输入事件派发给注册的处理器。

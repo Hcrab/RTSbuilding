@@ -1,15 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.overlay.DownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.component.EdgeResizeHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.base.overlay.DownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.overlay.LowerRightOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.overlay.UpperRightOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;

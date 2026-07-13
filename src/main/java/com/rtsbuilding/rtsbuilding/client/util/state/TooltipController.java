@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.util.state;
 
 import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.Util;
@@ -215,7 +214,7 @@ public class TooltipController {
         // 渲染背景 + 文字（使用 BlendScope 自动管理混合状态）
         try (BlendScope blend = BlendScope.normal()) {
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-            SpriteRenderer.drawNineSliceFloatingPanel(ctx.g(), tipX, tipY, tipW, tipH);
+            SpriteRenderer.drawNineSliceFloatingPanel(ctx.g(), tipX, tipY, tipW, tipH, false);
 
             // 逐行绘制文字
             float textY = tipY + padV;

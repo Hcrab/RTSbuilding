@@ -105,18 +105,15 @@ public final class RtsPageCore {
             RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
             boolean usedCache = false;
             if (aggregate != null && !aggregate.isEmpty()) {
+                Map<ItemStack, Long> componentEntries = new HashMap<>();
                 aggregate.getAvailableItems(localCounts);
-                if (!localCounts.isEmpty()) {
-                    for (var entry : localCounts.entrySet()) {
-                        String itemId = entry.getKey();
+                aggregate.getAvailableEntries(componentEntries);
+                if (!componentEntries.isEmpty()) {
+                    for (var entry : componentEntries.entrySet()) {
+                        ItemStack prototype = entry.getKey();
                         long count = entry.getValue();
-                        ResourceLocation id = ResourceLocation.tryParse(itemId);
+                        ResourceLocation id = BuiltInRegistries.ITEM.getKey(prototype.getItem());
                         if (id == null) continue;
-                        ItemStack prototype = aggregate.getPrototype(itemId);
-                        if (prototype.isEmpty()) {
-                            var item = BuiltInRegistries.ITEM.get(id);
-                            prototype = new ItemStack(item);
-                        }
                         mergeExactEntry(exactEntries, prototype, count);
                         mergeCount(localNamespaceTotals, id.getNamespace(), count);
                     }
@@ -161,6 +158,20 @@ public final class RtsPageCore {
                     String fluidId = id.toString();
                     mergeCount(fluidAmounts, fluidId, fluid.getAmount());
                     mergeCount(fluidCapacities, fluidId, Math.max(0, handler.getTankCapacity(tank)));
+                }
+            }
+
+            // 从 AE2 等网络节点收集流体（仅收集一次，跳过已被常规 handler 计数的流体 ID）
+            Set<String> fluidCountedByRegular = new HashSet<>(fluidAmounts.keySet());
+            boolean ae2FluidCollected = false;
+            for (var ref : session.linkedStorageInfo.getAll()) {
+                if (ref == null || ref.pos() == null) continue;
+                if (!player.serverLevel().dimension().equals(ref.dimension())) continue;
+                if (ae2FluidCollected) break;
+                if (RtsAe2Compat.isPositionAE2Node(player, ref.pos())) {
+                    RtsAe2Compat.collectNetworkFluids(player, ref.pos(), fluidAmounts, fluidCapacities,
+                            fluidCountedByRegular);
+                    ae2FluidCollected = true;
                 }
             }
 

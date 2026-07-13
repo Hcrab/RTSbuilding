@@ -152,6 +152,23 @@ public final class RtsHandlerCache {
     }
 
     /**
+     * 将缓存中所有物品按完整组件身份（含耐久等）倾倒入提供的映射中。
+     * 与 {@link #getAvailableItems} 不同，此方法区分不同组件的同类型物品。
+     */
+    public void getAvailableEntries(Map<ItemStack, Long> out) {
+        for (CachedSlot slot : this.front) {
+            if (slot == null || slot.isEmpty()) continue;
+            ItemStack key = slot.toPrototype();
+            out.merge(key, slot.count, RtsHandlerCache::saturatedAdd);
+        }
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        long r = a + b;
+        return r < 0 ? Long.MAX_VALUE : r;
+    }
+
+    /**
      * 返回完整的槽位快照，或 {@link CachedSlot#EMPTY}。
      */
     public CachedSlot getSlot(int slot) {

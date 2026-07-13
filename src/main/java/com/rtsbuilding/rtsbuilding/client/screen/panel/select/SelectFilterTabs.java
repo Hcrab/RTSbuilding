@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.select;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -19,23 +21,26 @@ public final class SelectFilterTabs {
     /** 筛选标签栏高度 */
     public static final int TAB_BAR_H = 14;
 
-    // ======================== 按钮背景贴图 (button_background.png) ========================
+    // ======================== 按钮背景贴图 (base_ui_2.png) ========================
 
-    /** button_background.png：32×48，水平左暗右亮，垂直上正常中悬浮下选中 */
-    private static final ResourceLocation BTN_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/select/button_background.png");
-    private static final int BTN_BG_TEX_W = 32;
-    private static final int BTN_BG_TEX_FILE_H = 48;
-    /** 单个状态高度（0-16=正常态，16-32=悬浮态，32-48=选中态） */
-    private static final int BTN_BG_STATE_H = 16;
+    /** base_ui_2.png：32×48，水平左暗右亮，垂直三态（0-16=正常，16-32=悬浮，32-48=选中） */
+    private static final ResourceLocation FILTER_BG_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
+    private static final int FILTER_BG_TEX_W = 32;
+    private static final int FILTER_BG_TEX_FILE_H = 48;
+    /** 单个状态高度（16px） */
+    private static final int FILTER_BG_STATE_H = 16;
+    /** 选中态垂直偏移（y=32-48） */
+    private static final int FILTER_BG_SELECTED_V_OFFSET = 32;
     /** 九宫格边框宽度 */
-    private static final int BTN_BG_BORDER = 4;
-    private static final TextureInfo BTN_BG_TEX_INFO = new TextureInfo(
-            BTN_BG_TEXTURE, BTN_BG_TEX_W, BTN_BG_TEX_FILE_H,
+    private static final int FILTER_BG_BORDER = 2;
+
+    private static final TextureInfo FILTER_BG_TEX_INFO = new TextureInfo(
+            FILTER_BG_TEXTURE, FILTER_BG_TEX_W, FILTER_BG_TEX_FILE_H,
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
             TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion BTN_BG_NINE_SLICE = NineSliceRegion.fullTheme(
-            BTN_BG_TEX_INFO, BTN_BG_STATE_H, BTN_BG_BORDER);
+    private static final NineSliceRegion FILTER_BG_NINE_SLICE = NineSliceRegion.fullTheme(
+            FILTER_BG_TEX_INFO, FILTER_BG_STATE_H, FILTER_BG_BORDER);
 
     // ======================== 筛选模式 ========================
 
@@ -55,6 +60,15 @@ public final class SelectFilterTabs {
     // ======================== 状态 ========================
 
     private FilterMode filterMode = FilterMode.ALL;
+
+    /** 每个标签的悬浮动画状态 */
+    private final HoverStateManager[] hoverStates = initHoverStates();
+
+    private static HoverStateManager[] initHoverStates() {
+        HoverStateManager[] arr = new HoverStateManager[FilterMode.values().length];
+        for (int i = 0; i < arr.length; i++) arr[i] = new HoverStateManager();
+        return arr;
+    }
 
     // ======================== 状态查询 ========================
 
@@ -90,7 +104,7 @@ public final class SelectFilterTabs {
     // ======================== 渲染 ========================
 
     /**
-     * 渲染筛选标签栏——显示在内容区顶部，点击切换筛选模式。
+     * 渲染筛选标签栏——使用 base_ui_2.png 九宫格按钮背景，点击切换筛选模式。
      * 仅当同时包含实体和方块条目时调用。
      */
     public void render(GuiGraphics g, int mouseX, int mouseY,
@@ -110,25 +124,39 @@ public final class SelectFilterTabs {
         for (int i = 0; i < modes.length; i++) {
             String label = modes[i].label + " (" + counts[i] + ")";
             int labelW = font.width(label);
-            int tabW = labelW + 6; // 左右各 3px 内边距
+            int tabW = labelW + PAD_H * 2;
 
             boolean hovered = mouseX >= tabX && mouseX < tabX + tabW
                     && mouseY >= tabY && mouseY < tabY + TAB_BAR_H;
             boolean selected = filterMode == modes[i];
 
-            // 使用 button_background.png 九宫格贴图作为标签背景（三态）
-            int vOffset = selected ? BTN_BG_STATE_H * 2
-                    : hovered ? BTN_BG_STATE_H : 0;
-            SpriteRenderer.drawNineSlice(g,
-                    BTN_BG_NINE_SLICE.withTheme().withVOffset(vOffset),
-                    tabX, tabY, tabW, TAB_BAR_H);
+            // 更新悬浮动画
+            float hoverT = hoverStates[i].update(hovered);
 
-            int color = selected ? activeColor : textColor;
-            int textX = tabX + 3;
+            // 渲染按钮背景（final局部变量供lambda捕获）
+            final int fTabX = tabX;
+            final int fTabW = tabW;
+            if (selected) {
+                SpriteRenderer.drawNineSlice(g,
+                        FILTER_BG_NINE_SLICE.withTheme().withVOffset(FILTER_BG_SELECTED_V_OFFSET),
+                        fTabX, tabY, fTabW, TAB_BAR_H);
+            } else {
+                CrossFadeRenderer.render(hoverT,
+                        () -> SpriteRenderer.drawNineSlice(g,
+                                FILTER_BG_NINE_SLICE.withTheme().withVOffset(0),
+                                fTabX, tabY, fTabW, TAB_BAR_H),
+                        () -> SpriteRenderer.drawNineSlice(g,
+                                FILTER_BG_NINE_SLICE.withTheme().withVOffset(FILTER_BG_STATE_H),
+                                fTabX, tabY, fTabW, TAB_BAR_H));
+            }
+
+            // 渲染文字（选中或悬浮时用高亮色）
+            int color = selected || hovered ? activeColor : textColor;
+            int textX = fTabX + (fTabW - labelW) / 2;
             int textY = tabY + (TAB_BAR_H - font.lineHeight) / 2;
             TextRenderer.draw(g, label, textX, textY, color);
 
-            tabX += tabW + 2; // 标签间距 2px
+            tabX += tabW + 2;
         }
     }
 
@@ -152,7 +180,7 @@ public final class SelectFilterTabs {
 
         for (int i = 0; i < modes.length; i++) {
             String label = modes[i].label + " (" + counts[i] + ")";
-            int tabW = font.width(label) + 10;
+            int tabW = font.width(label) + PAD_H * 2;
             boolean hit = mouseX >= tabX && mouseX < tabX + tabW
                     && mouseY >= cy && mouseY < cy + TAB_BAR_H;
             if (hit) {

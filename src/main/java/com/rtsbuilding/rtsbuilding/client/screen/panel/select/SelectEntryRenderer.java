@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.select;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -16,7 +16,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
 /**
@@ -27,13 +26,13 @@ import org.joml.Quaternionf;
  */
 public final class SelectEntryRenderer {
 
-    // ======================== 条目背景贴图 (select_background.png) ========================
+    // ======================== 条目背景贴图 (base_ui_2.png) ========================
 
-    /** select_background.png：32×32，水平左暗右亮，垂直上正常下悬浮 */
+    /** base_ui_2.png：32×48，水平左暗右亮，垂直上正常下悬浮 */
     private static final ResourceLocation SELECT_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/select/select_background.png");
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
     private static final int SELECT_BG_TEX_W = 32;
-    private static final int SELECT_BG_TEX_FILE_H = 32;
+    private static final int SELECT_BG_TEX_FILE_H = 48;
     /** 单个状态高度（0-16=正常态，16-32=悬浮态，无选中态） */
     private static final int SELECT_BG_STATE_H = 16;
     /** 九宫格边框宽度 */
@@ -50,7 +49,7 @@ public final class SelectEntryRenderer {
     // ======================== 条目背景渲染 ========================
 
     /**
-     * 渲染条目背景——使用 select_background.png 九宫格贴图，正常态与悬浮态交叉淡入淡出。
+     * 渲染条目背景——使用 base_ui_2.png 九宫格贴图，正常态与悬浮态交叉淡入淡出。
      *
      * @param t 悬浮动画进度 [0, 1]
      */

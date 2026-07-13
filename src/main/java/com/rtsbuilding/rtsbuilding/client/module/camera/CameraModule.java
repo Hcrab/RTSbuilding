@@ -113,17 +113,10 @@ public final class CameraModule implements FeatureModule {
         Minecraft mc = mc();
         if (mc.player == null || mc.level == null) return;
 
-        entitySync.savePrevState(state);
-
-        if (state.playerOrbitMode || state.orbitMode) {
-            // 轨道/玩家环绕模式输入已在 onRenderFrame 中帧率级处理，tick 只负责实体同步
-        } else {
-            FreeCameraMode.CameraInput input = freeCamera.readCameraInput();
-            freeCamera.processInput(state, input);
-            freeCamera.resetAccumulation(state);
-        }
-
-        entitySync.sync(mc, state);
+        // 三种模式（自由/玩家环绕/方块轨道）的鼠标累积输入（旋转/平移/滚轮）
+        // 均在 onRenderFrame 中帧率级处理，消除 20Hz tick 导致的视觉卡顿。
+        // tick 仅确保镜像实体存活（应对 entity 意外释放或 level 变化）。
+        entitySync.ensureMirrorCamera(mc);
     }
 
     /**
@@ -134,7 +127,6 @@ public final class CameraModule implements FeatureModule {
      */
     public void onRenderFrame(float partialTick) {
         if (!state.enabled || !state.localReady) return;
-        if (!state.playerOrbitMode && !state.orbitMode) return;
 
         Minecraft mc = mc();
         if (mc.player == null || mc.level == null) return;
@@ -142,9 +134,14 @@ public final class CameraModule implements FeatureModule {
         if (state.playerOrbitMode) {
             // 帧率级消费累积输入并更新玩家环绕姿态
             playerOrbit.processInput(state, partialTick);
-        } else {
+        } else if (state.orbitMode) {
             // 帧率级消费累积输入并更新轨道姿态
             poseComputer.processOrbitInput(state);
+        } else {
+            // 自由模式：帧率级消费累积输入（旋转/平移/滚轮），消除 20Hz tick 导致的卡顿
+            FreeCameraMode.CameraInput input = freeCamera.readCameraInput();
+            freeCamera.processInput(state, input);
+            freeCamera.resetAccumulation(state);
         }
         // 直接用 snapTo 设置实体位置（xo=x, yRotO=yRot），
         // 使 getEyePosition(partialTick) 返回当前精确的圆周位置
@@ -368,6 +365,8 @@ public final class CameraModule implements FeatureModule {
                 lp.input.jumping = false;
                 lp.input.shiftKeyDown = false;
             }
+            // 重置自由模式的 EMA 平滑累积值，避免上一轮的平滑值污染新视角
+            freeCamera.resetEma();
         }
 
         viewManager.applyRtsView(mc);
@@ -390,8 +389,10 @@ public final class CameraModule implements FeatureModule {
             poseComputer.initOrbitPose(state, state.localX, state.localY, state.localZ);
         }
 
-        entitySync.savePrevState(state);
-        entitySync.sync(mc, state);
+        // 初始化镜像实体 & 设为主渲染视角（一次性操作，无需 cooldown）
+        entitySync.ensureMirrorCamera(mc);
+        entitySync.setAsCameraEntity(mc);
+        entitySync.snapToState(state);
     }
 
     /**

@@ -1,11 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.base.component;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.component.CollapsibleSection;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ScaleSliderComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.component.ThemeSwitchComponent;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;

@@ -1,7 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.util.animate;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.DoubleConsumer;
 

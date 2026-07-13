@@ -123,6 +123,7 @@ public final class StorageModule implements FeatureModule {
     public boolean isStorageCollapsed() { return state.isStorageCollapsed(); }
     public boolean hasAnyContent() { return state.hasAnyStorageContent(); }
     public int getRevision() { return state.getRevision(); }
+    public int getPageRequestCount() { return state.getPageRequestCount(); }
     public List<?> getEntries() { return state.getStorageEntries(); }
     public List<?> getFluidEntries() { return state.getFluidEntries(); }
     public List<?> getRecentEntries() { return state.getRecentEntries(); }
@@ -218,7 +219,7 @@ public final class StorageModule implements FeatureModule {
 
         RemoteMenuModule rmm = kernel().module(RemoteMenuModule.class);
         if (rmm != null) rmm.beginRemoteMenuOpenGrace();
-        requestPage(getState().getPage());
+        // 不主动 requestPage——服务器端 linkStorage -> afterModification() 会自动推送更新页面
         return true;
     }
 
@@ -240,7 +241,8 @@ public final class StorageModule implements FeatureModule {
         if (existing.isEmpty()) return false;
 
         RtsClientPacketGateway.sendUnlinkStorage(existing.get().pos());
-        requestPage(getState().getPage());
+        // 不主动 requestPage——服务器端 unlinkStorage -> afterModification() 会自动调用 forceRefresh + requestPage
+        // 客户端主动重请求会和服务器推送产生竞态，导致解绑后旧数据残留
         return true;
     }
 
@@ -290,9 +292,7 @@ public final class StorageModule implements FeatureModule {
         if (count > 0 && rmm != null) {
             rmm.beginRemoteMenuOpenGrace();
         }
-        if (count > 0) {
-            requestPage(getState().getPage());
-        }
+        // 不主动 requestPage——服务器端 linkStorage -> afterModification() 会自动推送更新页面
         return count;
     }
 
@@ -332,9 +332,7 @@ public final class StorageModule implements FeatureModule {
             }
         }
 
-        if (count > 0) {
-            requestPage(getState().getPage());
-        }
+        // 不主动 requestPage——服务器端 unlinkStorage -> afterModification() 会自动推送更新页面
         return count;
     }
 
