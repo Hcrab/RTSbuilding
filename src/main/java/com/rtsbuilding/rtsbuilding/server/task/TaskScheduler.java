@@ -53,6 +53,7 @@ public final class TaskScheduler {
         int globalUnitLimit = Math.max(1, maxUnitsPerTick);
         int processed = 0;
         int slices = 0;
+        Map<UUID, List<TaskRecord>> deferredUntilNextTick = new LinkedHashMap<>();
         if (lanes.isEmpty()) return new TickStats(0, 0, 0L, false, false);
 
         List<UUID> owners = new ArrayList<>(lanes.keySet());
@@ -91,9 +92,17 @@ public final class TaskScheduler {
             processed += result.processedUnits();
             slices++;
             visitedWithoutWork = 0;
-            if (!task.status().terminal()) lane.addLast(task);
+            if (!task.status().terminal()) {
+                if (result.outcome() == TaskStepResult.Outcome.NEXT_TICK) {
+                    deferredUntilNextTick.computeIfAbsent(owner, ignored -> new ArrayList<>()).add(task);
+                } else {
+                    lane.addLast(task);
+                }
+            }
         }
         lanes.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        deferredUntilNextTick.forEach((owner, tasks) ->
+                lanes.computeIfAbsent(owner, ignored -> new ArrayDeque<>()).addAll(tasks));
         long elapsed = Math.max(0L, nanoClock.getAsLong() - start);
         return new TickStats(slices, processed, elapsed, elapsed >= maxNanos,
                 processed >= globalUnitLimit);

@@ -14,7 +14,7 @@ public record TaskStepResult(
         int failedUnits,
         Outcome outcome,
         String errorKey) {
-    public enum Outcome { CONTINUE, YIELD, COMPLETE, WAIT_RESOURCE, FAIL }
+    public enum Outcome { CONTINUE, YIELD, NEXT_TICK, COMPLETE, WAIT_RESOURCE, FAIL }
 
     public TaskStepResult {
         if (processedUnits < 0) throw new IllegalArgumentException("processedUnits < 0");
@@ -42,6 +42,12 @@ public record TaskStepResult(
 
     public static TaskStepResult yield(int units) {
         return new TaskStepResult(units, units, units, 0, Outcome.YIELD, null);
+    }
+
+    public static TaskStepResult nextTick(
+            int processedUnits, int cursorUnits, int succeededUnits, int failedUnits) {
+        return new TaskStepResult(
+                processedUnits, cursorUnits, succeededUnits, failedUnits, Outcome.NEXT_TICK, null);
     }
 
     public static TaskStepResult complete(int units) {

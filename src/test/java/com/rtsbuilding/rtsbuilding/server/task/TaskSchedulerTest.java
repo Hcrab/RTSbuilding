@@ -111,6 +111,24 @@ class TaskSchedulerTest {
         assertEquals(1L, stats.elapsedNanos());
     }
 
+    @Test
+    void nextTickTaskRunsAtMostOncePerSchedulerTick() {
+        AtomicLong clock = new AtomicLong();
+        TaskScheduler scheduler = new TaskScheduler(clock::get);
+        scheduler.registerExecutor(TaskType.MINING,
+                (task, budget) -> TaskStepResult.nextTick(0, 0, 0, 0));
+        UUID owner = UUID.randomUUID();
+        scheduler.submit(new TaskRecord(
+                UUID.randomUUID(), owner, TaskType.MINING, EMPTY, 1, 0L));
+
+        TaskScheduler.TickStats first = scheduler.tick(1_000L, 64, 4);
+        TaskScheduler.TickStats second = scheduler.tick(1_000L, 64, 4);
+
+        assertEquals(1, first.slices());
+        assertEquals(1, second.slices());
+        assertEquals(1, scheduler.activeTaskCount());
+    }
+
     private static TaskRecord task(UUID owner) {
         return new TaskRecord(UUID.randomUUID(), owner, TaskType.LEGACY_ADAPTER, EMPTY, 100, 0L);
     }

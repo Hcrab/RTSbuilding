@@ -58,7 +58,7 @@ public final class TaskRecord {
         int failureLimit = totalUnits == 0 ? Integer.MAX_VALUE : Math.max(0, totalUnits - succeededUnits);
         failedUnits = (int) Math.min(failureLimit, (long) failedUnits + result.failedUnits());
         status = switch (result.outcome()) {
-            case CONTINUE, YIELD -> TaskStatus.RUNNING;
+            case CONTINUE, YIELD, NEXT_TICK -> TaskStatus.RUNNING;
             case COMPLETE -> TaskStatus.COMPLETED;
             case WAIT_RESOURCE -> TaskStatus.WAITING_RESOURCE;
             case FAIL -> TaskStatus.FAILED;
