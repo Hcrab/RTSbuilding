@@ -42,16 +42,20 @@ public final class TaskScheduler {
         if (lane != null) lane.forEach(task -> task.cancel(nowNanos));
     }
 
-    public synchronized TickStats tick(long maxNanos, int maxUnitsPerSlice) {
+    public synchronized TickStats tick(long maxNanos, int maxUnitsPerTick, int maxUnitsPerSlice) {
         long start = nanoClock.getAsLong();
         long deadline = start + Math.max(1L, maxNanos);
+        int globalUnitLimit = Math.max(1, maxUnitsPerTick);
         int processed = 0;
         int slices = 0;
-        if (lanes.isEmpty()) return new TickStats(0, 0, 0L, false);
+        if (lanes.isEmpty()) return new TickStats(0, 0, 0L, false, false);
 
         List<UUID> owners = new ArrayList<>(lanes.keySet());
         int visitedWithoutWork = 0;
-        while (!owners.isEmpty() && nanoClock.getAsLong() < deadline && visitedWithoutWork < owners.size()) {
+        while (!owners.isEmpty()
+                && nanoClock.getAsLong() < deadline
+                && processed < globalUnitLimit
+                && visitedWithoutWork < owners.size()) {
             playerCursor = Math.floorMod(playerCursor, owners.size());
             UUID owner = owners.get(playerCursor++);
             ArrayDeque<TaskRecord> lane = lanes.get(owner);
@@ -62,21 +66,20 @@ public final class TaskScheduler {
                 continue;
             }
 
-            TaskRecord task = lane.removeFirst();
-            if (task.status().terminal()) {
-                visitedWithoutWork = 0;
-                continue;
-            }
-            if (task.status() == TaskStatus.PAUSED || task.status() == TaskStatus.WAITING_RESOURCE) {
-                lane.addLast(task);
+            TaskRecord task = pollRunnable(lane);
+            if (task == null) {
                 visitedWithoutWork++;
                 continue;
             }
 
             TaskExecutor executor = executors.get(task.type());
+            int sliceUnits = Math.min(Math.max(1, maxUnitsPerSlice), globalUnitLimit - processed);
             TaskStepResult result = executor == null
                     ? TaskStepResult.fail("rtsbuilding.task.error.missing_executor")
-                    : executor.execute(task, new TaskBudget(maxUnitsPerSlice, deadline, nanoClock));
+                    : executor.execute(task, new TaskBudget(sliceUnits, deadline, nanoClock));
+            if (result.processedUnits() > sliceUnits) {
+                result = TaskStepResult.fail("rtsbuilding.task.error.executor_exceeded_budget");
+            }
             long now = nanoClock.getAsLong();
             task.apply(result, now);
             task.promoteIfLongRunning(now, 1_000_000_000L);
@@ -87,9 +90,25 @@ public final class TaskScheduler {
         }
         lanes.entrySet().removeIf(entry -> entry.getValue().isEmpty());
         long elapsed = Math.max(0L, nanoClock.getAsLong() - start);
-        return new TickStats(slices, processed, elapsed, elapsed >= maxNanos);
+        return new TickStats(slices, processed, elapsed, elapsed >= maxNanos,
+                processed >= globalUnitLimit);
     }
 
-    public record TickStats(int slices, int processedUnits, long elapsedNanos, boolean budgetExhausted) {
+    private TaskRecord pollRunnable(ArrayDeque<TaskRecord> lane) {
+        int remaining = lane.size();
+        while (remaining-- > 0) {
+            TaskRecord candidate = lane.removeFirst();
+            if (candidate.status().terminal()) continue;
+            if (candidate.status() == TaskStatus.PAUSED || candidate.status() == TaskStatus.WAITING_RESOURCE) {
+                lane.addLast(candidate);
+                continue;
+            }
+            return candidate;
+        }
+        return null;
+    }
+
+    public record TickStats(int slices, int processedUnits, long elapsedNanos,
+            boolean timeBudgetExhausted, boolean unitBudgetExhausted) {
     }
 }
