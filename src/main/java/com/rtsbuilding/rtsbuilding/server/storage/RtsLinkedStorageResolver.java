@@ -374,6 +374,7 @@ public final class RtsLinkedStorageResolver {
             }
             RtsStorageSession session = entry.getValue();
             if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
+                RtsEndpointLeaseCache.INSTANCE.invalidate(player.getUUID(), dimension, pos);
                 RtsSessionService.saveToPlayerNbt(player, session);
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
                 session.transfer.pageDataVersion.incrementAndGet();
@@ -405,6 +406,7 @@ public final class RtsLinkedStorageResolver {
             }
             RtsStorageSession session = entry.getValue();
             if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
                 RtsSessionService.saveToPlayerNbt(player, session);
                 RtsStorageTickService.INSTANCE.forceRefresh(player);
                 session.transfer.pageDataVersion.incrementAndGet();

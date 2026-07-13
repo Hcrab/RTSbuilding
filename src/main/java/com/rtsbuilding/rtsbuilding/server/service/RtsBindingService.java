@@ -65,6 +65,8 @@ public final class RtsBindingService {
         if (player == null || pos == null) return;
         RtsStorageSession session = RtsSessionService.getOrCreate(player);
         if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+            RtsEndpointLeaseCache.INSTANCE.invalidate(
+                    player.getUUID(), player.serverLevel().dimension(), pos);
             RtsStorageTickService.INSTANCE.forceRefresh(player);
             session.transfer.pageDataVersion.incrementAndGet();
             RtsSessionService.saveToPlayerNbt(player, session);

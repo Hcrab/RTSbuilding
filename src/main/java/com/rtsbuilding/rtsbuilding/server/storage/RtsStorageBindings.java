@@ -110,6 +110,8 @@ public final class RtsStorageBindings {
         // that were unlinked or changed).
         session.bdHandlerStale = true;
         session.bdFluidHandlerStale = true;
+        // 绑定关系改变后，远程背包和方块端点租约都必须重新解析。
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         return UpdateResult.refreshFirst(true);
     }
 
