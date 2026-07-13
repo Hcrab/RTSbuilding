@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 import java.util.UUID;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class RtsFtbTeamsCompatImpl {
@@ -92,15 +93,29 @@ public final class RtsFtbTeamsCompatImpl {
                 if (method.getParameterCount() != 0) {
                     continue;
                 }
-                Object value = unwrapOptional(method.invoke(team));
-                if (value != null && !value.toString().isBlank()) {
-                    return value.toString();
+                String label = plainTeamLabel(method.invoke(team));
+                if (!label.isBlank()) {
+                    return label;
                 }
             } catch (ReflectiveOperationException ignored) {
                 // 尝试下一个常见队伍显示名方法。
             }
         }
         return "";
+    }
+
+    /**
+     * 将 FTB Teams 的显示名转换为真正给玩家看的纯文本。
+     *
+     * <p>FTB 的 {@code Team#getName()} 可能返回 {@link Component}。不能调用
+     * {@code toString()}，否则会把样式和内部组件结构展开成可能超过网络上限的调试文本。</p>
+     */
+    static String plainTeamLabel(Object value) {
+        Object unwrapped = unwrapOptional(value);
+        String text = unwrapped instanceof Component component
+                ? component.getString()
+                : unwrapped == null ? "" : unwrapped.toString();
+        return text.trim();
     }
 
     private static Method resolveTeamLookupMethod(Class<?> managerClass) throws NoSuchMethodException {
