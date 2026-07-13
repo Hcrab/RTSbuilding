@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.server.MinecraftServer;
@@ -95,7 +94,7 @@ public final class ServerTickOrchestrator {
                 RtsEffectAccumulator.INSTANCE.markStorageViewDirty(
                         player.getUUID(), player.level().dimension());
                 // 存储变化后自动尝试恢复挂起放置作业
-                RtsPendingPlacementService.tryResumeAfterStorageChange(player);
+                RtsPendingPlacementService.tryResumeAfterStorageChange(player, entry.getValue());
             }
         }
 
@@ -106,7 +105,6 @@ public final class ServerTickOrchestrator {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             RtsStorageSession session = RtsSessionService.getIfPresent(player);
             if (session == null) continue;
-            RtsMiningStateMachine.tickActiveMining(player, session);
             RtsFunnelService.tick(player, session);
             RtsPlacedRecoveryService.tick(player, session);
         }

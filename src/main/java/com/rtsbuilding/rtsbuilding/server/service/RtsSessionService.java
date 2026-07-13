@@ -143,7 +143,7 @@ public final class RtsSessionService {
         if (session != null) {
             RtsDropAbsorber.flushDropBufferToPlayer(player, session);
             session.placement.placeBatchJobs.clear();
-            session.placement.pendingJobs.clear();
+            session.placement.clearPendingJobs();
             RtsFunnelService.disableAndFlush(player, session);
             RtsMenuRemoteService.closeTracked(player, session);
             RtsMenuRemoteService.clearValidation(player, session);

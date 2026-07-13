@@ -286,7 +286,7 @@ public final class RtsPlacementBatch {
                     if (hasWorkflowEntry) {
                         job.unconsumeLast();
                         session.placement.placeBatchJobs.removeFirst();
-                        session.placement.pendingJobs.addLast(job);
+                        session.placement.addPendingJob(job);
                         workflowToken.ifPresent(token -> token.suspend());
                     } else {
                         // 普通右键空手交互没有工作流槽位；失败或打开菜单后直接收尾，避免 workflow -1 丢弃。
@@ -338,7 +338,7 @@ public final class RtsPlacementBatch {
     public static void cancelPlaceTask(ServerPlayer player, RtsStorageSession session, PlaceBatchJob job) {
         if (player == null || session == null || job == null) return;
         boolean removed = session.placement.placeBatchJobs.remove(job)
-                | session.placement.pendingJobs.remove(job);
+                | session.placement.removePendingJob(job);
         if (!removed) return;
         if (!job.placedPositions.isEmpty()) {
             ServerHistoryManager.recordPlacement(player, job.placedPositions, job.face());
@@ -372,7 +372,7 @@ public final class RtsPlacementBatch {
         if (matched == null) {
             return false;
         }
-        session.placement.pendingJobs.remove(matched);
+        session.placement.removePendingJob(matched);
         session.placement.placeBatchJobs.addLast(matched);
         RtsWorkflowEngine.getInstance().from(player, workflowEntryId).ifPresent(token -> token.resume());
         RtsSessionService.saveToPlayerNbt(player, session);
@@ -383,7 +383,14 @@ public final class RtsPlacementBatch {
         if (session == null || workflowEntryId < 0) {
             return false;
         }
-        return session.placement.pendingJobs.removeIf(job -> job.workflowEntryId() == workflowEntryId);
+        PlaceBatchJob matched = null;
+        for (PlaceBatchJob job : session.placement.pendingJobs) {
+            if (job.workflowEntryId() == workflowEntryId) {
+                matched = job;
+                break;
+            }
+        }
+        return matched != null && session.placement.removePendingJob(matched);
     }
 
     /**

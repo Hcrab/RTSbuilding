@@ -23,6 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -132,7 +133,7 @@ public final class RtsPendingPlacementService {
             overwriteConflicts(player, session, job);
         }
 
-        session.placement.pendingJobs.remove(job);
+        session.placement.removePendingJob(job);
         session.placement.placeBatchJobs.addLast(job);
         RtsWorkflowEngine.getInstance().from(player, workflowEntryId).ifPresent(token -> token.resume());
         RtsSessionService.saveToPlayerNbt(player, session);
@@ -156,7 +157,7 @@ public final class RtsPendingPlacementService {
             }
         }
         for (RtsPlacementBatch.PlaceBatchJob job : resumable) {
-            session.placement.pendingJobs.remove(job);
+            session.placement.removePendingJob(job);
             session.placement.placeBatchJobs.addLast(job);
             RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
             count++;
@@ -177,6 +178,46 @@ public final class RtsPendingPlacementService {
             return;
         }
         resumeAllPendingJobs(player, session);
+    }
+
+    /**
+     * 只检查与本次变化物品相关的挂起任务，避免任意储存变化触发全队列库存查询。
+     */
+    public static void tryResumeAfterStorageChange(ServerPlayer player, Collection<String> changedItemIds) {
+        if (player == null || changedItemIds == null || changedItemIds.isEmpty()) {
+            return;
+        }
+        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        if (session == null || session.placement.pendingJobs.isEmpty()) {
+            return;
+        }
+
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
+            return;
+        }
+
+        List<RtsPlacementBatch.PlaceBatchJob> resumed = new ArrayList<>();
+        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobsForItems(changedItemIds)) {
+            if (!session.placement.pendingJobs.contains(job)) {
+                continue;
+            }
+            ItemStack template = resolveTemplate(job.itemPrototype(), job.itemId());
+            if (!player.isCreative() && countAvailableItems(player, template) <= 0) {
+                continue;
+            }
+            session.placement.removePendingJob(job);
+            session.placement.placeBatchJobs.addLast(job);
+            resumed.add(job);
+        }
+        if (resumed.isEmpty()) {
+            return;
+        }
+        for (RtsPlacementBatch.PlaceBatchJob job : resumed) {
+            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
+        }
+        RtsSessionService.saveToPlayerNbt(player, session);
+        RtsPageService.markStorageViewDirty(player, session);
     }
 
     public static void refreshWorkflowProgress(ServerPlayer player, RtsStorageSession session) {
