@@ -6,6 +6,5 @@ public enum TaskType {
     DESTRUCTION,
     MINING,
     BLUEPRINT,
-    BUFFER_DRAIN,
-    LEGACY_ADAPTER
+    BUFFER_DRAIN
 }

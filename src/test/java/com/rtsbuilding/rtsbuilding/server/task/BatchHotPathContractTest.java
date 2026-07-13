@@ -30,14 +30,11 @@ class BatchHotPathContractTest {
     }
 
     @Test
-    void placementHasARealTaskExecutorAndLegacySliceNoLongerRunsIt() throws IOException {
+    void placementHasARealTaskExecutor() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
         assertTrue(engine.contains("registerExecutor(TaskType.PLACEMENT"));
         assertTrue(engine.contains("private TaskStepResult executePlacement"));
-        int legacyStart = engine.indexOf("private TaskStepResult executeLegacyPlayerSlice");
-        int placementStart = engine.indexOf("private void syncPlacementTasks");
-        String legacyBody = engine.substring(legacyStart, placementStart);
-        assertFalse(legacyBody.contains("tickPlaceBatchJobs"));
+        assertFalse(engine.contains("executeLegacyPlayerSlice"));
     }
 
     private static String readMain(String relative) throws IOException {

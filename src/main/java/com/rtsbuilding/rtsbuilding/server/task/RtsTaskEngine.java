@@ -8,18 +8,15 @@ import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import net.minecraft.server.MinecraftServer;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
  * Command Gateway 之后的统一任务执行入口。
  *
- * <p>当前提交先把全部玩家工作放入同一个全局数量/时间预算，并通过
- * {@link LegacyPlayerSlicePayload} 兼容旧队列。新功能必须直接提交真正的 TaskRecord，
- * 不得再新增 Session 内的独立 Tick 队列。</p>
+ * <p>放置、拆除、挖掘与掉落缓存回写共享同一个全局数量/时间预算。
+ * 新功能必须直接提交真正的 TaskRecord，不得再新增 Session 内的独立 Tick 驱动器。</p>
  */
 public final class RtsTaskEngine {
     public static final RtsTaskEngine INSTANCE = new RtsTaskEngine();
@@ -27,12 +24,12 @@ public final class RtsTaskEngine {
     private final TaskScheduler scheduler = new TaskScheduler(System::nanoTime);
     private final Map<RtsPlacementBatch.PlaceBatchJob, TaskRecord> placementRecords = new IdentityHashMap<>();
     private final Map<MiningTaskKey, TaskRecord> miningRecords = new java.util.HashMap<>();
-    private final Set<UUID> legacySliceQueuedOwners = new HashSet<>();
+    private final Map<UUID, TaskRecord> bufferRecords = new java.util.HashMap<>();
 
     private RtsTaskEngine() {
-        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, this::executeLegacyPlayerSlice);
         scheduler.registerExecutor(TaskType.PLACEMENT, this::executePlacement);
         scheduler.registerExecutor(TaskType.MINING, this::executeMining);
+        scheduler.registerExecutor(TaskType.BUFFER_DRAIN, this::executeBufferDrain);
     }
 
     public TaskScheduler.TickStats tick(MinecraftServer server) {
@@ -41,11 +38,7 @@ public final class RtsTaskEngine {
             if (session == null) continue;
             syncPlacementTasks(player, session);
             syncMiningTasks(player, session);
-            if (legacySliceQueuedOwners.contains(player.getUUID())) continue;
-            legacySliceQueuedOwners.add(player.getUUID());
-            scheduler.submit(new TaskRecord(
-                    UUID.randomUUID(), player.getUUID(), TaskType.LEGACY_ADAPTER,
-                    new LegacyPlayerSlicePayload(player, session), 0, System.nanoTime()));
+            syncBufferTask(player, session);
         }
         return scheduler.tick(
                 Config.taskEngineMaxNanosPerTick(),
@@ -55,41 +48,12 @@ public final class RtsTaskEngine {
 
     public void onPlayerLogout(UUID playerId) {
         scheduler.cancelOwner(playerId, System.nanoTime());
-        legacySliceQueuedOwners.remove(playerId);
         placementRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
         miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(playerId));
+        bufferRecords.remove(playerId);
     }
-
-    private TaskStepResult executeLegacyPlayerSlice(TaskRecord task, TaskBudget budget) {
-        LegacyPlayerSlicePayload payload = (LegacyPlayerSlicePayload) task.payload();
-        var player = payload.player();
-        var session = payload.session();
-        int processed = 0;
-
-        legacySliceQueuedOwners.remove(player.getUUID());
-
-        if (budget.hasTime() && processed < budget.maxUnits()) {
-            processed += RtsDropAbsorber.drainDropBuffer(player, session,
-                    budget.maxUnits() - processed, System.nanoTime() + budget.remainingNanos());
-        }
-        if (budget.hasTime() && processed < budget.maxUnits()) {
-            processed += RtsPlacementBatch.tickPlaceBatchJobs(player, session,
-                    budget.maxUnits() - processed, System.nanoTime() + budget.remainingNanos());
-        }
-        if (currentMiningSource(session) == null && budget.hasTime() && processed < budget.maxUnits()) {
-            int before = session.mining.ultimineProcessedTargets;
-            boolean hadSingleTarget = session.mining.miningPos != null;
-            RtsMiningStateMachine.tickActiveMining(player, session,
-                    budget.maxUnits() - processed, System.nanoTime() + budget.remainingNanos());
-            int miningDelta = Math.max(0, session.mining.ultimineProcessedTargets - before);
-            if (hadSingleTarget && session.mining.miningPos == null) miningDelta = Math.max(1, miningDelta);
-            processed += Math.min(budget.maxUnits() - processed, miningDelta);
-        }
 
         // 兼容调度片每 Tick 只执行一次；真实类型任务迁移后由各 Executor 决定继续或完成。
-        return TaskStepResult.complete(processed);
-    }
-
     private void syncPlacementTasks(net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session) {
         long now = System.nanoTime();
@@ -264,6 +228,36 @@ public final class RtsTaskEngine {
         return TaskStepResult.nextTick(
                 advance.processedUnits(), advance.processedUnits(),
                 advance.succeededUnits(), advance.failedUnits());
+    }
+
+    private void syncBufferTask(net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session) {
+        TaskRecord existing = bufferRecords.get(player.getUUID());
+        if (session.miningDropBuffer.isEmpty()) {
+            if (existing != null && existing.status().terminal()) bufferRecords.remove(player.getUUID());
+            return;
+        }
+        if (existing != null && !existing.status().terminal()) return;
+        long now = System.nanoTime();
+        TaskRecord record = new TaskRecord(
+                UUID.randomUUID(), player.getUUID(), TaskType.BUFFER_DRAIN,
+                new BufferDrainTaskPayload(player, session), 0, now);
+        bufferRecords.put(player.getUUID(), record);
+        scheduler.submit(record);
+    }
+
+    private TaskStepResult executeBufferDrain(TaskRecord task, TaskBudget budget) {
+        BufferDrainTaskPayload payload = (BufferDrainTaskPayload) task.payload();
+        var player = payload.player();
+        var session = payload.session();
+        int beforeStacks = session.miningDropBuffer.stacks.size();
+        int processed = RtsDropAbsorber.drainDropBuffer(
+                player, session, budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
+        int completedStacks = Math.max(0, beforeStacks - session.miningDropBuffer.stacks.size());
+        if (session.miningDropBuffer.isEmpty()) {
+            return TaskStepResult.complete(processed, completedStacks, completedStacks, 0);
+        }
+        return TaskStepResult.nextTick(processed, completedStacks, completedStacks, 0);
     }
 
     private record MiningTaskKey(UUID playerId, int workflowEntryId) {

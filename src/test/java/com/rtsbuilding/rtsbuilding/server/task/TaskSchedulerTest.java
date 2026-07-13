@@ -18,7 +18,7 @@ class TaskSchedulerTest {
         AtomicLong clock = new AtomicLong();
         TaskScheduler scheduler = new TaskScheduler(clock::get);
         List<UUID> order = new ArrayList<>();
-        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, (task, budget) -> {
+        scheduler.registerExecutor(TaskType.BLUEPRINT, (task, budget) -> {
             order.add(task.ownerId());
             clock.addAndGet(10L);
             return TaskStepResult.continueWith(1);
@@ -37,7 +37,7 @@ class TaskSchedulerTest {
     void stopsWhenNanosecondBudgetIsExhausted() {
         AtomicLong clock = new AtomicLong();
         TaskScheduler scheduler = new TaskScheduler(clock::get);
-        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, (task, budget) -> {
+        scheduler.registerExecutor(TaskType.BLUEPRINT, (task, budget) -> {
             clock.addAndGet(30L);
             return TaskStepResult.continueWith(1);
         });
@@ -54,7 +54,7 @@ class TaskSchedulerTest {
     void pausedHeadDoesNotStarveRunnableTaskInSameLane() {
         AtomicLong clock = new AtomicLong();
         TaskScheduler scheduler = new TaskScheduler(clock::get);
-        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, (task, budget) -> {
+        scheduler.registerExecutor(TaskType.BLUEPRINT, (task, budget) -> {
             clock.incrementAndGet();
             return TaskStepResult.complete(1);
         });
@@ -76,7 +76,7 @@ class TaskSchedulerTest {
     void globalUnitBudgetStopsAcrossMultipleSlices() {
         AtomicLong clock = new AtomicLong();
         TaskScheduler scheduler = new TaskScheduler(clock::get);
-        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER,
+        scheduler.registerExecutor(TaskType.BLUEPRINT,
                 (task, budget) -> TaskStepResult.continueWith(budget.maxUnits()));
         scheduler.submit(task(UUID.randomUUID()));
         scheduler.submit(task(UUID.randomUUID()));
@@ -91,7 +91,7 @@ class TaskSchedulerTest {
     void oneRunnableAmongOneHundredBlockedTasksDoesNotSpinUntilTimeBudget() {
         AtomicLong clock = new AtomicLong();
         TaskScheduler scheduler = new TaskScheduler(clock::get);
-        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, (task, budget) -> {
+        scheduler.registerExecutor(TaskType.BLUEPRINT, (task, budget) -> {
             clock.incrementAndGet();
             return TaskStepResult.complete(1);
         });
@@ -130,6 +130,6 @@ class TaskSchedulerTest {
     }
 
     private static TaskRecord task(UUID owner) {
-        return new TaskRecord(UUID.randomUUID(), owner, TaskType.LEGACY_ADAPTER, EMPTY, 100, 0L);
+        return new TaskRecord(UUID.randomUUID(), owner, TaskType.BLUEPRINT, EMPTY, 100, 0L);
     }
 }
