@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
+
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
@@ -117,6 +119,7 @@ public final class RtsSessionService {
 
     public static void onRtsDisabled(ServerPlayer player) {
         RtsStorageSession session = getOrCreate(player);
+        RtsDropAbsorber.flushDropBufferToPlayer(player, session);
         RtsMiningStateMachine.stopActiveMining(player, session);
         RtsWorkflowEngine.getInstance().pauseAllActive(player.getUUID(), true);
         RtsFunnelService.disableAndFlush(player, session);
@@ -138,6 +141,7 @@ public final class RtsSessionService {
         RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {
+            RtsDropAbsorber.flushDropBufferToPlayer(player, session);
             session.placement.placeBatchJobs.clear();
             session.placement.pendingJobs.clear();
             RtsFunnelService.disableAndFlush(player, session);

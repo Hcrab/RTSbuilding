@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import net.minecraft.server.MinecraftServer;
 
@@ -49,6 +50,10 @@ public final class RtsTaskEngine {
         var session = payload.session();
         int processed = 0;
 
+        if (budget.hasTime() && processed < budget.maxUnits()) {
+            processed += RtsDropAbsorber.drainDropBuffer(player, session,
+                    budget.maxUnits() - processed, System.nanoTime() + budget.remainingNanos());
+        }
         if (budget.hasTime() && processed < budget.maxUnits()) {
             processed += RtsPlacementBatch.tickPlaceBatchJobs(player, session,
                     budget.maxUnits() - processed, System.nanoTime() + budget.remainingNanos());

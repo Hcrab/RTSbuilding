@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
@@ -76,6 +77,8 @@ public class RtsStorageSession {
     public final RtsBrowserState browser = new RtsBrowserState();
     /** 远程挖掘与连锁挖掘状态。 */
     public final RtsMiningState mining = new RtsMiningState();
+    /** 自动存入挖掘掉落的有界中间缓存。 */
+    public final RtsMiningDropBufferState miningDropBuffer = new RtsMiningDropBufferState();
     /** 掉落物漏斗状态。 */
     public final RtsFunnelState funnel = new RtsFunnelState();
     /** 远程菜单与页面版本状态。 */

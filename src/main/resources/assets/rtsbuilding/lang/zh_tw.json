@@ -869,5 +869,10 @@
   "screen.rtsbuilding.tooltip.shape_cylinder": "圓柱",
   "screen.rtsbuilding.tooltip.shape_ball": "球",
   "screen.rtsbuilding.tooltip.shape_box": "體",
-  "screen.rtsbuilding.tooltip.shape_chain": "連鎖"
+  "screen.rtsbuilding.tooltip.shape_chain": "連鎖",
+  "message.rtsbuilding.drop_buffer.full": "自動存入快取已滿，挖掘暫時停止。",
+  "message.rtsbuilding.drop_buffer.fallback": "儲存持續 3 秒無法寫入，物品已移至背包或合併掉落在附近。",
+  "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS 每 Tick 全域工作量",
+  "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS 每玩家排程片工作量",
+  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 伺服器時間預算"
 }

@@ -869,5 +869,10 @@
   "screen.rtsbuilding.tooltip.shape_cylinder": "圆柱",
   "screen.rtsbuilding.tooltip.shape_ball": "球",
   "screen.rtsbuilding.tooltip.shape_box": "体",
-  "screen.rtsbuilding.tooltip.shape_chain": "连锁"
+  "screen.rtsbuilding.tooltip.shape_chain": "连锁",
+  "message.rtsbuilding.drop_buffer.full": "自动存入缓存已满，挖掘暂时停止。",
+  "message.rtsbuilding.drop_buffer.fallback": "储存持续 3 秒无法写入，物品已转入背包或合并掉落在附近。",
+  "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS 每 Tick 全局工作量",
+  "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS 每玩家调度片工作量",
+  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 服务端时间预算"
 }
