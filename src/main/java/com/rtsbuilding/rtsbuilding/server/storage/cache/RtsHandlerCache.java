@@ -55,7 +55,12 @@ public final class RtsHandlerCache {
         // 给予基于快照的处理器（如 AE2）在每个更新周期刷新其内部缓存的机会。
         // 这将昂贵扫描与热路径 getSlots() 调用解耦。
         if (handler instanceof RefreshableSnapshotHandler refreshable) {
-            refreshable.ensureFreshSnapshot();
+            try {
+                refreshable.ensureFreshSnapshot();
+            } catch (RuntimeException ignored) {
+                // 外部网络可能在维度/网格切换的同一 Tick 失效；保留旧快照，下个周期重试。
+                return Set.of();
+            }
         }
 
         int slots = numSlots(handler);

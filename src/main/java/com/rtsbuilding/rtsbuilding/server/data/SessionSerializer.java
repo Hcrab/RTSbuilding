@@ -57,6 +57,49 @@ public final class SessionSerializer {
         loadUiMemory(player, session, root);
         loadPlacement(player, session, root);
         loadDestroy(player, session, root);
+        loadDropBuffer(player, session, root);
+    }
+
+    /** 保存完整 ItemStack 组件，确保正常存档/重启不会丢失已接住的掉落。 */
+    public static CompoundTag serializeDropBuffer(ServerPlayer player, RtsStorageSession session) {
+        CompoundTag root = new CompoundTag();
+        ListTag stacks = new ListTag();
+        int count = 0;
+        for (ItemStack stack : session.miningDropBuffer.stacks) {
+            if (stack == null || stack.isEmpty()
+                    || stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                continue;
+            }
+            int accepted = Math.min(stack.getCount(),
+                    com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_BUFFERED_ITEMS - count);
+            if (accepted <= 0) break;
+            stacks.add(stack.copyWithCount(accepted).save(player.registryAccess()));
+            count += accepted;
+        }
+        root.put("drop_buffer_stacks", stacks);
+        root.putLong("drop_buffer_since", session.miningDropBuffer.firstQueuedGameTime);
+        return root;
+    }
+
+    private static void loadDropBuffer(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
+        var buffer = session.miningDropBuffer;
+        buffer.stacks.clear();
+        buffer.bufferedItems = 0;
+        ListTag stacks = root.getList("drop_buffer_stacks", Tag.TAG_COMPOUND);
+        for (int i = 0; i < stacks.size()
+                && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
+                i++) {
+            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
+            if (stack.isEmpty()) continue;
+            int accepted = Math.min(stack.getCount(), buffer.remainingCapacity());
+            if (accepted <= 0) break;
+            buffer.stacks.addLast(stack.copyWithCount(accepted));
+            buffer.bufferedItems += accepted;
+        }
+        buffer.firstQueuedGameTime = buffer.stacks.isEmpty()
+                ? -1L
+                : root.getLong("drop_buffer_since");
+        buffer.fullNoticeSent = false;
     }
 
     // ======================================================================
@@ -395,11 +438,11 @@ public final class SessionSerializer {
     }
 
     public static void loadPlacement(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        session.placement.pendingJobs.clear();
+        session.placement.clearPendingJobs();
         session.placement.placeBatchJobs.clear();
         ListTag pendingList = root.getList("pending_placement_jobs", Tag.TAG_COMPOUND);
         for (int i = 0; i < pendingList.size(); i++) {
-            session.placement.pendingJobs.addLast(
+            session.placement.addPendingJob(
                     RtsPlacementBatch.PlaceBatchJob.fromNbt(pendingList.getCompound(i), player.registryAccess()));
         }
         ListTag activeList = root.getList("active_placement_jobs", Tag.TAG_COMPOUND);

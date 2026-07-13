@@ -21,6 +21,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -558,6 +559,9 @@ public final class RtsRefinedStorageCompat {
 
         private static Object invoke(Method method, Object target, Object... args) {
             if (method == null) {
+                return null;
+            }
+            if (target == null && !Modifier.isStatic(method.getModifiers())) {
                 return null;
             }
             try {

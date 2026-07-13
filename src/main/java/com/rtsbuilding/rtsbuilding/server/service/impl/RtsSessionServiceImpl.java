@@ -16,6 +16,9 @@ import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageCore;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -73,6 +76,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         cluster.set(SessionComponents.UI_MEMORY, SessionSerializer.serializeUiMemory(player, session));
         cluster.set(SessionComponents.PLACEMENT, SessionSerializer.serializePlacement(player, session));
         cluster.set(SessionComponents.DESTROY, SessionSerializer.serializeDestroy(player, session));
+        cluster.set(SessionComponents.DROP_BUFFER, SessionSerializer.serializeDropBuffer(player, session));
     }
 
     @Override
@@ -90,13 +94,16 @@ public final class RtsSessionServiceImpl implements SessionService {
     public void onRtsDisabled(ServerPlayer player) {
         RtsStorageSession session = getOrCreate(player);
         cleanupSession(player, session, true);
+        RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player);
         RtsWorkflowEngine.getInstance().pauseAllActive(player.getUUID(), true);
         saveToPlayerNbt(player, session);
         cleanupPlayerCaches(player);
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
     }
 
     @Override
     public void onPlayerLogout(ServerPlayer player) {
+        RtsTaskEngine.INSTANCE.onPlayerLogout(player.getUUID());
         registry.pathfinding().cancel(player);
         RtsStorageSession session = sessions.get(player.getUUID());
 
@@ -108,6 +115,7 @@ public final class RtsSessionServiceImpl implements SessionService {
 
         sessions.remove(player.getUUID());
         cleanupPlayerCaches(player);
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         TickablePipelineRegistry.removeAll(player.getUUID());
         RtsWorkflowEngine.getInstance().saveAll(player.getServer());
     }
@@ -127,6 +135,7 @@ public final class RtsSessionServiceImpl implements SessionService {
      * 注意：不会保存会话或清除玩家缓存。
      */
     private void cleanupSession(ServerPlayer player, RtsStorageSession session, boolean notify) {
+        RtsDropAbsorber.flushDropBufferToPlayer(player, session);
         RtsMiningStateMachine.releaseMiningResources(player, session);
         registry.pathfinding().cancel(player);
         registry.funnel().disableAndFlush(player, session);
@@ -154,6 +163,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         root.merge(cluster.get(SessionComponents.UI_MEMORY));
         root.merge(cluster.get(SessionComponents.PLACEMENT));
         root.merge(cluster.get(SessionComponents.DESTROY));
+        root.merge(cluster.get(SessionComponents.DROP_BUFFER));
 
         if (!root.isEmpty()) {
             SessionSerializer.loadAll(player, session, root);

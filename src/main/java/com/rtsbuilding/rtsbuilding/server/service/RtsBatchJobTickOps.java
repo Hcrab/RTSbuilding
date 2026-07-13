@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -86,7 +87,8 @@ public final class RtsBatchJobTickOps {
             ToIntFunction<J> entryIdFn, ToIntFunction<J> countFn,
             ToIntFunction<J> failedFn,
             BiConsumer<ServerPlayer, J> historyRecorder,
-            @javax.annotation.Nullable BiConsumer<ServerPlayer, J> onCompleted) {
+            @javax.annotation.Nullable BiConsumer<ServerPlayer, J> onCompleted,
+            boolean releaseWorkflow) {
         if (completedJobs.isEmpty()) return;
 
         var engine = RtsWorkflowEngine.getInstance();
@@ -109,8 +111,8 @@ public final class RtsBatchJobTickOps {
                 for (int i = 0; i < failed; i++) {
                     token.recordFailure();
                 }
-                // 完成工作流条目
-                token.complete();
+                // 旧入口仍自行释放；Task Engine 路径必须等 TaskRecord 进入终态后再释放。
+                if (releaseWorkflow) token.complete();
             });
 
             if (onCompleted != null) {
@@ -119,7 +121,11 @@ public final class RtsBatchJobTickOps {
         }
 
         // 统一刷新储存页面
-        ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+        // 批处理收尾只唤醒下一次储存 tick；页面、工作流与持久化在 tick 末合并提交。
+        ServiceRegistry.getInstance().serviceOp().markDirtyDeferred(player, session);
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     /**
@@ -130,14 +136,19 @@ public final class RtsBatchJobTickOps {
             Iterable<J> activeJobs, Map<Integer, Integer> beforeTick,
             ToIntFunction<J> entryIdFn, ToIntFunction<J> countFn) {
         var engine = RtsWorkflowEngine.getInstance();
+        boolean changed = false;
         for (J j : activeJobs) {
             int eid = entryIdFn.applyAsInt(j);
             int before = beforeTick.getOrDefault(eid, 0);
             int delta = countFn.applyAsInt(j) - before;
             if (delta > 0) {
                 engine.from(player, eid).ifPresent(token -> token.updateProgress(delta, null));
-                ServiceRegistry.getInstance().serviceOp().markDirty(player, session);
+                changed = true;
             }
+        }
+        if (changed) {
+            ServiceRegistry.getInstance().serviceOp().markDirtyDeferred(player, session);
+            RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
         }
     }
 

@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 
 /**
  * 在工作流操作完成后刷新存储/UI 页面。
@@ -35,9 +35,12 @@ public final class UiRefreshPipe implements PipelinePipe<PipelineContext> {
                 ? ctx.getData(ARG_PAGE_NUMBER)
                 : session.browser.page;
 
-        ServiceRegistry.getInstance().page().requestPage(ctx.player(), page,
-                session.browser.search, session.browser.category,
-                session.browser.sort, session.browser.ascending);
+        // 放置/挖掘管线只留下脏标记；Tick 末统一构建一次页面。
+        session.browser.page = page;
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(
+                ctx.player().getUUID(), ctx.player().level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(
+                ctx.player().getUUID(), ctx.player().level().dimension());
 
         return PipelineResult.success();
     }

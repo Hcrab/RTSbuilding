@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
@@ -59,6 +60,8 @@ public final class RtsBindingServiceImpl implements BindingService {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+            RtsEndpointLeaseCache.INSTANCE.invalidate(
+                    player.getUUID(), player.serverLevel().dimension(), pos);
             registry.serviceOp().afterModification(player, session);
         }
     }

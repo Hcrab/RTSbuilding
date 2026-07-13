@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
 import net.minecraft.nbt.CompoundTag;
@@ -180,10 +181,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (!removed) return;
 
         // 通过网络通知玩家（notifyPlayer 内部处理 idle 的情况）
-        ServerPlayer player = findPlayerByUUID(playerId);
-        if (player != null) {
-            syncService.notifyPlayer(player, slots);
-        }
+        RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
     }
 
     /**
@@ -191,11 +189,19 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
     void notifyPlayer(UUID playerId, ResourceKey<Level> dimension) {
-        RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
-        if (slots == null) return;
+        if (getSlots(playerId, dimension) != null) {
+            RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
+        }
+    }
 
+    /**
+     * 仅由 Tick 末副作用提交器调用。普通业务代码应调用 token 方法并留下脏标记，
+     * 避免同一 Tick 重复构建和发送完整工作流快照。
+     */
+    public void flushPlayerNow(UUID playerId, ResourceKey<Level> dimension) {
+        RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         ServerPlayer player = findPlayerByUUID(playerId);
-        if (player != null) {
+        if (slots != null && player != null) {
             syncService.notifyPlayer(player, slots);
         }
     }
@@ -246,7 +252,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowToken token = new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this);
         fireEvent(WorkflowEventType.STARTED, player.getUUID(), entry.id(), entry);
-        syncService.notifyPlayer(player, slots);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
 
         RtsbuildingMod.LOGGER.info("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
                 player.getGameProfile().getName(), entry.id(), type, totalBlocks);

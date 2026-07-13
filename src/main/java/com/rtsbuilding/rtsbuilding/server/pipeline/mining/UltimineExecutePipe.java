@@ -6,7 +6,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
-import com.rtsbuilding.rtsbuilding.server.pipeline.sync.NetworkSyncPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
@@ -230,9 +229,6 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         // ── Switch 后的逻辑（仅限非队列模式） ───────────────
 
         // 为下游管道在上下文中存储批处理信息
-        mctx.setData(NetworkSyncPipe.ARG_TOTAL_BLOCKS, session.mining.ultimineTotalTargets);
-        mctx.setData(NetworkSyncPipe.ARG_PROCESSED_BLOCKS, 0);
-
         // 在已知目标数后更新工作流总方块数
         if (mctx.hasWorkflowEntryId() && session.mining.ultimineTotalTargets > 0) {
             RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())

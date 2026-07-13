@@ -77,6 +77,11 @@ public class Config {
             .translation("rtsbuilding.configuration.requireKeyboardBatchConfirm")
             .define("requireKeyboardBatchConfirm", true);
 
+    public static final ModConfigSpec.BooleanValue DEVELOPER_MODE = CLIENT_BUILDER
+            .comment("Show the developer scenario task entry and write local diagnostic logs.")
+            .translation("rtsbuilding.configuration.developerMode")
+            .define("developerMode", false);
+
     // ---- Server runtime limits ----
 
     public static final ModConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = SERVER_BUILDER
@@ -153,6 +158,21 @@ public class Config {
             .comment("Maximum queued quick-build placement jobs per player.")
             .translation("rtsbuilding.configuration.buildBatchMaxQueuedJobs")
             .defineInRange("placement.buildBatchMaxQueuedJobs", 4, 1, 32);
+
+    public static final ModConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = SERVER_BUILDER
+            .comment("Hard global RTS work-unit limit across all players in one server tick.")
+            .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerTick")
+            .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
+
+    public static final ModConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_SLICE = SERVER_BUILDER
+            .comment("Maximum RTS work units granted to one player before rotating to another player.")
+            .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerSlice")
+            .defineInRange("taskEngine.maxUnitsPerSlice", 32, 1, 512);
+
+    public static final ModConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = SERVER_BUILDER
+            .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
+            .translation("rtsbuilding.configuration.taskEngineMaxNanosPerTick")
+            .defineInRange("taskEngine.maxNanosPerTick", 4_000_000L, 250_000L, 20_000_000L);
 
     public static final ModConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = SERVER_BUILDER
             .comment("Temporary interaction reach used while RTSBuilding replays a remote player action.")
@@ -352,8 +372,28 @@ public class Config {
         return BUILD_BATCH_BLOCKS_PER_TICK.getAsInt();
     }
 
+    public static boolean isDeveloperModeEnabled() {
+        return DEVELOPER_MODE.getAsBoolean();
+    }
+
+    public static void setDeveloperModeEnabled(boolean enabled) {
+        DEVELOPER_MODE.set(enabled);
+        CLIENT_SPEC.save();
+    }
     public static int buildBatchMaxQueuedJobs() {
         return BUILD_BATCH_MAX_QUEUED_JOBS.getAsInt();
+    }
+
+    public static int taskEngineMaxUnitsPerTick() {
+        return TASK_ENGINE_MAX_UNITS_PER_TICK.getAsInt();
+    }
+
+    public static int taskEngineMaxUnitsPerSlice() {
+        return TASK_ENGINE_MAX_UNITS_PER_SLICE.getAsInt();
+    }
+
+    public static long taskEngineMaxNanosPerTick() {
+        return TASK_ENGINE_MAX_NANOS_PER_TICK.get();
     }
 
     public static double remotePovBlockReach() {

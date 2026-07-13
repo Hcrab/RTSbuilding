@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -54,6 +55,7 @@ public final class RtsLinkedStorageBlockEventHandler {
             }
             RtsStorageSession session = entry.getValue();
             if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
+                RtsEndpointLeaseCache.INSTANCE.invalidate(player.getUUID(), dimension, pos);
                 ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }
@@ -81,6 +83,7 @@ public final class RtsLinkedStorageBlockEventHandler {
             }
             RtsStorageSession session = entry.getValue();
             if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
                 ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }

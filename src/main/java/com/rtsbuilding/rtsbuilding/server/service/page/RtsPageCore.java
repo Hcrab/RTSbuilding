@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
@@ -96,6 +97,7 @@ public final class RtsPageCore {
             sortedFluidEntries = cached.sortedFluidEntries();
             totalEntries = sortedEntries.size();
         } else {
+            RtsDeveloperMetrics.recordPageBuild(player);
             // ── Full build: counts → exactEntries → fluid → categories → sort → filter ──
             Map<String, Long> localCounts = new HashMap<>();
             List<Entry> exactEntries = new ArrayList<>();

@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedFluidHandlerView;
@@ -71,14 +72,19 @@ public final class RtsLinkedHandlerResolutionService {
                 if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
                         && RtsProgressionManager.canAccessHomeRadius(player, pos)
                         && player.serverLevel().hasChunkAt(pos)) {
-                    handler = backpackLink
-                            ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
-                            : RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+                    Object endpointIdentity = player.serverLevel().getBlockEntity(pos);
+                    handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
+                            player.getUUID(), currentDimension, pos, backpackUuid, endpointIdentity,
+                            () -> backpackLink
+                                    ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
+                                    : RtsLinkedCapabilities.findLinkedItemHandler(player, pos));
                 }
 
                 if (handler == null && backpackLink) {
-                    handler = RtsBackpackCompat.openBackpack(backpackUuid, session.linkedStorageInfo.getBackpackItemId(ref), player)
-                            .orElse(null);
+                    handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
+                            player.getUUID(), ref.dimension(), pos, backpackUuid, null,
+                            () -> RtsBackpackCompat.openBackpack(backpackUuid,
+                                    session.linkedStorageInfo.getBackpackItemId(ref), player).orElse(null));
                 }
 
                 if (handler == null) {
@@ -128,7 +134,10 @@ public final class RtsLinkedHandlerResolutionService {
      * 之后调用此方法，以播种每玩家的聚合存储。
      */
     public static void registerStorageCaches(ServerPlayer player, List<LinkedHandler> handlers) {
-        if (player == null || handlers == null || handlers.isEmpty()) {
+        if (player == null) {
+            return;
+        }
+        if (handlers == null || handlers.isEmpty()) {
             RtsStorageTickService.INSTANCE.unregisterPlayer(player);
             return;
         }

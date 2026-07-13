@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
@@ -96,6 +97,7 @@ public final class RtsInteractionHandlers {
     public static void handleDeleteWorkflow(C2SRtsDeleteWorkflowPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsTaskEngine.INSTANCE.cancelWorkflowTask(serverPlayer, payload.workflowEntryId());
                 IWorkflowEngine engine = RtsWorkflowEngine.getInstance();
                 engine.deleteWorkflow(serverPlayer, payload.workflowEntryId());
             }
@@ -168,11 +170,13 @@ public final class RtsInteractionHandlers {
                                 Component.translatable("message.rtsbuilding.workflow.resumed"),
                                 true);
                     } else if (token.isPaused()) {
+                        RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
                         token.unpause();
                         serverPlayer.displayClientMessage(
                                 Component.translatable("message.rtsbuilding.workflow.thread_resumed"),
                                 true);
                     } else {
+                        RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, true);
                         token.pause();
                         serverPlayer.displayClientMessage(
                                 Component.translatable("message.rtsbuilding.workflow.paused"),

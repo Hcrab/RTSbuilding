@@ -209,7 +209,7 @@ public final class RtsPendingPlacementService {
             if (!canResumeJob(player, session, job)) {
                 break;
             }
-            session.placement.pendingJobs.removeFirst();
+            session.placement.removeFirstPendingJob();
             session.placement.placeBatchJobs.addLast(job);
             resumed.add(job);
             count++;
@@ -265,6 +265,28 @@ public final class RtsPendingPlacementService {
         }
     }
 
+    /** 只检查与本次变化物品相关的挂起任务，避免任意储存变化触发全队列库存查询。 */
+    public static void tryResumeAfterStorageChange(ServerPlayer player, java.util.Collection<String> changedItemIds) {
+        if (player == null || changedItemIds == null || changedItemIds.isEmpty()) return;
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null || session.placement.pendingJobs.isEmpty()) return;
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) return;
+
+        List<RtsPlacementBatch.PlaceBatchJob> resumed = new ArrayList<>();
+        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobsForItems(changedItemIds)) {
+            if (!session.placement.pendingJobs.contains(job) || !canResumeJob(player, session, job)) continue;
+            session.placement.removePendingJob(job);
+            session.placement.placeBatchJobs.addLast(job);
+            resumed.add(job);
+        }
+        if (resumed.isEmpty()) return;
+        for (RtsPlacementBatch.PlaceBatchJob job : resumed) {
+            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
+        }
+        ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
+    }
+
     /**
      * 使用指定的策略重启指定搁置作业。
      *
@@ -288,7 +310,7 @@ public final class RtsPendingPlacementService {
             overwriteConflictPositions(player, job, session);
         }
 
-        session.placement.pendingJobs.remove(job);
+        session.placement.removePendingJob(job);
         session.placement.placeBatchJobs.addLast(job);
         RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
         if (strategy == 0) {

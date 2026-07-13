@@ -22,6 +22,7 @@ public final class RtsModConfigScreen extends Screen {
     private boolean survivalEnabled = Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean();
     private boolean shareWithTeams = Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean();
     private boolean blueprintsEnabled = Config.ENABLE_BLUEPRINTS.getAsBoolean();
+    private boolean developerMode = Config.isDeveloperModeEnabled();
     private String draftMaxRadius = Integer.toString(Config.maxActionRadiusBlocks());
     private String draftMaxBlueprintBlocks = Integer.toString(Config.maxBlueprintBlocks());
     private String draftAreaMineMaxWidth = Integer.toString(Config.areaMineMaxWidth());
@@ -180,6 +181,15 @@ public final class RtsModConfigScreen extends Screen {
                     Component.translatable("config.rtsbuilding.area_destroy_max_targets"),
                     this.draftAreaDestroyMaxTargets, 6);
         }
+        y += OPTION_ROW_H + 6 + SECTION_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.developerMode
+                    ? "config.rtsbuilding.enabled" : "config.rtsbuilding.disabled"), btn -> {
+                this.developerMode = !this.developerMode;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
     }
 
     private EditBox addIntegerBox(int x, int y, int width, Component label, String value, int maxLength) {
@@ -219,6 +229,7 @@ public final class RtsModConfigScreen extends Screen {
                     parseAreaMineMaxDepth(),
                     parseAreaMineMaxVolume(),
                     parseAreaDestroyMaxTargets());
+            Config.setDeveloperModeEnabled(this.developerMode);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
                 this.minecraft.player.displayClientMessage(Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()), false);
@@ -331,11 +342,17 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H;
         drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.area_destroy_max_targets"),
                 Component.translatable("config.rtsbuilding.area_destroy_max_targets.hint"));
+        y += OPTION_ROW_H + 6;
+
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.developer"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.developer_mode"),
+                Component.translatable("config.rtsbuilding.option.developer_mode.hint"));
         g.disableScissor();
     }
 
     private int contentHeight() {
-        return SECTION_H * 3 + OPTION_ROW_H * 10 + 12;
+        return SECTION_H * 4 + OPTION_ROW_H * 11 + 18;
     }
 
     private int maxScroll() {

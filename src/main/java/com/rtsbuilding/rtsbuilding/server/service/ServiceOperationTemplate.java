@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 
 /**
  * 服务操作模板——封装服务方法尾部常见的重复操作模式。
@@ -48,18 +49,15 @@ public final class ServiceOperationTemplate {
     public void afterModification(ServerPlayer player, RtsStorageSession session) {
         RtsStorageTickService.INSTANCE.forceRefresh(player);
         session.transfer.pageDataVersion.incrementAndGet();
-        registry.page().requestPage(player, session.browser.page, session.browser.search,
-                session.browser.category, session.browser.sort, session.browser.ascending);
-        registry.session().saveToPlayerNbt(player, session);
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     /**
      * 简化的保存模式——无 forceRefresh，适用于仅变更浏览器状态等非存储数据的场景。
      */
     public void simpleSave(ServerPlayer player, RtsStorageSession session) {
-        registry.page().requestPage(player, session.browser.page, session.browser.search,
-                session.browser.category, session.browser.sort, session.browser.ascending);
-        registry.session().saveToPlayerNbt(player, session);
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     /**
@@ -88,7 +86,6 @@ public final class ServiceOperationTemplate {
      * 直接刷新页面——不 bump 版本也不保存，适用于页面版本已由外部递增过的场景。
      */
     public void refreshPage(ServerPlayer player, RtsStorageSession session) {
-        registry.page().requestPage(player, session.browser.page, session.browser.search,
-                session.browser.category, session.browser.sort, session.browser.ascending);
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
     }
 }

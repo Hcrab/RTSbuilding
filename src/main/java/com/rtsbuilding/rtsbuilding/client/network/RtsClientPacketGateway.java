@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
+import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
@@ -95,6 +96,8 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendLinkStorage(BlockPos pos, boolean allowStore) {
+        RtsDeveloperScenarioTracker.getInstance().record(
+                "storage_link_request", "pos=" + pos.toShortString());
         PacketDistributor.sendToServer(new C2SRtsLinkStoragePayload(
                 pos,
                 allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
@@ -296,6 +299,7 @@ public final class RtsClientPacketGateway {
     private static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild,
             boolean forceEmptyHand) {
+        RtsDeveloperScenarioTracker.getInstance().record("place_request", "count=1");
         ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
@@ -352,6 +356,8 @@ public final class RtsClientPacketGateway {
         if (positions.isEmpty()) {
             return;
         }
+        RtsDeveloperScenarioTracker.getInstance().record(
+                "place_batch_request", "count=" + positions.size());
         ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
@@ -524,6 +530,8 @@ public final class RtsClientPacketGateway {
     public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             int toolSlot, String toolItemId, ItemStack toolPrototype, byte shapeType, byte fillType,
             boolean toolProtectionEnabled) {
+        long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+        RtsDeveloperScenarioTracker.getInstance().record("mine_request", "volume=" + volume);
         PacketDistributor.sendToServer(new C2SRtsAreaMinePayload(
                 minX, maxX, minY, maxY, minZ, maxZ,
                 (byte) Mth.clamp(toolSlot, 0, 8),
@@ -549,6 +557,7 @@ public final class RtsClientPacketGateway {
 
     public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
             boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
+        RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=single");
         PacketDistributor.sendToServer(new C2SRtsMinePayload(
                 pos,
                 (byte) face,
@@ -562,6 +571,7 @@ public final class RtsClientPacketGateway {
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
             int limit, byte mode, boolean toolProtectionEnabled) {
+        RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=ultimine;limit=" + limit);
         PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
                 pos,
                 (byte) face,

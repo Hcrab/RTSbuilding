@@ -50,6 +50,9 @@ public final class SessionComponents {
     /** 破坏任务——活跃 + 挂起 */
     public static final DataComponent<CompoundTag> DESTROY = bridge("destroy");
 
+    /** 自动存入挖掘掉落的持久缓存。 */
+    public static final DataComponent<CompoundTag> DROP_BUFFER = bridge("drop_buffer");
+
     // ==================================================================
     //  工具
     // ==================================================================

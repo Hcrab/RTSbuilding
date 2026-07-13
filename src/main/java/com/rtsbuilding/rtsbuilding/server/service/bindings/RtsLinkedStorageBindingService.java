@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -99,6 +100,8 @@ public final class RtsLinkedStorageBindingService {
         // that were unlinked or changed).
         session.bdCache.handlerStale = true;
         session.bdCache.fluidHandlerStale = true;
+        // 包括 identity=null 的远程背包租约：绑定关系变化是其明确失效来源。
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         return RtsStorageBindings.UpdateResult.refreshFirst(true);
     }
 

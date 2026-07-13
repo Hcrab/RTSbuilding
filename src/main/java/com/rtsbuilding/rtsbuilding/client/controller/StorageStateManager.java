@@ -76,6 +76,8 @@ public final class StorageStateManager {
     private long storagePageReceivedAtMs;
     private boolean storageViewDirty;
     private long storageViewDirtySinceMs;
+    private boolean storageDirtyRefreshRequested;
+    private long storageDirtyRefreshRequestedAtMs;
 
     // =========================================================================
     //  Craft fields
@@ -985,20 +987,25 @@ public final class StorageStateManager {
         clearGuiBindingsLocal();
     }
 
-    void tickStorageAutoRefresh(boolean viewDirtyOverride) {
-        if (!viewDirtyOverride
-                || this.storageScanRunning
-                || !hasStoragePageSnapshot()) {
-            return;
-        }
+    void tickStorageAutoRefresh(boolean storageViewVisible) {
         long now = System.currentTimeMillis();
-        if (this.storageViewDirtySinceMs <= 0L) {
+        if (this.storageViewDirty && this.storageViewDirtySinceMs <= 0L) {
             this.storageViewDirtySinceMs = now;
+        }
+        if (!RtsStorageDirtyRefreshPolicy.shouldRequest(
+                this.storageViewDirty,
+                storageViewVisible,
+                this.storageScanRunning,
+                hasStoragePageSnapshot(),
+                this.storageDirtyRefreshRequested,
+                this.storageDirtyRefreshRequestedAtMs,
+                this.storageViewDirtySinceMs,
+                now,
+                STORAGE_AUTO_REFRESH_INTERVAL_MS)) {
             return;
         }
-        if (now - this.storageViewDirtySinceMs < STORAGE_AUTO_REFRESH_INTERVAL_MS) {
-            return;
-        }
+        this.storageDirtyRefreshRequested = true;
+        this.storageDirtyRefreshRequestedAtMs = now;
         requestStoragePage(this.storagePage);
     }
 
@@ -1097,6 +1104,8 @@ public final class StorageStateManager {
     void clearStorageViewDirty() {
         this.storageViewDirty = false;
         this.storageViewDirtySinceMs = 0L;
+        this.storageDirtyRefreshRequested = false;
+        this.storageDirtyRefreshRequestedAtMs = 0L;
     }
 
     private void requestCraftablesPage(int offset, int limit) {

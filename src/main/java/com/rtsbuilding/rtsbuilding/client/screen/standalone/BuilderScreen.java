@@ -258,6 +258,14 @@ public final class BuilderScreen extends Screen {
     public int topBarBottomY() {
         return TOP_H;
     }
+
+    /**
+     * 返回当前界面是否正在展示依赖服务端储存页快照的内容。
+     * 主储存标签与绑定储存详情窗都需要及时消费脏刷新。
+     */
+    public boolean isStorageViewVisible() {
+        return this.bottomPanel.isStorageBrowserVisible() || this.linkedStoragePanel.isOpen();
+    }
     /** Triggers a red flash overlay on the screen to indicate the player took damage while in RTS mode. */
     public void triggerDamageFlash() {
         this.overlayRenderer.triggerDamageFlash();

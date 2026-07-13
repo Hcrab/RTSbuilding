@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
@@ -14,7 +15,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -221,13 +224,7 @@ public final class RtsDropAbsorber {
         if (player == null || session == null || pos == null) {
             return false;
         }
-        boolean changed = absorbNearbyMinedDrops(player, pos, session);
-        if (changed) {
-            QuestService.runQuestDetect(player, session, false);
-        }
-        // 挖掘吸物后自动尝试恢复挂起放置作业
-        RtsPendingPlacementService.tryResumeAfterStorageChange(player);
-        return changed;
+        return enqueueDrops(player, session, collectDrops(player, List.of(pos)));
     }
 
     /**
@@ -242,13 +239,121 @@ public final class RtsDropAbsorber {
         if (player == null || session == null || positions == null || positions.isEmpty()) {
             return false;
         }
-        DropInsertContext insertContext = createInsertContext(player, session);
-        boolean changed = absorbDrops(player, collectDrops(player, positions), insertContext);
-        notifyStorageChanged(player, insertContext, changed);
-        if (changed) {
-            QuestService.runQuestDetect(player, session, false);
+        return enqueueDrops(player, session, collectDrops(player, positions));
+    }
+
+    /**
+     * 快速把世界掉落转移到有界缓存；这里只复制/缩减实体，不触碰 AE/RS 网络。
+     */
+    private static boolean enqueueDrops(ServerPlayer player, RtsStorageSession session, List<ItemEntity> drops) {
+        var buffer = session.miningDropBuffer;
+        boolean changed = false;
+        for (ItemEntity entity : drops) {
+            if (entity == null || !entity.isAlive() || entity.getItem().isEmpty()) continue;
+            if (buffer.stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                break;
+            }
+            int accepted = Math.min(buffer.remainingCapacity(), entity.getItem().getCount());
+            if (accepted <= 0) break;
+            buffer.stacks.addLast(entity.getItem().copyWithCount(accepted));
+            buffer.bufferedItems += accepted;
+            if (buffer.firstQueuedGameTime < 0L) {
+                buffer.firstQueuedGameTime = player.serverLevel().getGameTime();
+            }
+            int remaining = entity.getItem().getCount() - accepted;
+            if (remaining <= 0) entity.discard();
+            else entity.setItem(entity.getItem().copyWithCount(remaining));
+            changed = true;
         }
-        RtsPendingPlacementService.tryResumeAfterStorageChange(player);
+        if (buffer.isFull() && !buffer.fullNoticeSent) {
+            player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
+            buffer.fullNoticeSent = true;
+        }
+        if (changed) {
+            RtsEffectAccumulator.INSTANCE.markPersistence(
+                    player.getUUID(), player.level().dimension());
+        }
         return changed;
+    }
+
+    /**
+     * 每 Tick 少量写入储存；三秒仍未完成时回退背包，再把余量合并掉落到玩家附近。
+     * 返回消费的缓存栈数量，供统一任务预算累计。
+     */
+    public static int drainDropBuffer(ServerPlayer player, RtsStorageSession session,
+            int maxStacks, long deadlineNanos) {
+        var buffer = session.miningDropBuffer;
+        if (buffer.isEmpty() || maxStacks <= 0) return 0;
+        boolean timeout = buffer.firstQueuedGameTime >= 0L
+                && player.serverLevel().getGameTime() - buffer.firstQueuedGameTime >= 60L;
+        DropInsertContext insertContext = timeout ? null : createInsertContext(player, session);
+        int processed = 0;
+        boolean storageChanged = false;
+        List<ItemStack> timedOutRemainders = new ArrayList<>();
+        int stackLimit = timeout ? Math.min(maxStacks, 16) : maxStacks;
+        while (processed < stackLimit && System.nanoTime() < deadlineNanos && !buffer.stacks.isEmpty()) {
+            ItemStack original = buffer.stacks.removeFirst();
+            ItemStack remainder = timeout ? original.copy() : insertContext.store(original.copy());
+            int stored = original.getCount() - remainder.getCount();
+            storageChanged |= stored > 0;
+            if (timeout && !remainder.isEmpty()) {
+                remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
+                if (!remainder.isEmpty()) {
+                    mergeRemainder(timedOutRemainders, remainder);
+                }
+            } else if (!timeout && !remainder.isEmpty()) {
+                buffer.stacks.addFirst(remainder);
+            }
+            buffer.bufferedItems -= timeout ? original.getCount() : stored;
+            processed++;
+            if (!timeout && stored <= 0) break;
+        }
+        for (ItemStack remainder : timedOutRemainders) {
+            player.drop(remainder, false);
+        }
+        if (insertContext != null) {
+            notifyStorageChanged(player, insertContext, storageChanged);
+        }
+        if (storageChanged) {
+            QuestService.runQuestDetect(player, session, false);
+            RtsPendingPlacementService.tryResumeAfterStorageChange(player);
+        }
+        if (timeout && buffer.isEmpty()) {
+            RtsDeveloperMetrics.recordBufferFallback(player);
+            player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.fallback"), false);
+        }
+        buffer.clearTimingWhenEmpty();
+        if (processed > 0) {
+            RtsEffectAccumulator.INSTANCE.markPersistence(
+                    player.getUUID(), player.level().dimension());
+        }
+        return processed;
+    }
+
+    private static void mergeRemainder(List<ItemStack> merged, ItemStack incoming) {
+        ItemStack remaining = incoming.copy();
+        for (ItemStack existing : merged) {
+            if (!ItemStack.isSameItemSameComponents(existing, remaining)) continue;
+            int moved = Math.min(remaining.getCount(), existing.getMaxStackSize() - existing.getCount());
+            if (moved <= 0) continue;
+            existing.grow(moved);
+            remaining.shrink(moved);
+            if (remaining.isEmpty()) return;
+        }
+        while (!remaining.isEmpty()) {
+            int count = Math.min(remaining.getCount(), remaining.getMaxStackSize());
+            merged.add(remaining.copyWithCount(count));
+            remaining.shrink(count);
+        }
+    }
+
+    /** 退出时同步回退，确保未持久化缓存不会吞掉物品。 */
+    public static void flushDropBufferToPlayer(ServerPlayer player, RtsStorageSession session) {
+        var buffer = session.miningDropBuffer;
+        while (!buffer.stacks.isEmpty()) {
+            ItemStack remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, buffer.stacks.removeFirst());
+            if (!remainder.isEmpty()) player.drop(remainder, false);
+        }
+        buffer.clearTimingWhenEmpty();
     }
 }

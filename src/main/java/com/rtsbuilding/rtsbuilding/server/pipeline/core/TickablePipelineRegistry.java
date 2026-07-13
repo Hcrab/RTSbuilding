@@ -32,7 +32,14 @@ public final class TickablePipelineRegistry {
      * 用于 {@link #doFindContext} 的快速查找，消除线性扫描。
      * 在管道注册/完成/移除时同步更新。
      */
-    private final Map<Integer, ActivePipeline> entryIdIndex = new ConcurrentHashMap<>();
+    private final Map<PipelineKey, ActivePipeline> entryIdIndex = new ConcurrentHashMap<>();
+
+    /**
+     * Pipeline 条目 ID 只在单个玩家的工作流空间内唯一，因此全局索引必须同时包含玩家和维度。
+     * 旧实现仅使用 {@code entryId}，两名玩家都创建条目 0 时后者会覆盖前者。
+     */
+    private record PipelineKey(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+    }
 
     private TickablePipelineRegistry() {
     }
@@ -102,11 +109,9 @@ public final class TickablePipelineRegistry {
     @javax.annotation.Nullable
     private PipelineContext doFindContext(ServerPlayer player, int workflowEntryId) {
         if (player == null) return null;
-        ActivePipeline ap = entryIdIndex.get(workflowEntryId);
-        if (ap != null && ap.player().getUUID().equals(player.getUUID())) {
-            return ap.context();
-        }
-        return null;
+        ActivePipeline ap = entryIdIndex.get(new PipelineKey(
+                player.getUUID(), player.level().dimension(), workflowEntryId));
+        return ap == null ? null : ap.context();
     }
 
     /**
@@ -133,7 +138,7 @@ public final class TickablePipelineRegistry {
         list.add(ap);
         // 同步更新 entryIdIndex
         if (ap.entryId() >= 0) {
-            entryIdIndex.put(ap.entryId(), ap);
+            entryIdIndex.put(new PipelineKey(player.getUUID(), dimension, ap.entryId()), ap);
         }
     }
 
@@ -143,7 +148,7 @@ public final class TickablePipelineRegistry {
             for (List<ActivePipeline> pipelines : dimMap.values()) {
                 for (ActivePipeline ap : pipelines) {
                     if (ap.entryId() >= 0) {
-                        entryIdIndex.remove(ap.entryId());
+                        entryIdIndex.remove(new PipelineKey(playerId, ap.dimension(), ap.entryId()), ap);
                     }
                 }
             }
@@ -158,7 +163,7 @@ public final class TickablePipelineRegistry {
             if (pipelines != null) {
                 for (ActivePipeline ap : pipelines) {
                     if (ap.entryId() >= 0) {
-                        entryIdIndex.remove(ap.entryId());
+                        entryIdIndex.remove(new PipelineKey(playerId, dimension, ap.entryId()), ap);
                     }
                 }
             }
@@ -169,9 +174,13 @@ public final class TickablePipelineRegistry {
     }
 
     /** 从 entryIdIndex 中移除指定条目 ID（由 doTickAll 在管道完成/移除时调用）。 */
-    private void removeFromIndex(int entryId) {
-        if (entryId >= 0) {
-            entryIdIndex.remove(entryId);
+    private void removeFromIndex(ActivePipeline pipeline) {
+        if (pipeline.entryId() >= 0) {
+            PipelineKey key = new PipelineKey(
+                    pipeline.player().getUUID(),
+                    pipeline.dimension(),
+                    pipeline.entryId());
+            entryIdIndex.remove(key, pipeline);
         }
     }
 
@@ -220,7 +229,7 @@ public final class TickablePipelineRegistry {
                         var entry = engine.findEntryByPlayer(firstPlayerId, playerDim, eid);
                         if (entry == null) {
                             // 工作流已被取消或完成 → 移除管道
-                            removeFromIndex(eid);
+                            removeFromIndex(ap);
                             return true;
                         }
                         if (entry.paused() || entry.suspended()) {
@@ -231,7 +240,7 @@ public final class TickablePipelineRegistry {
 
                     boolean done = ap.tick().isPresent();
                     if (done && eid >= 0) {
-                        removeFromIndex(eid);
+                        removeFromIndex(ap);
                     }
                     return done;
                 });

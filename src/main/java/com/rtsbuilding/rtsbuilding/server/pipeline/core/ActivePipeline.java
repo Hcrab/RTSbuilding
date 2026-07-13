@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
@@ -27,6 +29,7 @@ public final class ActivePipeline {
     private final ServerPlayer player;
     private final PipelineContext ctx;
     private final TickablePipe pipe;
+    private final ResourceKey<Level> dimension;
     private final int workflowEntryId;
     private boolean completed;
 
@@ -39,6 +42,7 @@ public final class ActivePipeline {
         this.player = player;
         this.ctx = ctx;
         this.pipe = pipe;
+        this.dimension = player.level().dimension();
         // 在构造时缓存工作流条目 ID，避免后续每 tick 从 data map 中 hasData + getData 两次查找
         Integer cached = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
         this.workflowEntryId = cached != null ? cached : -1;
@@ -69,6 +73,11 @@ public final class ActivePipeline {
      */
     public int entryId() {
         return workflowEntryId;
+    }
+
+    /** 返回注册时的维度；玩家切维后仍可精确移除旧索引。 */
+    public ResourceKey<Level> dimension() {
+        return dimension;
     }
 
     // ──────────────────────────────────────────────────────────────────

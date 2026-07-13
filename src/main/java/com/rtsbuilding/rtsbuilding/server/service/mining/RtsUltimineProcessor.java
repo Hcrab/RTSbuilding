@@ -6,7 +6,6 @@ import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
-import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -599,11 +598,17 @@ public final class RtsUltimineProcessor {
      * 个排队的连锁挖掘目标。
      */
     static void processUltimineTargets(ServerPlayer player, RtsStorageSession session) {
+        processUltimineTargets(player, session, RtsMiningValidator.ultimineBlocksPerTick(), Long.MAX_VALUE);
+    }
+
+    /** 在统一任务引擎分配的数量与时间预算内推进连锁挖掘。 */
+    static RtsMiningStateMachine.MiningAdvance processUltimineTargets(ServerPlayer player, RtsStorageSession session,
+            int maxUnits, long deadlineNanos) {
         if (session.mining.ultimineTargets.isEmpty()) {
             RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] processUltimineTargets: no remaining targets, finishing batch for {}",
                     player.getGameProfile().getName());
             finishUltimineBatch(player, session);
-            return;
+            return RtsMiningStateMachine.MiningAdvance.ended(0, 0, 0);
         }
 
         ServerLevel level = player.serverLevel();
@@ -613,10 +618,16 @@ public final class RtsUltimineProcessor {
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
         boolean finishAfterThisTick = false;
 
-        while (processedThisTick < RtsMiningValidator.ultimineBlocksPerTick() && !session.mining.ultimineTargets.isEmpty()) {
+        int unitLimit = Math.max(0, Math.min(RtsMiningValidator.ultimineBlocksPerTick(), maxUnits));
+        while (processedThisTick < unitLimit
+                && System.nanoTime() < deadlineNanos
+                && !session.mining.ultimineTargets.isEmpty()) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
+                int brokenDelta = session.mining.ultimineBrokenTargets - brokenBeforeThisTick;
+                reportWorkflowDelta(player, session, brokenDelta, processedThisTick - brokenDelta);
                 finishUltimineBatch(player, session);
-                return;
+                return RtsMiningStateMachine.MiningAdvance.ended(
+                        processedThisTick, brokenDelta, processedThisTick - brokenDelta);
             }
             BlockPos target = session.mining.ultimineTargets.removeFirst();
             processedThisTick++;
@@ -645,8 +656,10 @@ public final class RtsUltimineProcessor {
             RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(
                     player, session, target, session.mining.miningToolSlot);
 
-            if (result.broken() && preRecord != null) {
-                session.mining.ultimineProcessedPositions.add(preRecord);
+            if (result.broken()) {
+                if (preRecord != null) {
+                    session.mining.ultimineProcessedPositions.add(preRecord);
+                }
                 session.mining.ultimineBrokenTargets++;
                 // Record any collateral multi-block destruction
                 MultiBlockTracker.recordCollateralBlocks(level, session, neighborRecords, target);
@@ -660,35 +673,43 @@ public final class RtsUltimineProcessor {
             }
         }
 
-        if (!dropsToAbsorb.isEmpty()
-                && RtsDropAbsorber.absorbMinedDropsBatch(player, session, dropsToAbsorb)) {
-            ServiceRegistry.getInstance().serviceOp().markDirtyDeferred(player, session);
+        if (!dropsToAbsorb.isEmpty()) {
+            RtsDropAbsorber.absorbMinedDropsBatch(player, session, dropsToAbsorb);
         }
         if (finishAfterThisTick) {
+            int brokenDelta = session.mining.ultimineBrokenTargets - brokenBeforeThisTick;
+            reportWorkflowDelta(player, session, brokenDelta, processedThisTick - brokenDelta);
             finishUltimineBatch(player, session);
-            return;
+            return RtsMiningStateMachine.MiningAdvance.ended(
+                    processedThisTick, brokenDelta, processedThisTick - brokenDelta);
         }
 
         int brokenDelta = session.mining.ultimineBrokenTargets - brokenBeforeThisTick;
-        // ── Throttled workflow progress ────────────────────────────────
-        // 累计破坏数达到阈值或挖掘结束时，一次性向 workflow engine 汇报
-        if (brokenDelta > 0) {
-            session.mining.ultimineNotifyAccumulator += brokenDelta;
-            int entryId = session.mining.workflowEntryId;
-            if (entryId >= 0
-                    && (session.mining.ultimineTargets.isEmpty()
-                        || session.mining.ultimineNotifyAccumulator >= 5)) {
-                RtsWorkflowEngine.getInstance().from(player, entryId)
-                        .ifPresent(token -> token.updateProgress(
-                                session.mining.ultimineNotifyAccumulator, null));
-                session.mining.ultimineNotifyAccumulator = 0;
-            }
-        }
+        reportWorkflowDelta(player, session, brokenDelta, processedThisTick - brokenDelta);
 
         RtsMiningNetworkHelper.sendUltimineBatchProgress(player, session);
+        boolean ended = session.mining.ultimineTargets.isEmpty();
         if (session.mining.ultimineTargets.isEmpty()) {
             finishUltimineBatch(player, session);
         }
+        return new RtsMiningStateMachine.MiningAdvance(
+                processedThisTick,
+                brokenDelta,
+                processedThisTick - brokenDelta,
+                ended,
+                false);
+    }
+
+    /** 成功与失败分别投影到工作流；网络快照由 Tick 末 EffectAccumulator 合并。 */
+    private static void reportWorkflowDelta(ServerPlayer player, RtsStorageSession session,
+            int succeeded, int failed) {
+        int entryId = session.mining.workflowEntryId;
+        if (entryId < 0 || (succeeded <= 0 && failed <= 0)) return;
+        RtsWorkflowEngine.getInstance().from(player, entryId).ifPresent(token -> {
+            if (succeeded > 0) token.updateProgress(succeeded, null);
+            if (failed > 0) token.recordFailures(failed);
+        });
+        session.mining.ultimineNotifyAccumulator = 0;
     }
 
     /**

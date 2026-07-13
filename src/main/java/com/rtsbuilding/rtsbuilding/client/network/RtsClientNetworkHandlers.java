@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.network;
 
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
@@ -40,7 +41,10 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyStoragePage(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyStoragePage(payload);
+            RtsDeveloperScenarioTracker.getInstance().record("storage_page_received", "page=" + payload.page());
+        });
     }
 
     public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
@@ -78,6 +82,8 @@ public final class RtsClientNetworkHandlers {
     public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             PlacementAnimationRenderer.confirmPlacement(payload.pos(), payload.state());
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "place_confirmed", "pos=" + payload.pos().toShortString());
         });
     }
 
@@ -86,6 +92,8 @@ public final class RtsClientNetworkHandlers {
             ClientFakeAirBlocks.hideUntilServerState(payload.pos(), payload.state(), payload.resultState());
             PlacementAnimationRenderer.addDestroy(payload.pos(), payload.state());
             ShapeGhostRenderer.markDestroyed(payload.pos());
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "break_confirmed", "pos=" + payload.pos().toShortString());
         });
     }
 
@@ -106,11 +114,20 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyWorkflowProgress(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyWorkflowProgress(payload);
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "workflow_update_received", "completed=" + payload.completedBlocks()
+                            + ";total=" + payload.totalBlocks() + ";failed=" + payload.failedBlocks());
+        });
     }
 
     public static void handleWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyWorkflowProgressBatch(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyWorkflowProgressBatch(payload);
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "workflow_update_received", "entries=" + payload.entries().size());
+        });
     }
 
     public static void handleResumePlacementScan(S2CRtsResumePlacementScanPayload payload, IPayloadContext context) {

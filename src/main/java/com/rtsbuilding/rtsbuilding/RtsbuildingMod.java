@@ -15,7 +15,9 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.*;
+import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -213,6 +215,8 @@ public class RtsbuildingMod {
             SaveScheduler.INSTANCE.onServerStopped();
             // 清空引擎内存，防止切换世界时旧世界的数据残留
             RtsWorkflowEngine.getInstance().clearAllData();
+            RtsStoragePageRequestCoalescer.clearAll();
+            RtsDeveloperMetrics.clearAll();
         }
 
         /**
@@ -249,6 +253,8 @@ public class RtsbuildingMod {
                 RtsPlacementSound.forgetPlayer(serverPlayer.getUUID());
                 // 清除进度刷新缓存
                 RtsProgressRefresher.clearPlayerCache(serverPlayer.getUUID());
+                RtsStoragePageRequestCoalescer.clearPlayer(serverPlayer.getUUID());
+                RtsDeveloperMetrics.clearPlayer(serverPlayer.getUUID());
                 // 同步相关玩家持久化数据
                 RtsPluginService.syncRelatedPlayers(serverPlayer);
                 // 清空撤销历史 —— 旧世界的 BlockPos 不适用于新世界
@@ -279,6 +285,8 @@ public class RtsbuildingMod {
                 ServiceRegistry.getInstance().pathfinding().cancel(serverPlayer);
                 // 取消注册旧维度的存储服务
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
+                // 维度变化后旧端点的 BlockEntity/AE Grid 身份不再可信；先卸载聚合缓存再释放租约。
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(serverPlayer.getUUID());
             }
         }
 

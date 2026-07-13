@@ -1147,7 +1147,9 @@ public final class ClientRtsController {
         }
 
         this.cameraOrbitService.tick(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius);
-        this.storageStateManager.tickStorageAutoRefresh(this.storageStateManager.isStorageViewDirty());
+        boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
+                && builderScreen.isStorageViewVisible();
+        this.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
 
         // Don't override player.input in RTS mode so the player entity can
         // properly respond to knockback and physics effects.

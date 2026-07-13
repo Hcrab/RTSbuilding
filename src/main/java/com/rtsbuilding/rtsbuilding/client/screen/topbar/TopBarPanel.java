@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.screen.developer.RtsDeveloperTaskScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -105,10 +107,9 @@ public final class TopBarPanel {
                 + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
-        int statusX = 8;
-        int statusW = Math.max(40, screen.width - 16);
-        g.drawString(screen.font(), screen.trimToWidth(row1, statusW), statusX, 33, 0xF0F0F0, false);
-        g.drawString(screen.font(), screen.trimToWidth(row2, statusW), statusX, 44,
+        TopBarLayout.Status status = TopBarLayout.status(screen.width);
+        g.drawString(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(), 0xF0F0F0, false);
+        g.drawString(screen.font(), screen.trimToWidth(row2, status.width()), status.x(), status.row2Y(),
                 this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
     }
 
@@ -124,12 +125,12 @@ public final class TopBarPanel {
      * @return {@code true} if a button was hit (click consumed), {@code false} otherwise
      */
     public boolean handleClick(double mouseX, double mouseY) {
-        if (mouseY < 4 || mouseY > 4 + TOP_BUTTON_H) {
+        if (mouseY < TopBarLayout.BUTTON_Y || mouseY > TopBarLayout.BUTTON_Y + TOP_BUTTON_H) {
             return false;
         }
 
         for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts()) {
-            if (!inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
+            if (!inside(mouseX, mouseY, button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H)) {
                 continue;
             }
             if (screen.isBlueprintPlacementModeLocked() && isModeButton(button.id())) {
@@ -171,8 +172,10 @@ public final class TopBarPanel {
                 }
                 case RANGE_CULLING -> screen.toggleRangeCullingManagement();
                 case GUIDE -> {
-                    screen.toggleTopGuide(button.x() + button.width() / 2, 4 + TOP_BUTTON_H);
+                    screen.toggleTopGuide(button.x() + button.width() / 2,
+                            TopBarLayout.BUTTON_Y + TOP_BUTTON_H);
                 }
+                case DEVELOPER -> Minecraft.getInstance().setScreen(new RtsDeveloperTaskScreen(screen));
                 case GEAR -> screen.toggleGearMenu();
                 default -> { /* no-op for unrecognised button IDs */ }
             }
@@ -198,39 +201,39 @@ public final class TopBarPanel {
      */
     public List<TopBarTypes.TopBarButtonLayout> buildTopBarButtonLayouts() {
         List<TopBarTypes.TopBarButtonLayout> layouts = new ArrayList<>();
-        int x = 8;
+        boolean quickBuild = screen.canUseQuickBuild();
+        boolean questDetect = isFtbQuestIntegrationLoaded();
+        boolean rangeCulling = screen.canUseRangeCulling();
+        boolean developer = Config.isDeveloperModeEnabled();
+        TopBarLayout.Buttons positions = TopBarLayout.buttons(
+                screen.width, TOP_MODE_BUTTON_W, TOP_ICON_BUTTON_W, TOP_BUTTON_GAP,
+                quickBuild, questDetect, rangeCulling, developer);
 
         // ---- Mode buttons (left group) ----
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.INTERACT, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.INTERACT));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        x += 8;
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.INTERACT, positions.x(TopBarTypes.TopBarButtonId.INTERACT), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.INTERACT));
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, positions.x(TopBarTypes.TopBarButtonId.LINK), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, positions.x(TopBarTypes.TopBarButtonId.FUNNEL), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, positions.x(TopBarTypes.TopBarButtonId.ROTATE), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
 
         // ---- Action buttons (center group) ----
-        if (screen.canUseQuickBuild()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        if (quickBuild) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, positions.x(TopBarTypes.TopBarButtonId.QUICK_BUILD), TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
         }
-        if (isFtbQuestIntegrationLoaded()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUEST_DETECT, x, TOP_ICON_BUTTON_W, "", true, this.controller.isQuestDetectPopupVisible()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        if (questDetect) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUEST_DETECT, positions.x(TopBarTypes.TopBarButtonId.QUEST_DETECT), TOP_ICON_BUTTON_W, "", true, this.controller.isQuestDetectPopupVisible()));
         }
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.CHUNK_VIEW, x, TOP_ICON_BUTTON_W, "", true, this.controller.isChunkCurtainVisible()));
-        x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        if (screen.canUseRangeCulling()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, x, TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.CHUNK_VIEW, positions.x(TopBarTypes.TopBarButtonId.CHUNK_VIEW), TOP_ICON_BUTTON_W, "", true, this.controller.isChunkCurtainVisible()));
+        if (rangeCulling) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, positions.x(TopBarTypes.TopBarButtonId.RANGE_CULLING), TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
         }
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GUIDE, x, TOP_ICON_BUTTON_W, "", true, screen.isGuideOpen()));
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GUIDE, positions.x(TopBarTypes.TopBarButtonId.GUIDE), TOP_ICON_BUTTON_W, "", true, screen.isGuideOpen()));
+        if (developer) {
+            layouts.add(new TopBarTypes.TopBarButtonLayout(
+                    TopBarTypes.TopBarButtonId.DEVELOPER, positions.x(TopBarTypes.TopBarButtonId.DEVELOPER), TOP_ICON_BUTTON_W, "", true, false));
+        }
 
         // ---- Right-aligned buttons ----
-        int gearX = Math.max(x + TOP_BUTTON_GAP, screen.width - TOP_ICON_BUTTON_W - 8);
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GEAR, gearX, TOP_ICON_BUTTON_W, "", true, screen.isGearMenuOpen()));
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GEAR, positions.x(TopBarTypes.TopBarButtonId.GEAR), TOP_ICON_BUTTON_W, "", true, screen.isGearMenuOpen()));
         return layouts;
     }
 
@@ -260,7 +263,7 @@ public final class TopBarPanel {
      * Renders a text-based top bar button with background, border, and centered label.
      */
     private void drawTopButtonSized(GuiGraphics g, int x, String label, boolean active, int w) {
-        int y = 4;
+        int y = TopBarLayout.BUTTON_Y;
         int h = TOP_BUTTON_H;
         int bg = active ? 0xFF2E6A50 : 0xAA1F2329;
         g.fill(x, y, x + w, y + h, bg);
@@ -282,7 +285,7 @@ public final class TopBarPanel {
      */
     private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
         int x = button.x();
-        int y = 4;
+        int y = TopBarLayout.BUTTON_Y;
         int w = button.width();
         int h = TOP_BUTTON_H;
         boolean hovered = inside(mouseX, mouseY, x, y, w, h);
@@ -323,8 +326,10 @@ public final class TopBarPanel {
         // Draw the pixel-art icon at the button centre
         int cx = x + (w / 2);
         int cy = y + (h / 2);
-        if (button.id() == TopBarTypes.TopBarButtonId.GUIDE) {
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), "i", cx, y + 7, icon);
+        if (button.id() == TopBarTypes.TopBarButtonId.GUIDE
+                || button.id() == TopBarTypes.TopBarButtonId.DEVELOPER) {
+            String glyph = button.id() == TopBarTypes.TopBarButtonId.DEVELOPER ? "D" : "i";
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), glyph, cx, y + 7, icon);
         } else {
             TopBarIconRenderer.renderIcon(button.id(), g, cx, cy, icon, button.active(), screen.font());
         }

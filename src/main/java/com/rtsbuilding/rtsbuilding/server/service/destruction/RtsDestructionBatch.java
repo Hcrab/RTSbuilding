@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.mining.*;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,7 +29,7 @@ import java.util.*;
  * 批处理范围破坏作业管理器，负责远程范围破坏（AREA_DESTROY）的排队和每 tick 节流处理。
  *
  * <p>管理破坏作业的完整生命周期：将范围破坏请求排队为 {@link DestructionJob}，
- * 通过 {@link #tickDestroyJobs} 以自适应每 tick 处理量节流处理，
+ * 通过 {@link #tickDestroyJobs} 以数量与纳秒双预算节流处理，
  * 以及作业的暂停/恢复/完成流程。
  *
  * <p>对齐 {@link com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch} 的架构：
@@ -113,7 +114,7 @@ public final class RtsDestructionBatch {
 
     /**
      * Tick 处理器，从排队的破坏作业中处理最多 {@link #DESTROY_MAX_BLOCKS_PER_TICK}
-     * 个方块。使用自适应公式：处理量 = min(64, max(1, total/10))。
+     * 个方块，实际处理量同时受全局任务数量预算与纳秒截止时间限制。
      *
      * <p>在处理前先尝试恢复挂起的破坏作业（{@link #tryResumePendingDestroyJobs}）。
      *
@@ -121,54 +122,76 @@ public final class RtsDestructionBatch {
      * 刷新储存页面。
      */
     public static void tickDestroyJobs(ServerPlayer player, RtsStorageSession session) {
+        tickDestroyJobs(player, session, DESTROY_MAX_BLOCKS_PER_TICK, Long.MAX_VALUE);
+    }
+
+    /** 在数量与纳秒截止时间双预算内推进拆除任务。 */
+    public static int tickDestroyJobs(ServerPlayer player, RtsStorageSession session,
+            int maxBlocks, long deadlineNanos) {
+        return tickDestroyJobs(player, session, maxBlocks, deadlineNanos, null, true);
+    }
+
+    /** 仅推进指定拆除任务；挂起恢复由 Task Engine 在同步阶段统一处理。 */
+    public static int tickDestroyTask(ServerPlayer player, RtsStorageSession session,
+            DestructionJob job, int maxBlocks, long deadlineNanos) {
+        if (job == null || session == null || session.destruction.destroyJobs.peekFirst() != job) {
+            return 0;
+        }
+        return tickDestroyJobs(player, session, maxBlocks, deadlineNanos, job, false);
+    }
+
+    private static int tickDestroyJobs(ServerPlayer player, RtsStorageSession session,
+            int maxBlocks, long deadlineNanos, DestructionJob onlyJob, boolean resumePending) {
         if (player == null || session == null) {
-            return;
+            return 0;
         }
 
         // 先尝试恢复挂起的破坏作业（工具修复或更换后）
-        tryResumePendingDestroyJobs(player, session);
+        if (resumePending) {
+            tryResumePendingDestroyJobs(player, session);
+        }
 
         if (session.destruction.destroyJobs.isEmpty()) {
-            return;
+            return 0;
         }
 
-        int totalBlocks = 0;
-        for (DestructionJob j : session.destruction.destroyJobs) {
-            totalBlocks += j.totalCount();
-        }
-        if (totalBlocks <= 0) {
-            return;
-        }
-
-        int remaining = Math.min(DESTROY_MAX_BLOCKS_PER_TICK, Math.max(1, totalBlocks / 10));
+        int initialBudget = Math.max(0, Math.min(DESTROY_MAX_BLOCKS_PER_TICK, maxBlocks));
+        int remaining = initialBudget;
         if (remaining <= 0) {
-            return;
+            return 0;
         }
 
         // 记录此 tick 开始前每个 job 的已破坏数，用于按 job 独立更新工作流进度
         Map<Integer, Integer> destroyedBeforeTick = new HashMap<>();
         List<DestructionJob> fullyCompletedJobs = new ArrayList<>();
-        for (DestructionJob j : session.destruction.destroyJobs) {
+        Iterable<DestructionJob> progressJobs = onlyJob == null
+                ? session.destruction.destroyJobs : List.of(onlyJob);
+        for (DestructionJob j : progressJobs) {
             destroyedBeforeTick.put(j.workflowEntryId(), j.destroyedPositions.size());
         }
 
         var pausedJobsSkipped = new RtsBatchJobTickOps.MutableInt(0);
         ServerLevel level = player.serverLevel();
 
-        while (remaining > 0 && !session.destruction.destroyJobs.isEmpty()) {
+        while (remaining > 0 && System.nanoTime() < deadlineNanos
+                && !session.destruction.destroyJobs.isEmpty()
+                && (onlyJob == null || session.destruction.destroyJobs.peekFirst() == onlyJob)) {
             DestructionJob job = session.destruction.destroyJobs.peekFirst();
 
-            // ── 工作流状态检查 ──────────────────────────────────────
-            var checkResult = RtsBatchJobTickOps.checkPausedOrCancelled(
-                    session.destruction.destroyJobs, job, player,
-                    DestructionJob::workflowEntryId, pausedJobsSkipped);
-            if (checkResult == null) {
-                break; // 所有剩余 job 都已暂停
+            Optional<com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken> tokenOpt;
+            if (onlyJob != null) {
+                // Task Engine 是生命周期唯一来源；工作流令牌在这里只负责进度展示。
+                tokenOpt = RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId());
+                if (tokenOpt.isEmpty()) break;
+            } else {
+                // 兼容旧入口，待所有调用迁入 Task Engine 后删除。
+                var checkResult = RtsBatchJobTickOps.checkPausedOrCancelled(
+                        session.destruction.destroyJobs, job, player,
+                        DestructionJob::workflowEntryId, pausedJobsSkipped);
+                if (checkResult == null) break;
+                if (checkResult.isEmpty()) continue;
+                tokenOpt = Optional.ofNullable(checkResult.get().token());
             }
-            if (checkResult.isEmpty()) {
-                continue; // 此 job 被跳过（已取消或暂停中）
-            }
-            var tokenOpt = Optional.ofNullable(checkResult.get().token());
 
             // ── 工具耐久检查 ────────────────────────────────────────
             if (job.toolProtectionEnabled && RtsMiningValidator.isToolNearBreak(player, session)) {
@@ -182,9 +205,9 @@ public final class RtsDestructionBatch {
             }
 
             // ── 处理方块 ────────────────────────────────────────────
-            boolean madeProgress = false;
-            while (remaining > 0 && job.hasNext()) {
+            while (remaining > 0 && System.nanoTime() < deadlineNanos && job.hasNext()) {
                 BlockPos target = job.next();
+                remaining--;
 
                 // 验证：世界可达性
                 if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
@@ -231,24 +254,19 @@ public final class RtsDestructionBatch {
                         RtsDropAbsorber.absorbMinedDropsImmediately(player, session, target);
                     }
 
-                    madeProgress = true;
-
                     // 破坏后再次检查工具耐久
                     if (job.toolProtectionEnabled && RtsMiningValidator.isToolNearBreak(player, session)) {
-                        job.unconsumeLast();
                         session.destruction.destroyJobs.removeFirst();
                         session.destruction.pendingDestroyJobs.addLast(job);
                         tokenOpt.get().suspend();
                         RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} tool near break after block break, suspending destroy job #{}",
                                 player.getGameProfile().getName(), job.workflowEntryId());
-                        madeProgress = false;
                         break;
                     }
                 } else {
                     // destroyMinedBlock 未能破坏此方块（工具损坏、方块已变化等），计为失败
                     job.skippedWhileProcessing++;
                 }
-                remaining--;
             }
 
             // ── Job 完成检测 ─────────────────────────────────────────
@@ -273,24 +291,48 @@ public final class RtsDestructionBatch {
                     }
                 },
                 (p, job) -> RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} completed destroy job #{} ({} destroyed)",
-                        p.getGameProfile().getName(), job.workflowEntryId(), job.destroyedPositions.size()));
+                        p.getGameProfile().getName(), job.workflowEntryId(), job.destroyedPositions.size()),
+                onlyJob == null);
 
         // ── 更新中途进度 ────────────────────────────────────────────
         RtsBatchJobTickOps.updateMidProgress(
                 player, session,
-                session.destruction.destroyJobs, destroyedBeforeTick,
+                onlyJob == null ? session.destruction.destroyJobs
+                        : (session.destruction.destroyJobs.contains(onlyJob)
+                                ? List.of(onlyJob) : List.of()),
+                destroyedBeforeTick,
                 DestructionJob::workflowEntryId,
                 j -> j.destroyedPositions.size());
 
         // ── 在作业被消耗/无更多 job 时归还工具 ──────────────────────
-        if (session.destruction.destroyJobs.isEmpty() && session.destruction.pendingDestroyJobs.isEmpty()) {
-            if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
-                RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
-                session.mining.miningToolLease = RtsToolLease.empty();
-                RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} all destroy jobs complete, tool returned",
-                        player.getGameProfile().getName());
-            }
+        returnDestroyToolIfIdle(player, session);
+        return initialBudget - remaining;
+    }
+
+    /**
+     * 工作流消失时收拢已发生的拆除副作用，并在没有其它拆除任务时归还工具租约。
+     */
+    public static void cancelDestroyTask(ServerPlayer player, RtsStorageSession session, DestructionJob job) {
+        if (player == null || session == null || job == null) return;
+        boolean removed = session.destruction.destroyJobs.remove(job)
+                | session.destruction.pendingDestroyJobs.remove(job);
+        if (!removed) return;
+        if (!job.destroyedPositions.isEmpty()) {
+            ServerHistoryManager.recordBreak(player, job.destroyedPositions, Direction.DOWN);
         }
+        returnDestroyToolIfIdle(player, session);
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+    }
+
+    private static void returnDestroyToolIfIdle(ServerPlayer player, RtsStorageSession session) {
+        if (!session.destruction.destroyJobs.isEmpty() || !session.destruction.pendingDestroyJobs.isEmpty()) return;
+        if (session.mining.miningToolLease == null || session.mining.miningToolLease.isEmpty()) return;
+        RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
+        session.mining.miningToolLease = RtsToolLease.empty();
+        RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} all destroy jobs complete, tool returned",
+                player.getGameProfile().getName());
     }
 
     // =========================================================================
@@ -453,7 +495,7 @@ public final class RtsDestructionBatch {
 
     /**
      * 单个批处理破坏作业，持有共享的破坏参数和有序的目标位置列表。
-     * 每个作业由 {@link #tickDestroyJobs} 以自适应每 tick 处理量节流处理。
+     * 每个作业由 {@link #tickDestroyJobs} 以数量与纳秒双预算节流处理。
      */
     public static final class DestructionJob {
         private final List<BlockPos> positions;
@@ -490,7 +532,7 @@ public final class RtsDestructionBatch {
             return this.index < this.positions.size();
         }
 
-        int remainingCount() {
+        public int remainingCount() {
             return this.positions.size() - this.index;
         }
 
@@ -498,15 +540,20 @@ public final class RtsDestructionBatch {
             return this.positions.get(this.index++);
         }
 
-        /** 回退索引，下个 tick 重试同一位置。 */
-        void unconsumeLast() {
-            if (this.index > 0) {
-                this.index--;
-            }
+        public int totalCount() {
+            return this.positions.size();
         }
 
-        int totalCount() {
-            return this.positions.size();
+        public int getIndex() {
+            return this.index;
+        }
+
+        public int successfulCount() {
+            return this.destroyedPositions.size();
+        }
+
+        public int failedCount() {
+            return this.skippedWhileProcessing;
         }
 
         // ── 访问器 ─────────────────────────────────────────────────────
