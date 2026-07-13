@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import net.minecraft.world.item.ItemStack;
 
 class RtsMiningDropBufferStateTest {
     @Test
@@ -31,10 +30,9 @@ class RtsMiningDropBufferStateTest {
 
     @Test
     void stackCountAlsoAppliesBackpressureToHeavyNbtItems() {
-        RtsMiningDropBufferState state = new RtsMiningDropBufferState();
-        for (int i = 0; i < RtsMiningDropBufferState.MAX_STACKS; i++) {
-            state.stacks.addLast(ItemStack.EMPTY);
-        }
-        assertTrue(state.isFull());
+        assertFalse(RtsMiningDropBufferPolicy.isFull(
+                0, RtsMiningDropBufferState.MAX_STACKS - 1));
+        assertTrue(RtsMiningDropBufferPolicy.isFull(
+                0, RtsMiningDropBufferState.MAX_STACKS));
     }
 }
