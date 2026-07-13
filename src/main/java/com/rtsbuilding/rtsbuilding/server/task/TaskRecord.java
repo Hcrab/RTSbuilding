@@ -47,7 +47,7 @@ public final class TaskRecord {
 
     public synchronized void apply(TaskStepResult result, long nowNanos) {
         if (status.terminal() || status == TaskStatus.PAUSED) return;
-        long nextCompleted = (long) completedUnits + result.processedUnits();
+        long nextCompleted = (long) completedUnits + result.progressUnits();
         completedUnits = (int) Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits,
                 nextCompleted);
         status = switch (result.outcome()) {
@@ -83,6 +83,13 @@ public final class TaskRecord {
             status = TaskStatus.CANCELLED;
             updatedNanos = nowNanos;
         }
+    }
+
+    /** 仅用于从持久任务恢复执行游标；不得用于正常进度更新。 */
+    public synchronized void restoreProgress(int completed, long nowNanos) {
+        if (status != TaskStatus.QUEUED || completedUnits != 0) return;
+        completedUnits = Math.max(0, Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits, completed));
+        updatedNanos = nowNanos;
     }
 
     public synchronized void promoteIfLongRunning(long nowNanos, long thresholdNanos) {

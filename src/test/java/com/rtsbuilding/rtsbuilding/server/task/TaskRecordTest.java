@@ -44,4 +44,23 @@ class TaskRecordTest {
         task.apply(TaskStepResult.continueWith(Integer.MAX_VALUE), 2L);
         assertEquals(Integer.MAX_VALUE, task.completedUnits());
     }
+
+    @Test
+    void persistedCursorRestoresBeforeScheduling() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.PLACEMENT,
+                EMPTY, 100, 0L);
+        task.restoreProgress(37, 1L);
+        assertEquals(37, task.completedUnits());
+        task.apply(TaskStepResult.continueWith(5), 2L);
+        assertEquals(42, task.completedUnits());
+    }
+
+    @Test
+    void rolledBackAttemptConsumesBudgetWithoutAdvancingProgress() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.PLACEMENT,
+                EMPTY, 100, 0L);
+        task.apply(TaskStepResult.waitForResource(1, 0), 1L);
+        assertEquals(0, task.completedUnits());
+        assertEquals(TaskStatus.WAITING_RESOURCE, task.status());
+    }
 }

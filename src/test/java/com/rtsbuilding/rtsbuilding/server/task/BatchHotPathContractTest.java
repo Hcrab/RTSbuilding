@@ -29,6 +29,17 @@ class BatchHotPathContractTest {
                 "预算必须在任何权限/区块跳过分支之前消费");
     }
 
+    @Test
+    void placementHasARealTaskExecutorAndLegacySliceNoLongerRunsIt() throws IOException {
+        String engine = readMain("server/task/RtsTaskEngine.java");
+        assertTrue(engine.contains("registerExecutor(TaskType.PLACEMENT"));
+        assertTrue(engine.contains("private TaskStepResult executePlacement"));
+        int legacyStart = engine.indexOf("private TaskStepResult executeLegacyPlayerSlice");
+        int placementStart = engine.indexOf("private void syncPlacementTasks");
+        String legacyBody = engine.substring(legacyStart, placementStart);
+        assertFalse(legacyBody.contains("tickPlaceBatchJobs"));
+    }
+
     private static String readMain(String relative) throws IOException {
         return Files.readString(Path.of("src/main/java/com/rtsbuilding/rtsbuilding").resolve(relative));
     }

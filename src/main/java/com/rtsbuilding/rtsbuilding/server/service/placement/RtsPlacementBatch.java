@@ -173,6 +173,20 @@ public final class RtsPlacementBatch {
     /** 在数量与纳秒截止时间双预算内推进放置任务。 */
     public static int tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session,
             int maxBlocks, long deadlineNanos) {
+        return tickPlaceBatchJobs(player, session, maxBlocks, deadlineNanos, null);
+    }
+
+    /** 仅推进指定任务；供 Task Engine 的 PlacementExecutor 使用。 */
+    public static int tickPlaceTask(ServerPlayer player, RtsStorageSession session,
+            PlaceBatchJob job, int maxBlocks, long deadlineNanos) {
+        if (job == null || session == null || session.placement.placeBatchJobs.peekFirst() != job) {
+            return 0;
+        }
+        return tickPlaceBatchJobs(player, session, maxBlocks, deadlineNanos, job);
+    }
+
+    private static int tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session,
+            int maxBlocks, long deadlineNanos, PlaceBatchJob onlyJob) {
         if (player == null || session == null) {
             return 0;
         }
@@ -185,7 +199,8 @@ public final class RtsPlacementBatch {
             placedBeforeTick.put(j.workflowEntryId(), j.placedPositions.size());
         }
         while (remaining > 0 && System.nanoTime() < deadlineNanos
-                && !session.placement.placeBatchJobs.isEmpty()) {
+                && !session.placement.placeBatchJobs.isEmpty()
+                && (onlyJob == null || session.placement.placeBatchJobs.peekFirst() == onlyJob)) {
             PlaceBatchJob job = session.placement.placeBatchJobs.peekFirst();
             boolean hasWorkflowEntry = hasWorkflowEntry(job);
             Optional<RtsWorkflowToken> workflowToken = workflowToken(player, job);
@@ -413,12 +428,17 @@ public final class RtsPlacementBatch {
             return this.index < this.clickedPositions.size();
         }
 
-        int remainingCount() {
+        public int remainingCount() {
             return this.clickedPositions.size() - this.index;
         }
 
-        int totalCount() {
+        public int totalCount() {
             return this.clickedPositions.size();
+        }
+
+        /** 供统一任务记录同步持久化游标，避免重新扫描已完成目标。 */
+        public int getIndex() {
+            return this.index;
         }
 
         private BlockPos next() {
