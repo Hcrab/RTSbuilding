@@ -4,10 +4,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 服务端任务的唯一状态源。
+ * 服务端任务生命周期与调度指标的唯一状态源。
  *
- * <p>工作流、客户端 UI、诊断日志和存档只能读取此对象的快照。具体执行数据放在
- * {@link TaskPayload} 中，但进度、错误、暂停与完成状态不得在那里重复保存。</p>
+ * <p>错误、暂停、等待和完成状态只保存在这里。迁移期间，旧领域 Job 仍保留用于断线恢复的
+ * 目标游标；TaskRecord 会在首次调度时从该游标恢复，但后续生命周期不得由 Job 反向决定。
+ * 成功/失败统计与执行预算已和游标分离，避免把跳过目标误报为成功。</p>
  */
 public final class TaskRecord {
     private final UUID id;
@@ -18,7 +19,9 @@ public final class TaskRecord {
     private final int totalUnits;
     private TaskStatus status = TaskStatus.QUEUED;
     private TaskVisibility visibility = TaskVisibility.TRANSIENT;
-    private int completedUnits;
+    private int cursorUnits;
+    private int succeededUnits;
+    private int failedUnits;
     private long updatedNanos;
     private String errorKey;
 
@@ -38,7 +41,10 @@ public final class TaskRecord {
     public TaskType type() { return type; }
     public TaskPayload payload() { return payload; }
     public int totalUnits() { return totalUnits; }
-    public int completedUnits() { return completedUnits; }
+    public int completedUnits() { return succeededUnits; }
+    public int cursorUnits() { return cursorUnits; }
+    public int succeededUnits() { return succeededUnits; }
+    public int failedUnits() { return failedUnits; }
     public TaskStatus status() { return status; }
     public TaskVisibility visibility() { return visibility; }
     public long createdNanos() { return createdNanos; }
@@ -47,9 +53,10 @@ public final class TaskRecord {
 
     public synchronized void apply(TaskStepResult result, long nowNanos) {
         if (status.terminal() || status == TaskStatus.PAUSED) return;
-        long nextCompleted = (long) completedUnits + result.progressUnits();
-        completedUnits = (int) Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits,
-                nextCompleted);
+        cursorUnits = addClamped(cursorUnits, result.cursorUnits(), totalUnits);
+        succeededUnits = addClamped(succeededUnits, result.succeededUnits(), totalUnits);
+        int failureLimit = totalUnits == 0 ? Integer.MAX_VALUE : Math.max(0, totalUnits - succeededUnits);
+        failedUnits = (int) Math.min(failureLimit, (long) failedUnits + result.failedUnits());
         status = switch (result.outcome()) {
             case CONTINUE, YIELD -> TaskStatus.RUNNING;
             case COMPLETE -> TaskStatus.COMPLETED;
@@ -86,10 +93,15 @@ public final class TaskRecord {
     }
 
     /** 仅用于从持久任务恢复执行游标；不得用于正常进度更新。 */
-    public synchronized void restoreProgress(int completed, long nowNanos) {
-        if (status != TaskStatus.QUEUED || completedUnits != 0) return;
-        completedUnits = Math.max(0, Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits, completed));
+    public synchronized void restoreCursor(int cursor, long nowNanos) {
+        if (status != TaskStatus.QUEUED || cursorUnits != 0) return;
+        cursorUnits = Math.max(0, Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits, cursor));
         updatedNanos = nowNanos;
+    }
+
+    private static int addClamped(int current, int delta, int total) {
+        long next = (long) current + delta;
+        return (int) Math.min(total == 0 ? Integer.MAX_VALUE : total, next);
     }
 
     public synchronized void promoteIfLongRunning(long nowNanos, long thresholdNanos) {

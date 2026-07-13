@@ -87,6 +87,30 @@ class TaskSchedulerTest {
         assertTrue(stats.unitBudgetExhausted());
     }
 
+    @Test
+    void oneRunnableAmongOneHundredBlockedTasksDoesNotSpinUntilTimeBudget() {
+        AtomicLong clock = new AtomicLong();
+        TaskScheduler scheduler = new TaskScheduler(clock::get);
+        scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, (task, budget) -> {
+            clock.incrementAndGet();
+            return TaskStepResult.complete(1);
+        });
+        UUID owner = UUID.randomUUID();
+        for (int i = 0; i < 100; i++) {
+            TaskRecord blocked = task(owner);
+            blocked.pause(0L);
+            scheduler.submit(blocked);
+        }
+        scheduler.submit(task(owner));
+
+        TaskScheduler.TickStats stats = scheduler.tick(1_000L, 64, 4);
+
+        assertEquals(1, stats.slices());
+        assertEquals(1, stats.processedUnits());
+        assertEquals(100, scheduler.activeTaskCount());
+        assertEquals(1L, stats.elapsedNanos());
+    }
+
     private static TaskRecord task(UUID owner) {
         return new TaskRecord(UUID.randomUUID(), owner, TaskType.LEGACY_ADAPTER, EMPTY, 100, 0L);
     }

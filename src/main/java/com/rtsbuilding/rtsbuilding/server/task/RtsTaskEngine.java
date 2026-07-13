@@ -98,7 +98,8 @@ public final class RtsTaskEngine {
                     && record.status().terminal();
         });
 
-        for (var job : session.placement.placeBatchJobs) {
+        var job = session.placement.placeBatchJobs.peekFirst();
+        if (job != null) {
             TaskRecord record = placementRecords.get(job);
             if (record == null) {
                 record = createPlacementRecord(player, session, job, now);
@@ -113,13 +114,6 @@ public final class RtsTaskEngine {
                 if (token == null || !token.isPaused()) record.resume(now);
             }
         }
-        for (var job : session.placement.pendingJobs) {
-            if (placementRecords.containsKey(job)) continue;
-            TaskRecord record = createPlacementRecord(player, session, job, now);
-            record.apply(TaskStepResult.waitForResource(), now);
-            placementRecords.put(job, record);
-            scheduler.submit(record);
-        }
     }
 
     private TaskRecord createPlacementRecord(net.minecraft.server.level.ServerPlayer player,
@@ -133,7 +127,7 @@ public final class RtsTaskEngine {
                 taskId,
                 player.getUUID(), TaskType.PLACEMENT,
                 new PlacementTaskPayload(player, session, job), job.totalCount(), now);
-        record.restoreProgress(job.getIndex(), now);
+        record.restoreCursor(job.getIndex(), now);
         return record;
     }
 
@@ -150,7 +144,7 @@ public final class RtsTaskEngine {
             var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                     .from(player, job.workflowEntryId()).orElse(null);
             if (token == null) {
-                session.placement.placeBatchJobs.remove(job);
+                RtsPlacementBatch.cancelPlaceTask(player, session, job);
                 return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
             }
             if (token.isPaused()) {
@@ -160,21 +154,25 @@ public final class RtsTaskEngine {
         }
 
         int beforeIndex = job.getIndex();
+        int beforeSucceeded = job.successfulCount();
+        int beforeFailed = job.failedCount();
         int processed = RtsPlacementBatch.tickPlaceTask(player, session, job,
                 budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
-        int progress = Math.max(0, job.getIndex() - beforeIndex);
+        int cursor = Math.max(0, job.getIndex() - beforeIndex);
+        int succeeded = Math.max(0, job.successfulCount() - beforeSucceeded);
+        int failed = Math.max(0, job.failedCount() - beforeFailed);
         if (job.workflowEntryId() >= 0) {
-            int projected = Math.min(task.totalUnits(), task.completedUnits() + progress);
+            int projected = Math.min(task.totalUnits(), task.completedUnits() + succeeded);
             com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                     .from(player, job.workflowEntryId())
                     .ifPresent(token -> token.setCompletedBlocks(projected));
         }
         if (session.placement.pendingJobs.contains(job)) {
-            return TaskStepResult.waitForResource(processed, progress);
+            return TaskStepResult.waitForResource(processed, cursor, succeeded, failed);
         }
         if (!session.placement.placeBatchJobs.contains(job)) {
-            return TaskStepResult.complete(processed, progress);
+            return TaskStepResult.complete(processed, cursor, succeeded, failed);
         }
-        return TaskStepResult.continueWith(processed, progress);
+        return TaskStepResult.continueWith(processed, cursor, succeeded, failed);
     }
 }

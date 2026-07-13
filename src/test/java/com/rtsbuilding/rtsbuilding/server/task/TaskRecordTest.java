@@ -49,18 +49,31 @@ class TaskRecordTest {
     void persistedCursorRestoresBeforeScheduling() {
         TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.PLACEMENT,
                 EMPTY, 100, 0L);
-        task.restoreProgress(37, 1L);
-        assertEquals(37, task.completedUnits());
+        task.restoreCursor(37, 1L);
+        assertEquals(37, task.cursorUnits());
+        assertEquals(0, task.completedUnits());
         task.apply(TaskStepResult.continueWith(5), 2L);
-        assertEquals(42, task.completedUnits());
+        assertEquals(42, task.cursorUnits());
+        assertEquals(5, task.completedUnits());
     }
 
     @Test
     void rolledBackAttemptConsumesBudgetWithoutAdvancingProgress() {
         TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.PLACEMENT,
                 EMPTY, 100, 0L);
-        task.apply(TaskStepResult.waitForResource(1, 0), 1L);
+        task.apply(TaskStepResult.waitForResource(1, 0, 0, 0), 1L);
         assertEquals(0, task.completedUnits());
+        assertEquals(0, task.cursorUnits());
         assertEquals(TaskStatus.WAITING_RESOURCE, task.status());
+    }
+
+    @Test
+    void skippedUnitAdvancesCursorButCountsAsFailure() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.DESTRUCTION,
+                EMPTY, 100, 0L);
+        task.apply(TaskStepResult.continueWith(1, 1, 0, 1), 1L);
+        assertEquals(1, task.cursorUnits());
+        assertEquals(0, task.succeededUnits());
+        assertEquals(1, task.failedUnits());
     }
 }

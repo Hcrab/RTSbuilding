@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import net.minecraft.core.BlockPos;
@@ -233,6 +234,8 @@ public final class RtsPlacementBatch {
                     if (keepGoing && (beforeState.isAir() || beforeState.canBeReplaced())
                             && !player.serverLevel().getBlockState(trackedPos).isAir()) {
                         job.placedPositions.add(trackedPos);
+                    } else if (keepGoing) {
+                        job.skippedWhileProcessing++;
                     }
                 } else {
                     Vec3 hitLocation = new Vec3(
@@ -273,6 +276,8 @@ public final class RtsPlacementBatch {
                                 player.serverLevel(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
                         if (actualPos != null) {
                             job.placedPositions.add(actualPos);
+                        } else {
+                            job.skippedWhileProcessing++;
                         }
                     }
                 }
@@ -325,6 +330,22 @@ public final class RtsPlacementBatch {
         }
         RtsPendingPlacementService.refreshWorkflowProgress(player, session);
         return initialBudget - remaining;
+    }
+
+    /**
+     * 工作流消失时收拢已经发生的放置副作用，避免直接移除队列后丢失历史与持久化刷新。
+     */
+    public static void cancelPlaceTask(ServerPlayer player, RtsStorageSession session, PlaceBatchJob job) {
+        if (player == null || session == null || job == null) return;
+        boolean removed = session.placement.placeBatchJobs.remove(job)
+                | session.placement.pendingJobs.remove(job);
+        if (!removed) return;
+        if (!job.placedPositions.isEmpty()) {
+            ServerHistoryManager.recordPlacement(player, job.placedPositions, job.face());
+        }
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     private static boolean hasWorkflowEntry(PlaceBatchJob job) {
@@ -396,6 +417,8 @@ public final class RtsPlacementBatch {
         private boolean statePlanResolved;
         private RtsPlacementQuickBuild.StatePlacementPlan statePlan;
         final List<BlockPos> placedPositions = new ArrayList<>();
+        /** 已消费游标但未产生放置结果的目标数。 */
+        int skippedWhileProcessing;
 
         private PlaceBatchJob(List<BlockPos> clickedPositions, Direction face, double hitOffsetX, double hitOffsetY,
                 double hitOffsetZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
@@ -439,6 +462,14 @@ public final class RtsPlacementBatch {
         /** 供统一任务记录同步持久化游标，避免重新扫描已完成目标。 */
         public int getIndex() {
             return this.index;
+        }
+
+        public int successfulCount() {
+            return this.placedPositions.size();
+        }
+
+        public int failedCount() {
+            return this.skippedWhileProcessing;
         }
 
         private BlockPos next() {

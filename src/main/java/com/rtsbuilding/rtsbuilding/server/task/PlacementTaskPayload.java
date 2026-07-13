@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * 放置任务的类型数据。进度、暂停、错误和完成状态只存在于 TaskRecord；
- * PlaceBatchJob 仅保留放置参数、目标坐标与持久化游标。
+ * 放置任务的领域数据。生命周期、成功/失败指标属于 TaskRecord；
+ * PlaceBatchJob 仅保留放置参数、目标坐标，以及迁移期断线恢复所需的持久化游标。
  */
 public record PlacementTaskPayload(
         ServerPlayer player,
