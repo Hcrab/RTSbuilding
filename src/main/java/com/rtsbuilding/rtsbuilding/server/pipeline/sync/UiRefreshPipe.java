@@ -23,7 +23,9 @@ public final class UiRefreshPipe implements PipelinePipe<PipelineContext> {
         }
         int page = ctx.hasData(ARG_PAGE_NUMBER) ? ctx.getData(ARG_PAGE_NUMBER) : session.browser.page;
         session.browser.page = page;
-        RtsEffectAccumulator.INSTANCE.markStoragePage(
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(
+                ctx.player().getUUID(), ctx.player().level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(
                 ctx.player().getUUID(), ctx.player().level().dimension());
         return PipelineResult.success();
     }

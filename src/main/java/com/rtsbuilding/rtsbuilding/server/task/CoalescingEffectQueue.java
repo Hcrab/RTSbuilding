@@ -12,7 +12,7 @@ import java.util.Map;
  * <p>它不执行网络或存档操作，只维护确定性脏集合，因此可以脱离游戏运行时测试。</p>
  */
 public final class CoalescingEffectQueue<K> {
-    public enum Kind { STORAGE_PAGE, WORKFLOW, PERSISTENCE }
+    public enum Kind { STORAGE_VIEW_DIRTY, WORKFLOW, PERSISTENCE }
 
     private final Map<K, EnumSet<Kind>> dirty = new LinkedHashMap<>();
 

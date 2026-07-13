@@ -12,15 +12,28 @@ class CoalescingEffectQueueTest {
     void repeatedMarksProduceOneCommitPerKeyAndKind() {
         CoalescingEffectQueue<UUID> queue = new CoalescingEffectQueue<>();
         UUID player = UUID.randomUUID();
-        queue.mark(player, CoalescingEffectQueue.Kind.STORAGE_PAGE);
-        queue.mark(player, CoalescingEffectQueue.Kind.STORAGE_PAGE);
+        queue.mark(player, CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY);
+        queue.mark(player, CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY);
         queue.mark(player, CoalescingEffectQueue.Kind.WORKFLOW);
 
         var drained = queue.drain();
 
         assertEquals(1, drained.size());
-        assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.STORAGE_PAGE));
+        assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY));
         assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.WORKFLOW));
         assertEquals(0, queue.keyCount());
+    }
+
+    @Test
+    void twentyPlacementMarksStillProduceOneDirtyNotificationIntent() {
+        CoalescingEffectQueue<UUID> queue = new CoalescingEffectQueue<>();
+        UUID player = UUID.randomUUID();
+        for (int i = 0; i < 20; i++) {
+            queue.mark(player, CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY);
+        }
+        var drained = queue.drain();
+        assertEquals(1, drained.size());
+        assertEquals(1, drained.getFirst().kinds().size());
+        assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY));
     }
 }

@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.task;
 
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.resources.ResourceKey;
@@ -25,8 +24,8 @@ public final class RtsEffectAccumulator {
     private RtsEffectAccumulator() {
     }
 
-    public void markStoragePage(UUID playerId, ResourceKey<Level> dimension) {
-        queue.mark(new PlayerEffectKey(playerId, dimension), CoalescingEffectQueue.Kind.STORAGE_PAGE);
+    public void markStorageViewDirty(UUID playerId, ResourceKey<Level> dimension) {
+        queue.mark(new PlayerEffectKey(playerId, dimension), CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY);
     }
 
     public void markWorkflow(UUID playerId, ResourceKey<Level> dimension) {
@@ -45,12 +44,13 @@ public final class RtsEffectAccumulator {
             var session = RtsSessionService.getIfPresent(player);
             if (session == null) continue;
 
-            boolean page = pending.kinds().contains(CoalescingEffectQueue.Kind.STORAGE_PAGE);
-            if (page && RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                        session.browser.category, session.browser.sort, session.browser.ascending);
-            } else if (pending.kinds().contains(CoalescingEffectQueue.Kind.PERSISTENCE)) {
+            if (pending.kinds().contains(CoalescingEffectQueue.Kind.PERSISTENCE)) {
                 RtsSessionService.saveToPlayerNbt(player, session);
+            }
+            if (pending.kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY)
+                    && RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
+                // 仅通知客户端“页面已脏”，不在任务 Tick 内构建完整页面。
+                RtsSessionService.markStorageViewDirty(player, session);
             }
             if (pending.kinds().contains(CoalescingEffectQueue.Kind.WORKFLOW)) {
                 RtsWorkflowEngine.getInstance().flushPlayerNow(key.playerId(), key.dimension());

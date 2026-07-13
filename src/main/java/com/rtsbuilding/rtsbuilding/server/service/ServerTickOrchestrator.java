@@ -92,7 +92,7 @@ public final class ServerTickOrchestrator {
                 // knows the storage data has changed and should rebuild.
                 session.transfer.pageDataVersion.incrementAndGet();
                 if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
-                RtsEffectAccumulator.INSTANCE.markStoragePage(
+                RtsEffectAccumulator.INSTANCE.markStorageViewDirty(
                         player.getUUID(), player.level().dimension());
                 // 存储变化后自动尝试恢复挂起放置作业
                 RtsPendingPlacementService.tryResumeAfterStorageChange(player);

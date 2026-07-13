@@ -47,14 +47,15 @@ public final class ServiceOperationTemplate {
     public void afterModification(ServerPlayer player, RtsStorageSession session) {
         RtsStorageTickService.INSTANCE.forceRefresh(player);
         session.transfer.pageDataVersion.incrementAndGet();
-        RtsEffectAccumulator.INSTANCE.markStoragePage(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     /**
      * 简化的保存模式——无 forceRefresh，适用于仅变更浏览器状态等非存储数据的场景。
      */
     public void simpleSave(ServerPlayer player, RtsStorageSession session) {
-        RtsEffectAccumulator.INSTANCE.markStoragePage(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     /**
@@ -83,6 +84,6 @@ public final class ServiceOperationTemplate {
      * 直接刷新页面——不 bump 版本也不保存，适用于页面版本已由外部递增过的场景。
      */
     public void refreshPage(ServerPlayer player, RtsStorageSession session) {
-        RtsEffectAccumulator.INSTANCE.markStoragePage(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
     }
 }
