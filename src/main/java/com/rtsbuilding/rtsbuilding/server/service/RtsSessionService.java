@@ -12,6 +12,8 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageCore;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSessionCodec;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -132,6 +134,8 @@ public final class RtsSessionService {
     }
 
     public static void onPlayerLogout(ServerPlayer player) {
+        RtsTaskEngine.INSTANCE.onPlayerLogout(player.getUUID());
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {
             session.placement.placeBatchJobs.clear();

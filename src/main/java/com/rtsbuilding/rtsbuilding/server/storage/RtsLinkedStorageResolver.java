@@ -75,14 +75,19 @@ public final class RtsLinkedStorageResolver {
                 if (sameDimension && !session.detachedBackpackRefs.contains(ref)
                         && RtsProgressionManager.canAccessHomeRadius(player, pos)
                         && player.serverLevel().hasChunkAt(pos)) {
-                    handler = backpackLink
-                            ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
-                            : RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+                    Object endpointIdentity = player.serverLevel().getBlockEntity(pos);
+                    handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
+                            player.getUUID(), currentDimension, pos, backpackUuid, endpointIdentity,
+                            () -> backpackLink
+                                    ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
+                                    : RtsLinkedCapabilities.findLinkedItemHandler(player, pos));
                 }
 
                 if (handler == null && backpackLink) {
-                    handler = RtsBackpackCompat.openBackpack(backpackUuid, session.linkedBackpackItemIds.get(ref), player)
-                            .orElse(null);
+                    handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
+                            player.getUUID(), ref.dimension(), pos, backpackUuid, null,
+                            () -> RtsBackpackCompat.openBackpack(
+                                    backpackUuid, session.linkedBackpackItemIds.get(ref), player).orElse(null));
                 }
 
                 if (handler == null) {
