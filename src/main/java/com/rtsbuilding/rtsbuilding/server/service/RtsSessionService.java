@@ -152,19 +152,7 @@ public final class RtsSessionService {
     }
 
     public static void onPlayerTickPost(ServerPlayer player) {
-        RtsStorageSession session = SESSIONS.get(player.getUUID());
-        if (session == null) {
-            return;
-        }
-        if (session.transfer.remoteMenuContainerId < 0
-                && !RtsRemoteMenuCompat.isSupportedRemoteMenu(player.containerMenu)) {
-            RtsMenuRemoteService.clearValidation(player, session);
-        }
-        if (session.transfer.remoteMenuContainerId >= 0
-                && (player.containerMenu == null || player.containerMenu.containerId != session.transfer.remoteMenuContainerId)) {
-            RtsMenuRemoteService.clearValidation(player, session);
-        }
-        RtsPlacementBatch.tickPlaceBatchJobs(player, session);
+        ServerTickOrchestrator.getInstance().onPlayerTickPost(player);
     }
 
     public static void warmCreativeTabCaches(MinecraftServer server) {
@@ -187,35 +175,7 @@ public final class RtsSessionService {
     }
 
     public static void tickMining(MinecraftServer server) {
-        // Tick storage cache refresh (every N ticks per player)
-        var changes = RtsStorageTickService.INSTANCE.tick();
-
-        // When cache detects item changes, push updated page to the client
-        if (!changes.isEmpty()) {
-            for (var entry : changes.entrySet()) {
-                ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-                if (player == null) continue;
-                RtsStorageSession session = SESSIONS.get(entry.getKey());
-                if (session == null) continue;
-                // Increment data version so the page cache in RtsPageCore
-                // knows the storage data has changed and should rebuild.
-                session.transfer.pageDataVersion.incrementAndGet();
-                if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search,
-                        session.browser.category, session.browser.sort, session.browser.ascending);
-            }
-        }
-
-        for (var entry : SESSIONS.entrySet()) {
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null) {
-                continue;
-            }
-            RtsStorageSession session = entry.getValue();
-            RtsMiningStateMachine.tickActiveMining(player, session);
-            RtsFunnelService.tick(player, session);
-            RtsPlacedRecoveryService.tick(player, session);
-        }
+        ServerTickOrchestrator.getInstance().tickMining(server);
     }
 
     // ======================================================================

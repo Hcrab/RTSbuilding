@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
-import com.rtsbuilding.rtsbuilding.server.pipeline.sync.NetworkSyncPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsUltimineProcessor;
@@ -85,8 +84,6 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                 case AREA_DESTROY -> queueAreaDestroy(ctx, session, lease, workflowEntryId);
                 default -> throw new IllegalStateException("Unexpected workflow type: " + type);
             };
-            ctx.setData(NetworkSyncPipe.ARG_TOTAL_BLOCKS, queuedCount);
-            ctx.setData(NetworkSyncPipe.ARG_PROCESSED_BLOCKS, 0);
             if (ctx.hasWorkflowEntryId()) {
                 RtsWorkflowEngine.getInstance()
                         .from(ctx.player(), ctx.getWorkflowEntryId())
@@ -102,8 +99,6 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
             default -> throw new IllegalStateException("Unexpected workflow type: " + type);
         }
 
-        ctx.setData(NetworkSyncPipe.ARG_TOTAL_BLOCKS, result.targetCount());
-        ctx.setData(NetworkSyncPipe.ARG_PROCESSED_BLOCKS, 0);
         updateWorkflowSlot(ctx, result);
         return PipelineResult.success();
     }

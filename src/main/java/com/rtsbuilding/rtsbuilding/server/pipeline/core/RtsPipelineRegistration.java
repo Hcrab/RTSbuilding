@@ -9,13 +9,11 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.mining.UltimineExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.UltimineTickPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PendingPlacementPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.sync.NetworkSyncPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.sync.UiRefreshPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.ProgressionGatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionDimensionPipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowProgressPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
@@ -107,8 +105,6 @@ public final class RtsPipelineRegistration {
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.ULTIMINE, RtsWorkflowPriority.HIGH))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.ULTIMINE))
-                .pipe(new WorkflowProgressPipe(0))
-                .pipe(new NetworkSyncPipe())
                 .pipe(new UiRefreshPipe())
                 .tickable(new UltimineTickPipe())
                 .register();
@@ -123,8 +119,6 @@ public final class RtsPipelineRegistration {
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.AREA_MINE, RtsWorkflowPriority.HIGH))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.AREA_MINE))
-                .pipe(new WorkflowProgressPipe(0))
-                .pipe(new NetworkSyncPipe())
                 .pipe(new UiRefreshPipe())
                 .tickable(new UltimineTickPipe())
                 .register();
@@ -139,8 +133,6 @@ public final class RtsPipelineRegistration {
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.AREA_DESTROY, RtsWorkflowPriority.HIGH))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.AREA_DESTROY))
-                .pipe(new WorkflowProgressPipe(0))
-                .pipe(new NetworkSyncPipe())
                 .pipe(new UiRefreshPipe())
                 .tickable(new UltimineTickPipe())
                 .register();

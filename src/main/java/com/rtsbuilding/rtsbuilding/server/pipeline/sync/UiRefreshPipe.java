@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 
 /**
  * 轻量刷新玩家当前存储页。
@@ -22,8 +22,9 @@ public final class UiRefreshPipe implements PipelinePipe<PipelineContext> {
             return PipelineResult.success();
         }
         int page = ctx.hasData(ARG_PAGE_NUMBER) ? ctx.getData(ARG_PAGE_NUMBER) : session.browser.page;
-        RtsPageService.requestPage(ctx.player(), page, session.browser.search,
-                session.browser.category, session.browser.sort, session.browser.ascending);
+        session.browser.page = page;
+        RtsEffectAccumulator.INSTANCE.markStoragePage(
+                ctx.player().getUUID(), ctx.player().level().dimension());
         return PipelineResult.success();
     }
 }

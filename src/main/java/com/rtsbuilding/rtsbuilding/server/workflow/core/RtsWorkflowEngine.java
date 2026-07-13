@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -71,7 +72,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         entry.setTotalBlocks(totalBlocks);
         this.playerRefs.put(player.getUUID(), player);
         fireEvent(WorkflowEventType.STARTED, player.getUUID(), entry.id(), entry);
-        this.syncService.notifyPlayer(player, slots);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
         return Optional.of(new RtsWorkflowToken(player.getUUID(), entry.id(), player.level().dimension(), this));
     }
 
@@ -376,13 +377,17 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (slots == null || !slots.removeEntryById(entryId)) {
             return;
         }
-        ServerPlayer player = this.playerRefs.get(playerId);
-        if (player != null && player.level().dimension().equals(dimension)) {
-            this.syncService.notifyPlayer(player, slots);
-        }
+        RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
     }
 
     void notifyPlayer(UUID playerId, ResourceKey<Level> dimension) {
+        if (getSlots(playerId, dimension) != null) {
+            RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
+        }
+    }
+
+    /** 只允许 Tick 末副作用提交器立即发送一次工作流快照。 */
+    public void flushPlayerNow(UUID playerId, ResourceKey<Level> dimension) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         ServerPlayer player = this.playerRefs.get(playerId);
         if (slots != null && player != null && player.level().dimension().equals(dimension)) {
