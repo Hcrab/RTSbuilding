@@ -47,8 +47,9 @@ public final class TaskRecord {
 
     public synchronized void apply(TaskStepResult result, long nowNanos) {
         if (status.terminal() || status == TaskStatus.PAUSED) return;
-        completedUnits = Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits,
-                completedUnits + result.processedUnits());
+        long nextCompleted = (long) completedUnits + result.processedUnits();
+        completedUnits = (int) Math.min(totalUnits == 0 ? Integer.MAX_VALUE : totalUnits,
+                nextCompleted);
         status = switch (result.outcome()) {
             case CONTINUE, YIELD -> TaskStatus.RUNNING;
             case COMPLETE -> TaskStatus.COMPLETED;

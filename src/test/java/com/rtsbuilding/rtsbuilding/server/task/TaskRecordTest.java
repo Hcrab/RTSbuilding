@@ -35,4 +35,13 @@ class TaskRecordTest {
         task.promoteIfLongRunning(500_000_000L, 1_000_000_000L);
         assertEquals(TaskVisibility.TRANSIENT, task.visibility());
     }
+
+    @Test
+    void completedUnitAdditionCannotOverflow() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.MINING,
+                EMPTY, 0, 0L);
+        task.apply(TaskStepResult.continueWith(Integer.MAX_VALUE), 1L);
+        task.apply(TaskStepResult.continueWith(Integer.MAX_VALUE), 2L);
+        assertEquals(Integer.MAX_VALUE, task.completedUnits());
+    }
 }
