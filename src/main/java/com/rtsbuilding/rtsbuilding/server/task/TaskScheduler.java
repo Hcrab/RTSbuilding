@@ -37,6 +37,11 @@ public final class TaskScheduler {
         return lanes.values().stream().mapToInt(ArrayDeque::size).sum();
     }
 
+    public synchronized boolean hasTasks(UUID ownerId) {
+        ArrayDeque<TaskRecord> lane = lanes.get(ownerId);
+        return lane != null && !lane.isEmpty();
+    }
+
     public synchronized void cancelOwner(UUID ownerId, long nowNanos) {
         ArrayDeque<TaskRecord> lane = lanes.remove(ownerId);
         if (lane != null) lane.forEach(task -> task.cancel(nowNanos));

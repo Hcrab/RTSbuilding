@@ -608,6 +608,12 @@ public final class RtsUltimineProcessor {
      * queued ultimine targets.
      */
     static void processUltimineTargets(ServerPlayer player, RtsStorageSession session) {
+        processUltimineTargets(player, session, RtsMiningValidator.ultimineBlocksPerTick(), Long.MAX_VALUE);
+    }
+
+    /** 在统一任务引擎分配的数量与时间预算内推进连锁挖掘。 */
+    static void processUltimineTargets(ServerPlayer player, RtsStorageSession session,
+            int maxUnits, long deadlineNanos) {
         if (session.mining.ultimineTargets.isEmpty()) {
             finishUltimineBatch(player, session);
             return;
@@ -627,7 +633,11 @@ public final class RtsUltimineProcessor {
         boolean autoStoreDrops = RtsMiningValidator.canAutoStoreDrops(player, session);
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
         boolean finishAfterThisTick = false;
-        while (RtsMiningTargetQueue.canProcessAnotherTargetThisTick(processedThisTick, session.mining.ultimineTargets)) {
+        int unitLimit = Math.max(0, maxUnits);
+        while (processedThisTick < unitLimit
+                && System.nanoTime() < deadlineNanos
+                && RtsMiningTargetQueue.canProcessAnotherTargetThisTick(
+                        processedThisTick, session.mining.ultimineTargets)) {
             if (RtsMiningValidator.isToolNearBreak(player, session)) {
                 markWorkflowProgress(workflowToken, workflowProgressDelta);
                 finishUltimineBatch(player, session);

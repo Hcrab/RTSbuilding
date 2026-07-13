@@ -107,12 +107,18 @@ public final class RtsMiningStateMachine {
      * {@link RtsUltimineProcessor#processUltimineTargets}.</p>
      */
     public static void tickActiveMining(ServerPlayer player, RtsStorageSession session) {
+        tickActiveMining(player, session, RtsMiningValidator.ultimineBlocksPerTick(), Long.MAX_VALUE);
+    }
+
+    /** 在统一任务引擎分配的数量与时间预算内推进挖掘。 */
+    public static void tickActiveMining(ServerPlayer player, RtsStorageSession session,
+            int maxUnits, long deadlineNanos) {
         if (session.mining.miningPos == null) {
             if (!session.mining.ultimineTargets.isEmpty()) {
-                RtsUltimineProcessor.processUltimineTargets(player, session);
+                RtsUltimineProcessor.processUltimineTargets(player, session, maxUnits, deadlineNanos);
             } else if (!session.mining.ultimineJobQueue.isEmpty()) {
                 activateNextJob(player, session);
-                RtsUltimineProcessor.processUltimineTargets(player, session);
+                RtsUltimineProcessor.processUltimineTargets(player, session, maxUnits, deadlineNanos);
             }
             return;
         }

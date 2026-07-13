@@ -167,21 +167,25 @@ public final class RtsPlacementBatch {
      * completes.
      */
     public static void tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session) {
+        tickPlaceBatchJobs(player, session, Config.buildBatchBlocksPerTick(), Long.MAX_VALUE);
+    }
+
+    /** 在数量与纳秒截止时间双预算内推进放置任务。 */
+    public static int tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session,
+            int maxBlocks, long deadlineNanos) {
         if (player == null || session == null) {
-            return;
+            return 0;
         }
-        int totalBlocks = 0;
-        for (PlaceBatchJob j : session.placement.placeBatchJobs) {
-            totalBlocks += j.totalCount();
-        }
-        int remaining = Math.min(BUILD_BATCH_MAX_BLOCKS_PER_TICK, Math.max(1, totalBlocks / 10));
+        int initialBudget = Math.max(0, Math.min(BUILD_BATCH_MAX_BLOCKS_PER_TICK, maxBlocks));
+        int remaining = initialBudget;
         int pausedJobsSkipped = 0;
         Map<Integer, Integer> placedBeforeTick = new HashMap<>();
         List<PlaceBatchJob> fullyCompletedJobs = new ArrayList<>();
         for (PlaceBatchJob j : session.placement.placeBatchJobs) {
             placedBeforeTick.put(j.workflowEntryId(), j.placedPositions.size());
         }
-        while (remaining > 0 && !session.placement.placeBatchJobs.isEmpty()) {
+        while (remaining > 0 && System.nanoTime() < deadlineNanos
+                && !session.placement.placeBatchJobs.isEmpty()) {
             PlaceBatchJob job = session.placement.placeBatchJobs.peekFirst();
             boolean hasWorkflowEntry = hasWorkflowEntry(job);
             Optional<RtsWorkflowToken> workflowToken = workflowToken(player, job);
@@ -200,7 +204,7 @@ public final class RtsPlacementBatch {
                 continue;
             }
             pausedJobsSkipped = 0;
-            while (remaining > 0 && job.hasNext()) {
+            while (remaining > 0 && System.nanoTime() < deadlineNanos && job.hasNext()) {
                 BlockPos clickedPos = job.next();
                 RtsPlacementQuickBuild.StatePlacementPlan statePlan = job.quickBuild()
                         ? job.statePlacementPlan(player) : null;
@@ -261,7 +265,6 @@ public final class RtsPlacementBatch {
                 if (!keepGoing) {
                     if (hasWorkflowEntry) {
                         job.unconsumeLast();
-                        remaining--;
                         session.placement.placeBatchJobs.removeFirst();
                         session.placement.pendingJobs.addLast(job);
                         workflowToken.ifPresent(token -> token.suspend());
@@ -306,6 +309,7 @@ public final class RtsPlacementBatch {
             }
         }
         RtsPendingPlacementService.refreshWorkflowProgress(player, session);
+        return initialBudget - remaining;
     }
 
     private static boolean hasWorkflowEntry(PlaceBatchJob job) {

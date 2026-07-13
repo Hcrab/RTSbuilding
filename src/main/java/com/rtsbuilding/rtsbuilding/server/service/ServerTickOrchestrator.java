@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 
 /**
  * 服务器全局 Tick 编排器——管理所有非玩家生命周期的 tick 循环逻辑。
@@ -98,7 +99,10 @@ public final class ServerTickOrchestrator {
             }
         }
 
-        // 遍历在线玩家而非 allSessions()，避免遍历已离线的过期 session
+        // 先在一个全服务器预算内公平推进放置、拆除与挖掘。
+        RtsTaskEngine.INSTANCE.tick(server);
+
+        // 漏斗和恢复服务尚未迁入按 unit 计量的 Executor；保留明确兼容边界。
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             RtsStorageSession session = RtsSessionService.getIfPresent(player);
             if (session == null) continue;

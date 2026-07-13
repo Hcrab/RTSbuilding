@@ -101,6 +101,18 @@ public final class Config {
             .comment("Maximum queued chain mining targets processed per player per server tick.")
             .defineInRange("mining.ultimineBlocksPerTick", 8, 1, 128);
 
+    public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = BUILDER
+            .comment("Hard global RTS work-unit limit across all players in one server tick.")
+            .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
+
+    public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_SLICE = BUILDER
+            .comment("Maximum RTS work units granted to one player before rotating to another player.")
+            .defineInRange("taskEngine.maxUnitsPerSlice", 32, 1, 512);
+
+    public static final ForgeConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = BUILDER
+            .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
+            .defineInRange("taskEngine.maxNanosPerTick", 4_000_000L, 250_000L, 20_000_000L);
+
     public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = BUILDER
             .comment("Maximum RTS remote block action sounds sent per player per tick. Excess sounds are dropped.")
             .defineInRange("placement.remoteBlockActionSoundsPerTick", 16, 0, 16);
@@ -337,6 +349,18 @@ public final class Config {
 
     public static int ultimineBlocksPerTick() {
         return ULTIMINE_BLOCKS_PER_TICK.get();
+    }
+
+    public static int taskEngineMaxUnitsPerTick() {
+        return TASK_ENGINE_MAX_UNITS_PER_TICK.get();
+    }
+
+    public static int taskEngineMaxUnitsPerSlice() {
+        return TASK_ENGINE_MAX_UNITS_PER_SLICE.get();
+    }
+
+    public static long taskEngineMaxNanosPerTick() {
+        return TASK_ENGINE_MAX_NANOS_PER_TICK.get();
     }
 
     private static int clampInt(int value, int min, int max) {
