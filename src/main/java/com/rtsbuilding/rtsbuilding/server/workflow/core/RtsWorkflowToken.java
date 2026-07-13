@@ -62,6 +62,12 @@ public record RtsWorkflowToken(
     }
 
     public void recordFailure() {
+        recordFailures(1);
+    }
+
+    /** 批量记录失败目标；只产生一次工作流脏标记。 */
+    public void recordFailures(int count) {
+        if (count <= 0) return;
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
             entry.addFailedBlocks(1);

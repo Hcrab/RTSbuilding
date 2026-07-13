@@ -76,4 +76,14 @@ class TaskRecordTest {
         assertEquals(0, task.succeededUnits());
         assertEquals(1, task.failedUnits());
     }
+
+    @Test
+    void miningSnapshotRestoresCursorSuccessAndFailureSeparately() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.MINING,
+                EMPTY, 100, 0L);
+        task.restoreSnapshot(40, 31, 9, 1L);
+        assertEquals(40, task.cursorUnits());
+        assertEquals(31, task.succeededUnits());
+        assertEquals(9, task.failedUnits());
+    }
 }

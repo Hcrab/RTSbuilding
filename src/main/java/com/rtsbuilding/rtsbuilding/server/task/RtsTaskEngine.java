@@ -26,11 +26,13 @@ public final class RtsTaskEngine {
 
     private final TaskScheduler scheduler = new TaskScheduler(System::nanoTime);
     private final Map<RtsPlacementBatch.PlaceBatchJob, TaskRecord> placementRecords = new IdentityHashMap<>();
+    private final Map<MiningTaskKey, TaskRecord> miningRecords = new java.util.HashMap<>();
     private final Set<UUID> legacySliceQueuedOwners = new HashSet<>();
 
     private RtsTaskEngine() {
         scheduler.registerExecutor(TaskType.LEGACY_ADAPTER, this::executeLegacyPlayerSlice);
         scheduler.registerExecutor(TaskType.PLACEMENT, this::executePlacement);
+        scheduler.registerExecutor(TaskType.MINING, this::executeMining);
     }
 
     public TaskScheduler.TickStats tick(MinecraftServer server) {
@@ -38,6 +40,7 @@ public final class RtsTaskEngine {
             var session = RtsSessionService.getIfPresent(player);
             if (session == null) continue;
             syncPlacementTasks(player, session);
+            syncMiningTasks(player, session);
             if (legacySliceQueuedOwners.contains(player.getUUID())) continue;
             legacySliceQueuedOwners.add(player.getUUID());
             scheduler.submit(new TaskRecord(
@@ -54,6 +57,7 @@ public final class RtsTaskEngine {
         scheduler.cancelOwner(playerId, System.nanoTime());
         legacySliceQueuedOwners.remove(playerId);
         placementRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
+        miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(playerId));
     }
 
     private TaskStepResult executeLegacyPlayerSlice(TaskRecord task, TaskBudget budget) {
@@ -72,7 +76,7 @@ public final class RtsTaskEngine {
             processed += RtsPlacementBatch.tickPlaceBatchJobs(player, session,
                     budget.maxUnits() - processed, System.nanoTime() + budget.remainingNanos());
         }
-        if (budget.hasTime() && processed < budget.maxUnits()) {
+        if (currentMiningSource(session) == null && budget.hasTime() && processed < budget.maxUnits()) {
             int before = session.mining.ultimineProcessedTargets;
             boolean hadSingleTarget = session.mining.miningPos != null;
             RtsMiningStateMachine.tickActiveMining(player, session,
@@ -174,5 +178,98 @@ public final class RtsTaskEngine {
             return TaskStepResult.complete(processed, cursor, succeeded, failed);
         }
         return TaskStepResult.continueWith(processed, cursor, succeeded, failed);
+    }
+
+    private void syncMiningTasks(net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session) {
+        MiningTaskSource source = currentMiningSource(session);
+        miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(player.getUUID())
+                && entry.getValue().status().terminal()
+                && (source == null || entry.getKey().workflowEntryId() != source.workflowEntryId()));
+        if (source == null) return;
+
+        MiningTaskKey key = new MiningTaskKey(player.getUUID(), source.workflowEntryId());
+        TaskRecord record = miningRecords.get(key);
+        long now = System.nanoTime();
+        if (record == null) {
+            record = new TaskRecord(
+                    UUID.nameUUIDFromBytes((player.getUUID() + ":mining:" + source.workflowEntryId())
+                            .getBytes(StandardCharsets.UTF_8)),
+                    player.getUUID(), TaskType.MINING,
+                    new MiningTaskPayload(player, session, source.workflowEntryId()), source.totalUnits(), now);
+            record.restoreSnapshot(source.cursorUnits(), source.succeededUnits(), source.failedUnits(), now);
+            miningRecords.put(key, record);
+            scheduler.submit(record);
+        } else if (record.status() == TaskStatus.WAITING_RESOURCE && !session.miningDropBuffer.isFull()) {
+            record.resume(now);
+        } else if (record.status() == TaskStatus.PAUSED) {
+            var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                    .from(player, source.workflowEntryId()).orElse(null);
+            if (token == null || !token.isPaused()) record.resume(now);
+        }
+    }
+
+    private MiningTaskSource currentMiningSource(
+            com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session) {
+        boolean hasActiveState = session.mining.miningPos != null
+                || session.mining.ultimineProgressPos != null
+                || !session.mining.ultimineTargets.isEmpty();
+        if (hasActiveState && session.mining.miningWorkflowEntryId >= 0) {
+            int total = session.mining.ultimineTotalTargets > 0 ? session.mining.ultimineTotalTargets : 1;
+            int cursor = Math.max(0, session.mining.ultimineProcessedTargets);
+            int succeeded = Math.max(0, session.mining.ultimineBrokenTargets);
+            return new MiningTaskSource(
+                    session.mining.miningWorkflowEntryId, total, cursor, succeeded,
+                    Math.max(0, cursor - succeeded));
+        }
+        var queued = session.mining.ultimineJobQueue.peekFirst();
+        if (queued == null) return null;
+        return new MiningTaskSource(queued.workflowEntryId(), queued.totalTargets(), 0, 0, 0);
+    }
+
+    private TaskStepResult executeMining(TaskRecord task, TaskBudget budget) {
+        MiningTaskPayload payload = (MiningTaskPayload) task.payload();
+        var player = payload.player();
+        var session = payload.session();
+        MiningTaskSource source = currentMiningSource(session);
+        if (source == null || source.workflowEntryId() != payload.workflowEntryId()) {
+            return TaskStepResult.complete(0, 0, 0, 0);
+        }
+        var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                .from(player, payload.workflowEntryId()).orElse(null);
+        if (token == null) {
+            RtsMiningStateMachine.cancelMiningTask(player, session, payload.workflowEntryId());
+            return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
+        }
+        if (token.isPaused()) {
+            task.pause(System.nanoTime());
+            return TaskStepResult.nextTick(0, 0, 0, 0);
+        }
+        if (session.miningDropBuffer.isFull()) {
+            return TaskStepResult.waitForResource();
+        }
+
+        var advance = RtsMiningStateMachine.tickActiveMining(
+                player, session, budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
+        if (advance.waitingForBuffer()) {
+            return TaskStepResult.waitForResource(
+                    advance.processedUnits(), advance.processedUnits(),
+                    advance.succeededUnits(), advance.failedUnits());
+        }
+        if (advance.operationEnded()) {
+            return TaskStepResult.complete(
+                    advance.processedUnits(), advance.processedUnits(),
+                    advance.succeededUnits(), advance.failedUnits());
+        }
+        return TaskStepResult.nextTick(
+                advance.processedUnits(), advance.processedUnits(),
+                advance.succeededUnits(), advance.failedUnits());
+    }
+
+    private record MiningTaskKey(UUID playerId, int workflowEntryId) {
+    }
+
+    private record MiningTaskSource(
+            int workflowEntryId, int totalUnits, int cursorUnits, int succeededUnits, int failedUnits) {
     }
 }

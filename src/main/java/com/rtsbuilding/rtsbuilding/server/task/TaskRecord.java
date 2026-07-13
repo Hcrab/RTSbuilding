@@ -99,6 +99,16 @@ public final class TaskRecord {
         updatedNanos = nowNanos;
     }
 
+    /** 从仍在迁移中的领域存档恢复游标与真实结果统计。 */
+    public synchronized void restoreSnapshot(int cursor, int succeeded, int failed, long nowNanos) {
+        if (status != TaskStatus.QUEUED || cursorUnits != 0 || succeededUnits != 0 || failedUnits != 0) return;
+        int limit = totalUnits == 0 ? Integer.MAX_VALUE : totalUnits;
+        cursorUnits = Math.max(0, Math.min(limit, cursor));
+        succeededUnits = Math.max(0, Math.min(limit, succeeded));
+        failedUnits = Math.max(0, Math.min(Math.max(0, limit - succeededUnits), failed));
+        updatedNanos = nowNanos;
+    }
+
     private static int addClamped(int current, int delta, int total) {
         long next = (long) current + delta;
         return (int) Math.min(total == 0 ? Integer.MAX_VALUE : total, next);
