@@ -92,6 +92,7 @@
   "message.rtsbuilding.plugin.legacy_migrated": "The old skill tree has been replaced by RTS plugins. %s plugin(s) were added to your RTS plugin list.",
   "message.rtsbuilding.plugin.inventory_full": "Inventory is full.",
   "message.rtsbuilding.plugin.not_yours": "Only the player who installed this plugin can remove it.",
+  "message.rtsbuilding.plugin_required": "Install %s to use this feature.",
   "message.rtsbuilding.plugin.uninstalled": "Plugin removed.",
   "message.rtsbuilding.plugin.not_installed": "That plugin is not installed.",
   "screen.rtsbuilding.mode.interact": "Interact",

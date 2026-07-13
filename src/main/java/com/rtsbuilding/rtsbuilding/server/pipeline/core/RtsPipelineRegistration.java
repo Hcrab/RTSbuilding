@@ -52,6 +52,7 @@ public final class RtsPipelineRegistration {
 
     private static void registerPlaceSingle() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.PLACE_SINGLE)
+                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_PLACE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.PLACE_SINGLE, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
@@ -62,6 +63,7 @@ public final class RtsPipelineRegistration {
 
     private static void registerPlaceBatch() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.PLACE_BATCH)
+                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_PLACE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.PLACE_BATCH, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
@@ -73,6 +75,7 @@ public final class RtsPipelineRegistration {
 
     private static void registerQuickBuild() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.QUICK_BUILD)
+                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_PLACE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.QUICK_BUILD, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
@@ -113,7 +116,7 @@ public final class RtsPipelineRegistration {
 
     private static void registerAreaMine() {
         PipelineRegistry.miningPipeline(RtsWorkflowType.AREA_MINE)
-                .pipe(new ProgressionGatePipe(RtsFeature.ULTIMINE))
+                .pipe(new ProgressionGatePipe(RtsFeature.AREA_MINE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(true))

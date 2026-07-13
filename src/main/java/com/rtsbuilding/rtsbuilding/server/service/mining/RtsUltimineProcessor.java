@@ -151,7 +151,7 @@ public final class RtsUltimineProcessor {
             int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             byte toolSlot, String toolItemId, ItemStack toolPrototype,
             byte shapeType, byte fillType, boolean toolProtectionEnabled) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.ULTIMINE)) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_MINE)) {
             return;
         }
         if (session == null) {
@@ -326,7 +326,7 @@ public final class RtsUltimineProcessor {
             byte toolSlot, RtsToolLease toolLease, boolean selectedToolRequested,
             byte shapeType, byte fillType, boolean toolProtectionEnabled, int workflowEntryId) {
         RtsToolLease lease = toolLease == null ? RtsToolLease.empty() : toolLease;
-        if (!RtsProgressionManager.canUse(player, RtsFeature.ULTIMINE) || session == null) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_MINE) || session == null) {
             return completePipelineWithoutActiveBatch(player, session, lease);
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
@@ -459,7 +459,7 @@ public final class RtsUltimineProcessor {
             byte toolSlot, RtsToolLease toolLease, boolean selectedToolRequested,
             byte shapeType, byte fillType, boolean toolProtectionEnabled, int workflowEntryId) {
         RtsToolLease lease = toolLease == null ? RtsToolLease.empty() : toolLease;
-        if (!RtsProgressionManager.canUse(player, RtsFeature.ULTIMINE) || session == null) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_MINE) || session == null) {
             RtsToolLeaseManager.returnMiningTool(player, session, lease);
             return 0;
         }

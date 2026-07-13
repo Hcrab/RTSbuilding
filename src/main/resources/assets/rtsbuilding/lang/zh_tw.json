@@ -92,6 +92,7 @@
   "message.rtsbuilding.plugin.legacy_migrated": "舊技能樹已改為 RTS 插件系統，已為你的插件列表補足 %s 個插件。",
   "message.rtsbuilding.plugin.inventory_full": "背包已滿。",
   "message.rtsbuilding.plugin.not_yours": "只能卸載你自己安裝的插件。",
+  "message.rtsbuilding.plugin_required": "請先安裝%s以使用此功能。",
   "message.rtsbuilding.plugin.uninstalled": "插件已卸載。",
   "message.rtsbuilding.plugin.not_installed": "這個插件未安裝。",
   "screen.rtsbuilding.mode.interact": "互動",

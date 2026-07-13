@@ -2391,6 +2391,7 @@ public final class ClientRtsController {
         }
         RtsClientPacketGateway.sendSetSurvivalProgression(enabled);
         RtsClientPacketGateway.sendRequestProgressionState();
+        RtsClientPacketGateway.sendRequestPlugins();
     }
 
     public void setProgressionCost(ResourceLocation nodeId, String costsText) {

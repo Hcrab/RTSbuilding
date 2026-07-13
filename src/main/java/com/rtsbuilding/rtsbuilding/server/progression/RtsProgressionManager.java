@@ -85,10 +85,8 @@ public final class RtsProgressionManager {
     }
 
     public static int getUltimineLimit(ServerPlayer player) {
-        if (!isEnabled()) {
-            return DEFAULT_ULTIMINE_LIMIT;
-        }
-        return Math.max(0, derive(player).ultimineLimit());
+        // 插件制只负责“是否可用”，数量上限不再依赖已经废弃的技能树节点。
+        return DEFAULT_ULTIMINE_LIMIT;
     }
 
     public static boolean canBypassHomeRadius(ServerPlayer player) {

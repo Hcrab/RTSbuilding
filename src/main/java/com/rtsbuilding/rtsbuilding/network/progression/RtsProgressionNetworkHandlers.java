@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.progression;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import net.minecraft.server.level.ServerPlayer;
@@ -40,7 +41,10 @@ public final class RtsProgressionNetworkHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer && serverPlayer.hasPermissions(2)) {
                 Config.setSurvivalProgressionEnabled(payload.enabled());
-                serverPlayer.server.getPlayerList().getPlayers().forEach(RtsProgressionManager::syncToPlayer);
+                serverPlayer.server.getPlayerList().getPlayers().forEach(player -> {
+                    RtsPluginService.syncToPlayer(player);
+                    RtsProgressionManager.syncToPlayer(player);
+                });
             }
         });
     }

@@ -48,7 +48,7 @@ public final class BuiltInRtsPluginCatalog {
                 definition(CHAIN_BREAK_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.ULTIMINE), 0, false),
                 definition(AREA_DESTROY_PLUGIN, RtsPluginFamily.UNIQUE,
-                        EnumSet.of(RtsFeature.AREA_DESTROY), 0, false),
+                        EnumSet.of(RtsFeature.AREA_MINE, RtsFeature.AREA_DESTROY), 0, false),
                 definition(BLUEPRINT_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.BLUEPRINTS), 0, false),
                 definition(RANGE_CULLING_PLUGIN, RtsPluginFamily.UNIQUE,
@@ -65,6 +65,19 @@ public final class BuiltInRtsPluginCatalog {
     private static RtsPluginDefinition definition(ResourceLocation pluginId, RtsPluginFamily family,
             Set<RtsFeature> features, int radiusBlocks, boolean fieldDeployment) {
         return new RtsPluginDefinition(pluginId, pluginId, family, features, radiusBlocks, fieldDeployment);
+    }
+
+    /** 返回解锁指定功能的内置插件；没有对应插件时返回 {@code null}。 */
+    public static ResourceLocation requiredPluginFor(RtsFeature feature) {
+        if (feature == null) {
+            return null;
+        }
+        for (RtsPluginDefinition definition : definitions()) {
+            if (definition.enables(feature)) {
+                return definition.id();
+            }
+        }
+        return null;
     }
 
     private static ResourceLocation id(String path) {
