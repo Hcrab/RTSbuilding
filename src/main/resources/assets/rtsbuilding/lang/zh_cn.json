@@ -878,6 +878,7 @@
   "screen.rtsbuilding.blueprints.status.delete_cancelled": "已取消删除。",
   "screen.rtsbuilding.quick_build.missing_blocks": "§7| §c缺少 x %s",
   "message.rtsbuilding.quick_build.remote_place_locked": "远程放置功能未解锁。",
+  "message.rtsbuilding.plugin_required": "请先安装%s以使用此功能。",
   "screen.rtsbuilding.tooltip.shape_block": "单",
   "screen.rtsbuilding.tooltip.shape_line": "线",
   "screen.rtsbuilding.tooltip.shape_square": "面",

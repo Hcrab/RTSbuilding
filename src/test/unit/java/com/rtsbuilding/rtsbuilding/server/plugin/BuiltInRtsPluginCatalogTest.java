@@ -10,6 +10,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuiltInRtsPluginCatalogTest {
@@ -38,7 +39,12 @@ class BuiltInRtsPluginCatalogTest {
                 RtsFeature.AUTO_STORE_MINED_DROPS, RtsFeature.FUNNEL,
                 RtsFeature.FLUID_HANDLING, RtsFeature.REMOTE_GUI_BINDING);
         assertEnables(byId, BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN, RtsFeature.ULTIMINE);
-        assertEnables(byId, BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN, RtsFeature.AREA_DESTROY);
+        assertEnables(byId, BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN,
+                RtsFeature.AREA_MINE, RtsFeature.AREA_DESTROY);
+        assertFalse(byId.get(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN).enables(RtsFeature.AREA_MINE),
+                "连锁挖掘插件不得隐式解锁范围挖掘");
+        assertFalse(byId.get(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN).enables(RtsFeature.ULTIMINE),
+                "范围破坏插件不得隐式解锁连锁挖掘");
         assertEnables(byId, BuiltInRtsPluginCatalog.BLUEPRINT_PLUGIN, RtsFeature.BLUEPRINTS);
     }
 

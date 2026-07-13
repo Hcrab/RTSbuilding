@@ -878,6 +878,7 @@
   "screen.rtsbuilding.blueprints.status.delete_cancelled": "Delete cancelled.",
   "screen.rtsbuilding.quick_build.missing_blocks": "§7| §cMissing x %s",
   "message.rtsbuilding.quick_build.remote_place_locked": "Remote placement is not unlocked.",
+  "message.rtsbuilding.plugin_required": "Install %s to use this feature.",
   "screen.rtsbuilding.tooltip.shape_block": "Block",
   "screen.rtsbuilding.tooltip.shape_line": "Line",
   "screen.rtsbuilding.tooltip.shape_square": "Plane",

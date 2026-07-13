@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowSlider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -192,7 +193,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     "area_mine_shape",
                     state -> state.quickBuild.mining.areaMineShape,
                     (state, v) -> state.quickBuild.mining.areaMineShape = v,
-                    () -> this.rangeDestroyShape,
+                    this::getRangeDestroyShape,
                     v -> this.rangeDestroyShape = v,
                     AreaMineShape.CHAIN,
                     AreaMineShape.class),
@@ -283,7 +284,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         ResourceLocation texture = currentShapeTexture(index);
         boolean selected = isCurrentShapeSelected(index);
         int normalV = selected ? SHAPE_STATE_H : 0;
-        return new WindowButton(0, 0,
+        WindowButton button = new WindowButton(0, 0,
                 QUICK_BUILD_SHAPE_SLOT, QUICK_BUILD_SHAPE_SLOT,
                 Component.empty(),
                 texture,
@@ -292,6 +293,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 SHAPE_STATE_H, SHAPE_STATE_H,
                 SHAPE_SHEET_W, SHAPE_SHEET_H,
                 btn -> selectShape(index));
+        if (isDestroyModeActive()) {
+            button.active = canUseDestroyShape(DESTROY_SHAPES[index]);
+        }
+        return button;
     }
 
     /** 当形状切换时刷新所有按钮贴图（选中/未选中状态）。 */
@@ -385,13 +390,16 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private boolean isCurrentShapeSelected(int index) {
         return isDestroyModeActive()
-                ? this.rangeDestroyShape == DESTROY_SHAPES[index]
+                ? effectiveRangeDestroyShape() == DESTROY_SHAPES[index]
                 : this.buildModeShape == BUILD_SHAPES[index];
     }
 
     private void selectShape(int index) {
         if (isDestroyModeActive()) {
-            setRangeDestroyShape(DESTROY_SHAPES[index]);
+            AreaMineShape shape = DESTROY_SHAPES[index];
+            if (canUseDestroyShape(shape)) {
+                setRangeDestroyShape(shape);
+            }
             return;
         }
         setBuildModeShape(BUILD_SHAPES[index]);
@@ -402,7 +410,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public AreaMineShape getRangeDestroyShape() {
-        return this.rangeDestroyShape;
+        return effectiveRangeDestroyShape();
     }
 
     public void setBuildModeShape(BuildShape shape) {
@@ -419,7 +427,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public void setRangeDestroyShape(AreaMineShape shape) {
-        this.rangeDestroyShape = shape == null ? AreaMineShape.CHAIN : shape;
+        AreaMineShape next = shape == null ? AreaMineShape.CHAIN : shape;
+        if (!canUseDestroyShape(next)) {
+            return;
+        }
+        this.rangeDestroyShape = next;
         if (isOpen() && isDestroyModeActive()) {
             applyActiveShapeToController();
             screen.clearShapeBuildSession();
@@ -583,8 +595,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             int slotY = bodyY + SECTION_TOP + 15 + (row * SHAPE_ROW_PITCH);
             shapeButtons[i].setX(slotX);
             shapeButtons[i].setY(slotY);
+            shapeButtons[i].active = !isDestroyModeActive() || canUseDestroyShape(DESTROY_SHAPES[i]);
             if (isDestroyModeActive() && DESTROY_SHAPES[i] == AreaMineShape.CHAIN
-                    && this.rangeDestroyShape == AreaMineShape.CHAIN) {
+                    && isRangeDestroyChainMode()) {
                 g.fill(slotX, slotY, slotX + QUICK_BUILD_SHAPE_SLOT, slotY + QUICK_BUILD_SHAPE_SLOT, 0xFF78B28C);
                 g.fill(slotX + 2, slotY + 2, slotX + QUICK_BUILD_SHAPE_SLOT - 2,
                         slotY + QUICK_BUILD_SHAPE_SLOT - 2, 0xFF163222);
@@ -907,6 +920,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         QuickBuildMode next = mode == null ? QuickBuildMode.BUILD : mode;
         if (next == QuickBuildMode.DESTROY && !canUseRangeDestroy()) {
             next = QuickBuildMode.BUILD;
+        } else if (next == QuickBuildMode.DESTROY) {
+            this.rangeDestroyShape = effectiveRangeDestroyShape();
         }
         if (this.quickBuildMode == next) {
             if (isOpen()) {
@@ -940,7 +955,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public boolean isRangeDestroyChainMode() {
-        return isRangeDestroyMode() && this.rangeDestroyShape == AreaMineShape.CHAIN;
+        return isRangeDestroyMode() && effectiveRangeDestroyShape() == AreaMineShape.CHAIN;
     }
 
     public boolean isAdvancedRangeDestroyBoxMode() {
@@ -957,7 +972,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private BuildShape activeAdvancedShape() {
-        return isDestroyModeActive() ? toBuildShape(this.rangeDestroyShape) : this.buildModeShape;
+        return isDestroyModeActive() ? toBuildShape(effectiveRangeDestroyShape()) : this.buildModeShape;
     }
 
     private static boolean supportsAdvancedShape(BuildShape shape) {
@@ -1092,14 +1107,54 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private boolean canUseRangeDestroy() {
-        return true;
+        return QuickBuildUnlockPolicy.canUseAnyDestroyShape(
+                this.controller.isProgressionEnabled(),
+                hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
+                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
+    }
+
+    private boolean canUseDestroyShape(AreaMineShape shape) {
+        return QuickBuildUnlockPolicy.canUseDestroyShape(
+                this.controller.isProgressionEnabled(),
+                hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
+                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN),
+                shape);
+    }
+
+    private AreaMineShape effectiveRangeDestroyShape() {
+        AreaMineShape current = this.rangeDestroyShape == null ? AreaMineShape.CHAIN : this.rangeDestroyShape;
+        if (canUseDestroyShape(current)) {
+            return current;
+        }
+        AreaMineShape fallback = QuickBuildUnlockPolicy.firstAvailableDestroyShape(
+                this.controller.isProgressionEnabled(),
+                hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
+                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
+        if (fallback == null) {
+            return current;
+        }
+        this.rangeDestroyShape = fallback;
+        if (isOpen() && this.quickBuildMode == QuickBuildMode.DESTROY && this.controller != null) {
+            this.controller.setAreaMineShape(fallback);
+            this.controller.setBuildShape(toBuildShape(fallback));
+            if (fallback != AreaMineShape.CHAIN && this.screen != null) {
+                this.screen.ensureFillModeForShape(this.controller.getBuildShape());
+            }
+        }
+        return fallback;
+    }
+
+    private boolean hasPlugin(ResourceLocation pluginId) {
+        return pluginId != null && this.controller.hasInstalledPlugin(pluginId.toString());
     }
 
     private void applyActiveShapeToController() {
         if (isDestroyModeActive()) {
-            this.controller.setAreaMineShape(this.rangeDestroyShape);
-            this.controller.setBuildShape(toBuildShape(this.rangeDestroyShape));
-            if (this.rangeDestroyShape != AreaMineShape.CHAIN) {
+            AreaMineShape shape = effectiveRangeDestroyShape();
+            this.rangeDestroyShape = shape;
+            this.controller.setAreaMineShape(shape);
+            this.controller.setBuildShape(toBuildShape(shape));
+            if (shape != AreaMineShape.CHAIN) {
                 screen.ensureFillModeForShape(this.controller.getBuildShape());
             }
             return;
