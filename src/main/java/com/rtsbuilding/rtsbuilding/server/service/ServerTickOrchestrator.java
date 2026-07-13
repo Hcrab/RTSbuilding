@@ -114,7 +114,7 @@ public final class ServerTickOrchestrator {
         // Tick all active tickable pipeline instances (ultimine/area-mine monitoring)
         TickablePipelineRegistry.tickAll();
 
-        // 所有任务推进完成后再统一生成页面与工作流快照。
+        // 所有任务推进完成后再统一发送页面失效通知与工作流快照。
         RtsEffectAccumulator.INSTANCE.flush(server);
     }
 
