@@ -13,6 +13,7 @@ import java.util.Deque;
  */
 public final class RtsMiningDropBufferState {
     public static final int MAX_BUFFERED_ITEMS = 4096;
+    public static final int MAX_STACKS = 128;
 
     public final Deque<ItemStack> stacks = new ArrayDeque<>();
     public int bufferedItems;
@@ -24,7 +25,7 @@ public final class RtsMiningDropBufferState {
     }
 
     public boolean isFull() {
-        return bufferedItems >= MAX_BUFFERED_ITEMS;
+        return bufferedItems >= MAX_BUFFERED_ITEMS || stacks.size() >= MAX_STACKS;
     }
 
     public boolean isEmpty() {

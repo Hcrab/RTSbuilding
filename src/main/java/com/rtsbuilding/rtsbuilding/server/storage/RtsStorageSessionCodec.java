@@ -75,6 +75,8 @@ public final class RtsStorageSessionCodec {
     private static final String NBT_CRAFT_SEARCH = "craft_search";
     private static final String NBT_CRAFT_SHOW_UNAVAILABLE = "craft_show_unavailable";
     private static final String NBT_CRAFT_REQUESTED_COUNT = "craft_requested_count";
+    private static final String NBT_DROP_BUFFER_STACKS = "drop_buffer_stacks";
+    private static final String NBT_DROP_BUFFER_SINCE = "drop_buffer_since";
 
     private RtsStorageSessionCodec() {
     }
@@ -118,6 +120,7 @@ public final class RtsStorageSessionCodec {
         loadRecentEntries(session, root);
         loadQuickSlots(player, session, root);
         loadGuiBindings(session, root);
+        loadDropBuffer(session, root);
     }
 
     public static CompoundTag serialize(ServerPlayer player, RtsStorageSession session) {
@@ -140,8 +143,47 @@ public final class RtsStorageSessionCodec {
         saveRecentEntries(session, root);
         saveQuickSlots(player, session, root);
         saveGuiBindings(session, root);
+        saveDropBuffer(session, root);
 
         return root;
+    }
+
+    /** 保存完整物品 NBT，确保服务器存档或重启时不会丢失已接住的掉落。 */
+    private static void saveDropBuffer(RtsStorageSession session, CompoundTag root) {
+        ListTag stacks = new ListTag();
+        int count = 0;
+        for (ItemStack stack : session.miningDropBuffer.stacks) {
+            if (stack == null || stack.isEmpty()
+                    || stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                continue;
+            }
+            int accepted = Math.min(stack.getCount(),
+                    com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_BUFFERED_ITEMS - count);
+            if (accepted <= 0) break;
+            stacks.add(stack.copyWithCount(accepted).save(new CompoundTag()));
+            count += accepted;
+        }
+        root.put(NBT_DROP_BUFFER_STACKS, stacks);
+        root.putLong(NBT_DROP_BUFFER_SINCE, session.miningDropBuffer.firstQueuedGameTime);
+    }
+
+    private static void loadDropBuffer(RtsStorageSession session, CompoundTag root) {
+        var buffer = session.miningDropBuffer;
+        buffer.stacks.clear();
+        buffer.bufferedItems = 0;
+        ListTag stacks = root.getList(NBT_DROP_BUFFER_STACKS, Tag.TAG_COMPOUND);
+        for (int i = 0; i < stacks.size()
+                && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
+                i++) {
+            ItemStack stack = ItemStack.of(stacks.getCompound(i));
+            if (stack.isEmpty()) continue;
+            int accepted = Math.min(stack.getCount(), buffer.remainingCapacity());
+            if (accepted <= 0) break;
+            buffer.stacks.addLast(stack.copyWithCount(accepted));
+            buffer.bufferedItems += accepted;
+        }
+        buffer.firstQueuedGameTime = buffer.stacks.isEmpty() ? -1L : root.getLong(NBT_DROP_BUFFER_SINCE);
+        buffer.fullNoticeSent = false;
     }
 
     private static void loadLinkedStorages(ServerPlayer player, RtsStorageSession session, CompoundTag root) {

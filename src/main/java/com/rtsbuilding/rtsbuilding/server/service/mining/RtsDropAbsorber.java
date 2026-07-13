@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -248,6 +249,9 @@ public final class RtsDropAbsorber {
         boolean changed = false;
         for (ItemEntity entity : drops) {
             if (entity == null || !entity.isAlive() || entity.getItem().isEmpty()) continue;
+            if (buffer.stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                break;
+            }
             int accepted = Math.min(buffer.remainingCapacity(), entity.getItem().getCount());
             if (accepted <= 0) break;
             buffer.stacks.addLast(entity.getItem().copyWithCount(accepted));
@@ -264,6 +268,10 @@ public final class RtsDropAbsorber {
             player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
             buffer.fullNoticeSent = true;
         }
+        if (changed) {
+            RtsEffectAccumulator.INSTANCE.markPersistence(
+                    player.getUUID(), player.level().dimension());
+        }
         return changed;
     }
 
@@ -275,12 +283,14 @@ public final class RtsDropAbsorber {
             int maxStacks, long deadlineNanos) {
         var buffer = session.miningDropBuffer;
         if (buffer.isEmpty() || maxStacks <= 0) return 0;
-        DropInsertContext insertContext = createInsertContext(player, session);
         boolean timeout = buffer.firstQueuedGameTime >= 0L
                 && player.serverLevel().getGameTime() - buffer.firstQueuedGameTime >= 60L;
+        DropInsertContext insertContext = timeout ? null : createInsertContext(player, session);
         int processed = 0;
         boolean storageChanged = false;
-        while (processed < maxStacks && System.nanoTime() < deadlineNanos && !buffer.stacks.isEmpty()) {
+        List<ItemStack> timedOutRemainders = new ArrayList<>();
+        int stackLimit = timeout ? Math.min(maxStacks, 16) : maxStacks;
+        while (processed < stackLimit && System.nanoTime() < deadlineNanos && !buffer.stacks.isEmpty()) {
             ItemStack original = buffer.stacks.removeFirst();
             ItemStack remainder = timeout ? original.copy() : insertContext.store(original.copy());
             int stored = original.getCount() - remainder.getCount();
@@ -288,7 +298,7 @@ public final class RtsDropAbsorber {
             if (timeout && !remainder.isEmpty()) {
                 remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
                 if (!remainder.isEmpty()) {
-                    player.drop(remainder, false);
+                    mergeRemainder(timedOutRemainders, remainder);
                 }
             } else if (!timeout && !remainder.isEmpty()) {
                 buffer.stacks.addFirst(remainder);
@@ -297,7 +307,12 @@ public final class RtsDropAbsorber {
             processed++;
             if (!timeout && stored <= 0) break;
         }
-        notifyStorageChanged(player, insertContext, storageChanged);
+        for (ItemStack remainder : timedOutRemainders) {
+            player.drop(remainder, false);
+        }
+        if (insertContext != null) {
+            notifyStorageChanged(player, insertContext, storageChanged);
+        }
         if (storageChanged) {
             QuestService.runQuestDetect(player, session, false);
             RtsPendingPlacementService.tryResumeAfterStorageChange(player);
@@ -306,7 +321,28 @@ public final class RtsDropAbsorber {
             player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.fallback"), false);
         }
         buffer.clearTimingWhenEmpty();
+        if (processed > 0) {
+            RtsEffectAccumulator.INSTANCE.markPersistence(
+                    player.getUUID(), player.level().dimension());
+        }
         return processed;
+    }
+
+    private static void mergeRemainder(List<ItemStack> merged, ItemStack incoming) {
+        ItemStack remaining = incoming.copy();
+        for (ItemStack existing : merged) {
+            if (!ItemStack.isSameItemSameTags(existing, remaining)) continue;
+            int moved = Math.min(remaining.getCount(), existing.getMaxStackSize() - existing.getCount());
+            if (moved <= 0) continue;
+            existing.grow(moved);
+            remaining.shrink(moved);
+            if (remaining.isEmpty()) return;
+        }
+        while (!remaining.isEmpty()) {
+            int count = Math.min(remaining.getCount(), remaining.getMaxStackSize());
+            merged.add(remaining.copyWithCount(count));
+            remaining.shrink(count);
+        }
     }
 
     /** 退出时同步回退，确保未持久化缓存不会吞掉物品。 */
