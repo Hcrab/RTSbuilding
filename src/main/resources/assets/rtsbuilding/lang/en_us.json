@@ -1,4 +1,4 @@
-﻿{
+{
   "key.categories.rtsbuilding": "RTSbuilding",
   "key.rtsbuilding.toggle_rts": "Toggle RTS Mode",
   "key.rtsbuilding.quick_funnel": "Quick Funnel",
@@ -100,6 +100,7 @@
   "screen.rtsbuilding.mode.camera": "Camera",
   "screen.rtsbuilding.mode.rotate": "Rotate",
   "screen.rtsbuilding.mode.idle": "Idle",
+  "screen.rtsbuilding.mode.operation": "Operation",
   "screen.rtsbuilding.status.mode": "Mode: %s",
   "screen.rtsbuilding.status.storage_linked": "Linked Storage: %s",
   "screen.rtsbuilding.status.storage_not_linked": "Linked Storage: Not linked",

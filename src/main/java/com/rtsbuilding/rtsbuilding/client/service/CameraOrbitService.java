@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.service;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
@@ -10,6 +11,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -99,6 +101,9 @@ public final class CameraOrbitService {
     private double localX;
     private double localY;
     private double localZ;
+    private double prevLocalX;
+    private double prevLocalY;
+    private double prevLocalZ;
     private double localHeightOffset;
     private float localYawDeg;
     private float localPitchDeg;
@@ -192,6 +197,52 @@ public final class CameraOrbitService {
         minecraft.options.setCameraType(CameraType.FIRST_PERSON);
         minecraft.options.bobView().set(false);
         minecraft.options.fovEffectScale().set(0.0D);
+    }
+
+    /**
+     * 由操作模式直接设置相机局部姿态（位置 + 朝向），跳过输入处理。
+     */
+    public void setLocalPose(double x, double y, double z, float yaw, float pitch) {
+        // 保存旧位置，供 snapLocalMirrorCameraPose 设为实体 xo/yo/zo，
+        // 使实体系统通过 getEyePosition(partialTick) 自动做帧间插值，消除 20 TPS 卡顿。
+        this.prevLocalX = this.localX;
+        this.prevLocalY = this.localY;
+        this.prevLocalZ = this.localZ;
+        this.localX = x;
+        this.localY = y;
+        this.localZ = z;
+        this.localYawDeg = yaw;
+        this.localPitchDeg = pitch;
+        this.localStateReady = true;
+    }
+
+    /**
+     * 基于当前局部相机朝向和鼠标屏幕坐标计算射线方向，
+     * 供操作模式中玩家旋转追踪鼠标目标使用。
+     */
+    public Vec3 computeMouseRayDirection(Minecraft minecraft) {
+        double mouseX = minecraft.mouseHandler.xpos();
+        double mouseY = minecraft.mouseHandler.ypos();
+        double width = Math.max(1.0D, minecraft.getWindow().getScreenWidth());
+        double height = Math.max(1.0D, minecraft.getWindow().getScreenHeight());
+        double nx = (mouseX / width) * 2.0D - 1.0D;
+        double ny = 1.0D - (mouseY / height) * 2.0D;
+
+        double yaw = Math.toRadians(this.localYawDeg);
+        double pitch = Math.toRadians(this.localPitchDeg);
+
+        Vec3 forward = new Vec3(
+                -Math.sin(yaw) * Math.cos(pitch),
+                -Math.sin(pitch),
+                Math.cos(yaw) * Math.cos(pitch)).normalize();
+        Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
+        Vec3 up = forward.cross(right).normalize();
+
+        double fovY = Math.toRadians(minecraft.options.fov().get());
+        double tanY = Math.tan(fovY * 0.5D);
+        double tanX = tanY * (width / height);
+
+        return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
     }
 
     /**
@@ -579,6 +630,17 @@ public final class CameraOrbitService {
         this.anchorZ = anchorZ;
         this.maxRadius = maxRadius;
 
+        // 操作模式：跳过所有相机输入处理，仅维持心跳
+        if (ClientRtsController.get().isOperationMode()) {
+            resetInputAccumulation();
+            if (++this.cameraMoveHeartbeatTicks >= CAMERA_IDLE_HEARTBEAT_TICKS) {
+                RtsClientPacketGateway.sendCameraMove(0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+                this.cameraMoveHeartbeatTicks = 0;
+            }
+            snapLocalMirrorCameraPose();
+            return;
+        }
+
         CameraInput cameraInput = readCameraInput(minecraft);
         float keyboardScale = getKeyboardMoveSensitivityScale();
         float forward = cameraInput.forward * keyboardScale;
@@ -693,6 +755,11 @@ public final class CameraOrbitService {
     }
 
     private void applySmoothFrameMovement(Minecraft minecraft) {
+        // 操作模式：相机完全由玩家位置 + 固定偏移驱动，禁止平滑帧读取 WASD 推动相机
+        if (ClientRtsController.get().isOperationMode()) {
+            this.lastSmoothCameraFrameNanos = 0L;
+            return;
+        }
         long now = System.nanoTime();
         if (this.lastSmoothCameraFrameNanos == 0L) {
             this.lastSmoothCameraFrameNanos = now;
@@ -723,7 +790,25 @@ public final class CameraOrbitService {
     }
 
     private void snapLocalMirrorCameraPose() {
-        if (this.localMirrorCamera != null) {
+        if (this.localMirrorCamera == null) {
+            return;
+        }
+        if (ClientRtsController.get().isOperationMode()) {
+            // 操作模式：保留 xo/yo/zo = 上一刻相机位置（由 setLocalPose 保存），
+            // 让 Camera.setup() 通过 getEyePosition(partialTick) 做帧间插值，
+            // 实现全帧率平滑跟随。不调用 snapTo()——它会设置 xo = x 杀死插值。
+            this.localMirrorCamera.xo = this.prevLocalX;
+            this.localMirrorCamera.yo = this.prevLocalY;
+            this.localMirrorCamera.zo = this.prevLocalZ;
+            this.localMirrorCamera.yRotO = this.localMirrorCamera.getYRot();
+            this.localMirrorCamera.xRotO = this.localMirrorCamera.getXRot();
+            this.localMirrorCamera.setPos(this.localX, this.localY, this.localZ);
+            this.localMirrorCamera.setYRot(this.localYawDeg);
+            this.localMirrorCamera.setXRot(this.localPitchDeg);
+            this.localMirrorCamera.setYHeadRot(this.localYawDeg);
+            this.localMirrorCamera.setYBodyRot(this.localYawDeg);
+        } else {
+            // 正常 RTS 模式：使用 snapTo() 保持现有行为不变
             this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
         }
     }

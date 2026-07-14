@@ -308,6 +308,15 @@ public final class BuilderScreenConstants {
     /** Settings gear (pressed) */
     public static final ResourceLocation TOPBAR_GEAR_PRESSED = topbarTexture("settings_gear_pressed");
 
+    /** Operation mode (inactive) */
+    public static final ResourceLocation TOPBAR_OPERATION_MODE_INACTIVE = topbarTexture("opmode_crosshair_inactive");
+    /** Operation mode (hover) */
+    public static final ResourceLocation TOPBAR_OPERATION_MODE_HOVER = topbarTexture("opmode_crosshair_hover");
+    /** Operation mode (active) */
+    public static final ResourceLocation TOPBAR_OPERATION_MODE_ACTIVE = topbarTexture("opmode_crosshair_active");
+    /** Operation mode (pressed) */
+    public static final ResourceLocation TOPBAR_OPERATION_MODE_PRESSED = topbarTexture("opmode_crosshair_pressed");
+
     /** Quest detect (inactive) */
     public static final ResourceLocation TOPBAR_QUEST_DETECT_INACTIVE = topbarTexture("quest_detect_inactive");
     /** Quest detect (hover) */

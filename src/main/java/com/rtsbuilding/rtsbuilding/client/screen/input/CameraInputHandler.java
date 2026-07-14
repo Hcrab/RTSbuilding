@@ -197,6 +197,10 @@ public final class CameraInputHandler {
      * and {@link CameraInputHandler#isRotateDragActionMouse(int)}.
      */
     public boolean handleRightDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        // 操作模式禁用相机旋转/平移拖拽
+        if (ClientRtsController.get().isOperationMode()) {
+            return false;
+        }
         if (this.rightPressActive
                 && button == this.rightPressButton
                 && screen.isWorldArea(mouseX, mouseY)
@@ -264,6 +268,10 @@ public final class CameraInputHandler {
     }
 
     public boolean handleMiddleDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        // 操作模式禁用相机平移拖拽
+        if (ClientRtsController.get().isOperationMode()) {
+            return false;
+        }
         if (this.middlePressActive
                 && button == this.middlePressButton
                 && this.middlePressCanPan
@@ -306,6 +314,12 @@ public final class CameraInputHandler {
     }
 
     public void updateKeyboardPanDrag(double mouseX, double mouseY) {
+        // 操作模式禁用键盘平移拖拽
+        if (ClientRtsController.get().isOperationMode()) {
+            this.keyboardPanLastMouseX = Double.NaN;
+            this.keyboardPanLastMouseY = Double.NaN;
+            return;
+        }
         if (canUseKeyboardPanDrag(mouseX, mouseY)) {
             if (!Double.isNaN(this.keyboardPanLastMouseX) && !Double.isNaN(this.keyboardPanLastMouseY)) {
                 double dragX = mouseX - this.keyboardPanLastMouseX;
@@ -335,6 +349,10 @@ public final class CameraInputHandler {
     // ======================== 镜头垂直方向 ========================
 
     public boolean updateCameraVerticalHeldState(int keyCode, int scanCode, boolean down) {
+        // 操作模式禁用相机高度调整
+        if (ClientRtsController.get().isOperationMode()) {
+            return false;
+        }
         boolean handled = false;
         if (ClientKeyMappings.CAMERA_UP.matches(keyCode, scanCode)) {
             this.cameraUpActionHeld = down;

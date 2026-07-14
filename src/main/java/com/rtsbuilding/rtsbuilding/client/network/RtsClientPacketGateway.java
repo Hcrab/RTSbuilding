@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
+import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsSetOperationModePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
@@ -70,6 +71,12 @@ public final class RtsClientPacketGateway {
 
     public static void sendToggleCamera(boolean startAtPlayerHead) {
         PacketDistributor.sendToServer(new C2SRtsToggleCameraPayload(startAtPlayerHead));
+    }
+
+    public static void sendSetOperationMode(boolean operationMode, double offsetX, double offsetY, double offsetZ,
+            float cameraYaw, float cameraPitch) {
+        PacketDistributor.sendToServer(new C2SRtsSetOperationModePayload(
+                operationMode, offsetX, offsetY, offsetZ, cameraYaw, cameraPitch));
     }
 
     public static void sendSetFunnelEnabled(boolean enabled) {

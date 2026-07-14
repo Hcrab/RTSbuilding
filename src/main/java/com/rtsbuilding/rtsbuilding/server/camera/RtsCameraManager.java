@@ -117,7 +117,8 @@ public final class RtsCameraManager {
 
         // 记录会话
         Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, false, maxRadius, startAtPlayerHead);
+                camera.getY() - anchor.y, false, maxRadius, startAtPlayerHead,
+                false, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F);
         SESSIONS.put(player.getUUID(), session);
         ServiceRegistry.getInstance().session().onRtsEnabled(player);
 
@@ -184,7 +185,8 @@ public final class RtsCameraManager {
 
         RtsProgressionManager.beginHomeSelection(player);
         Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead);
+                camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead,
+                false, 0.0D, 0.0D, 0.0D, 0.0F, 0.0F);
         SESSIONS.put(player.getUUID(), session);
 
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
@@ -287,7 +289,29 @@ public final class RtsCameraManager {
     }
 
     /**
+     * 设置玩家相机的操作模式状态。
+     *
+     * @param player       目标玩家
+     * @param mode         是否启用操作模式
+     * @param offset       操作模式中相机相对于玩家的固定偏移
+     * @param cameraYaw    操作模式中相机偏航角
+     * @param cameraPitch  操作模式中相机俯仰角
+     */
+    public static void setOperationMode(ServerPlayer player, boolean mode, Vec3 offset, float cameraYaw, float cameraPitch) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return;
+        }
+        SESSIONS.put(player.getUUID(), new Session(
+                session.cameraUuid(), session.anchor(), session.cameraPos(),
+                session.yawDeg(), session.pitchDeg(), session.heightOffset(),
+                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                mode, offset.x, offset.y, offset.z, cameraYaw, cameraPitch));
+    }
+
+    /**
      * 移动 RTS 相机。<p>处理平移、旋转、垂直移动和滚轮变焦。</p>
+     * <p>操作模式时忽略所有输入，相机跟随玩家位置 + 固定偏移。</p>
      *
      * @param player      目标玩家
      * @param forward     前后移动输入（W/S）
@@ -305,6 +329,27 @@ public final class RtsCameraManager {
             float rotateY, float scroll, int rotateSteps, boolean fast) {
         Session session = SESSIONS.get(player.getUUID());
         if (session == null) {
+            return;
+        }
+
+        // 操作模式：忽略所有输入，相机直接跟随玩家位置 + 固定偏移
+        if (session.operationMode()) {
+            Vec3 playerPos = player.position();
+            double targetX = playerPos.x + session.opOffsetX();
+            double targetY = playerPos.y + session.opOffsetY();
+            double targetZ = playerPos.z + session.opOffsetZ();
+            RtsCameraEntity camera = getOrRestoreCamera(player, session);
+            camera.snapTo(targetX, targetY, targetZ, session.opCameraYaw(), session.opCameraPitch());
+            Vec3 newAnchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
+            double heightOffset = targetY - newAnchor.y;
+            SESSIONS.put(player.getUUID(), new Session(
+                    camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
+                    session.opCameraYaw(), session.opCameraPitch(), heightOffset,
+                    session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                    true, session.opOffsetX(), session.opOffsetY(), session.opOffsetZ(),
+                    session.opCameraYaw(), session.opCameraPitch()));
+            RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
+                    newAnchor.x, newAnchor.y, newAnchor.z, maxRadius(player, session)));
             return;
         }
 
@@ -380,7 +425,9 @@ public final class RtsCameraManager {
 
         double heightOffset = targetY - newAnchor.y;
         SESSIONS.put(player.getUUID(), new Session(camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
-                yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
+                yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                session.operationMode(), session.opOffsetX(), session.opOffsetY(), session.opOffsetZ(),
+                session.opCameraYaw(), session.opCameraPitch()));
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
@@ -421,7 +468,9 @@ public final class RtsCameraManager {
                 session.heightOffset(),
                 session.homeSelection(),
                 session.maxRadius(),
-                session.closeRangeAllowed()));
+                session.closeRangeAllowed(),
+                session.operationMode(), session.opOffsetX(), session.opOffsetY(), session.opOffsetZ(),
+                session.opCameraYaw(), session.opCameraPitch()));
 
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
@@ -492,8 +541,16 @@ public final class RtsCameraManager {
      * @param homeSelection    是否为家选择模式
      * @param maxRadius        最大动作半径
      * @param closeRangeAllowed 是否允许近距开始
+     * @param operationMode    是否为操作模式
+     * @param opOffsetX        操作模式相机相对玩家 X 偏移
+     * @param opOffsetY        操作模式相机相对玩家 Y 偏移
+     * @param opOffsetZ        操作模式相机相对玩家 Z 偏移
+     * @param opCameraYaw      操作模式相机偏航角
+     * @param opCameraPitch    操作模式相机俯仰角
      */
     private record Session(UUID cameraUuid, Vec3 anchor, Vec3 cameraPos, float yawDeg, float pitchDeg,
-                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed) {
+                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed,
+                           boolean operationMode, double opOffsetX, double opOffsetY, double opOffsetZ,
+                           float opCameraYaw, float opCameraPitch) {
     }
 }

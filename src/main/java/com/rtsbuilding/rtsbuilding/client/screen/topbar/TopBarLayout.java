@@ -38,7 +38,9 @@ public final class TopBarLayout {
         if (rangeCulling) x = put(positions, TopBarTypes.TopBarButtonId.RANGE_CULLING, x, iconButtonWidth, gap);
         x = put(positions, TopBarTypes.TopBarButtonId.GUIDE, x, iconButtonWidth, gap);
         if (developer) x = put(positions, TopBarTypes.TopBarButtonId.DEVELOPER, x, iconButtonWidth, gap);
-        int gearX = Math.max(x + gap, screenWidth - iconButtonWidth - RIGHT_MARGIN);
+        int gearX = screenWidth - iconButtonWidth - RIGHT_MARGIN;
+        int opModeX = gearX - iconButtonWidth - gap;
+        positions.put(TopBarTypes.TopBarButtonId.OPERATION_MODE, opModeX);
         positions.put(TopBarTypes.TopBarButtonId.GEAR, gearX);
         return new Buttons(Map.copyOf(positions));
     }

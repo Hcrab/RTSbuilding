@@ -51,6 +51,7 @@ public final class TopBarIconRenderer {
             case QUEST_DETECT -> drawQuestCheckIcon(g, cx, cy, color);
             case CHUNK_VIEW -> drawChunkCurtainIcon(g, cx, cy, color, active);
             case GEAR -> drawGearIcon(g, cx, cy, color);
+            case OPERATION_MODE -> drawOperationModeIcon(g, cx, cy, color);
             default -> {
                 // No icon defined for this button type (e.g. GUIDE is rendered as plain text elsewhere)
             }
@@ -130,6 +131,12 @@ public final class TopBarIconRenderer {
                 case "pressed" -> TOPBAR_GEAR_PRESSED;
                 case "hover" -> TOPBAR_GEAR_HOVER;
                 default -> TOPBAR_GEAR_INACTIVE;
+            };
+            case OPERATION_MODE -> switch (state) {
+                case "active" -> TOPBAR_OPERATION_MODE_ACTIVE;
+                case "pressed" -> TOPBAR_OPERATION_MODE_PRESSED;
+                case "hover" -> TOPBAR_OPERATION_MODE_HOVER;
+                default -> TOPBAR_OPERATION_MODE_INACTIVE;
             };
             default -> null;
         };
@@ -276,6 +283,32 @@ public final class TopBarIconRenderer {
         g.fill(cx - 5, cy - 3, cx - 3, cy + 3, color);
         g.fill(cx + 3, cy - 3, cx + 5, cy + 3, color);
         g.fill(cx - 1, cy - 2, cx + 2, cy + 2, 0xFF1B222C);
+    }
+
+    /**
+     * 操作模式图标：十字准心。
+     * 四个短臂从中心向外延伸，臂端略宽形成箭头感。
+     * 后续可替换为纹理图片（预留 texture 分支）。
+     */
+    private static void drawOperationModeIcon(GuiGraphics g, int cx, int cy, int color) {
+        // 上臂
+        g.fill(cx - 1, cy - 8, cx + 2, cy - 3, color);
+        g.fill(cx - 2, cy - 8, cx - 1, cy - 6, color);
+        g.fill(cx + 2, cy - 8, cx + 3, cy - 6, color);
+        // 下臂
+        g.fill(cx - 1, cy + 3, cx + 2, cy + 8, color);
+        g.fill(cx - 2, cy + 6, cx - 1, cy + 8, color);
+        g.fill(cx + 2, cy + 6, cx + 3, cy + 8, color);
+        // 左臂
+        g.fill(cx - 8, cy - 1, cx - 3, cy + 2, color);
+        g.fill(cx - 8, cy - 2, cx - 6, cy - 1, color);
+        g.fill(cx - 8, cy + 2, cx - 6, cy + 3, color);
+        // 右臂
+        g.fill(cx + 3, cy - 1, cx + 8, cy + 2, color);
+        g.fill(cx + 6, cy - 2, cx + 8, cy - 1, color);
+        g.fill(cx + 6, cy + 2, cx + 8, cy + 3, color);
+        // 中心点
+        g.fill(cx - 1, cy - 1, cx + 2, cy + 2, color);
     }
 
     private TopBarIconRenderer() {

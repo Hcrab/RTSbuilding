@@ -1,4 +1,4 @@
-﻿{
+{
   "key.categories.rtsbuilding": "RTSbuilding",
   "key.rtsbuilding.toggle_rts": "切換俯視建造模式",
   "key.rtsbuilding.quick_funnel": "快速漏斗",
@@ -100,6 +100,7 @@
   "screen.rtsbuilding.mode.camera": "鏡頭",
   "screen.rtsbuilding.mode.rotate": "旋轉",
   "screen.rtsbuilding.mode.idle": "空閒",
+  "screen.rtsbuilding.mode.operation": "操作",
   "screen.rtsbuilding.status.mode": "模式：%s",
   "screen.rtsbuilding.status.storage_linked": "綁定存儲：%s",
   "screen.rtsbuilding.status.storage_not_linked": "綁定存儲：未綁定",

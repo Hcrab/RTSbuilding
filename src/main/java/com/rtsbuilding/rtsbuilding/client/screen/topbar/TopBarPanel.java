@@ -84,14 +84,18 @@ public final class TopBarPanel {
         renderTopGuideHint(g, topButtons);
 
         // ---- Status bar row 1: mode ----
-        String modeText = switch (this.controller.getMode()) {
-            case INTERACT -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.interact"));
-            case LINK_STORAGE -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.link_storage"));
-            case FUNNEL -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.funnel"));
-            case SELECT_PAN -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.camera"));
-            case ROTATE -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.rotate"));
-            default -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.idle"));
+        String modeBase = switch (this.controller.getMode()) {
+            case INTERACT -> screen.text("screen.rtsbuilding.mode.interact");
+            case LINK_STORAGE -> screen.text("screen.rtsbuilding.mode.link_storage");
+            case FUNNEL -> screen.text("screen.rtsbuilding.mode.funnel");
+            case SELECT_PAN -> screen.text("screen.rtsbuilding.mode.camera");
+            case ROTATE -> screen.text("screen.rtsbuilding.mode.rotate");
+            default -> screen.text("screen.rtsbuilding.mode.idle");
         };
+        String modeSuffix = this.controller.isOperationMode()
+                ? " [" + screen.text("screen.rtsbuilding.mode.operation") + "]"
+                : "";
+        String modeText = screen.text("screen.rtsbuilding.status.mode", modeBase + modeSuffix);
 
         String linked = this.controller.isStorageLinked()
                 ? screen.text("screen.rtsbuilding.status.storage_linked", this.controller.getLinkedStorageName())
@@ -176,6 +180,7 @@ public final class TopBarPanel {
                             TopBarLayout.BUTTON_Y + TOP_BUTTON_H);
                 }
                 case DEVELOPER -> Minecraft.getInstance().setScreen(new RtsDeveloperTaskScreen(screen));
+                case OPERATION_MODE -> this.controller.toggleOperationMode();
                 case GEAR -> screen.toggleGearMenu();
                 default -> { /* no-op for unrecognised button IDs */ }
             }
@@ -233,6 +238,7 @@ public final class TopBarPanel {
         }
 
         // ---- Right-aligned buttons ----
+        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.OPERATION_MODE, positions.x(TopBarTypes.TopBarButtonId.OPERATION_MODE), TOP_ICON_BUTTON_W, "", true, this.controller.isOperationMode()));
         layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GEAR, positions.x(TopBarTypes.TopBarButtonId.GEAR), TOP_ICON_BUTTON_W, "", true, screen.isGearMenuOpen()));
         return layouts;
     }

@@ -1,4 +1,4 @@
-﻿{
+{
   "key.categories.rtsbuilding": "RTSbuilding",
   "key.rtsbuilding.toggle_rts": "切换俯视建造模式",
   "key.rtsbuilding.quick_funnel": "快速漏斗",
@@ -100,6 +100,7 @@
   "screen.rtsbuilding.mode.camera": "镜头",
   "screen.rtsbuilding.mode.rotate": "旋转",
   "screen.rtsbuilding.mode.idle": "空闲",
+  "screen.rtsbuilding.mode.operation": "操作",
   "screen.rtsbuilding.status.mode": "模式：%s",
   "screen.rtsbuilding.status.storage_linked": "绑定存储：%s",
   "screen.rtsbuilding.status.storage_not_linked": "绑定存储：未绑定",

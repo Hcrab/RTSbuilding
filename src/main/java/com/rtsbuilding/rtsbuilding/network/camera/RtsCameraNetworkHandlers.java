@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.camera;
 
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -37,6 +38,16 @@ public final class RtsCameraNetworkHandlers {
                         payload.scroll(),
                         payload.rotateSteps(),
                         payload.fast());
+            }
+        });
+    }
+
+    public static void handleSetOperationMode(C2SRtsSetOperationModePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsCameraManager.setOperationMode(serverPlayer, payload.operationMode(),
+                        new Vec3(payload.offsetX(), payload.offsetY(), payload.offsetZ()),
+                        payload.cameraYaw(), payload.cameraPitch());
             }
         });
     }
