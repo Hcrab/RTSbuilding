@@ -63,6 +63,7 @@ public final class RtsTaskEngine {
                 Config.taskEngineMaxUnitsPerTick(),
                 Config.taskEngineMaxUnitsPerSlice());
         projectWorkflowLifecycles();
+        blueprintRecords.entrySet().removeIf(entry -> entry.getValue().status().terminal());
         return stats;
     }
 
@@ -117,7 +118,8 @@ public final class RtsTaskEngine {
     public boolean setWorkflowPaused(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
             boolean paused) {
         if (player == null || workflowEntryId < 0) return false;
-        WorkflowTaskKey key = new WorkflowTaskKey(player.getUUID(), workflowEntryId);
+        WorkflowTaskKey key = new WorkflowTaskKey(
+                player.getUUID(), player.serverLevel().dimension(), workflowEntryId);
         var workflow = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                 .getProgress(player, workflowEntryId);
         if (!workflow.isActive() || !isTaskEngineWorkflow(workflow.type())) return false;
@@ -145,7 +147,8 @@ public final class RtsTaskEngine {
     /** 删除工作流前先收拢对应领域任务，不等待下一个 tick 通过“token 缺失”兜底。 */
     public boolean cancelWorkflowTask(net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
         if (player == null || workflowEntryId < 0) return false;
-        WorkflowTaskKey key = new WorkflowTaskKey(player.getUUID(), workflowEntryId);
+        WorkflowTaskKey key = new WorkflowTaskKey(
+                player.getUUID(), player.serverLevel().dimension(), workflowEntryId);
         TaskRecord record = findWorkflowTask(key);
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
         boolean cleaned = false;
@@ -183,6 +186,9 @@ public final class RtsTaskEngine {
                         .clearFromEntry(player, workflowEntryId);
             }
             releaseTerminalWorkflow(record);
+            if (record.payload() instanceof BlueprintTaskPayload) {
+                blueprintRecords.remove(key);
+            }
         }
         workflowPauseOverrides.remove(key);
         return record != null || cleaned;
@@ -193,17 +199,25 @@ public final class RtsTaskEngine {
      */
     public void submitBlueprint(BlueprintContext context, java.util.LinkedList<Integer> restoredRemaining) {
         if (context == null || context.player() == null) return;
+        submitBlueprint(context, restoredRemaining, context.player().serverLevel().dimension());
+    }
+
+    public void submitBlueprint(BlueprintContext context, java.util.LinkedList<Integer> restoredRemaining,
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> sourceDimension) {
+        if (context == null || context.player() == null) return;
         Integer entryId = context.getData(
                 com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext.KEY_WORKFLOW_ENTRY_ID);
         if (entryId == null || entryId < 0) return;
-        WorkflowTaskKey key = new WorkflowTaskKey(context.player().getUUID(), entryId);
+        WorkflowTaskKey key = new WorkflowTaskKey(
+                context.player().getUUID(), sourceDimension, entryId);
         TaskRecord existing = blueprintRecords.get(key);
         if (existing != null && !existing.status().terminal()) return;
 
         long now = System.nanoTime();
-        BlueprintTaskPayload payload = new BlueprintTaskPayload(context, restoredRemaining);
+        BlueprintTaskPayload payload = new BlueprintTaskPayload(context, restoredRemaining, sourceDimension);
         TaskRecord record = new TaskRecord(
-                UUID.nameUUIDFromBytes((context.player().getUUID() + ":blueprint:" + entryId)
+                UUID.nameUUIDFromBytes((context.player().getUUID() + ":blueprint:"
+                        + sourceDimension.location() + ":" + entryId)
                         .getBytes(StandardCharsets.UTF_8)),
                 context.player().getUUID(), TaskType.BLUEPRINT, payload,
                 context.getBlueprint().blockCount(), now);
@@ -212,7 +226,7 @@ public final class RtsTaskEngine {
             int succeeded = Math.min(cursor, Math.max(0, context.getPlacedCount()));
             record.restoreSnapshot(cursor, succeeded, Math.max(0, cursor - succeeded), now);
         }
-        applyInitialPause(context.player(), entryId, record, now);
+        applyInitialPause(context.player(), entryId, record, now, sourceDimension);
         blueprintRecords.put(key, record);
         scheduler.submit(record);
     }
@@ -220,7 +234,8 @@ public final class RtsTaskEngine {
     public BlueprintContext findBlueprintContext(
             net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
         if (player == null) return null;
-        TaskRecord record = blueprintRecords.get(new WorkflowTaskKey(player.getUUID(), workflowEntryId));
+        TaskRecord record = blueprintRecords.get(new WorkflowTaskKey(
+                player.getUUID(), player.serverLevel().dimension(), workflowEntryId));
         if (record == null || record.status().terminal()
                 || !(record.payload() instanceof BlueprintTaskPayload payload)) return null;
         return payload.context();
@@ -229,8 +244,12 @@ public final class RtsTaskEngine {
     public boolean resumeBlueprint(
             net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
         TaskRecord record = player == null ? null
-                : blueprintRecords.get(new WorkflowTaskKey(player.getUUID(), workflowEntryId));
+                : blueprintRecords.get(new WorkflowTaskKey(
+                        player.getUUID(), player.serverLevel().dimension(), workflowEntryId));
         if (record == null || record.status().terminal()) return false;
+        if (record.payload() instanceof BlueprintTaskPayload payload) {
+            payload.resetPlacementCycle();
+        }
         record.resume(System.nanoTime());
         return true;
     }
@@ -265,7 +284,8 @@ public final class RtsTaskEngine {
             RtsPlacementBatch.PlaceBatchJob job, long now) {
         UUID taskId = job.workflowEntryId() < 0
                 ? UUID.randomUUID()
-                : UUID.nameUUIDFromBytes((player.getUUID() + ":placement:" + job.workflowEntryId())
+                : UUID.nameUUIDFromBytes((player.getUUID() + ":placement:"
+                        + player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
                         .getBytes(StandardCharsets.UTF_8));
         TaskRecord record = new TaskRecord(
                 taskId,
@@ -340,7 +360,8 @@ public final class RtsTaskEngine {
     private TaskRecord createDestructionRecord(net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             RtsDestructionBatch.DestructionJob job, long now) {
-        UUID taskId = UUID.nameUUIDFromBytes((player.getUUID() + ":destruction:" + job.workflowEntryId())
+        UUID taskId = UUID.nameUUIDFromBytes((player.getUUID() + ":destruction:"
+                + player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
                 .getBytes(StandardCharsets.UTF_8));
         TaskRecord record = new TaskRecord(
                 taskId,
@@ -388,15 +409,19 @@ public final class RtsTaskEngine {
         MiningTaskSource source = currentMiningSource(session);
         miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(player.getUUID())
                 && entry.getValue().status().terminal()
-                && (source == null || entry.getKey().workflowEntryId() != source.workflowEntryId()));
+                && (source == null
+                || !entry.getKey().dimension().equals(player.serverLevel().dimension())
+                || entry.getKey().workflowEntryId() != source.workflowEntryId()));
         if (source == null) return;
 
-        MiningTaskKey key = new MiningTaskKey(player.getUUID(), source.workflowEntryId());
+        MiningTaskKey key = new MiningTaskKey(
+                player.getUUID(), player.serverLevel().dimension(), source.workflowEntryId());
         TaskRecord record = miningRecords.get(key);
         long now = System.nanoTime();
         if (record == null) {
             record = new TaskRecord(
-                    UUID.nameUUIDFromBytes((player.getUUID() + ":mining:" + source.workflowEntryId())
+                    UUID.nameUUIDFromBytes((player.getUUID() + ":mining:"
+                            + player.serverLevel().dimension().location() + ":" + source.workflowEntryId())
                             .getBytes(StandardCharsets.UTF_8)),
                     player.getUUID(), TaskType.MINING,
                     new MiningTaskPayload(player, session, source.workflowEntryId()), source.totalUnits(), now);
@@ -493,6 +518,9 @@ public final class RtsTaskEngine {
 
     private TaskStepResult executeBlueprint(TaskRecord task, TaskBudget budget) {
         BlueprintTaskPayload payload = (BlueprintTaskPayload) task.payload();
+        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
+            return TaskStepResult.nextTick(0, 0, 0, 0);
+        }
         var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                 .from(payload.player(), payload.workflowEntryId()).orElse(null);
         if (token == null) {
@@ -564,12 +592,19 @@ public final class RtsTaskEngine {
 
     private void applyInitialPause(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
             TaskRecord record, long now) {
+        applyInitialPause(player, workflowEntryId, record, now, player.serverLevel().dimension());
+    }
+
+    private void applyInitialPause(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
+            TaskRecord record, long now,
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
         if (workflowEntryId < 0) return;
-        WorkflowTaskKey key = new WorkflowTaskKey(player.getUUID(), workflowEntryId);
+        WorkflowTaskKey key = new WorkflowTaskKey(
+                player.getUUID(), dimension, workflowEntryId);
         Boolean override = workflowPauseOverrides.get(key);
-        boolean paused = override != null ? override
-                : com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                        .from(player, workflowEntryId).map(token -> token.isPaused()).orElse(false);
+        var entry = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                .findEntryByPlayer(player.getUUID(), dimension, workflowEntryId);
+        boolean paused = override != null ? override : entry != null && entry.paused();
         if (paused) record.pause(now);
     }
 
@@ -584,7 +619,8 @@ public final class RtsTaskEngine {
             if (entry.getValue().ownerId().equals(key.playerId())
                     && entry.getKey().workflowEntryId() == key.workflowEntryId()) return entry.getValue();
         }
-        return miningRecords.get(new MiningTaskKey(key.playerId(), key.workflowEntryId()));
+        return miningRecords.get(new MiningTaskKey(
+                key.playerId(), key.dimension(), key.workflowEntryId()));
     }
 
     /** TaskRecord 生命周期变更后，才把展示状态单向投影到工作流。 */
@@ -602,7 +638,7 @@ public final class RtsTaskEngine {
                 releaseTerminalWorkflow(record);
                 continue;
             }
-            var token = workflowToken(record.ownerId(), entryId);
+            var token = workflowToken(record, entryId);
             if (token == null) continue;
             var status = token.getProgress();
             switch (record.status()) {
@@ -630,36 +666,34 @@ public final class RtsTaskEngine {
     private void releaseTerminalWorkflow(TaskRecord record) {
         int entryId = workflowEntryId(record);
         if (entryId < 0) return;
-        var token = workflowToken(record.ownerId(), entryId);
+        var token = workflowToken(record, entryId);
         if (token != null) {
             if (record.status() == TaskStatus.COMPLETED) token.complete();
             else token.cancel();
         }
-        workflowPauseOverrides.remove(new WorkflowTaskKey(record.ownerId(), entryId));
+        workflowPauseOverrides.remove(new WorkflowTaskKey(
+                record.ownerId(), taskDimension(record), entryId));
         projectedTaskStatuses.put(record.id(), record.status());
     }
 
     private com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken workflowToken(
-            UUID playerId, int entryId) {
-        TaskRecord record = findWorkflowTask(new WorkflowTaskKey(playerId, entryId));
-        if (record == null) return null;
-        if (record.payload() instanceof PlacementTaskPayload payload) {
-            return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                    .from(payload.player(), entryId).orElse(null);
+            TaskRecord record, int entryId) {
+        var engine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
+        var dimension = taskDimension(record);
+        if (engine.findEntryByPlayer(record.ownerId(), dimension, entryId) == null) return null;
+        return new com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken(
+                record.ownerId(), entryId, dimension, engine);
+    }
+
+    private net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> taskDimension(TaskRecord record) {
+        if (record.payload() instanceof BlueprintTaskPayload payload) return payload.dimension();
+        for (var entry : miningRecords.entrySet()) {
+            if (entry.getValue() == record) return entry.getKey().dimension();
         }
-        if (record.payload() instanceof DestructionTaskPayload payload) {
-            return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                    .from(payload.player(), entryId).orElse(null);
-        }
-        if (record.payload() instanceof MiningTaskPayload payload) {
-            return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                    .from(payload.player(), entryId).orElse(null);
-        }
-        if (record.payload() instanceof BlueprintTaskPayload payload) {
-            return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                    .from(payload.player(), entryId).orElse(null);
-        }
-        return null;
+        if (record.payload() instanceof PlacementTaskPayload payload) return payload.player().serverLevel().dimension();
+        if (record.payload() instanceof DestructionTaskPayload payload) return payload.player().serverLevel().dimension();
+        if (record.payload() instanceof MiningTaskPayload payload) return payload.player().serverLevel().dimension();
+        throw new IllegalArgumentException("Task has no workflow dimension: " + record.type());
     }
 
     private int workflowEntryId(TaskRecord record) {
@@ -679,14 +713,18 @@ public final class RtsTaskEngine {
         };
     }
 
-    private record MiningTaskKey(UUID playerId, int workflowEntryId) {
+    private record MiningTaskKey(
+            UUID playerId, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            int workflowEntryId) {
     }
 
     public record TaskDiagnostics(Map<TaskType, Integer> activeByType,
             Map<TaskType, Integer> waitingByType) {
     }
 
-    private record WorkflowTaskKey(UUID playerId, int workflowEntryId) {
+    private record WorkflowTaskKey(
+            UUID playerId, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            int workflowEntryId) {
     }
 
     private record MiningTaskSource(

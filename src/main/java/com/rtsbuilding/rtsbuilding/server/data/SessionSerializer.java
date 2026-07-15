@@ -469,16 +469,30 @@ public final class SessionSerializer {
         }
         root.put("active_placement_jobs", activeList);
         ListTag recoveryList = new ListTag();
+        int serializedClaims = 0;
         for (var job : session.placement.recoveryJobs) {
             if (job == null) continue;
+            if (recoveryList.size()
+                    >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
+                    || serializedClaims
+                    >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) {
+                break;
+            }
             CompoundTag jobTag = new CompoundTag();
             jobTag.putString("dimension", job.dimension().location().toString());
             jobTag.putLong("target", job.targetPos().asLong());
             ListTag ids = new ListTag();
             for (java.util.UUID id : job.entityIds()) {
+                if (ids.size()
+                        >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
+                        || serializedClaims
+                        >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) {
+                    break;
+                }
                 CompoundTag idTag = new CompoundTag();
                 idTag.putUUID("id", id);
                 ids.add(idTag);
+                serializedClaims++;
             }
             jobTag.put("entities", ids);
             recoveryList.add(jobTag);
@@ -502,15 +516,27 @@ public final class SessionSerializer {
         }
         session.placement.recoveryJobs.clear();
         ListTag recoveryList = root.getList("placed_recovery_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < recoveryList.size(); i++) {
+        int loadedClaims = 0;
+        for (int i = 0; i < recoveryList.size()
+                && session.placement.recoveryJobs.size()
+                < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
+                && loadedClaims
+                < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; i++) {
             CompoundTag jobTag = recoveryList.getCompound(i);
             ResourceKey<Level> dimension = parseDimensionKey(jobTag.getString("dimension"));
             if (dimension == null) continue;
             java.util.ArrayDeque<java.util.UUID> entityIds = new java.util.ArrayDeque<>();
             ListTag ids = jobTag.getList("entities", Tag.TAG_COMPOUND);
-            for (int j = 0; j < ids.size(); j++) {
+            for (int j = 0; j < ids.size()
+                    && entityIds.size()
+                    < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
+                    && loadedClaims
+                    < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; j++) {
                 CompoundTag idTag = ids.getCompound(j);
-                if (idTag.hasUUID("id")) entityIds.addLast(idTag.getUUID("id"));
+                if (idTag.hasUUID("id")) {
+                    entityIds.addLast(idTag.getUUID("id"));
+                    loadedClaims++;
+                }
             }
             if (!entityIds.isEmpty()) {
                 session.placement.recoveryJobs.addLast(

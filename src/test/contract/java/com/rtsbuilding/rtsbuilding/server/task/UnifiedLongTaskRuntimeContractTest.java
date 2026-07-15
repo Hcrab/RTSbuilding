@@ -48,6 +48,35 @@ class UnifiedLongTaskRuntimeContractTest {
         assertFalse(service.contains("stacks.addLast(droppedStack.copy())"));
     }
 
+    @Test
+    void blueprintExecutionIsDimensionBoundAndReleasesTerminalPayload() throws IOException {
+        String payload = read("server/task/BlueprintTaskPayload.java");
+        String engine = read("server/task/RtsTaskEngine.java");
+        String persistence = read("server/pipeline/blueprint/BlueprintPersistence.java");
+        String executor = read("server/pipeline/blueprint/BlueprintTickPipe.java");
+
+        assertTrue(payload.contains("ResourceKey<Level> dimension"));
+        assertTrue(engine.contains("equals(payload.dimension())"));
+        assertTrue(engine.contains("blueprintRecords.entrySet().removeIf"));
+        assertTrue(persistence.contains("KEY_SOURCE_DIMENSION"));
+        assertTrue(persistence.contains("sourceDimension"));
+        assertTrue(executor.contains("token.recordFailures(failures)"));
+        assertFalse(executor.contains("for (int i = 0; i < failures"));
+    }
+
+    @Test
+    void recoveryClaimsAreBoundedAndUnloadedChunksArePreserved() throws IOException {
+        String service = read("server/service/RtsPlacedRecoveryService.java");
+        String serializer = read("server/data/SessionSerializer.java");
+
+        assertTrue(service.contains("setUnlimitedLifetime()"));
+        assertTrue(service.contains("hasChunkAt(candidate.targetPos())"));
+        assertTrue(service.contains("PLACED_RECOVERY_MAX_QUEUED_JOBS"));
+        assertTrue(service.contains("PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS"));
+        assertTrue(serializer.contains("PLACED_RECOVERY_MAX_ENTITIES_PER_JOB"));
+        assertTrue(serializer.contains("PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS"));
+    }
+
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
     }

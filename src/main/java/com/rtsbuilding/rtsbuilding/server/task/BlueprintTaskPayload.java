@@ -6,6 +6,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlann
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
     private enum PreparationStage { PLANS, ORDER, QUEUE, READY }
 
     private final BlueprintContext context;
+    private final ResourceKey<Level> dimension;
     private final LinkedList<Integer> restoredRemaining;
     private final List<PlacementPlan> plans = new ArrayList<>();
     private PriorityQueue<Integer> orderedIndices;
@@ -32,9 +35,16 @@ public final class BlueprintTaskPayload implements TaskPayload {
     private int planCursor;
     private int orderCursor;
     private long lastCheckpointTick = Long.MIN_VALUE;
+    private final NoProgressCycleTracker placementCycle = new NoProgressCycleTracker();
 
     public BlueprintTaskPayload(BlueprintContext context, @Nullable LinkedList<Integer> restoredRemaining) {
+        this(context, restoredRemaining, context.player().serverLevel().dimension());
+    }
+
+    public BlueprintTaskPayload(BlueprintContext context, @Nullable LinkedList<Integer> restoredRemaining,
+            ResourceKey<Level> dimension) {
         this.context = context;
+        this.dimension = dimension;
         this.restoredRemaining = restoredRemaining == null ? null : new LinkedList<>(restoredRemaining);
     }
 
@@ -46,6 +56,10 @@ public final class BlueprintTaskPayload implements TaskPayload {
         return context.player();
     }
 
+    public ResourceKey<Level> dimension() {
+        return dimension;
+    }
+
     public int workflowEntryId() {
         Integer entryId = context.getData(
                 com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext.KEY_WORKFLOW_ENTRY_ID);
@@ -54,6 +68,22 @@ public final class BlueprintTaskPayload implements TaskPayload {
 
     public boolean ready() {
         return stage == PreparationStage.READY;
+    }
+
+    public void beginPlacementCycle(int candidates) {
+        placementCycle.beginIfIdle(candidates);
+    }
+
+    public boolean recordDeferredPlacement() {
+        return placementCycle.deferredOne();
+    }
+
+    public void recordPlacementProgress(int unresolvedCandidates) {
+        placementCycle.progressed(unresolvedCandidates);
+    }
+
+    public void resetPlacementCycle() {
+        placementCycle.reset();
     }
 
     /** 正常进度最多每秒写一次快照；等待和终态由调用方强制写。 */

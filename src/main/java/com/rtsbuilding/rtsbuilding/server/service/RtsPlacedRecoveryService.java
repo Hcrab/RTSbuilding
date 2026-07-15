@@ -14,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
+import com.rtsbuilding.rtsbuilding.server.task.BoundedQueueSelector;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -164,30 +165,30 @@ public final class RtsPlacedRecoveryService {
         OverflowOutcome overflow = OverflowOutcome.EMPTY;
         boolean hasLinkedRecoveryTarget = false;
         boolean processedAny = false;
-        int processedJobs = 0;
+        int inspectedJobs = 0;
         int processedStacks = 0;
 
         while (!jobs.isEmpty()
-                && processedJobs < RtsServiceConstants.PLACED_RECOVERY_MAX_JOBS_PER_TICK
+                && inspectedJobs < RtsServiceConstants.PLACED_RECOVERY_MAX_JOBS_PER_TICK
                 && processedStacks < Math.max(1, maxUnits)
                 && System.nanoTime() < deadlineNanos) {
-            PlacedRecoveryJob job = jobs.peekFirst();
-            if (job == null || job.entityIds().isEmpty()) {
+            int inspectionBudget = RtsServiceConstants.PLACED_RECOVERY_MAX_JOBS_PER_TICK - inspectedJobs;
+            var selection = BoundedQueueSelector.rotateToRunnable(
+                    jobs,
+                    candidate -> candidate.entityIds().isEmpty()
+                            || (player.serverLevel().dimension().equals(candidate.dimension())
+                            && player.serverLevel().hasChunkAt(candidate.targetPos())),
+                    inspectionBudget);
+            inspectedJobs += selection.inspected();
+            if (!selection.found()) {
+                break;
+            }
+            PlacedRecoveryJob job = selection.value();
+            if (job.entityIds().isEmpty()) {
                 jobs.removeFirst();
-                processedJobs++;
                 continue;
             }
-
-            if (!player.serverLevel().dimension().equals(job.dimension())) {
-                // 链接端点属于玩家当前维度；切维后等待返回，不能写入错误网络。
-                break;
-            }
-
-            ServerLevel jobLevel = player.getServer().getLevel(job.dimension());
-            if (jobLevel == null) {
-                // 维度暂不可用时保留 UUID，下一 Tick 再试，避免把世界仍持有的实体误判丢失。
-                break;
-            }
+            ServerLevel jobLevel = player.serverLevel();
 
             List<IItemHandler> handlers = recoveryHandlersExcluding(orderedLinked, job.targetPos());
             hasLinkedRecoveryTarget |= !handlers.isEmpty();
@@ -217,7 +218,6 @@ public final class RtsPlacedRecoveryService {
 
             if (job.entityIds().isEmpty()) {
                 jobs.removeFirst();
-                processedJobs++;
             }
         }
 
@@ -298,11 +298,25 @@ public final class RtsPlacedRecoveryService {
         if (player == null || droppedEntities == null || droppedEntities.isEmpty()) {
             return;
         }
+        if (session.placement.recoveryJobs.size()
+                >= RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS) {
+            return;
+        }
+        int claimed = 0;
+        for (PlacedRecoveryJob job : session.placement.recoveryJobs) {
+            claimed += job.entityIds().size();
+            if (claimed >= RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) return;
+        }
+        int availableClaims = Math.min(
+                RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB,
+                RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS - claimed);
         Deque<UUID> entityIds = new ArrayDeque<>();
         for (ItemEntity droppedEntity : droppedEntities) {
+            if (entityIds.size() >= availableClaims) break;
             if (droppedEntity == null) continue;
             ItemStack droppedStack = droppedEntity.getItem();
             if (droppedStack.isEmpty()) continue;
+            droppedEntity.setUnlimitedLifetime();
             entityIds.addLast(droppedEntity.getUUID());
         }
         if (!entityIds.isEmpty()) {

@@ -64,7 +64,9 @@ public final class BlueprintTickPipe {
         int succeeded = 0;
         int failed = 0;
         boolean missing = false;
+        boolean exhaustedMissingCycle = false;
         LinkedList<Integer> deferred = new LinkedList<>();
+        payload.beginPlacementCycle(remaining.size());
 
         while (!remaining.isEmpty() && processed < budget.maxUnits() && budget.hasTime()) {
             int index = remaining.removeFirst();
@@ -74,23 +76,28 @@ public final class BlueprintTickPipe {
                 context.setSkippedMissingBlocks(context.getSkippedMissingBlocks() + 1);
                 cursor++;
                 failed++;
+                payload.recordPlacementProgress(remaining.size() + deferred.size());
                 continue;
             }
             if (isAlreadyPlaced(level, plan)) {
                 context.setPlacedCount(context.getPlacedCount() + 1);
                 cursor++;
                 succeeded++;
+                payload.recordPlacementProgress(remaining.size() + deferred.size());
                 continue;
             }
             if (!canStillPlace(player, level, plan.target(), plan.state())) {
                 context.setSkippedBlocked(context.getSkippedBlocked() + 1);
                 cursor++;
                 failed++;
+                payload.recordPlacementProgress(remaining.size() + deferred.size());
                 continue;
             }
             if (!player.isCreative() && !hasAllMaterialsForPlan(player, plan)) {
                 deferred.addLast(index);
                 missing = true;
+                exhaustedMissingCycle = payload.recordDeferredPlacement();
+                if (exhaustedMissingCycle) break;
                 continue;
             }
 
@@ -99,25 +106,30 @@ public final class BlueprintTickPipe {
                     context.setPlacedCount(context.getPlacedCount() + 1);
                     cursor++;
                     succeeded++;
+                    payload.recordPlacementProgress(remaining.size() + deferred.size());
                 }
                 case MISSING_MATERIALS -> {
                     deferred.addLast(index);
                     missing = true;
+                    exhaustedMissingCycle = payload.recordDeferredPlacement();
                 }
                 case UNSUPPORTED -> {
                     context.setSkippedUnsupported(context.getSkippedUnsupported() + 1);
                     cursor++;
                     failed++;
+                    payload.recordPlacementProgress(remaining.size() + deferred.size());
                 }
                 case BLOCKED -> {
                     context.setSkippedBlocked(context.getSkippedBlocked() + 1);
                     cursor++;
                     failed++;
+                    payload.recordPlacementProgress(remaining.size() + deferred.size());
                 }
             }
+            if (exhaustedMissingCycle) break;
         }
         remaining.addAll(deferred);
-        if (missing) context.setSkippedMissing(context.getSkippedMissing() + 1);
+        if (exhaustedMissingCycle) context.setSkippedMissing(context.getSkippedMissing() + 1);
 
         int delta = context.getPlacedCount() - placedBefore;
         if (delta > 0 && context.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
@@ -130,7 +142,7 @@ public final class BlueprintTickPipe {
             finish(context, player, plans.size());
             return TaskStepResult.complete(processed, cursor, succeeded, failed);
         }
-        if (missing && delta == 0 && deferred.size() == remaining.size()) {
+        if (exhaustedMissingCycle) {
             checkpoint(payload, true);
             return TaskStepResult.waitForResource(processed, cursor, succeeded, failed);
         }
@@ -153,7 +165,7 @@ public final class BlueprintTickPipe {
                 token.setCompletedBlocks(context.getPlacedCount());
                 int failures = context.getSkippedMissingBlocks()
                         + context.getSkippedBlocked() + context.getSkippedUnsupported();
-                for (int i = 0; i < failures; i++) token.recordFailure();
+                token.recordFailures(failures);
             });
             BlueprintPersistence.clearFromEntry(player, entryId);
         }

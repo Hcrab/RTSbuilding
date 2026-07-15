@@ -11,10 +11,14 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePip
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 
 import java.util.LinkedList;
 
@@ -53,6 +57,7 @@ public final class BlueprintPersistence {
     private static final String KEY_SKIPPED_MISSING_BLOCKS = "skippedMissingBlocks";
     private static final String KEY_SKIPPED_BLOCKED = "skippedBlocked";
     private static final String KEY_PREPARING = "preparing";
+    private static final String KEY_SOURCE_DIMENSION = "source_dimension";
 
     private BlueprintPersistence() {
     }
@@ -115,6 +120,7 @@ public final class BlueprintPersistence {
         data.putInt(KEY_SKIPPED_MISSING_BLOCKS, bctx.getSkippedMissingBlocks());
         data.putInt(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
         data.putBoolean(KEY_PREPARING, bctx.isPreparing());
+        data.putString(KEY_SOURCE_DIMENSION, player.serverLevel().dimension().location().toString());
 
         // 持久化到工作流条目
         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
@@ -163,6 +169,22 @@ public final class BlueprintPersistence {
         int ySteps = data.getInt(KEY_Y_STEPS);
         int xSteps = data.getInt(KEY_X_STEPS);
         int zSteps = data.getInt(KEY_Z_STEPS);
+        ResourceKey<Level> sourceDimension = player.serverLevel().dimension();
+        String sourceDimensionId = data.getString(KEY_SOURCE_DIMENSION);
+        if (!sourceDimensionId.isBlank()) {
+            ResourceLocation parsed = ResourceLocation.tryParse(sourceDimensionId);
+            if (parsed != null) {
+                sourceDimension = ResourceKey.create(Registries.DIMENSION, parsed);
+            } else {
+                RtsbuildingMod.LOGGER.warn(
+                        "[BlueprintPersistence] 蓝图工作流 #{} 的来源维度无效：{}，保守绑定当前维度",
+                        entry.id(), sourceDimensionId);
+            }
+        } else {
+            RtsbuildingMod.LOGGER.info(
+                    "[BlueprintPersistence] 蓝图工作流 #{} 缺少来源维度，按旧数据迁移到当前维度 {}",
+                    entry.id(), sourceDimension.location());
+        }
 
         // ── 重算放置计划 ─────────────────────────────────────────
         // ── 重建剩余队列 ─────────────────────────────────────────
@@ -231,7 +253,7 @@ public final class BlueprintPersistence {
         );
         // 准备阶段没有世界副作用，崩溃后从 0 重算；READY 任务恢复唯一 remaining 队列。
         com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitBlueprint(
-                ctx, preparing ? null : remaining);
+                ctx, preparing ? null : remaining, sourceDimension);
 
         RtsbuildingMod.LOGGER.info("[BlueprintPersistence] 已恢复蓝图工作流 #{} ({} 剩余方块)",
                 entry.id(), remaining.size());
