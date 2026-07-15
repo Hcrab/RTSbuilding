@@ -286,8 +286,8 @@ public final class RtsDestructionBatch {
                 j -> j.destroyedPositions.size(),
                 j -> j.skippedWhileProcessing,
                 (p, job) -> {
-                    if (!job.destroyedPositions.isEmpty()) {
-                        ServerHistoryManager.recordBreak(p, job.destroyedPositions, Direction.DOWN);
+                    if (!job.processedRecords.isEmpty()) {
+                        ServerHistoryManager.recordBreakWithRecords(p, job.processedRecords, Direction.DOWN);
                     }
                 },
                 (p, job) -> RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} completed destroy job #{} ({} destroyed)",
@@ -317,8 +317,8 @@ public final class RtsDestructionBatch {
         boolean removed = session.destruction.destroyJobs.remove(job)
                 | session.destruction.pendingDestroyJobs.remove(job);
         if (!removed) return;
-        if (!job.destroyedPositions.isEmpty()) {
-            ServerHistoryManager.recordBreak(player, job.destroyedPositions, Direction.DOWN);
+        if (!job.processedRecords.isEmpty()) {
+            ServerHistoryManager.recordBreakWithRecords(player, job.processedRecords, Direction.DOWN);
         }
         returnDestroyToolIfIdle(player, session);
         RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());

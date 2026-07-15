@@ -181,6 +181,29 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private WindowSlider fillCountSlider;
     private WindowSlider detectionDiameterSlider;
 
+    // ===== 高级破坏 =====
+    private AdvancedDestroySubMode advDestroySubMode = AdvancedDestroySubMode.RECTANGLE;
+    private final AdvancedDestroyOptions advDestroyOptions = new AdvancedDestroyOptions();
+    private final AdvancedDestroyHandler advDestroyHandler = new AdvancedDestroyHandler(advDestroyOptions);
+    private WindowButton[] advDestroySubModeButtons;
+    // 矩形滑条（6条，同轴配对一行）
+    private WindowSlider rectSliderPlusX, rectSliderMinusX;
+    private WindowSlider rectSliderPlusY, rectSliderMinusY;
+    private WindowSlider rectSliderPlusZ, rectSliderMinusZ;
+    private WindowButton[] rectFillModeButtons;
+    // 圆柱滑条
+    private WindowSlider cylinderRadiusSlider;
+    private WindowSlider cylinderPlusHSlider, cylinderMinusHSlider;
+    private WindowButton[] cylinderFillModeButtons;
+    // 楼梯控件
+    private WindowSlider stairsCountSlider;
+    private WindowButton stairsRotateButton;
+    private WindowButton stairsSymmetricButton;
+    // 伐木控件
+    private WindowSlider lumberLimitSlider;
+    private WindowButton lumberStrongManToggle;
+    private WindowButton lumberAllowPlayerBlocksToggle;
+
     // ======================== 持久化属性 ========================
 
     private final List<PersistableProperty> properties = List.of(
@@ -281,6 +304,105 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     (state, v) -> state.quickBuild.smartPlace.detectionDiameter = v,
                     () -> this.smartPlaceHandler.getOptions().detectionDiameter,
                     v -> this.smartPlaceHandler.getOptions().detectionDiameter = v),
+            // 高级破坏持久化属性
+            PersistableProperty.enumField(
+                    "adv_destroy_sub_mode",
+                    state -> state.quickBuild.advancedDestroy.subMode,
+                    (state, v) -> state.quickBuild.advancedDestroy.subMode = v,
+                    () -> this.advDestroySubMode,
+                    v -> this.advDestroySubMode = v,
+                    AdvancedDestroySubMode.RECTANGLE,
+                    AdvancedDestroySubMode.class),
+            PersistableProperty.intField("adv_rect_plus_x",
+                    state -> state.quickBuild.advancedDestroy.rectPlusX,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectPlusX = v,
+                    () -> this.advDestroyOptions.getRectPlusX(),
+                    v -> this.advDestroyOptions.setRectPlusX(v)),
+            PersistableProperty.intField("adv_rect_minus_x",
+                    state -> state.quickBuild.advancedDestroy.rectMinusX,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectMinusX = v,
+                    () -> this.advDestroyOptions.getRectMinusX(),
+                    v -> this.advDestroyOptions.setRectMinusX(v)),
+            PersistableProperty.intField("adv_rect_plus_y",
+                    state -> state.quickBuild.advancedDestroy.rectPlusY,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectPlusY = v,
+                    () -> this.advDestroyOptions.getRectPlusY(),
+                    v -> this.advDestroyOptions.setRectPlusY(v)),
+            PersistableProperty.intField("adv_rect_minus_y",
+                    state -> state.quickBuild.advancedDestroy.rectMinusY,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectMinusY = v,
+                    () -> this.advDestroyOptions.getRectMinusY(),
+                    v -> this.advDestroyOptions.setRectMinusY(v)),
+            PersistableProperty.intField("adv_rect_plus_z",
+                    state -> state.quickBuild.advancedDestroy.rectPlusZ,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectPlusZ = v,
+                    () -> this.advDestroyOptions.getRectPlusZ(),
+                    v -> this.advDestroyOptions.setRectPlusZ(v)),
+            PersistableProperty.intField("adv_rect_minus_z",
+                    state -> state.quickBuild.advancedDestroy.rectMinusZ,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectMinusZ = v,
+                    () -> this.advDestroyOptions.getRectMinusZ(),
+                    v -> this.advDestroyOptions.setRectMinusZ(v)),
+            PersistableProperty.enumField("adv_rect_fill_mode",
+                    state -> state.quickBuild.advancedDestroy.rectFillMode,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectFillMode = v,
+                    () -> this.advDestroyOptions.getRectFillMode(),
+                    v -> this.advDestroyOptions.setRectFillMode(v),
+                    ShapeFillMode.FILL,
+                    ShapeFillMode.class),
+            PersistableProperty.intField("adv_cylinder_radius",
+                    state -> state.quickBuild.advancedDestroy.cylinderRadius,
+                    (state, v) -> state.quickBuild.advancedDestroy.cylinderRadius = v,
+                    () -> this.advDestroyOptions.getCylinderRadius(),
+                    v -> this.advDestroyOptions.setCylinderRadius(v)),
+            PersistableProperty.intField("adv_cylinder_plus_h",
+                    state -> state.quickBuild.advancedDestroy.cylinderPlusH,
+                    (state, v) -> state.quickBuild.advancedDestroy.cylinderPlusH = v,
+                    () -> this.advDestroyOptions.getCylinderPlusH(),
+                    v -> this.advDestroyOptions.setCylinderPlusH(v)),
+            PersistableProperty.intField("adv_cylinder_minus_h",
+                    state -> state.quickBuild.advancedDestroy.cylinderMinusH,
+                    (state, v) -> state.quickBuild.advancedDestroy.cylinderMinusH = v,
+                    () -> this.advDestroyOptions.getCylinderMinusH(),
+                    v -> this.advDestroyOptions.setCylinderMinusH(v)),
+            PersistableProperty.enumField("adv_cylinder_fill_mode",
+                    state -> state.quickBuild.advancedDestroy.cylinderFillMode,
+                    (state, v) -> state.quickBuild.advancedDestroy.cylinderFillMode = v,
+                    () -> this.advDestroyOptions.getCylinderFillMode(),
+                    v -> this.advDestroyOptions.setCylinderFillMode(v),
+                    ShapeFillMode.FILL,
+                    ShapeFillMode.class),
+            PersistableProperty.intField("adv_stairs_count",
+                    state -> state.quickBuild.advancedDestroy.stairsCount,
+                    (state, v) -> state.quickBuild.advancedDestroy.stairsCount = v,
+                    () -> this.advDestroyOptions.getStairsCount(),
+                    v -> this.advDestroyOptions.setStairsCount(v)),
+            PersistableProperty.intField("adv_stairs_rotation",
+                    state -> state.quickBuild.advancedDestroy.stairsRotation,
+                    (state, v) -> state.quickBuild.advancedDestroy.stairsRotation = v,
+                    () -> this.advDestroyOptions.getStairsRotation(),
+                    v -> this.advDestroyOptions.setStairsRotation(v)),
+            PersistableProperty.boolField("adv_stairs_symmetric",
+                    state -> state.quickBuild.advancedDestroy.stairsSymmetric,
+                    (state, v) -> state.quickBuild.advancedDestroy.stairsSymmetric = v,
+                    () -> this.advDestroyOptions.isStairsSymmetric(),
+                    v -> this.advDestroyOptions.setStairsSymmetric(v)),
+            // 伐木持久化
+            PersistableProperty.intField("adv_lumber_limit",
+                    state -> state.quickBuild.advancedDestroy.lumberLimit,
+                    (state, v) -> state.quickBuild.advancedDestroy.lumberLimit = v,
+                    () -> this.advDestroyOptions.getLumberLimit(),
+                    v -> this.advDestroyOptions.setLumberLimit(v)),
+            PersistableProperty.boolField("adv_lumber_strong_man",
+                    state -> state.quickBuild.advancedDestroy.lumberStrongMan,
+                    (state, v) -> state.quickBuild.advancedDestroy.lumberStrongMan = v,
+                    () -> this.advDestroyOptions.isLumberStrongMan(),
+                    v -> this.advDestroyOptions.setLumberStrongMan(v)),
+            PersistableProperty.boolField("adv_lumber_allow_player_blocks",
+                    state -> state.quickBuild.advancedDestroy.lumberAllowPlayerBlocks,
+                    (state, v) -> state.quickBuild.advancedDestroy.lumberAllowPlayerBlocks = v,
+                    () -> this.advDestroyOptions.isLumberAllowPlayerBlocks(),
+                    v -> this.advDestroyOptions.setLumberAllowPlayerBlocks(v)),
             PersistableProperty.bounds("quick_build", this)
     );
 
@@ -303,6 +425,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         ensureSmartPlaceSliders();
         createShapeButtons();
         createSmartPlaceModeButtons();
+        createAdvDestroySubModeButtons();
+        ensureAdvDestroySliders();
         this.lastFillShape = controller.getBuildShape();
         this.lastAreaMineShape = this.rangeDestroyShape;
     }
@@ -600,6 +724,159 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return effectiveMode() == QuickBuildMode.SMART_PLACE;
     }
 
+    /** 当前是否处于高级破坏模式 */
+    public boolean isAdvancedDestroyActive() {
+        return effectiveMode() == QuickBuildMode.ADVANCED_DESTROY;
+    }
+
+    /** 外部获取高级破坏处理器，供 BuilderScreen 读取预览数据和锚点状态 */
+    public AdvancedDestroyHandler getAdvDestroyHandler() {
+        return advDestroyHandler;
+    }
+
+    public AdvancedDestroyOptions getAdvDestroyOptions() {
+        return advDestroyOptions;
+    }
+
+    // ===== 高级破坏子模式按钮和滑条 =====
+
+    private void createAdvDestroySubModeButtons() {
+        advDestroySubModeButtons = new WindowButton[4];
+        for (int i = 0; i < 4; i++) {
+            AdvancedDestroySubMode mode = AdvancedDestroySubMode.values()[i];
+            advDestroySubModeButtons[i] = new WindowButton(0, 0,
+                    QUICK_BUILD_SHAPE_SLOT, QUICK_BUILD_SHAPE_SLOT,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_sub_" + i),
+                    btn -> selectAdvDestroySubMode(mode));
+        }
+    }
+
+    private void selectAdvDestroySubMode(AdvancedDestroySubMode mode) {
+        this.advDestroySubMode = mode;
+        this.advDestroyOptions.setSubMode(mode);
+        this.advDestroyHandler.clearAnchor();
+        if (screen != null) {
+            screen.clearShapeBuildSession();
+            screen.persistUiState();
+        }
+    }
+
+    private void ensureAdvDestroySliders() {
+        int sliderW = Math.max(40, windowWidth - RIGHT_COL_X - 60);
+        int halfSliderW = Math.max(25, (windowWidth - RIGHT_COL_X - 60) / 2);
+
+        // 矩形滑条（仅首次创建）
+        if (rectSliderPlusX == null) {
+            rectSliderPlusX = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_RECT_MIN, ADV_DESTROY_RECT_MAX, advDestroyOptions.getRectPlusX());
+            rectSliderPlusX.onChange(v -> { advDestroyOptions.setRectPlusX(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            rectSliderMinusX = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_RECT_MIN, ADV_DESTROY_RECT_MAX, advDestroyOptions.getRectMinusX());
+            rectSliderMinusX.onChange(v -> { advDestroyOptions.setRectMinusX(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            rectSliderPlusY = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_RECT_MIN, ADV_DESTROY_RECT_MAX, advDestroyOptions.getRectPlusY());
+            rectSliderPlusY.onChange(v -> { advDestroyOptions.setRectPlusY(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            rectSliderMinusY = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_RECT_MIN, ADV_DESTROY_RECT_MAX, advDestroyOptions.getRectMinusY());
+            rectSliderMinusY.onChange(v -> { advDestroyOptions.setRectMinusY(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            rectSliderPlusZ = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_RECT_MIN, ADV_DESTROY_RECT_MAX, advDestroyOptions.getRectPlusZ());
+            rectSliderPlusZ.onChange(v -> { advDestroyOptions.setRectPlusZ(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            rectSliderMinusZ = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_RECT_MIN, ADV_DESTROY_RECT_MAX, advDestroyOptions.getRectMinusZ());
+            rectSliderMinusZ.onChange(v -> { advDestroyOptions.setRectMinusZ(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+        }
+        // 矩形填充模式按钮
+        if (rectFillModeButtons == null) {
+            rectFillModeButtons = new WindowButton[3];
+            String[] rectFillLabels = {"screen.rtsbuilding.fill.fill", "screen.rtsbuilding.fill.hollow", "screen.rtsbuilding.fill.skeleton"};
+            for (int i = 0; i < 3; i++) {
+                ShapeFillMode fm = ShapeFillMode.values()[i];
+                rectFillModeButtons[i] = new WindowButton(0, 0, 50, 16,
+                        Component.translatable(rectFillLabels[i]), btn -> {
+                    advDestroyOptions.setRectFillMode(fm);
+                    advDestroyHandler.markDirty();
+                    if (screen != null) screen.persistUiState();
+                });
+            }
+        }
+        // 圆柱滑条
+        if (cylinderRadiusSlider == null) {
+            cylinderRadiusSlider = new WindowSlider(0, 0, sliderW, 16,
+                    ADV_DESTROY_CYLINDER_RADIUS_MIN, ADV_DESTROY_CYLINDER_RADIUS_MAX,
+                    advDestroyOptions.getCylinderRadius());
+            cylinderRadiusSlider.onChange(v -> { advDestroyOptions.setCylinderRadius(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            cylinderPlusHSlider = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_CYLINDER_HEIGHT_MIN, ADV_DESTROY_CYLINDER_HEIGHT_MAX,
+                    advDestroyOptions.getCylinderPlusH());
+            cylinderPlusHSlider.onChange(v -> { advDestroyOptions.setCylinderPlusH(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+            cylinderMinusHSlider = new WindowSlider(0, 0, halfSliderW, 16,
+                    ADV_DESTROY_CYLINDER_HEIGHT_MIN, ADV_DESTROY_CYLINDER_HEIGHT_MAX,
+                    advDestroyOptions.getCylinderMinusH());
+            cylinderMinusHSlider.onChange(v -> { advDestroyOptions.setCylinderMinusH(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+        }
+        // 圆柱填充模式按钮
+        if (cylinderFillModeButtons == null) {
+            cylinderFillModeButtons = new WindowButton[2];
+            String[] cylFillLabels = {"screen.rtsbuilding.fill.fill", "screen.rtsbuilding.fill.hollow"};
+            for (int i = 0; i < 2; i++) {
+                ShapeFillMode fm = ShapeFillMode.values()[i]; // FILL, HOLLOW
+                cylinderFillModeButtons[i] = new WindowButton(0, 0, 50, 16,
+                        Component.translatable(cylFillLabels[i]), btn -> {
+                    advDestroyOptions.setCylinderFillMode(fm);
+                    advDestroyHandler.markDirty();
+                    if (screen != null) screen.persistUiState();
+                });
+            }
+        }
+        // 楼梯控件
+        if (stairsCountSlider == null) {
+            stairsCountSlider = new WindowSlider(0, 0, sliderW, 16,
+                    ADV_DESTROY_STAIRS_COUNT_MIN, ADV_DESTROY_STAIRS_COUNT_MAX,
+                    advDestroyOptions.getStairsCount());
+            stairsCountSlider.onChange(v -> { advDestroyOptions.setStairsCount(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+        }
+        if (stairsRotateButton == null) {
+            stairsRotateButton = new WindowButton(0, 0, 50, 18,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_stairs_rotate"), btn -> {
+                advDestroyOptions.setStairsRotation(advDestroyOptions.getStairsRotation() + 90);
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+        if (stairsSymmetricButton == null) {
+            stairsSymmetricButton = new WindowButton(0, 0, 50, 18,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_stairs_symmetric"), btn -> {
+                advDestroyOptions.setStairsSymmetric(!advDestroyOptions.isStairsSymmetric());
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+        // 伐木控件
+        if (lumberLimitSlider == null) {
+            lumberLimitSlider = new WindowSlider(0, 0, sliderW, 16,
+                    ADV_DESTROY_LUMBER_LIMIT_MIN, ADV_DESTROY_LUMBER_LIMIT_MAX,
+                    advDestroyOptions.getLumberLimit());
+            lumberLimitSlider.onChange(v -> { advDestroyOptions.setLumberLimit(v); advDestroyHandler.markDirty(); if (screen != null) screen.persistUiState(); });
+        }
+        if (lumberStrongManToggle == null) {
+            lumberStrongManToggle = new WindowButton(0, 0, 80, 18,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_strong_man"), btn -> {
+                advDestroyOptions.setLumberStrongMan(!advDestroyOptions.isLumberStrongMan());
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+        if (lumberAllowPlayerBlocksToggle == null) {
+            lumberAllowPlayerBlocksToggle = new WindowButton(0, 0, 80, 18,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_allow_player"), btn -> {
+                advDestroyOptions.setLumberAllowPlayerBlocks(!advDestroyOptions.isLumberAllowPlayerBlocks());
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+    }
+
     // ======================== 渲染 ========================
 
     /**
@@ -643,14 +920,17 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         renderModeToggle(g, col2X, row1Y, buttonW, QuickBuildMode.DESTROY,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"), mouseX, mouseY);
 
-        // 第 2 行：智能放置 | 留空
+        // 第 2 行：智能放置 | 高级破坏
         renderModeToggle(g, col1X, row2Y, buttonW, QuickBuildMode.SMART_PLACE,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_smart_place"), mouseX, mouseY);
+        renderModeToggle(g, col2X, row2Y, buttonW, QuickBuildMode.ADVANCED_DESTROY,
+                Component.translatable("screen.rtsbuilding.quick_build.mode_advanced_destroy"), mouseX, mouseY);
     }
 
     private void renderModeToggle(GuiGraphics g, int x, int y, int w, QuickBuildMode mode,
             Component label, int mouseX, int mouseY) {
-        boolean enabled = mode != QuickBuildMode.DESTROY || canUseRangeDestroy();
+        boolean enabled = (mode != QuickBuildMode.DESTROY || canUseRangeDestroy())
+                && (mode != QuickBuildMode.ADVANCED_DESTROY || canUseAdvancedDestroy());
         boolean active = this.quickBuildMode == mode && enabled;
         boolean hovered = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + MODE_TOGGLE_H;
         int border = !enabled ? 0xFF3A4652 : (active ? 0xFF5FE36C : (hovered ? 0xFF7B91A6 : 0xFF647B92));
@@ -691,6 +971,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (isSmartPlaceActive()) {
             renderSmartPlaceContent(g, mouseX, mouseY, partialTick);
             renderSmartPlaceBottomInfo(g, x, y, bodyY);
+            return;
+        }
+
+        // --- 高级破坏模式专属内容 ---
+        if (isAdvancedDestroyActive()) {
+            renderAdvancedDestroyContent(g, mouseX, mouseY, partialTick);
+            renderAdvancedDestroyBottomInfo(g, x, y, bodyY);
             return;
         }
 
@@ -979,7 +1266,292 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
     }
 
-    // ======================== 输入处理 ========================
+    // ===== 高级破坏渲染 =====
+
+    private static final int ADV_SLIDER_ROW_H = 24;
+
+    private void renderAdvancedDestroyContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        int bodyY = contentY();
+        int shapeTitleY = bodyY + SECTION_TOP;
+        int rightX = this.windowX + RIGHT_COL_X;
+
+        // 左侧：子模式按钮
+        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_sub_mode_label"),
+                this.windowX + 10, shapeTitleY, 0xD8E3EE, false);
+        for (int i = 0; i < advDestroySubModeButtons.length; i++) {
+            int col = i % 2;
+            int row = i / 2;
+            int slotX = this.windowX + 8 + (col * (QUICK_BUILD_SHAPE_SLOT + QUICK_BUILD_SHAPE_GAP));
+            int slotY = bodyY + SECTION_TOP + 15 + (row * SHAPE_ROW_PITCH);
+            advDestroySubModeButtons[i].setX(slotX);
+            advDestroySubModeButtons[i].setY(slotY);
+            // 子模式选中高亮
+            boolean selected = advDestroyOptions.getSubMode() == AdvancedDestroySubMode.values()[i];
+            if (selected) {
+                g.fill(slotX, slotY, slotX + QUICK_BUILD_SHAPE_SLOT, slotY + QUICK_BUILD_SHAPE_SLOT, 0xFF5FE36C);
+                g.fill(slotX + 2, slotY + 2, slotX + QUICK_BUILD_SHAPE_SLOT - 2,
+                        slotY + QUICK_BUILD_SHAPE_SLOT - 2, 0xFF29583E);
+            }
+            advDestroySubModeButtons[i].render(g, mouseX, mouseY, partialTick);
+        }
+
+        // 右侧：根据子模式渲染滑条
+        int sliderW = Math.max(40, windowWidth - RIGHT_COL_X - 60);
+        int halfSliderW = Math.max(25, (windowWidth - RIGHT_COL_X - 60) / 2);
+
+        switch (advDestroyOptions.getSubMode()) {
+            case RECTANGLE -> {
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_sliders_label"),
+                        rightX, shapeTitleY, 0xD8E3EE, false);
+
+                // 3 对滑条：+x/-x, +y/-y, +z/-z
+                String[][] axisLabels = {
+                    {"screen.rtsbuilding.quick_build.adv_rect_px", "screen.rtsbuilding.quick_build.adv_rect_nx"},
+                    {"screen.rtsbuilding.quick_build.adv_rect_py", "screen.rtsbuilding.quick_build.adv_rect_ny"},
+                    {"screen.rtsbuilding.quick_build.adv_rect_pz", "screen.rtsbuilding.quick_build.adv_rect_nz"}
+                };
+                WindowSlider[][] rectPairs = {
+                    {rectSliderPlusX, rectSliderMinusX},
+                    {rectSliderPlusY, rectSliderMinusY},
+                    {rectSliderPlusZ, rectSliderMinusZ}
+                };
+                for (int row = 0; row < 3; row++) {
+                    int rowY = bodyY + SECTION_TOP + 15 + row * ADV_SLIDER_ROW_H;
+                    // 标签 + 两个滑条并排
+                    g.drawString(screen.font(), Component.translatable(axisLabels[row][0]),
+                            rightX, rowY + 2, 0xFFC9D8E8, false);
+                    rectPairs[row][0].setWidth(halfSliderW);
+                    rectPairs[row][0].setX(rightX + 18);
+                    rectPairs[row][0].setY(rowY);
+                    rectPairs[row][0].render(g, mouseX, mouseY, partialTick);
+
+                    g.drawString(screen.font(), Component.translatable(axisLabels[row][1]),
+                            rightX + 18 + halfSliderW + 4, rowY + 2, 0xFFC9D8E8, false);
+                    rectPairs[row][1].setWidth(halfSliderW);
+                    rectPairs[row][1].setX(rightX + 18 + halfSliderW + 16);
+                    rectPairs[row][1].setY(rowY);
+                    rectPairs[row][1].render(g, mouseX, mouseY, partialTick);
+                }
+
+                // 矩形填充模式按钮（在滑条下方）
+                int fillY = bodyY + SECTION_TOP + 15 + 3 * ADV_SLIDER_ROW_H + 4;
+                ShapeFillMode activeRectFill = advDestroyOptions.getRectFillMode();
+                for (int i = 0; i < rectFillModeButtons.length; i++) {
+                    ShapeFillMode fm = ShapeFillMode.values()[i];
+                    int bx = rightX + i * 54;
+                    rectFillModeButtons[i].setX(bx);
+                    rectFillModeButtons[i].setY(fillY);
+                    boolean sel = activeRectFill == fm;
+                    boolean hovered = rectFillModeButtons[i].isHoveredOrFocused();
+                    int vOffset = sel ? MODE_BUTTON_STATE_H * 2 : (hovered ? MODE_BUTTON_STATE_H : 0);
+                    RtsTextureRenderer.drawTextureHighPrecision(
+                            g, SELECTION_DOT_TEXTURE, bx + 2, fillY + 2, 14, 14,
+                            0, vOffset, MODE_BUTTON_SHEET_W, MODE_BUTTON_STATE_H,
+                            MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
+                    rectFillModeButtons[i].render(g, mouseX, mouseY, partialTick);
+                }
+            }
+            case CYLINDER -> {
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_cyl_radius"),
+                        rightX, shapeTitleY, 0xD8E3EE, false);
+                cylinderRadiusSlider.setWidth(sliderW);
+                cylinderRadiusSlider.setX(rightX);
+                cylinderRadiusSlider.setY(shapeTitleY + 16);
+                cylinderRadiusSlider.render(g, mouseX, mouseY, partialTick);
+                String rStr = Integer.toString(advDestroyOptions.getCylinderRadius());
+                g.drawString(screen.font(), rStr, rightX + sliderW + 6, shapeTitleY + 20, 0xFFEAF4FF, false);
+
+                // 高度滑条对 +h/-h
+                int hRowY = shapeTitleY + 16 + ADV_SLIDER_ROW_H;
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_cyl_ph"),
+                        rightX, hRowY + 2, 0xFFC9D8E8, false);
+                cylinderPlusHSlider.setWidth(halfSliderW);
+                cylinderPlusHSlider.setX(rightX + 18);
+                cylinderPlusHSlider.setY(hRowY);
+                cylinderPlusHSlider.render(g, mouseX, mouseY, partialTick);
+
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_cyl_nh"),
+                        rightX + 18 + halfSliderW + 4, hRowY + 2, 0xFFC9D8E8, false);
+                cylinderMinusHSlider.setWidth(halfSliderW);
+                cylinderMinusHSlider.setX(rightX + 18 + halfSliderW + 16);
+                cylinderMinusHSlider.setY(hRowY);
+                cylinderMinusHSlider.render(g, mouseX, mouseY, partialTick);
+
+                // 圆柱填充模式按钮
+                int cylFillY = hRowY + ADV_SLIDER_ROW_H + 2;
+                ShapeFillMode activeCylFill = advDestroyOptions.getCylinderFillMode();
+                cylinderFillModeButtons[0].setX(rightX);
+                cylinderFillModeButtons[0].setY(cylFillY);
+                cylinderFillModeButtons[1].setX(rightX + 54);
+                cylinderFillModeButtons[1].setY(cylFillY);
+                for (int i = 0; i < 2; i++) {
+                    ShapeFillMode fm = ShapeFillMode.values()[i];
+                    int bx = rightX + i * 54;
+                    boolean sel = activeCylFill == fm;
+                    boolean hovered = cylinderFillModeButtons[i].isHoveredOrFocused();
+                    int vOffset = sel ? MODE_BUTTON_STATE_H * 2 : (hovered ? MODE_BUTTON_STATE_H : 0);
+                    RtsTextureRenderer.drawTextureHighPrecision(
+                            g, SELECTION_DOT_TEXTURE, bx + 2, cylFillY + 2, 14, 14,
+                            0, vOffset, MODE_BUTTON_SHEET_W, MODE_BUTTON_STATE_H,
+                            MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
+                    cylinderFillModeButtons[i].render(g, mouseX, mouseY, partialTick);
+                }
+            }
+            case STAIRS -> {
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_stairs_count"),
+                        rightX, shapeTitleY, 0xD8E3EE, false);
+                stairsCountSlider.setWidth(sliderW);
+                stairsCountSlider.setX(rightX);
+                stairsCountSlider.setY(shapeTitleY + 16);
+                stairsCountSlider.render(g, mouseX, mouseY, partialTick);
+                String countStr = Integer.toString(advDestroyOptions.getStairsCount());
+                g.drawString(screen.font(), countStr, rightX + sliderW + 6, shapeTitleY + 20, 0xFFEAF4FF, false);
+
+                // 旋转按钮
+                int btnRowY = shapeTitleY + 16 + ADV_SLIDER_ROW_H;
+                stairsRotateButton.setX(rightX);
+                stairsRotateButton.setY(btnRowY);
+                stairsRotateButton.render(g, mouseX, mouseY, partialTick);
+                String rotStr = Integer.toString(advDestroyOptions.getStairsRotation()) + "°";
+                g.drawString(screen.font(), rotStr, rightX + 54, btnRowY + 2, 0xFFEAF4FF, false);
+
+                // 对称按钮
+                stairsSymmetricButton.setX(rightX);
+                stairsSymmetricButton.setY(btnRowY + 22);
+                stairsSymmetricButton.render(g, mouseX, mouseY, partialTick);
+
+                boolean sym = advDestroyOptions.isStairsSymmetric();
+                boolean symHovered = stairsSymmetricButton.isHoveredOrFocused();
+                int symOffset = sym ? MODE_BUTTON_STATE_H * 2 : (symHovered ? MODE_BUTTON_STATE_H : 0);
+                RtsTextureRenderer.drawTextureHighPrecision(
+                        g, SELECTION_DOT_TEXTURE, rightX + 54, btnRowY + 23, 14, 14,
+                        0, symOffset, MODE_BUTTON_SHEET_W, MODE_BUTTON_STATE_H,
+                        MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
+            }
+            case LUMBER -> {
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_stairs_count"),
+                        rightX, shapeTitleY, 0xD8E3EE, false);
+                lumberLimitSlider.setWidth(sliderW);
+                lumberLimitSlider.setX(rightX);
+                lumberLimitSlider.setY(shapeTitleY + 16);
+                lumberLimitSlider.render(g, mouseX, mouseY, partialTick);
+                String countStr = Integer.toString(advDestroyOptions.getLumberLimit());
+                g.drawString(screen.font(), countStr, rightX + sliderW + 6, shapeTitleY + 20, 0xFFEAF4FF, false);
+
+                // 光头强附体开关
+                int toggleRowY = shapeTitleY + 16 + ADV_SLIDER_ROW_H;
+                lumberStrongManToggle.setX(rightX);
+                lumberStrongManToggle.setY(toggleRowY);
+                lumberStrongManToggle.render(g, mouseX, mouseY, partialTick);
+                boolean strongMan = advDestroyOptions.isLumberStrongMan();
+                boolean smHovered = lumberStrongManToggle.isHoveredOrFocused();
+                int smOffset = strongMan ? MODE_BUTTON_STATE_H * 2 : (smHovered ? MODE_BUTTON_STATE_H : 0);
+                RtsTextureRenderer.drawTextureHighPrecision(
+                        g, SELECTION_DOT_TEXTURE, rightX + 84, toggleRowY + 1, 16, 16,
+                        0, smOffset, MODE_BUTTON_SHEET_W, MODE_BUTTON_STATE_H,
+                        MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
+
+                // 允许破坏玩家造物开关
+                lumberAllowPlayerBlocksToggle.setX(rightX);
+                lumberAllowPlayerBlocksToggle.setY(toggleRowY + 22);
+                lumberAllowPlayerBlocksToggle.render(g, mouseX, mouseY, partialTick);
+                boolean allowPlayer = advDestroyOptions.isLumberAllowPlayerBlocks();
+                boolean apHovered = lumberAllowPlayerBlocksToggle.isHoveredOrFocused();
+                int apOffset = allowPlayer ? MODE_BUTTON_STATE_H * 2 : (apHovered ? MODE_BUTTON_STATE_H : 0);
+                RtsTextureRenderer.drawTextureHighPrecision(
+                        g, SELECTION_DOT_TEXTURE, rightX + 84, toggleRowY + 23, 16, 16,
+                        0, apOffset, MODE_BUTTON_SHEET_W, MODE_BUTTON_STATE_H,
+                        MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
+            }
+        }
+    }
+
+    private void renderAdvancedDestroyBottomInfo(GuiGraphics g, int x, int y, int bodyY) {
+        int dividerY = y + currentBasePanelHeight();
+        g.fill(x + 6, dividerY - 1, x + windowWidth - 6, dividerY, 0xFF647B92);
+        renderProgressStrip(g, x, dividerY);
+
+        int textY = dividerY + 12;
+
+        // 活跃工作流进度
+        RtsWorkflowStatus workflow = this.controller.findActiveDestroyWorkflow();
+        if (workflow != null) {
+            String fullText = workflow.progressText() + "    "
+                    + screen.text("screen.rtsbuilding.quick_build.destroy_remaining", workflow.remainingBlocks());
+            g.drawString(screen.font(), fullText, x + 8, textY, 0xFFB8FFB8, false);
+            return;
+        }
+
+        // 更新鼠标指向
+        var hit = screen.pickBlockHit();
+        if (hit != null) {
+            advDestroyHandler.setCursorTarget(hit.getBlockPos());
+            advDestroyHandler.setHitFace(hit.getDirection());
+        }
+        advDestroyHandler.tick();
+        boolean isAnchored = advDestroyHandler.isAnchored();
+        int blockCount = advDestroyHandler.getBlockCount();
+
+        // 伐木子模式：显示扫描详情
+        if (advDestroyOptions.getSubMode() == AdvancedDestroySubMode.LUMBER) {
+            var result = advDestroyHandler.getLumberResult();
+            if (result != null && !result.all().isEmpty()) {
+                String treeText = screen.text("screen.rtsbuilding.quick_build.adv_lumber_detected",
+                        result.logCount(), result.leafCount(), result.mushroomCount());
+                g.drawString(screen.font(), treeText, x + 8, textY, 0xFFB8FFB8, false);
+                int nextY = textY + screen.font().lineHeight + 3;
+
+                if (result.hasPlayerBlocks() && !advDestroyOptions.isLumberAllowPlayerBlocks()) {
+                    g.drawString(screen.font(),
+                            Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_player_blocks"),
+                            x + 8, nextY, 0xFFFF8E8E, false);
+                    return;
+                }
+                if (result.exceeded()) {
+                    g.drawString(screen.font(),
+                            Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_exceeded"),
+                            x + 8, nextY, 0xFFFFD700, false);
+                    return;
+                }
+                if (isAnchored) {
+                    g.drawString(screen.font(),
+                            Component.translatable("screen.rtsbuilding.quick_build.adv_anchored_hint"),
+                            x + 8, nextY, 0xFFFFD700, false);
+                } else {
+                    String hintKey = com.rtsbuilding.rtsbuilding.Config.isKeyboardBatchConfirmEnabled()
+                            ? "screen.rtsbuilding.quick_build.adv_hint_keyboard"
+                            : "screen.rtsbuilding.quick_build.adv_hint_mouse";
+                    g.drawString(screen.font(), Component.translatable(hintKey), x + 8, nextY, 0xFFB8B8, false);
+                }
+            } else {
+                g.drawString(screen.font(),
+                        Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_no_tree"),
+                        x + 8, textY, 0xFFB8B8, false);
+            }
+            return;
+        }
+
+        if (blockCount > 0) {
+            String countText = screen.text("screen.rtsbuilding.quick_build.adv_block_count", blockCount);
+            g.drawString(screen.font(), countText, x + 8, textY, 0xFFB8FFB8, false);
+
+            if (isAnchored) {
+                g.drawString(screen.font(),
+                        Component.translatable("screen.rtsbuilding.quick_build.adv_anchored_hint"),
+                        x + 8, textY + screen.font().lineHeight + 3, 0xFFFFD700, false);
+            } else {
+                String hintKey = com.rtsbuilding.rtsbuilding.Config.isKeyboardBatchConfirmEnabled()
+                        ? "screen.rtsbuilding.quick_build.adv_hint_keyboard"
+                        : "screen.rtsbuilding.quick_build.adv_hint_mouse";
+                g.drawString(screen.font(), Component.translatable(hintKey),
+                        x + 8, textY + screen.font().lineHeight + 3, 0xFFB8B8, false);
+            }
+        } else {
+            g.drawString(screen.font(),
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_no_target"),
+                    x + 8, textY, 0xFFB8B8, false);
+        }
+    }
 
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
@@ -999,6 +1571,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             if (detectionDiameterSlider != null && detectionDiameterSlider.mouseClicked(mouseX, mouseY, button)) {
                 return;
             }
+        }
+        // 高级破坏控件
+        if (isAdvancedDestroyActive() && handleAdvDestroyClick(mouseX, mouseY, button)) {
+            return;
         }
         if (handleModeToggleClick(mouseX, mouseY)) {
             return;
@@ -1045,6 +1621,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 return true;
             }
         }
+        if (isAdvancedDestroyActive() && handleAdvDestroyDrag(mouseX, mouseY, button)) {
+            return true;
+        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -1061,7 +1640,117 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 detectionDiameterSlider.mouseReleased(mouseX, mouseY, button);
             }
         }
+        if (isAdvancedDestroyActive()) {
+            handleAdvDestroyRelease(mouseX, mouseY, button);
+        }
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean handleAdvDestroyClick(double mouseX, double mouseY, int button) {
+        // 子模式按钮
+        if (advDestroySubModeButtons != null) {
+            for (WindowButton btn : advDestroySubModeButtons) {
+                if (btn.mouseClicked(mouseX, mouseY, button)) return true;
+            }
+        }
+        // 根据子模式处理滑条和按钮
+        switch (advDestroyOptions.getSubMode()) {
+            case RECTANGLE -> {
+                if (sliderClicked(rectSliderPlusX, mouseX, mouseY, button)) return true;
+                if (sliderClicked(rectSliderMinusX, mouseX, mouseY, button)) return true;
+                if (sliderClicked(rectSliderPlusY, mouseX, mouseY, button)) return true;
+                if (sliderClicked(rectSliderMinusY, mouseX, mouseY, button)) return true;
+                if (sliderClicked(rectSliderPlusZ, mouseX, mouseY, button)) return true;
+                if (sliderClicked(rectSliderMinusZ, mouseX, mouseY, button)) return true;
+                if (rectFillModeButtons != null) {
+                    for (WindowButton btn : rectFillModeButtons) {
+                        if (btn.mouseClicked(mouseX, mouseY, button)) return true;
+                    }
+                }
+            }
+            case CYLINDER -> {
+                if (sliderClicked(cylinderRadiusSlider, mouseX, mouseY, button)) return true;
+                if (sliderClicked(cylinderPlusHSlider, mouseX, mouseY, button)) return true;
+                if (sliderClicked(cylinderMinusHSlider, mouseX, mouseY, button)) return true;
+                if (cylinderFillModeButtons != null) {
+                    for (WindowButton btn : cylinderFillModeButtons) {
+                        if (btn.mouseClicked(mouseX, mouseY, button)) return true;
+                    }
+                }
+            }
+            case STAIRS -> {
+                if (sliderClicked(stairsCountSlider, mouseX, mouseY, button)) return true;
+                if (stairsRotateButton != null && stairsRotateButton.mouseClicked(mouseX, mouseY, button)) return true;
+                if (stairsSymmetricButton != null && stairsSymmetricButton.mouseClicked(mouseX, mouseY, button)) return true;
+            }
+            case LUMBER -> {
+                if (sliderClicked(lumberLimitSlider, mouseX, mouseY, button)) return true;
+                if (lumberStrongManToggle != null && lumberStrongManToggle.mouseClicked(mouseX, mouseY, button)) return true;
+                if (lumberAllowPlayerBlocksToggle != null && lumberAllowPlayerBlocksToggle.mouseClicked(mouseX, mouseY, button)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sliderClicked(WindowSlider slider, double mouseX, double mouseY, int button) {
+        return slider != null && slider.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private boolean handleAdvDestroyDrag(double mouseX, double mouseY, int button) {
+        switch (advDestroyOptions.getSubMode()) {
+            case RECTANGLE -> {
+                if (sliderDragged(rectSliderPlusX, mouseX, mouseY, button)) return true;
+                if (sliderDragged(rectSliderMinusX, mouseX, mouseY, button)) return true;
+                if (sliderDragged(rectSliderPlusY, mouseX, mouseY, button)) return true;
+                if (sliderDragged(rectSliderMinusY, mouseX, mouseY, button)) return true;
+                if (sliderDragged(rectSliderPlusZ, mouseX, mouseY, button)) return true;
+                if (sliderDragged(rectSliderMinusZ, mouseX, mouseY, button)) return true;
+            }
+            case CYLINDER -> {
+                if (sliderDragged(cylinderRadiusSlider, mouseX, mouseY, button)) return true;
+                if (sliderDragged(cylinderPlusHSlider, mouseX, mouseY, button)) return true;
+                if (sliderDragged(cylinderMinusHSlider, mouseX, mouseY, button)) return true;
+            }
+            case STAIRS -> {
+                if (sliderDragged(stairsCountSlider, mouseX, mouseY, button)) return true;
+            }
+            case LUMBER -> {
+                if (sliderDragged(lumberLimitSlider, mouseX, mouseY, button)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sliderDragged(WindowSlider slider, double mouseX, double mouseY, int button) {
+        return slider != null && slider.mouseDragged(mouseX, mouseY, button);
+    }
+
+    private void handleAdvDestroyRelease(double mouseX, double mouseY, int button) {
+        switch (advDestroyOptions.getSubMode()) {
+            case RECTANGLE -> {
+                sliderReleased(rectSliderPlusX, mouseX, mouseY, button);
+                sliderReleased(rectSliderMinusX, mouseX, mouseY, button);
+                sliderReleased(rectSliderPlusY, mouseX, mouseY, button);
+                sliderReleased(rectSliderMinusY, mouseX, mouseY, button);
+                sliderReleased(rectSliderPlusZ, mouseX, mouseY, button);
+                sliderReleased(rectSliderMinusZ, mouseX, mouseY, button);
+            }
+            case CYLINDER -> {
+                sliderReleased(cylinderRadiusSlider, mouseX, mouseY, button);
+                sliderReleased(cylinderPlusHSlider, mouseX, mouseY, button);
+                sliderReleased(cylinderMinusHSlider, mouseX, mouseY, button);
+            }
+            case STAIRS -> {
+                sliderReleased(stairsCountSlider, mouseX, mouseY, button);
+            }
+            case LUMBER -> {
+                sliderReleased(lumberLimitSlider, mouseX, mouseY, button);
+            }
+        }
+    }
+
+    private static void sliderReleased(WindowSlider slider, double mouseX, double mouseY, int button) {
+        if (slider != null) slider.mouseReleased(mouseX, mouseY, button);
     }
 
     private boolean handleModeToggleClick(double mouseX, double mouseY) {
@@ -1090,10 +1779,17 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 return true;
             }
         }
-        // 第 2 行：智能放置（col1） / 留空（col2）
+        // 第 2 行：智能放置（col1） / 高级破坏（col2）
         if (mouseY >= row2Y && mouseY < row2Y + MODE_TOGGLE_H) {
             if (inCol1) {
                 setMode(QuickBuildMode.SMART_PLACE);
+                return true;
+            }
+            if (inCol2) {
+                if (!canUseAdvancedDestroy()) {
+                    return true;
+                }
+                setMode(QuickBuildMode.ADVANCED_DESTROY);
                 return true;
             }
         }
@@ -1148,6 +1844,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     @Override
     protected void onClose() {
         smartPlaceHandler.clear();
+        advDestroyHandler.clear();
         restoreSingleBlockCursor();
         if (screen != null) {
             screen.persistUiState();
@@ -1165,10 +1862,15 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         } else if (next == QuickBuildMode.DESTROY) {
             this.rangeDestroyShape = effectiveRangeDestroyShape();
         }
+        if (next == QuickBuildMode.ADVANCED_DESTROY && !canUseAdvancedDestroy()) {
+            next = QuickBuildMode.BUILD;
+        }
         if (this.quickBuildMode == next) {
             if (isOpen()) {
                 if (isSmartPlaceActive()) {
                     // 已处于智能放置模式，无需切换控制器状态
+                } else if (isAdvancedDestroyActive()) {
+                    // 已处于高级破坏模式
                 } else {
                     applyActiveShapeToController();
                 }
@@ -1182,10 +1884,17 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             smartPlaceHandler.clear();
             screen.getShapeController().exitSmartPlace();
         }
+        if (isAdvancedDestroyActive()) {
+            advDestroyHandler.clear();
+        }
         this.quickBuildMode = next;
         if (isOpen()) {
             if (next == QuickBuildMode.SMART_PLACE) {
                 screen.getShapeController().switchToSmartPlace();
+                screen.clearShapeBuildSession();
+                this.controller.clearAreaMineSession();
+            } else if (next == QuickBuildMode.ADVANCED_DESTROY) {
+                screen.getShapeController().switchToDestroy();
                 screen.clearShapeBuildSession();
                 this.controller.clearAreaMineSession();
             } else {
@@ -1350,13 +2059,18 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      */
     private int currentBasePanelHeight() {
         if (isSmartPlaceActive()) return QUICK_BUILD_SMART_PLACE_PANEL_H;
+        if (isAdvancedDestroyActive()) return QUICK_BUILD_PANEL_H;
         return isDestroyModeActive() ? QUICK_BUILD_DESTROY_PANEL_H : QUICK_BUILD_PANEL_H;
     }
 
     private QuickBuildMode effectiveMode() {
-        return this.quickBuildMode == QuickBuildMode.DESTROY && !canUseRangeDestroy()
-                ? QuickBuildMode.BUILD
-                : this.quickBuildMode;
+        if (this.quickBuildMode == QuickBuildMode.DESTROY && !canUseRangeDestroy()) {
+            return QuickBuildMode.BUILD;
+        }
+        if (this.quickBuildMode == QuickBuildMode.ADVANCED_DESTROY && !canUseAdvancedDestroy()) {
+            return QuickBuildMode.BUILD;
+        }
+        return this.quickBuildMode;
     }
 
     private boolean isDestroyModeActive() {
@@ -1367,6 +2081,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return QuickBuildUnlockPolicy.canUseAnyDestroyShape(
                 this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
+                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
+    }
+
+    private boolean canUseAdvancedDestroy() {
+        return QuickBuildUnlockPolicy.canUseAdvancedDestroy(
+                this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
     }
 

@@ -44,4 +44,9 @@ final class QuickBuildUnlockPolicy {
     static boolean canUseSmartPlace(boolean progressionEnabled, boolean smartPlaceInstalled) {
         return !progressionEnabled || smartPlaceInstalled;
     }
+
+    /** 高级破坏解锁策略与范围破坏相同，依赖 AREA_DESTROY_PLUGIN。 */
+    static boolean canUseAdvancedDestroy(boolean progressionEnabled, boolean areaInstalled) {
+        return !progressionEnabled || areaInstalled;
+    }
 }

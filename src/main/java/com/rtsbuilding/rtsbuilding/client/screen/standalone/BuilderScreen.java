@@ -36,6 +36,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceMode;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.AdvancedDestroySubMode;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
@@ -743,6 +744,11 @@ public final class BuilderScreen extends Screen {
             this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
             return true;
         }
+        // 高级破坏键盘确认模式下的鼠标确认键
+        if (isQuickBuildAdvancedDestroyActive()
+                && ClientKeyMappings.CONFIRM_BATCH_DESTROY.isActiveAndMatches(mouseKey)) {
+            return tryConfirmAdvancedDestroyFromKeyboard();
+        }
         return false;
     }
 
@@ -787,6 +793,9 @@ public final class BuilderScreen extends Screen {
                 return true;
             }
             if (handleSmartPlaceReleaseAction(mouseX, mouseY)) {
+                return true;
+            }
+            if (handleAdvancedDestroyReleaseAction(mouseX, mouseY)) {
                 return true;
             }
             return runPrimaryActionAt(mouseX, mouseY, button);
@@ -1358,6 +1367,11 @@ public final class BuilderScreen extends Screen {
                 && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
             return tryConfirmSmartPlaceFromKeyboard();
         }
+        // 高级破坏确认（键盘模式）
+        if (isQuickBuildAdvancedDestroyActive()
+                && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
+            return tryConfirmAdvancedDestroyFromKeyboard();
+        }
         return false;
     }
 
@@ -1841,6 +1855,10 @@ public final class BuilderScreen extends Screen {
     public boolean isQuickBuildRangeDestroyMode() {
         return isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyMode();
     }
+    /** Returns true when quick-build is showing the advanced-destroy workflow. */
+    public boolean isQuickBuildAdvancedDestroyActive() {
+        return isQuickBuildOpen() && this.quickBuildPanel.isAdvancedDestroyActive();
+    }
     /** Returns true when Quick Build range-destroy is using the connected-chain shape. */
     public boolean isQuickBuildRangeDestroyChainMode() {
         return isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
@@ -1896,6 +1914,87 @@ public final class BuilderScreen extends Screen {
     /** Sets the quick-build window mode and persists the UI state. */
     public void setQuickBuildMode(QuickBuildMode mode) {
         this.quickBuildPanel.setMode(mode);
+    }
+    /** Handles the left-click flow for advanced destroy. */
+    public boolean handleQuickBuildAdvancedDestroyClick(double mouseX, double mouseY) {
+        if (!isQuickBuildAdvancedDestroyActive() || !isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        var handler = this.quickBuildPanel.getAdvDestroyHandler();
+        if (handler.isAnchored()) {
+            // 已锚定 + 鼠标确认模式 → 开始破坏
+            if (!Config.isKeyboardBatchConfirmEnabled()) {
+                confirmAdvancedDestroy();
+            }
+            return true;
+        }
+        // 未锚定 → 设立锚点
+        if (handler.hasValidPositions()) {
+            handler.anchor();
+        }
+        return true;
+    }
+
+    /** 确认高级破坏，收集方块列表并发送到服务端 */
+    private void confirmAdvancedDestroy() {
+        var handler = this.quickBuildPanel.getAdvDestroyHandler();
+        var options = this.quickBuildPanel.getAdvDestroyOptions();
+
+        // 伐木模式：检查玩家造物
+        if (options.getSubMode() == AdvancedDestroySubMode.LUMBER) {
+            var result = handler.getLumberResult();
+            if (result != null && result.hasPlayerBlocks() && !options.isLumberAllowPlayerBlocks()) {
+                return; // 不允许破坏玩家造物
+            }
+        }
+
+        List<BlockPos> positions = handler.getDestroyPositions();
+        if (positions.isEmpty()) return;
+
+        int toolSlot = getSelectedToolSlot();
+        String toolItemId = this.controller.getSelectedItemId();
+        ItemStack toolPrototype = this.controller.getSelectedItemPreview();
+        if (toolPrototype == null || toolPrototype.isEmpty()) {
+            var player = getMinecraft().player;
+            if (player != null) {
+                toolPrototype = player.getInventory().getItem(player.getInventory().selected);
+                toolItemId = BuiltInRegistries.ITEM.getKey(toolPrototype.getItem()).toString();
+            }
+        }
+        RtsClientPacketGateway.sendAreaDestroy(positions, toolSlot, toolItemId, toolPrototype, true);
+
+        // 伐木模式：发送世界消息并关闭玩家造物开关
+        if (options.getSubMode() == AdvancedDestroySubMode.LUMBER && options.isLumberAllowPlayerBlocks()) {
+            var mc = getMinecraft();
+            if (mc != null && mc.player != null) {
+                String msg = Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_world_msg",
+                        mc.player.getName().getString()).getString();
+                mc.player.displayClientMessage(Component.literal(msg), false);
+            }
+            options.setLumberAllowPlayerBlocks(false);
+            persistUiState();
+        }
+
+        handler.clearAnchor();
+        this.controller.clearAreaMineSession();
+    }
+
+    /** 取消高级破坏锚点 */
+    public void cancelAdvancedDestroyAnchor() {
+        var handler = this.quickBuildPanel.getAdvDestroyHandler();
+        if (handler.isAnchored()) {
+            handler.clearAnchor();
+        }
+    }
+
+    /** 键盘确认高级破坏 */
+    public boolean tryConfirmAdvancedDestroyFromKeyboard() {
+        if (!isQuickBuildAdvancedDestroyActive()) return false;
+        if (!Config.isKeyboardBatchConfirmEnabled()) return false;
+        var handler = this.quickBuildPanel.getAdvDestroyHandler();
+        if (!handler.hasValidPositions()) return false;
+        confirmAdvancedDestroy();
+        return true;
     }
     /** Returns the current ultimine block limit. */
     public int getUltimineLimit() {
@@ -2028,6 +2127,21 @@ public final class BuilderScreen extends Screen {
         // 未锚定 → 设立锚点（仅当已有有效扫描结果时）
         if (handler.hasValidResult()) {
             handler.anchor();
+        }
+        return true;
+    }
+
+    /** 高级破坏右键释放处理：取消锚点。 */
+    private boolean handleAdvancedDestroyReleaseAction(double mouseX, double mouseY) {
+        if (!isQuickBuildAdvancedDestroyActive()) {
+            return false;
+        }
+        if (!isWorldArea(mouseX, mouseY)) {
+            return true;
+        }
+        var handler = this.quickBuildPanel.getAdvDestroyHandler();
+        if (handler.isAnchored()) {
+            handler.clearAnchor();
         }
         return true;
     }

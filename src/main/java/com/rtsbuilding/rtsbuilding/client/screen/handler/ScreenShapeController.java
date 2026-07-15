@@ -1092,6 +1092,18 @@ public final class ScreenShapeController {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
 
+        // 高级破坏模式预览 — 仅渲染包围盒线框，不绘制每方块Cell以减轻卡顿
+        if (this.screen != null && this.screen.isQuickBuildAdvancedDestroyActive()) {
+            var handler = this.screen.getQuickBuildPanel().getAdvDestroyHandler();
+            if (handler != null) {
+                List<BlockPos> positions = handler.getPreviewPositions();
+                if (!positions.isEmpty()) {
+                    return new ShapeDataRecords.GhostPreview(List.of(), true, true, positions, false);
+                }
+            }
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+
         if (this.screen.isQuickBuildRangeDestroyMode()) {
             if (this.screen.isQuickBuildRangeDestroyChainMode()) {
                 ShapeDataRecords.GhostPreview confirmed = confirmedChainDestroyPreviewOrEmpty();

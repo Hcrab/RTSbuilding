@@ -10,5 +10,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 public enum QuickBuildMode {
     BUILD,
     DESTROY,
-    SMART_PLACE
+    SMART_PLACE,
+    /** 高级破坏：矩形/圆柱/楼梯形状的精确破坏 */
+    ADVANCED_DESTROY
 }

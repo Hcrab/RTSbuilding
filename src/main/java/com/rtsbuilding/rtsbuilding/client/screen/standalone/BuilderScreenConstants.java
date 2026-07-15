@@ -134,6 +134,28 @@ public final class BuilderScreenConstants {
     /** 智能放置服务端最大检测直径上限 */
     public static final int SMART_PLACE_SERVER_MAX_DIAMETER = 64;
 
+    // ======================== 高级破坏滑条范围 ========================
+    public static final int ADV_DESTROY_RECT_MIN = 0;
+    public static final int ADV_DESTROY_RECT_MAX = 16;
+    public static final int ADV_DESTROY_RECT_DEFAULT = 1;
+
+    public static final int ADV_DESTROY_CYLINDER_RADIUS_MIN = 1;
+    public static final int ADV_DESTROY_CYLINDER_RADIUS_MAX = 16;
+    public static final int ADV_DESTROY_CYLINDER_RADIUS_DEFAULT = 2;
+    public static final int ADV_DESTROY_CYLINDER_HEIGHT_MIN = 1;
+    public static final int ADV_DESTROY_CYLINDER_HEIGHT_MAX = 16;
+    public static final int ADV_DESTROY_CYLINDER_HEIGHT_DEFAULT = 2;
+
+    public static final int ADV_DESTROY_STAIRS_COUNT_MIN = 1;
+    public static final int ADV_DESTROY_STAIRS_COUNT_MAX = 256;
+    public static final int ADV_DESTROY_STAIRS_COUNT_DEFAULT = 64;
+
+    // ======================== 伐木 ========================
+    public static final int ADV_DESTROY_LUMBER_LIMIT_MIN = 1;
+    public static final int ADV_DESTROY_LUMBER_LIMIT_MAX = 1024;
+    public static final int ADV_DESTROY_LUMBER_LIMIT_DEFAULT = 64;
+    public static final int ADV_DESTROY_LUMBER_HARD_LIMIT = 32768;
+
     // ======================== Shape wheel ========================
     /** Shape wheel radius */
     public static final int SHAPE_WHEEL_RADIUS = 52;
