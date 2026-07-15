@@ -55,7 +55,7 @@
 
 # English
 
-# CMI User Terms 2.0
+# RTS Building User Terms 1.0
 
 ### Definitions:
 
