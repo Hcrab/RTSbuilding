@@ -43,18 +43,27 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private static final int MODE_TOGGLE_H = 18;
     private static final int MODE_TOGGLE_GAP = 4;
     private static final int MODE_ROW_TOP = 5;
-    private static final int SECTION_TOP = 31;
+    /** 2×2 布局后内容起始偏移（第 2 行标签下方 + 间距） */
+    private static final int SECTION_TOP = 53;
     /** 连锁破坏滑条 */
 
     // ======================== 面板尺寸 ========================
     private static final int QUICK_BUILD_PANEL_W = 178;
-    private static final int QUICK_BUILD_PANEL_H = 222;
+    /** 基础面板高度（已包含 2×2 模式切换的额外高度） */
+    private static final int QUICK_BUILD_PANEL_H = 244;
     private static final int QUICK_BUILD_DESTROY_PANEL_H = QUICK_BUILD_PANEL_H + SHAPE_ROW_PITCH;
+    /** 智能放置模式面板高度（无形状选择，内容更少） */
+    private static final int QUICK_BUILD_SMART_PLACE_PANEL_H = QUICK_BUILD_PANEL_H;
     private static final int QUICK_BUILD_PANEL_MIN_H = 222;
 
     /** 底部提示文字区域额外高度 */
     private static final int BOTTOM_INFO_H = 72;
     private static final int BOTTOM_TEXT_MAX_LINES = 3;
+
+    /** 模式切换布局：2×2，第 2 行起始位置 */
+    private static final int MODE_ROW_2_TOP = MODE_ROW_TOP + MODE_TOGGLE_H + MODE_TOGGLE_GAP;
+    /** 2×2 模式切换增加的高度 */
+    private static final int MODE_2X2_EXTRA_HEIGHT = MODE_TOGGLE_H + MODE_TOGGLE_GAP;
 
     /** 选择指示器贴图 */
     private static final ResourceLocation SELECTION_DOT_TEXTURE =
@@ -166,6 +175,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     /** 直线连接模式按钮 */
     private WindowButton connectToggle;
 
+    // ===== 智能放置 =====
+    private final SmartPlaceHandler smartPlaceHandler = new SmartPlaceHandler();
+    private WindowButton[] smartPlaceModeButtons;
+    private WindowSlider fillCountSlider;
+    private WindowSlider detectionDiameterSlider;
+
     // ======================== 持久化属性 ========================
 
     private final List<PersistableProperty> properties = List.of(
@@ -245,6 +260,27 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     (state, v) -> state.quickBuild.mining.advancedRangeDestroyBox = v,
                     () -> this.advancedRangeDestroyBox,
                     v -> this.advancedRangeDestroyBox = v),
+            // 智能放置模式持久化属性
+            PersistableProperty.enumField(
+                    "smart_place_mode",
+                    state -> state.quickBuild.smartPlace.smartPlaceMode,
+                    (state, v) -> state.quickBuild.smartPlace.smartPlaceMode = v,
+                    () -> this.smartPlaceHandler.getOptions().mode,
+                    v -> this.smartPlaceHandler.getOptions().mode = v,
+                    SmartPlaceMode.HOLE_FILL,
+                    SmartPlaceMode.class),
+            PersistableProperty.intField(
+                    "smart_place_fill_count",
+                    state -> state.quickBuild.smartPlace.fillCount,
+                    (state, v) -> state.quickBuild.smartPlace.fillCount = v,
+                    () -> this.smartPlaceHandler.getOptions().fillCount,
+                    v -> this.smartPlaceHandler.getOptions().fillCount = v),
+            PersistableProperty.intField(
+                    "smart_place_detection_diameter",
+                    state -> state.quickBuild.smartPlace.detectionDiameter,
+                    (state, v) -> state.quickBuild.smartPlace.detectionDiameter = v,
+                    () -> this.smartPlaceHandler.getOptions().detectionDiameter,
+                    v -> this.smartPlaceHandler.getOptions().detectionDiameter = v),
             PersistableProperty.bounds("quick_build", this)
     );
 
@@ -264,7 +300,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         AreaMineShape storedDestroyShape = controller.getAreaMineShape();
         this.rangeDestroyShape = storedDestroyShape == null ? AreaMineShape.CHAIN : storedDestroyShape;
         ensureChainLimitSlider();
+        ensureSmartPlaceSliders();
         createShapeButtons();
+        createSmartPlaceModeButtons();
         this.lastFillShape = controller.getBuildShape();
         this.lastAreaMineShape = this.rangeDestroyShape;
     }
@@ -502,6 +540,66 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return Mth.clamp(value, ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT);
     }
 
+    // ===== 智能放置子模式按钮和滑条 =====
+
+    private void createSmartPlaceModeButtons() {
+        smartPlaceModeButtons = new WindowButton[2];
+        for (int i = 0; i < 2; i++) {
+            SmartPlaceMode mode = SmartPlaceMode.values()[i];
+            smartPlaceModeButtons[i] = new WindowButton(0, 0,
+                    QUICK_BUILD_SHAPE_SLOT, QUICK_BUILD_SHAPE_SLOT,
+                    Component.translatable("screen.rtsbuilding.quick_build.smart_place_mode_" + i),
+                    btn -> selectSmartPlaceMode(mode));
+        }
+    }
+
+    private void selectSmartPlaceMode(SmartPlaceMode mode) {
+        smartPlaceHandler.setMode(mode);
+        rebuildSmartPlaceModeButtons();
+        screen.clearShapeBuildSession();
+        screen.persistUiState();
+    }
+
+    private void rebuildSmartPlaceModeButtons() {
+        // 文本按钮无需重绘，选中状态由按钮自身样式处理
+    }
+
+    private void ensureSmartPlaceSliders() {
+        if (fillCountSlider != null && detectionDiameterSlider != null) {
+            return;
+        }
+        SmartPlaceOptions opts = smartPlaceHandler.getOptions();
+        int sliderW = Math.max(80, windowWidth - RIGHT_COL_X - 40);
+
+        fillCountSlider = new WindowSlider(0, 0, sliderW, 18,
+                SMART_PLACE_MIN_FILL_COUNT, SMART_PLACE_MAX_FILL_COUNT, opts.fillCount);
+        fillCountSlider.onChange(value -> {
+            smartPlaceHandler.setFillCount(value);
+            if (screen != null) {
+                screen.persistUiState();
+            }
+        });
+
+        detectionDiameterSlider = new WindowSlider(0, 0, sliderW, 18,
+                SMART_PLACE_MIN_DIAMETER, SMART_PLACE_MAX_DIAMETER, opts.detectionDiameter);
+        detectionDiameterSlider.onChange(value -> {
+            smartPlaceHandler.setDetectionDiameter(value);
+            if (screen != null) {
+                screen.persistUiState();
+            }
+        });
+    }
+
+    /** 外部获取智能放置处理器，供 BuilderScreen 读取预览数据 */
+    public SmartPlaceHandler getSmartPlaceHandler() {
+        return smartPlaceHandler;
+    }
+
+    /** 当前是否处于智能放置模式 */
+    public boolean isSmartPlaceActive() {
+        return effectiveMode() == QuickBuildMode.SMART_PLACE;
+    }
+
     // ======================== 渲染 ========================
 
     /**
@@ -534,13 +632,20 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int bodyY = contentY();
         int totalW = this.windowWidth - 16;
         int buttonW = (totalW - MODE_TOGGLE_GAP) / 2;
-        int buildX = this.windowX + 8;
-        int destroyX = buildX + buttonW + MODE_TOGGLE_GAP;
-        int y = bodyY + MODE_ROW_TOP;
-        renderModeToggle(g, buildX, y, buttonW, QuickBuildMode.BUILD,
+        int col1X = this.windowX + 8;
+        int col2X = col1X + buttonW + MODE_TOGGLE_GAP;
+        int row1Y = bodyY + MODE_ROW_TOP;
+        int row2Y = bodyY + MODE_ROW_2_TOP;
+
+        // 第 1 行：范围放置 | 范围破坏
+        renderModeToggle(g, col1X, row1Y, buttonW, QuickBuildMode.BUILD,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_build"), mouseX, mouseY);
-        renderModeToggle(g, destroyX, y, buttonW, QuickBuildMode.DESTROY,
+        renderModeToggle(g, col2X, row1Y, buttonW, QuickBuildMode.DESTROY,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"), mouseX, mouseY);
+
+        // 第 2 行：智能放置 | 留空
+        renderModeToggle(g, col1X, row2Y, buttonW, QuickBuildMode.SMART_PLACE,
+                Component.translatable("screen.rtsbuilding.quick_build.mode_smart_place"), mouseX, mouseY);
     }
 
     private void renderModeToggle(GuiGraphics g, int x, int y, int w, QuickBuildMode mode,
@@ -581,6 +686,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int y = this.windowY;
         int bodyY = contentY();
         renderModeToggles(g, mouseX, mouseY);
+
+        // --- 智能放置模式专属内容 ---
+        if (isSmartPlaceActive()) {
+            renderSmartPlaceContent(g, mouseX, mouseY, partialTick);
+            renderSmartPlaceBottomInfo(g, x, y, bodyY);
+            return;
+        }
+
         int shapeTitleY = bodyY + SECTION_TOP;
 
         // --- 形状模式 ---
@@ -784,6 +897,88 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 .getString();
     }
 
+    // ===== 智能放置渲染 =====
+
+    private void renderSmartPlaceContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        int bodyY = contentY();
+        int shapeTitleY = bodyY + SECTION_TOP;
+        int rightX = this.windowX + RIGHT_COL_X;
+
+        // 左侧：子模式按钮
+        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.smart_place_mode"),
+                this.windowX + 10, shapeTitleY, 0xD8E3EE, false);
+        for (int i = 0; i < 2; i++) {
+            int col = i % 2;
+            int slotX = this.windowX + 8 + (col * (QUICK_BUILD_SHAPE_SLOT + QUICK_BUILD_SHAPE_GAP));
+            int slotY = bodyY + SECTION_TOP + 15 + (i / 2 * SHAPE_ROW_PITCH);
+            smartPlaceModeButtons[i].setX(slotX);
+            smartPlaceModeButtons[i].setY(slotY);
+            smartPlaceModeButtons[i].render(g, mouseX, mouseY, partialTick);
+        }
+
+        // 右侧：滑条
+        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.smart_place_fill_count"),
+                rightX, shapeTitleY, 0xD8E3EE, false);
+
+        int sliderW = Math.max(80, windowWidth - RIGHT_COL_X - 40);
+        fillCountSlider.setWidth(sliderW);
+        fillCountSlider.setX(rightX);
+        fillCountSlider.setY(shapeTitleY + 16);
+        fillCountSlider.render(g, mouseX, mouseY, partialTick);
+        String countStr = Integer.toString(smartPlaceHandler.getFillCount());
+        g.drawString(screen.font(), countStr, rightX + sliderW + 6, shapeTitleY + 20, 0xFFEAF4FF, false);
+
+        detectionDiameterSlider.setWidth(sliderW);
+        detectionDiameterSlider.setX(rightX);
+        detectionDiameterSlider.setY(shapeTitleY + 16 + 38);
+        detectionDiameterSlider.render(g, mouseX, mouseY, partialTick);
+        String diamStr = Integer.toString(smartPlaceHandler.getDetectionDiameter());
+        g.drawString(screen.font(), diamStr, rightX + sliderW + 6, shapeTitleY + 58, 0xFFEAF4FF, false);
+    }
+
+    private void renderSmartPlaceBottomInfo(GuiGraphics g, int x, int y, int bodyY) {
+        // 分界线
+        int dividerY = y + currentBasePanelHeight();
+        g.fill(x + 6, dividerY - 1, x + windowWidth - 6, dividerY, 0xFF647B92);
+
+        int textY = dividerY + 12;
+
+        // 更新鼠标指向位置，供追踪扫描使用
+        var hit = screen.pickBlockHit();
+        if (hit != null) {
+            smartPlaceHandler.setCursorTarget(hit.getBlockPos());
+        }
+        smartPlaceHandler.tick(screen.getMinecraft());
+        boolean hasResult = smartPlaceHandler.hasValidResult();
+        boolean isAnchored = smartPlaceHandler.isAnchored();
+
+        if (hasResult) {
+            String scanText = smartPlaceHandler.reachedVolumeLimit()
+                    ? "screen.rtsbuilding.quick_build.smart_place_scan_overflow"
+                    : "screen.rtsbuilding.quick_build.smart_place_scanned";
+            String formatted = screen.text(scanText, smartPlaceHandler.getScanCount(),
+                    smartPlaceHandler.getFillCount());
+            g.drawString(screen.font(), formatted, x + 8, textY, 0xFFB8FFB8, false);
+
+            // 包围盒尺寸提示
+            if (smartPlaceHandler.getBoundingBox() != null) {
+                var box = smartPlaceHandler.getBoundingBox();
+                String dimText = screen.text("screen.rtsbuilding.quick_build.smart_place_bounds",
+                        (int)(box.maxX - box.minX), (int)(box.maxY - box.minY), (int)(box.maxZ - box.minZ));
+                g.drawString(screen.font(), dimText, x + 8, textY + screen.font().lineHeight + 3, 0xFFC9D8E8, false);
+            }
+
+            // 锚定状态额外提示
+            if (isAnchored) {
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.smart_place_anchored"),
+                        x + 8, textY + screen.font().lineHeight * 2 + 6, 0xFFFFD700, false);
+            }
+        } else {
+            g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.smart_place_hint"),
+                    x + 8, textY, 0xFFB8B8, false);
+        }
+    }
+
     // ======================== 输入处理 ========================
 
     @Override
@@ -796,8 +991,26 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 return;
             }
         }
+        // 智能放置滑条
+        if (isSmartPlaceActive()) {
+            if (fillCountSlider != null && fillCountSlider.mouseClicked(mouseX, mouseY, button)) {
+                return;
+            }
+            if (detectionDiameterSlider != null && detectionDiameterSlider.mouseClicked(mouseX, mouseY, button)) {
+                return;
+            }
+        }
         if (handleModeToggleClick(mouseX, mouseY)) {
             return;
+        }
+        // 智能放置子模式按钮
+        if (isSmartPlaceActive() && smartPlaceModeButtons != null) {
+            for (WindowButton btn : smartPlaceModeButtons) {
+                if (btn.mouseClicked(mouseX, mouseY, button)) {
+                    return;
+                }
+            }
+            return; // 智能放置模式下不处理形状按钮和填充按钮
         }
         // 委托给按钮处理
         for (WindowButton btn : shapeButtons) {
@@ -824,6 +1037,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 return true;
             }
         }
+        if (isSmartPlaceActive()) {
+            if (fillCountSlider != null && fillCountSlider.mouseDragged(mouseX, mouseY, button)) {
+                return true;
+            }
+            if (detectionDiameterSlider != null && detectionDiameterSlider.mouseDragged(mouseX, mouseY, button)) {
+                return true;
+            }
+        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -832,6 +1053,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (this.chainLimitSlider != null) {
             this.chainLimitSlider.mouseReleased(mouseX, mouseY, button);
         }
+        if (isSmartPlaceActive()) {
+            if (fillCountSlider != null) {
+                fillCountSlider.mouseReleased(mouseX, mouseY, button);
+            }
+            if (detectionDiameterSlider != null) {
+                detectionDiameterSlider.mouseReleased(mouseX, mouseY, button);
+            }
+        }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -839,22 +1068,34 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int bodyY = contentY();
         int totalW = this.windowWidth - 16;
         int buttonW = (totalW - MODE_TOGGLE_GAP) / 2;
-        int buildX = this.windowX + 8;
-        int destroyX = buildX + buttonW + MODE_TOGGLE_GAP;
-        int y = bodyY + MODE_ROW_TOP;
-        if (mouseY < y || mouseY >= y + MODE_TOGGLE_H) {
-            return false;
-        }
-        if (mouseX >= buildX && mouseX < buildX + buttonW) {
-            setMode(QuickBuildMode.BUILD);
-            return true;
-        }
-        if (mouseX >= destroyX && mouseX < destroyX + buttonW) {
-            if (!canUseRangeDestroy()) {
+        int col1X = this.windowX + 8;
+        int col2X = col1X + buttonW + MODE_TOGGLE_GAP;
+        int row1Y = bodyY + MODE_ROW_TOP;
+        int row2Y = bodyY + MODE_ROW_2_TOP;
+
+        boolean inCol1 = mouseX >= col1X && mouseX < col1X + buttonW;
+        boolean inCol2 = mouseX >= col2X && mouseX < col2X + buttonW;
+
+        // 第 1 行
+        if (mouseY >= row1Y && mouseY < row1Y + MODE_TOGGLE_H) {
+            if (inCol1) {
+                setMode(QuickBuildMode.BUILD);
                 return true;
             }
-            setMode(QuickBuildMode.DESTROY);
-            return true;
+            if (inCol2) {
+                if (!canUseRangeDestroy()) {
+                    return true;
+                }
+                setMode(QuickBuildMode.DESTROY);
+                return true;
+            }
+        }
+        // 第 2 行：智能放置（col1） / 留空（col2）
+        if (mouseY >= row2Y && mouseY < row2Y + MODE_TOGGLE_H) {
+            if (inCol1) {
+                setMode(QuickBuildMode.SMART_PLACE);
+                return true;
+            }
         }
         return false;
     }
@@ -906,6 +1147,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     protected void onClose() {
+        smartPlaceHandler.clear();
         restoreSingleBlockCursor();
         if (screen != null) {
             screen.persistUiState();
@@ -925,23 +1167,37 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
         if (this.quickBuildMode == next) {
             if (isOpen()) {
-                applyActiveShapeToController();
+                if (isSmartPlaceActive()) {
+                    // 已处于智能放置模式，无需切换控制器状态
+                } else {
+                    applyActiveShapeToController();
+                }
             } else {
                 restoreSingleBlockCursor();
             }
             return;
         }
+        // 离开旧模式时的清理
+        if (isSmartPlaceActive()) {
+            smartPlaceHandler.clear();
+            screen.getShapeController().exitSmartPlace();
+        }
         this.quickBuildMode = next;
         if (isOpen()) {
-            // 切换模式时，将 ScreenShapeController 的活跃状态在 BUILD/DESTROY 独立字段间交换
-            if (isDestroyModeActive()) {
-                screen.getShapeController().switchToDestroy();
+            if (next == QuickBuildMode.SMART_PLACE) {
+                screen.getShapeController().switchToSmartPlace();
+                screen.clearShapeBuildSession();
+                this.controller.clearAreaMineSession();
             } else {
-                screen.getShapeController().switchToBuild();
+                if (isDestroyModeActive()) {
+                    screen.getShapeController().switchToDestroy();
+                } else {
+                    screen.getShapeController().switchToBuild();
+                }
+                applyActiveShapeToController();
+                screen.clearShapeBuildSession();
+                this.controller.clearAreaMineSession();
             }
-            applyActiveShapeToController();
-            screen.clearShapeBuildSession();
-            this.controller.clearAreaMineSession();
         } else {
             restoreSingleBlockCursor();
         }
@@ -1093,6 +1349,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * 仅在玩家选中了可放置的方块物品时扩展面板并显示。
      */
     private int currentBasePanelHeight() {
+        if (isSmartPlaceActive()) return QUICK_BUILD_SMART_PLACE_PANEL_H;
         return isDestroyModeActive() ? QUICK_BUILD_DESTROY_PANEL_H : QUICK_BUILD_PANEL_H;
     }
 

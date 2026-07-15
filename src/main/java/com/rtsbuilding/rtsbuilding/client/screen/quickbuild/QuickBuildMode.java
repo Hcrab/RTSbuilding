@@ -9,5 +9,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
  */
 public enum QuickBuildMode {
     BUILD,
-    DESTROY
+    DESTROY,
+    SMART_PLACE
 }

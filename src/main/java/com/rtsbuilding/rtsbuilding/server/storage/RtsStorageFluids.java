@@ -22,6 +22,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.List;
@@ -261,6 +262,95 @@ public final class RtsStorageFluids {
     // ======================================================================
     //  实用方法
     // ======================================================================
+
+    /**
+     * 简化版流体放置：从内部缓冲区提取并放置 1 桶流体，适用于批量放置。
+     * <p>优先从内部缓冲区提取（直接 Map 操作，不依赖 handler.drain），
+     * 缓冲区不足时尝试从链接 handler 补货。</p>
+     *
+     * @return true 表示成功放置并消耗了流体
+     */
+    public static boolean placeFluidAtPosition(ServerPlayer player, RtsStorageSession session,
+            List<LinkedFluidHandler> fluidHandlers, BlockPos pos, String fluidId) {
+        if (session == null || fluidId == null || fluidId.isBlank() || pos == null) {
+            return false;
+        }
+        ResourceLocation fluidKey = ResourceLocation.tryParse(fluidId);
+        if (fluidKey == null || !BuiltInRegistries.FLUID.containsKey(fluidKey)) {
+            return false;
+        }
+        Fluid fluid = BuiltInRegistries.FLUID.get(fluidKey);
+        if (fluid == null) return false;
+
+        List<LinkedFluidHandler> safe = fluidHandlers == null ? List.of() : fluidHandlers;
+
+        // 1) 从内部缓冲区直接提取 1 桶（内部 Map 操作，始终可靠）
+        int bufDrained = RtsFluidBufferService.extractFromBuffer(session, fluid, FLUID_TRANSFER_MB, false);
+        if (bufDrained < FLUID_TRANSFER_MB) {
+            // 缓冲区不足 → 尝试从链接 handler 补货到缓冲区
+            int filled = topUpBufferFromHandlers(player, session, safe, fluid, FLUID_TRANSFER_MB - bufDrained);
+            bufDrained += filled;
+        }
+        if (bufDrained < FLUID_TRANSFER_MB) {
+            return false;
+        }
+
+        ServerLevel level = player.serverLevel();
+        if (level == null || !level.hasChunkAt(pos)) return false;
+
+        FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
+        if (!RtsFluidWorldPlacer.placeFluidBlock(
+                level, player, pos, transfer,
+                new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false))) {
+            return false;
+        }
+
+        // 真实消耗
+        int consumed = RtsFluidBufferService.extractFromBuffer(session, fluid, FLUID_TRANSFER_MB, true);
+        if (consumed >= FLUID_TRANSFER_MB) {
+            RtsStorageRecentEntries.recordRecentFluid(
+                    session, fluidId,
+                    com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload.RECENT_FLUID_PLACED,
+                    consumed, FLUID_TRANSFER_MB);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 尝试从链接 handler 提取流体补充到内部缓冲区。
+     * <p>依次尝试：tank精确drain → 通用无类型drain。</p>
+     */
+    private static int topUpBufferFromHandlers(ServerPlayer player, RtsStorageSession session,
+            List<LinkedFluidHandler> handlers, Fluid fluid, int needed) {
+        if (handlers == null || handlers.isEmpty() || needed <= 0) return 0;
+        int filled = 0;
+        for (LinkedFluidHandler linked : handlers) {
+            if (linked == null || linked.handler() == null) continue;
+            IFluidHandler handler = linked.handler();
+
+            // 按 tank 精确 drain
+            for (int t = 0; t < handler.getTanks() && filled < needed; t++) {
+                FluidStack inTank = handler.getFluidInTank(t);
+                if (inTank.isEmpty() || !inTank.getFluid().isSame(fluid)) continue;
+                int want = Math.min(needed - filled, inTank.getAmount());
+                FluidStack drained = handler.drain(inTank.copyWithAmount(want), IFluidHandler.FluidAction.EXECUTE);
+                if (!drained.isEmpty()) {
+                     RtsFluidBufferService.insertIntoBuffer(session, player, drained, true);
+                     filled += drained.getAmount();
+                 }
+             }
+             if (filled >= needed) break;
+
+             // 通用无类型 drain 回退
+             FluidStack generic = handler.drain(needed - filled, IFluidHandler.FluidAction.EXECUTE);
+             if (!generic.isEmpty() && generic.getFluid().isSame(fluid)) {
+                 RtsFluidBufferService.insertIntoBuffer(session, player, generic, true);
+                 filled += generic.getAmount();
+            }
+        }
+        return filled;
+    }
 
     private static void moveToPlayerInventoryOrDrop(FluidTransferGate gate, ServerPlayer player, ItemStack stack) {
         ItemStack remainder = gate.moveToPlayerInventoryOnly(player, stack);

@@ -34,6 +34,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceMode;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
@@ -72,6 +74,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -327,6 +330,10 @@ public final class BuilderScreen extends Screen {
     public boolean isQuickBuildOpen() {
         return canUseQuickBuild() && this.quickBuildPanel.isOpen();
     }
+    /** 返回快速建造面板引用，供外部访问智能放置处理器等 */
+    public QuickBuildPanel getQuickBuildPanel() {
+        return this.quickBuildPanel;
+    }
     /** Opens or closes the quick-build panel. */
     public void setQuickBuildOpen(boolean open) {
         if (open && !canUseQuickBuild()) {
@@ -540,6 +547,7 @@ public final class BuilderScreen extends Screen {
         if (handleHomeSelectionClicks(mouseX, mouseY, button)) return true;
         if (handleRangeCullingSelectionClick(mouseX, mouseY, button)) return true;
         if (handleAreaMineClickBlock(mouseX, mouseY, button)) return true;
+        if (handleSmartPlaceClick(mouseX, mouseY, button)) return true;
         if (handleLeftClickInteractions(mouseX, mouseY, button)) return true;
         if (handleWorldClickActions(mouseX, mouseY, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
@@ -774,9 +782,14 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.cameraInput.isRightDragActive(button)) {
-            return this.cameraInput.endRightPress(mouseX, mouseY, button)
-                    ? runPrimaryActionAt(mouseX, mouseY, button)
-                    : true;
+            boolean wasClick = this.cameraInput.endRightPress(mouseX, mouseY, button);
+            if (!wasClick) {
+                return true;
+            }
+            if (handleSmartPlaceReleaseAction(mouseX, mouseY)) {
+                return true;
+            }
+            return runPrimaryActionAt(mouseX, mouseY, button);
         }
         if (this.cameraInput.endMiddlePress(mouseX, mouseY, button)) {
             return true;
@@ -1339,6 +1352,11 @@ public final class BuilderScreen extends Screen {
                 && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
             this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
             return true;
+        }
+        // 智能放置确认
+        if (isQuickBuildOpen() && this.quickBuildPanel.isSmartPlaceActive()
+                && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
+            return tryConfirmSmartPlaceFromKeyboard();
         }
         return false;
     }
@@ -1916,6 +1934,118 @@ public final class BuilderScreen extends Screen {
             return;
         }
         this.quickBuildPanel.toggleOpen();
+    }
+
+    /** 处理智能放置模式下的世界点击。 */
+    public boolean handleSmartPlaceClick(double mouseX, double mouseY, int button) {
+        if (!isQuickBuildOpen() || !this.quickBuildPanel.isSmartPlaceActive()) {
+            return false;
+        }
+        if (!isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        var handler = this.quickBuildPanel.getSmartPlaceHandler();
+        // 左键：已锚定时取消锚点（不挖掘）
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            if (handler.isAnchored()) {
+                handler.clearAnchor();
+                return true;
+            }
+            return false;
+        }
+        // 右键：不在此消费，流入 handleWorldClickActions 走拖拽判定
+        // 短点击确认逻辑在 mouseReleased → handleSmartPlaceReleaseAction 中处理
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
+      * 确认并执行智能放置填充，将检测到的位置列表打包发送给服务端。
+      * <p>复用现有批量放置协议 {@code C2SRtsPlaceBatchPayload}。</p>
+      */
+    public void confirmSmartPlaceFill() {
+        var handler = this.quickBuildPanel.getSmartPlaceHandler();
+        if (handler == null || !handler.hasValidResult()) {
+            return;
+        }
+        List<BlockPos> positions = handler.getPreviewPositions();
+        if (positions.isEmpty()) {
+            return;
+        }
+        SmartPlaceMode mode = handler.getMode();
+
+        // 湖泊填充：使用流体批量放置
+        if (mode == SmartPlaceMode.LAKE_FILL) {
+            String fluidId = this.controller.getSelectedFluidId();
+            if (fluidId == null || fluidId.isBlank()) {
+                return;
+            }
+            RtsClientPacketGateway.sendPlaceFluidBatch(positions, fluidId);
+            handler.clearAnchor();
+            return;
+        }
+
+        // 洞口填充：使用方块批量放置
+        String itemId = this.controller.getSelectedItemId();
+        ItemStack prototype = this.controller.getSelectedItemPreview();
+
+        Vec3 origin = this.cursorPicker.currentRayOrigin();
+        Vec3 dir = this.cursorPicker.computeCursorRayDirection();
+
+        List<BlockHitResult> hits = new ArrayList<>(positions.size());
+        for (BlockPos pos : positions) {
+            Vec3 center = new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+            hits.add(new BlockHitResult(center, Direction.UP, pos, false));
+        }
+
+        RtsClientPacketGateway.sendPlaceBatch(hits, false, false,
+                itemId == null ? "" : itemId,
+                prototype,
+                0,
+                origin, dir);
+
+        handler.clearAnchor();
+    }
+
+    /** 智能放置右键释放处理：短点击（非拖拽）判定后执行锚定或确认。 */
+    private boolean handleSmartPlaceReleaseAction(double mouseX, double mouseY) {
+        if (!isQuickBuildOpen() || !this.quickBuildPanel.isSmartPlaceActive()) {
+            return false;
+        }
+        if (!isWorldArea(mouseX, mouseY)) {
+            return true;
+        }
+        var handler = this.quickBuildPanel.getSmartPlaceHandler();
+        if (handler.isAnchored()) {
+            // 已锚定 → 确认放置
+            if (handler.hasValidResult() && !com.rtsbuilding.rtsbuilding.Config.isKeyboardBatchConfirmEnabled()) {
+                confirmSmartPlaceFill();
+            }
+            return true;
+        }
+        // 未锚定 → 设立锚点（仅当已有有效扫描结果时）
+        if (handler.hasValidResult()) {
+            handler.anchor();
+        }
+        return true;
+    }
+
+    /** 处理键盘确认键触发智能放置填充（当全局设置要求键盘确认时）。 */
+    public boolean tryConfirmSmartPlaceFromKeyboard() {
+        if (!isQuickBuildOpen() || !this.quickBuildPanel.isSmartPlaceActive()) {
+            return false;
+        }
+        if (!com.rtsbuilding.rtsbuilding.Config.isKeyboardBatchConfirmEnabled()) {
+            return false;
+        }
+        var handler = this.quickBuildPanel.getSmartPlaceHandler();
+        if (!handler.hasValidResult()) {
+            return false;
+        }
+        confirmSmartPlaceFill();
+        return true;
     }
 
     /** Opens the window-layer craft quantity picker for a craftable entry. */

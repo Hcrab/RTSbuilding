@@ -335,7 +335,8 @@ public final class RtsClientUiStateStore {
 
         /** 快速建造面板状态（含 building 和 mining 子状态）。
          * <p>quickBuildOpen / quickBuildMode 为面板公共状态，
-         * building 存放 BUILD 模式独立字段，mining 存放 DESTROY 模式独立字段。 */
+         * building 存放 BUILD 模式独立字段，mining 存放 DESTROY 模式独立字段，
+         * smartPlace 存放 SMART_PLACE 模式独立字段。 */
         public static final class QuickBuildState {
             public boolean quickBuildOpen = true;
             public String quickBuildMode = "BUILD";
@@ -344,6 +345,8 @@ public final class RtsClientUiStateStore {
             public BuildingState building = new BuildingState();
             /** 范围破坏模式独立状态 */
             public MiningState mining = new MiningState();
+            /** 智能放置模式独立状态 */
+            public SmartPlaceState smartPlace = new SmartPlaceState();
 
             // ===== v1→v2 迁移过渡字段（仅用于读取旧格式文件） =====
             /** @deprecated v1 格式，已迁移至 building.buildShape */
@@ -386,6 +389,13 @@ public final class RtsClientUiStateStore {
             public boolean cylinderVertical = false;
             public boolean advancedRangeDestroyBall = false;
             public boolean advancedRangeDestroyBox = false;
+        }
+
+        /** 智能放置模式独立状态。 */
+        public static final class SmartPlaceState {
+            public String smartPlaceMode = "HOLE_FILL";
+            public int fillCount = 512;
+            public int detectionDiameter = 16;
         }
 
         /** 相机 / 视觉状态。 */
@@ -501,6 +511,10 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.mining.cylinderVertical = this.quickBuild.mining.cylinderVertical;
             clean.quickBuild.mining.advancedRangeDestroyBall = this.quickBuild.mining.advancedRangeDestroyBall;
             clean.quickBuild.mining.advancedRangeDestroyBox = this.quickBuild.mining.advancedRangeDestroyBox;
+            // quickBuild — smartPlace
+            clean.quickBuild.smartPlace.smartPlaceMode = sanitizeEnum(this.quickBuild.smartPlace.smartPlaceMode, "HOLE_FILL");
+            clean.quickBuild.smartPlace.fillCount = Math.max(1, Math.min(1024, this.quickBuild.smartPlace.fillCount));
+            clean.quickBuild.smartPlace.detectionDiameter = Math.max(1, Math.min(32, this.quickBuild.smartPlace.detectionDiameter));
             // camera
             clean.camera.rtsGuiScale = sanitizeScale(this.camera.rtsGuiScale);
             clean.camera.inputSensitivityIndex = Math.max(0, Math.min(32, this.camera.inputSensitivityIndex));

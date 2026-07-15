@@ -342,12 +342,8 @@ public final class RtsCameraManager {
             camera.snapTo(targetX, targetY, targetZ, session.opCameraYaw(), session.opCameraPitch());
             Vec3 newAnchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
             double heightOffset = targetY - newAnchor.y;
-            SESSIONS.put(player.getUUID(), new Session(
-                    camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
-                    session.opCameraYaw(), session.opCameraPitch(), heightOffset,
-                    session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
-                    true, session.opOffsetX(), session.opOffsetY(), session.opOffsetZ(),
-                    session.opCameraYaw(), session.opCameraPitch()));
+            session.updateState(newAnchor, new Vec3(targetX, targetY, targetZ),
+                    session.opCameraYaw(), session.opCameraPitch(), heightOffset);
             RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
                     newAnchor.x, newAnchor.y, newAnchor.z, maxRadius(player, session)));
             return;
@@ -424,10 +420,7 @@ public final class RtsCameraManager {
         camera.snapTo(targetX, targetY, targetZ, yaw, pitch);
 
         double heightOffset = targetY - newAnchor.y;
-        SESSIONS.put(player.getUUID(), new Session(camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
-                yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
-                session.operationMode(), session.opOffsetX(), session.opOffsetY(), session.opOffsetZ(),
-                session.opCameraYaw(), session.opCameraPitch()));
+        session.updateState(newAnchor, new Vec3(targetX, targetY, targetZ), yaw, pitch, heightOffset);
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
@@ -531,26 +524,70 @@ public final class RtsCameraManager {
 
     /**
      * RTS 相机会话记录。
-     *
-     * @param cameraUuid       相机实体的 UUID
-     * @param anchor           锚点位置（玩家脚下方块中心）
-     * @param cameraPos        相机当前位置
-     * @param yawDeg           偏航角（度）
-     * @param pitchDeg         俯仰角（度）
-     * @param heightOffset     相机相对锚点的高度偏移
-     * @param homeSelection    是否为家选择模式
-     * @param maxRadius        最大动作半径
-     * @param closeRangeAllowed 是否允许近距开始
-     * @param operationMode    是否为操作模式
-     * @param opOffsetX        操作模式相机相对玩家 X 偏移
-     * @param opOffsetY        操作模式相机相对玩家 Y 偏移
-     * @param opOffsetZ        操作模式相机相对玩家 Z 偏移
-     * @param opCameraYaw      操作模式相机偏航角
-     * @param opCameraPitch    操作模式相机俯仰角
+     * <p>每 tick 变化的字段（anchor、cameraPos、yawDeg、pitchDeg、heightOffset）
+     * 通过 {@link #updateState} 原地更新，避免每 tick 分配新对象。</p>
      */
-    private record Session(UUID cameraUuid, Vec3 anchor, Vec3 cameraPos, float yawDeg, float pitchDeg,
-                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed,
-                           boolean operationMode, double opOffsetX, double opOffsetY, double opOffsetZ,
-                           float opCameraYaw, float opCameraPitch) {
+    private static final class Session {
+        private final UUID cameraUuid;
+        private Vec3 anchor;
+        private Vec3 cameraPos;
+        private float yawDeg;
+        private float pitchDeg;
+        private double heightOffset;
+        private final boolean homeSelection;
+        private final double maxRadius;
+        private final boolean closeRangeAllowed;
+        private final boolean operationMode;
+        private final double opOffsetX;
+        private final double opOffsetY;
+        private final double opOffsetZ;
+        private final float opCameraYaw;
+        private final float opCameraPitch;
+
+        Session(UUID cameraUuid, Vec3 anchor, Vec3 cameraPos, float yawDeg, float pitchDeg,
+                double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed,
+                boolean operationMode, double opOffsetX, double opOffsetY, double opOffsetZ,
+                float opCameraYaw, float opCameraPitch) {
+            this.cameraUuid = cameraUuid;
+            this.anchor = anchor;
+            this.cameraPos = cameraPos;
+            this.yawDeg = yawDeg;
+            this.pitchDeg = pitchDeg;
+            this.heightOffset = heightOffset;
+            this.homeSelection = homeSelection;
+            this.maxRadius = maxRadius;
+            this.closeRangeAllowed = closeRangeAllowed;
+            this.operationMode = operationMode;
+            this.opOffsetX = opOffsetX;
+            this.opOffsetY = opOffsetY;
+            this.opOffsetZ = opOffsetZ;
+            this.opCameraYaw = opCameraYaw;
+            this.opCameraPitch = opCameraPitch;
+        }
+
+        /** 原地更新每 tick 变化的状态字段，避免分配新 Session 对象。 */
+        void updateState(Vec3 anchor, Vec3 cameraPos, float yaw, float pitch, double heightOffset) {
+            this.anchor = anchor;
+            this.cameraPos = cameraPos;
+            this.yawDeg = yaw;
+            this.pitchDeg = pitch;
+            this.heightOffset = heightOffset;
+        }
+
+        UUID cameraUuid() { return cameraUuid; }
+        Vec3 anchor() { return anchor; }
+        Vec3 cameraPos() { return cameraPos; }
+        float yawDeg() { return yawDeg; }
+        float pitchDeg() { return pitchDeg; }
+        double heightOffset() { return heightOffset; }
+        boolean homeSelection() { return homeSelection; }
+        double maxRadius() { return maxRadius; }
+        boolean closeRangeAllowed() { return closeRangeAllowed; }
+        boolean operationMode() { return operationMode; }
+        double opOffsetX() { return opOffsetX; }
+        double opOffsetY() { return opOffsetY; }
+        double opOffsetZ() { return opOffsetZ; }
+        float opCameraYaw() { return opCameraYaw; }
+        float opCameraPitch() { return opCameraPitch; }
     }
 }

@@ -33,4 +33,15 @@ final class QuickBuildUnlockPolicy {
         }
         return areaInstalled ? AreaMineShape.BLOCK : null;
     }
+
+    // ===== 智能放置模式可用性（预留扩展接口） =====
+
+    /**
+     * 判断智能放置模式是否对当前玩家可用。
+     * <p>当前实现：始终可用。后续如需接入生存平衡系统，
+     * 可通过此方法统一控制。</p>
+     */
+    static boolean canUseSmartPlace(boolean progressionEnabled, boolean smartPlaceInstalled) {
+        return !progressionEnabled || smartPlaceInstalled;
+    }
 }

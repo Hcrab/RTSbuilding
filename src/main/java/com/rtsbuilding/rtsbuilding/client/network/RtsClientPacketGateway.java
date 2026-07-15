@@ -406,6 +406,15 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
+    public static void sendPlaceFluidBatch(List<BlockPos> positions, String fluidId) {
+        if (positions == null || positions.isEmpty() || fluidId == null || fluidId.isBlank()) {
+            return;
+        }
+        PacketDistributor.sendToServer(new C2SRtsPlaceFluidBatchPayload(
+                List.copyOf(positions.subList(0, Math.min(positions.size(), C2SRtsPlaceFluidBatchPayload.MAX_POSITIONS))),
+                fluidId));
+    }
+
     public static void sendStoreFluid(byte sourceType, int toolSlot, String itemId) {
         PacketDistributor.sendToServer(new C2SRtsStoreFluidPayload(
                 sourceType,

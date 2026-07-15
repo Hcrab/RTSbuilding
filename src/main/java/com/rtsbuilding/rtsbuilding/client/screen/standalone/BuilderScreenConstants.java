@@ -116,6 +116,24 @@ public final class BuilderScreenConstants {
     public static final int ULTIMINE_MIN_LIMIT = 1;
     public static final int ULTIMINE_MAX_LIMIT = 256;
 
+    // ======================== Smart Place Limits ========================
+    /** 智能放置最小填充方块数量 */
+    public static final int SMART_PLACE_MIN_FILL_COUNT = 1;
+    /** 智能放置最大填充方块数量（客户端滑条上限） */
+    public static final int SMART_PLACE_MAX_FILL_COUNT = 1024;
+    /** 智能放置默认填充方块数量 */
+    public static final int SMART_PLACE_DEFAULT_FILL_COUNT = 512;
+    /** 智能放置最小检测直径 */
+    public static final int SMART_PLACE_MIN_DIAMETER = 1;
+    /** 智能放置最大检测直径（客户端滑条上限） */
+    public static final int SMART_PLACE_MAX_DIAMETER = 32;
+    /** 智能放置默认检测直径 */
+    public static final int SMART_PLACE_DEFAULT_DIAMETER = 16;
+    /** 智能放置服务端最大填充方块数量上限 */
+    public static final int SMART_PLACE_SERVER_MAX_FILL_COUNT = 8192;
+    /** 智能放置服务端最大检测直径上限 */
+    public static final int SMART_PLACE_SERVER_MAX_DIAMETER = 64;
+
     // ======================== Shape wheel ========================
     /** Shape wheel radius */
     public static final int SHAPE_WHEEL_RADIUS = 52;

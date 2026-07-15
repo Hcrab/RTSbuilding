@@ -114,6 +114,8 @@ public final class ServerTickOrchestrator {
             if (session == null) continue;
             funnelService.tick(player, session);
             RtsPlacedRecoveryService.tick(player, session);
+            // 智能放置批量流体放置 tick
+            com.rtsbuilding.rtsbuilding.server.service.fluids.SmartPlaceFluidBatch.tickFluidBatchJobs(player, session);
         }
 
         // Tick all active tickable pipeline instances (ultimine/area-mine monitoring)

@@ -75,12 +75,15 @@ public final class RtsFluidNetworkOperator {
 
         int remaining = amount;
         for (LinkedFluidHandler linked : RtsLinkedHandlerResolutionService.orderFluidHandlersForExtract(fluidHandlers)) {
-            if (remaining <= 0) {
-                break;
-            }
+            if (remaining <= 0) break;
             FluidStack drained = drainMatchingFluid(linked.handler(), fluid, remaining, execute);
             if (!drained.isEmpty()) {
                 remaining -= drained.getAmount();
+            }
+            // 标准 drain 路径失败时尝试按 tank 直接提取
+            if (remaining > 0) {
+                int byTank = drainByTank(linked.handler(), fluid, remaining, execute);
+                remaining -= byTank;
             }
         }
 
@@ -154,13 +157,43 @@ public final class RtsFluidNetworkOperator {
         }
 
         FluidStack genericPreview = handler.drain(amount, IFluidHandler.FluidAction.SIMULATE);
-        if (genericPreview.isEmpty() || genericPreview.getFluid() != fluid) {
+        if (genericPreview.isEmpty() || !genericPreview.getFluid().isSame(fluid)) {
             return FluidStack.EMPTY;
         }
         if (!execute) {
             return genericPreview;
         }
         FluidStack generic = handler.drain(amount, IFluidHandler.FluidAction.EXECUTE);
-        return !generic.isEmpty() && generic.getFluid() == fluid ? generic : FluidStack.EMPTY;
+        return !generic.isEmpty() && generic.getFluid().isSame(fluid) ? generic : FluidStack.EMPTY;
+    }
+
+    /**
+     * 按 tank 直接提取 + 简单通用 drain 回退。
+     */
+    private static int drainByTank(IFluidHandler handler, Fluid fluid, int amount, boolean execute) {
+        if (handler == null || fluid == null || amount <= 0) return 0;
+        IFluidHandler.FluidAction action = execute ? IFluidHandler.FluidAction.EXECUTE : IFluidHandler.FluidAction.SIMULATE;
+        int remaining = amount;
+
+        // 1) 按 tank 精确 drain
+        for (int tank = 0; tank < handler.getTanks() && remaining > 0; tank++) {
+            FluidStack inTank = handler.getFluidInTank(tank);
+            if (inTank.isEmpty() || !inTank.getFluid().isSame(fluid)) continue;
+            int toDrain = Math.min(remaining, inTank.getAmount());
+            FluidStack drained = handler.drain(inTank.copyWithAmount(toDrain), action);
+            if (!drained.isEmpty()) {
+                remaining -= drained.getAmount();
+            }
+        }
+
+        // 2) tank 路径也失败 → 尝试无类型通用 drain
+        if (remaining == amount) {
+            FluidStack generic = handler.drain(amount, action);
+            if (!generic.isEmpty() && generic.getFluid().isSame(fluid)) {
+                remaining -= generic.getAmount();
+            }
+        }
+
+        return amount - remaining;
     }
 }

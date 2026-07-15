@@ -48,6 +48,11 @@ public final class RtsBuilderPackets {
                 RtsPlaceHandlers::handleStoreFluid);
 
         registrar.playToServer(
+                C2SRtsPlaceFluidBatchPayload.TYPE,
+                C2SRtsPlaceFluidBatchPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handlePlaceFluidBatch);
+
+        registrar.playToServer(
                 C2SRtsInteractPayload.TYPE,
                 C2SRtsInteractPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handleInteract);

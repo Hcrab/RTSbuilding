@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.fluids.SmartPlaceFluidBatch;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -112,5 +113,14 @@ public final class RtsFluidServiceImpl implements FluidService {
         return level.mayInteract(player, below)
                 && RtsCameraManager.isWithinActionRange(player, pos)
                 && RtsProgressionManager.canAccessHomeRadius(player, pos);
+    }
+
+    @Override
+    public void enqueuePlaceFluidBatch(ServerPlayer player, List<BlockPos> positions, String fluidId) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.FLUID_HANDLING)) return;
+        RtsStorageSession session = registry.session().getIfPresent(player);
+        if (session == null) return;
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        SmartPlaceFluidBatch.enqueuePlaceFluidBatch(player, session, positions, fluidId);
     }
 }
