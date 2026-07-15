@@ -1,14 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.FileAlreadyExistsException;
@@ -36,16 +36,23 @@ public final class AtomicBlueprintBlobRepository {
 
     private final Path directory;
     private final BlueprintBlobCodec codec;
+    private final AtomicMover atomicMover;
 
     public AtomicBlueprintBlobRepository(MinecraftServer server, BlueprintBlobCodec codec) {
         this(Objects.requireNonNull(server, "server").getWorldPath(LevelResource.ROOT)
-                .resolve("rtsbuilding/task_blobs/blueprint"), codec);
+                .resolve("rtsbuilding/task_blobs/blueprint"), codec, AtomicBlueprintBlobRepository::atomicMove);
     }
 
     /** 包内文件入口仅用于故障注入测试。 */
     AtomicBlueprintBlobRepository(Path directory, BlueprintBlobCodec codec) {
+        this(directory, codec, AtomicBlueprintBlobRepository::atomicMove);
+    }
+
+    /** 仅供故障注入测试验证“不支持原子移动时绝不降级”。 */
+    AtomicBlueprintBlobRepository(Path directory, BlueprintBlobCodec codec, AtomicMover atomicMover) {
         this.directory = Objects.requireNonNull(directory, "directory").toAbsolutePath().normalize();
         this.codec = Objects.requireNonNull(codec, "codec");
+        this.atomicMover = Objects.requireNonNull(atomicMover, "atomicMover");
     }
 
     public WriteOutcome writeOnce(BlueprintBlobRecord record) {
@@ -60,6 +67,8 @@ public final class AtomicBlueprintBlobRepository {
         if (Files.exists(target)) {
             BlueprintBlobRecord existing = requireFound(load(record.assetId()));
             requireSame(existing, record);
+            forceFile(target);
+            forceDirectoryBestEffort(directory);
             return WriteOutcome.ALREADY_PRESENT;
         }
 
@@ -67,13 +76,19 @@ public final class AtomicBlueprintBlobRepository {
         Path temporary = target.resolveSibling(target.getFileName() + "." + UUID.randomUUID() + ".tmp");
         try {
             Files.createDirectories(directory);
-            Files.write(temporary, encoded, StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
-            if (!moveNew(temporary, target)) {
+            writeAndForceNew(temporary, encoded);
+            try (var input = new BufferedInputStream(Files.newInputStream(temporary))) {
+                requireSame(codec.decodeCompressed(input, Files.size(temporary)), record);
+            }
+            if (!moveNew(temporary, target, atomicMover)) {
                 BlueprintBlobRecord existing = requireFound(load(record.assetId()));
                 requireSame(existing, record);
+                forceFile(target);
+                forceDirectoryBestEffort(directory);
                 return WriteOutcome.ALREADY_PRESENT;
             }
+            forceFile(target);
+            forceDirectoryBestEffort(directory);
             BlueprintBlobRecord verified = requireFound(load(record.assetId()));
             requireSame(verified, record);
             return WriteOutcome.WRITTEN;
@@ -87,7 +102,7 @@ public final class AtomicBlueprintBlobRepository {
         }
     }
 
-    public synchronized LoadResult load(TaskAssetId assetId) {
+    public LoadResult load(TaskAssetId assetId) {
         Objects.requireNonNull(assetId, "assetId");
         Path file = path(assetId);
         if (!Files.exists(file)) return new LoadResult.Missing();
@@ -97,11 +112,10 @@ public final class AtomicBlueprintBlobRepository {
             if (compressedBytes <= 0L || compressedBytes > BlueprintBlobCodec.MAX_COMPRESSED_BYTES) {
                 throw new IOException("blob 压缩文件大小越界: " + compressedBytes);
             }
-            byte[] bytes = Files.readAllBytes(file);
-            CompoundTag root = NbtIo.readCompressed(new ByteArrayInputStream(bytes),
-                    NbtAccounter.create(BlueprintBlobCodec.MAX_LOGICAL_BYTES + 1024L * 1024L));
-            if (root == null) throw new IOException("blob NBT 根标签为空");
-            BlueprintBlobRecord record = codec.decode(root);
+            BlueprintBlobRecord record;
+            try (var input = new BufferedInputStream(Files.newInputStream(file))) {
+                record = codec.decodeCompressed(input, compressedBytes);
+            }
             if (!record.assetId().equals(assetId)) throw new IOException("blob 文件名与内容 ID 不一致");
             return new LoadResult.Found(record, compressedBytes);
         } catch (IOException | RuntimeException failure) {
@@ -131,8 +145,8 @@ public final class AtomicBlueprintBlobRepository {
         }
     }
 
-    /** 启动/GC 使用的有界物理目录扫描；超过数量或压缩总字节上限立即 fail-closed。 */
-    public synchronized ScanResult scan() {
+    /** 启动/GC 使用的有界物理目录扫描；不持仓库总锁，避免与单资产写锁形成反序。 */
+    public ScanResult scan() {
         if (!Files.exists(directory)) return new ScanResult(List.of(), 0L, 0);
         List<TaskAssetId> ids = new ArrayList<>();
         long totalBytes = 0L;
@@ -148,10 +162,10 @@ public final class AtomicBlueprintBlobRepository {
                 if (name.endsWith(".tmp")) {
                     int marker = name.indexOf(".nbt.");
                     if (marker <= 0) throw new BlobRepositoryException("发现未知临时 blob 文件: " + name);
-                    String idText = name.substring(0, marker);
-                    TaskAssetId.parse(idText);
-                    Files.deleteIfExists(file);
-                    removedTemps++;
+                    TaskAssetId temporaryAssetId = TaskAssetId.parse(name.substring(0, marker));
+                    synchronized (assetLock(temporaryAssetId)) {
+                        if (Files.deleteIfExists(file)) removedTemps++;
+                    }
                     continue;
                 }
                 if (!name.endsWith(".nbt")) continue;
@@ -168,20 +182,52 @@ public final class AtomicBlueprintBlobRepository {
         return new ScanResult(ids, totalBytes, removedTemps);
     }
 
-    private static boolean moveNew(Path temporary, Path target) throws IOException {
+    private static boolean moveNew(Path temporary, Path target, AtomicMover mover) throws IOException {
         try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+            mover.move(temporary, target);
             return true;
         } catch (FileAlreadyExistsException raced) {
             Files.deleteIfExists(temporary);
             return false;
         } catch (AtomicMoveNotSupportedException unsupported) {
-            try {
-                Files.move(temporary, target);
-                return true;
-            } catch (FileAlreadyExistsException raced) {
-                Files.deleteIfExists(temporary);
-                return false;
+            throw new IOException("文件系统不支持同目录 ATOMIC_MOVE，拒绝降级发布蓝图 blob", unsupported);
+        }
+    }
+
+    private static void atomicMove(Path temporary, Path target) throws IOException {
+        Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    private static void writeAndForceNew(Path temporary, byte[] encoded) throws IOException {
+        try (FileChannel channel = FileChannel.open(temporary,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            ByteBuffer buffer = ByteBuffer.wrap(encoded);
+            while (buffer.hasRemaining()) channel.write(buffer);
+            channel.force(true);
+        }
+    }
+
+    private static void forceFile(Path file) {
+        try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+            channel.force(true);
+        } catch (IOException failure) {
+            throw new BlobRepositoryException("强制落盘蓝图 blob 失败: " + file, failure);
+        }
+    }
+
+    private static void forceDirectoryBestEffort(Path directory) {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
+        } catch (AccessDeniedException unsupported) {
+            // Windows 的纯 Java NIO 无法可靠 fsync 目录；文件本体已 force 且只用原子移动，这是可达的最强语义。
+            if (!System.getProperty("os.name", "").startsWith("Windows")) {
+                throw new BlobRepositoryException("强制落盘 blob 目录失败: " + directory, unsupported);
+            }
+        } catch (UnsupportedOperationException unsupported) {
+            if (!System.getProperty("os.name", "").startsWith("Windows")) throw unsupported;
+        } catch (IOException failure) {
+            if (!System.getProperty("os.name", "").startsWith("Windows")) {
+                throw new BlobRepositoryException("强制落盘 blob 目录失败: " + directory, failure);
             }
         }
     }
@@ -232,6 +278,11 @@ public final class AtomicBlueprintBlobRepository {
 
     public record ScanResult(List<TaskAssetId> assetIds, long compressedBytes, int removedTemporaryFiles) {
         public ScanResult { assetIds = List.copyOf(assetIds); }
+    }
+
+    @FunctionalInterface
+    interface AtomicMover {
+        void move(Path source, Path target) throws IOException;
     }
 
     public static final class BlobRepositoryException extends IllegalStateException {

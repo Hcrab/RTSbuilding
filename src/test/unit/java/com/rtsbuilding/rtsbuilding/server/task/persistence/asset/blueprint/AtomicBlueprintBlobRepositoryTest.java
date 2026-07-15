@@ -3,19 +3,26 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,6 +52,44 @@ class AtomicBlueprintBlobRepositoryTest {
         assertArrayEquals(new byte[]{1, 2, 3},
                 found.record().structure().getByteArray("payload"));
         assertEquals(1, repository.scan().assetIds().size());
+    }
+
+    @Test
+    void canonicalHashIgnoresCompoundInsertionOrderAndSurvivesRoundTrip() {
+        BlueprintBlobCodec codec = new BlueprintBlobCodec();
+        TaskId taskId = TaskId.create();
+        CompoundTag first = new CompoundTag();
+        first.putInt("z", 9);
+        first.putString("a", "stable");
+        CompoundTag second = new CompoundTag();
+        second.putString("a", "stable");
+        second.putInt("z", 9);
+
+        BlueprintBlobRecord firstRecord = codec.freeze(
+                taskId, 2, "ordered", "test", "VANILLA_NBT", first);
+        BlueprintBlobRecord secondRecord = codec.freeze(
+                taskId, 2, "ordered", "test", "VANILLA_NBT", second);
+
+        assertEquals(firstRecord.sha256(), secondRecord.sha256());
+        assertEquals(firstRecord.sha256(), codec.decodeCompressed(
+                codec.encodeCompressed(firstRecord)).sha256());
+    }
+
+    @Test
+    void denseNbtUsesLogicalLimitAndDecodeAccountingHeadroomConsistently() {
+        BlueprintBlobCodec codec = new BlueprintBlobCodec();
+        CompoundTag structure = new CompoundTag();
+        ListTag nodes = new ListTag();
+        for (int i = 0; i < 50_000; i++) nodes.add(IntTag.valueOf(i));
+        structure.put("nodes", nodes);
+        BlueprintBlobRecord record = codec.freeze(
+                TaskId.create(), 1, "dense", "test", "VANILLA_NBT", structure);
+
+        BlueprintBlobRecord decoded = codec.decodeCompressed(codec.encodeCompressed(record));
+
+        assertEquals(record.sha256(), decoded.sha256());
+        assertEquals(50_000, decoded.structure().getList("nodes", Tag.TAG_INT).size());
+        assertTrue(BlueprintBlobCodec.MAX_DECODE_ACCOUNTING_BYTES > BlueprintBlobCodec.MAX_LOGICAL_BYTES);
     }
 
     @Test
@@ -129,6 +174,59 @@ class AtomicBlueprintBlobRepositoryTest {
 
         assertEquals(1, scan.removedTemporaryFiles());
         assertTrue(Files.notExists(temporary));
+    }
+
+    @Test
+    void scanCannotDeleteTemporaryFileWhileSameAssetIsPublishing() throws Exception {
+        BlueprintBlobCodec codec = new BlueprintBlobCodec();
+        BlueprintBlobRecord record = codec.freeze(
+                TaskId.create(), 1, "house", "scan-race", "VANILLA_NBT", structure(new byte[]{1}));
+        CountDownLatch moveReached = new CountDownLatch(1);
+        CountDownLatch allowMove = new CountDownLatch(1);
+        AtomicBlueprintBlobRepository repository = new AtomicBlueprintBlobRepository(
+                temporaryDirectory, codec, (source, target) -> {
+                    moveReached.countDown();
+                    try {
+                        if (!allowMove.await(2, TimeUnit.SECONDS)) throw new IOException("test timeout");
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException(interrupted);
+                    }
+                    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+                });
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var write = executor.submit(() -> repository.writeOnce(record));
+            assertTrue(moveReached.await(2, TimeUnit.SECONDS));
+            var scan = executor.submit(repository::scan);
+            assertThrows(TimeoutException.class, () -> scan.get(100, TimeUnit.MILLISECONDS));
+            allowMove.countDown();
+            assertEquals(AtomicBlueprintBlobRepository.WriteOutcome.WRITTEN,
+                    write.get(2, TimeUnit.SECONDS));
+            assertEquals(0, scan.get(2, TimeUnit.SECONDS).removedTemporaryFiles());
+        }
+        assertInstanceOf(AtomicBlueprintBlobRepository.LoadResult.Found.class,
+                repository.load(record.assetId()));
+    }
+
+    @Test
+    void atomicMoveUnsupportedFailsClosedWithoutPublishingOrOrdinaryFallback() {
+        BlueprintBlobCodec codec = new BlueprintBlobCodec();
+        BlueprintBlobRecord record = codec.freeze(
+                TaskId.create(), 1, "house", "atomic", "VANILLA_NBT", structure(new byte[]{1}));
+        AtomicBlueprintBlobRepository repository = new AtomicBlueprintBlobRepository(
+                temporaryDirectory, codec, (source, target) -> {
+                    throw new AtomicMoveNotSupportedException(source.toString(), target.toString(), "test");
+                });
+
+        assertThrows(AtomicBlueprintBlobRepository.BlobRepositoryException.class,
+                () -> repository.writeOnce(record));
+        assertFalse(Files.exists(temporaryDirectory.resolve(record.assetId() + ".nbt")));
+        try (var files = Files.list(temporaryDirectory)) {
+            assertEquals(0L, files.count());
+        } catch (IOException failure) {
+            throw new AssertionError(failure);
+        }
     }
 
     @Test
