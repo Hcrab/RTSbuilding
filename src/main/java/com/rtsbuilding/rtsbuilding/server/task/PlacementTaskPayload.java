@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding.server.task;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 /**
  * 放置任务的领域数据。生命周期、成功/失败指标属于 TaskRecord；
@@ -11,5 +13,6 @@ import net.minecraft.server.level.ServerPlayer;
 public record PlacementTaskPayload(
         ServerPlayer player,
         RtsStorageSession session,
-        RtsPlacementBatch.PlaceBatchJob job) implements TaskPayload {
+        RtsPlacementBatch.PlaceBatchJob job,
+        ResourceKey<Level> dimension) implements TaskPayload {
 }

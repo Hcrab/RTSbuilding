@@ -29,6 +29,7 @@ public final class RtsTaskEngine {
     private final Map<RtsPlacementBatch.PlaceBatchJob, TaskRecord> placementRecords = new IdentityHashMap<>();
     private final Map<RtsDestructionBatch.DestructionJob, TaskRecord> destructionRecords = new IdentityHashMap<>();
     private final Map<MiningTaskKey, TaskRecord> miningRecords = new java.util.HashMap<>();
+    private final Map<MiningWorkflowKey, TaskRecord> activeMiningByWorkflow = new java.util.HashMap<>();
     private final Map<UUID, TaskRecord> bufferRecords = new java.util.HashMap<>();
     private final Map<WorkflowTaskKey, TaskRecord> blueprintRecords = new java.util.HashMap<>();
     private final Map<UUID, TaskRecord> funnelRecords = new java.util.HashMap<>();
@@ -106,6 +107,7 @@ public final class RtsTaskEngine {
         placementRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
         destructionRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
         miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(playerId));
+        activeMiningByWorkflow.keySet().removeIf(key -> key.playerId().equals(playerId));
         blueprintRecords.keySet().removeIf(key -> key.playerId().equals(playerId));
         bufferRecords.remove(playerId);
         funnelRecords.remove(playerId);
@@ -290,7 +292,8 @@ public final class RtsTaskEngine {
         TaskRecord record = new TaskRecord(
                 taskId,
                 player.getUUID(), TaskType.PLACEMENT,
-                new PlacementTaskPayload(player, session, job), job.totalCount(), now);
+                new PlacementTaskPayload(
+                        player, session, job, player.serverLevel().dimension()), job.totalCount(), now);
         record.restoreCursor(job.getIndex(), now);
         applyInitialPause(player, job.workflowEntryId(), record, now);
         return record;
@@ -298,6 +301,9 @@ public final class RtsTaskEngine {
 
     private TaskStepResult executePlacement(TaskRecord task, TaskBudget budget) {
         PlacementTaskPayload payload = (PlacementTaskPayload) task.payload();
+        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
+            return TaskStepResult.nextTick(0, 0, 0, 0);
+        }
         var player = payload.player();
         var session = payload.session();
         var job = payload.job();
@@ -366,7 +372,8 @@ public final class RtsTaskEngine {
         TaskRecord record = new TaskRecord(
                 taskId,
                 player.getUUID(), TaskType.DESTRUCTION,
-                new DestructionTaskPayload(player, session, job), job.totalCount(), now);
+                new DestructionTaskPayload(
+                        player, session, job, player.serverLevel().dimension()), job.totalCount(), now);
         record.restoreCursor(job.getIndex(), now);
         applyInitialPause(player, job.workflowEntryId(), record, now);
         return record;
@@ -374,6 +381,9 @@ public final class RtsTaskEngine {
 
     private TaskStepResult executeDestruction(TaskRecord task, TaskBudget budget) {
         DestructionTaskPayload payload = (DestructionTaskPayload) task.payload();
+        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
+            return TaskStepResult.nextTick(0, 0, 0, 0);
+        }
         var player = payload.player();
         var session = payload.session();
         var job = payload.job();
@@ -412,11 +422,16 @@ public final class RtsTaskEngine {
                 && (source == null
                 || !entry.getKey().dimension().equals(player.serverLevel().dimension())
                 || entry.getKey().workflowEntryId() != source.workflowEntryId()));
+        activeMiningByWorkflow.entrySet().removeIf(entry -> entry.getValue().status().terminal());
         if (source == null) return;
 
         MiningTaskKey key = new MiningTaskKey(
                 player.getUUID(), player.serverLevel().dimension(), source.workflowEntryId());
         TaskRecord record = miningRecords.get(key);
+        if (record == null) {
+            record = activeMiningByWorkflow.get(
+                    new MiningWorkflowKey(player.getUUID(), source.workflowEntryId()));
+        }
         long now = System.nanoTime();
         if (record == null) {
             record = new TaskRecord(
@@ -424,10 +439,14 @@ public final class RtsTaskEngine {
                             + player.serverLevel().dimension().location() + ":" + source.workflowEntryId())
                             .getBytes(StandardCharsets.UTF_8)),
                     player.getUUID(), TaskType.MINING,
-                    new MiningTaskPayload(player, session, source.workflowEntryId()), source.totalUnits(), now);
+                    new MiningTaskPayload(
+                            player, session, source.workflowEntryId(), player.serverLevel().dimension()),
+                    source.totalUnits(), now);
             record.restoreSnapshot(source.cursorUnits(), source.succeededUnits(), source.failedUnits(), now);
             applyInitialPause(player, source.workflowEntryId(), record, now);
             miningRecords.put(key, record);
+            activeMiningByWorkflow.put(
+                    new MiningWorkflowKey(player.getUUID(), source.workflowEntryId()), record);
             scheduler.submit(record);
         } else if (record.status() == TaskStatus.WAITING_RESOURCE && !session.miningDropBuffer.isFull()) {
             record.resume(now);
@@ -453,6 +472,9 @@ public final class RtsTaskEngine {
 
     private TaskStepResult executeMining(TaskRecord task, TaskBudget budget) {
         MiningTaskPayload payload = (MiningTaskPayload) task.payload();
+        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
+            return TaskStepResult.nextTick(0, 0, 0, 0);
+        }
         var player = payload.player();
         var session = payload.session();
         MiningTaskSource source = currentMiningSource(session);
@@ -690,9 +712,9 @@ public final class RtsTaskEngine {
         for (var entry : miningRecords.entrySet()) {
             if (entry.getValue() == record) return entry.getKey().dimension();
         }
-        if (record.payload() instanceof PlacementTaskPayload payload) return payload.player().serverLevel().dimension();
-        if (record.payload() instanceof DestructionTaskPayload payload) return payload.player().serverLevel().dimension();
-        if (record.payload() instanceof MiningTaskPayload payload) return payload.player().serverLevel().dimension();
+        if (record.payload() instanceof PlacementTaskPayload payload) return payload.dimension();
+        if (record.payload() instanceof DestructionTaskPayload payload) return payload.dimension();
+        if (record.payload() instanceof MiningTaskPayload payload) return payload.dimension();
         throw new IllegalArgumentException("Task has no workflow dimension: " + record.type());
     }
 
@@ -716,6 +738,9 @@ public final class RtsTaskEngine {
     private record MiningTaskKey(
             UUID playerId, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
             int workflowEntryId) {
+    }
+
+    private record MiningWorkflowKey(UUID playerId, int workflowEntryId) {
     }
 
     public record TaskDiagnostics(Map<TaskType, Integer> activeByType,

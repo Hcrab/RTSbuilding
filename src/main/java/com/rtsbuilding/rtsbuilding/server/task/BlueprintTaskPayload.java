@@ -45,6 +45,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
             ResourceKey<Level> dimension) {
         this.context = context;
         this.dimension = dimension;
+        context.setData(BlueprintContext.KEY_SOURCE_DIMENSION, dimension);
         this.restoredRemaining = restoredRemaining == null ? null : new LinkedList<>(restoredRemaining);
     }
 

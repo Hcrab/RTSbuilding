@@ -59,9 +59,25 @@ class UnifiedLongTaskRuntimeContractTest {
         assertTrue(engine.contains("equals(payload.dimension())"));
         assertTrue(engine.contains("blueprintRecords.entrySet().removeIf"));
         assertTrue(persistence.contains("KEY_SOURCE_DIMENSION"));
+        assertTrue(persistence.contains("bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION)"));
         assertTrue(persistence.contains("sourceDimension"));
         assertTrue(executor.contains("token.recordFailures(failures)"));
         assertFalse(executor.contains("for (int i = 0; i < failures"));
+    }
+
+    @Test
+    void everyWorldMutatingTaskFreezesItsCreationDimension() throws IOException {
+        String placement = read("server/task/PlacementTaskPayload.java");
+        String destruction = read("server/task/DestructionTaskPayload.java");
+        String mining = read("server/task/MiningTaskPayload.java");
+        String engine = read("server/task/RtsTaskEngine.java");
+
+        assertTrue(placement.contains("ResourceKey<Level> dimension"));
+        assertTrue(destruction.contains("ResourceKey<Level> dimension"));
+        assertTrue(mining.contains("ResourceKey<Level> dimension"));
+        assertTrue(count(engine, "equals(payload.dimension())") >= 4,
+                "placement/destruction/mining/blueprint 均须在切维时让出执行");
+        assertTrue(engine.contains("return payload.dimension()"));
     }
 
     @Test
@@ -79,5 +95,15 @@ class UnifiedLongTaskRuntimeContractTest {
 
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
+    }
+
+    private static int count(String text, String needle) {
+        int count = 0;
+        int from = 0;
+        while ((from = text.indexOf(needle, from)) >= 0) {
+            count++;
+            from += needle.length();
+        }
+        return count;
     }
 }

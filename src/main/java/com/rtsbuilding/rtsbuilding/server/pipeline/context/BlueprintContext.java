@@ -9,6 +9,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePip
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -76,6 +78,15 @@ public class BlueprintContext extends PipelineContext {
     /** 计划与有序队列仍在由统一任务预算分片构建。 */
     public static final TypedKey<Boolean> KEY_PREPARING =
             new TypedKey<>("blueprintPreparing", Boolean.class);
+
+    /** 蓝图任务创建时的来源维度，不能随玩家切维漂移。 */
+    public static final TypedKey<ResourceKey<Level>> KEY_SOURCE_DIMENSION =
+            new TypedKey<>("blueprintSourceDimension", castResourceKeyClass());
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Class<ResourceKey<Level>> castResourceKeyClass() {
+        return (Class) ResourceKey.class;
+    }
 
     /** 旋转中心偏移量，由 {@code BlueprintExecutePipe} 计算并存放。 */
     public static final TypedKey<BlockPos> KEY_CENTER_OFFSET =

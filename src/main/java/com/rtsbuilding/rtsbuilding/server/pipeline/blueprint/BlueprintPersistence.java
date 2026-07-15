@@ -120,7 +120,9 @@ public final class BlueprintPersistence {
         data.putInt(KEY_SKIPPED_MISSING_BLOCKS, bctx.getSkippedMissingBlocks());
         data.putInt(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
         data.putBoolean(KEY_PREPARING, bctx.isPreparing());
-        data.putString(KEY_SOURCE_DIMENSION, player.serverLevel().dimension().location().toString());
+        ResourceKey<Level> sourceDimension = bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION);
+        if (sourceDimension == null) sourceDimension = player.serverLevel().dimension();
+        data.putString(KEY_SOURCE_DIMENSION, sourceDimension.location().toString());
 
         // 持久化到工作流条目
         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
@@ -220,6 +222,7 @@ public final class BlueprintPersistence {
         ctx.setData(BlueprintContext.KEY_CENTER_OFFSET, centerOffset);
         boolean preparing = data.getBoolean(KEY_PREPARING);
         ctx.setPreparing(true);
+        ctx.setData(BlueprintContext.KEY_SOURCE_DIMENSION, sourceDimension);
         ctx.setPlacedCount(placedCount);
         ctx.setSkippedMissing(skippedMissing);
         ctx.setSkippedUnsupported(skippedUnsupported);
@@ -249,7 +252,8 @@ public final class BlueprintPersistence {
                 BlueprintContext.KEY_SKIPPED_UNSUPPORTED,
                 BlueprintContext.KEY_SKIPPED_MISSING_BLOCKS,
                 BlueprintContext.KEY_SKIPPED_BLOCKED,
-                BlueprintContext.KEY_PREPARING
+                BlueprintContext.KEY_PREPARING,
+                BlueprintContext.KEY_SOURCE_DIMENSION
         );
         // 准备阶段没有世界副作用，崩溃后从 0 重算；READY 任务恢复唯一 remaining 队列。
         com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitBlueprint(
