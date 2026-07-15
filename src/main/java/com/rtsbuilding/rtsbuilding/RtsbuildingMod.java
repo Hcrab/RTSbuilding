@@ -267,7 +267,7 @@ public class RtsbuildingMod {
                 } catch (RuntimeException failure) {
                     LOGGER.error("玩家 {} 登出时 durable task 冲刷失败，已保留 dirty 并拒绝静默继续",
                             serverPlayer.getUUID(), failure);
-                    throw failure;
+                    // 登出清理必须继续；dirty 会由后续 tick/ServerStopping 重试，绝不能因此遗留离线 Player 引用。
                 }
                 // 停止相机会话并销毁服务端相机实体
                 RtsCameraManager.stopIfActive(serverPlayer);

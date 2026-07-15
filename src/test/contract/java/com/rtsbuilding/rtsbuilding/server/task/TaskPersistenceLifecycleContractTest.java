@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 防止事件整理时把 durable task 冲刷退回世界停止后，或放到 Session 清理之后。 */
@@ -29,6 +30,11 @@ class TaskPersistenceLifecycleContractTest {
         int sessionCleanup = source.indexOf("ServiceRegistry.getInstance().session().onPlayerLogout(serverPlayer)");
         assertTrue(ownerFlush >= 0 && sessionCleanup > ownerFlush,
                 "durable owner flush 必须发生在 Session 清理之前");
+        int logoutCatch = source.indexOf("登出时 durable task 冲刷失败", ownerFlush);
+        int playerDetach = source.indexOf("RtsCameraManager.stopIfActive(serverPlayer)", logoutCatch);
+        assertTrue(logoutCatch >= 0 && playerDetach > logoutCatch);
+        assertFalse(source.substring(logoutCatch, playerDetach).contains("throw failure"),
+                "owner flush 失败必须继续 detach/Session/SaveScheduler 清理，dirty 留给后续重试");
 
         int stopping = source.indexOf("onServerStopping(ServerStoppingEvent event)");
         int stopped = source.indexOf("onServerStopped(ServerStoppedEvent event)");
