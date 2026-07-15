@@ -286,6 +286,22 @@ public final class TaskPersistenceCoordinator {
         return dirtySnapshots.size() + pendingTombstones.size();
     }
 
+    /**
+     * 查询指定任务是否仍有尚未 ACK 的快照或终态回执。
+     *
+     * <p>该入口只暴露只读事实，供登出等生命周期事件做按玩家定向冲刷；调用方不能借此访问或修改
+     * {@link TaskStore}，也不能把“内存中存在”误当成“已经持久化”。</p>
+     */
+    public synchronized boolean isDirty(TaskId taskId) {
+        Objects.requireNonNull(taskId, "taskId");
+        return dirtySnapshots.containsKey(taskId) || pendingTombstones.containsKey(taskId);
+    }
+
+    /** 返回稳定排序的脏任务 ID 快照，避免生命周期层持有协调器内部集合。 */
+    public synchronized List<TaskId> dirtyTaskIds() {
+        return allDirtyTaskIds().stream().sorted().toList();
+    }
+
     private PreparationResult prepare(TaskRepository.Commit commit, CommitKind kind,
             List<TaskSnapshot> snapshots, List<TaskTombstone> tombstones, Set<TaskId> purgedReceipts,
             String migrationId, List<TaskSnapshot> migrationSnapshots, long estimatedBytes,
