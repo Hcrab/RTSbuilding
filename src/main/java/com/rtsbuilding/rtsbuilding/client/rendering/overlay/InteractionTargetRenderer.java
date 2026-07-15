@@ -233,10 +233,10 @@ public final class InteractionTargetRenderer {
             return false;
         }
 
-        // Compute GUI-space cursor coordinates
-        var mcWindow = minecraft.getWindow();
-        double mouseX = minecraft.mouseHandler.xpos() * mcWindow.getGuiScaledWidth() / (double) mcWindow.getScreenWidth();
-        double mouseY = minecraft.mouseHandler.ypos() * mcWindow.getGuiScaledHeight() / (double) mcWindow.getScreenHeight();
+        // BuilderScreen 在固定 RTS UI Scale 的 render pass 中已经把鼠标换算到自己的坐标系。
+        // 这里若再次按 Minecraft GUI Scale 换算，屏幕下半部会被误判为底部面板，目标框便会提前消失。
+        double mouseX = builderScreen.getCurrentMouseX();
+        double mouseY = builderScreen.getCurrentMouseY();
 
         // Blocked when cursor is outside the world-view area
         if (!builderScreen.isWorldArea(mouseX, mouseY)) {
