@@ -1,6 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,16 +38,25 @@ public interface TaskRepository {
     /** 已持久化的完整逻辑镜像；集合在构造时做防御性复制。 */
     record Image(Map<TaskId, TaskSnapshot> tasks,
                  Map<TaskId, TaskTombstone> tombstones,
-                 Set<String> completedMigrations) {
+                 Set<String> completedMigrations,
+                 TaskAssetManifest assets) {
         public Image {
             tasks = Map.copyOf(new LinkedHashMap<>(Objects.requireNonNull(tasks, "tasks")));
             tombstones = Map.copyOf(new LinkedHashMap<>(Objects.requireNonNull(tombstones, "tombstones")));
             completedMigrations = Set.copyOf(
                     new LinkedHashSet<>(Objects.requireNonNull(completedMigrations, "completedMigrations")));
+            Objects.requireNonNull(assets, "assets");
+            assets.requireOwnedBy(tasks.keySet());
+            requireConsistentAssetLinks(tasks, assets);
+        }
+
+        public Image(Map<TaskId, TaskSnapshot> tasks,
+                Map<TaskId, TaskTombstone> tombstones, Set<String> completedMigrations) {
+            this(tasks, tombstones, completedMigrations, TaskAssetManifest.empty());
         }
 
         public static Image empty() {
-            return new Image(Map.of(), Map.of(), Set.of());
+            return new Image(Map.of(), Map.of(), Set.of(), TaskAssetManifest.empty());
         }
     }
 
@@ -51,7 +64,9 @@ public interface TaskRepository {
     record Commit(List<TaskSnapshot> upserts,
                   List<TaskTombstone> tombstones,
                   Set<TaskId> purgedTombstones,
-                  Set<String> completedMigrations) {
+                  Set<String> completedMigrations,
+                  List<TaskAssetMetadata> assetUpserts,
+                  Set<TaskAssetId> removedAssets) {
         public Commit {
             upserts = List.copyOf(new ArrayList<>(Objects.requireNonNull(upserts, "upserts")));
             tombstones = List.copyOf(new ArrayList<>(Objects.requireNonNull(tombstones, "tombstones")));
@@ -59,10 +74,19 @@ public interface TaskRepository {
                     new LinkedHashSet<>(Objects.requireNonNull(purgedTombstones, "purgedTombstones")));
             completedMigrations = Set.copyOf(
                     new LinkedHashSet<>(Objects.requireNonNull(completedMigrations, "completedMigrations")));
+            assetUpserts = List.copyOf(new ArrayList<>(Objects.requireNonNull(assetUpserts, "assetUpserts")));
+            removedAssets = Set.copyOf(
+                    new LinkedHashSet<>(Objects.requireNonNull(removedAssets, "removedAssets")));
             if (upserts.isEmpty() && tombstones.isEmpty()
-                    && purgedTombstones.isEmpty() && completedMigrations.isEmpty()) {
+                    && purgedTombstones.isEmpty() && completedMigrations.isEmpty()
+                    && assetUpserts.isEmpty() && removedAssets.isEmpty()) {
                 throw new IllegalArgumentException("不能提交空批次");
             }
+        }
+
+        public Commit(List<TaskSnapshot> upserts, List<TaskTombstone> tombstones,
+                Set<TaskId> purgedTombstones, Set<String> completedMigrations) {
+            this(upserts, tombstones, purgedTombstones, completedMigrations, List.of(), Set.of());
         }
 
         public static Commit upserts(Collection<TaskSnapshot> snapshots) {
@@ -70,7 +94,8 @@ public interface TaskRepository {
         }
 
         public int recordCount() {
-            return upserts.size() + tombstones.size() + purgedTombstones.size();
+            return upserts.size() + tombstones.size() + purgedTombstones.size()
+                    + assetUpserts.size() + removedAssets.size();
         }
     }
 
@@ -134,6 +159,35 @@ public interface TaskRepository {
         public AcknowledgeResult {
             if (!accepted && durable) throw new IllegalArgumentException("未接受的 ACK 不能是 durable");
             if (durable && failure != null) throw new IllegalArgumentException("durable ACK 不能带 failure");
+        }
+    }
+
+    private static void requireConsistentAssetLinks(
+            Map<TaskId, TaskSnapshot> tasks, TaskAssetManifest manifest) {
+        Map<TaskId, Integer> assetsPerTask = new LinkedHashMap<>();
+        for (TaskAssetMetadata metadata : manifest.entries().values()) {
+            TaskSnapshot task = tasks.get(metadata.taskId());
+            if (task == null) throw new IllegalArgumentException("asset metadata 引用不存在的 task");
+            if ("blueprint".equals(metadata.kind()) && task.type() != TaskType.BLUEPRINT) {
+                throw new IllegalArgumentException("blueprint metadata 只能属于 BLUEPRINT task");
+            }
+            if (!task.payloadView().hasUUID("asset_id")
+                    || !task.payloadView().getUUID("asset_id").equals(metadata.assetId().value())) {
+                throw new IllegalArgumentException("task.payload.asset_id 与 metadata 不一致");
+            }
+            assetsPerTask.merge(metadata.taskId(), 1, Integer::sum);
+        }
+        for (TaskSnapshot task : tasks.values()) {
+            if (!task.payloadView().contains("asset_id")) continue;
+            if (!task.payloadView().hasUUID("asset_id")) {
+                throw new IllegalArgumentException("task.payload.asset_id 类型损坏");
+            }
+            TaskAssetId assetId = new TaskAssetId(task.payloadView().getUUID("asset_id"));
+            TaskAssetMetadata metadata = manifest.entries().get(assetId);
+            if (metadata == null || !metadata.taskId().equals(task.id())
+                    || assetsPerTask.getOrDefault(task.id(), 0) != 1) {
+                throw new IllegalArgumentException("含 asset_id 的 task 必须有且仅有一条匹配 metadata");
+            }
         }
     }
 }

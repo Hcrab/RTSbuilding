@@ -3,6 +3,9 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.IntArrayTag;
@@ -19,7 +22,8 @@ import java.util.Set;
 
 /** 版本化 durable task NBT 编解码器；未知版本或损坏字段必须 fail closed。 */
 public final class TaskCodec {
-    public static final int CURRENT_SCHEMA = 1;
+    public static final int LEGACY_SCHEMA = 1;
+    public static final int CURRENT_SCHEMA = 2;
     public static final int MAX_TASKS = 100_000;
     public static final int MAX_MIGRATIONS = 4_096;
     /** 大型 plan 必须外置为引用，不能把任意大 NBT 塞进每 Tick checkpoint。 */
@@ -31,6 +35,13 @@ public final class TaskCodec {
     private static final String TASKS = "tasks";
     private static final String TOMBSTONES = "tombstones";
     private static final String MIGRATIONS = "completed_migrations";
+    private static final String ASSETS = "assets";
+    private static final Set<String> ROOT_V1_FIELDS = Set.of(
+            "schema", TASKS, TOMBSTONES, MIGRATIONS);
+    private static final Set<String> ROOT_V2_FIELDS = Set.of(
+            "schema", TASKS, TOMBSTONES, MIGRATIONS, ASSETS);
+    private static final Set<String> ASSET_FIELDS = Set.of(
+            "asset_id", "task_id", "kind", "sha256", "compressed_bytes", "logical_bytes");
 
     public CompoundTag encodeImage(TaskRepository.Image image) {
         if ((long) image.tasks().size() + image.tombstones().size() > MAX_TASKS) {
@@ -79,14 +90,25 @@ public final class TaskCodec {
             migrations.add(StringTag.valueOf(migration));
         });
         root.put(MIGRATIONS, migrations);
+
+        ListTag assets = new ListTag();
+        image.assets().entries().values().stream()
+                .sorted(Comparator.comparing(TaskAssetMetadata::assetId))
+                .map(TaskCodec::encodeAsset)
+                .forEach(assets::add);
+        root.put(ASSETS, assets);
         return root;
     }
 
     public TaskRepository.Image decodeImage(CompoundTag root) {
         try {
             int schema = requireInt(root, "schema");
-            if (schema != CURRENT_SCHEMA) {
+            if (schema < LEGACY_SCHEMA || schema > CURRENT_SCHEMA) {
                 throw new TaskCodecException("不支持的 task schema: " + schema);
+            }
+            Set<String> expectedRootFields = schema == LEGACY_SCHEMA ? ROOT_V1_FIELDS : ROOT_V2_FIELDS;
+            if (!root.getAllKeys().equals(expectedRootFields)) {
+                throw new TaskCodecException("task root 缺少字段或包含当前 schema 未知字段");
             }
 
             ListTag encodedTasks = requireList(root, TASKS, Tag.TAG_COMPOUND);
@@ -138,12 +160,54 @@ public final class TaskCodec {
             if (imageBytes > MAX_IMAGE_ESTIMATED_BYTES) {
                 throw new TaskCodecException("task 存档超过总量上限");
             }
-            return new TaskRepository.Image(tasks, tombstones, migrations);
+            TaskAssetManifest assets = TaskAssetManifest.empty();
+            if (schema == CURRENT_SCHEMA) {
+                ListTag encodedAssets = requireList(root, ASSETS, Tag.TAG_COMPOUND);
+                if (encodedAssets.size() > TaskAssetManifest.MAX_ASSETS) {
+                    throw new TaskCodecException("活动资产数量超过上限");
+                }
+                Map<TaskAssetId, TaskAssetMetadata> decodedAssets = new LinkedHashMap<>();
+                for (int i = 0; i < encodedAssets.size(); i++) {
+                    TaskAssetMetadata metadata = decodeAsset(encodedAssets.getCompound(i));
+                    if (decodedAssets.putIfAbsent(metadata.assetId(), metadata) != null) {
+                        throw new TaskCodecException("重复 assetId: " + metadata.assetId());
+                    }
+                }
+                assets = new TaskAssetManifest(decodedAssets);
+                assets.requireOwnedBy(tasks.keySet());
+            }
+            return new TaskRepository.Image(tasks, tombstones, migrations, assets);
         } catch (TaskCodecException e) {
             throw e;
         } catch (RuntimeException e) {
             throw new TaskCodecException("task 存档字段损坏", e);
         }
+    }
+
+    private static CompoundTag encodeAsset(TaskAssetMetadata metadata) {
+        CompoundTag tag = new CompoundTag();
+        tag.putUUID("asset_id", metadata.assetId().value());
+        tag.putUUID("task_id", metadata.taskId().value());
+        tag.putString("kind", metadata.kind());
+        tag.putString("sha256", metadata.sha256());
+        tag.putLong("compressed_bytes", metadata.compressedBytes());
+        tag.putLong("logical_bytes", metadata.logicalBytes());
+        return tag;
+    }
+
+    private static TaskAssetMetadata decodeAsset(CompoundTag tag) {
+        if (!tag.getAllKeys().equals(ASSET_FIELDS)) {
+            throw new TaskCodecException("asset metadata 缺少字段或包含未知字段");
+        }
+        requireUuid(tag, "asset_id");
+        requireUuid(tag, "task_id");
+        return new TaskAssetMetadata(
+                new TaskAssetId(tag.getUUID("asset_id")),
+                new TaskId(tag.getUUID("task_id")),
+                requireString(tag, "kind"),
+                requireString(tag, "sha256"),
+                requireLong(tag, "compressed_bytes"),
+                requireLong(tag, "logical_bytes"));
     }
 
     public CompoundTag encodeSnapshot(TaskSnapshot snapshot) {

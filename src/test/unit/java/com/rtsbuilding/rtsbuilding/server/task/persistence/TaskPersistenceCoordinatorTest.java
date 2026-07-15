@@ -2,6 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +49,45 @@ class TaskPersistenceCoordinatorTest {
         assertTrue(coordinator.hasAcknowledged(task.id(), 1L));
         assertEquals(1L, coordinator.durableRevision(task.id()).orElseThrow());
         assertEquals(0, coordinator.dirtyCount());
+    }
+
+    @Test
+    void assetAdmissionIsInvisibleUntilRootAckAndOrdinarySubmitIsRejected() {
+        FaultRepository repository = new FaultRepository();
+        TaskPersistenceCoordinator coordinator = open(repository);
+        TaskSnapshot task = assetTask(TaskLifecycleState.QUEUED);
+        TaskAssetMetadata metadata = metadata(task);
+
+        assertThrows(IllegalArgumentException.class, () -> coordinator.submit(task));
+        TaskPersistenceCoordinator.PreparationResult prepared =
+                coordinator.prepareAssetAdmission(task, metadata);
+        assertEquals(TaskPersistenceCoordinator.PreparationOutcome.PREPARED, prepared.outcome());
+        assertTrue(coordinator.query().get(task.id()).isEmpty());
+
+        TaskRepository.WriteCompletion completion = coordinator.writePrepared(prepared.preparedCommit());
+        assertTrue(coordinator.query().get(task.id()).isEmpty());
+        TaskPersistenceCoordinator.CommitAckResult ack = coordinator.acceptCompletion(completion);
+
+        assertEquals(TaskPersistenceCoordinator.AckOutcome.ACKNOWLEDGED, ack.outcome());
+        assertTrue(coordinator.query().get(task.id()).isPresent());
+        assertEquals(metadata, coordinator.assetManifest().entries().get(metadata.assetId()));
+    }
+
+    @Test
+    void terminalAssetTaskRemovesMetadataInSameRootAndAckReturnsCleanupReceipt() {
+        FaultRepository repository = new FaultRepository();
+        TaskPersistenceCoordinator coordinator = open(repository);
+        TaskSnapshot terminal = assetTask(TaskLifecycleState.COMPLETED);
+        TaskAssetMetadata metadata = metadata(terminal);
+        complete(coordinator, coordinator.prepareAssetAdmission(terminal, metadata));
+
+        coordinator.requestTombstone(terminal.id(), 100L, 500L);
+        TaskPersistenceCoordinator.CommitAckResult ack = complete(
+                coordinator, coordinator.prepareCheckpoint(8, 1_000_000L));
+
+        assertEquals(List.of(metadata), ack.removedAssets());
+        assertTrue(coordinator.assetManifest().entries().isEmpty());
+        assertTrue(repository.image.assets().entries().isEmpty());
     }
 
     @Test
@@ -257,6 +299,22 @@ class TaskPersistenceCoordinatorTest {
                 source.succeededUnits(), source.failedUnits(), payload);
     }
 
+    private static TaskSnapshot assetTask(TaskLifecycleState state) {
+        TaskId taskId = TaskId.create();
+        TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
+        CompoundTag payload = new CompoundTag();
+        payload.putUUID("asset_id", assetId.value());
+        int cursor = state.terminal() ? 1 : 0;
+        return new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
+                TaskType.BLUEPRINT, state, -1, null, 1L, 0L, 0L,
+                1, cursor, cursor, 0, payload);
+    }
+
+    private static TaskAssetMetadata metadata(TaskSnapshot task) {
+        TaskAssetId assetId = new TaskAssetId(task.payload().getUUID("asset_id"));
+        return new TaskAssetMetadata(assetId, task.id(), "blueprint", "a".repeat(64), 512L, 4_096L);
+    }
+
     private static final class FaultRepository implements TaskRepository {
         private Image image = Image.empty();
         private Throwable loadFailure;
@@ -315,7 +373,8 @@ class TaskPersistenceCoordinatorTest {
                 receipts.put(receipt.taskId(), receipt);
             }
             migrations.addAll(commit.completedMigrations());
-            return new Image(tasks, receipts, migrations);
+            var assets = current.assets().apply(commit.assetUpserts(), commit.removedAssets());
+            return new Image(tasks, receipts, migrations, assets);
         }
 
         private record FakePrepared(UUID ticketId, Commit commit) implements PreparedCommit {

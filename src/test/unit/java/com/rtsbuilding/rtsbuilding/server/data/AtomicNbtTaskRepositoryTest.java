@@ -9,6 +9,8 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskRepository;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskTombstone;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,6 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,6 +79,34 @@ class AtomicNbtTaskRepositoryTest {
         TaskRepository.LoadResult.Found reloaded = assertInstanceOf(
                 TaskRepository.LoadResult.Found.class, repository(file).load());
         assertTrue(reloaded.image().tasks().containsKey(snapshot.id()));
+    }
+
+    @Test
+    void taskAndAssetMetadataCommitAndReloadAsOneRootCandidate() {
+        Path file = tempDir.resolve("asset-root.dat");
+        AtomicNbtTaskRepository repository = repository(file);
+        assertInstanceOf(TaskRepository.LoadResult.Missing.class, repository.load());
+        TaskId taskId = TaskId.create();
+        TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
+        CompoundTag payload = new CompoundTag();
+        payload.putUUID("asset_id", assetId.value());
+        TaskSnapshot task = new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(),
+                "minecraft:overworld", TaskType.BLUEPRINT, TaskLifecycleState.QUEUED,
+                -1, null, 1L, 0L, 0L, 1, 0, 0, 0, payload);
+        TaskAssetMetadata metadata = new TaskAssetMetadata(
+                assetId, taskId, "blueprint", "a".repeat(64), 512L, 4_096L);
+        TaskRepository.Commit commit = new TaskRepository.Commit(
+                List.of(task), List.of(), Set.of(), Set.of(), List.of(metadata), Set.of());
+
+        TaskRepository.PrepareResult.Prepared prepared = assertInstanceOf(
+                TaskRepository.PrepareResult.Prepared.class, repository.prepare(commit));
+        TaskRepository.WriteCompletion written = repository.writePrepared(prepared.commit());
+        assertTrue(repository.acknowledge(written).durable());
+
+        TaskRepository.LoadResult.Found reloaded = assertInstanceOf(
+                TaskRepository.LoadResult.Found.class, repository(file).load());
+        assertEquals(metadata, reloaded.image().assets().entries().get(assetId));
+        assertEquals(task, reloaded.image().tasks().get(taskId));
     }
 
     @Test

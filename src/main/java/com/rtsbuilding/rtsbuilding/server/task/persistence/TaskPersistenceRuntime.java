@@ -3,6 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.data.RtsAtomicNbtStore;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.AtomicBlueprintBlobRepository;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobCodec;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobRecord;
 import net.minecraft.server.MinecraftServer;
 
 import java.time.Duration;
@@ -36,7 +40,8 @@ public final class TaskPersistenceRuntime {
 
     public static final TaskPersistenceRuntime INSTANCE = new TaskPersistenceRuntime(
             () -> new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-                    new ArrayBlockingQueue<>(1), Thread.ofPlatform()
+                    // 最多容纳一个 ACK 后 orphan 清理和紧随其后的 root commit，仍保持单 writer 有界顺序。
+                    new ArrayBlockingQueue<>(2), Thread.ofPlatform()
                             .daemon(true)
                             .name("RTSBuilding-TaskWriter")
                             .factory(), new ThreadPoolExecutor.AbortPolicy()));
@@ -50,6 +55,7 @@ public final class TaskPersistenceRuntime {
     private Throwable fatalFailure;
     private Thread serverThread;
     private MinecraftServer server;
+    private AtomicBlueprintBlobRepository blueprintBlobs;
 
     /** 包内构造器用于故障注入测试；生产代码统一使用 {@link #INSTANCE}。 */
     TaskPersistenceRuntime(Supplier<ExecutorService> writerFactory) {
@@ -69,19 +75,24 @@ public final class TaskPersistenceRuntime {
     public void start(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
         TaskCodec codec = new TaskCodec();
+        BlueprintBlobCodec blobCodec = new BlueprintBlobCodec();
+        AtomicBlueprintBlobRepository blobs = new AtomicBlueprintBlobRepository(server, blobCodec);
+        blobs.scan();
         TaskPersistenceCoordinator opened = TaskPersistenceCoordinator.open(
                 new AtomicNbtTaskRepository(
                         new RtsAtomicNbtStore(server, "rtsbuilding", "durable_tasks.dat"), codec),
                 codec);
-        start(server, opened);
+        verifyManifestAssets(opened, blobs, blobCodec);
+        start(server, opened, blobs);
     }
 
     /** 包内启动入口使单元测试无需构造 MinecraftServer。 */
     void start(TaskPersistenceCoordinator coordinator) {
-        start(null, coordinator);
+        start(null, coordinator, null);
     }
 
-    private void start(MinecraftServer server, TaskPersistenceCoordinator coordinator) {
+    private void start(MinecraftServer server, TaskPersistenceCoordinator coordinator,
+            AtomicBlueprintBlobRepository blueprintBlobs) {
         if (this.coordinator != null) {
             if (this.server == server && server != null) return;
             throw new IllegalStateException("TaskPersistenceRuntime 已经启动");
@@ -90,6 +101,7 @@ public final class TaskPersistenceRuntime {
         this.writer = Objects.requireNonNull(writerFactory.get(), "writerFactory 返回了 null");
         this.serverThread = Thread.currentThread();
         this.server = server;
+        this.blueprintBlobs = blueprintBlobs;
     }
 
     /** 仅供领域 command gateway 在服务器主线程提交/替换快照。 */
@@ -179,6 +191,7 @@ public final class TaskPersistenceRuntime {
                 fatalFailure = null;
                 serverThread = null;
                 server = null;
+                blueprintBlobs = null;
             } else {
                 fatalFailure = flushFailure == null
                         ? new IllegalStateException("旧 durable task writer 仍存活，禁止启动新世界")
@@ -190,6 +203,32 @@ public final class TaskPersistenceRuntime {
 
     boolean started() {
         return coordinator != null;
+    }
+
+    private static void verifyManifestAssets(TaskPersistenceCoordinator coordinator,
+            AtomicBlueprintBlobRepository blobs, BlueprintBlobCodec blobCodec) {
+        for (TaskAssetMetadata metadata : coordinator.assetManifest().entries().values()) {
+            if (!"blueprint".equals(metadata.kind())) {
+                throw new IllegalStateException("当前 schema 不支持的活动资产 kind: " + metadata.kind());
+            }
+            AtomicBlueprintBlobRepository.LoadResult loaded = blobs.load(metadata.assetId());
+            if (!(loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Found found)) {
+                Throwable cause = loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Failed failed
+                        ? failed.cause() : null;
+                throw new IllegalStateException("manifest 引用的蓝图 blob 缺失或损坏: " + metadata.assetId(), cause);
+            }
+            BlueprintBlobRecord record = found.record();
+            TaskSnapshot snapshot = coordinator.query().get(metadata.taskId())
+                    .orElseThrow(() -> new IllegalStateException("manifest 引用不存在的 task"));
+            if (!record.assetId().equals(metadata.assetId())
+                    || !record.taskId().equals(metadata.taskId())
+                    || !record.sha256().equals(metadata.sha256())
+                    || found.compressedBytes() != metadata.compressedBytes()
+                    || blobCodec.logicalBytes(record) != metadata.logicalBytes()
+                    || record.blockCount() != snapshot.totalUnits()) {
+                throw new IllegalStateException("manifest/task/blob 三方校验失败: " + metadata.assetId());
+            }
+        }
     }
 
     void flushAll(int maxRetries, Duration timeout) {
@@ -272,6 +311,7 @@ public final class TaskPersistenceRuntime {
             RtsbuildingMod.LOGGER.error("durable task 后台写盘未 ACK，dirty 将在后续 tick 重试: {}",
                     ack.failure() == null ? ack.outcome() : ack.failure().getMessage());
         }
+        scheduleAssetCleanup(ack);
     }
 
     private TaskPersistenceCoordinator.CommitAckResult awaitInFlight(long deadlineNanos) {
@@ -297,7 +337,32 @@ public final class TaskPersistenceRuntime {
                     ? new IllegalStateException("durable task Repository 拒绝 ACK") : ack.failure();
             throw new IllegalStateException("durable task ACK 被拒绝，运行时已 fail-closed", fatalFailure);
         }
+        scheduleAssetCleanup(ack);
         return ack;
+    }
+
+    private void scheduleAssetCleanup(TaskPersistenceCoordinator.CommitAckResult ack) {
+        if (ack.outcome() != TaskPersistenceCoordinator.AckOutcome.ACKNOWLEDGED
+                || ack.removedAssets().isEmpty() || blueprintBlobs == null) return;
+        List<TaskAssetMetadata> removed = List.copyOf(ack.removedAssets());
+        AtomicBlueprintBlobRepository blobRepository = blueprintBlobs;
+        try {
+            writer.execute(() -> {
+                for (TaskAssetMetadata metadata : removed) {
+                    try {
+                        if ("blueprint".equals(metadata.kind())) {
+                            blobRepository.deleteIfMatches(metadata.assetId(), metadata.sha256());
+                        }
+                    } catch (RuntimeException failure) {
+                        // Root 已 durable；这里只能保留安全 orphan，绝不能回滚或伪造失败 ACK。
+                        RtsbuildingMod.LOGGER.warn("删除已退役 task asset 失败，将保留为安全 orphan: {}",
+                                metadata.assetId(), failure);
+                    }
+                }
+            });
+        } catch (RuntimeException rejected) {
+            RtsbuildingMod.LOGGER.warn("task asset 后台清理未入队，将保留为安全 orphan", rejected);
+        }
     }
 
     private static TaskRepository.WriteCompletion joinCompletion(

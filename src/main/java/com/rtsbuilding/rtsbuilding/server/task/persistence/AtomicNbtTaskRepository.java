@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 import com.rtsbuilding.rtsbuilding.server.data.RtsAtomicNbtStore;
 import com.rtsbuilding.rtsbuilding.server.data.RtsNbtStore;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
 import net.minecraft.nbt.CompoundTag;
 
 import java.io.IOException;
@@ -179,7 +180,9 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
             tasks.remove(tombstone.taskId());
         }
         migrations.addAll(commit.completedMigrations());
-        return new Image(tasks, tombstones, migrations);
+        TaskAssetManifest assets = current.assets().apply(commit.assetUpserts(), commit.removedAssets());
+        assets.requireOwnedBy(tasks.keySet());
+        return new Image(tasks, tombstones, migrations, assets);
     }
 
     private record AtomicPreparedCommit(UUID ticketId, Commit logicalCommit) implements PreparedCommit {

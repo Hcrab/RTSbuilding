@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtStringLimits;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
@@ -59,6 +60,18 @@ public final class BlueprintBlobCodec {
         root.putInt("schema", CURRENT_SCHEMA);
         root.putString("sha256", record.sha256());
         return root;
+    }
+
+    public TaskAssetMetadata metadata(BlueprintBlobRecord record, long compressedBytes) {
+        validateLogical(record);
+        return new TaskAssetMetadata(record.assetId(), record.taskId(), KIND, record.sha256(),
+                compressedBytes, logicalBytes(record));
+    }
+
+    public long logicalBytes(BlueprintBlobRecord record) {
+        validateLogical(record);
+        return boundedNbt.estimatePayloadBytes(
+                record.structureView(), MAX_LOGICAL_BYTES, MAX_NBT_NODES);
     }
 
     public BlueprintBlobRecord decode(CompoundTag root) {

@@ -2,6 +2,10 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,6 +38,7 @@ public final class TaskPersistenceCoordinator {
     private final Map<TaskId, TaskTombstone> pendingTombstones = new LinkedHashMap<>();
     private final Map<TaskId, Long> durableRevisions = new LinkedHashMap<>();
     private final Set<String> completedMigrations = new LinkedHashSet<>();
+    private TaskAssetManifest assets = TaskAssetManifest.empty();
     private PendingCommit inFlight;
     private int rotationCursor;
 
@@ -65,6 +70,7 @@ public final class TaskPersistenceCoordinator {
                             coordinator.durableRevisions.put(receipt.taskId(), receipt.revision());
                         });
                 coordinator.completedMigrations.addAll(found.image().completedMigrations());
+                coordinator.assets = found.image().assets();
             }
             case TaskRepository.LoadResult.Missing ignored -> {
             }
@@ -77,15 +83,63 @@ public final class TaskPersistenceCoordinator {
     /** Command Gateway 直接调用；同一活跃 submission 返回旧任务，receipt 中的 submission 则拒绝重放。 */
     public synchronized TaskAdmissionResult submit(TaskSnapshot snapshot) {
         requireMigrationSettled();
+        if (snapshotAssetId(snapshot).isPresent()) {
+            throw new IllegalArgumentException("带 asset_id 的任务必须走 prepareAssetAdmission durability barrier");
+        }
         long estimatedBytes = codec.estimateSnapshotBytes(snapshot);
         TaskAdmissionResult result = store.submit(snapshot);
         if (result.inserted()) dirtySnapshots.put(snapshot.id(), new PendingSnapshot(snapshot, estimatedBytes));
         return result;
     }
 
+    /**
+     * 外置蓝图资产的专用 durability barrier：blob 已在后台 durable 后，才原子提交 task + metadata。
+     * ACK 前 snapshot 不进入 TaskStore，因此 Scheduler、Workflow 与玩家查询都不可见。
+     */
+    public synchronized PreparationResult prepareAssetAdmission(
+            TaskSnapshot snapshot, TaskAssetMetadata metadata) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        Objects.requireNonNull(metadata, "metadata");
+        if (inFlight != null) return PreparationResult.inFlight(allDirtyTaskIds());
+        if (snapshot.type() != TaskType.BLUEPRINT || !"blueprint".equals(metadata.kind())) {
+            return PreparationResult.failed(List.of(snapshot.id()),
+                    new IllegalArgumentException("阶段 A 只允许 BLUEPRINT + blueprint 外置资产"));
+        }
+        Optional<TaskAssetId> referenced = snapshotAssetId(snapshot);
+        if (referenced.isEmpty() || !referenced.get().equals(metadata.assetId())
+                || !metadata.taskId().equals(snapshot.id())) {
+            return PreparationResult.failed(List.of(snapshot.id()),
+                    new IllegalArgumentException("snapshot.asset_id 与 metadata/taskId 不一致"));
+        }
+
+        try {
+            TaskStore probe = new TaskStore();
+            store.snapshots().forEach(probe::restore);
+            store.receipts().forEach(probe::restoreReceipt);
+            TaskAdmissionResult admission = probe.submit(snapshot);
+            if (!admission.inserted()) {
+                TaskAssetMetadata existing = assets.entries().get(metadata.assetId());
+                return admission.snapshot().id().equals(snapshot.id()) && metadata.equals(existing)
+                        ? PreparationResult.alreadyApplied()
+                        : PreparationResult.failed(List.of(snapshot.id()),
+                                new IllegalStateException("asset admission 与现有 submission 冲突"));
+            }
+            assets.apply(List.of(metadata), Set.of());
+            long estimated = addSaturated(codec.estimateSnapshotBytes(snapshot), 256L);
+            return prepare(new TaskRepository.Commit(
+                            List.of(snapshot), List.of(), Set.of(), Set.of(),
+                            List.of(metadata), Set.of()),
+                    CommitKind.ASSET_ADMISSION, List.of(snapshot), List.of(), Set.of(), null,
+                    List.of(snapshot), estimated, new LinkedHashSet<>());
+        } catch (RuntimeException failure) {
+            return PreparationResult.failed(List.of(snapshot.id()), failure);
+        }
+    }
+
     /** tombstone 一旦请求便冻结 snapshot revision，消除 upsert 与墓碑互相追赶。 */
     public synchronized void replace(TaskSnapshot snapshot) {
         requireMigrationSettled();
+        requireExistingAssetReference(snapshot);
         if (pendingTombstones.containsKey(snapshot.id())) {
             throw new IllegalStateException("已请求终态回执，禁止继续修改 snapshot revision");
         }
@@ -121,6 +175,7 @@ public final class TaskPersistenceCoordinator {
         int start = Math.floorMod(rotationCursor, candidates.size());
         List<TaskSnapshot> snapshots = new ArrayList<>();
         List<TaskTombstone> tombstones = new ArrayList<>();
+        LinkedHashSet<TaskAssetId> removedAssets = new LinkedHashSet<>();
         LinkedHashSet<TaskId> selectedIds = new LinkedHashSet<>();
         LinkedHashSet<TaskId> deferred = new LinkedHashSet<>();
         long bytes = 0L;
@@ -135,12 +190,14 @@ public final class TaskPersistenceCoordinator {
             selectedIds.add(candidate.taskId());
             if (candidate.snapshot() != null) snapshots.add(candidate.snapshot());
             if (candidate.tombstone() != null) tombstones.add(candidate.tombstone());
+            removedAssets.addAll(candidate.removedAssets());
             records += candidate.recordCount();
             bytes += candidate.estimatedBytes();
         }
         rotationCursor = (start + 1) % candidates.size();
         if (selectedIds.isEmpty()) return PreparationResult.budgetBlocked(List.copyOf(deferred));
-        return prepare(new TaskRepository.Commit(snapshots, tombstones, Set.of(), Set.of()),
+        return prepare(new TaskRepository.Commit(
+                        snapshots, tombstones, Set.of(), Set.of(), List.of(), removedAssets),
                 CommitKind.CHECKPOINT, snapshots, tombstones, Set.of(), null,
                 List.of(), bytes, deferred);
     }
@@ -163,7 +220,8 @@ public final class TaskPersistenceCoordinator {
                 ? List.of() : List.of(candidate.snapshot());
         List<TaskTombstone> tombstones = candidate.tombstone() == null
                 ? List.of() : List.of(candidate.tombstone());
-        return prepare(new TaskRepository.Commit(snapshots, tombstones, Set.of(), Set.of()),
+        return prepare(new TaskRepository.Commit(
+                        snapshots, tombstones, Set.of(), Set.of(), List.of(), candidate.removedAssets()),
                 CommitKind.DEDICATED, snapshots, tombstones, Set.of(), null,
                 List.of(), candidate.estimatedBytes(), deferred);
     }
@@ -258,20 +316,29 @@ public final class TaskPersistenceCoordinator {
             store.purgeReceipt(purged);
             durableRevisions.remove(purged);
         }
-        if (pending.kind() == CommitKind.MIGRATION) {
-            for (TaskSnapshot snapshot : pending.migrationSnapshots()) {
-                store.submit(snapshot);
+        assets = assets.apply(pending.assetUpserts(),
+                pending.removedAssets().stream().map(TaskAssetMetadata::assetId).toList());
+        if (pending.kind() == CommitKind.MIGRATION || pending.kind() == CommitKind.ASSET_ADMISSION) {
+            for (TaskSnapshot snapshot : pending.postAckSnapshots()) {
+                TaskAdmissionResult restored = store.submit(snapshot);
+                if (!restored.inserted() || !restored.snapshot().id().equals(snapshot.id())) {
+                    throw new IllegalStateException("durable ACK 后 TaskStore admission 与 root 镜像漂移");
+                }
                 durableRevisions.put(snapshot.id(), snapshot.revision());
                 acknowledged.put(snapshot.id(), snapshot.revision());
             }
-            completedMigrations.add(pending.migrationId());
+            if (pending.kind() == CommitKind.MIGRATION) completedMigrations.add(pending.migrationId());
         }
         return CommitAckResult.acknowledged(
-                acknowledged, pending.purgedReceipts(), completion.bytesWritten());
+                acknowledged, pending.purgedReceipts(), pending.removedAssets(), completion.bytesWritten());
     }
 
     public TaskQuery query() {
         return query;
+    }
+
+    public synchronized TaskAssetManifest assetManifest() {
+        return assets;
     }
 
     public synchronized Optional<Long> durableRevision(TaskId taskId) {
@@ -304,8 +371,12 @@ public final class TaskPersistenceCoordinator {
 
     private PreparationResult prepare(TaskRepository.Commit commit, CommitKind kind,
             List<TaskSnapshot> snapshots, List<TaskTombstone> tombstones, Set<TaskId> purgedReceipts,
-            String migrationId, List<TaskSnapshot> migrationSnapshots, long estimatedBytes,
+            String migrationId, List<TaskSnapshot> postAckSnapshots, long estimatedBytes,
             LinkedHashSet<TaskId> deferred) {
+        List<TaskAssetMetadata> removedAssetMetadata = commit.removedAssets().stream()
+                .map(assets.entries()::get)
+                .filter(Objects::nonNull)
+                .toList();
         TaskRepository.PrepareResult result = repository.prepare(commit);
         if (result instanceof TaskRepository.PrepareResult.Failed failed) {
             deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).toList());
@@ -314,7 +385,8 @@ public final class TaskPersistenceCoordinator {
         }
         TaskRepository.PreparedCommit prepared = ((TaskRepository.PrepareResult.Prepared) result).commit();
         inFlight = new PendingCommit(prepared, kind, List.copyOf(snapshots), List.copyOf(tombstones),
-                Set.copyOf(purgedReceipts), migrationId, List.copyOf(migrationSnapshots));
+                Set.copyOf(purgedReceipts), migrationId, List.copyOf(postAckSnapshots),
+                commit.assetUpserts(), removedAssetMetadata);
         return PreparationResult.prepared(prepared, estimatedBytes, List.copyOf(deferred));
     }
 
@@ -324,12 +396,18 @@ public final class TaskPersistenceCoordinator {
         for (PendingSnapshot pending : dirtySnapshots.values()) {
             TaskTombstone tombstone = pendingTombstones.get(pending.snapshot().id());
             if (tombstone != null) consumedTombstones.add(tombstone.taskId());
+            Set<TaskAssetId> removedAssets = tombstone == null
+                    ? Set.of() : assetIdsForTask(tombstone.taskId());
             result.add(new Candidate(pending.snapshot().id(), pending.snapshot(), tombstone,
-                    pending.estimatedBytes() + (tombstone == null ? 0L : 192L)));
+                    removedAssets,
+                    pending.estimatedBytes() + (tombstone == null ? 0L : 192L)
+                            + removedAssets.size() * 96L));
         }
         for (TaskTombstone tombstone : pendingTombstones.values()) {
             if (!consumedTombstones.contains(tombstone.taskId())) {
-                result.add(new Candidate(tombstone.taskId(), null, tombstone, 192L));
+                Set<TaskAssetId> removedAssets = assetIdsForTask(tombstone.taskId());
+                result.add(new Candidate(tombstone.taskId(), null, tombstone, removedAssets,
+                        192L + removedAssets.size() * 96L));
             }
         }
         return result;
@@ -339,8 +417,20 @@ public final class TaskPersistenceCoordinator {
         PendingSnapshot snapshot = dirtySnapshots.get(taskId);
         TaskTombstone tombstone = pendingTombstones.get(taskId);
         if (snapshot == null && tombstone == null) return null;
+        Set<TaskAssetId> removedAssets = tombstone == null ? Set.of() : assetIdsForTask(taskId);
         return new Candidate(taskId, snapshot == null ? null : snapshot.snapshot(), tombstone,
-                (snapshot == null ? 0L : snapshot.estimatedBytes()) + (tombstone == null ? 0L : 192L));
+                removedAssets, (snapshot == null ? 0L : snapshot.estimatedBytes())
+                        + (tombstone == null ? 0L : 192L) + removedAssets.size() * 96L);
+    }
+
+    private Set<TaskAssetId> assetIdsForTask(TaskId taskId) {
+        LinkedHashSet<TaskAssetId> result = new LinkedHashSet<>();
+        assets.entries().values().stream()
+                .filter(metadata -> metadata.taskId().equals(taskId))
+                .map(TaskAssetMetadata::assetId)
+                .sorted()
+                .forEach(result::add);
+        return Set.copyOf(result);
     }
 
     private List<TaskId> allDirtyTaskIds() {
@@ -421,23 +511,28 @@ public final class TaskPersistenceCoordinator {
     }
 
     public record CommitAckResult(AckOutcome outcome, Map<TaskId, Long> acknowledgedRevisions,
-                                  Set<TaskId> purgedReceipts, long bytesWritten, Throwable failure) {
+                                  Set<TaskId> purgedReceipts,
+                                  List<TaskAssetMetadata> removedAssets,
+                                  long bytesWritten, Throwable failure) {
         public CommitAckResult {
             acknowledgedRevisions = Map.copyOf(acknowledgedRevisions);
             purgedReceipts = Set.copyOf(purgedReceipts);
+            removedAssets = List.copyOf(removedAssets);
         }
 
         static CommitAckResult acknowledged(
-                Map<TaskId, Long> revisions, Set<TaskId> purged, long bytesWritten) {
-            return new CommitAckResult(AckOutcome.ACKNOWLEDGED, revisions, purged, bytesWritten, null);
+                Map<TaskId, Long> revisions, Set<TaskId> purged,
+                List<TaskAssetMetadata> removedAssets, long bytesWritten) {
+            return new CommitAckResult(
+                    AckOutcome.ACKNOWLEDGED, revisions, purged, removedAssets, bytesWritten, null);
         }
 
         static CommitAckResult failed(Throwable failure) {
-            return new CommitAckResult(AckOutcome.FAILED, Map.of(), Set.of(), -1L, failure);
+            return new CommitAckResult(AckOutcome.FAILED, Map.of(), Set.of(), List.of(), -1L, failure);
         }
 
         static CommitAckResult rejected(Throwable failure) {
-            return new CommitAckResult(AckOutcome.REJECTED, Map.of(), Set.of(), -1L, failure);
+            return new CommitAckResult(AckOutcome.REJECTED, Map.of(), Set.of(), List.of(), -1L, failure);
         }
     }
 
@@ -450,6 +545,7 @@ public final class TaskPersistenceCoordinator {
     private enum CommitKind {
         CHECKPOINT,
         DEDICATED,
+        ASSET_ADMISSION,
         MIGRATION,
         COMPACTION
     }
@@ -458,16 +554,40 @@ public final class TaskPersistenceCoordinator {
     }
 
     private record Candidate(TaskId taskId, TaskSnapshot snapshot,
-                             TaskTombstone tombstone, long estimatedBytes) {
+                             TaskTombstone tombstone, Set<TaskAssetId> removedAssets,
+                             long estimatedBytes) {
+        private Candidate {
+            removedAssets = Set.copyOf(removedAssets);
+        }
+
         int recordCount() {
-            return (snapshot == null ? 0 : 1) + (tombstone == null ? 0 : 1);
+            return (snapshot == null ? 0 : 1) + (tombstone == null ? 0 : 1) + removedAssets.size();
         }
     }
 
     private record PendingCommit(TaskRepository.PreparedCommit prepared, CommitKind kind,
                                  List<TaskSnapshot> snapshots, List<TaskTombstone> tombstones,
                                  Set<TaskId> purgedReceipts, String migrationId,
-                                 List<TaskSnapshot> migrationSnapshots) {
+                                 List<TaskSnapshot> postAckSnapshots,
+                                 List<TaskAssetMetadata> assetUpserts,
+                                 List<TaskAssetMetadata> removedAssets) {
+    }
+
+    private void requireExistingAssetReference(TaskSnapshot snapshot) {
+        Optional<TaskAssetId> referenced = snapshotAssetId(snapshot);
+        if (referenced.isEmpty()) return;
+        TaskAssetMetadata metadata = assets.entries().get(referenced.get());
+        if (metadata == null || !metadata.taskId().equals(snapshot.id())) {
+            throw new IllegalArgumentException("任务引用的 asset_id 不在 durable manifest 中");
+        }
+    }
+
+    private static Optional<TaskAssetId> snapshotAssetId(TaskSnapshot snapshot) {
+        if (!snapshot.payloadView().contains("asset_id")) return Optional.empty();
+        if (!snapshot.payloadView().hasUUID("asset_id")) {
+            throw new IllegalArgumentException("payload.asset_id 必须是 UUID int-array");
+        }
+        return Optional.of(new TaskAssetId(snapshot.payloadView().getUUID("asset_id")));
     }
 
     private static final class ReadOnlyTaskQuery implements TaskQuery {
