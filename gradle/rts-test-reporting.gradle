@@ -39,6 +39,7 @@ def featureName = { String className ->
 tasks.withType(Test).configureEach { Test testTask ->
     def totals = new LinkedHashMap<String, int[]>()
     def categoryTotals = new LinkedHashMap<String, int[]>()
+    def taskLogger = testTask.logger
 
     beforeSuite { descriptor ->
         if (descriptor.parent == null) {
@@ -59,32 +60,35 @@ tasks.withType(Test).configureEach { Test testTask ->
     afterSuite { descriptor, result ->
         if (descriptor.parent != null) return
 
-        logger.lifecycle('')
-        logger.lifecycle("========== RTSBuilding 测试汇总：${testTask.name} ==========")
+        taskLogger.lifecycle('')
+        taskLogger.lifecycle("========== RTSBuilding 测试汇总：${testTask.name} ==========")
         totals.each { feature, counts ->
-            logger.lifecycle("${feature}功能：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
+            taskLogger.lifecycle("${feature}功能：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
         }
-        logger.lifecycle('---------- 按测试类型 ----------')
+        taskLogger.lifecycle('---------- 按测试类型 ----------')
         categoryTotals.each { category, counts ->
-            logger.lifecycle("${category}：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
+            taskLogger.lifecycle("${category}：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
         }
-        logger.lifecycle("总计：通过 ${result.successfulTestCount} 个，未通过 ${result.failedTestCount} 个，跳过 ${result.skippedTestCount} 个")
-        logger.lifecycle('========================================================')
+        taskLogger.lifecycle("总计：通过 ${result.successfulTestCount} 个，未通过 ${result.failedTestCount} 个，跳过 ${result.skippedTestCount} 个")
+        taskLogger.lifecycle('========================================================')
     }
 }
+
+def rtsTestTaskProvider = tasks.named('test')
 
 tasks.register('rtsTestSummary') {
     group = 'verification'
     description = '当 test 命中 Gradle 缓存时，仍从 XML 结果打印按功能分类的摘要。'
-    dependsOn tasks.named('test')
+    dependsOn rtsTestTaskProvider
     outputs.upToDateWhen { false }
 
+    def testResultsDir = layout.buildDirectory.dir('test-results/test')
     doLast {
-        if (!tasks.named('test').get().state.upToDate) return
-
         def totals = new LinkedHashMap<String, int[]>()
         def categoryTotals = new LinkedHashMap<String, int[]>()
-        fileTree(layout.buildDirectory.dir('test-results/test')).matching { include 'TEST-*.xml' }.files.each { report ->
+        def reportDir = testResultsDir.get().asFile
+        if (!reportDir.isDirectory()) return
+        reportDir.eachFileMatch(~/TEST-.*\.xml/) { report ->
             def document = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(report)
             def testCases = document.getElementsByTagName('testcase')
             for (int index = 0; index < testCases.length; index++) {
@@ -99,6 +103,7 @@ tasks.register('rtsTestSummary') {
                 categoryTotals.computeIfAbsent(category) { new int[3] }[resultIndex]++
             }
         }
+        if (totals.isEmpty()) return
 
         logger.lifecycle('')
         logger.lifecycle('========== RTSBuilding 测试汇总：test（缓存结果） ==========')

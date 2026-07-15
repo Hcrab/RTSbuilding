@@ -441,7 +441,6 @@
   "screen.rtsbuilding.quick_build.title": "快速建造",
   "screen.rtsbuilding.quick_build.mode_build": "范围建造",
   "screen.rtsbuilding.quick_build.mode_destroy": "范围破坏",
-  "screen.rtsbuilding.quick_build.mode_smart_place": "智能放置",
   "screen.rtsbuilding.quick_build.shape": "形状",
   "screen.rtsbuilding.quick_build.fill": "填充",
   "screen.rtsbuilding.quick_build.rotation": "旋转",

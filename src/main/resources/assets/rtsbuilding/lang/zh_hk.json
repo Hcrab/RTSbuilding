@@ -893,5 +893,17 @@
   "message.rtsbuilding.drop_buffer.fallback": "儲存持續 3 秒無法寫入，物品已移至背囊或合併掉落在附近。",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS 每 Tick 全域工作量",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS 每玩家排程片工作量",
-  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 伺服器時間預算"
+  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 伺服器時間預算",
+  "screen.rtsbuilding.quick_build.smart_place_anchored": "锚点已设立 — 右键确认 / 左键取消",
+  "screen.rtsbuilding.quick_build.smart_place_bounds": "包围盒：%s × %s × %s",
+  "screen.rtsbuilding.quick_build.smart_place_detection_diameter": "检测直径",
+  "screen.rtsbuilding.quick_build.smart_place_fill_count": "方块上限",
+  "screen.rtsbuilding.quick_build.smart_place_hint": "指向空洞区域即可实时预览；右键设立锚点后再次右键确认填充。",
+  "screen.rtsbuilding.quick_build.smart_place_mode": "模式",
+  "screen.rtsbuilding.quick_build.smart_place_mode_0": "洞口填充",
+  "screen.rtsbuilding.quick_build.smart_place_mode_1": "湖泊填充",
+  "screen.rtsbuilding.quick_build.smart_place_no_hole": "未检测到有效空洞",
+  "screen.rtsbuilding.quick_build.smart_place_scan_overflow": "扫描已截断：发现 %s 个方块（已达上限 %s）",
+  "screen.rtsbuilding.quick_build.smart_place_scanned": "已发现 %s 个可填充方块（上限 %s）",
+  "screen.rtsbuilding.workflow.type.smart_place_fluid": "智能放置·流体填充"
 }
