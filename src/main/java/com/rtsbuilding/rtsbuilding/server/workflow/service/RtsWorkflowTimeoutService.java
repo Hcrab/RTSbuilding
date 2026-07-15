@@ -1,162 +1,217 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.service;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 
 /**
- * 定期扫描所有玩家的工作流槽位，并移除超过可配置阈值空闲时间的条目。
+ * 在服务端 Tick 线程上定期清理长期没有更新的工作流。
  *
- * <p>防止「僵尸」工作流——那些被挂起或被断开连接的玩家遗留的条目——
- * 永久占用槽位。服务为选配性质；在引擎初始化后调用 {@link #start(Duration, Duration)}。</p>
+ * <p>本服务只拥有“何时扫描”的调度状态，不创建线程，也不直接发送网络包。
+ * 超时删除、事件分发和脏标记都在调用 {@link #tick(MinecraftServer, long)} 的线程完成；
+ * 实际工作流同步由 Tick 末的副作用提交器合并执行。</p>
  *
- * <p>使用单个守护后台线程进行扫描定时器。实际的清理逻辑通过引擎在服务端 tick 线程上运行。</p>
+ * <p>{@link #start(Duration, Duration)} 只启用并配置服务。没有显式启动时，
+ * {@code tick} 保持 O(1) 空操作，以保持旧版本中该选配服务未启用时的行为。</p>
  */
 public final class RtsWorkflowTimeoutService {
 
-    private final Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers;
-    private final Map<UUID, ServerPlayer> playerRefs;
-    private final RtsWorkflowEventBus eventBus;
-    private final RtsWorkflowSyncService syncService;
+    private static final long MILLIS_PER_TICK = 50L;
 
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> task;
+    private final Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers;
+    private final RtsWorkflowEventBus eventBus;
+    private final BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink;
+    private final Predicate<MinecraftServer> serverThreadCheck;
+    private final WorkflowTimeoutDeadline deadline = new WorkflowTimeoutDeadline();
+
+    private long maxIdleMillis;
+    private boolean enabled;
 
     /**
-     * @param slotManagers 引擎的 slot 管理器映射
-     * @param playerRefs   引擎的玩家引用缓存
-     * @param eventBus     工作流事件总线
-     * @param syncService  网络同步服务
+     * 创建生产环境使用的超时服务。
+     *
+     * @param slotManagers 工作流槽位映射；服务只在到期扫描时遍历
+     * @param eventBus     工作流生命周期事件总线
      */
     public RtsWorkflowTimeoutService(
             Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
-            Map<UUID, ServerPlayer> playerRefs,
-            RtsWorkflowEventBus eventBus,
-            RtsWorkflowSyncService syncService) {
-        this.slotManagers = slotManagers;
-        this.playerRefs = playerRefs;
-        this.eventBus = eventBus;
-        this.syncService = syncService;
+            RtsWorkflowEventBus eventBus) {
+        this(
+                slotManagers,
+                eventBus,
+                (playerId, dimension) -> RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension),
+                server -> server != null && server.isSameThread());
     }
 
     /**
-     * 启动定期超时扫描。
+     * 测试注入入口。它只替换 Tick 末脏标记接收者与线程判定，不改变生产调度逻辑。
+     */
+    RtsWorkflowTimeoutService(
+            Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
+            RtsWorkflowEventBus eventBus,
+            BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink,
+            Predicate<MinecraftServer> serverThreadCheck) {
+        this.slotManagers = Objects.requireNonNull(slotManagers, "slotManagers");
+        this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+        this.workflowDirtySink = Objects.requireNonNull(workflowDirtySink, "workflowDirtySink");
+        this.serverThreadCheck = Objects.requireNonNull(serverThreadCheck, "serverThreadCheck");
+    }
+
+    /**
+     * 启用定期扫描。重复启动保持幂等，不会覆盖正在运行的配置。
      *
-     * @param checkInterval 扫描过期工作流的间隔
-     * @param maxIdleTime   没有任何进度更新的最大允许时间
+     * @param checkInterval 扫描间隔，向上取整到完整 Tick
+     * @param maxIdleTime   工作流允许的最大无更新时间
      */
     public void start(Duration checkInterval, Duration maxIdleTime) {
-        if (scheduler != null && !scheduler.isShutdown()) {
-            return; // 已在运行
+        Objects.requireNonNull(checkInterval, "checkInterval");
+        Objects.requireNonNull(maxIdleTime, "maxIdleTime");
+        if (enabled) {
+            return;
         }
-        long intervalMs = checkInterval.toMillis();
-        long maxIdleMs = maxIdleTime.toMillis();
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "RTS-Workflow-Timeout");
-            t.setDaemon(true);
-            return t;
-        });
+        long intervalMillis = checkInterval.toMillis();
+        long idleMillis = maxIdleTime.toMillis();
+        if (intervalMillis <= 0L) {
+            throw new IllegalArgumentException("checkInterval must be positive");
+        }
+        if (idleMillis < 0L) {
+            throw new IllegalArgumentException("maxIdleTime must not be negative");
+        }
 
-        task = scheduler.scheduleWithFixedDelay(
-                () -> scanAndCleanup(maxIdleMs),
-                intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+        long intervalTicks = Math.max(1L, ((intervalMillis - 1L) / MILLIS_PER_TICK) + 1L);
+        deadline.start(intervalTicks);
+        maxIdleMillis = idleMillis;
+        enabled = true;
 
-        RtsbuildingMod.LOGGER.info("[WorkflowTimeout] Started (interval={}, maxIdle={})",
+        RtsbuildingMod.LOGGER.info(
+                "[WorkflowTimeout] Started on server tick thread (interval={}, maxIdle={})",
                 checkInterval, maxIdleTime);
     }
 
-    /**
-     * 停止定期扫描。幂等操作。
-     */
+    /** 停止扫描并清除 deadline；重复停止保持幂等。 */
     public void stop() {
-        if (task != null) {
-            task.cancel(false);
-            task = null;
-        }
-        if (scheduler != null) {
-            scheduler.shutdown();
-            scheduler = null;
-        }
+        enabled = false;
+        maxIdleMillis = 0L;
+        deadline.stop();
     }
 
     /**
-     * 执行单次清理并触发 TIMEOUT 事件。
+     * 在服务端 Tick 中推进超时调度。
      *
-     * <p>{@code slotManagers} 是一个 {@link ConcurrentHashMap}，
-     * 其 {@code keySet().toArray()} 无需外部同步即可提供安全快照。
-     * 清理内部遍历所有槽位管理器，并为过时条目触发 TIMEOUT 事件。</p>
+     * @param server   当前 Minecraft 服务端，用于强制校验调用线程
+     * @param gameTime 单调递增的服务端游戏 Tick 时间
      */
-    private void scanAndCleanup(long maxIdleMs) {
+    public void tick(MinecraftServer server, long gameTime) {
+        if (!enabled) {
+            return;
+        }
+        if (!serverThreadCheck.test(server)) {
+            throw new IllegalStateException("Workflow timeout mutation must run on the server thread");
+        }
+        if (!deadline.shouldRun(gameTime)) {
+            return;
+        }
+        scanAndCleanup();
+    }
+
+    /**
+     * 执行一次到期扫描。调用者已经通过主线程校验，因此这里可以安全地修改工作流状态、
+     * 同步分发事件，并把网络刷新合并到 Tick 末。
+     */
+    private void scanAndCleanup() {
         int total = 0;
 
-        for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry : slotManagers.entrySet()) {
+        for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry
+                : slotManagers.entrySet()) {
             UUID playerId = playerEntry.getKey();
+            Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimensions = playerEntry.getValue();
 
-            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimEntry : playerEntry.getValue().entrySet()) {
-                RtsWorkflowSlotManager slots = dimEntry.getValue();
-
-                List<Integer> staleIds = slots.removeStaleEntries(maxIdleMs);
-                for (int staleId : staleIds) {
-                    eventBus.fire(new WorkflowEvent(WorkflowEventType.TIMEOUT, playerId, staleId, null));
-                    total++;
-                }
+            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimensionEntry
+                    : dimensions.entrySet()) {
+                RtsWorkflowSlotManager slots = dimensionEntry.getValue();
+                List<Integer> staleIds = slots.removeStaleEntries(maxIdleMillis);
 
                 if (!staleIds.isEmpty()) {
-                    ServerPlayer player = findPlayerByUUID(playerId);
-                    if (player != null) {
-                        if (slots.occupiedCount() > 0) {
-                            syncService.notifyPlayer(player, slots);
-                        } else {
-                            syncService.sendIdle(player);
-                        }
+                    for (int staleId : staleIds) {
+                        eventBus.fire(new WorkflowEvent(
+                                WorkflowEventType.TIMEOUT, playerId, staleId, null));
+                        total++;
                     }
+                    workflowDirtySink.accept(playerId, dimensionEntry.getKey());
                 }
             }
 
-            // 移除空的维度映射
-            playerEntry.getValue().entrySet().removeIf(e -> e.getValue().occupiedCount() == 0 && e.getValue().size() == 0);
+            // 单线程 Tick 内直接收口空维度；不会为每 Tick 构造快照集合。
+            dimensions.entrySet().removeIf(
+                    entry -> entry.getValue().occupiedCount() == 0 && entry.getValue().size() == 0);
         }
 
-        // 移除没有任何维度的玩家
         slotManagers.values().removeIf(Map::isEmpty);
 
         if (total > 0) {
             RtsbuildingMod.LOGGER.info("[WorkflowTimeout] Cleaned up {} stale workflow(s)", total);
         }
     }
+}
 
-    @Nullable
-    private ServerPlayer findPlayerByUUID(UUID playerId) {
-        ServerPlayer cached = playerRefs.get(playerId);
-        if (cached != null && cached.level() != null && !cached.level().isClientSide()) {
-            return cached;
+/**
+ * 纯 Tick deadline。首次看到 game time 时只建立基准，之后使用 fixed-delay 语义：
+ * 即使服务端跳过多个 Tick，也只补做一次扫描，避免恢复后形成扫描风暴。
+ */
+final class WorkflowTimeoutDeadline {
+    private long intervalTicks;
+    private long nextRunGameTime;
+    private boolean initialized;
+
+    void start(long intervalTicks) {
+        if (intervalTicks <= 0L) {
+            throw new IllegalArgumentException("intervalTicks must be positive");
         }
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (server != null) {
-            ServerPlayer online = server.getPlayerList().getPlayer(playerId);
-            if (online != null) {
-                playerRefs.put(playerId, online);
-                return online;
-            }
+        this.intervalTicks = intervalTicks;
+        this.nextRunGameTime = 0L;
+        this.initialized = false;
+    }
+
+    void stop() {
+        intervalTicks = 0L;
+        nextRunGameTime = 0L;
+        initialized = false;
+    }
+
+    boolean shouldRun(long gameTime) {
+        if (intervalTicks <= 0L) {
+            return false;
         }
-        playerRefs.remove(playerId);
-        return null;
+        if (!initialized) {
+            nextRunGameTime = saturatingAdd(gameTime, intervalTicks);
+            initialized = true;
+            return false;
+        }
+        if (gameTime < nextRunGameTime) {
+            return false;
+        }
+        nextRunGameTime = saturatingAdd(gameTime, intervalTicks);
+        return true;
+    }
+
+    private static long saturatingAdd(long value, long delta) {
+        if (value > Long.MAX_VALUE - delta) {
+            return Long.MAX_VALUE;
+        }
+        return value + delta;
     }
 }

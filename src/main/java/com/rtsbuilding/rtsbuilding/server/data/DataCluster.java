@@ -23,7 +23,7 @@ import java.util.function.UnaryOperator;
  */
 public final class DataCluster {
 
-    private final RtsAtomicNbtStore store;
+    private final RtsNbtStore store;
     private final Map<String, Cell<?>> cells = new HashMap<>();
     private CompoundTag rawRoot;  // 首次加载时的原始 NBT 缓存
     private boolean loaded;
@@ -32,6 +32,11 @@ public final class DataCluster {
      * @param store 底层原子 NBT 存储
      */
     public DataCluster(RtsAtomicNbtStore store) {
+        this((RtsNbtStore) store);
+    }
+
+    /** 测试和同包适配器使用的窄端口构造器，不向业务层暴露文件系统细节。 */
+    DataCluster(RtsNbtStore store) {
         this.store = store;
     }
 
@@ -49,7 +54,7 @@ public final class DataCluster {
         if (cell == null) {
             // 首次访问：尝试从原始 NBT 解码
             T value = decodeFromRaw(component);
-            cells.put(component.key(), new Cell<>(component, value, false));
+            cells.put(component.key(), new Cell<>(component, value, 0L, 0L));
             return value;
         }
         return (T) cell.value;
@@ -61,7 +66,10 @@ public final class DataCluster {
      */
     public synchronized <T> void set(DataComponent<T> component, T value) {
         loadIfNeeded();
-        cells.put(component.key(), new Cell<>(component, value, true));
+        Cell<?> current = cells.get(component.key());
+        long nextRevision = current == null ? 1L : current.revision + 1L;
+        cells.put(component.key(), new Cell<>(component, value, nextRevision,
+                current == null ? 0L : current.persistedRevision));
     }
 
     /**
@@ -74,45 +82,60 @@ public final class DataCluster {
     /**
      * 将所有脏组件写入文件。如无脏组件则为空操作（零 I/O）。
      */
-    public synchronized void flush() {
-        if (!loaded) return;
+    public synchronized boolean flush() {
+        if (!loaded) return true;
 
-        CompoundTag root = new CompoundTag();
+        CompoundTag root = rawRoot == null ? new CompoundTag() : rawRoot.copy();
+        Map<String, Long> revisionsToConfirm = new HashMap<>();
         boolean hasDirty = false;
 
         for (Cell<?> cell : cells.values()) {
-            if (!cell.dirty) continue;
+            if (!cell.isDirty()) continue;
             CompoundTag slot = new CompoundTag();
             encodeCell(slot, cell);
             root.put(cell.key(), slot);
-            cell.dirty = false;
+            revisionsToConfirm.put(cell.key(), cell.revision);
             hasDirty = true;
         }
 
-        if (hasDirty) {
-            store.write(root);
+        if (!hasDirty) {
+            return true;
         }
+        if (!store.write(root)) {
+            return false;
+        }
+
+        rawRoot = root;
+        for (Map.Entry<String, Long> entry : revisionsToConfirm.entrySet()) {
+            Cell<?> cell = cells.get(entry.getKey());
+            if (cell != null && cell.revision == entry.getValue()) {
+                cell.persistedRevision = entry.getValue();
+            }
+        }
+        return true;
     }
 
     /**
-     * 强制写入所有组件，并清除缓存。用于玩家登出时的完整持久化。
+     * 将尚未确认的 revision 合并到完整 Root，成功后清除缓存。
+     * 写入失败时保留全部内存状态，供生命周期调度器重试。
      */
-    public synchronized void flushAndClose() {
-        if (!loaded) return;
+    public synchronized boolean flushAndClose() {
+        if (!loaded) return true;
 
-        CompoundTag root = new CompoundTag();
+        CompoundTag root = rawRoot == null ? new CompoundTag() : rawRoot.copy();
+        boolean hasLoadedCells = false;
         for (Cell<?> cell : cells.values()) {
             CompoundTag slot = new CompoundTag();
             encodeCell(slot, cell);
             root.put(cell.key(), slot);
+            hasLoadedCells = true;
         }
+        if (hasLoadedCells && !store.write(root)) return false;
 
-        if (!root.isEmpty()) {
-            store.write(root);
-        }
         cells.clear();
         rawRoot = null;
         loaded = false;
+        return true;
     }
 
     /** 返回内部缓存的组件数量（用于诊断）。 */
@@ -127,8 +150,18 @@ public final class DataCluster {
     /** 从文件懒加载原始 NBT */
     private void loadIfNeeded() {
         if (loaded) return;
-        rawRoot = store.read();
-        loaded = true;
+        switch (store.readResult()) {
+            case RtsNbtStore.ReadResult.Found found -> {
+                rawRoot = found.root();
+                loaded = true;
+            }
+            case RtsNbtStore.ReadResult.Missing ignored -> {
+                rawRoot = new CompoundTag();
+                loaded = true;
+            }
+            case RtsNbtStore.ReadResult.Failed failed -> throw new IllegalStateException(
+                    "读取数据簇失败，拒绝覆盖原文件: " + store.label(), failed.cause());
+        }
     }
 
     /** 从原始 NBT 解码一个组件，如果原始数据中不存在则返回默认值 */
@@ -150,20 +183,26 @@ public final class DataCluster {
         comp.codec().encode(tag, cell.value);
     }
 
-    /** 内部细胞——持有组件引用、值和脏标记 */
+    /** 内部细胞——以 revision 区分内存版本和最后成功落盘版本。 */
     private static final class Cell<T> {
         final DataComponent<T> component;
         T value;
-        boolean dirty;
+        long revision;
+        long persistedRevision;
 
-        Cell(DataComponent<T> component, T value, boolean dirty) {
+        Cell(DataComponent<T> component, T value, long revision, long persistedRevision) {
             this.component = component;
             this.value = value;
-            this.dirty = dirty;
+            this.revision = revision;
+            this.persistedRevision = persistedRevision;
         }
 
         String key() {
             return component.key();
+        }
+
+        boolean isDirty() {
+            return revision != persistedRevision;
         }
     }
 }

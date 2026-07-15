@@ -113,8 +113,19 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
         if (timeoutService == null) {
-            timeoutService = new RtsWorkflowTimeoutService(playerSlots, playerRefs, eventBus, syncService);
+            timeoutService = new RtsWorkflowTimeoutService(playerSlots, eventBus);
             timeoutService.start(checkInterval, maxIdleTime);
+        }
+    }
+
+    /**
+     * 由服务端全局 Tick 编排器调用。超时服务未显式启动时保持 O(1) 空操作，
+     * 不会在现有世界中凭空启用新的清理行为。
+     */
+    public void tickTimeoutService(MinecraftServer server, long gameTime) {
+        RtsWorkflowTimeoutService service = timeoutService;
+        if (service != null) {
+            service.tick(server, gameTime);
         }
     }
 

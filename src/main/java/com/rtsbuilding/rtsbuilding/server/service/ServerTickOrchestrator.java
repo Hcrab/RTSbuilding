@@ -10,6 +10,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 
 /**
  * 服务器全局 Tick 编排器——管理所有非玩家生命周期的 tick 循环逻辑。
@@ -118,6 +119,10 @@ public final class ServerTickOrchestrator {
 
         // Tick all active tickable pipeline instances (ultimine/area-mine monitoring)
         TickablePipelineRegistry.tickAll();
+
+        // 超时删除和生命周期事件必须在服务端主线程发生；未显式启用时这里只是 O(1) 空检查。
+        // 工作流同步只留下脏标记，并由下方 Tick 末 flush 合并发送。
+        RtsWorkflowEngine.getInstance().tickTimeoutService(server, server.overworld().getGameTime());
 
         // 页面请求在所有本 tick 储存变更之后合并执行；每位玩家最多构建最后请求的一页。
         RtsStoragePageRequestCoalescer.flushPending();
