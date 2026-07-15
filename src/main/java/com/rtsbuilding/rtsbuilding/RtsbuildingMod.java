@@ -18,6 +18,7 @@ import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -35,6 +36,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
@@ -126,6 +128,13 @@ public class RtsbuildingMod {
      */
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        try {
+            // 必须先于任何 durable task admission 读取；损坏时拒绝以空仓继续启动。
+            TaskPersistenceRuntime.INSTANCE.start(event.getServer());
+        } catch (RuntimeException failure) {
+            LOGGER.error("读取 durable task 仓库失败，服务器将 fail-closed 停止启动", failure);
+            throw failure;
+        }
         LOGGER.info("服务器正在启动……");
     }
 
@@ -196,6 +205,19 @@ public class RtsbuildingMod {
         }
 
         /**
+         * 世界对象仍然有效时完成最终 ACK 并停止 writer；不得推迟到 ServerStopped。
+         */
+        @SubscribeEvent
+        static void onServerStopping(ServerStoppingEvent event) {
+            try {
+                TaskPersistenceRuntime.INSTANCE.stop();
+            } catch (RuntimeException failure) {
+                LOGGER.error("停服时 durable task 冲刷失败；未确认的 dirty 不会被伪装成已落盘", failure);
+                throw failure;
+            }
+        }
+
+        /**
          * 服务器停止事件处理器。
          *
          * <p>在服务器完全关闭前触发，确保以下数据安全落地：</p>
@@ -239,6 +261,14 @@ public class RtsbuildingMod {
         @SubscribeEvent
         static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+                try {
+                    // Session 清理前先确认该玩家的 durable task 已 ACK，避免旧权威先被删除。
+                    TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID());
+                } catch (RuntimeException failure) {
+                    LOGGER.error("玩家 {} 登出时 durable task 冲刷失败，已保留 dirty 并拒绝静默继续",
+                            serverPlayer.getUUID(), failure);
+                    throw failure;
+                }
                 // 停止相机会话并销毁服务端相机实体
                 RtsCameraManager.stopIfActive(serverPlayer);
                 // 移除该玩家的伤害反馈会话
@@ -328,6 +358,8 @@ public class RtsbuildingMod {
             SaveScheduler.INSTANCE.onTick(event.getServer());
             // 驱动全局挖掘任务的每 Tick 消耗
             ServerTickOrchestrator.getInstance().tickMining(event.getServer());
+            // tick() 内部严格先消费主线程 ACK，再把下一批冻结快照交给唯一后台 writer。
+            TaskPersistenceRuntime.INSTANCE.tick();
         }
     }
 }
