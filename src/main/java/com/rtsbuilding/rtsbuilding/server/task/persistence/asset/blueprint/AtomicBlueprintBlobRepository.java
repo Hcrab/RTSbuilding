@@ -216,8 +216,12 @@ public final class AtomicBlueprintBlobRepository {
     }
 
     private static void forceDirectoryBestEffort(Path directory) {
-        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
-            channel.force(true);
+        forceDirectoryBestEffort(directory, AtomicBlueprintBlobRepository::forceDirectoryChannel);
+    }
+
+    static void forceDirectoryBestEffort(Path directory, DirectoryForcer forcer) {
+        try {
+            forcer.force(directory);
         } catch (AccessDeniedException unsupported) {
             // Windows 的纯 Java NIO 无法可靠 fsync 目录；文件本体已 force 且只用原子移动，这是可达的最强语义。
             if (!System.getProperty("os.name", "").startsWith("Windows")) {
@@ -226,9 +230,13 @@ public final class AtomicBlueprintBlobRepository {
         } catch (UnsupportedOperationException unsupported) {
             if (!System.getProperty("os.name", "").startsWith("Windows")) throw unsupported;
         } catch (IOException failure) {
-            if (!System.getProperty("os.name", "").startsWith("Windows")) {
-                throw new BlobRepositoryException("强制落盘 blob 目录失败: " + directory, failure);
-            }
+            throw new BlobRepositoryException("强制落盘 blob 目录失败: " + directory, failure);
+        }
+    }
+
+    private static void forceDirectoryChannel(Path directory) throws IOException {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
         }
     }
 
@@ -283,6 +291,11 @@ public final class AtomicBlueprintBlobRepository {
     @FunctionalInterface
     interface AtomicMover {
         void move(Path source, Path target) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface DirectoryForcer {
+        void force(Path directory) throws IOException;
     }
 
     public static final class BlobRepositoryException extends IllegalStateException {

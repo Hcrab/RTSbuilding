@@ -230,6 +230,18 @@ class AtomicBlueprintBlobRepositoryTest {
     }
 
     @Test
+    void ordinaryDirectoryForceIoFailureIsNeverHiddenAsWindowsLimitation() {
+        IOException diskFailure = new IOException("simulated disk failure");
+
+        AtomicBlueprintBlobRepository.BlobRepositoryException thrown = assertThrows(
+                AtomicBlueprintBlobRepository.BlobRepositoryException.class,
+                () -> AtomicBlueprintBlobRepository.forceDirectoryBestEffort(
+                        temporaryDirectory, ignored -> { throw diskFailure; }));
+
+        assertEquals(diskFailure, thrown.getCause());
+    }
+
+    @Test
     void unsupportedBlueprintFormatFailsBeforeWrite() {
         BlueprintBlobCodec codec = new BlueprintBlobCodec();
         CompoundTag structure = structure(new byte[]{1});
