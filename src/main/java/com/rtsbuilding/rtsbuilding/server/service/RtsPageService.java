@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.storage.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
@@ -79,16 +80,34 @@ public final class RtsPageService {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
+        String safeSearch = search == null ? "" : search;
+        String safeCategory = RtsStoragePageBuilder.normalizeCategory(category);
+        RtsStorageSort safeSort = sort == null ? RtsStorageSort.QUANTITY : sort;
+        int safePageSize = RtsStoragePageBuilder.sanitizePageSize(pageSize);
+        List<String> safeLocalizedMatches = List.copyOf(
+                RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches));
+        RtsStoragePageRequestCoalescer.enqueue(player, () -> buildPageNow(
+                player, page, safeSearch, safeCategory, safeSort, ascending,
+                safePageSize, pinyinSearchEnabled, safeLocalizedMatches));
+    }
+
+    /** Tick 末由合并器调用；只有这里允许真正解析储存网络并构建页面。 */
+    private static void buildPageNow(ServerPlayer player, int page, String search, String category,
+            RtsStorageSort sort, boolean ascending, int pageSize,
+            boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
+            return;
+        }
         RtsStorageSession session = RtsSessionService.getOrCreate(player);
         refreshMissingGuiBindingIcons(player, session);
-        session.browser.search = search == null ? "" : search;
-        session.browser.category = RtsStoragePageBuilder.normalizeCategory(category);
-        session.browser.sort = sort == null ? RtsStorageSort.QUANTITY : sort;
+        session.browser.search = search;
+        session.browser.category = category;
+        session.browser.sort = sort;
         session.browser.ascending = ascending;
-        session.browser.pageSize = RtsStoragePageBuilder.sanitizePageSize(pageSize);
+        session.browser.pageSize = pageSize;
         session.browser.pinyinSearchEnabled = pinyinSearchEnabled;
         session.browser.localizedSearchMatches.clear();
-        session.browser.localizedSearchMatches.addAll(RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches));
+        session.browser.localizedSearchMatches.addAll(localizedSearchMatches);
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         markBdHandlersDirtyWhenNeeded(session);

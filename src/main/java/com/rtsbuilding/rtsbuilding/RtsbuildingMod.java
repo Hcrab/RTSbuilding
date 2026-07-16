@@ -20,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsGuiCompatSetupCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.world.entity.EntityType;
@@ -112,6 +113,7 @@ public final class RtsbuildingMod {
             TickablePipelineRegistry.clearAll();
             RtsWorkflowEngine.getInstance().saveAll(event.getServer());
             RtsWorkflowEngine.getInstance().clearAllData();
+            RtsStoragePageRequestCoalescer.clearAll();
         }
 
         @SubscribeEvent

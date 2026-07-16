@@ -307,6 +307,11 @@ public final class BottomPanel {
         return this.bottomPanelTab;
     }
 
+    /** 返回玩家当前是否真的看得到服务端储存页内容。 */
+    public boolean isStorageBrowserVisible() {
+        return activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
+    }
+
     private boolean hasBlueprintAccess() {
         return Config.areBlueprintsEnabled() && screen.hasProgressionNode(RtsProgressionNodes.BLUEPRINTS);
     }

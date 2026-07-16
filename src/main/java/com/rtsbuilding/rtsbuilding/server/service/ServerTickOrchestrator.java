@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.server.MinecraftServer;
@@ -111,6 +112,9 @@ public final class ServerTickOrchestrator {
 
         // Tick all active tickable pipeline instances (ultimine/area-mine monitoring)
         TickablePipelineRegistry.tickAll();
+
+        // 页面请求在所有本 tick 储存变更之后合并执行；每位玩家最多构建最后请求的一页。
+        RtsStoragePageRequestCoalescer.flushPending();
 
         // 所有任务推进完成后再统一发送页面失效通知与工作流快照。
         RtsEffectAccumulator.INSTANCE.flush(server);

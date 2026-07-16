@@ -271,6 +271,10 @@ public final class BuilderScreen extends Screen {
     public void clearStorageScanPopupState() {
         this.controller.clearStorageScanPopupState();
     }
+    /** 返回玩家当前是否真的看得到服务端储存页内容。 */
+    public boolean isStorageViewVisible() {
+        return this.bottomPanel.isStorageBrowserVisible();
+    }
     /** 切换安静刷新模式。 */
     public void toggleStorageRefreshQuietEnabled() {
         RtsClientUiStateStore.setStorageRefreshQuietEnabled(!RtsClientUiStateStore.isStorageRefreshQuietEnabled());

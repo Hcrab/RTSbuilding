@@ -139,6 +139,7 @@ public final class RtsSessionService {
 
     public static void onPlayerLogout(ServerPlayer player) {
         RtsTaskEngine.INSTANCE.onPlayerLogout(player.getUUID());
+        com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer.clearPlayer(player.getUUID());
         RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {

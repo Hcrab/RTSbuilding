@@ -189,6 +189,8 @@ public final class ClientRtsController {
     private long storagePageReceivedAtMs;
     private boolean storageViewDirty;
     private long storageViewDirtySinceMs;
+    private boolean storageDirtyRefreshRequested;
+    private long storageDirtyRefreshRequestedAtMs;
     private String craftablesSearch = "";
     private boolean craftablesShowUnavailable;
     private final List<CraftableEntry> craftableEntries = new ArrayList<>();
@@ -1409,7 +1411,9 @@ public final class ClientRtsController {
         }
 
         this.ensureLocalMirrorCamera(minecraft);
-        tickStorageAutoRefresh();
+        boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
+                && builderScreen.isStorageViewVisible();
+        tickStorageAutoRefresh(storageViewVisible);
 
         CameraInput cameraInput = readCameraInput(minecraft);
         float keyboardScale = getKeyboardMoveSensitivityScale();
@@ -1675,21 +1679,28 @@ public final class ClientRtsController {
         requestStoragePage(this.storagePage);
     }
 
-    private void tickStorageAutoRefresh() {
-        if (!this.storageViewDirty
-                || this.storageScanRunning
-                || !hasStoragePageSnapshot()
-                || !RtsClientUiStateStore.isStorageAutoRefreshEnabled()) {
+    private void tickStorageAutoRefresh(boolean storageViewVisible) {
+        if (!RtsClientUiStateStore.isStorageAutoRefreshEnabled()) {
             return;
         }
         long now = System.currentTimeMillis();
-        if (this.storageViewDirtySinceMs <= 0L) {
+        if (this.storageViewDirty && this.storageViewDirtySinceMs <= 0L) {
             this.storageViewDirtySinceMs = now;
+        }
+        if (!RtsStorageDirtyRefreshPolicy.shouldRequest(
+                this.storageViewDirty,
+                storageViewVisible,
+                this.storageScanRunning,
+                hasStoragePageSnapshot(),
+                this.storageDirtyRefreshRequested,
+                this.storageDirtyRefreshRequestedAtMs,
+                this.storageViewDirtySinceMs,
+                now,
+                STORAGE_AUTO_REFRESH_INTERVAL_MS)) {
             return;
         }
-        if (now - this.storageViewDirtySinceMs < STORAGE_AUTO_REFRESH_INTERVAL_MS) {
-            return;
-        }
+        this.storageDirtyRefreshRequested = true;
+        this.storageDirtyRefreshRequestedAtMs = now;
         requestStoragePage(this.storagePage);
     }
 
@@ -2007,6 +2018,8 @@ public final class ClientRtsController {
     private void clearStorageViewDirty() {
         this.storageViewDirty = false;
         this.storageViewDirtySinceMs = 0L;
+        this.storageDirtyRefreshRequested = false;
+        this.storageDirtyRefreshRequestedAtMs = 0L;
     }
 
     private void refreshSelectedItemPreviewFromStorage() {
