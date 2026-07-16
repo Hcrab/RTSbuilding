@@ -4,10 +4,8 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceOperationTemplate;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
@@ -315,23 +313,20 @@ public final class RtsPlacementBatch {
                 workflowToken(player, completedJob).ifPresent(token -> token.complete());
             }
         }
-        if (!fullyCompletedJobs.isEmpty()) {
-            RtsStorageTickService.INSTANCE.forceRefresh(player);
-            session.transfer.pageDataVersion.incrementAndGet();
-            RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
-        }
+        boolean storageChanged = !fullyCompletedJobs.isEmpty();
         for (PlaceBatchJob j : session.placement.placeBatchJobs) {
             int before = placedBeforeTick.getOrDefault(j.workflowEntryId(), 0);
             int delta = j.placedPositions.size() - before;
             if (delta > 0) {
                 workflowToken(player, j).ifPresent(token -> token.updateProgress(delta, null));
-                RtsStorageTickService.INSTANCE.forceRefresh(player);
-                session.transfer.pageDataVersion.incrementAndGet();
-                RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+                storageChanged = true;
             }
         }
-        RtsPendingPlacementService.refreshWorkflowProgress(player, session);
+        if (storageChanged) {
+            ServiceOperationTemplate.INSTANCE.markDirtyDeferred(player, session);
+            RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        }
         return initialBudget - remaining;
     }
 
