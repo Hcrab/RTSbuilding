@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.common.util.BlockSnapshot;
@@ -42,8 +43,11 @@ public final class RtsBlockTrackingEvents {
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBreak(BlockEvent.BreakEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         if (!(event.getPlayer() instanceof ServerPlayer)) {
             return;
         }

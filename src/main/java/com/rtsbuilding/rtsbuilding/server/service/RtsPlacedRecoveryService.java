@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.*;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
+import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -16,10 +17,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.items.IItemHandler;
 
 import java.util.*;
@@ -91,16 +91,21 @@ public final class RtsPlacedRecoveryService {
             ServerHistoryManager.recordBreak(player, List.of(targetPos), face != null ? face : Direction.UP);
         }
 
+        ItemStack recoveredBlock = recoveryStack(level, targetPos, state);
+        if (recoveredBlock.isEmpty()) {
+            return;
+        }
         Set<UUID> dropIdsBeforeBreak = snapshotNearbyDropIds(level, targetPos);
-        boolean removed = breakWithSimulatedSilkTouch(player, level, targetPos);
+        boolean removed = recoverTrackedBlock(player, level, targetPos);
         if (!removed || !level.getBlockState(targetPos).isAir()) {
+            tracker.mark(targetPos);
             return;
         }
 
         RtsPlacementSound.playRemoteBlockBreakSound(player, level, targetPos, state);
         tracker.clear(targetPos);
         List<ItemEntity> droppedEntities = collectNewNearbyDrops(level, targetPos, dropIdsBeforeBreak);
-        enqueueRecoveryJob(player, session, targetPos, droppedEntities);
+        enqueueRecoveryJob(player, session, targetPos, recoveredBlock, droppedEntities);
 
         LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
         if (session.linkedStorages.remove(targetRef)) {
@@ -205,32 +210,37 @@ public final class RtsPlacedRecoveryService {
         return fresh;
     }
 
-    static boolean breakWithSimulatedSilkTouch(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        if (player == null || level == null || pos == null) return false;
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return true;
-
-        ItemStack fakeTool = new ItemStack(Items.NETHERITE_PICKAXE);
-        if (Enchantments.SILK_TOUCH != null) {
-            fakeTool.enchant(Enchantments.SILK_TOUCH, 1);
+    /** 为已确认属于 RTS 的放置记录构造回收物品；失败时保持世界原样。 */
+    static ItemStack recoveryStack(ServerLevel level, BlockPos pos, BlockState state) {
+        if (level == null || pos == null || state == null || state.isAir()) return ItemStack.EMPTY;
+        ItemStack stack = state.getBlock().getCloneItemStack(level, pos, state);
+        if (stack.isEmpty()) {
+            stack = new ItemStack(state.getBlock().asItem());
         }
-
-        boolean removed = player.gameMode.destroyBlock(pos);
-        if (!removed) return false;
-
-        level.levelEvent(null, 2001, pos, net.minecraft.world.level.block.Block.getId(state));
-        return true;
+        return stack;
     }
 
-    static boolean breakPlacedWithSimulatedSilkTool(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        return breakWithSimulatedSilkTouch(player, level, pos);
+    /** 保留 Forge BreakEvent 保护，但不把玩家当前工具或挖掘等级带进回收语义。 */
+    static boolean recoverTrackedBlock(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (player == null || level == null || pos == null || level.getBlockState(pos).isAir()) return false;
+        int breakResult = TemporaryContextSwitcher.withTemporaryMainHandItem(
+                player, ItemStack.EMPTY,
+                () -> ForgeHooks.onBlockBreakEvent(
+                        level, player.gameMode.getGameModeForPlayer(), player, pos));
+        if (breakResult < 0) {
+            return false;
+        }
+        return level.destroyBlock(pos, false, player);
     }
 
-    private static void enqueueRecoveryJob(ServerPlayer player, RtsStorageSession session, BlockPos targetPos, List<ItemEntity> droppedEntities) {
-        if (player == null || droppedEntities == null || droppedEntities.isEmpty()) {
+    private static void enqueueRecoveryJob(
+            ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+            ItemStack recoveredBlock, List<ItemEntity> droppedEntities) {
+        if (player == null || session == null || targetPos == null || recoveredBlock == null || recoveredBlock.isEmpty()) {
             return;
         }
         Deque<ItemStack> stacks = new ArrayDeque<>();
+        stacks.addLast(recoveredBlock.copy());
         for (ItemEntity droppedEntity : droppedEntities) {
             if (droppedEntity == null) continue;
             ItemStack droppedStack = droppedEntity.getItem();
