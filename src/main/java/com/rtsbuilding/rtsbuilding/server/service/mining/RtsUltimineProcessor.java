@@ -804,9 +804,7 @@ public final class RtsUltimineProcessor {
         if (session.mining.miningWorkflowEntryId < 0) {
             return;
         }
-        RtsWorkflowEngine.getInstance()
-                .from(player, session.mining.miningWorkflowEntryId)
-                .ifPresent(RtsWorkflowToken::complete);
+        // 工作流终态由统一 TaskRecord 在本 tick 结束时投影并释放。
         session.mining.miningWorkflowEntryId = -1;
     }
 

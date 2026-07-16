@@ -121,6 +121,7 @@ public final class RtsSessionService {
         RtsStorageSession session = getOrCreate(player);
         RtsDropAbsorber.flushDropBufferToPlayer(player, session);
         RtsMiningStateMachine.stopActiveMining(player, session);
+        RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player);
         RtsWorkflowEngine.getInstance().pauseAllActive(player.getUUID(), true);
         RtsFunnelService.disableAndFlush(player, session);
         RtsMenuRemoteService.closeTracked(player, session);

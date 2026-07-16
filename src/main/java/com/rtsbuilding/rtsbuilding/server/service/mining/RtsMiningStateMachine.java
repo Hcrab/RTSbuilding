@@ -161,9 +161,6 @@ public final class RtsMiningStateMachine {
             cancelMiningTask(player, session, session.mining.miningWorkflowEntryId);
             return MiningAdvance.ended(0, 0, 0);
         }
-        if (workflowToken != null && workflowToken.isPaused()) {
-            return MiningAdvance.idle();
-        }
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, session.mining.miningPos)) {
             stopCurrentMiningTask(player, session);
             return MiningAdvance.ended(1, 0, 1);
@@ -267,7 +264,6 @@ public final class RtsMiningStateMachine {
     private static void stopCurrentMiningTask(ServerPlayer player, RtsStorageSession session) {
         int entryId = session.mining.miningWorkflowEntryId;
         if (entryId >= 0) {
-            RtsWorkflowEngine.getInstance().from(player, entryId).ifPresent(RtsWorkflowToken::cancel);
             cancelMiningTask(player, session, entryId);
         } else {
             stopActiveMining(player, session);
@@ -633,10 +629,8 @@ public final class RtsMiningStateMachine {
         }
         if (success) {
             token.markProgress();
-            token.complete();
         } else {
             token.recordFailure();
-            token.cancel();
         }
     }
 

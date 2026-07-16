@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsTransferService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetWorkflowProtectedPayload;
@@ -98,6 +99,7 @@ public final class RtsInteractionHandlers {
             }
             RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
             if (payload.entryId() < 0) {
+                RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(serverPlayer);
                 engine.pauseAllActive(serverPlayer.getUUID(), true);
                 return;
             }
@@ -109,14 +111,17 @@ public final class RtsInteractionHandlers {
             }
             engine.from(serverPlayer, payload.entryId()).ifPresent(token -> {
                 if (token.isPaused()) {
-                    if (token.unpause()) {
+                    if (RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, payload.entryId(), false)) {
+                        token.unpause();
                         serverPlayer.displayClientMessage(
                                 Component.translatable("message.rtsbuilding.workflow.resumed"), true);
                     }
                 } else {
-                    token.pause();
-                    serverPlayer.displayClientMessage(
-                            Component.translatable("message.rtsbuilding.workflow.paused"), true);
+                    if (RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, payload.entryId(), true)) {
+                        token.pause();
+                        serverPlayer.displayClientMessage(
+                                Component.translatable("message.rtsbuilding.workflow.paused"), true);
+                    }
                 }
             });
         });
@@ -161,7 +166,7 @@ public final class RtsInteractionHandlers {
     public static void handleDeleteWorkflow(com.rtsbuilding.rtsbuilding.network.builder.C2SRtsDeleteWorkflowPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsPlacementBatch.removePendingJob(RtsSessionService.getIfPresent(serverPlayer), payload.workflowEntryId());
+                RtsTaskEngine.INSTANCE.cancelWorkflowTask(serverPlayer, payload.workflowEntryId());
                 RtsWorkflowEngine.getInstance().deleteWorkflow(serverPlayer, payload.workflowEntryId());
             }
         });

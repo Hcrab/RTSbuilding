@@ -25,6 +25,8 @@ public final class RtsTaskEngine {
     private final Map<RtsPlacementBatch.PlaceBatchJob, TaskRecord> placementRecords = new IdentityHashMap<>();
     private final Map<MiningTaskKey, TaskRecord> miningRecords = new java.util.HashMap<>();
     private final Map<UUID, TaskRecord> bufferRecords = new java.util.HashMap<>();
+    private final Map<WorkflowTaskKey, Boolean> workflowPauseOverrides = new java.util.HashMap<>();
+    private final Map<UUID, TaskStatus> projectedTaskStatuses = new java.util.HashMap<>();
 
     private RtsTaskEngine() {
         scheduler.registerExecutor(TaskType.PLACEMENT, this::executePlacement);
@@ -40,17 +42,84 @@ public final class RtsTaskEngine {
             syncMiningTasks(player, session);
             syncBufferTask(player, session);
         }
-        return scheduler.tick(
+        TaskScheduler.TickStats stats = scheduler.tick(
                 Config.taskEngineMaxNanosPerTick(),
                 Config.taskEngineMaxUnitsPerTick(),
                 Config.taskEngineMaxUnitsPerSlice());
+        projectWorkflowLifecycles();
+        return stats;
     }
 
     public void onPlayerLogout(UUID playerId) {
         scheduler.cancelOwner(playerId, System.nanoTime());
+        java.util.Set<UUID> removedTaskIds = new java.util.HashSet<>();
+        placementRecords.values().stream().filter(record -> record.ownerId().equals(playerId))
+                .map(TaskRecord::id).forEach(removedTaskIds::add);
+        miningRecords.values().stream().filter(record -> record.ownerId().equals(playerId))
+                .map(TaskRecord::id).forEach(removedTaskIds::add);
         placementRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
         miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(playerId));
         bufferRecords.remove(playerId);
+        workflowPauseOverrides.keySet().removeIf(key -> key.playerId().equals(playerId));
+        projectedTaskStatuses.keySet().removeAll(removedTaskIds);
+    }
+
+    /** 玩家暂停或恢复工作流时，先修改真实任务；工作流令牌只承接 UI 投影。 */
+    public boolean setWorkflowPaused(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
+            boolean paused) {
+        if (player == null || workflowEntryId < 0) return false;
+        WorkflowTaskKey key = new WorkflowTaskKey(player.getUUID(), workflowEntryId);
+        var workflow = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                .getProgress(player, workflowEntryId);
+        if (!workflow.isActive() || !isTaskEngineWorkflow(workflow.type())) return false;
+        workflowPauseOverrides.put(key, paused);
+        TaskRecord record = findWorkflowTask(key);
+        if (record != null) {
+            if (paused) record.pause(System.nanoTime());
+            else record.resume(System.nanoTime());
+        }
+        return true;
+    }
+
+    /** RTS 关闭时先暂停真实任务，随后再把状态投影到工作流面板。 */
+    public void pauseAllWorkflowTasks(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return;
+        for (var status : com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                .getAllProgress(player)) {
+            if (status.isActive() && !status.suspended()) {
+                setWorkflowPaused(player, status.entryId(), true);
+            }
+        }
+    }
+
+    /** 删除工作流前先取消对应领域任务，避免只删 UI 条目而让后台任务继续执行。 */
+    public boolean cancelWorkflowTask(net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0) return false;
+        WorkflowTaskKey key = new WorkflowTaskKey(player.getUUID(), workflowEntryId);
+        TaskRecord record = findWorkflowTask(key);
+        var session = RtsSessionService.getIfPresent(player);
+        boolean cleaned = false;
+        if (session != null) {
+            for (var job : java.util.List.copyOf(session.placement.placeBatchJobs)) {
+                if (job.workflowEntryId() == workflowEntryId) {
+                    RtsPlacementBatch.cancelPlaceTask(player, session, job);
+                    cleaned = true;
+                }
+            }
+            for (var job : java.util.List.copyOf(session.placement.pendingJobs)) {
+                if (job.workflowEntryId() == workflowEntryId) {
+                    RtsPlacementBatch.cancelPlaceTask(player, session, job);
+                    cleaned = true;
+                }
+            }
+            cleaned |= RtsMiningStateMachine.cancelMiningTask(player, session, workflowEntryId);
+        }
+        if (record != null) {
+            record.cancel(System.nanoTime());
+            releaseTerminalWorkflow(record);
+        }
+        workflowPauseOverrides.remove(key);
+        return record != null || cleaned;
     }
 
         // 兼容调度片每 Tick 只执行一次；真实类型任务迁移后由各 Executor 决定继续或完成。
@@ -75,11 +144,6 @@ public final class RtsTaskEngine {
                 scheduler.submit(record);
             } else if (record.status() == TaskStatus.WAITING_RESOURCE) {
                 record.resume(now);
-            } else if (record.status() == TaskStatus.PAUSED) {
-                var token = job.workflowEntryId() < 0 ? null
-                        : com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                                .from(player, job.workflowEntryId()).orElse(null);
-                if (token == null || !token.isPaused()) record.resume(now);
             }
         }
     }
@@ -96,6 +160,7 @@ public final class RtsTaskEngine {
                 player.getUUID(), TaskType.PLACEMENT,
                 new PlacementTaskPayload(player, session, job), job.totalCount(), now);
         record.restoreCursor(job.getIndex(), now);
+        applyInitialPause(player, job.workflowEntryId(), record, now);
         return record;
     }
 
@@ -114,10 +179,6 @@ public final class RtsTaskEngine {
             if (token == null) {
                 RtsPlacementBatch.cancelPlaceTask(player, session, job);
                 return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
-            }
-            if (token.isPaused()) {
-                task.pause(System.nanoTime());
-                return TaskStepResult.yield(0);
             }
         }
 
@@ -162,14 +223,11 @@ public final class RtsTaskEngine {
                     player.getUUID(), TaskType.MINING,
                     new MiningTaskPayload(player, session, source.workflowEntryId()), source.totalUnits(), now);
             record.restoreSnapshot(source.cursorUnits(), source.succeededUnits(), source.failedUnits(), now);
+            applyInitialPause(player, source.workflowEntryId(), record, now);
             miningRecords.put(key, record);
             scheduler.submit(record);
         } else if (record.status() == TaskStatus.WAITING_RESOURCE && !session.miningDropBuffer.isFull()) {
             record.resume(now);
-        } else if (record.status() == TaskStatus.PAUSED) {
-            var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                    .from(player, source.workflowEntryId()).orElse(null);
-            if (token == null || !token.isPaused()) record.resume(now);
         }
     }
 
@@ -204,10 +262,6 @@ public final class RtsTaskEngine {
         if (token == null) {
             RtsMiningStateMachine.cancelMiningTask(player, session, payload.workflowEntryId());
             return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
-        }
-        if (token.isPaused()) {
-            task.pause(System.nanoTime());
-            return TaskStepResult.nextTick(0, 0, 0, 0);
         }
         if (session.miningDropBuffer.isFull()) {
             return TaskStepResult.waitForResource();
@@ -260,7 +314,107 @@ public final class RtsTaskEngine {
         return TaskStepResult.nextTick(processed, completedStacks, completedStacks, 0);
     }
 
+    private void applyInitialPause(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
+            TaskRecord record, long now) {
+        if (workflowEntryId < 0) return;
+        WorkflowTaskKey key = new WorkflowTaskKey(player.getUUID(), workflowEntryId);
+        Boolean override = workflowPauseOverrides.get(key);
+        boolean paused = override != null ? override
+                : com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                        .from(player, workflowEntryId).map(token -> token.isPaused()).orElse(false);
+        if (paused) record.pause(now);
+    }
+
+    private TaskRecord findWorkflowTask(WorkflowTaskKey key) {
+        for (var entry : placementRecords.entrySet()) {
+            if (entry.getValue().ownerId().equals(key.playerId())
+                    && entry.getKey().workflowEntryId() == key.workflowEntryId()) return entry.getValue();
+        }
+        return miningRecords.get(new MiningTaskKey(key.playerId(), key.workflowEntryId()));
+    }
+
+    /** TaskRecord 生命周期变化后，才把展示状态单向投影到工作流。 */
+    private void projectWorkflowLifecycles() {
+        java.util.List<TaskRecord> records = new java.util.ArrayList<>();
+        records.addAll(placementRecords.values());
+        records.addAll(miningRecords.values());
+        for (TaskRecord record : records) {
+            int entryId = workflowEntryId(record);
+            if (entryId < 0) continue;
+            if (projectedTaskStatuses.get(record.id()) == record.status()) continue;
+            if (record.status().terminal()) {
+                releaseTerminalWorkflow(record);
+                continue;
+            }
+            var token = workflowToken(record, entryId);
+            if (token == null) continue;
+            var status = token.getProgress();
+            switch (record.status()) {
+                case PAUSED -> {
+                    if (!status.paused()) token.pause();
+                }
+                case WAITING_RESOURCE -> {
+                    if (!status.suspended()) token.suspend();
+                }
+                case QUEUED, RUNNING -> {
+                    if (status.paused()) token.unpause();
+                    if (status.suspended()) token.resume();
+                }
+                default -> {
+                    // 终态已在上方统一释放。
+                }
+            }
+            projectedTaskStatuses.put(record.id(), record.status());
+        }
+        java.util.Set<UUID> activeIds = records.stream().map(TaskRecord::id)
+                .collect(java.util.stream.Collectors.toSet());
+        projectedTaskStatuses.keySet().removeIf(id -> !activeIds.contains(id));
+    }
+
+    private void releaseTerminalWorkflow(TaskRecord record) {
+        int entryId = workflowEntryId(record);
+        if (entryId < 0) return;
+        var token = workflowToken(record, entryId);
+        if (token != null) {
+            if (record.status() == TaskStatus.COMPLETED) token.complete();
+            else token.cancel();
+        }
+        workflowPauseOverrides.remove(new WorkflowTaskKey(record.ownerId(), entryId));
+        projectedTaskStatuses.put(record.id(), record.status());
+    }
+
+    private com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken workflowToken(
+            TaskRecord record, int entryId) {
+        if (record.payload() instanceof PlacementTaskPayload payload) {
+            return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                    .from(payload.player(), entryId).orElse(null);
+        }
+        if (record.payload() instanceof MiningTaskPayload payload) {
+            return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                    .from(payload.player(), entryId).orElse(null);
+        }
+        return null;
+    }
+
+    private int workflowEntryId(TaskRecord record) {
+        if (record.payload() instanceof PlacementTaskPayload payload) return payload.job().workflowEntryId();
+        if (record.payload() instanceof MiningTaskPayload payload) return payload.workflowEntryId();
+        return -1;
+    }
+
+    private boolean isTaskEngineWorkflow(
+            com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType type) {
+        return switch (type) {
+            case MINE_SINGLE, ULTIMINE, AREA_MINE, AREA_DESTROY,
+                    PLACE_SINGLE, PLACE_BATCH, QUICK_BUILD -> true;
+            case STOP_MINING -> false;
+        };
+    }
+
     private record MiningTaskKey(UUID playerId, int workflowEntryId) {
+    }
+
+    private record WorkflowTaskKey(UUID playerId, int workflowEntryId) {
     }
 
     private record MiningTaskSource(

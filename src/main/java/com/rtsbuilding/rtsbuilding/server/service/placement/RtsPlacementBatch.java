@@ -210,7 +210,8 @@ public final class RtsPlacementBatch {
                 pausedJobsSkipped = 0;
                 continue;
             }
-            if (hasWorkflowEntry && workflowToken.get().isPaused()) {
+            // Task Engine 路径只读取展示令牌是否存在；暂停状态由 TaskRecord 单向决定。
+            if (onlyJob == null && hasWorkflowEntry && workflowToken.get().isPaused()) {
                 session.placement.placeBatchJobs.removeFirst();
                 session.placement.placeBatchJobs.addLast(job);
                 pausedJobsSkipped++;
@@ -310,7 +311,9 @@ public final class RtsPlacementBatch {
             if (delta > 0) {
                 workflowToken(player, completedJob).ifPresent(token -> token.updateProgress(delta, null));
             }
-            workflowToken(player, completedJob).ifPresent(token -> token.complete());
+            if (onlyJob == null) {
+                workflowToken(player, completedJob).ifPresent(token -> token.complete());
+            }
         }
         if (!fullyCompletedJobs.isEmpty()) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);

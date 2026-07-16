@@ -19,8 +19,8 @@ class CoalescingEffectQueueTest {
         var drained = queue.drain();
 
         assertEquals(1, drained.size());
-        assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY));
-        assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.WORKFLOW));
+        assertTrue(drained.get(0).kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY));
+        assertTrue(drained.get(0).kinds().contains(CoalescingEffectQueue.Kind.WORKFLOW));
         assertEquals(0, queue.keyCount());
     }
 
@@ -33,7 +33,7 @@ class CoalescingEffectQueueTest {
         }
         var drained = queue.drain();
         assertEquals(1, drained.size());
-        assertEquals(1, drained.getFirst().kinds().size());
-        assertTrue(drained.getFirst().kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY));
+        assertEquals(1, drained.get(0).kinds().size());
+        assertTrue(drained.get(0).kinds().contains(CoalescingEffectQueue.Kind.STORAGE_VIEW_DIRTY));
     }
 }
