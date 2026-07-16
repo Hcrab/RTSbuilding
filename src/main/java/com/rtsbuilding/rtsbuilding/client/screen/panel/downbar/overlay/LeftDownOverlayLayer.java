@@ -59,7 +59,7 @@ public final class LeftDownOverlayLayer extends DownOverlayLayer {
     /** 箭头贴图绘制尺寸（小于按钮尺寸以保留内边距） */
     private static final int ARROW_DRAW_SIZE = 10;
     private static final int SCROLLBAR_W = 7;
-    private static final int RIGHT_MARGIN = 1;
+    private static final int RIGHT_MARGIN = 4;
     private static final int LEFT_PAD = 5;
     private static final int TOP_PAD = 2;
 
@@ -539,7 +539,7 @@ public final class LeftDownOverlayLayer extends DownOverlayLayer {
     /** 滚动条渲染（首尾各缩 6px 留出视觉边距） */
     private void renderScrollbar(GuiGraphics g, int x, int y, int h) {
         int visibleH = h - TOP_PAD * 2;
-        int barX = x + getWidth() - SCROLLBAR_W - RIGHT_MARGIN - 2;
+        int barX = x + getWidth() - SCROLLBAR_W - RIGHT_MARGIN;
         scrollBar.render(g, barX, y + TOP_PAD + 6, visibleH - 12);
     }
 
@@ -601,7 +601,7 @@ public final class LeftDownOverlayLayer extends DownOverlayLayer {
         if (sm == null) return false;
 
         // 滚动条点击
-        int barX = getX() + getWidth() - SCROLLBAR_W - RIGHT_MARGIN - 2;
+        int barX = getX() + getWidth() - SCROLLBAR_W - RIGHT_MARGIN;
         if (scrollBar.handleClick(mouseX, mouseY, barX,
                 getY() + TOP_PAD + 6, getHeight() - TOP_PAD * 2 - 12)) {
             return true;

@@ -83,6 +83,9 @@ public final class DownSidebarPanel implements RtsPanelApi {
     /** 右嵌层 */
     private final RightDownOverlayLayer rightLayer = new RightDownOverlayLayer();
 
+    /** 公开右嵌层引用，供 {@link BuilderScreen} 在缩放通道外渲染 tooltip。 */
+    public RightDownOverlayLayer getRightLayer() { return rightLayer; }
+
     // ======================== 嵌层分隔条拖拽状态 ========================
 
     /** 左嵌层宽度（像素），-1 表示使用默认黄金比例 */

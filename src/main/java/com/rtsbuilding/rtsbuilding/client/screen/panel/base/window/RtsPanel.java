@@ -211,7 +211,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     // ======================================================================
 
     /**
-     * 初始化面板。在 {@link BuilderScreen#init()} 中调用。
+     * 初始化面板。在  中调用。
      * <p>注意：面板实例本身在构造函数中已创建，init() 仅更新 screen 引用
      * 并创建/重置子组件。不会因窗口 resize 而重建面板实例，避免状态丢失。</p>
      */
@@ -397,7 +397,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     /**
      * 设置临时边界（不标记用户偏好）。
-     * <p>与 {@link #setBounds} 的区别：此方法会将 {@link #userBoundsPreference} 设为 false，
+     * <p>与 {@link #setBounds} 的区别：此方法会将  设为 false，
      * 表示边界不是用户主动设置的（例如代码自动恢复布局），持久化系统不会覆写用户偏好。</p>
      */
     public void setTransientBounds(int x, int y, int width, int height) {

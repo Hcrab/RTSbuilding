@@ -106,10 +106,12 @@ public final class SpriteRenderer {
     public static void drawSprite(GuiGraphics g, SpriteRegion region,
                                    int dstX, int dstY, int dstW, int dstH) {
         FilterState.getInstance().apply(region.texture());
-        g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
-                region.u(), region.v(),
-                region.regionWidth(), region.regionHeight(),
-                region.texture().fullWidth(), region.texture().fullHeight());
+        try (BlendScope blend = BlendScope.normal()) {
+            g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
+                    region.u(), region.v(),
+                    region.regionWidth(), region.regionHeight(),
+                    region.texture().fullWidth(), region.texture().fullHeight());
+        }
     }
 
     /**
@@ -120,10 +122,12 @@ public final class SpriteRenderer {
     private static void drawSprite(GuiGraphics g, SpriteRegion region, int themeOffset,
                                     int dstX, int dstY, int dstW, int dstH) {
         FilterState.getInstance().apply(region.texture());
-        g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
-                region.u() + themeOffset, region.v(),
-                region.regionWidth(), region.regionHeight(),
-                region.texture().fullWidth(), region.texture().fullHeight());
+        try (BlendScope blend = BlendScope.normal()) {
+            g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
+                    region.u() + themeOffset, region.v(),
+                    region.regionWidth(), region.regionHeight(),
+                    region.texture().fullWidth(), region.texture().fullHeight());
+        }
     }
 
     // ======================== 九宫格渲染 ========================

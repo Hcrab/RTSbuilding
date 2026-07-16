@@ -485,6 +485,8 @@ public class BuilderScreen extends Screen {
     public void render(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         // 以用户偏好的固定缩放倍率渲染（非缩放入口递归调用自身，缩放入口直接进入内容）
         if (!scaleManager.isInRenderPass() && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
+            // 固定缩放渲染完成后，在原始屏幕坐标空间渲染 tooltip（避免缩放通道内的坐标错位）
+            renderPostScaleTooltip(guiGraphics, mouseX, mouseY);
             return;
         }
 
@@ -564,6 +566,16 @@ public class BuilderScreen extends Screen {
         if (Minecraft.getInstance().gui.getDebugOverlay().showDebugScreen()) {
             Minecraft.getInstance().gui.getDebugOverlay().render(guiGraphics);
         }
+    }
+
+    /**
+     * 在缩放通道外渲染底部右嵌层的物品 tooltip，使用原始屏幕坐标避免缩放导致的错位。
+     */
+    private void renderPostScaleTooltip(GuiGraphics g, int mouseX, int mouseY) {
+        if (downSidebarPanel == null) return;
+        var stack = downSidebarPanel.getRightLayer().getHoveredSlotStack();
+        if (stack.isEmpty()) return;
+        g.renderTooltip(Minecraft.getInstance().font, stack, mouseX, mouseY);
     }
 
     // ======================================================================

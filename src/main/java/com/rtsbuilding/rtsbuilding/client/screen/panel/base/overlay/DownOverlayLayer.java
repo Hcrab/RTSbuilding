@@ -185,6 +185,9 @@ public abstract class DownOverlayLayer {
                 () -> SpriteRenderer.drawNineSlice(g, SCREEN_UI_NINE_SLICE.withTheme().withVOffset(SCREEN_UI_STATE_H), x, y, width, height));
 
         g.disableScissor();
+
+        // Scissor 解除后渲染悬浮提示等不受裁剪限制的内容
+        postRenderContent(g);
     }
 
     /**
@@ -193,6 +196,13 @@ public abstract class DownOverlayLayer {
      */
     protected void renderContent(GuiGraphics g) {
         // 默认无内容，子类按需重写
+    }
+
+    /**
+     * Scissor 裁剪结束后调用，供子类渲染不受裁剪限制的内容（如 tooltip）。
+     */
+    protected void postRenderContent(GuiGraphics g) {
+        // 默认无操作，子类按需重写
     }
 
     // ======================== 区域检测 ========================

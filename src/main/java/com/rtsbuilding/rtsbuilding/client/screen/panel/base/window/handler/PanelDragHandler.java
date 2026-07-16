@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.handler;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.util.render.PanelDragPerformanceOptimizer;
 
 import java.util.List;
 
@@ -38,6 +39,7 @@ public final class PanelDragHandler {
         this.dragOffsetX = mouseX - panel.getWindowX();
         this.dragOffsetY = mouseY - panel.getWindowY();
         this.snapEngaged = false;
+        PanelDragPerformanceOptimizer.setCurrentlyDraggingPanel(panel);
     }
 
     /**
@@ -51,6 +53,8 @@ public final class PanelDragHandler {
         int beforeY = panel.getWindowY();
         panel.setWindowX((int) Math.round(mouseX - this.dragOffsetX));
         panel.setWindowY((int) Math.round(mouseY - this.dragOffsetY));
+        // 移除这里的条件限制，确保在拖拽过程中也能适当限制屏幕边界
+        // 之前的设计是想在拖拽时不限制，但这可能导致面板移出屏幕
         panel.clampWindowToScreen();
         return beforeX != panel.getWindowX() || beforeY != panel.getWindowY();
     }
@@ -61,6 +65,7 @@ public final class PanelDragHandler {
         }
         this.dragging = false;
         this.snapEngaged = false;
+        PanelDragPerformanceOptimizer.clearDraggingPanel();
     }
 
     // ======================== 吸附逻辑 ========================
