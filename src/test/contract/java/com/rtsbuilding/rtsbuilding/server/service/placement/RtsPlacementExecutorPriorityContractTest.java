@@ -32,7 +32,8 @@ class RtsPlacementExecutorPriorityContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String body = methodBody(source, "private static boolean placeWithStorageItem");
 
-        int firstFallback = body.indexOf("if (forcePlace && !finalOutcome.result().consumesAction())");
+        int firstFallback = body.indexOf(
+                "if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction())");
         int remainderCarry = body.indexOf("nextAttemptStack(finalOutcome, lastAttemptStack)", firstFallback);
         int blockInteractFallback = body.indexOf(
                 "useItemOnWithMainHand(player, level, storageInteractStack, hit, false)",
@@ -42,6 +43,8 @@ class RtsPlacementExecutorPriorityContractTest {
                 firstFallback);
 
         assertTrue(firstFallback >= 0, "Shift storage placement should have a normal-interaction fallback block");
+        assertTrue(body.contains("!sophisticatedBackpackPlacementOnly"),
+                "Sophisticated Backpacks must be excluded from the fallback that opens usable items");
         assertTrue(remainderCarry > firstFallback && remainderCarry < blockInteractFallback,
                 "storage fallback must continue with the previous remainder instead of recreating from item id");
         assertTrue(blockInteractFallback > firstFallback,

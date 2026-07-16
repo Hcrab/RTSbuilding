@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
@@ -936,7 +937,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.controller.hasSelectedItem()) {
-            if (target.isEntityTarget()) {
+            boolean forceBackpackPlacement = RtsBackpackCompat.isBackpackItem(
+                    this.controller.getSelectedItemPreview());
+            if (target.isEntityTarget() && !forceBackpackPlacement) {
                 this.shapeController.clearShapeBuildSession();
                 this.controller.interactEntityWithPinnedItem(
                         target.entityId(),
@@ -945,7 +948,8 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
-                if (!forcePlace && !rangeDestroyMode && this.controller.getBuildShape() == BuildShape.BLOCK) {
+                if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode
+                        && this.controller.getBuildShape() == BuildShape.BLOCK) {
                     this.shapeController.clearShapeBuildSession();
                     this.controller.interactBlockWithPinnedItem(
                             target.blockHit(),
@@ -965,7 +969,7 @@ public final class BuilderScreen extends Screen {
                 }
                 this.shapeController.placeWithShape(
                         target.blockHit(),
-                        forcePlace,
+                        forcePlace || forceBackpackPlacement,
                         target.rayOrigin(),
                         target.rayDir(),
                         mouseY,
