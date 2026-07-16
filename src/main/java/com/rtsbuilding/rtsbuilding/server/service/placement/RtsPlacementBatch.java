@@ -167,7 +167,7 @@ public final class RtsPlacementBatch {
      * completes.
      */
     public static void tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session) {
-        tickPlaceBatchJobs(player, session, Config.buildBatchBlocksPerTick(), Long.MAX_VALUE);
+        tickPlaceBatchJobs(player, session, BUILD_BATCH_MAX_BLOCKS_PER_TICK, Long.MAX_VALUE);
     }
 
     /** 在数量与纳秒截止时间双预算内推进放置任务。 */
