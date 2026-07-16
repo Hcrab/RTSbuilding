@@ -37,7 +37,7 @@ public final class Config {
 
     public static final ForgeConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = BUILDER
             .comment("Render translucent block ghost models before the player confirms placement.")
-            .define("useBlockGhostPreview", true);
+            .define("useBlockGhostPreview", false);
 
     public static final ForgeConfigSpec.BooleanValue USE_PLACE_BLOCK_GHOST_ANIMATION = BUILDER
             .comment("Render translucent grow-in block ghosts after server-confirmed block placement.")
