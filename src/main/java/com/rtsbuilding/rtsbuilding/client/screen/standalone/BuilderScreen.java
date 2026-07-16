@@ -36,7 +36,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceMode;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.AdvancedDestroyHandler;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.AdvancedDestroyOptions;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.AdvancedDestroySubMode;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.AdvDestroyFilter;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.AdvDestroyItemStackFilter;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
@@ -76,7 +80,9 @@ import net.neoforged.fml.ModList;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import net.minecraft.world.level.block.Block;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 /**
@@ -543,6 +549,7 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (handleWorldPickModeClick(mouseX, mouseY, button)) return true;
         if (handleOverlayClicks(mouseX, mouseY, button)) return true;
         if (handleBlueprintCaptureClicks(mouseX, mouseY, button)) return true;
         if (handleHomeSelectionClicks(mouseX, mouseY, button)) return true;
@@ -552,6 +559,43 @@ public final class BuilderScreen extends Screen {
         if (handleLeftClickInteractions(mouseX, mouseY, button)) return true;
         if (handleWorldClickActions(mouseX, mouseY, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** 世界取块模式：点击世界方块将其设为过滤目标。 */
+    private boolean handleWorldPickModeClick(double mouseX, double mouseY, int button) {
+        if (!isQuickBuildAdvancedDestroyActive()) return false;
+        if (!this.quickBuildPanel.isWorldPickMode()) return false;
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            // 右键取消
+            this.quickBuildPanel.exitWorldPickMode();
+            return true;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && isWorldArea(mouseX, mouseY)) {
+            // 左键在世界区域 → 选取方块
+            var handler = this.quickBuildPanel.getAdvDestroyHandler();
+            BlockPos target = handler.getCursorTarget();
+            if (target != null && getMinecraft().level != null) {
+                var state = getMinecraft().level.getBlockState(target);
+                if (!state.isAir()) {
+                    var itemId = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+                    var filters = this.quickBuildPanel.getAdvDestroyOptions().getFilters();
+                    filters.removeIf(f -> f.getType() == AdvDestroyFilter.FilterType.ITEM_STACK);
+                    filters.addFirst(new AdvDestroyItemStackFilter(itemId));
+                    handler.markDirty();
+                    persistUiState();
+                    // 提示消息
+                    if (getMinecraft().player != null) {
+                        getMinecraft().player.displayClientMessage(
+                                Component.translatable("screen.rtsbuilding.quick_build.adv_filter_picked",
+                                        itemId.toString()), true);
+                    }
+                }
+            }
+            this.quickBuildPanel.exitWorldPickMode();
+            return true;
+        }
+        return false;
     }
 
     /** Handles left/right click in blueprint capture mode. */
@@ -1193,6 +1237,11 @@ public final class BuilderScreen extends Screen {
      * search box, tool slot, and sensitivity handlers in priority order.
      */
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // ESC 取消世界取块模式
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE && this.quickBuildPanel.isWorldPickMode()) {
+            this.quickBuildPanel.exitWorldPickMode();
+            return true;
+        }
         if (handleOverlayKeys(keyCode, scanCode, modifiers)) return true;
         if (handleBlueprintKeys(keyCode, scanCode, modifiers)) return true;
         if (handleHomeSelectionKey(keyCode)) return true;
@@ -1961,6 +2010,38 @@ public final class BuilderScreen extends Screen {
                 toolItemId = BuiltInRegistries.ITEM.getKey(toolPrototype.getItem()).toString();
             }
         }
+
+        // 工具检查：确认背包中是否有可正确采集范围内方块的工具
+        var player = getMinecraft().player;
+        var level = getMinecraft().level;
+        List<NoToolConfirmScreen.BlockEntry> missing = (player != null && level != null)
+                ? analyzeMissingTools(positions, player, level)
+                : List.of();
+
+        if (!missing.isEmpty()) {
+            var mc = getMinecraft();
+            if (mc != null) {
+                final String capturedItemId = toolItemId;
+                final ItemStack capturedPrototype = toolPrototype;
+                mc.setScreen(new NoToolConfirmScreen(this,
+                        () -> doSendAreaDestroy(handler, options, positions, toolSlot, capturedItemId, capturedPrototype),
+                        missing,
+                        Component.translatable("screen.rtsbuilding.adv_destroy_no_tool.title"),
+                        Component.translatable("screen.rtsbuilding.adv_destroy_no_tool.desc"),
+                        Component.translatable("screen.rtsbuilding.adv_destroy_no_tool.cancel"),
+                        Component.translatable("screen.rtsbuilding.adv_destroy_no_tool.continue")));
+            }
+            return;
+        }
+
+        doSendAreaDestroy(handler, options, positions, toolSlot, toolItemId, toolPrototype);
+    }
+
+    /** 执行高级破坏发送及后续清理 */
+    private void doSendAreaDestroy(
+            AdvancedDestroyHandler handler, AdvancedDestroyOptions options,
+            List<BlockPos> positions, int toolSlot,
+            String toolItemId, ItemStack toolPrototype) {
         RtsClientPacketGateway.sendAreaDestroy(positions, toolSlot, toolItemId, toolPrototype, true);
 
         // 伐木模式：发送世界消息并关闭玩家造物开关
@@ -1977,6 +2058,44 @@ public final class BuilderScreen extends Screen {
 
         handler.clearAnchor();
         this.controller.clearAreaMineSession();
+    }
+
+    /** 分析范围内哪些方块类型在玩家背包中缺少可采集工具 */
+    private List<NoToolConfirmScreen.BlockEntry> analyzeMissingTools(
+            List<BlockPos> positions,
+            net.minecraft.client.player.LocalPlayer player,
+            net.minecraft.client.multiplayer.ClientLevel level) {
+        // 收集需要正确工具才能掉落的方块类型（去重计数）
+        var blockCounts = new LinkedHashMap<Block, Integer>();
+        for (BlockPos pos : positions) {
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir() || !state.requiresCorrectToolForDrops()) continue;
+            blockCounts.merge(state.getBlock(), 1, Integer::sum);
+        }
+
+        if (blockCounts.isEmpty()) return List.of();
+
+        var inventory = player.getInventory();
+        List<NoToolConfirmScreen.BlockEntry> missing = new ArrayList<>();
+
+        for (var entry : blockCounts.entrySet()) {
+            Block block = entry.getKey();
+            BlockState state = block.defaultBlockState();
+            boolean canHarvest = false;
+            for (int i = 0; i < inventory.getContainerSize(); i++) {
+                ItemStack stack = inventory.getItem(i);
+                if (!stack.isEmpty() && stack.isCorrectToolForDrops(state)) {
+                    canHarvest = true;
+                    break;
+                }
+            }
+            if (!canHarvest) {
+                missing.add(new NoToolConfirmScreen.BlockEntry(
+                        block, block.getName().getString(), entry.getValue()));
+            }
+        }
+
+        return missing;
     }
 
     /** 取消高级破坏锚点 */

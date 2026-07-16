@@ -411,6 +411,13 @@ public final class RtsClientUiStateStore {
             public int rectPlusZ = 1;
             public int rectMinusZ = 1;
             public String rectFillMode = "FILL";
+            // 矩形区块模式
+            public String rectMode = "SIZE";
+            public int chunkRectPlusY = 0;
+            public int chunkRectMinusY = 0;
+            // 过滤
+            public String filtersJson = "[]";
+            public boolean filterInverse = false;
             // 圆柱
             public int cylinderRadius = 2;
             public int cylinderPlusH = 2;
@@ -563,6 +570,12 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.advancedDestroy.lumberLimit = clampInt(this.quickBuild.advancedDestroy.lumberLimit, 1, 1024);
             clean.quickBuild.advancedDestroy.lumberStrongMan = this.quickBuild.advancedDestroy.lumberStrongMan;
             clean.quickBuild.advancedDestroy.lumberAllowPlayerBlocks = this.quickBuild.advancedDestroy.lumberAllowPlayerBlocks;
+            clean.quickBuild.advancedDestroy.rectMode = sanitizeEnum(this.quickBuild.advancedDestroy.rectMode, "SIZE");
+            clean.quickBuild.advancedDestroy.chunkRectPlusY = Math.max(0, this.quickBuild.advancedDestroy.chunkRectPlusY);
+            clean.quickBuild.advancedDestroy.chunkRectMinusY = Math.max(0, this.quickBuild.advancedDestroy.chunkRectMinusY);
+            clean.quickBuild.advancedDestroy.filtersJson = this.quickBuild.advancedDestroy.filtersJson != null
+                    ? this.quickBuild.advancedDestroy.filtersJson : "[]";
+            clean.quickBuild.advancedDestroy.filterInverse = this.quickBuild.advancedDestroy.filterInverse;
             // camera
             clean.camera.rtsGuiScale = sanitizeScale(this.camera.rtsGuiScale);
             clean.camera.inputSensitivityIndex = Math.max(0, Math.min(32, this.camera.inputSensitivityIndex));

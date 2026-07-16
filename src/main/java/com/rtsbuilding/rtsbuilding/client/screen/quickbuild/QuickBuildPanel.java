@@ -14,7 +14,10 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
@@ -191,6 +194,20 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private WindowSlider rectSliderPlusY, rectSliderMinusY;
     private WindowSlider rectSliderPlusZ, rectSliderMinusZ;
     private WindowButton[] rectFillModeButtons;
+    // 矩形尺寸/区块切换按钮
+    private WindowButton rectSizeModeBtn, rectChunkModeBtn;
+    // 区块模式 Y 滑条（独立于尺寸模式 Y 滑条）
+    private WindowSlider chunkRectSliderPlusY, chunkRectSliderMinusY;
+    // 过滤控件
+    private WindowButton filterSlotBtn;       // "挖掘方块"槽位
+    private WindowButton filterPanelBtn;      // "过滤"按钮
+    private WindowButton filterInverseBtn;    // "反选"开关
+    private final AdvDestroyFilterPanel filterPanel = new AdvDestroyFilterPanel(r -> {
+        advDestroyHandler.markDirty();
+        if (screen != null) screen.persistUiState();
+    });
+    // 世界取块模式
+    private boolean worldPickMode = false;
     // 圆柱滑条
     private WindowSlider cylinderRadiusSlider;
     private WindowSlider cylinderPlusHSlider, cylinderMinusHSlider;
@@ -403,6 +420,34 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     (state, v) -> state.quickBuild.advancedDestroy.lumberAllowPlayerBlocks = v,
                     () -> this.advDestroyOptions.isLumberAllowPlayerBlocks(),
                     v -> this.advDestroyOptions.setLumberAllowPlayerBlocks(v)),
+            // 矩形区块模式 + 过滤持久化
+            PersistableProperty.enumField("adv_rect_mode",
+                    state -> state.quickBuild.advancedDestroy.rectMode,
+                    (state, v) -> state.quickBuild.advancedDestroy.rectMode = v,
+                    () -> this.advDestroyOptions.getRectMode(),
+                    v -> this.advDestroyOptions.setRectMode(v),
+                    AdvDestroyRectMode.SIZE,
+                    AdvDestroyRectMode.class),
+            PersistableProperty.intField("adv_chunk_rect_plus_y",
+                    state -> state.quickBuild.advancedDestroy.chunkRectPlusY,
+                    (state, v) -> state.quickBuild.advancedDestroy.chunkRectPlusY = v,
+                    () -> this.advDestroyOptions.getChunkRectPlusY(),
+                    v -> {}),
+            PersistableProperty.intField("adv_chunk_rect_minus_y",
+                    state -> state.quickBuild.advancedDestroy.chunkRectMinusY,
+                    (state, v) -> state.quickBuild.advancedDestroy.chunkRectMinusY = v,
+                    () -> this.advDestroyOptions.getChunkRectMinusY(),
+                    v -> {}),
+            PersistableProperty.boolField("adv_filter_inverse",
+                    state -> state.quickBuild.advancedDestroy.filterInverse,
+                    (state, v) -> state.quickBuild.advancedDestroy.filterInverse = v,
+                    () -> this.advDestroyOptions.isFilterInverse(),
+                    v -> this.advDestroyOptions.setFilterInverse(v)),
+            PersistableProperty.stringField("adv_filters_json",
+                    state -> state.quickBuild.advancedDestroy.filtersJson,
+                    (state, v) -> state.quickBuild.advancedDestroy.filtersJson = v,
+                    () -> this.advDestroyOptions.saveFiltersToJson(),
+                    v -> this.advDestroyOptions.loadFiltersFromJson(v)),
             PersistableProperty.bounds("quick_build", this)
     );
 
@@ -738,6 +783,28 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return advDestroyOptions;
     }
 
+    public boolean isWorldPickMode() { return worldPickMode; }
+
+    public void enterWorldPickMode() {
+        this.worldPickMode = true;
+        // 光标切换为十字
+        try {
+            long window = Minecraft.getInstance().getWindow().getWindow();
+            long cursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_CROSSHAIR_CURSOR);
+            GLFW.glfwSetCursor(window, cursor);
+        } catch (Exception ignored) {}
+    }
+
+    public void exitWorldPickMode() {
+        this.worldPickMode = false;
+        // 恢复箭头光标
+        try {
+            long window = Minecraft.getInstance().getWindow().getWindow();
+            long cursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_ARROW_CURSOR);
+            GLFW.glfwSetCursor(window, cursor);
+        } catch (Exception ignored) {}
+    }
+
     // ===== 高级破坏子模式按钮和滑条 =====
 
     private void createAdvDestroySubModeButtons() {
@@ -871,6 +938,83 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             lumberAllowPlayerBlocksToggle = new WindowButton(0, 0, 80, 18,
                     Component.translatable("screen.rtsbuilding.quick_build.adv_lumber_allow_player"), btn -> {
                 advDestroyOptions.setLumberAllowPlayerBlocks(!advDestroyOptions.isLumberAllowPlayerBlocks());
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+
+        // 尺寸/区块切换按钮
+        if (rectSizeModeBtn == null) {
+            rectSizeModeBtn = new WindowButton(0, 0, 30, 14,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_rect_size"), btn -> {
+                advDestroyOptions.setRectMode(AdvDestroyRectMode.SIZE);
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+        if (rectChunkModeBtn == null) {
+            rectChunkModeBtn = new WindowButton(0, 0, 30, 14,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_rect_chunk"), btn -> {
+                advDestroyOptions.setRectMode(AdvDestroyRectMode.CHUNK);
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+
+        // 区块模式 Y 滑条（动态范围，每次渲染时设置值）
+        if (chunkRectSliderPlusY == null) {
+            chunkRectSliderPlusY = new WindowSlider(0, 0, halfSliderW, 16,
+                    0, 320, advDestroyOptions.getChunkRectPlusY());
+            chunkRectSliderPlusY.onChange(v -> {
+                advDestroyOptions.setChunkRectPlusY(v, 320);
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+        if (chunkRectSliderMinusY == null) {
+            chunkRectSliderMinusY = new WindowSlider(0, 0, halfSliderW, 16,
+                    0, 320, advDestroyOptions.getChunkRectMinusY());
+            chunkRectSliderMinusY.onChange(v -> {
+                advDestroyOptions.setChunkRectMinusY(v, 320);
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+
+        // 过滤控件
+        if (filterSlotBtn == null) {
+            filterSlotBtn = new WindowButton(0, 0, 20, 20,
+                    Component.literal("▣"), btn -> {
+                var filters = advDestroyOptions.getFilters();
+                if (controller != null && controller.hasSelectedItem() && !controller.getSelectedItemId().isBlank()) {
+                    // 从存储面板选中方块 → 设置/替换快速过滤
+                    ResourceLocation itemId = ResourceLocation.tryParse(controller.getSelectedItemId());
+                    if (itemId != null) {
+                        filters.removeIf(f -> f.getType() == AdvDestroyFilter.FilterType.ITEM_STACK);
+                        filters.addFirst(new AdvDestroyItemStackFilter(itemId));
+                    }
+                } else if (!filters.isEmpty()) {
+                    // 有过滤且空手点击 → 清除过滤
+                    filters.removeIf(f -> f.getType() == AdvDestroyFilter.FilterType.ITEM_STACK);
+                } else {
+                    // 无过滤且无选中方块 → 进入世界取块模式
+                    enterWorldPickMode();
+                    return;
+                }
+                advDestroyHandler.markDirty();
+                if (screen != null) screen.persistUiState();
+            });
+        }
+        if (filterPanelBtn == null) {
+            filterPanelBtn = new WindowButton(0, 0, 30, 14,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_filter"), btn -> {
+                filterPanel.toggle(this.windowX, this.windowY, this.windowWidth, this.windowHeight);
+            });
+        }
+        if (filterInverseBtn == null) {
+            filterInverseBtn = new WindowButton(0, 0, 30, 14,
+                    Component.translatable("screen.rtsbuilding.quick_build.adv_filter_inverse"), btn -> {
+                advDestroyOptions.setFilterInverse(!advDestroyOptions.isFilterInverse());
                 advDestroyHandler.markDirty();
                 if (screen != null) screen.persistUiState();
             });
@@ -1301,40 +1445,98 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
         switch (advDestroyOptions.getSubMode()) {
             case RECTANGLE -> {
-                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_sliders_label"),
-                        rightX, shapeTitleY, 0xD8E3EE, false);
+                boolean isChunk = advDestroyOptions.getRectMode() == AdvDestroyRectMode.CHUNK;
 
-                // 3 对滑条：+x/-x, +y/-y, +z/-z
-                String[][] axisLabels = {
-                    {"screen.rtsbuilding.quick_build.adv_rect_px", "screen.rtsbuilding.quick_build.adv_rect_nx"},
-                    {"screen.rtsbuilding.quick_build.adv_rect_py", "screen.rtsbuilding.quick_build.adv_rect_ny"},
-                    {"screen.rtsbuilding.quick_build.adv_rect_pz", "screen.rtsbuilding.quick_build.adv_rect_nz"}
-                };
-                WindowSlider[][] rectPairs = {
-                    {rectSliderPlusX, rectSliderMinusX},
-                    {rectSliderPlusY, rectSliderMinusY},
-                    {rectSliderPlusZ, rectSliderMinusZ}
-                };
-                for (int row = 0; row < 3; row++) {
-                    int rowY = bodyY + SECTION_TOP + 15 + row * ADV_SLIDER_ROW_H;
-                    // 标签 + 两个滑条并排
-                    g.drawString(screen.font(), Component.translatable(axisLabels[row][0]),
-                            rightX, rowY + 2, 0xFFC9D8E8, false);
-                    rectPairs[row][0].setWidth(halfSliderW);
-                    rectPairs[row][0].setX(rightX + 18);
-                    rectPairs[row][0].setY(rowY);
-                    rectPairs[row][0].render(g, mouseX, mouseY, partialTick);
+                // 尺寸/区块切换按钮
+                int toggleY = shapeTitleY;
+                rectSizeModeBtn.setX(rightX);
+                rectSizeModeBtn.setY(toggleY);
+                boolean sizeSel = !isChunk;
+                if (sizeSel) {
+                    g.fill(rightX, toggleY, rightX + 30, toggleY + 14, 0xFF5FE36C);
+                }
+                rectSizeModeBtn.render(g, mouseX, mouseY, partialTick);
 
-                    g.drawString(screen.font(), Component.translatable(axisLabels[row][1]),
-                            rightX + 18 + halfSliderW + 4, rowY + 2, 0xFFC9D8E8, false);
-                    rectPairs[row][1].setWidth(halfSliderW);
-                    rectPairs[row][1].setX(rightX + 18 + halfSliderW + 16);
-                    rectPairs[row][1].setY(rowY);
-                    rectPairs[row][1].render(g, mouseX, mouseY, partialTick);
+                rectChunkModeBtn.setX(rightX + 32);
+                rectChunkModeBtn.setY(toggleY);
+                boolean chunkSel = isChunk;
+                if (chunkSel) {
+                    g.fill(rightX + 32, toggleY, rightX + 62, toggleY + 14, 0xFF5FE36C);
+                }
+                rectChunkModeBtn.render(g, mouseX, mouseY, partialTick);
+
+                if (!isChunk) {
+                    // ===== 尺寸模式：6条滑条 =====
+                    String[][] axisLabels = {
+                        {"screen.rtsbuilding.quick_build.adv_rect_px", "screen.rtsbuilding.quick_build.adv_rect_nx"},
+                        {"screen.rtsbuilding.quick_build.adv_rect_py", "screen.rtsbuilding.quick_build.adv_rect_ny"},
+                        {"screen.rtsbuilding.quick_build.adv_rect_pz", "screen.rtsbuilding.quick_build.adv_rect_nz"}
+                    };
+                    WindowSlider[][] rectPairs = {
+                        {rectSliderPlusX, rectSliderMinusX},
+                        {rectSliderPlusY, rectSliderMinusY},
+                        {rectSliderPlusZ, rectSliderMinusZ}
+                    };
+                    for (int row = 0; row < 3; row++) {
+                        int rowY = bodyY + SECTION_TOP + 18 + row * ADV_SLIDER_ROW_H;
+                        g.drawString(screen.font(), Component.translatable(axisLabels[row][0]),
+                                rightX, rowY + 2, 0xFFC9D8E8, false);
+                        rectPairs[row][0].setWidth(halfSliderW);
+                        rectPairs[row][0].setX(rightX + 18);
+                        rectPairs[row][0].setY(rowY);
+                        rectPairs[row][0].render(g, mouseX, mouseY, partialTick);
+
+                        g.drawString(screen.font(), Component.translatable(axisLabels[row][1]),
+                                rightX + 18 + halfSliderW + 4, rowY + 2, 0xFFC9D8E8, false);
+                        rectPairs[row][1].setWidth(halfSliderW);
+                        rectPairs[row][1].setX(rightX + 18 + halfSliderW + 16);
+                        rectPairs[row][1].setY(rowY);
+                        rectPairs[row][1].render(g, mouseX, mouseY, partialTick);
+                    }
+                } else {
+                    // ===== 区块模式：XZ灰化 + Y独立滑条 =====
+                    // 显示 X/Z 固化为 "区块" 文字
+                    int infoY1 = bodyY + SECTION_TOP + 18;
+                    g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_chunk_xz_locked"),
+                            rightX, infoY1 + 2, 0xFF6B7D8E, false);
+
+                    // 动态更新 Y 滑条范围和默认值
+                    var handler = advDestroyHandler;
+                    BlockPos anchor = handler.isAnchored() ? handler.getAnchorPos() : handler.getCursorTarget();
+                    int anchorY = anchor != null ? anchor.getY() : 0;
+                    int[] yMax = advDestroyOptions.computeChunkYMax(anchorY);
+                    chunkRectSliderPlusY.setRange(ADV_DESTROY_CHUNK_Y_MIN, yMax[0]);
+                    chunkRectSliderMinusY.setRange(ADV_DESTROY_CHUNK_Y_MIN, yMax[1]);
+                    // 首次进入区块模式时设默认值
+                    if (isChunk && advDestroyOptions.getChunkRectPlusY() == 0 && yMax[0] > 0) {
+                        advDestroyOptions.setChunkRectPlusY(yMax[0], yMax[0]);
+                    }
+                    if (isChunk && advDestroyOptions.getChunkRectMinusY() == 0 && yMax[1] > 0) {
+                        advDestroyOptions.setChunkRectMinusY(yMax[1], yMax[1]);
+                    }
+
+                    int yRowY = bodyY + SECTION_TOP + 18 + ADV_SLIDER_ROW_H;
+                    g.drawString(screen.font(), "+y", rightX, yRowY + 2, 0xFFC9D8E8, false);
+                    chunkRectSliderPlusY.setWidth(halfSliderW);
+                    chunkRectSliderPlusY.setX(rightX + 18);
+                    chunkRectSliderPlusY.setY(yRowY);
+                    chunkRectSliderPlusY.setValue(advDestroyOptions.getChunkRectPlusY());
+                    chunkRectSliderPlusY.render(g, mouseX, mouseY, partialTick);
+                    String pyStr = "+" + advDestroyOptions.getChunkRectPlusY();
+                    g.drawString(screen.font(), pyStr, rightX + 18 + halfSliderW + 4, yRowY + 2, 0xFFEAF4FF, false);
+
+                    g.drawString(screen.font(), "-y", rightX, yRowY + ADV_SLIDER_ROW_H - 2, 0xFFC9D8E8, false);
+                    chunkRectSliderMinusY.setWidth(halfSliderW);
+                    chunkRectSliderMinusY.setX(rightX + 18);
+                    chunkRectSliderMinusY.setY(yRowY + ADV_SLIDER_ROW_H - 4);
+                    chunkRectSliderMinusY.setValue(advDestroyOptions.getChunkRectMinusY());
+                    chunkRectSliderMinusY.render(g, mouseX, mouseY, partialTick);
+                    String nyStr = "-" + advDestroyOptions.getChunkRectMinusY();
+                    g.drawString(screen.font(), nyStr, rightX + 18 + halfSliderW + 4, yRowY + ADV_SLIDER_ROW_H - 2, 0xFFEAF4FF, false);
                 }
 
                 // 矩形填充模式按钮（在滑条下方）
-                int fillY = bodyY + SECTION_TOP + 15 + 3 * ADV_SLIDER_ROW_H + 4;
+                int fillY = bodyY + SECTION_TOP + 18 + 3 * ADV_SLIDER_ROW_H + 8;
                 ShapeFillMode activeRectFill = advDestroyOptions.getRectFillMode();
                 for (int i = 0; i < rectFillModeButtons.length; i++) {
                     ShapeFillMode fm = ShapeFillMode.values()[i];
@@ -1350,6 +1552,45 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                             MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
                     rectFillModeButtons[i].render(g, mouseX, mouseY, partialTick);
                 }
+
+                // ===== 过滤行（三行，在填充模式按钮下方） =====
+                int filterBaseY = fillY + 20;
+
+                // 行1："挖掘方块：[槽位]"
+                g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_filter_slot_label"),
+                        rightX, filterBaseY + 3, 0xFFC9D8E8, false);
+                filterSlotBtn.setX(rightX + 54);
+                filterSlotBtn.setY(filterBaseY);
+                filterSlotBtn.render(g, mouseX, mouseY, partialTick);
+                // 渲染当前过滤方块图标
+                var filters = advDestroyOptions.getFilters();
+                if (!filters.isEmpty() && filters.getFirst().getType() == AdvDestroyFilter.FilterType.ITEM_STACK) {
+                    var itemFilter = (AdvDestroyItemStackFilter) filters.getFirst();
+                    var item = BuiltInRegistries.ITEM.getOptional(itemFilter.getItemId());
+                    if (item.isPresent()) {
+                        g.renderFakeItem(new ItemStack(item.get()), rightX + 56, filterBaseY + 2);
+                    }
+                }
+
+                // 行2：过滤按钮
+                filterPanelBtn.setX(rightX);
+                filterPanelBtn.setY(filterBaseY + ADV_DESTROY_FILTER_ROW_H);
+                filterPanelBtn.render(g, mouseX, mouseY, partialTick);
+
+                // 行3：反选开关
+                filterInverseBtn.setX(rightX);
+                filterInverseBtn.setY(filterBaseY + 2 * ADV_DESTROY_FILTER_ROW_H);
+                filterInverseBtn.render(g, mouseX, mouseY, partialTick);
+                boolean inv = advDestroyOptions.isFilterInverse();
+                boolean invHov = filterInverseBtn.isHoveredOrFocused();
+                int invOff = inv ? MODE_BUTTON_STATE_H * 2 : (invHov ? MODE_BUTTON_STATE_H : 0);
+                RtsTextureRenderer.drawTextureHighPrecision(
+                        g, SELECTION_DOT_TEXTURE, rightX + 32, filterBaseY + 2 * ADV_DESTROY_FILTER_ROW_H + 1, 14, 14,
+                        0, invOff, MODE_BUTTON_SHEET_W, MODE_BUTTON_STATE_H,
+                        MODE_BUTTON_SHEET_W, MODE_BUTTON_H, 0, 0xFFFFFFFF);
+
+                // 渲染过滤面板（如果可见）
+                filterPanel.render(g, mouseX, mouseY, partialTick, filters);
             }
             case CYLINDER -> {
                 g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.adv_cyl_radius"),
@@ -1558,6 +1799,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return;
         }
+        // 过滤面板事件（优先处理，防止透传）
+        if (filterPanel.isVisible() && filterPanel.mouseClicked(mouseX, mouseY, button)) {
+            return;
+        }
         if (this.chainLimitSlider != null && isRangeDestroyChainMode()) {
             if (this.chainLimitSlider.mouseClicked(mouseX, mouseY, button)) {
                 return;
@@ -1608,6 +1853,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (filterPanel.isVisible() && filterPanel.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+            return true;
+        }
         if (this.chainLimitSlider != null && isRangeDestroyChainMode()) {
             if (this.chainLimitSlider.mouseDragged(mouseX, mouseY, button)) {
                 return true;
@@ -1646,6 +1894,18 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (filterPanel.isVisible() && filterPanel.keyPressed(keyCode, scanCode, modifiers)) return true;
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (filterPanel.isVisible() && filterPanel.charTyped(codePoint, modifiers)) return true;
+        return super.charTyped(codePoint, modifiers);
+    }
+
     private boolean handleAdvDestroyClick(double mouseX, double mouseY, int button) {
         // 子模式按钮
         if (advDestroySubModeButtons != null) {
@@ -1662,11 +1922,18 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 if (sliderClicked(rectSliderMinusY, mouseX, mouseY, button)) return true;
                 if (sliderClicked(rectSliderPlusZ, mouseX, mouseY, button)) return true;
                 if (sliderClicked(rectSliderMinusZ, mouseX, mouseY, button)) return true;
+                if (chunkRectSliderPlusY != null && sliderClicked(chunkRectSliderPlusY, mouseX, mouseY, button)) return true;
+                if (chunkRectSliderMinusY != null && sliderClicked(chunkRectSliderMinusY, mouseX, mouseY, button)) return true;
                 if (rectFillModeButtons != null) {
                     for (WindowButton btn : rectFillModeButtons) {
                         if (btn.mouseClicked(mouseX, mouseY, button)) return true;
                     }
                 }
+                if (rectSizeModeBtn != null && rectSizeModeBtn.mouseClicked(mouseX, mouseY, button)) return true;
+                if (rectChunkModeBtn != null && rectChunkModeBtn.mouseClicked(mouseX, mouseY, button)) return true;
+                if (filterSlotBtn != null && filterSlotBtn.mouseClicked(mouseX, mouseY, button)) return true;
+                if (filterPanelBtn != null && filterPanelBtn.mouseClicked(mouseX, mouseY, button)) return true;
+                if (filterInverseBtn != null && filterInverseBtn.mouseClicked(mouseX, mouseY, button)) return true;
             }
             case CYLINDER -> {
                 if (sliderClicked(cylinderRadiusSlider, mouseX, mouseY, button)) return true;
@@ -1705,6 +1972,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 if (sliderDragged(rectSliderMinusY, mouseX, mouseY, button)) return true;
                 if (sliderDragged(rectSliderPlusZ, mouseX, mouseY, button)) return true;
                 if (sliderDragged(rectSliderMinusZ, mouseX, mouseY, button)) return true;
+                if (chunkRectSliderPlusY != null && sliderDragged(chunkRectSliderPlusY, mouseX, mouseY, button)) return true;
+                if (chunkRectSliderMinusY != null && sliderDragged(chunkRectSliderMinusY, mouseX, mouseY, button)) return true;
             }
             case CYLINDER -> {
                 if (sliderDragged(cylinderRadiusSlider, mouseX, mouseY, button)) return true;
@@ -1734,6 +2003,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 sliderReleased(rectSliderMinusY, mouseX, mouseY, button);
                 sliderReleased(rectSliderPlusZ, mouseX, mouseY, button);
                 sliderReleased(rectSliderMinusZ, mouseX, mouseY, button);
+                if (chunkRectSliderPlusY != null) sliderReleased(chunkRectSliderPlusY, mouseX, mouseY, button);
+                if (chunkRectSliderMinusY != null) sliderReleased(chunkRectSliderMinusY, mouseX, mouseY, button);
             }
             case CYLINDER -> {
                 sliderReleased(cylinderRadiusSlider, mouseX, mouseY, button);

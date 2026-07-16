@@ -54,6 +54,10 @@ public final class AdvancedDestroyHandler {
     private boolean lastStairsSymmetric;
     private int lastLumberLimit;
     private boolean lastLumberStrongMan, lastLumberAllowPlayerBlocks;
+    private AdvDestroyRectMode lastRectMode;
+    private int lastChunkPy, lastChunkNy;
+    private int lastFilterHash;
+    private boolean lastFilterInverse;
 
     // ===== 时间冷却 =====
     private long lastComputeTimeMs;
@@ -76,6 +80,10 @@ public final class AdvancedDestroyHandler {
         this.cursorTarget = pos;
     }
 
+    public BlockPos getCursorTarget() {
+        return cursorTarget;
+    }
+
     public void setHitFace(Direction face) {
         this.hitFace = face != null ? face : Direction.DOWN;
     }
@@ -90,13 +98,21 @@ public final class AdvancedDestroyHandler {
         }
     }
 
-    /** 取消锚点 */
+    /** 取消锚点，同时重置区块模式的 Y 轴到追踪状态的默认值 */
     public void clearAnchor() {
         this.anchorPos = null;
         this.anchored = false;
         this.previewPositions = List.of();
         this.lastCenter = null;
         this.lastComputeTimeMs = 0;
+        // 区块模式：恢复 +-y 到光标位置对应世界高度的默认值
+        if (options.getSubMode() == AdvancedDestroySubMode.RECTANGLE
+                && options.getRectMode() == AdvDestroyRectMode.CHUNK
+                && cursorTarget != null) {
+            int[] yMax = options.computeChunkYMax(cursorTarget.getY());
+            options.setChunkRectPlusY(yMax[0], yMax[0]);
+            options.setChunkRectMinusY(yMax[1], yMax[1]);
+        }
     }
 
     /** 返回当前计算中心：锚定时为 anchorPos，否则为实时命中坐标 */
@@ -142,7 +158,12 @@ public final class AdvancedDestroyHandler {
             case RECTANGLE -> lastRectPx != options.getRectPlusX() || lastRectNx != options.getRectMinusX()
                     || lastRectPy != options.getRectPlusY() || lastRectNy != options.getRectMinusY()
                     || lastRectPz != options.getRectPlusZ() || lastRectNz != options.getRectMinusZ()
-                    || lastRectFill != options.getRectFillMode();
+                    || lastRectFill != options.getRectFillMode()
+                    || lastRectMode != options.getRectMode()
+                    || (options.getRectMode() == AdvDestroyRectMode.CHUNK
+                        && (lastChunkPy != options.getChunkRectPlusY() || lastChunkNy != options.getChunkRectMinusY()))
+                    || lastFilterHash != options.getFilters().hashCode()
+                    || lastFilterInverse != options.isFilterInverse();
             case CYLINDER -> lastCylRadius != options.getCylinderRadius()
                     || lastCylPh != options.getCylinderPlusH() || lastCylNh != options.getCylinderMinusH()
                     || lastCylFill != options.getCylinderFillMode();
@@ -164,6 +185,13 @@ public final class AdvancedDestroyHandler {
                 lastRectPy = options.getRectPlusY(); lastRectNy = options.getRectMinusY();
                 lastRectPz = options.getRectPlusZ(); lastRectNz = options.getRectMinusZ();
                 lastRectFill = options.getRectFillMode();
+                lastRectMode = options.getRectMode();
+                if (options.getRectMode() == AdvDestroyRectMode.CHUNK) {
+                    lastChunkPy = options.getChunkRectPlusY();
+                    lastChunkNy = options.getChunkRectMinusY();
+                }
+                lastFilterHash = options.getFilters().hashCode();
+                lastFilterInverse = options.isFilterInverse();
             }
             case CYLINDER -> {
                 lastCylRadius = options.getCylinderRadius();
@@ -219,30 +247,52 @@ public final class AdvancedDestroyHandler {
     // ======================== 形状位置计算 ========================
 
     private List<BlockPos> computePositions(BlockPos center) {
-        return switch (options.getSubMode()) {
+        List<BlockPos> raw = switch (options.getSubMode()) {
             case RECTANGLE -> computeRectPositions(center);
             case CYLINDER -> computeCylinderPositions(center);
             case STAIRS -> computeStairsPositions(center);
             case LUMBER -> computeLumberPositions(center);
         };
+        // 仅矩形模式应用过滤（伐木有自己独立的识别逻辑）
+        if (options.getSubMode() == AdvancedDestroySubMode.RECTANGLE) {
+            raw = applyFilter(raw, center);
+        }
+        return raw;
     }
 
     // ===== 矩形 =====
 
     private List<BlockPos> computeRectPositions(BlockPos center) {
-        int px = options.getRectPlusX();
-        int nx = options.getRectMinusX();
-        int py = options.getRectPlusY();
-        int ny = options.getRectMinusY();
-        int pz = options.getRectPlusZ();
-        int nz = options.getRectMinusZ();
+        int minX, maxX, minY, maxY, minZ, maxZ;
+        ShapeFillMode fillMode;
 
-        int minX = center.getX() - nx;
-        int maxX = center.getX() + px;
-        int minY = center.getY() - ny;
-        int maxY = center.getY() + py;
-        int minZ = center.getZ() - nz;
-        int maxZ = center.getZ() + pz;
+        if (options.getRectMode() == AdvDestroyRectMode.CHUNK) {
+            // 区块模式：XZ 锁定为整个区块
+            int chunkX = center.getX() >> 4;
+            int chunkZ = center.getZ() >> 4;
+            minX = chunkX << 4;
+            maxX = minX + 16 - 1;
+            minZ = chunkZ << 4;
+            maxZ = minZ + 16 - 1;
+            minY = center.getY() - options.getChunkRectMinusY();
+            maxY = center.getY() + options.getChunkRectPlusY();
+            fillMode = options.getRectFillMode();
+        } else {
+            // 尺寸模式：自定义 +- xyz
+            int px = options.getRectPlusX();
+            int nx = options.getRectMinusX();
+            int py = options.getRectPlusY();
+            int ny = options.getRectMinusY();
+            int pz = options.getRectPlusZ();
+            int nz = options.getRectMinusZ();
+            minX = center.getX() - nx;
+            maxX = center.getX() + px;
+            minY = center.getY() - ny;
+            maxY = center.getY() + py;
+            minZ = center.getZ() - nz;
+            maxZ = center.getZ() + pz;
+            fillMode = options.getRectFillMode();
+        }
 
         List<BlockPos> all = new ArrayList<>();
         for (int x = minX; x <= maxX; x++) {
@@ -252,7 +302,7 @@ public final class AdvancedDestroyHandler {
                 }
             }
         }
-        return filterByFillMode(all, minX, maxX, minY, maxY, minZ, maxZ, options.getRectFillMode());
+        return filterByFillMode(all, minX, maxX, minY, maxY, minZ, maxZ, fillMode);
     }
 
     // ===== 圆柱 =====
@@ -508,6 +558,38 @@ public final class AdvancedDestroyHandler {
             // 中间层：仅保留侧面（边缘环），即从外数1格以内
             if (dist2 > (r - 1) * (r - 1)) {
                 result.add(p);
+            }
+        }
+        return result;
+    }
+
+    // ===== 过滤 =====
+
+    /**
+     * 对矩形模式生成的方块列表应用过滤器和反选逻辑。
+     * 仅矩形模式生效（圆柱/楼梯/伐木不应用此过滤）。
+     */
+    private List<BlockPos> applyFilter(List<BlockPos> positions, BlockPos center) {
+        var filters = options.getFilters();
+        if (filters.isEmpty()) return positions; // 无过滤时破坏所有
+
+        Level level = Minecraft.getInstance().level;
+        if (level == null) return positions;
+
+        boolean inverse = options.isFilterInverse();
+        List<BlockPos> result = new ArrayList<>();
+        for (BlockPos pos : positions) {
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir()) continue;
+            boolean matches = false;
+            for (AdvDestroyFilter filter : filters) {
+                if (filter.matches(state, level, pos)) {
+                    matches = true;
+                    break; // OR 逻辑：任一匹配即满足
+                }
+            }
+            if (inverse ? !matches : matches) {
+                result.add(pos);
             }
         }
         return result;

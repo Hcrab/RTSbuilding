@@ -156,6 +156,22 @@ public final class BuilderScreenConstants {
     public static final int ADV_DESTROY_LUMBER_LIMIT_DEFAULT = 64;
     public static final int ADV_DESTROY_LUMBER_HARD_LIMIT = 32768;
 
+    // ======================== 矩形区块模式 ========================
+    /** 区块模式下世界 Y 下限（1.21 默认） */
+    public static final int ADV_DESTROY_CHUNK_WORLD_MIN_Y = -64;
+    /** 区块模式下世界 Y 上限（1.21 默认） */
+    public static final int ADV_DESTROY_CHUNK_WORLD_MAX_Y = 320;
+    /** 区块大小（X/Z） */
+    public static final int ADV_DESTROY_CHUNK_SIZE = 16;
+    /** 区块模式 Y 滑条最小值 */
+    public static final int ADV_DESTROY_CHUNK_Y_MIN = 0;
+
+    // ======================== 高级破坏过滤 ========================
+    /** 过滤槽位大小 */
+    public static final int ADV_DESTROY_FILTER_SLOT = 20;
+    /** 过滤行间距 */
+    public static final int ADV_DESTROY_FILTER_ROW_H = 22;
+
     // ======================== Shape wheel ========================
     /** Shape wheel radius */
     public static final int SHAPE_WHEEL_RADIUS = 52;

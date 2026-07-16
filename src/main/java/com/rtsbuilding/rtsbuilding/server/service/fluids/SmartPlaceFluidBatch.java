@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceFluidBatchPayload;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
@@ -31,12 +31,12 @@ public final class SmartPlaceFluidBatch {
                 || fluidId == null || fluidId.isBlank()) {
             return;
         }
-        List<BlockPos> sanitized = new ArrayList<>(Math.min(positions.size(),
-                (int) C2SRtsPlaceFluidBatchPayload.MAX_POSITIONS));
+        int maxFill = Math.max(1, Config.SMART_PLACE_MAX_FILL_COUNT.get());
+        List<BlockPos> sanitized = new ArrayList<>(Math.min(positions.size(), maxFill));
         for (BlockPos pos : positions) {
             if (pos != null) {
                 sanitized.add(pos.immutable());
-                if (sanitized.size() >= C2SRtsPlaceFluidBatchPayload.MAX_POSITIONS) break;
+                if (sanitized.size() >= maxFill) break;
             }
         }
         if (sanitized.isEmpty()) {
