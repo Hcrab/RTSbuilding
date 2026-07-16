@@ -14,18 +14,17 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
+import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
@@ -34,13 +33,13 @@ import java.util.*;
  * 已放置方块恢复服务——管理 RTS 远程放置方块的破坏和掉落物回收。
  *
  * <p>此服务处理已放置方块（由 {@code PlacedBlockTrackerData} 追踪）的
- * 远程破坏流程，包括模拟精准采集、掉落物收集、入队回收和自动存储。
+ * 远程回收流程，包括直接取得可放置物品、无工具破坏、入队回收和自动存储。
  * 所有方法均为 {@code static}，类本身为不可实例化的工具类。
  *
  * <p><b>核心流程：</b>
  * <ul>
  *   <li>{@link #breakPlaced(ServerPlayer, BlockPos, Direction, boolean)} —
- *       远程破坏已放置方块：检查权限和追踪状态、模拟下界合金镐+精准采集破坏、
+ *       远程破坏已放置方块：检查权限和追踪状态、绕过工具与挖掘等级回收、
  *       收集新增掉落物入队、从链接存储引用中移除已破坏方块、刷新工作流进度</li>
  *   <li>{@link #tick(ServerPlayer, RtsStorageSession)} —
  *       每 tick 处理恢复作业队列，将掉落物栈依次存入链接存储；
@@ -52,8 +51,8 @@ import java.util.*;
  * <ul>
  *   <li>{@link #snapshotNearbyDropIds(ServerLevel, BlockPos)} — 破坏前快照附近掉落物 UUID 集合</li>
  *   <li>{@link #collectNewNearbyDrops(ServerLevel, BlockPos, Set)} — 破坏后收集新增掉落物</li>
- *   <li>{@link #breakWithSimulatedSilkTouch(ServerPlayer, ServerLevel, BlockPos)} —
- *       使用模拟精准采集工具破坏方块</li>
+ *   <li>{@link #recoverTrackedBlock(ServerPlayer, ServerLevel, BlockPos, BlockState)} —
+ *       保留保护事件，但不依赖玩家工具或精准采集地回收方块</li>
  *   <li>{@link #recoveryHandlersExcluding(List, BlockPos)} — 获取恢复用的处理器列表，排除刚破坏的方块自身</li>
  * </ul>
  *
@@ -113,16 +112,21 @@ public final class RtsPlacedRecoveryService {
             ServerHistoryManager.recordBreak(player, List.of(targetPos), face != null ? face : Direction.UP);
         }
 
+        ItemStack recoveredBlock = recoveryStack(level, targetPos, state);
+        if (recoveredBlock.isEmpty()) {
+            return;
+        }
         Set<UUID> dropIdsBeforeBreak = snapshotNearbyDropIds(level, targetPos);
-        boolean removed = breakWithSimulatedSilkTouch(player, level, targetPos);
+        boolean removed = recoverTrackedBlock(player, level, targetPos, state);
         if (!removed || !level.getBlockState(targetPos).isAir()) {
+            tracker.mark(targetPos);
             return;
         }
 
         RtsPlacementSound.playRemoteBlockBreakSound(player, level, targetPos, state);
         tracker.clear(targetPos);
         List<ItemEntity> droppedEntities = collectNewNearbyDrops(level, targetPos, dropIdsBeforeBreak);
-        enqueueRecoveryJob(player, session, targetPos, droppedEntities);
+        enqueueRecoveryJob(player, session, targetPos, recoveredBlock, droppedEntities);
 
         LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
         if (session.linkedStorageInfo.remove(targetRef)) {
@@ -226,35 +230,43 @@ public final class RtsPlacedRecoveryService {
         return fresh;
     }
 
-    static boolean breakWithSimulatedSilkTouch(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        if (player == null || level == null || pos == null) return false;
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return true;
-
-        ItemStack fakeTool = new ItemStack(Items.NETHERITE_PICKAXE);
-        if (Enchantments.SILK_TOUCH != null) {
-            var reg = level.holderLookup(Registries.ENCHANTMENT);
-            var enchHolder = reg.get(Enchantments.SILK_TOUCH);
-            enchHolder.ifPresent(holder ->
-                    fakeTool.enchant(holder, 1));
+    /**
+     * 为已确认属于 RTS 的放置记录构造回收物品。无法取得物品时保持世界原样，防止无声吞块。
+     */
+    static ItemStack recoveryStack(ServerLevel level, BlockPos pos, BlockState state) {
+        if (level == null || pos == null || state == null || state.isAir()) return ItemStack.EMPTY;
+        ItemStack stack = state.getBlock().getCloneItemStack(level, pos, state);
+        if (stack.isEmpty()) {
+            stack = new ItemStack(state.getBlock().asItem());
         }
-
-        boolean removed = player.gameMode.destroyBlock(pos);
-        if (!removed) return false;
-
-        level.levelEvent(null, 2001, pos, net.minecraft.world.level.block.Block.getId(state));
-        return true;
+        return stack;
     }
 
-    static boolean breakPlacedWithSimulatedSilkTool(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        return breakWithSimulatedSilkTouch(player, level, pos);
+    /**
+     * 保留其他模组通过 BreakEvent 拒绝操作的能力，但用临时空手消除当前工具的 canAttackBlock 限制。
+     * 真正移除时不走玩家采掘与战利品表；回收物已在移除前确定，因此不受工具等级或精准采集影响。
+     */
+    static boolean recoverTrackedBlock(
+            ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+        if (player == null || level == null || pos == null || state == null || state.isAir()) return false;
+        var breakEvent = TemporaryContextSwitcher.withTemporaryMainHandItem(
+                player, ItemStack.EMPTY,
+                () -> CommonHooks.fireBlockBreak(
+                        level, player.gameMode.getGameModeForPlayer(), player, pos, state));
+        if (breakEvent.isCanceled()) {
+            return false;
+        }
+        return level.destroyBlock(pos, false, player);
     }
 
-    private static void enqueueRecoveryJob(ServerPlayer player, RtsStorageSession session, BlockPos targetPos, List<ItemEntity> droppedEntities) {
-        if (player == null || droppedEntities == null || droppedEntities.isEmpty()) {
+    private static void enqueueRecoveryJob(
+            ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+            ItemStack recoveredBlock, List<ItemEntity> droppedEntities) {
+        if (player == null || session == null || targetPos == null || recoveredBlock == null || recoveredBlock.isEmpty()) {
             return;
         }
         Deque<ItemStack> stacks = new ArrayDeque<>();
+        stacks.addLast(recoveredBlock.copy());
         for (ItemEntity droppedEntity : droppedEntities) {
             if (droppedEntity == null) continue;
             ItemStack droppedStack = droppedEntity.getItem();

@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlock
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
@@ -82,8 +83,11 @@ public final class RtsBlockTrackingEvents {
      *
      * @param event 方块破坏事件
      */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBreak(BlockEvent.BreakEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         if (!(event.getPlayer() instanceof ServerPlayer)) {
             return;
         }
