@@ -64,9 +64,6 @@ public final class RtsProgressRefresher {
     public static void refreshWorkflowProgress(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null) return;
 
-        // ── 范围放置工作流进度刷新 ──────────────────────────────
-        refreshPlacementProgress(player, session);
-
         // ── 蓝图工作流进度刷新（节流） ──────────────────────────
         refreshBlueprintProgress(player);
     }

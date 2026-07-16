@@ -26,32 +26,46 @@ public final class RtsTaskEngine {
     public static final RtsTaskEngine INSTANCE = new RtsTaskEngine();
 
     private final TaskScheduler scheduler = new TaskScheduler(System::nanoTime);
-    private final Map<RtsPlacementBatch.PlaceBatchJob, TaskRecord> placementRecords = new IdentityHashMap<>();
-    private final Map<RtsDestructionBatch.DestructionJob, TaskRecord> destructionRecords = new IdentityHashMap<>();
-    private final Map<MiningTaskKey, TaskRecord> miningRecords = new java.util.HashMap<>();
-    private final Map<MiningWorkflowKey, TaskRecord> activeMiningByWorkflow = new java.util.HashMap<>();
-    private final Map<UUID, TaskRecord> bufferRecords = new java.util.HashMap<>();
+    private final DurableTaskScheduler durableScheduler = new DurableTaskScheduler(System::nanoTime);
+    /** 同进程内由本 Engine 建立的 DRAIN_RESERVED revision；重启后缺失即转人工恢复。 */
+    private final Map<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId, Long>
+            liveBufferDrainReservations = new java.util.HashMap<>();
+    /** 防止相邻 destruction/mining slice 在 root ACK 前重复声明同一个 ItemEntity。 */
+    private final Map<UUID, com.rtsbuilding.rtsbuilding.server.task.identity.TaskId>
+            bufferSourceOwners = new java.util.HashMap<>();
+    private final Map<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId, java.util.Set<UUID>>
+            bufferSourcesByTask = new java.util.HashMap<>();
+    private boolean bufferSourceIndexInitialized;
     private final Map<WorkflowTaskKey, TaskRecord> blueprintRecords = new java.util.HashMap<>();
     private final Map<UUID, TaskRecord> funnelRecords = new java.util.HashMap<>();
     private final Map<UUID, TaskRecord> recoveryRecords = new java.util.HashMap<>();
     private final Map<WorkflowTaskKey, Boolean> workflowPauseOverrides = new java.util.HashMap<>();
     private final Map<UUID, TaskStatus> projectedTaskStatuses = new java.util.HashMap<>();
+    private final Map<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId,
+            Long> projectedDurableStates =
+            new java.util.HashMap<>();
     private final DurableBlueprintTaskBridge durableBlueprintBridge =
             new DurableBlueprintTaskBridge(this,
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE);
+    /** 仅用于在主线程 slice 内重新解析在线玩家；不持有任何任务进度或资源。 */
+    private MinecraftServer activeServer;
 
     private RtsTaskEngine() {
-        scheduler.registerExecutor(TaskType.PLACEMENT, this::executePlacement);
-        scheduler.registerExecutor(TaskType.DESTRUCTION, this::executeDestruction);
-        scheduler.registerExecutor(TaskType.MINING, this::executeMining);
-        scheduler.registerExecutor(TaskType.BUFFER_DRAIN, this::executeBufferDrain);
+        durableScheduler.register(TaskType.PLACEMENT, this::executeDurablePlacement);
+        durableScheduler.register(TaskType.DESTRUCTION, this::executeDurableDestruction);
+        durableScheduler.register(TaskType.MINING, this::executeDurableMining);
+        durableScheduler.register(TaskType.BUFFER_DRAIN, this::executeDurableBufferDrain);
         scheduler.registerExecutor(TaskType.BLUEPRINT, this::executeBlueprint);
         scheduler.registerExecutor(TaskType.FUNNEL, this::executeFunnel);
         scheduler.registerExecutor(TaskType.PLACED_RECOVERY, this::executePlacedRecovery);
     }
 
     public TaskScheduler.TickStats tick(MinecraftServer server) {
+        activeServer = server;
         durableBlueprintBridge.beforeTaskTick(server);
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        ensureBufferSourceIndex(coordinator, server.registryAccess());
         var sessionService = ServiceRegistry.getInstance().session();
         for (var player : server.getPlayerList().getPlayers()) {
             var session = sessionService.getIfPresent(player);
@@ -60,15 +74,50 @@ public final class RtsTaskEngine {
             syncDestructionTasks(player, session);
             syncMiningTasks(player, session);
             syncBufferTask(player, session);
+            resumeAvailableToolWaits(player, session, coordinator);
             syncFunnelTask(player, session);
             syncPlacedRecoveryTask(player, session);
         }
-        TaskScheduler.TickStats stats = scheduler.tick(
-                Config.taskEngineMaxNanosPerTick(),
-                Config.taskEngineMaxUnitsPerTick(),
+        java.util.LinkedHashMap<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId,
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot> durableCandidates =
+                new java.util.LinkedHashMap<>();
+        for (var player : server.getPlayerList().getPlayers()) {
+            coordinator.query().runnableFor(player.getUUID(), player.serverLevel().dimension().location().toString())
+                    .stream()
+                    .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT
+                            || snapshot.type() == TaskType.DESTRUCTION
+                            || snapshot.type() == TaskType.MINING)
+                    .forEach(snapshot -> durableCandidates.put(snapshot.id(), snapshot));
+            // legacy buffer 的身份不再包含维度；进入 escrow 后允许玩家跨维继续写回。
+            // Session 仍保留迁移 shadow 时绝不执行，必须先由 syncBufferTask 完成对账。
+            var session = sessionService.getIfPresent(player);
+            if (session == null || session.miningDropBuffer.isEmpty()) {
+                coordinator.query().ownedBy(player.getUUID()).stream()
+                        .filter(snapshot -> snapshot.type() == TaskType.BUFFER_DRAIN
+                                && snapshot.state().runnable()
+                                && bufferTaskMayRun(player, session, snapshot))
+                        .forEach(snapshot -> durableCandidates.put(snapshot.id(), snapshot));
+            }
+        }
+        DurableTaskScheduler.TickStats durableStats = durableScheduler.tick(
+                coordinator, durableCandidates.values(),
+                Config.taskEngineMaxNanosPerTick(), Config.taskEngineMaxUnitsPerTick(),
                 Config.taskEngineMaxUnitsPerSlice());
+        long remainingNanos = Math.max(0L,
+                Config.taskEngineMaxNanosPerTick() - durableStats.elapsedNanos());
+        int remainingUnits = Math.max(0,
+                Config.taskEngineMaxUnitsPerTick() - durableStats.processedUnits());
+        TaskScheduler.TickStats legacyStats = scheduler.tick(
+                remainingNanos, remainingUnits, Config.taskEngineMaxUnitsPerSlice());
+        TaskScheduler.TickStats stats = new TaskScheduler.TickStats(
+                durableStats.slices() + legacyStats.slices(),
+                durableStats.processedUnits() + legacyStats.processedUnits(),
+                durableStats.elapsedNanos() + legacyStats.elapsedNanos(),
+                durableStats.timeBudgetExhausted() || legacyStats.timeBudgetExhausted(),
+                durableStats.unitBudgetExhausted() || legacyStats.unitBudgetExhausted());
         durableBlueprintBridge.afterTaskTick(server);
         projectWorkflowLifecycles();
+        projectDurableWorkflowLifecycles(server, coordinator);
         blueprintRecords.entrySet().removeIf(entry -> entry.getValue().status().terminal());
         return stats;
     }
@@ -93,12 +142,7 @@ public final class RtsTaskEngine {
         java.util.EnumMap<TaskType, Integer> active = new java.util.EnumMap<>(TaskType.class);
         java.util.EnumMap<TaskType, Integer> waiting = new java.util.EnumMap<>(TaskType.class);
         java.util.List<TaskRecord> records = new java.util.ArrayList<>();
-        records.addAll(placementRecords.values());
-        records.addAll(destructionRecords.values());
-        records.addAll(miningRecords.values());
         records.addAll(blueprintRecords.values());
-        TaskRecord buffer = bufferRecords.get(ownerId);
-        if (buffer != null) records.add(buffer);
         TaskRecord funnel = funnelRecords.get(ownerId);
         if (funnel != null) records.add(funnel);
         TaskRecord recovery = recoveryRecords.get(ownerId);
@@ -109,6 +153,12 @@ public final class RtsTaskEngine {
             if (record.status() == TaskStatus.WAITING_RESOURCE) {
                 waiting.merge(record.type(), 1, Integer::sum);
             }
+        }
+        for (var snapshot : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().ownedBy(ownerId)) {
+            if (snapshot.state().terminal()) continue;
+            active.merge(snapshot.type(), 1, Integer::sum);
+            if (snapshot.state().waiting()) waiting.merge(snapshot.type(), 1, Integer::sum);
         }
         return new TaskDiagnostics(java.util.Map.copyOf(active), java.util.Map.copyOf(waiting));
     }
@@ -121,28 +171,50 @@ public final class RtsTaskEngine {
             if (!isPhaseOneDurable(detached.type())) detached.cancel(now);
         }
         java.util.Set<UUID> removedTaskIds = new java.util.HashSet<>();
-        placementRecords.values().stream().filter(record -> record.ownerId().equals(playerId))
-                .map(TaskRecord::id).forEach(removedTaskIds::add);
-        destructionRecords.values().stream().filter(record -> record.ownerId().equals(playerId))
-                .map(TaskRecord::id).forEach(removedTaskIds::add);
-        miningRecords.values().stream().filter(record -> record.ownerId().equals(playerId))
-                .map(TaskRecord::id).forEach(removedTaskIds::add);
         blueprintRecords.values().stream().filter(record -> record.ownerId().equals(playerId))
                 .map(TaskRecord::id).forEach(removedTaskIds::add);
         TaskRecord funnel = funnelRecords.get(playerId);
         if (funnel != null) removedTaskIds.add(funnel.id());
         TaskRecord recovery = recoveryRecords.get(playerId);
         if (recovery != null) removedTaskIds.add(recovery.id());
-        placementRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
-        destructionRecords.entrySet().removeIf(entry -> entry.getValue().ownerId().equals(playerId));
-        miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(playerId));
-        activeMiningByWorkflow.keySet().removeIf(key -> key.playerId().equals(playerId));
         blueprintRecords.keySet().removeIf(key -> key.playerId().equals(playerId));
-        bufferRecords.remove(playerId);
         funnelRecords.remove(playerId);
         recoveryRecords.remove(playerId);
         workflowPauseOverrides.keySet().removeIf(key -> key.playerId().equals(playerId));
         projectedTaskStatuses.keySet().removeAll(removedTaskIds);
+    }
+
+    /**
+     * 登出/停用前把所有仍留在 Session 的旧迁移源提交给 TaskStore。
+     * 调用方随后必须执行 owner 定向 flush，并再次调用 {@link #reconcilePlayerDetach}。
+     */
+    public void preparePlayerDetach(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return;
+        var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) return;
+        syncPlacementTasks(player, session);
+        syncDestructionTasks(player, session);
+        syncMiningTasks(player, session);
+        syncBufferTask(player, session);
+    }
+
+    /** owner flush 后消费 root ACK，并把已接管的 Session shadow 转成持久 clear。 */
+    public void reconcilePlayerDetach(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return;
+        var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) return;
+        syncPlacementTasks(player, session);
+        syncDestructionTasks(player, session);
+        syncMiningTasks(player, session);
+        syncBufferTask(player, session);
+    }
+
+    /** cleanup 只能发放仍由 Session 独占的缓存；存在 handoff 或冲突时必须保留 shadow。 */
+    public boolean mustPreserveLegacyBufferShadow(
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
+        if (session == null) return false;
+        var buffer = session.miningDropBuffer;
+        return buffer.legacyHandoffConflict || buffer.legacyHandoff != null;
     }
 
     private static boolean isPhaseOneDurable(TaskType type) {
@@ -156,18 +228,19 @@ public final class RtsTaskEngine {
 
     /** persistence.stop 成功后调用，清除单例中的旧世界引用。 */
     public void resetDurableRuntimeAfterServerStop() {
+        activeServer = null;
         durableBlueprintBridge.resetAfterServerStop();
         scheduler.clear();
-        placementRecords.clear();
-        destructionRecords.clear();
-        miningRecords.clear();
-        activeMiningByWorkflow.clear();
-        bufferRecords.clear();
+        liveBufferDrainReservations.clear();
+        bufferSourceOwners.clear();
+        bufferSourcesByTask.clear();
+        bufferSourceIndexInitialized = false;
         blueprintRecords.clear();
         funnelRecords.clear();
         recoveryRecords.clear();
         workflowPauseOverrides.clear();
         projectedTaskStatuses.clear();
+        projectedDurableStates.clear();
     }
 
     /** 玩家暂停/恢复命令的唯一执行入口；WorkflowToken 只负责展示投影。 */
@@ -180,6 +253,21 @@ public final class RtsTaskEngine {
                 .getProgress(player, workflowEntryId);
         if (!workflow.isActive() || !isTaskEngineWorkflow(workflow.type())) return false;
         workflowPauseOverrides.put(key, paused);
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        var durable = coordinator.query().findByWorkflow(
+                player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                .orElse(null);
+        if (durable != null && (durable.type() == TaskType.PLACEMENT
+                || durable.type() == TaskType.DESTRUCTION
+                || durable.type() == TaskType.MINING) && !durable.state().terminal()) {
+            var state = paused
+                    ? com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.PAUSED
+                    : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED;
+            coordinator.replace(durable.nextRevision(state, null,
+                    player.serverLevel().getGameTime(), durable.cursorUnits(), durable.succeededUnits(),
+                    durable.failedUnits(), durable.payload()));
+        }
         TaskRecord record = findWorkflowTask(key);
         if (record != null) {
             if (paused) record.pause(System.nanoTime());
@@ -206,6 +294,35 @@ public final class RtsTaskEngine {
         WorkflowTaskKey key = new WorkflowTaskKey(
                 player.getUUID(), player.serverLevel().dimension(), workflowEntryId);
         TaskRecord record = findWorkflowTask(key);
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        var durable = coordinator.query().findByWorkflow(
+                player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                .orElse(null);
+        boolean durableCancelled = false;
+        if (durable != null && (durable.type() == TaskType.PLACEMENT
+                || durable.type() == TaskType.DESTRUCTION
+                || durable.type() == TaskType.MINING) && !durable.state().terminal()) {
+            if (durable.type() == TaskType.PLACEMENT) {
+                RtsPlacementBatch.recordDetachedHistory(player,
+                        com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                                .decode(durable.payload()).state());
+            } else if (durable.type() == TaskType.DESTRUCTION) {
+                RtsDestructionBatch.recordDetachedHistory(player,
+                        com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec
+                                .decode(durable.payload()).state());
+            } else {
+                RtsMiningStateMachine.finalizeDetachedCancellation(player,
+                        ServiceRegistry.getInstance().session().getIfPresent(player),
+                        com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec
+                                .decode(durable.payload()).state());
+            }
+            coordinator.replace(durable.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
+                    null, player.serverLevel().getGameTime(), durable.cursorUnits(), durable.succeededUnits(),
+                    durable.failedUnits(), durable.payload()));
+            durableCancelled = true;
+        }
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
         boolean cleaned = false;
         if (session != null) {
@@ -247,7 +364,227 @@ public final class RtsTaskEngine {
             }
         }
         workflowPauseOverrides.remove(key);
-        return record != null || cleaned;
+        return record != null || cleaned || durableCancelled;
+    }
+
+    /** 仅唤醒与本次真实物品变化匹配的 placement 等待任务，不扫描其它挂起任务。 */
+    public void resumeWaitingPlacementItems(net.minecraft.server.level.ServerPlayer player,
+            java.util.Collection<String> changedItemIds) {
+        if (player == null || changedItemIds == null || changedItemIds.isEmpty()) return;
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        long gameTime = player.serverLevel().getGameTime();
+        for (String itemId : new java.util.LinkedHashSet<>(changedItemIds)) {
+            if (itemId == null || itemId.isBlank()) continue;
+            var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey("item", itemId);
+            for (var snapshot : coordinator.query().waitingFor(key)) {
+                if (!snapshot.ownerId().equals(player.getUUID()) || snapshot.type() != TaskType.PLACEMENT
+                        || !snapshot.dimensionId().equals(
+                                player.serverLevel().dimension().location().toString())) continue;
+                coordinator.replace(snapshot.nextRevision(
+                        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                        null, gameTime, snapshot.cursorUnits(), snapshot.succeededUnits(),
+                        snapshot.failedUnits(), snapshot.payload()));
+            }
+        }
+    }
+
+    /** 玩家显式点击“重试”时恢复自己的全部 placement 等待任务；仍不遍历全服任务。 */
+    public int resumeAllWaitingPlacements(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return 0;
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        int resumed = 0;
+        long gameTime = player.serverLevel().getGameTime();
+        String dimensionId = player.serverLevel().dimension().location().toString();
+        for (var snapshot : coordinator.query().ownedBy(player.getUUID())) {
+            if (snapshot.type() != TaskType.PLACEMENT
+                    || !snapshot.dimensionId().equals(dimensionId)
+                    || snapshot.state() != com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE) {
+                continue;
+            }
+            coordinator.replace(snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                    null, gameTime, snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    snapshot.failedUnits(), snapshot.payload()));
+            resumed++;
+        }
+        return resumed;
+    }
+
+    /** 旧 Session pending queue 只作为未 ACK 的迁移 shadow；恢复服务可主动触发一次接管。 */
+    public void migrateLegacyPlacementShadows(net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
+        if (player == null || session == null) return;
+        syncPlacementTasks(player, session);
+    }
+
+    /** UI 扫描只读取 TaskStore 中当前维度、当前 workflow 的等待快照。 */
+    public PendingPlacementTaskView findWaitingPlacement(
+            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0) return null;
+        var snapshot = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().findByWorkflow(
+                        player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                .orElse(null);
+        if (snapshot == null || snapshot.type() != TaskType.PLACEMENT
+                || snapshot.state()
+                != com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE) {
+            return null;
+        }
+        PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                .decode(snapshot.payload());
+        if (!payload.ownerId().equals(snapshot.ownerId())
+                || !payload.dimension().location().toString().equals(snapshot.dimensionId())
+                || payload.workflowEntryId() != snapshot.workflowEntryId()) {
+            throw new IllegalStateException("placement task snapshot/payload 身份不一致");
+        }
+        return new PendingPlacementTaskView(snapshot.id(), snapshot.revision(), payload.state());
+    }
+
+    /**
+     * 把显式恢复策略先写入 TaskStore 新 revision，再交给 durable executor。
+     * 覆盖策略包含世界破坏，因此绝不能在本方法中直接修改世界。
+     */
+    public boolean resumeWaitingPlacementWithStrategy(
+            net.minecraft.server.level.ServerPlayer player, int workflowEntryId, int strategy,
+            com.rtsbuilding.rtsbuilding.server.task.identity.TaskId expectedTaskId,
+            long expectedRevision) {
+        if (player == null || workflowEntryId < 0 || (strategy != 0 && strategy != 1)
+                || expectedTaskId == null || expectedRevision < 1L) return false;
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        var snapshot = coordinator.query().get(expectedTaskId)
+                .orElse(null);
+        if (snapshot == null || snapshot.type() != TaskType.PLACEMENT
+                || snapshot.revision() != expectedRevision
+                || !snapshot.ownerId().equals(player.getUUID())
+                || !snapshot.dimensionId().equals(player.serverLevel().dimension().location().toString())
+                || snapshot.workflowEntryId() != workflowEntryId
+                || snapshot.state()
+                != com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE) {
+            return false;
+        }
+        PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                .decode(snapshot.payload());
+        if (!payload.ownerId().equals(snapshot.ownerId())
+                || !payload.dimension().location().toString().equals(snapshot.dimensionId())
+                || payload.workflowEntryId() != workflowEntryId) return false;
+        var nextState = RtsPlacementBatch.applyDetachedResumeStrategy(player, payload.state(), strategy);
+        if (nextState == null) return false;
+        var nextPayload = payload.withState(nextState);
+        coordinator.replace(snapshot.nextRevision(
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                null, player.serverLevel().getGameTime(), nextState.cursorUnits(),
+                nextState.succeededUnits(), nextState.failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload)));
+        return true;
+    }
+
+    public String firstPlacementItemId(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return "";
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT && !snapshot.state().terminal())
+                .map(snapshot -> com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                        .decode(snapshot.payload()).state().definition().getString("itemId"))
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst().orElse("");
+    }
+
+    /** 返回当前维度一个仍活动的 durable mining workflow；控制管道不再读取 Session 游标。 */
+    public int activeMiningWorkflowEntry(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return -1;
+        String dimensionId = player.serverLevel().dimension().location().toString();
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
+                .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
+                .mapToInt(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::workflowEntryId)
+                .filter(entryId -> entryId >= 0)
+                .findFirst().orElse(-1);
+    }
+
+    /** 停止当前维度的全部 durable mining；Session 清理由旧迁移兼容层随后完成。 */
+    public int cancelActiveMiningTasks(net.minecraft.server.level.ServerPlayer player) {
+        if (player == null) return 0;
+        String dimensionId = player.serverLevel().dimension().location().toString();
+        var workflowIds = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
+                .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
+                .map(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::workflowEntryId)
+                .filter(entryId -> entryId >= 0)
+                .distinct().toList();
+        int cancelled = 0;
+        for (int workflowId : workflowIds) {
+            if (cancelWorkflowTask(player, workflowId)) cancelled++;
+        }
+        return cancelled;
+    }
+
+    /** 领域入口提交后读取 TaskStore 的过滤后总量，避免再窥探 Session 旧 Job。 */
+    public int workflowTaskTotalUnits(
+            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0) return 0;
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().findByWorkflow(
+                        player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                .map(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::totalUnits)
+                .orElse(0);
+    }
+
+    private void resumeAvailableToolWaits(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
+        if (player == null || session == null
+                || (!player.isCreative()
+                && !session.mining.miningSelectedToolRequested
+                && (session.mining.miningToolLease == null
+                || session.mining.miningToolLease.isEmpty()))
+                || com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator
+                        .isToolNearBreak(player, session)) return;
+        resumeWaitKey(coordinator, player.getUUID(),
+                new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                        "tool", "usable_mining_tool"), player.serverLevel().getGameTime());
+        for (int slot = 0; slot < 9; slot++) {
+            resumeWaitKey(coordinator, player.getUUID(),
+                    new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                            "tool", "hotbar:" + slot), player.serverLevel().getGameTime());
+        }
+    }
+
+    /** Chunk Load 事件只命中该 chunk 的 WaitIndex 桶。 */
+    public void resumeLoadedChunk(net.minecraft.server.level.ServerLevel level,
+            net.minecraft.world.level.ChunkPos chunkPos) {
+        if (level == null || chunkPos == null) return;
+        var runtime = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE;
+        // GameTest/专用服务器会在 ServerStarting 之前提升出生区块；此时还没有恢复索引可唤醒。
+        if (!runtime.isStarted()) return;
+        var coordinator = runtime.coordinator();
+        var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                "chunk", level.dimension().location() + ":" + chunkPos.x + ":" + chunkPos.z);
+        for (var snapshot : coordinator.query().waitingFor(key)) {
+            coordinator.replace(snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                    null, level.getGameTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    snapshot.failedUnits(), snapshot.payload()));
+        }
+    }
+
+    private static void resumeWaitKey(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            UUID ownerId,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey key,
+            long gameTime) {
+        for (var snapshot : coordinator.query().waitingFor(key)) {
+            if (!snapshot.ownerId().equals(ownerId)) continue;
+            coordinator.replace(snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                    null, gameTime, snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    snapshot.failedUnits(), snapshot.payload()));
+        }
     }
 
     /**
@@ -335,284 +672,774 @@ public final class RtsTaskEngine {
 
     private void syncPlacementTasks(net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
-        long now = System.nanoTime();
-        placementRecords.entrySet().removeIf(entry -> {
-            TaskRecord record = entry.getValue();
-            if (!record.ownerId().equals(player.getUUID())) return false;
-            var job = entry.getKey();
-            return !session.placement.placeBatchJobs.contains(job)
-                    && !session.placement.pendingJobs.contains(job)
-                    && record.status().terminal();
-        });
-
-        var job = session.placement.placeBatchJobs.peekFirst();
-        if (job != null) {
-            TaskRecord record = placementRecords.get(job);
-            if (record == null) {
-                record = createPlacementRecord(player, session, job, now);
-                placementRecords.put(job, record);
-                scheduler.submit(record);
-            } else if (record.status() == TaskStatus.WAITING_RESOURCE) {
-                record.resume(now);
-            }
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        while (!session.placement.placeBatchJobs.isEmpty()) {
+            var job = session.placement.placeBatchJobs.peekFirst();
+            PlacementTaskPayload payload = new PlacementTaskPayload(
+                    player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                    RtsPlacementBatch.snapshotDetachedState(job, player.registryAccess()));
+            var submission = job.workflowEntryId() >= 0
+                    ? com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                            player.getUUID(), "placement",
+                            player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
+                    : com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
+            var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                    .fromSubmission(player.getUUID(), submission);
+            long gameTime = player.serverLevel().getGameTime();
+            var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                    taskId, submission, player.getUUID(),
+                    player.serverLevel().dimension().location().toString(), TaskType.PLACEMENT,
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                    job.workflowEntryId(), null, 1L, gameTime, gameTime,
+                    job.totalCount(), job.getIndex(), job.successfulCount(), job.failedCount(),
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
+            var admitted = coordinator.submit(snapshot).snapshot();
+            // 旧 Session Job 是迁移源；root rev1 未 ACK 前必须保留，崩溃后才能确定性重放。
+            if (!coordinator.hasAcknowledged(admitted.id(), 1L)) break;
+            session.placement.placeBatchJobs.removeFirst();
+        }
+        while (!session.placement.pendingJobs.isEmpty()) {
+            var job = session.placement.pendingJobs.peekFirst();
+            PlacementTaskPayload payload = new PlacementTaskPayload(
+                    player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                    RtsPlacementBatch.snapshotDetachedState(job, player.registryAccess()));
+            var submission = job.workflowEntryId() >= 0
+                    ? com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                            player.getUUID(), "placement",
+                            player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
+                    : com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
+            var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                    .fromSubmission(player.getUUID(), submission);
+            long gameTime = player.serverLevel().getGameTime();
+            String itemId = job.itemId();
+            var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                    taskId, submission, player.getUUID(),
+                    player.serverLevel().dimension().location().toString(), TaskType.PLACEMENT,
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE,
+                    job.workflowEntryId(),
+                    new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                            "item", itemId == null || itemId.isBlank()
+                                    ? "rtsbuilding:any-placement-item" : itemId),
+                    1L, gameTime, gameTime, job.totalCount(), job.getIndex(),
+                    job.successfulCount(), job.failedCount(),
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
+            var admitted = coordinator.submit(snapshot).snapshot();
+            if (!coordinator.hasAcknowledged(admitted.id(), 1L)) break;
+            session.placement.removePendingJob(job);
         }
     }
 
-    private TaskRecord createPlacementRecord(net.minecraft.server.level.ServerPlayer player,
-            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
-            RtsPlacementBatch.PlaceBatchJob job, long now) {
-        UUID taskId = job.workflowEntryId() < 0
-                ? UUID.randomUUID()
-                : UUID.nameUUIDFromBytes((player.getUUID() + ":placement:"
-                        + player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
-                        .getBytes(StandardCharsets.UTF_8));
-        TaskRecord record = new TaskRecord(
-                taskId,
-                player.getUUID(), TaskType.PLACEMENT,
-                new PlacementTaskPayload(
-                        player, session, job, player.serverLevel().dimension()), job.totalCount(), now);
-        record.restoreCursor(job.getIndex(), now);
-        applyInitialPause(player, job.workflowEntryId(), record, now);
-        return record;
-    }
-
-    private TaskStepResult executePlacement(TaskRecord task, TaskBudget budget) {
-        PlacementTaskPayload payload = (PlacementTaskPayload) task.payload();
-        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
-            return TaskStepResult.nextTick(0, 0, 0, 0);
+    /** 新放置命令直接进入 TaskStore；Session 队列只保留旧存档的一次性迁移用途。 */
+    public boolean submitPlacementJob(net.minecraft.server.level.ServerPlayer player,
+            RtsPlacementBatch.PlaceBatchJob job) {
+        if (player == null || job == null) return false;
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        if (job.quickBuild()) {
+            long queued = coordinator.query().ownedBy(player.getUUID()).stream()
+                    .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT && !snapshot.state().terminal())
+                    .count();
+            if (queued >= Config.buildBatchMaxQueuedJobs()) return false;
         }
-        var player = payload.player();
-        var session = payload.session();
-        var job = payload.job();
-        if (session.placement.pendingJobs.contains(job)) return TaskStepResult.waitForResource();
-        if (!session.placement.placeBatchJobs.contains(job)) return TaskStepResult.complete(0);
-        if (session.placement.placeBatchJobs.peekFirst() != job) return TaskStepResult.yield(0);
-
-        if (job.workflowEntryId() >= 0) {
-            var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                    .from(player, job.workflowEntryId()).orElse(null);
-            if (token == null) {
-                RtsPlacementBatch.cancelPlaceTask(player, session, job);
-                return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
-            }
-        }
-
-        int beforeIndex = job.getIndex();
-        int beforeSucceeded = job.successfulCount();
-        int beforeFailed = job.failedCount();
-        int processed = RtsPlacementBatch.tickPlaceTask(player, session, job,
-                budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
-        int cursor = Math.max(0, job.getIndex() - beforeIndex);
-        int succeeded = Math.max(0, job.successfulCount() - beforeSucceeded);
-        int failed = Math.max(0, job.failedCount() - beforeFailed);
-        if (session.placement.pendingJobs.contains(job)) {
-            return TaskStepResult.waitForResource(processed, cursor, succeeded, failed);
-        }
-        if (!session.placement.placeBatchJobs.contains(job)) {
-            return TaskStepResult.complete(processed, cursor, succeeded, failed);
-        }
-        return TaskStepResult.continueWith(processed, cursor, succeeded, failed);
+        PlacementTaskPayload payload = new PlacementTaskPayload(
+                player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                RtsPlacementBatch.snapshotDetachedState(job, player.registryAccess()));
+        var submission = job.workflowEntryId() >= 0
+                ? com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                        player.getUUID(), "placement",
+                        player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
+                : com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
+        var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                .fromSubmission(player.getUUID(), submission);
+        long gameTime = player.serverLevel().getGameTime();
+        var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                taskId, submission, player.getUUID(),
+                player.serverLevel().dimension().location().toString(), TaskType.PLACEMENT,
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                job.workflowEntryId(), null, 1L, gameTime, gameTime,
+                job.totalCount(), job.getIndex(), job.successfulCount(), job.failedCount(),
+                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
+        coordinator.submit(snapshot);
+        return true;
     }
 
     private void syncDestructionTasks(net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
-        RtsDestructionBatch.tryResumePendingDestroyJobs(player, session);
-        long now = System.nanoTime();
-        destructionRecords.entrySet().removeIf(entry -> {
-            TaskRecord record = entry.getValue();
-            if (!record.ownerId().equals(player.getUUID())) return false;
-            var job = entry.getKey();
-            return !session.destruction.destroyJobs.contains(job)
-                    && !session.destruction.pendingDestroyJobs.contains(job)
-                    && record.status().terminal();
-        });
-
-        var job = session.destruction.destroyJobs.peekFirst();
-        if (job != null) {
-            TaskRecord record = destructionRecords.get(job);
-            if (record == null) {
-                record = createDestructionRecord(player, session, job, now);
-                destructionRecords.put(job, record);
-                scheduler.submit(record);
-            } else if (record.status() == TaskStatus.WAITING_RESOURCE) {
-                record.resume(now);
-            }
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        while (!session.destruction.destroyJobs.isEmpty()) {
+            var job = session.destruction.destroyJobs.peekFirst();
+            DestructionTaskPayload payload = new DestructionTaskPayload(
+                    player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                    RtsDestructionBatch.snapshotDetachedState(job));
+            var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                    player.getUUID(), "destruction",
+                    player.serverLevel().dimension().location() + ":" + job.workflowEntryId());
+            var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                    .fromSubmission(player.getUUID(), submission);
+            long gameTime = player.serverLevel().getGameTime();
+            var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                    taskId, submission, player.getUUID(),
+                    player.serverLevel().dimension().location().toString(), TaskType.DESTRUCTION,
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                    job.workflowEntryId(), null, 1L, gameTime, gameTime,
+                    job.totalCount(), job.getIndex(), job.successfulCount(), job.failedCount(),
+                    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(payload));
+            var admitted = coordinator.submit(snapshot).snapshot();
+            if (!coordinator.hasAcknowledged(admitted.id(), 1L)) break;
+            session.destruction.destroyJobs.removeFirst();
+        }
+        while (!session.destruction.pendingDestroyJobs.isEmpty()) {
+            var job = session.destruction.pendingDestroyJobs.peekFirst();
+            DestructionTaskPayload payload = new DestructionTaskPayload(
+                    player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                    RtsDestructionBatch.snapshotDetachedState(job));
+            var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                    player.getUUID(), "destruction",
+                    player.serverLevel().dimension().location() + ":" + job.workflowEntryId());
+            var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                    .fromSubmission(player.getUUID(), submission);
+            long gameTime = player.serverLevel().getGameTime();
+            var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                    taskId, submission, player.getUUID(),
+                    player.serverLevel().dimension().location().toString(), TaskType.DESTRUCTION,
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE,
+                    job.workflowEntryId(),
+                    new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                            "tool", "hotbar:" + Byte.toUnsignedInt(job.toolSlot())),
+                    1L, gameTime, gameTime, job.totalCount(), job.getIndex(),
+                    job.successfulCount(), job.failedCount(),
+                    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(payload));
+            var admitted = coordinator.submit(snapshot).snapshot();
+            if (!coordinator.hasAcknowledged(admitted.id(), 1L)) break;
+            session.destruction.pendingDestroyJobs.removeFirst();
         }
     }
 
-    private TaskRecord createDestructionRecord(net.minecraft.server.level.ServerPlayer player,
-            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
-            RtsDestructionBatch.DestructionJob job, long now) {
-        UUID taskId = UUID.nameUUIDFromBytes((player.getUUID() + ":destruction:"
-                + player.serverLevel().dimension().location() + ":" + job.workflowEntryId())
-                .getBytes(StandardCharsets.UTF_8));
-        TaskRecord record = new TaskRecord(
-                taskId,
-                player.getUUID(), TaskType.DESTRUCTION,
-                new DestructionTaskPayload(
-                        player, session, job, player.serverLevel().dimension()), job.totalCount(), now);
-        record.restoreCursor(job.getIndex(), now);
-        applyInitialPause(player, job.workflowEntryId(), record, now);
-        return record;
+    /** 新拆除命令直接进入 TaskStore；Session destroy 队列只用于旧存档迁移。 */
+    public boolean submitDestructionJob(net.minecraft.server.level.ServerPlayer player,
+            RtsDestructionBatch.DestructionJob job) {
+        if (player == null || job == null) return false;
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        long queued = coordinator.query().ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> snapshot.type() == TaskType.DESTRUCTION && !snapshot.state().terminal())
+                .count();
+        if (queued >= RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS) return false;
+        DestructionTaskPayload payload = new DestructionTaskPayload(
+                player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                RtsDestructionBatch.snapshotDetachedState(job));
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                player.getUUID(), "destruction",
+                player.serverLevel().dimension().location() + ":" + job.workflowEntryId());
+        var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                .fromSubmission(player.getUUID(), submission);
+        long gameTime = player.serverLevel().getGameTime();
+        var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                taskId, submission, player.getUUID(),
+                player.serverLevel().dimension().location().toString(), TaskType.DESTRUCTION,
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                job.workflowEntryId(), null, 1L, gameTime, gameTime,
+                job.totalCount(), job.getIndex(), job.successfulCount(), job.failedCount(),
+                com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(payload));
+        coordinator.submit(snapshot);
+        return true;
     }
 
-    private TaskStepResult executeDestruction(TaskRecord task, TaskBudget budget) {
-        DestructionTaskPayload payload = (DestructionTaskPayload) task.payload();
-        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
-            return TaskStepResult.nextTick(0, 0, 0, 0);
+    private DurableTaskScheduler.SliceResult executeDurablePlacement(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            TaskBudget budget) {
+        if (!durableRevisionAcknowledged(snapshot)) {
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
-        var player = payload.player();
-        var session = payload.session();
-        var job = payload.job();
-        if (session.destruction.pendingDestroyJobs.contains(job)) return TaskStepResult.waitForResource();
-        if (!session.destruction.destroyJobs.contains(job)) return TaskStepResult.complete(0);
-        if (session.destruction.destroyJobs.peekFirst() != job) return TaskStepResult.yield(0);
+        PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                .decode(snapshot.payload());
+        var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
+        if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
+            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
+                    payload.state().failedUnits(), snapshot.payload());
+        }
+        var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) {
+            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
+                    payload.state().failedUnits(), snapshot.payload());
+        }
+        if (payload.workflowEntryId() >= 0
+                && com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                        .from(player, payload.workflowEntryId()).isEmpty()) {
+            var failed = snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
+                    null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
+                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
+            return new DurableTaskScheduler.SliceResult(failed, 0);
+        }
+        var result = RtsPlacementBatch.tickDetachedPlacementSlice(
+                player, session, payload.state(), budget.maxUnits(),
+                saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
+        var nextPayload = payload.withState(result.state());
+        var lifecycle = switch (result.outcome()) {
+            case CONTINUE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
+            case WAITING_RESOURCE ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE;
+            case COMPLETE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED;
+        };
+        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey waitKey = null;
+        if (result.outcome()
+                == com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult.Outcome.WAITING_RESOURCE) {
+            String itemId = result.state().definition().getString("itemId");
+            waitKey = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                    "item", itemId.isBlank() ? "rtsbuilding:any-placement-item" : itemId);
+        }
+        var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
+                result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload));
+        if (lifecycle.terminal()) {
+            RtsPlacementBatch.recordDetachedHistory(player, result.state());
+            projectDurableTerminal(player, next);
+        }
+        return new DurableTaskScheduler.SliceResult(next, result.processedUnits());
+    }
 
+    private DurableTaskScheduler.SliceResult executeDurableDestruction(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            TaskBudget budget) {
+        if (!durableRevisionAcknowledged(snapshot)) {
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
+        }
+        DestructionTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec
+                .decode(snapshot.payload());
+        var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
+        if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
+            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
+                    payload.state().failedUnits(), snapshot.payload());
+        }
+        var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) {
+            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
+                    payload.state().failedUnits(), snapshot.payload());
+        }
+        if (com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                .from(player, payload.workflowEntryId()).isEmpty()) {
+            var failed = snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
+                    null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
+                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
+            return new DurableTaskScheduler.SliceResult(failed, 0);
+        }
+        var result = RtsDestructionBatch.tickDetachedDestructionSlice(
+                player, session, payload.state(), budget.maxUnits(),
+                saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
+        var nextPayload = new DestructionTaskPayload(
+                payload.ownerId(), payload.dimension(), payload.workflowEntryId(), result.state());
+        var lifecycle = switch (result.outcome()) {
+            case CONTINUE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
+            case WAITING_RESOURCE ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE;
+            case COMPLETE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED;
+        };
+        var waitKey = result.outcome()
+                == com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult.Outcome.WAITING_RESOURCE
+                ? new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                        "tool", "hotbar:" + Byte.toUnsignedInt(result.state().toolSlot()))
+                : null;
+        var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
+                result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
+        if (lifecycle.terminal()) {
+            RtsDestructionBatch.recordDetachedHistory(player, result.state());
+            projectDurableTerminal(player, next);
+            boolean another = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                    .coordinator().query().ownedBy(player.getUUID()).stream()
+                    .anyMatch(other -> !other.id().equals(next.id()) && other.type() == TaskType.DESTRUCTION
+                            && !other.state().terminal());
+            if (!another) RtsDestructionBatch.returnDetachedDestroyTool(player, session);
+        }
+        return new DurableTaskScheduler.SliceResult(next, result.processedUnits());
+    }
+
+    private DurableTaskScheduler.SliceResult durableNoProgress(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            int cursor, int succeeded, int failed, net.minecraft.nbt.CompoundTag payload) {
+        var next = snapshot.nextRevision(snapshot.state(), snapshot.waitKey(), snapshot.updatedGameTime(),
+                cursor, succeeded, failed, payload);
+        return new DurableTaskScheduler.SliceResult(next, 0);
+    }
+
+    private void projectDurableTerminal(net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        if (snapshot.workflowEntryId() < 0) return;
         var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                .from(player, job.workflowEntryId()).orElse(null);
-        if (token == null) {
-            RtsDestructionBatch.cancelDestroyTask(player, session, job);
-            return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
+                .from(player, snapshot.workflowEntryId()).orElse(null);
+        if (token == null) return;
+        if (snapshot.state() == com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED) {
+            token.complete();
+        } else {
+            token.cancel();
         }
-        int beforeIndex = job.getIndex();
-        int beforeSucceeded = job.successfulCount();
-        int beforeFailed = job.failedCount();
-        int processed = RtsDestructionBatch.tickDestroyTask(player, session, job,
-                budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
-        int cursor = Math.max(0, job.getIndex() - beforeIndex);
-        int succeeded = Math.max(0, job.successfulCount() - beforeSucceeded);
-        int failed = Math.max(0, job.failedCount() - beforeFailed);
-        if (session.destruction.pendingDestroyJobs.contains(job)) {
-            return TaskStepResult.waitForResource(processed, cursor, succeeded, failed);
-        }
-        if (!session.destruction.destroyJobs.contains(job)) {
-            return TaskStepResult.complete(processed, cursor, succeeded, failed);
-        }
-        return TaskStepResult.continueWith(processed, cursor, succeeded, failed);
+    }
+
+    private static long saturatingDeadline(long now, long remaining) {
+        return remaining > 0 && now > Long.MAX_VALUE - remaining ? Long.MAX_VALUE : now + remaining;
     }
 
     private void syncMiningTasks(net.minecraft.server.level.ServerPlayer player,
-            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
-        MiningTaskSource source = currentMiningSource(session);
-        miningRecords.entrySet().removeIf(entry -> entry.getKey().playerId().equals(player.getUUID())
-                && entry.getValue().status().terminal()
-                && (source == null
-                || !entry.getKey().dimension().equals(player.serverLevel().dimension())
-                || entry.getKey().workflowEntryId() != source.workflowEntryId()));
-        activeMiningByWorkflow.entrySet().removeIf(entry -> entry.getValue().status().terminal());
-        if (source == null) return;
-
-        MiningTaskKey key = new MiningTaskKey(
-                player.getUUID(), player.serverLevel().dimension(), source.workflowEntryId());
-        TaskRecord record = miningRecords.get(key);
-        if (record == null) {
-            record = activeMiningByWorkflow.get(
-                    new MiningWorkflowKey(player.getUUID(), source.workflowEntryId()));
-        }
-        long now = System.nanoTime();
-        if (record == null) {
-            record = new TaskRecord(
-                    UUID.nameUUIDFromBytes((player.getUUID() + ":mining:"
-                            + player.serverLevel().dimension().location() + ":" + source.workflowEntryId())
-                            .getBytes(StandardCharsets.UTF_8)),
-                    player.getUUID(), TaskType.MINING,
-                    new MiningTaskPayload(
-                            player, session, source.workflowEntryId(), player.serverLevel().dimension()),
-                    source.totalUnits(), now);
-            record.restoreSnapshot(source.cursorUnits(), source.succeededUnits(), source.failedUnits(), now);
-            applyInitialPause(player, source.workflowEntryId(), record, now);
-            miningRecords.put(key, record);
-            activeMiningByWorkflow.put(
-                    new MiningWorkflowKey(player.getUUID(), source.workflowEntryId()), record);
-            scheduler.submit(record);
-        } else if (record.status() == TaskStatus.WAITING_RESOURCE && !session.miningDropBuffer.isFull()) {
-            record.resume(now);
-        }
-    }
-
-    private MiningTaskSource currentMiningSource(
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
         boolean hasActiveState = session.mining.miningPos != null
                 || session.mining.ultimineProgressPos != null
                 || !session.mining.ultimineTargets.isEmpty();
         if (hasActiveState && session.mining.workflowEntryId >= 0) {
-            int total = session.mining.ultimineTotalTargets > 0 ? session.mining.ultimineTotalTargets : 1;
-            int cursor = Math.max(0, session.mining.ultimineProcessedTargets);
-            int succeeded = Math.max(0, session.mining.ultimineBrokenTargets);
-            return new MiningTaskSource(
-                    session.mining.workflowEntryId, total, cursor, succeeded, Math.max(0, cursor - succeeded));
+            var active = RtsMiningStateMachine.snapshotDetachedActive(session);
+            if (!submitLegacyMiningStateAndCheckAck(player, active)) return;
+            RtsMiningStateMachine.resetMiningState(session, !session.mining.ultimineJobQueue.isEmpty());
+            session.mining.workflowEntryId = -1;
         }
-        var queued = session.mining.ultimineJobQueue.peekFirst();
-        if (queued == null) return null;
-        return new MiningTaskSource(queued.workflowEntryId(), queued.totalTargets(), 0, 0, 0);
+        while (!session.mining.ultimineJobQueue.isEmpty()) {
+            var queued = session.mining.ultimineJobQueue.peekFirst();
+            var state = RtsMiningStateMachine.snapshotDetachedQueued(session, queued);
+            if (!submitLegacyMiningStateAndCheckAck(player, state)) break;
+            session.mining.ultimineJobQueue.removeFirst();
+        }
     }
 
-    private TaskStepResult executeMining(TaskRecord task, TaskBudget budget) {
-        MiningTaskPayload payload = (MiningTaskPayload) task.payload();
-        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
-            return TaskStepResult.nextTick(0, 0, 0, 0);
+    private boolean submitLegacyMiningStateAndCheckAck(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState state) {
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        long gameTime = player.serverLevel().getGameTime();
+        MiningTaskPayload payload = new MiningTaskPayload(
+                player.getUUID(), player.serverLevel().dimension(), state.workflowEntryId(), state);
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                player.getUUID(), "mining",
+                player.serverLevel().dimension().location() + ":" + state.workflowEntryId());
+        var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                .fromSubmission(player.getUUID(), submission);
+        var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                taskId, submission, player.getUUID(),
+                player.serverLevel().dimension().location().toString(), TaskType.MINING,
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                state.workflowEntryId(), null, 1L, gameTime, gameTime,
+                state.totalUnits(), state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.encode(payload));
+        var admitted = coordinator.submit(snapshot).snapshot();
+        return coordinator.hasAcknowledged(admitted.id(), 1L);
+    }
+
+    /** 新挖掘命令直接提交纯值目标；Session 只继续持有当前在线工具租约。 */
+    public boolean submitMiningTargets(
+            net.minecraft.server.level.ServerPlayer player,
+            int workflowEntryId,
+            java.util.Collection<net.minecraft.core.BlockPos> targets,
+            net.minecraft.core.Direction face,
+            int toolSlot,
+            boolean selectedToolRequested,
+            boolean toolProtectionEnabled,
+            boolean progressiveSingle) {
+        if (player == null || targets == null || targets.isEmpty() || workflowEntryId < 0) return false;
+        java.util.List<net.minecraft.core.BlockPos> immutableTargets = targets.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(net.minecraft.core.BlockPos::immutable)
+                .toList();
+        if (immutableTargets.isEmpty()) return false;
+        var state = new com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState(
+                progressiveSingle
+                        ? com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState.Mode.PROGRESSIVE_SINGLE
+                        : com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState.Mode.BATCH,
+                workflowEntryId, immutableTargets, immutableTargets.size(), 0, 0, 0,
+                face, toolSlot, selectedToolRequested, toolProtectionEnabled,
+                0.0F, -1, java.util.List.of());
+        return submitMiningState(player, state);
+    }
+
+    /** 旧 MiningJob 的唯一迁移入口。 */
+    public boolean submitMiningJob(net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
+            RtsMiningStateMachine.MiningJob job) {
+        if (player == null || session == null || job == null) return false;
+        return submitMiningState(player, RtsMiningStateMachine.snapshotDetachedQueued(session, job));
+    }
+
+    private boolean submitMiningState(net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState state) {
+        MiningTaskPayload payload = new MiningTaskPayload(
+                player.getUUID(), player.serverLevel().dimension(), state.workflowEntryId(), state);
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
+                player.getUUID(), "mining",
+                player.serverLevel().dimension().location() + ":" + state.workflowEntryId());
+        var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                .fromSubmission(player.getUUID(), submission);
+        long gameTime = player.serverLevel().getGameTime();
+        var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                taskId, submission, player.getUUID(),
+                player.serverLevel().dimension().location().toString(), TaskType.MINING,
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                state.workflowEntryId(), null, 1L, gameTime, gameTime,
+                state.totalUnits(), state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.encode(payload));
+        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().submit(snapshot);
+        return true;
+    }
+
+    private DurableTaskScheduler.SliceResult executeDurableMining(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            TaskBudget budget) {
+        if (!durableRevisionAcknowledged(snapshot)) {
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
-        var player = payload.player();
-        var session = payload.session();
-        MiningTaskSource source = currentMiningSource(session);
-        if (source == null || source.workflowEntryId() != payload.workflowEntryId()) {
-            return TaskStepResult.complete(0, 0, 0, 0);
+        MiningTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec
+                .decode(snapshot.payload());
+        var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
+        if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
+            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
+                    payload.state().failedUnits(), snapshot.payload());
+        }
+        var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) {
+            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
+                    payload.state().failedUnits(), snapshot.payload());
         }
         var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                 .from(player, payload.workflowEntryId()).orElse(null);
         if (token == null) {
-            RtsMiningStateMachine.cancelMiningTask(player, session, payload.workflowEntryId());
-            return TaskStepResult.fail("rtsbuilding.task.error.workflow_missing");
+            var failed = snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
+                    null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
+                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
+            return new DurableTaskScheduler.SliceResult(failed, 0);
         }
-        if (session.miningDropBuffer.isFull()) {
-            return TaskStepResult.waitForResource();
+        var result = RtsMiningStateMachine.tickDetachedMiningSlice(
+                player, session, payload.state(), budget.maxUnits(),
+                saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
+        var lifecycle = switch (result.outcome()) {
+            case CONTINUE, NEXT_TICK ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
+            case WAITING -> result.waitHint().kind().equals("chunk")
+                    ? com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_CHUNK
+                    : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE;
+            case COMPLETE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED;
+        };
+        var waitKey = result.waitHint() == null ? null
+                : new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                        result.waitHint().kind(), result.waitHint().value());
+        var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
+                result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec
+                        .encode(payload.withState(result.state())));
+        if (lifecycle.terminal()) {
+            projectDurableTerminal(player, next);
         }
-
-        var advance = RtsMiningStateMachine.tickActiveMining(
-                player, session, budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
-        if (advance.waitingForBuffer()) {
-            return TaskStepResult.waitForResource(
-                    advance.processedUnits(), advance.processedUnits(),
-                    advance.succeededUnits(), advance.failedUnits());
-        }
-        if (advance.operationEnded()) {
-            return TaskStepResult.complete(
-                    advance.processedUnits(), advance.processedUnits(),
-                    advance.succeededUnits(), advance.failedUnits());
-        }
-        return TaskStepResult.nextTick(
-                advance.processedUnits(), advance.processedUnits(),
-                advance.succeededUnits(), advance.failedUnits());
+        return new DurableTaskScheduler.SliceResult(next, result.processedUnits());
     }
 
     private void syncBufferTask(net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
-        TaskRecord existing = bufferRecords.get(player.getUUID());
-        if (session.miningDropBuffer.isEmpty()) {
-            if (existing != null && existing.status().terminal()) bufferRecords.remove(player.getUUID());
+        var buffer = session.miningDropBuffer;
+        if (buffer.legacyHandoffConflict) return;
+        var cluster = com.rtsbuilding.rtsbuilding.server.data.SaveScheduler.INSTANCE.player(player);
+        if (buffer.isEmpty()) {
+            if (buffer.legacyHandoff != null
+                    && buffer.legacyHandoff.phase()
+                    == com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferOwnershipPhase.TASK_PREPARED_ACKED) {
+                long requiredRevision = buffer.handoffClearRevision > 0L
+                        ? buffer.handoffClearRevision
+                        : cluster.revision(com.rtsbuilding.rtsbuilding.server.data.SessionComponents.DROP_BUFFER);
+                if (requiredRevision > 0L
+                        && cluster.persistedRevision(
+                                com.rtsbuilding.rtsbuilding.server.data.SessionComponents.DROP_BUFFER)
+                        >= requiredRevision) {
+                    buffer.legacyHandoff = buffer.legacyHandoff.acknowledgeSessionClear();
+                    buffer.handoffClearRevision = 0L;
+                    cluster.set(com.rtsbuilding.rtsbuilding.server.data.SessionComponents.DROP_BUFFER,
+                            com.rtsbuilding.rtsbuilding.server.data.SessionSerializer
+                                    .serializeDropBuffer(player, session));
+                }
+            }
             return;
         }
-        if (existing != null && !existing.status().terminal()) return;
-        long now = System.nanoTime();
-        TaskRecord record = new TaskRecord(
-                UUID.randomUUID(), player.getUUID(), TaskType.BUFFER_DRAIN,
-                new BufferDrainTaskPayload(player, session), 0, now);
-        bufferRecords.put(player.getUUID(), record);
-        scheduler.submit(record);
+        if (buffer.firstQueuedGameTime < 0L) {
+            buffer.firstQueuedGameTime = player.serverLevel().getGameTime();
+        }
+        java.util.List<net.minecraft.world.item.ItemStack> source = java.util.List.copyOf(buffer.stacks);
+        var handoff = buffer.legacyHandoff;
+        if (handoff == null
+                || handoff.phase()
+                == com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferOwnershipPhase.SESSION_CLEAR_ACKED) {
+            handoff = com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferHandoffState
+                    .freezeSessionOwned(player.registryAccess(), player.getUUID(),
+                            buffer.firstQueuedGameTime, source);
+            buffer.legacyHandoff = handoff;
+            cluster.set(com.rtsbuilding.rtsbuilding.server.data.SessionComponents.DROP_BUFFER,
+                    com.rtsbuilding.rtsbuilding.server.data.SessionSerializer.serializeDropBuffer(player, session));
+        } else if (!handoff.matchesSource(player.registryAccess(), source)) {
+            buffer.legacyHandoffConflict = true;
+            com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.error(
+                    "玩家 {} 的 legacy buffer shadow 与迁移指纹不一致，已 fail-closed",
+                    player.getUUID());
+            return;
+        }
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        var submission = new com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId(
+                handoff.migrationIdentity().value());
+        var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                .fromSubmission(player.getUUID(), submission);
+        var existing = coordinator.query().get(taskId).orElse(null);
+        if (existing != null) {
+            if (!legacyBufferSnapshotMatches(player, existing, handoff)) {
+                buffer.legacyHandoffConflict = true;
+                com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.error(
+                        "玩家 {} 的 legacy buffer TaskId 命中不一致 payload，已 fail-closed",
+                        player.getUUID());
+                return;
+            }
+        } else if (coordinator.query().receipt(taskId).isEmpty()) {
+            BufferDrainTaskPayload payload =
+                    com.rtsbuilding.rtsbuilding.server.service.buffer.RtsBufferEscrowExecutor
+                            .snapshotLegacyBuffer(player, session, handoff);
+            long gameTime = player.serverLevel().getGameTime();
+            var proposed = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                    taskId, submission, player.getUUID(),
+                    player.serverLevel().dimension().location().toString(), TaskType.BUFFER_DRAIN,
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                    -1, null, 1L, gameTime, gameTime, payload.state().entries().size(),
+                    0, 0, 0,
+                    com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                            .encode(payload, player.registryAccess()));
+            existing = coordinator.submit(proposed).snapshot();
+        }
+        boolean taskPrepared = coordinator.query().receipt(taskId).isPresent()
+                || (existing != null && coordinator.hasAcknowledged(taskId, 1L));
+        if (taskPrepared) {
+            buffer.legacyHandoff = handoff.acknowledgeTaskPrepared();
+            buffer.stacks.clear();
+            buffer.clearTimingWhenEmpty();
+            buffer.handoffClearRevision = cluster.set(
+                    com.rtsbuilding.rtsbuilding.server.data.SessionComponents.DROP_BUFFER,
+                    com.rtsbuilding.rtsbuilding.server.data.SessionSerializer
+                            .serializeDropBuffer(player, session));
+        }
     }
 
-    private TaskStepResult executeBufferDrain(TaskRecord task, TaskBudget budget) {
-        BufferDrainTaskPayload payload = (BufferDrainTaskPayload) task.payload();
-        var player = payload.player();
-        var session = payload.session();
-        int beforeStacks = session.miningDropBuffer.stacks.size();
-        int processed = RtsDropAbsorber.drainDropBuffer(
-                player, session, budget.maxUnits(), System.nanoTime() + budget.remainingNanos());
-        int completedStacks = Math.max(0, beforeStacks - session.miningDropBuffer.stacks.size());
-        if (session.miningDropBuffer.isEmpty()) {
-            return TaskStepResult.complete(processed, completedStacks, completedStacks, 0);
+    private static boolean legacyBufferSnapshotMatches(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferHandoffState handoff) {
+        if (snapshot.type() != TaskType.BUFFER_DRAIN) return false;
+        try {
+            BufferDrainTaskPayload payload =
+                    com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                            .decode(snapshot.payload(), player.registryAccess());
+            return payload.ownerId().equals(player.getUUID())
+                    && payload.escrowId().equals(handoff.migrationIdentity().value())
+                    && handoff.sourceFingerprint().equals(payload.legacySourceFingerprint());
+        } catch (RuntimeException invalidPayload) {
+            return false;
         }
-        return TaskStepResult.nextTick(processed, completedStacks, completedStacks, 0);
+    }
+
+    private static boolean bufferTaskMayRun(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        try {
+            BufferDrainTaskPayload payload =
+                    com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                            .decode(snapshot.payload(), player.registryAccess());
+            if (!payload.migratedFromLegacySession()) return true;
+            var handoff = session.miningDropBuffer.legacyHandoff;
+            return !session.miningDropBuffer.legacyHandoffConflict
+                    && handoff != null
+                    && handoff.taskMayDrain()
+                    && payload.escrowId().equals(handoff.migrationIdentity().value())
+                    && payload.legacySourceFingerprint().equals(handoff.sourceFingerprint());
+        } catch (RuntimeException invalidPayload) {
+            return false;
+        }
+    }
+
+    /** 世界掉落只提交 durable claim；SOURCE_PREPARED ACK 前绝不消耗实体。 */
+    public boolean submitBufferEscrow(net.minecraft.server.level.ServerPlayer player,
+            java.util.List<net.minecraft.core.BlockPos> positions) {
+        if (player == null || positions == null || positions.isEmpty()) return false;
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        ensureBufferSourceIndex(coordinator, player.registryAccess());
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
+        BufferDrainTaskPayload payload = com.rtsbuilding.rtsbuilding.server.service.buffer.RtsBufferEscrowExecutor
+                .prepareEscrowTask(player, positions, submission.value(), bufferSourceOwners.keySet());
+        if (payload.state().isEmpty()) return false;
+        var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
+                .fromSubmission(player.getUUID(), submission);
+        long gameTime = player.serverLevel().getGameTime();
+        var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
+                taskId, submission, player.getUUID(),
+                player.serverLevel().dimension().location().toString(), TaskType.BUFFER_DRAIN,
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
+                -1, null, 1L, gameTime, gameTime, payload.state().entries().size(),
+                0, 0, 0,
+                com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                        .encode(payload, player.registryAccess()));
+        coordinator.submit(snapshot);
+        reserveBufferSources(taskId, payload);
+        return true;
+    }
+
+    private DurableTaskScheduler.SliceResult executeDurableBufferDrain(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            TaskBudget budget) {
+        var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(snapshot.ownerId());
+        if (player == null) {
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
+        }
+        var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null) return new DurableTaskScheduler.SliceResult(snapshot, 0);
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        BufferDrainTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                .decode(snapshot.payload(), player.registryAccess());
+        if (!payload.migratedFromLegacySession()
+                && !player.serverLevel().dimension().equals(payload.dimension())) {
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
+        }
+        boolean acknowledged = coordinator.hasAcknowledged(snapshot.id(), snapshot.revision());
+        if (!acknowledged) return new DurableTaskScheduler.SliceResult(snapshot, 0);
+        var action = com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowDurabilityGate
+                .nextAction(payload.state(), true);
+        long gameTime = player.serverLevel().getGameTime();
+        return switch (action) {
+            case WAIT_DURABLE_ACK -> new DurableTaskScheduler.SliceResult(snapshot, 0);
+            case CLAIM_SOURCE -> {
+                var result = com.rtsbuilding.rtsbuilding.server.service.buffer.RtsBufferEscrowExecutor
+                        .claimPreparedEscrowSlice(player, payload, budget.maxUnits(),
+                                saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
+                yield bufferNext(snapshot, payload.withState(result.state()), gameTime,
+                        snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(),
+                        result.processedStacks(), result.outcome());
+            }
+            case RESERVE_DRAIN -> {
+                var reserved = payload.state().reserveDrainBatch(UUID.randomUUID(), budget.maxUnits());
+                var next = bufferNext(snapshot, payload.withState(reserved), gameTime,
+                        snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(),
+                        reserved == payload.state() ? 0 : 1,
+                        com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.CONTINUE);
+                liveBufferDrainReservations.put(snapshot.id(), next.snapshot().revision());
+                yield next;
+            }
+            case EXECUTE_DRAIN -> {
+                Long createdRevision = liveBufferDrainReservations.get(snapshot.id());
+                if (createdRevision == null || createdRevision.longValue() != snapshot.revision()) {
+                    var recovery = payload.state().recoverLoadedSnapshot();
+                    yield bufferNext(snapshot, payload.withState(recovery), gameTime,
+                            snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(), 0,
+                            com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.RECOVERY_REQUIRED);
+                }
+                var result = com.rtsbuilding.rtsbuilding.server.service.buffer.RtsBufferEscrowExecutor
+                        .executeReservedDrainSlice(player, session, payload, budget.maxUnits(),
+                                saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
+                liveBufferDrainReservations.remove(snapshot.id());
+                yield bufferNext(snapshot, payload.withState(result.state()), gameTime,
+                        snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(),
+                        result.processedStacks(), result.outcome());
+            }
+            case CONFIRM_APPLIED -> {
+                int before = payload.state().entries().size();
+                var confirmed = payload.state().confirmAppliedAfterAck();
+                int removed = Math.max(0, before - confirmed.entries().size());
+                yield bufferNext(snapshot, payload.withState(confirmed), gameTime,
+                        Math.min(snapshot.totalUnits(), snapshot.cursorUnits() + removed),
+                        Math.min(snapshot.totalUnits(), snapshot.succeededUnits() + removed),
+                        snapshot.failedUnits(), Math.max(1, removed),
+                        confirmed.isEmpty()
+                                ? com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.COMPLETE
+                                : com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.CONTINUE);
+            }
+            case COMPLETE -> bufferNext(snapshot, payload, gameTime,
+                    snapshot.totalUnits(), snapshot.totalUnits(), snapshot.failedUnits(), 0,
+                    com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.COMPLETE);
+            case RECOVERY_REQUIRED -> bufferNext(snapshot, payload, gameTime,
+                    snapshot.cursorUnits(), snapshot.succeededUnits(), snapshot.failedUnits(), 0,
+                    com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.RECOVERY_REQUIRED);
+        };
+    }
+
+    private DurableTaskScheduler.SliceResult bufferNext(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            BufferDrainTaskPayload payload, long gameTime, int cursor, int succeeded, int failed,
+            int processed, com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome outcome) {
+        var lifecycle = switch (outcome) {
+            case COMPLETE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.COMPLETED;
+            // 不确定的外部写入结果必须保留完整 payload，等待管理员裁决，不能终态墓碑化。
+            case RECOVERY_REQUIRED ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE;
+            case WAITING_RESERVATION_ACK, WAITING_APPLIED_ACK, CONTINUE ->
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
+        };
+        var waitKey = outcome == com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult.Outcome.RECOVERY_REQUIRED
+                ? new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
+                        "manual_recovery", snapshot.id().toString())
+                : null;
+        var next = snapshot.nextRevision(lifecycle, waitKey, gameTime, cursor, succeeded, failed,
+                com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                        .encode(payload, activeServer.registryAccess()));
+        if (lifecycle.terminal()) releaseBufferSources(snapshot.id());
+        return new DurableTaskScheduler.SliceResult(next, Math.max(0, processed));
+    }
+
+    /** 首次运行/重启后从 durable roots 恢复来源租约；之后只做增量 admission/release。 */
+    private void ensureBufferSourceIndex(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            net.minecraft.core.HolderLookup.Provider registries) {
+        if (bufferSourceIndexInitialized) return;
+        bufferSourceOwners.clear();
+        bufferSourcesByTask.clear();
+        for (var snapshot : coordinator.query().snapshots()) {
+            if (snapshot.type() != TaskType.BUFFER_DRAIN || snapshot.state().terminal()) continue;
+            try {
+                BufferDrainTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.buffer.BufferEscrowCodec
+                        .decode(snapshot.payload(), registries);
+                reserveBufferSources(snapshot.id(), payload);
+            } catch (RuntimeException invalidPayload) {
+                // codec/persistence 层会负责 fail-closed；来源索引不能把损坏 root 当成可安全复用。
+                com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.error(
+                        "无法恢复 buffer 来源租约 {}，保留任务但拒绝猜测实体所有权",
+                        snapshot.id(), invalidPayload);
+            }
+        }
+        bufferSourceIndexInitialized = true;
+    }
+
+    private void reserveBufferSources(
+            com.rtsbuilding.rtsbuilding.server.task.identity.TaskId taskId,
+            BufferDrainTaskPayload payload) {
+        java.util.LinkedHashSet<UUID> sources = new java.util.LinkedHashSet<>();
+        for (var entry : payload.state().entries()) {
+            UUID sourceId = entry.sourceEntityId();
+            if (sourceId == null) continue;
+            var existing = bufferSourceOwners.putIfAbsent(sourceId, taskId);
+            if (existing != null && !existing.equals(taskId)) {
+                com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.error(
+                        "buffer 来源实体 {} 同时被任务 {} 与 {} 声明；保持先到租约并 fail-closed",
+                        sourceId, existing, taskId);
+                continue;
+            }
+            sources.add(sourceId);
+        }
+        if (!sources.isEmpty()) bufferSourcesByTask.put(taskId, java.util.Set.copyOf(sources));
+    }
+
+    private void releaseBufferSources(com.rtsbuilding.rtsbuilding.server.task.identity.TaskId taskId) {
+        java.util.Set<UUID> sources = bufferSourcesByTask.remove(taskId);
+        if (sources == null) return;
+        for (UUID sourceId : sources) bufferSourceOwners.remove(sourceId, taskId);
+    }
+
+    /** 所有会触碰世界、物品或外部储存的 slice 都必须先看到当前 revision 的 root ACK。 */
+    private static boolean durableRevisionAcknowledged(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().hasAcknowledged(snapshot.id(), snapshot.revision());
     }
 
     private TaskStepResult executeBlueprint(TaskRecord task, TaskBudget budget) {
@@ -711,24 +1538,12 @@ public final class RtsTaskEngine {
     private TaskRecord findWorkflowTask(WorkflowTaskKey key) {
         TaskRecord blueprint = blueprintRecords.get(key);
         if (blueprint != null) return blueprint;
-        for (var entry : placementRecords.entrySet()) {
-            if (entry.getValue().ownerId().equals(key.playerId())
-                    && entry.getKey().workflowEntryId() == key.workflowEntryId()) return entry.getValue();
-        }
-        for (var entry : destructionRecords.entrySet()) {
-            if (entry.getValue().ownerId().equals(key.playerId())
-                    && entry.getKey().workflowEntryId() == key.workflowEntryId()) return entry.getValue();
-        }
-        return miningRecords.get(new MiningTaskKey(
-                key.playerId(), key.dimension(), key.workflowEntryId()));
+        return null;
     }
 
     /** TaskRecord 生命周期变更后，才把展示状态单向投影到工作流。 */
     private void projectWorkflowLifecycles() {
         java.util.List<TaskRecord> records = new java.util.ArrayList<>();
-        records.addAll(placementRecords.values());
-        records.addAll(destructionRecords.values());
-        records.addAll(miningRecords.values());
         records.addAll(blueprintRecords.values());
         for (TaskRecord record : records) {
             int entryId = workflowEntryId(record);
@@ -763,6 +1578,49 @@ public final class RtsTaskEngine {
         projectedTaskStatuses.keySet().removeIf(id -> !activeIds.contains(id));
     }
 
+    /** TaskStore 生命周期到 Workflow 的单向投影；Workflow 永远不能反向成为执行权威。 */
+    private void projectDurableWorkflowLifecycles(MinecraftServer server,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
+        java.util.Set<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId> activeIds =
+                new java.util.HashSet<>();
+        for (var player : server.getPlayerList().getPlayers()) {
+            for (var snapshot : coordinator.query().ownedBy(player.getUUID())) {
+                if (snapshot.type() != TaskType.PLACEMENT && snapshot.type() != TaskType.DESTRUCTION
+                        && snapshot.type() != TaskType.MINING) continue;
+                activeIds.add(snapshot.id());
+                if (snapshot.workflowEntryId() < 0
+                        || java.util.Objects.equals(projectedDurableStates.get(snapshot.id()), snapshot.revision())) {
+                    continue;
+                }
+                var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                        .from(player, snapshot.workflowEntryId()).orElse(null);
+                if (token == null) continue;
+                var progress = token.getProgress();
+                int completedDelta = Math.max(0, snapshot.succeededUnits() - progress.completedBlocks());
+                int failedDelta = Math.max(0, snapshot.failedUnits() - progress.failedBlocks());
+                if (completedDelta > 0) token.updateProgress(completedDelta, null);
+                if (failedDelta > 0) token.recordFailures(failedDelta);
+                progress = token.getProgress();
+                switch (snapshot.state()) {
+                    case PAUSED -> {
+                        if (!progress.paused()) token.pause();
+                    }
+                    case WAITING_RESOURCE, WAITING_CHUNK, WAITING_PERSISTENCE -> {
+                        if (!progress.suspended()) token.suspend();
+                    }
+                    case QUEUED, RUNNING -> {
+                        if (progress.paused()) token.unpause();
+                        if (progress.suspended()) token.resume();
+                    }
+                    case COMPLETED -> token.complete();
+                    case FAILED, CANCELLED -> token.cancel();
+                }
+                projectedDurableStates.put(snapshot.id(), snapshot.revision());
+            }
+        }
+        projectedDurableStates.keySet().removeIf(id -> !activeIds.contains(id));
+    }
+
     private void releaseTerminalWorkflow(TaskRecord record) {
         int entryId = workflowEntryId(record);
         if (entryId < 0) return;
@@ -787,9 +1645,6 @@ public final class RtsTaskEngine {
 
     private net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> taskDimension(TaskRecord record) {
         if (record.payload() instanceof BlueprintTaskPayload payload) return payload.dimension();
-        for (var entry : miningRecords.entrySet()) {
-            if (entry.getValue() == record) return entry.getKey().dimension();
-        }
         if (record.payload() instanceof PlacementTaskPayload payload) return payload.dimension();
         if (record.payload() instanceof DestructionTaskPayload payload) return payload.dimension();
         if (record.payload() instanceof MiningTaskPayload payload) return payload.dimension();
@@ -797,8 +1652,8 @@ public final class RtsTaskEngine {
     }
 
     private int workflowEntryId(TaskRecord record) {
-        if (record.payload() instanceof PlacementTaskPayload payload) return payload.job().workflowEntryId();
-        if (record.payload() instanceof DestructionTaskPayload payload) return payload.job().workflowEntryId();
+        if (record.payload() instanceof PlacementTaskPayload payload) return payload.workflowEntryId();
+        if (record.payload() instanceof DestructionTaskPayload payload) return payload.workflowEntryId();
         if (record.payload() instanceof MiningTaskPayload payload) return payload.workflowEntryId();
         if (record.payload() instanceof BlueprintTaskPayload payload) return payload.workflowEntryId();
         return -1;
@@ -813,16 +1668,20 @@ public final class RtsTaskEngine {
         };
     }
 
-    private record MiningTaskKey(
-            UUID playerId, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
-            int workflowEntryId) {
-    }
-
-    private record MiningWorkflowKey(UUID playerId, int workflowEntryId) {
-    }
-
     public record TaskDiagnostics(Map<TaskType, Integer> activeByType,
             Map<TaskType, Integer> waitingByType) {
+    }
+
+    /** UI 可读取的等待放置票据；TaskId + revision 用于拒绝过期扫描结果。 */
+    public record PendingPlacementTaskView(
+            com.rtsbuilding.rtsbuilding.server.task.identity.TaskId taskId,
+            long revision,
+            com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskState state) {
+        public PendingPlacementTaskView {
+            java.util.Objects.requireNonNull(taskId, "taskId");
+            java.util.Objects.requireNonNull(state, "state");
+            if (revision < 1L) throw new IllegalArgumentException("revision 必须为正数");
+        }
     }
 
     private record WorkflowTaskKey(
@@ -830,7 +1689,4 @@ public final class RtsTaskEngine {
             int workflowEntryId) {
     }
 
-    private record MiningTaskSource(
-            int workflowEntryId, int totalUnits, int cursorUnits, int succeededUnits, int failedUnits) {
-    }
 }

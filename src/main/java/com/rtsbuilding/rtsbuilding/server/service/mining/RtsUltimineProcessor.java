@@ -91,21 +91,12 @@ public final class RtsUltimineProcessor {
             return false;
         }
 
-        session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
-        session.mining.ultimineTargets.clear();
-        session.mining.ultimineTargets.addAll(targets);
-        session.mining.ultimineProgressPos = targets.peekFirst();
-        session.mining.ultimineTotalTargets = targets.size();
-        session.mining.ultimineProcessedTargets = 0;
-        session.mining.ultimineBrokenTargets = 0;
-        session.mining.ultimineNotifyAccumulator = 0;
-        session.mining.ultimineProcessedPositions.clear();
-        session.mining.ultimineAbsorbedDrops = false;
-        session.mining.miningFace = face == null ? Direction.DOWN : face;
-        session.mining.miningToolSlot = slot;
-        // 工作流 token 已由上游 WorkflowStartPipe 通过 UltimineExecutePipe 设置
-        RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), face, slot);
-        return true;
+        int workflowEntryId = session.mining.workflowEntryId;
+        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitMiningTargets(player, workflowEntryId, targets,
+                        face, slot, selectedToolRequested, toolProtectionEnabled, true);
+        if (submitted) session.mining.workflowEntryId = -1;
+        return submitted;
     }
 
     // =========================================================================
@@ -164,21 +155,13 @@ public final class RtsUltimineProcessor {
             return false;
         }
 
-        session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
-        session.mining.ultimineTargets.clear();
-        session.mining.ultimineTargets.addAll(targets);
-        session.mining.ultimineProgressPos = targets.peekFirst();
-        session.mining.ultimineTotalTargets = targets.size();
-        session.mining.ultimineProcessedTargets = 0;
-        session.mining.ultimineBrokenTargets = 0;
-        session.mining.ultimineNotifyAccumulator = 0;
-        session.mining.ultimineProcessedPositions.clear();
-        session.mining.ultimineAbsorbedDrops = false;
-        session.mining.miningFace = Direction.DOWN;
-        session.mining.miningToolSlot = slot;
-        // 工作流 token 已由上游 WorkflowStartPipe 通过 UltimineExecutePipe 设置
-        RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), null, slot);
-        return true;
+        int workflowEntryId = session.mining.workflowEntryId;
+        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitMiningTargets(player, workflowEntryId, targets,
+                        Direction.DOWN, slot, session.mining.miningSelectedToolRequested,
+                        toolProtectionEnabled, true);
+        if (submitted) session.mining.workflowEntryId = -1;
+        return submitted;
     }
 
     // =========================================================================
@@ -220,22 +203,13 @@ public final class RtsUltimineProcessor {
             return;
         }
 
-        session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
-        session.mining.ultimineTargets.clear();
-        session.mining.ultimineTargets.addAll(targets);
-        session.mining.ultimineProgressPos = targets.peekFirst();
-        session.mining.ultimineTotalTargets = targets.size();
-        session.mining.ultimineProcessedTargets = 0;
-        session.mining.ultimineBrokenTargets = 0;
-        session.mining.ultimineNotifyAccumulator = 0;
-        session.mining.ultimineProcessedPositions.clear();
-        session.mining.ultimineAbsorbedDrops = false;
-        session.mining.miningFace = Direction.DOWN;
-        session.mining.miningToolSlot = slot;
         RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] areaDestroy: {} valid targets out of {} positions for {}",
                 targets.size(), positions.size(), player.getGameProfile().getName());
-        // 工作流 token 已由上游 WorkflowStartPipe 通过 UltimineExecutePipe 设置
-        RtsMiningStateMachine.beginRemoteMining(player, session, targets.peekFirst(), null, slot);
+        int workflowEntryId = session.mining.workflowEntryId;
+        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitMiningTargets(player, workflowEntryId, targets,
+                        Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
+        if (submitted) session.mining.workflowEntryId = -1;
     }
 
     // =========================================================================
@@ -297,11 +271,12 @@ public final class RtsUltimineProcessor {
             return 0;
         }
 
-        session.mining.ultimineJobQueue.addLast(
+        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningJob(
+                player, session,
                 new RtsMiningStateMachine.MiningJob(workflowEntryId, targets, targets.size()));
-        RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] queueAreaDestroy: queued {} targets, queue size = {} for {}",
-                targets.size(), session.mining.ultimineJobQueue.size(), player.getGameProfile().getName());
-        return targets.size();
+        RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
+                targets.size(), player.getGameProfile().getName());
+        return submitted ? targets.size() : 0;
     }
 
     /**
@@ -354,9 +329,10 @@ public final class RtsUltimineProcessor {
             return 0;
         }
 
-        session.mining.ultimineJobQueue.addLast(
-                new RtsMiningStateMachine.MiningJob(workflowEntryId, targets, targets.size()));
-        return targets.size();
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningJob(
+                player, session,
+                new RtsMiningStateMachine.MiningJob(workflowEntryId, targets, targets.size()))
+                ? targets.size() : 0;
     }
 
     /**
@@ -429,9 +405,10 @@ public final class RtsUltimineProcessor {
             return 0;
         }
 
-        session.mining.ultimineJobQueue.addLast(
-                new RtsMiningStateMachine.MiningJob(workflowEntryId, targets, targets.size()));
-        return targets.size();
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningJob(
+                player, session,
+                new RtsMiningStateMachine.MiningJob(workflowEntryId, targets, targets.size()))
+                ? targets.size() : 0;
     }
 
     static AreaMineLimitBox limitAreaMineBox(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {

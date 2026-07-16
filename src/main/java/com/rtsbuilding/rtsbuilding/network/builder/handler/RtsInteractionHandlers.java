@@ -164,20 +164,18 @@ public final class RtsInteractionHandlers {
 
                 engine.from(serverPlayer, entryId).ifPresent(token -> {
                     if (status.suspended()) {
-                        // 挂起（等待物品）→ 恢复，让管道继续 Tick
-                        token.resume();
+                        // 挂起任务必须先恢复真实 TaskStore revision；工作流由 tick 末单向投影。
+                        RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
                         serverPlayer.displayClientMessage(
                                 Component.translatable("message.rtsbuilding.workflow.resumed"),
                                 true);
                     } else if (token.isPaused()) {
                         RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
-                        token.unpause();
                         serverPlayer.displayClientMessage(
                                 Component.translatable("message.rtsbuilding.workflow.thread_resumed"),
                                 true);
                     } else {
                         RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, true);
-                        token.pause();
                         serverPlayer.displayClientMessage(
                                 Component.translatable("message.rtsbuilding.workflow.paused"),
                                 true);

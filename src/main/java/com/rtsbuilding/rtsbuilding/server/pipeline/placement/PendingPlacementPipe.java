@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 
@@ -29,7 +28,7 @@ public final class PendingPlacementPipe implements PipelinePipe<PipelineContext>
             return PipelineResult.success();
         }
 
-        RtsPendingPlacementService.tryResumeAfterStorageChange(ctx.player());
+        // 新放置命令本身不会产生库存流入；等待任务只由精确 changed-item 事件或玩家显式重试唤醒。
         return PipelineResult.success();
     }
 }

@@ -225,8 +225,8 @@ public final class RtsServerGameTests {
 
         enqueuePlacementThroughApi(helper, player, supportRel, "minecraft:stone", new ItemStack(Items.STONE));
         RtsStorageSession placementSession = requireSession(helper, player);
-        helper.assertTrue(!placementSession.placement.placeBatchJobs.isEmpty(),
-                "RTS batch placement should enqueue a placement job");
+        helper.assertTrue(placementSession.placement.placeBatchJobs.isEmpty(),
+                "New placement commands should enter TaskStore instead of the legacy Session queue");
 
         helper.succeedWhen(() -> {
             for (BlockPos support : supportRel) {
@@ -663,7 +663,7 @@ public final class RtsServerGameTests {
         List<ServerPlayer> players = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             players.add(startRegisteredRtsPlayer(
-                    helper, gameType, new Vec3(3.5D + i, 2.0D, 3.5D), nextPlayerName()));
+                    helper, gameType, new Vec3(3.5D + i, 4.0D, 3.5D), nextPlayerName()));
         }
         return players;
     }
@@ -728,14 +728,16 @@ public final class RtsServerGameTests {
 
     private static void enqueuePlacementThroughApi(GameTestHelper helper, ServerPlayer player,
             List<BlockPos> supportsRel, String itemId, ItemStack prototype) {
-        List<BlockPos> supportsAbs = supportsRel.stream()
+        // 快速建造 API 接收的是最终目标坐标，而不是交互式右键放置所使用的支撑方块坐标。
+        List<BlockPos> targetsAbs = supportsRel.stream()
+                .map(BlockPos::above)
                 .map(helper::absolutePos)
                 .toList();
         Vec3 rayOrigin = player.getEyePosition();
-        Vec3 firstHit = Vec3.atCenterOf(supportsAbs.getFirst()).add(0.0D, 0.5D, 0.0D);
+        Vec3 firstHit = Vec3.atCenterOf(targetsAbs.getFirst());
         Vec3 rayDir = firstHit.subtract(rayOrigin).normalize();
 
-        RtsAPI.get().placement().enqueueBatch(player, asApiPositions(supportsAbs), Direction.UP,
+        RtsAPI.get().placement().enqueueBatch(player, asApiPositions(targetsAbs), Direction.UP,
                 0.5D, 1.0D, 0.5D,
                 (byte) 0, false, false,
                 itemId, prototype,

@@ -22,8 +22,9 @@ class BatchHotPathContractTest {
     @Test
     void destructionConsumesBudgetForSkippedTargets() throws IOException {
         String source = readMain("server/service/destruction/RtsDestructionBatch.java");
-        int next = source.indexOf("BlockPos target = job.next();");
-        int budget = source.indexOf("remaining--;", next);
+        int detached = source.indexOf("tickDetachedDestructionSlice(");
+        int next = source.indexOf("BlockPos target = job.next();", detached);
+        int budget = source.indexOf("processed++;", next);
         int firstSkip = source.indexOf("continue;", next);
         assertTrue(next >= 0 && budget > next && budget < firstSkip,
                 "预算必须在任何权限/区块跳过分支之前消费");
@@ -32,16 +33,16 @@ class BatchHotPathContractTest {
     @Test
     void placementHasARealTaskExecutor() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
-        assertTrue(engine.contains("registerExecutor(TaskType.PLACEMENT"));
-        assertTrue(engine.contains("private TaskStepResult executePlacement"));
+        assertTrue(engine.contains("durableScheduler.register(TaskType.PLACEMENT"));
+        assertTrue(engine.contains("private DurableTaskScheduler.SliceResult executeDurablePlacement"));
         assertFalse(engine.contains("executeLegacyPlayerSlice"));
     }
 
     @Test
     void destructionHasARealTaskExecutor() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
-        assertTrue(engine.contains("registerExecutor(TaskType.DESTRUCTION"));
-        assertTrue(engine.contains("private TaskStepResult executeDestruction"));
+        assertTrue(engine.contains("durableScheduler.register(TaskType.DESTRUCTION"));
+        assertTrue(engine.contains("private DurableTaskScheduler.SliceResult executeDurableDestruction"));
         assertFalse(engine.contains("executeLegacyPlayerSlice"));
     }
 
@@ -73,20 +74,22 @@ class BatchHotPathContractTest {
     @Test
     void miningRunsAsARealTask() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
-        assertTrue(engine.contains("registerExecutor(TaskType.MINING"));
-        assertTrue(engine.contains("private TaskStepResult executeMining"));
+        assertTrue(engine.contains("durableScheduler.register(TaskType.MINING"));
+        assertTrue(engine.contains("private DurableTaskScheduler.SliceResult executeDurableMining"));
         assertFalse(engine.contains("executeLegacyPlayerSlice"));
     }
 
     @Test
     void miningBufferBackpressureIsAResourceWait() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
-        int miningStart = engine.indexOf("private TaskStepResult executeMining");
+        String miningState = readMain("server/service/mining/RtsMiningStateMachine.java");
+        String waitHint = readMain("server/task/mining/MiningWaitHint.java");
+        int miningStart = engine.indexOf("executeDurableMining(");
         String miningBody = engine.substring(miningStart);
-        assertTrue(miningBody.contains("session.miningDropBuffer.isFull()"));
-        assertTrue(miningBody.contains("TaskStepResult.waitForResource()"));
-        assertTrue(engine.contains("record.status() == TaskStatus.WAITING_RESOURCE"
-                + " && !session.miningDropBuffer.isFull()"));
+        assertTrue(miningState.contains("session.miningDropBuffer.isFull()"));
+        assertTrue(miningState.contains("MiningSliceResult.Outcome.WAITING, MiningWaitHint.buffer()"));
+        assertTrue(waitHint.contains("new MiningWaitHint(\"buffer\", \"mining_drop_buffer\")"));
+        assertTrue(miningBody.contains("new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey("));
     }
 
     @Test
@@ -112,9 +115,9 @@ class BatchHotPathContractTest {
     void dropBufferHasItsOwnTaskAndNoLegacyAdapterRemains() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
         String types = readMain("server/task/TaskType.java");
-        assertTrue(engine.contains("registerExecutor(TaskType.BUFFER_DRAIN"));
-        assertTrue(engine.contains("private TaskStepResult executeBufferDrain"));
-        assertTrue(engine.contains("TaskStepResult.nextTick(processed, completedStacks"));
+        assertTrue(engine.contains("durableScheduler.register(TaskType.BUFFER_DRAIN"));
+        assertTrue(engine.contains("private DurableTaskScheduler.SliceResult executeDurableBufferDrain"));
+        assertTrue(engine.contains("BufferEscrowDurabilityGate"));
         assertFalse(engine.contains("LegacyPlayerSlicePayload"));
         assertFalse(types.contains("LEGACY_ADAPTER"));
     }
@@ -133,25 +136,26 @@ class BatchHotPathContractTest {
         String pending = readMain("server/service/RtsPendingPlacementService.java");
         assertTrue(orchestrator.contains(
                 "RtsPendingPlacementService.tryResumeAfterStorageChange(player, entry.getValue())"));
-        assertTrue(pending.contains("session.placement.pendingJobsForItems(changedItemIds)"));
+        assertTrue(pending.contains("resumeWaitingPlacementItems(player, changedItemIds)"));
+        assertFalse(pending.contains("pendingJobsForItems(changedItemIds)"));
+        assertFalse(pending.contains("placeBatchJobs.addLast"));
     }
 
     @Test
     void workflowIsAOneWayProjectionOfTaskLifecycle() throws IOException {
         String engine = readMain("server/task/RtsTaskEngine.java");
-        int projection = engine.indexOf("private void projectWorkflowLifecycles()");
+        int projection = engine.indexOf("private void projectDurableWorkflowLifecycles(");
         String projectionBody = engine.substring(projection);
         assertTrue(projectionBody.indexOf("if (token == null) continue;")
-                        < projectionBody.indexOf("projectedTaskStatuses.put(record.id(), record.status())"),
+                        < projectionBody.indexOf("projectedDurableStates.put(snapshot.id(), snapshot.revision())"),
                 "令牌尚未创建时不能把状态误记为已投影");
-        assertTrue(projectionBody.contains("if (record.status().terminal())"));
-        assertTrue(projectionBody.contains("workflowPauseOverrides.remove"));
-        assertTrue(projectionBody.contains("releaseTerminalWorkflow(record)"));
+        assertTrue(projectionBody.contains("case COMPLETED -> token.complete()"));
+        assertTrue(projectionBody.contains("case FAILED, CANCELLED -> token.cancel()"));
 
-        int placementExecutor = engine.indexOf("private TaskStepResult executePlacement");
-        int destructionExecutor = engine.indexOf("private TaskStepResult executeDestruction");
-        int miningExecutor = engine.indexOf("private TaskStepResult executeMining");
-        int bufferExecutor = engine.indexOf("private TaskStepResult executeBufferDrain");
+        int placementExecutor = engine.indexOf("executeDurablePlacement(");
+        int destructionExecutor = engine.indexOf("executeDurableDestruction(");
+        int miningExecutor = engine.indexOf("executeDurableMining(");
+        int bufferExecutor = engine.indexOf("executeDurableBufferDrain(");
         assertFalse(engine.substring(placementExecutor, destructionExecutor).contains("token.isPaused()"));
         assertFalse(engine.substring(destructionExecutor, miningExecutor).contains("token.isPaused()"));
         assertFalse(engine.substring(miningExecutor, bufferExecutor).contains("token.isPaused()"));

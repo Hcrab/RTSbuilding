@@ -226,9 +226,9 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                         mctx.isToolProtectionEnabled(),
                         mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1);
 
-                if (enqueued && mctx.hasWorkflowEntryId() && session.destruction.destroyJobs.peekLast() != null) {
-                    // 从最后一个 job 获取总目标数（可能在入队时已被 collect 过滤）
-                    int totalTargets = session.destruction.destroyJobs.peekLast().targetCount();
+                if (enqueued && mctx.hasWorkflowEntryId()) {
+                    int totalTargets = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                            .workflowTaskTotalUnits(mctx.player(), mctx.getWorkflowEntryId());
                     RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())
                             .ifPresent(token -> token.setTotalBlocks(totalTargets));
                 }
@@ -250,9 +250,11 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
 
         // 为下游管道在上下文中存储批处理信息
         // 在已知目标数后更新工作流总方块数
-        if (mctx.hasWorkflowEntryId() && session.mining.ultimineTotalTargets > 0) {
+        if (mctx.hasWorkflowEntryId()) {
+            int totalTargets = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                    .workflowTaskTotalUnits(mctx.player(), mctx.getWorkflowEntryId());
             RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())
-                    .ifPresent(token -> token.setTotalBlocks(session.mining.ultimineTotalTargets));
+                    .ifPresent(token -> token.setTotalBlocks(totalTargets));
         }
 
         // 只有领域作业已经成功建立后才移交；下游失败时 rollback 会取消作业并只归还一次。

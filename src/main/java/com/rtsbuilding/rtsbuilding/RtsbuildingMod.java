@@ -212,7 +212,14 @@ public class RtsbuildingMod {
         @SubscribeEvent
         static void onServerStopping(ServerStoppingEvent event) {
             try {
+                for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                    RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
+                }
                 RtsTaskEngine.INSTANCE.checkpointAllDurableExecutions(event.getServer());
+                for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                    TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+                    RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
+                }
             } catch (RuntimeException failure) {
                 LOGGER.error("停服时 durable task 冻结失败；未确认的 dirty 不会被伪装成已落盘", failure);
                 throw failure;
@@ -274,10 +281,12 @@ public class RtsbuildingMod {
         static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.getEntity() instanceof ServerPlayer serverPlayer) {
                 try {
-                    // 先把在线执行绑定冻结进 TaskSnapshot，再冲刷；顺序不可反转。
+                    // 先迁移 Session shadow，再冻结在线执行绑定并冲刷；顺序不可反转。
+                    RtsTaskEngine.INSTANCE.preparePlayerDetach(serverPlayer);
                     RtsTaskEngine.INSTANCE.detachPlayer(serverPlayer.getUUID());
                     // Session 清理前先确认该玩家的 durable task 已 ACK，避免旧权威先被删除。
                     TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID());
+                    RtsTaskEngine.INSTANCE.reconcilePlayerDetach(serverPlayer);
                 } catch (RuntimeException failure) {
                     LOGGER.error("玩家 {} 登出时 durable task 冲刷失败，已保留 dirty 并拒绝静默继续",
                             serverPlayer.getUUID(), failure);
@@ -331,6 +340,14 @@ public class RtsbuildingMod {
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
                 // 维度变化后旧端点的 BlockEntity/AE Grid 身份不再可信；先卸载聚合缓存再释放租约。
                 RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(serverPlayer.getUUID());
+            }
+        }
+
+        /** 仅唤醒等待这个 chunk 的任务，不扫描玩家或全服任务。 */
+        @SubscribeEvent
+        static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
+            if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                RtsTaskEngine.INSTANCE.resumeLoadedChunk(level, event.getChunk().getPos());
             }
         }
 

@@ -1,18 +1,32 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
-import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
+import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
+import java.util.Objects;
+import java.util.UUID;
+
 /**
- * 拆除任务的领域数据。生命周期、成功/失败指标属于 TaskRecord；
- * DestructionJob 仅保留目标、工具参数，以及迁移期断线恢复所需的持久化游标。
+ * 可持久拆除任务的纯值载荷。
+ *
+ * <p>这里只保存稳定 owner、创建维度、workflow ID 和防御性复制的拆除状态。
+ * 它明确不持有 ServerPlayer、ServerLevel、Session、Capability 或 mutable DestructionJob；
+ * executor 必须在服务端主线程的单个 slice 中临时解析运行时资源。</p>
  */
 public record DestructionTaskPayload(
-        ServerPlayer player,
-        RtsStorageSession session,
-        RtsDestructionBatch.DestructionJob job,
-        ResourceKey<Level> dimension) implements TaskPayload {
+        UUID ownerId,
+        ResourceKey<Level> dimension,
+        int workflowEntryId,
+        DestructionTaskState state) implements TaskPayload {
+
+    public DestructionTaskPayload {
+        Objects.requireNonNull(ownerId, "ownerId");
+        Objects.requireNonNull(dimension, "dimension");
+        Objects.requireNonNull(state, "state");
+        if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
+        if (workflowEntryId != state.workflowEntryId()) {
+            throw new IllegalArgumentException("payload 与 destruction state 的 workflowEntryId 不一致");
+        }
+    }
 }

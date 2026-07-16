@@ -446,7 +446,7 @@ public final class RtsPlacementExecutor {
         return previousStack == null ? ItemStack.EMPTY : previousStack.copy();
     }
 
-    private static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
+    public static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
         if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
             return clickedPos;
         }

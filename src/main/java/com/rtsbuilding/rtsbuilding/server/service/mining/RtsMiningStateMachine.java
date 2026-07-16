@@ -15,6 +15,10 @@ import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.mining.MiningSliceResult;
+import com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec;
+import com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState;
+import com.rtsbuilding.rtsbuilding.server.task.mining.MiningWaitHint;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
@@ -280,6 +284,279 @@ public final class RtsMiningStateMachine {
         reportWorkflowResult(player, session, result.broken() ? 1 : 0, result.broken() ? 0 : 1);
         finalizeMiningOperation(player, session, miningRecords, session.mining.miningFace);
         return MiningAdvance.ended(1, result.broken() ? 1 : 0, result.broken() ? 0 : 1);
+    }
+
+    /**
+     * 将当前活动挖掘冻结成纯值状态；后续 detached slice 不再读取这些 Session cursor 字段。
+     */
+    public static MiningTaskState snapshotDetachedActive(RtsStorageSession session) {
+        if (session == null) throw new IllegalArgumentException("session 不能为空");
+        var mining = session.mining;
+        List<BlockPos> remaining = new ArrayList<>();
+        MiningTaskState.Mode mode;
+        if (mining.miningPos != null) {
+            mode = MiningTaskState.Mode.PROGRESSIVE_SINGLE;
+            remaining.add(mining.miningPos.immutable());
+            for (BlockPos target : mining.ultimineTargets) {
+                if (!target.equals(mining.miningPos)) remaining.add(target.immutable());
+            }
+        } else {
+            mode = MiningTaskState.Mode.BATCH;
+            mining.ultimineTargets.stream().map(BlockPos::immutable).forEach(remaining::add);
+        }
+        if (remaining.isEmpty()) throw new IllegalArgumentException("当前 Session 没有活动挖掘目标");
+        int cursor = Math.max(0, mining.ultimineProcessedTargets);
+        int succeeded = Math.max(0, Math.min(cursor, mining.ultimineBrokenTargets));
+        int total = Math.max(cursor + remaining.size(), Math.max(1, mining.ultimineTotalTargets));
+        List<net.minecraft.nbt.CompoundTag> history = mining.ultimineProcessedPositions.stream()
+                .map(MiningTaskCodec::encodeHistory).toList();
+        return new MiningTaskState(
+                mode, mining.workflowEntryId, remaining,
+                total, cursor, succeeded, Math.max(0, cursor - succeeded),
+                mining.miningFace, mining.miningToolSlot,
+                mining.miningSelectedToolRequested, mining.miningToolProtectionEnabled,
+                Math.max(0.0F, Math.min(0.999999F, mining.miningProgress)),
+                Math.max(-1, Math.min(9, mining.miningStage)), history);
+    }
+
+    /** 将旧队列中的一个 MiningJob 冻结成独立 BATCH task。 */
+    public static MiningTaskState snapshotDetachedQueued(
+            RtsStorageSession session, MiningJob job) {
+        if (session == null || job == null || job.targets() == null || job.targets().isEmpty()) {
+            throw new IllegalArgumentException("session/job 不能为空且必须包含目标");
+        }
+        return new MiningTaskState(
+                MiningTaskState.Mode.BATCH,
+                job.workflowEntryId(),
+                job.targets().stream().map(BlockPos::immutable).toList(),
+                Math.max(job.totalTargets(), job.targets().size()),
+                0, 0, 0,
+                session.mining.miningFace,
+                session.mining.miningToolSlot,
+                session.mining.miningSelectedToolRequested,
+                session.mining.miningToolProtectionEnabled,
+                0.0F, -1, List.of());
+    }
+
+    /**
+     * 推进一个不依赖 Session mining cursor/queue 的主线程调度片。
+     * Session 只提供真实工具租约、库存、掉落缓冲和 Capability；目标与生命周期只读写返回 snapshot。
+     */
+    public static MiningSliceResult tickDetachedMiningSlice(
+            ServerPlayer player, RtsStorageSession session, MiningTaskState state,
+            int maxUnits, long deadlineNanos) {
+        if (player == null || session == null || state == null) {
+            throw new IllegalArgumentException("player/session/state 不能为空");
+        }
+        if (state.complete()) {
+            return new MiningSliceResult(state, 0, 0, 0, 0,
+                    MiningSliceResult.Outcome.COMPLETE, null);
+        }
+        if (session.miningDropBuffer.isFull()) {
+            return new MiningSliceResult(state, 0, 0, 0, 0,
+                    MiningSliceResult.Outcome.WAITING, MiningWaitHint.buffer());
+        }
+
+        Direction originalFace = session.mining.miningFace;
+        int originalToolSlot = session.mining.miningToolSlot;
+        boolean originalSelectedTool = session.mining.miningSelectedToolRequested;
+        boolean originalToolProtection = session.mining.miningToolProtectionEnabled;
+        session.mining.miningFace = state.face();
+        session.mining.miningToolSlot = state.toolSlot();
+        session.mining.miningSelectedToolRequested = state.selectedToolRequested();
+        session.mining.miningToolProtectionEnabled = state.toolProtectionEnabled();
+        try {
+            return executeDetachedMiningSlice(player, session, state, maxUnits, deadlineNanos);
+        } finally {
+            // 只恢复借用的运行环境；destroyMinedBlock 对真实 tool lease 的损耗必须保留。
+            session.mining.miningFace = originalFace;
+            session.mining.miningToolSlot = originalToolSlot;
+            session.mining.miningSelectedToolRequested = originalSelectedTool;
+            session.mining.miningToolProtectionEnabled = originalToolProtection;
+        }
+    }
+
+    private static MiningSliceResult executeDetachedMiningSlice(
+            ServerPlayer player, RtsStorageSession session, MiningTaskState state,
+            int maxUnits, long deadlineNanos) {
+        List<BlockPos> remaining = new ArrayList<>(state.remainingTargets());
+        List<HistoryBlockRecord> history = state.historyRecords().stream()
+                .map(tag -> MiningTaskCodec.decodeHistory(player.registryAccess(), tag)).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        MiningTaskState.Mode mode = state.mode();
+        int processed = 0;
+        int succeeded = 0;
+        int failed = 0;
+        float progress = state.blockProgress();
+        int stage = state.visibleStage();
+        int unitLimit = Math.max(0, Math.min(RtsMiningValidator.ultimineBlocksPerTick(), maxUnits));
+        MiningWaitHint waitHint = null;
+        List<BlockPos> dropsToAbsorb = new ArrayList<>();
+        boolean deferUntilNextTick = false;
+
+        if (mode == MiningTaskState.Mode.PROGRESSIVE_SINGLE && !remaining.isEmpty()
+                && unitLimit > 0 && System.nanoTime() < deadlineNanos) {
+            BlockPos target = remaining.getFirst();
+            if (!player.serverLevel().hasChunkAt(target)) {
+                waitHint = MiningWaitHint.chunk(player.level().dimension(), target);
+            } else if (RtsMiningValidator.isToolNearBreak(player, session)) {
+                waitHint = MiningWaitHint.tool();
+            } else if (!canDetachedMineTarget(player, target, state.face())) {
+                clearDetachedProgress(player, target);
+                remaining.removeFirst();
+                processed++;
+                failed++;
+                progress = 0.0F;
+                stage = -1;
+            } else {
+                BlockState targetState = player.serverLevel().getBlockState(target);
+                float step = MiningSpeedCalculator.computeRemoteDestroyStep(
+                        player, targetState, target, state.toolSlot(),
+                        session.mining.miningToolLease.stack(), state.selectedToolRequested());
+                if (step <= 0.0F) {
+                    waitHint = MiningWaitHint.tool();
+                } else {
+                    progress += step;
+                    if (progress < 1.0F) {
+                        deferUntilNextTick = true;
+                        int nextStage = RtsMiningValidator.visibleMiningStage(progress);
+                        if (nextStage != stage) {
+                            player.serverLevel().destroyBlockProgress(player.getId(), target, nextStage);
+                            RtsMiningNetworkHelper.sendMineProgress(player, target, nextStage);
+                            stage = nextStage;
+                        }
+                    } else {
+                        boolean broken = destroyDetachedTarget(player, session, target, history);
+                        clearDetachedProgress(player, target);
+                        remaining.removeFirst();
+                        processed++;
+                        if (broken) {
+                            succeeded++;
+                            if (RtsMiningValidator.canAutoStoreDrops(player, session)) dropsToAbsorb.add(target);
+                        } else {
+                            failed++;
+                        }
+                        progress = 0.0F;
+                        stage = -1;
+                        if (!remaining.isEmpty()) mode = MiningTaskState.Mode.BATCH;
+                    }
+                }
+            }
+            if (processed > 0 && !remaining.isEmpty()) {
+                // 当前渐进目标已经消费；同一任务的其余连锁目标进入批处理模式。
+                mode = MiningTaskState.Mode.BATCH;
+            }
+        }
+
+        while (waitHint == null && mode == MiningTaskState.Mode.BATCH
+                && processed < unitLimit && System.nanoTime() < deadlineNanos && !remaining.isEmpty()) {
+            if (RtsMiningValidator.isToolNearBreak(player, session)) {
+                waitHint = MiningWaitHint.tool();
+                break;
+            }
+            BlockPos target = remaining.getFirst();
+            if (!player.serverLevel().hasChunkAt(target)) {
+                waitHint = MiningWaitHint.chunk(player.level().dimension(), target);
+                break;
+            }
+            if (!canDetachedMineTarget(player, target, state.face())) {
+                remaining.removeFirst();
+                processed++;
+                failed++;
+                continue;
+            }
+            BlockState targetState = player.serverLevel().getBlockState(target);
+            float step = MiningSpeedCalculator.computeRemoteDestroyStep(
+                    player, targetState, target, state.toolSlot(),
+                    session.mining.miningToolLease.stack(), state.selectedToolRequested());
+            if (step <= 0.0F) {
+                waitHint = MiningWaitHint.tool();
+                break;
+            }
+            boolean broken = destroyDetachedTarget(player, session, target, history);
+            remaining.removeFirst();
+            processed++;
+            if (broken) {
+                succeeded++;
+                if (RtsMiningValidator.canAutoStoreDrops(player, session)) dropsToAbsorb.add(target);
+            } else {
+                failed++;
+            }
+        }
+
+        if (!dropsToAbsorb.isEmpty()) {
+            RtsDropAbsorber.absorbMinedDropsBatch(player, session, dropsToAbsorb);
+        }
+        int nextCursor = state.cursorUnits() + processed;
+        int nextSucceeded = state.succeededUnits() + succeeded;
+        int nextFailed = state.failedUnits() + failed;
+        List<net.minecraft.nbt.CompoundTag> encodedHistory = history.stream()
+                .map(MiningTaskCodec::encodeHistory).toList();
+        MiningTaskState next = state.next(
+                remaining.isEmpty() ? MiningTaskState.Mode.BATCH : mode,
+                remaining, nextCursor, nextSucceeded, nextFailed, progress, stage, encodedHistory);
+
+        MiningSliceResult.Outcome outcome;
+        if (waitHint != null) outcome = MiningSliceResult.Outcome.WAITING;
+        else if (next.complete()) outcome = MiningSliceResult.Outcome.COMPLETE;
+        else if (deferUntilNextTick) outcome = MiningSliceResult.Outcome.NEXT_TICK;
+        else outcome = MiningSliceResult.Outcome.CONTINUE;
+        if (outcome == MiningSliceResult.Outcome.COMPLETE) {
+            finalizeDetachedMining(player, session, history, state.face());
+        }
+        return new MiningSliceResult(next, processed, processed, succeeded, failed, outcome, waitHint);
+    }
+
+    private static boolean canDetachedMineTarget(ServerPlayer player, BlockPos target, Direction face) {
+        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
+                || !RtsClaimProtectionService.canBreakBlock(player, target, face)) return false;
+        BlockState targetState = player.serverLevel().getBlockState(target);
+        return RtsMiningValidator.isBreakableBlock(targetState)
+                && RtsMiningValidator.hasValidDestroySpeed(targetState, player.serverLevel(), target);
+    }
+
+    private static boolean destroyDetachedTarget(
+            ServerPlayer player, RtsStorageSession session, BlockPos target,
+            List<HistoryBlockRecord> history) {
+        HistoryBlockRecord before = ServerHistoryManager.captureBlock(player.serverLevel(), target);
+        List<HistoryBlockRecord> neighbors = MultiBlockTracker.captureNeighborRecords(player.serverLevel(), target);
+        MiningBreakResult result = destroyMinedBlock(player, session, target, session.mining.miningToolSlot);
+        if (!result.broken()) return false;
+        if (before != null) history.add(before);
+        for (HistoryBlockRecord neighbor : neighbors) {
+            if (!neighbor.pos().equals(target)
+                    && player.serverLevel().getBlockState(neighbor.pos()).isAir()
+                    && !neighbor.state().isAir()) {
+                history.add(neighbor);
+            }
+        }
+        return true;
+    }
+
+    private static void clearDetachedProgress(ServerPlayer player, BlockPos target) {
+        player.serverLevel().destroyBlockProgress(player.getId(), target, -1);
+        RtsMiningNetworkHelper.clearMineProgress(player, target);
+    }
+
+    private static void finalizeDetachedMining(
+            ServerPlayer player, RtsStorageSession session,
+            List<HistoryBlockRecord> history, Direction face) {
+        if (!history.isEmpty()) ServerHistoryManager.recordBreakWithRecords(player, history, face);
+        if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
+            RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
+            session.mining.miningToolLease = RtsToolLease.empty();
+        }
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+    }
+
+    /** 取消 detached mining 时仅收尾已经发生的历史与工具租约，不再读取 Session cursor。 */
+    public static void finalizeDetachedCancellation(
+            ServerPlayer player, RtsStorageSession session, MiningTaskState state) {
+        if (player == null || session == null || state == null) return;
+        List<HistoryBlockRecord> history = state.historyRecords().stream()
+                .map(tag -> MiningTaskCodec.decodeHistory(player.registryAccess(), tag))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        finalizeDetachedMining(player, session, history, state.face());
     }
 
     /** 将真实成功/失败投影到工作流，网络发送由 Tick 末合并。 */

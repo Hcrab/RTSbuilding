@@ -192,7 +192,7 @@ public final class RtsCraftingExecutor {
         player.displayClientMessage(Component.literal(summary.toString()), true);
         QuestService.runQuestDetect(player, session, false);
         // 合成完成后自动尝试恢复挂起放置作业
-        RtsPendingPlacementService.tryResumeAfterStorageChange(player);
+        RtsPendingPlacementService.tryResumeAfterStorageChange(player, java.util.List.of(craftedItemId));
     }
 
     // ---- single craft -----------------------------------------------------------

@@ -50,15 +50,15 @@ class RtsKnownPerformanceDebtTest {
         Path file = Path.of("src/main/java/com/rtsbuilding/rtsbuilding/server/service/destruction/RtsDestructionBatch.java");
         Assumptions.assumeTrue(Files.isRegularFile(file), "当前版本没有独立 DestructionBatch");
         String source = Files.readString(file);
-        int start = source.indexOf("BlockPos target = job.next();");
-        int end = source.indexOf("remaining--;", start);
-        String loop = source.substring(start, end > start ? end : source.length());
-        int continueCount = count(loop, "continue;");
-        int budgetBeforeContinue = count(loop, "remaining--;\n                    continue;")
-                + count(loop, "remaining--;\r\n                    continue;");
-        System.out.printf("[已知性能债][破坏] continue 分支=%d，明确扣预算后 continue=%d%n",
-                continueCount, budgetBeforeContinue);
-        assertTrue(continueCount == budgetBeforeContinue,
+        int detached = source.indexOf("tickDetachedDestructionSlice(");
+        int target = source.indexOf("BlockPos target = job.next();", detached);
+        int budget = source.indexOf("processed++;", target);
+        int firstContinue = source.indexOf("continue;", target);
+        boolean consumesBeforeAnySkip = detached >= 0 && target > detached
+                && budget > target && firstContinue > budget;
+        System.out.printf("[已知性能债][破坏] detached预算先于所有skip=%s%n",
+                consumesBeforeAnySkip);
+        assertTrue(consumesBeforeAnySkip,
                 "成功、失败、无效和受保护目标都必须消耗同一 tick 检查预算");
     }
 
@@ -67,13 +67,4 @@ class RtsKnownPerformanceDebtTest {
         return Files.isRegularFile(file) ? Files.readString(file) : "";
     }
 
-    private static int count(String text, String needle) {
-        int result = 0;
-        int offset = 0;
-        while ((offset = text.indexOf(needle, offset)) >= 0) {
-            result++;
-            offset += needle.length();
-        }
-        return result;
-    }
 }

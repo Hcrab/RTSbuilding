@@ -18,12 +18,16 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.items.IItemHandler;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.BufferDrainTaskPayload;
+import com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult;
+import com.rtsbuilding.rtsbuilding.server.service.buffer.RtsBufferEscrowExecutor;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 挖掘掉落物吸收器，负责在方块被远程破坏后自动收集掉落物品。
@@ -224,7 +228,8 @@ public final class RtsDropAbsorber {
         if (player == null || session == null || pos == null) {
             return false;
         }
-        return enqueueDrops(player, session, collectDrops(player, List.of(pos)));
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitBufferEscrow(player, List.of(pos));
     }
 
     /**
@@ -239,7 +244,64 @@ public final class RtsDropAbsorber {
         if (player == null || session == null || positions == null || positions.isEmpty()) {
             return false;
         }
-        return enqueueDrops(player, session, collectDrops(player, positions));
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitBufferEscrow(player, positions);
+    }
+
+    /**
+     * 只建立世界掉落的 durable claim 意图，不修改实体，也不访问 AE/RS。
+     *
+     * <p>中央 Task Engine 必须先持久化返回的 SOURCE_PREPARED 状态并收到 ACK，随后才可调用
+     * {@link #claimPreparedEscrowSlice}。为保证来源校验精确，达到容量边界时保守地留下整个实体，
+     * 不在 PREPARED 阶段切分它。</p>
+     */
+    public static BufferDrainTaskPayload prepareEscrowTask(
+            ServerPlayer player, List<BlockPos> positions, UUID escrowId) {
+        return RtsBufferEscrowExecutor.prepareEscrowTask(player, positions, escrowId);
+    }
+
+    /**
+     * 在 SOURCE_PREPARED revision 已持久化 ACK 后，按预算把来源实体转入 escrow。
+     *
+     * <p>实体 UUID、完整 ItemStack 组件与数量必须全部匹配；任何偏差都进入 RECOVERY_REQUIRED，
+     * 绝不凭快照复制出一份新物品。返回状态必须立即交回 TaskStore。</p>
+     */
+    public static BufferDrainSliceResult claimPreparedEscrowSlice(
+            ServerPlayer player,
+            BufferDrainTaskPayload payload,
+            int maxStacks,
+            long deadlineNanos) {
+        return RtsBufferEscrowExecutor.claimPreparedEscrowSlice(
+                player, payload, maxStacks, deadlineNanos);
+    }
+
+    /**
+     * 执行已 ACK 的 DRAIN_RESERVED 批次。
+     *
+     * <p>Session 在这里仅用于本 tick 解析链接端点；它不保存 escrow、游标或生命周期。
+     * 外部 handler 无事务能力，因此调用后返回 DRAIN_APPLIED 写后记录，中央层必须立刻持久化；
+     * 在该 revision ACK 前不得调用 {@link BufferEscrowState#confirmAppliedAfterAck()}。</p>
+     */
+    public static BufferDrainSliceResult executeReservedDrainSlice(
+            ServerPlayer player,
+            RtsStorageSession transientSession,
+            BufferDrainTaskPayload payload,
+            int maxStacks,
+            long deadlineNanos) {
+        return RtsBufferEscrowExecutor.executeReservedDrainSlice(
+                player, transientSession, payload, maxStacks, deadlineNanos);
+    }
+
+    /**
+     * 一次性读取旧 Session 缓存，形成已由 escrow 持有的迁移快照。
+     *
+     * <p>本方法不清空旧缓存。中央层必须使用已经冻结的 handoff 身份提交并 ACK 任务，再通过
+     * DROP_BUFFER revision ticket 清除旧 Session shadow。</p>
+     */
+    public static BufferDrainTaskPayload snapshotLegacyBuffer(
+            ServerPlayer player, RtsStorageSession session,
+            com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferHandoffState handoff) {
+        return RtsBufferEscrowExecutor.snapshotLegacyBuffer(player, session, handoff);
     }
 
     /**
@@ -316,7 +378,6 @@ public final class RtsDropAbsorber {
         }
         if (storageChanged) {
             QuestService.runQuestDetect(player, session, false);
-            RtsPendingPlacementService.tryResumeAfterStorageChange(player);
         }
         if (timeout && buffer.isEmpty()) {
             RtsDeveloperMetrics.recordBufferFallback(player);

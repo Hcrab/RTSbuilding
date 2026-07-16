@@ -465,6 +465,11 @@ public final class TaskPersistenceRuntime {
         return coordinator != null;
     }
 
+    /** 启动早期的 ChunkEvent 等观察型事件可用此门禁跳过尚未就绪的恢复索引。 */
+    public boolean isStarted() {
+        return started();
+    }
+
     private static void verifyManifestAssets(TaskPersistenceCoordinator coordinator,
             AtomicBlueprintBlobRepository blobs, BlueprintBlobCodec blobCodec) {
         for (TaskAssetMetadata metadata : coordinator.assetManifest().entries().values()) {
