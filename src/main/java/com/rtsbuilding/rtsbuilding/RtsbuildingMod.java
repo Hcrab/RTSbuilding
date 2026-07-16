@@ -22,6 +22,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -141,6 +142,8 @@ public final class RtsbuildingMod {
                 RtsCameraManager.stopIfActive(serverPlayer);
                 TickablePipelineRegistry.removeAll(serverPlayer.getUUID(), event.getFrom());
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
+                // 维度变化后旧端点的 BlockEntity/AE Grid 身份不再可信；先卸载聚合缓存再释放租约。
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(serverPlayer.getUUID());
             }
         }
 

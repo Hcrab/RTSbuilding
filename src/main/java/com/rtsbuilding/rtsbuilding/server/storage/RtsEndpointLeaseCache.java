@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -11,7 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 /**
  * 按玩家和链接端点稳定复用 AE2/RS/Capability 处理器。
@@ -20,12 +21,17 @@ import java.util.function.Consumer;
  * 切维自然使用不同键，退出时清理玩家全部租约。缓存不保存页面快照，也不主动加载区块。</p>
  */
 public final class RtsEndpointLeaseCache {
-    public static final RtsEndpointLeaseCache INSTANCE = new RtsEndpointLeaseCache(RtsAe2Compat::releaseNetworkHandler);
+    public static final RtsEndpointLeaseCache INSTANCE = new RtsEndpointLeaseCache((playerId, handler) -> {
+        // 端点租约拥有 AE 网络处理器；Tick 聚合缓存只借用它。销毁前必须先卸载借用方，
+        // 否则下一次缓存刷新会继续访问已经被 release() 清空的 storageService。
+        RtsStorageTickService.INSTANCE.detachHandler(playerId, handler);
+        RtsAe2Compat.releaseNetworkHandler(handler);
+    });
 
     private final Map<EndpointKey, ItemLease> itemLeases = new HashMap<>();
-    private final Consumer<IItemHandler> releaser;
+    private final BiConsumer<UUID, IItemHandler> releaser;
 
-    RtsEndpointLeaseCache(Consumer<IItemHandler> releaser) {
+    RtsEndpointLeaseCache(BiConsumer<UUID, IItemHandler> releaser) {
         this.releaser = Objects.requireNonNull(releaser, "releaser");
     }
 
@@ -44,16 +50,18 @@ public final class RtsEndpointLeaseCache {
         if (resolved == null) {
             return null;
         }
-        itemLeases.put(key, new ItemLease(blockEntityIdentity, resolved));
+        itemLeases.put(key, new ItemLease(playerId, blockEntityIdentity, resolved));
         return resolved;
     }
 
     public synchronized void invalidate(UUID playerId, ResourceKey<Level> dimension, BlockPos pos) {
+        if (playerId == null || dimension == null || pos == null) return;
         removeAndRelease(key -> key.playerId().equals(playerId)
                 && key.dimension().equals(dimension) && key.pos().equals(pos));
     }
 
     public synchronized void invalidatePlayer(UUID playerId) {
+        if (playerId == null) return;
         removeAndRelease(key -> key.playerId().equals(playerId));
     }
 
@@ -74,7 +82,7 @@ public final class RtsEndpointLeaseCache {
 
     private void release(ItemLease lease) {
         if (lease != null && lease.handler() != null) {
-            releaser.accept(lease.handler());
+            releaser.accept(lease.playerId(), lease.handler());
         }
     }
 
@@ -86,6 +94,6 @@ public final class RtsEndpointLeaseCache {
         }
     }
 
-    private record ItemLease(Object blockEntityIdentity, IItemHandler handler) {
+    private record ItemLease(UUID playerId, Object blockEntityIdentity, IItemHandler handler) {
     }
 }

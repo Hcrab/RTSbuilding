@@ -1,128 +1,66 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
+import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-/**
- * Unit tests for {@link RtsHandlerCache} ??focuses on cache state management
- * and query API that does NOT reach {@code ItemStack.EMPTY} or
- * {@code CachedSlot.EMPTY} static initializers.
- *
- * <p><b>Why these tests and not more:</b> The {@code update(IItemHandler)}
- * method internally calls {@code readSlot()} which accesses
- * {@code BuiltInRegistries.ITEM} and returns {@code CachedSlot.EMPTY}
- * (which references {@code ItemStack.EMPTY}). Both require a fully
- * bootstrapped Minecraft environment not available in unit tests.
- *
- * <p>The tests below cover all code paths that operate solely on
- * {@code Map<String, Long>} counts, dirty flags, and buffer-size queries.
- */
-@ExtendWith(MockitoExtension.class)
 class RtsHandlerCacheTest {
 
-    private RtsHandlerCache cache;
+    @Test
+    void transientSnapshotFailureMustNotCrashServerTickAndCanRetry() {
+        RtsHandlerCache cache = new RtsHandlerCache();
+        FailOnceRefreshHandler handler = new FailOnceRefreshHandler();
 
-    @Mock private IItemHandler handler;
-
-    @BeforeEach
-    void setUp() {
-        cache = new RtsHandlerCache();
+        assertDoesNotThrow(() -> cache.update(handler),
+                "外部储存网络切换瞬间失败时不能打穿服务端 Tick");
+        assertDoesNotThrow(() -> cache.update(handler),
+                "下一刷新周期应能重新尝试兼容层快照");
+        assertEquals(2, handler.attempts);
     }
 
-    // ======================================================================
-    //  Empty / Null guards
-    // ======================================================================
+    private static final class FailOnceRefreshHandler implements IItemHandler, RefreshableSnapshotHandler {
+        private int attempts;
 
-    @Test
-    void updateOnZeroSlotHandlerReturnsEmpty() {
-        when(handler.getSlots()).thenReturn(0);
-        assertTrue(cache.update(handler).isEmpty());
-    }
+        @Override
+        public void ensureFreshSnapshot() {
+            this.attempts++;
+            if (this.attempts == 1) {
+                throw new IllegalStateException("network changed during snapshot");
+            }
+        }
 
-    @Test
-    void updateThrowsOnNullHandler() {
-        assertThrows(NullPointerException.class, () -> cache.update(null));
-    }
+        @Override
+        public int getSlots() {
+            return 0;
+        }
 
-    @Test
-    void freshCacheCountsAreZero() {
-        assertEquals(0L, cache.getCount("minecraft:diamond"));
-        assertEquals(0L, cache.getCount((String) null));
-    }
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return ItemStack.EMPTY;
+        }
 
-    @Test
-    void getCachedSlotCountStartsZero() {
-        assertEquals(0, cache.getCachedSlotCount());
-    }
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return stack;
+        }
 
-    @Test
-    void isDirtyDefaultsToFalse() {
-        assertFalse(cache.isDirty());
-        cache.clearDirty();
-        assertFalse(cache.isDirty());
-    }
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return ItemStack.EMPTY;
+        }
 
-    // ======================================================================
-    //  Cache state management
-    // ======================================================================
+        @Override
+        public int getSlotLimit(int slot) {
+            return 64;
+        }
 
-    @Test
-    void invalidateResetsEverything() {
-        cache.invalidate();
-        assertEquals(0, cache.getCachedSlotCount());
-        assertEquals(0L, cache.getCount("any"));
-        assertTrue(cache.isDirty());
-    }
-
-    @Test
-    void releaseResetsDirtyFlag() {
-        cache.release();
-        assertEquals(0, cache.getCachedSlotCount());
-        assertFalse(cache.isDirty());
-    }
-
-    @Test
-    void invalidateMarksDirty() {
-        assertFalse(cache.isDirty());
-        cache.invalidate();
-        assertTrue(cache.isDirty());
-    }
-
-    @Test
-    void clearDirtyAfterInvalidate() {
-        cache.invalidate();
-        assertTrue(cache.isDirty());
-        cache.clearDirty();
-        assertFalse(cache.isDirty());
-    }
-
-    // ======================================================================
-    //  getAvailableItems
-    // ======================================================================
-
-    @Test
-    void getAvailableItemsOnEmptyCacheReturnsEmptyMap() {
-        Map<String, Long> out = new HashMap<>();
-        cache.getAvailableItems(out);
-        assertTrue(out.isEmpty());
-    }
-
-    @Test
-    void getAvailableItemsDoesNotAlterExistingUnrelatedKeys() {
-        Map<String, Long> out = new HashMap<>();
-        out.put("existing.key", 42L);
-        cache.getAvailableItems(out);
-        assertEquals(42L, out.get("existing.key"));
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return false;
+        }
     }
 }

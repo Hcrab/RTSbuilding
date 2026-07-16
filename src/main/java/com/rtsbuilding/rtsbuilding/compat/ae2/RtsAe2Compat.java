@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.compat.ae2;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -70,7 +71,9 @@ public final class RtsAe2Compat {
     }
 
     public static void releaseNetworkHandler(IItemHandler handler) {
-        // Reflection-backed Forge handlers do not hold explicit closeable AE2 resources.
+        if (handler instanceof Ae2NetworkItemHandler networkHandler) {
+            networkHandler.release();
+        }
     }
 
     public static String resolveGuiBindingIconItemId(Level level, BlockPos pos, Direction face, String labelHint) {
@@ -300,6 +303,7 @@ public final class RtsAe2Compat {
         private final Object storageService;
         private final Ae2Reflection reflection;
         private final List<SlotView> slots = new ArrayList<>();
+        private boolean released;
 
         private Ae2NetworkItemHandler(ServerPlayer player, Object storageService, Ae2Reflection reflection) {
             this.player = player;
@@ -310,12 +314,12 @@ public final class RtsAe2Compat {
 
         @Override
         public int getSlots() {
-            return this.slots.size();
+            return this.released ? 0 : this.slots.size();
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) {
+            if (this.released || slot < 0 || slot >= this.slots.size()) {
                 return ItemStack.EMPTY;
             }
             SlotView view = this.slots.get(slot);
@@ -335,7 +339,8 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
+            if (this.released || this.player == null || this.storageService == null
+                    || stack == null || stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
             Object key = this.reflection.toItemKey(stack);
@@ -360,7 +365,8 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot < 0 || slot >= this.slots.size() || amount <= 0) {
+            if (this.released || this.player == null || this.storageService == null
+                    || slot < 0 || slot >= this.slots.size() || amount <= 0) {
                 return ItemStack.EMPTY;
             }
 
@@ -385,7 +391,8 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-            if (targetItem == null || amount <= 0) {
+            if (this.released || this.player == null || this.storageService == null
+                    || targetItem == null || amount <= 0) {
                 return ItemStack.EMPTY;
             }
             for (int slot = 0; slot < this.slots.size(); slot++) {
@@ -414,24 +421,31 @@ public final class RtsAe2Compat {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return this.reflection.toItemKey(stack) != null;
+            return !this.released && this.storageService != null
+                    && this.reflection.toItemKey(stack) != null;
         }
 
         @Override
         public long getReportedCount(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) {
+            if (this.released || slot < 0 || slot >= this.slots.size()) {
                 return 0L;
             }
             return this.slots.get(slot).amount();
         }
 
         private void refreshSnapshot() {
+            if (this.released || this.storageService == null) return;
             this.slots.clear();
             for (SlotView slot : this.reflection.snapshot(this.storageService)) {
                 if (slot != null && slot.amount() > 0L && !slot.displayStack().isEmpty()) {
                     this.slots.add(slot);
                 }
             }
+        }
+
+        private void release() {
+            this.released = true;
+            this.slots.clear();
         }
 
     }
@@ -704,6 +718,9 @@ public final class RtsAe2Compat {
 
         private static Object invoke(Method method, Object target, Object... args) {
             if (method == null) {
+                return null;
+            }
+            if (target == null && !Modifier.isStatic(method.getModifiers())) {
                 return null;
             }
             try {

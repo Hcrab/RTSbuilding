@@ -134,13 +134,13 @@ public final class RtsSessionService {
         // Free storage cache memory immediately instead of holding it
         // until the player logs out.
         RtsStorageTickService.INSTANCE.unregisterPlayer(player);
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         RtsPageCore.clearCache(player.getUUID());
     }
 
     public static void onPlayerLogout(ServerPlayer player) {
         RtsTaskEngine.INSTANCE.onPlayerLogout(player.getUUID());
         com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer.clearPlayer(player.getUUID());
-        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         RtsStorageSession session = SESSIONS.get(player.getUUID());
         if (session != null) {
             RtsDropAbsorber.flushDropBufferToPlayer(player, session);
@@ -158,6 +158,7 @@ public final class RtsSessionService {
         SESSIONS.remove(player.getUUID());
         // Clean up storage cache
         RtsStorageTickService.INSTANCE.unregisterPlayer(player);
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         RtsPageCore.clearCache(player.getUUID());
     }
 

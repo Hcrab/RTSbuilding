@@ -138,7 +138,10 @@ public final class RtsLinkedStorageResolver {
      * to seed the per-player aggregate storage.
      */
     public static void registerStorageCaches(ServerPlayer player, List<LinkedHandler> handlers) {
-        if (player == null || handlers == null || handlers.isEmpty()) {
+        if (player == null) {
+            return;
+        }
+        if (handlers == null || handlers.isEmpty()) {
             RtsStorageTickService.INSTANCE.unregisterPlayer(player);
             return;
         }
