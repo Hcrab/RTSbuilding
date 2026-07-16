@@ -116,9 +116,10 @@ public final class InteractionTargetRenderer {
             return false;
         }
 
-        var window = minecraft.getWindow();
-        double mouseX = minecraft.mouseHandler.xpos() * window.getGuiScaledWidth() / (double) window.getScreenWidth();
-        double mouseY = minecraft.mouseHandler.ypos() * window.getGuiScaledHeight() / (double) window.getScreenHeight();
+        // BuilderScreen 在固定 RTS UI Scale 的渲染阶段已经把鼠标换算到自己的坐标系。
+        // 这里若再次按 Minecraft GUI Scale 换算，屏幕下半部会被误判为底部面板，目标框便会提前消失。
+        double mouseX = builderScreen.getCurrentMouseX();
+        double mouseY = builderScreen.getCurrentMouseY();
 
         if (!builderScreen.isWorldArea(mouseX, mouseY)) {
             return true;
