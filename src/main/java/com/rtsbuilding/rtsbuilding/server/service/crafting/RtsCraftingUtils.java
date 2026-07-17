@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
@@ -70,7 +72,7 @@ final class RtsCraftingUtils {
      * 尝试通过反射从 {@link CraftingMenu} 解析 {@link CraftingContainer}。
      * 如果字段不可访问，则回退返回 {@code null}。
      */
-    static CraftingContainer resolveCraftingContainer(CraftingMenu menu) {
+    static CraftingContainer resolveCraftingContainer(AbstractContainerMenu menu) {
         Class<?> type = menu.getClass();
         while (type != null && type != Object.class) {
             for (Field field : type.getDeclaredFields()) {
@@ -248,7 +250,7 @@ final class RtsCraftingUtils {
     /**
      * 刷新打开菜单中的合成结果槽。
      */
-    static void refreshCraftingResult(CraftingMenu menu) {
+    static void refreshCraftingResult(AbstractContainerMenu menu) {
         if (menu == null) {
             return;
         }

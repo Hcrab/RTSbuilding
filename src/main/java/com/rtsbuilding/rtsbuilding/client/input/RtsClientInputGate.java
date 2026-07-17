@@ -984,7 +984,7 @@ public final class RtsClientInputGate {
             return;
         }
 
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(pendingOverlayCarriedItemId, carried.getCount()));
+        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(pendingOverlayCarriedItemId, carried.getCount(), carried.copy()));
         minecraft.player.containerMenu.setCarried(ItemStack.EMPTY);
         pendingOverlayCarriedItemId = "";
     }

@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingGridFiller
 import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingSearch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -61,13 +62,13 @@ public final class RtsStorageCrafting {
     }
 
     public static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session,
-            CraftingMenu craftingMenu, ItemStack[] blueprint) {
-        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
+            AbstractContainerMenu craftingMenu, ItemStack[] blueprint) {
+        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, (CraftingMenu) craftingMenu, blueprint);
     }
 
     public static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session,
-            CraftingMenu craftingMenu, ItemStack[] blueprint, CraftingRecipe recipe) {
-        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, craftingMenu, blueprint, recipe);
+            AbstractContainerMenu craftingMenu, ItemStack[] blueprint, CraftingRecipe recipe) {
+        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, (CraftingMenu) craftingMenu, blueprint, recipe);
     }
 
     public static void refillCurrentCraftGridFromBlueprintIds(
@@ -92,12 +93,25 @@ public final class RtsStorageCrafting {
                 player, session, recipeId, ingredientPrototypes, maxTransfer, clearGridFirst);
     }
 
-    public static ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
+    public static void applyUniversalJeiTransfer(
+            ServerPlayer player, RtsStorageSession session,
+            List<ItemStack> prototypes, List<Integer> quantities,
+            boolean clearGridFirst) {
+        RtsCraftingGridFiller.applyUniversalJeiTransfer(
+                player, session, prototypes, quantities, clearGridFirst);
+    }
+
+    public static ItemStack[] snapshotCraftGridBlueprint(AbstractContainerMenu menu) {
         return RtsCraftingExecutor.snapshotCraftGridBlueprint(menu);
     }
 
+    public static void clearCraftingGrid(ServerPlayer player, RtsStorageSession session,
+                                          boolean toPlayerInventory) {
+        RtsCraftingGridFiller.clearCraftingGrid(player, session, toPlayerInventory);
+    }
+
     public static void refillCraftGridFromBlueprint(
-            CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsCraftingGridFiller.refillCraftGridFromBlueprint(
                 menu, handlers, player, blueprint, fillAll, includePlayerFallback);

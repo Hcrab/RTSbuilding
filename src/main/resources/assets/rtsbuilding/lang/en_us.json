@@ -955,5 +955,7 @@
   "message.rtsbuilding.drop_buffer.fallback": "Storage remained full for 3 seconds. Items were moved to your inventory or dropped nearby.",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS global work units per tick",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS work units per player slice",
-  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS server time budget per tick"
+  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS server time budget per tick",
+  "screen.rtsbuilding.clear_to_storage": "Clear to Storage",
+  "screen.rtsbuilding.clear_to_player": "Clear to Player"
 }

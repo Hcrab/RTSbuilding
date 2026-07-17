@@ -479,7 +479,7 @@ public final class RtsCraftingExecutor {
      * 捕获当前合成网格的每个槽位一个物品的蓝图。
      */
     public static ItemStack[] snapshotCraftGridBlueprint(
-            net.minecraft.world.inventory.CraftingMenu menu) {
+            net.minecraft.world.inventory.AbstractContainerMenu menu) {
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < 9; i++) {
             net.minecraft.world.inventory.Slot grid = menu.getSlot(1 + i);

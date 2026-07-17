@@ -42,7 +42,7 @@ public final class RtsTransferHandlers {
     public static void handleReturnCarried(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().transfer().returnCarriedToLinked(serverPlayer, payload.itemId(), payload.amount());
+                ServiceRegistry.getInstance().transfer().returnCarriedToLinked(serverPlayer, payload.itemId(), payload.amount(), payload.carried());
             }
         });
     }
@@ -51,6 +51,15 @@ public final class RtsTransferHandlers {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().importMenuSlotToLinked(serverPlayer, payload.menuSlot());
+            }
+        });
+    }
+
+    public static void handleBulkStorageOp(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().transfer().bulkStorageOperation(
+                        serverPlayer, payload.action(), payload.itemId(), payload.amount());
             }
         });
     }

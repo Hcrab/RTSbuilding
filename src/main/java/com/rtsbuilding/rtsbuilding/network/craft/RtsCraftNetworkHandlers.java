@@ -70,4 +70,16 @@ public final class RtsCraftNetworkHandlers {
             }
         });
     }
+
+    public static void handleJeiUniversalTransfer(C2SRtsJeiUniversalTransferPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().crafting().applyUniversalJeiTransfer(
+                        serverPlayer,
+                        payload.prototypes(),
+                        payload.quantities(),
+                        payload.clearGridFirst());
+            }
+        });
+    }
 }

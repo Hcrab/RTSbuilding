@@ -955,5 +955,7 @@
   "message.rtsbuilding.drop_buffer.fallback": "储存持续 3 秒无法写入，物品已转入背包或合并掉落在附近。",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS 每 Tick 全局工作量",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS 每玩家调度片工作量",
-  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 服务端时间预算"
+  "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 服务端时间预算",
+  "screen.rtsbuilding.clear_to_storage": "清空到存储",
+  "screen.rtsbuilding.clear_to_player": "清空到背包"
 }

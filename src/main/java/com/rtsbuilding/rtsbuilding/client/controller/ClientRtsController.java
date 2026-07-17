@@ -31,11 +31,11 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -43,7 +43,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
@@ -1135,7 +1134,7 @@ public final class ClientRtsController {
         }
 
         if (this.pendingCraftTerminalOpen
-                && minecraft.player.containerMenu instanceof CraftingMenu pendingMenu
+                && minecraft.player.containerMenu instanceof RtsCraftTerminalMenu pendingMenu
                 && minecraft.player.containerMenu.containerId != 0
                 && !(minecraft.screen instanceof RtsCraftTerminalScreen)) {
             Component pendingTitle = minecraft.screen != null ? minecraft.screen.getTitle() : Component.literal("RTS Craft Terminal");
@@ -1144,15 +1143,7 @@ public final class ClientRtsController {
             this.pendingCraftTerminalOpenTicks = 0;
         }
 
-        if (minecraft.screen instanceof CraftingScreen craftingScreen
-                && minecraft.player != null
-                && craftingScreen.getMenu() instanceof CraftingMenu craftingMenu
-                && !(minecraft.screen instanceof RtsCraftTerminalScreen)
-                && shouldUseRtsCraftTerminalScreen(craftingScreen)) {
-            minecraft.setScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.player.getInventory(), craftingScreen.getTitle()));
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
-        } else if (this.pendingCraftTerminalOpen) {
+        if (this.pendingCraftTerminalOpen) {
             if (this.pendingCraftTerminalOpenTicks > 0) {
                 this.pendingCraftTerminalOpenTicks--;
             } else {
@@ -1192,8 +1183,9 @@ public final class ClientRtsController {
         }
 
         this.cameraOrbitService.tick(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius);
-        boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
-                && builderScreen.isStorageViewVisible();
+        boolean storageViewVisible = (minecraft.screen instanceof BuilderScreen builderScreen
+                && builderScreen.isStorageViewVisible())
+                || minecraft.screen instanceof RtsCraftTerminalScreen;
         this.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
 
         // Don't override player.input in RTS mode so the player entity can
@@ -1459,6 +1451,7 @@ public final class ClientRtsController {
 
     public void openCraftTerminal() {
         this.storageStateManager.setStorageSearch("");
+        this.storageStateManager.updateStoragePageSize(10000);
         this.pendingCraftTerminalOpen = true;
         this.pendingCraftTerminalOpenTicks = 120;
         beginRemoteMenuOpenGrace();
@@ -1502,14 +1495,6 @@ public final class ClientRtsController {
 
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
-    }
-
-    private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
-        if (this.pendingCraftTerminalOpen) {
-            return true;
-        }
-        return craftingScreen.getTitle() != null
-                && "RTS Craft Terminal".equals(craftingScreen.getTitle().getString());
     }
 
     public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) {

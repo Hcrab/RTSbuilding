@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsMenuTypes;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -84,6 +85,7 @@ public class RtsbuildingMod {
         RtsBlocks.register(modEventBus);
         RtsItems.register(modEventBus);
         RtsCreativeTabs.register(modEventBus);
+        RtsMenuTypes.register(modEventBus);
         NeoForge.EVENT_BUS.register(this);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC, "rts_building/rtsbuilding-common.toml");
         modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC, "rts_building/rtsbuilding-server.toml");

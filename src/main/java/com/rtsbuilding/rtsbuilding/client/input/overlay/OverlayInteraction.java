@@ -153,7 +153,7 @@ public final class OverlayInteraction {
             return false;
         }
         int amount = Math.max(1, Math.min(requestedAmount, carried.getCount()));
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
+        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(itemId.toString(), amount, carried.copyWithCount(amount)));
         ItemStack preview = carried.copy();
         preview.setCount(amount);
         enqueueReturnPreview(preview);

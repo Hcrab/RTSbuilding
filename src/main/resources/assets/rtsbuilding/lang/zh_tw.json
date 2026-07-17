@@ -955,5 +955,7 @@
   "screen.rtsbuilding.quick_build.smart_place_no_hole": "未检测到有效空洞",
   "screen.rtsbuilding.quick_build.smart_place_scan_overflow": "扫描已截断：发现 %s 个方块（已达上限 %s）",
   "screen.rtsbuilding.quick_build.smart_place_scanned": "已发现 %s 个可填充方块（上限 %s）",
-  "screen.rtsbuilding.workflow.type.smart_place_fluid": "智能放置·流体填充"
+  "screen.rtsbuilding.workflow.type.smart_place_fluid": "智能放置·流體填充",
+  "screen.rtsbuilding.clear_to_storage": "清空到儲存",
+  "screen.rtsbuilding.clear_to_player": "清空到背包"
 }

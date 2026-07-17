@@ -40,6 +40,16 @@ public final class RtsCraftPackets {
                 C2SRtsJeiTransferPayload.STREAM_CODEC,
                 RtsCraftNetworkHandlers::handleJeiTransfer);
 
+        registrar.playToServer(
+                C2SRtsJeiUniversalTransferPayload.TYPE,
+                C2SRtsJeiUniversalTransferPayload.STREAM_CODEC,
+                RtsCraftNetworkHandlers::handleJeiUniversalTransfer);
+
+        registrar.playToServer(
+                C2SRtsClearCraftingGridPayload.TYPE,
+                C2SRtsClearCraftingGridPayload.STREAM_CODEC,
+                RtsCraftNetworkHandlers::handleClearCraftingGrid);
+
         registrar.playToClient(
                 S2CRtsCraftablesPayload.TYPE,
                 S2CRtsCraftablesPayload.STREAM_CODEC,

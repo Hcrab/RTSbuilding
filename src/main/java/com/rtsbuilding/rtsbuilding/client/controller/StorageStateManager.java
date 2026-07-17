@@ -38,7 +38,7 @@ public final class StorageStateManager {
     public static final int QUICK_SLOT_COUNT = 27;
     public static final int GUI_BINDING_SLOT_COUNT = 8;
     private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
-    private static final int MAX_STORAGE_PAGE_SIZE = 180;
+    private static final int MAX_STORAGE_PAGE_SIZE = 10000;
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
     private static final String CATEGORY_TAB_PREFIX = "tab|";
