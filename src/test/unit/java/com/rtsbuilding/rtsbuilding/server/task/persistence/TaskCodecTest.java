@@ -53,8 +53,8 @@ class TaskCodecTest {
         CompoundTag encoded = codec.encodeImage(source);
         TaskRepository.Image decoded = codec.decodeImage(encoded);
 
-        assertEquals(TaskCodec.CURRENT_SCHEMA, encoded.getInt("schema"));
-        assertTrue(encoded.contains("assets", Tag.TAG_LIST));
+        assertEquals(TaskCodec.CURRENT_SCHEMA, encoded.getIntOr("schema", 0));
+        assertTrue(encoded.contains("assets"));
         assertEquals(source, decoded);
     }
 
@@ -67,7 +67,8 @@ class TaskCodecTest {
         TaskRepository.Image decodedLegacy = codec.decodeImage(legacy);
 
         assertTrue(decodedLegacy.assets().entries().isEmpty());
-        assertEquals(TaskCodec.CURRENT_SCHEMA, codec.encodeImage(decodedLegacy).getInt("schema"));
+        assertEquals(TaskCodec.CURRENT_SCHEMA,
+                codec.encodeImage(decodedLegacy).getIntOr("schema", 0));
 
         CompoundTag missingV2Assets = codec.encodeImage(TaskRepository.Image.empty());
         missingV2Assets.remove("assets");
@@ -90,14 +91,17 @@ class TaskCodecTest {
                 Map.of(taskId, blueprintTask(taskId, assetId)), Map.of(), Set.of(),
                 new TaskAssetManifest(Map.of(assetId, metadata(taskId))));
         CompoundTag mismatched = codec.encodeImage(valid);
-        mismatched.getList("tasks", Tag.TAG_COMPOUND).getCompound(0)
-                .getCompound("payload").putUUID("asset_id", UUID.randomUUID());
+        CompoundTag mismatchedPayload = mismatched.getListOrEmpty("tasks")
+                .getCompoundOrEmpty(0).getCompoundOrEmpty("payload");
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                mismatchedPayload, "asset_id", UUID.randomUUID());
 
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(mismatched));
 
         CompoundTag uppercaseSha = codec.encodeImage(valid);
-        CompoundTag asset = uppercaseSha.getList("assets", Tag.TAG_COMPOUND).getCompound(0);
-        asset.putString("sha256", asset.getString("sha256").toUpperCase(java.util.Locale.ROOT));
+        CompoundTag asset = uppercaseSha.getListOrEmpty("assets").getCompoundOrEmpty(0);
+        asset.putString("sha256", asset.getStringOr("sha256", "")
+                .toUpperCase(java.util.Locale.ROOT));
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(uppercaseSha));
     }
 
@@ -115,7 +119,7 @@ class TaskCodecTest {
         CompoundTag exposed = task.payload();
         exposed.putInt("cursor_blob", 77);
 
-        assertEquals(4, task.payload().getInt("cursor_blob"));
+        assertEquals(4, task.payload().getIntOr("cursor_blob", 0));
     }
 
     @Test
@@ -233,7 +237,7 @@ class TaskCodecTest {
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(snapshot));
 
         CompoundTag wait = codec.encodeSnapshot(task);
-        wait.getCompound("wait").putInt("future_field", 1);
+        wait.getCompoundOrEmpty("wait").putInt("future_field", 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(wait));
 
         TaskTombstone tombstone = new TaskTombstone(
@@ -242,14 +246,15 @@ class TaskCodecTest {
         TaskRepository.Image image = new TaskRepository.Image(
                 Map.of(), Map.of(tombstone.taskId(), tombstone), Set.of(), TaskAssetManifest.empty());
         CompoundTag root = codec.encodeImage(image);
-        root.getList("tombstones", Tag.TAG_COMPOUND).getCompound(0).putInt("future_field", 1);
+        root.getListOrEmpty("tombstones").getCompoundOrEmpty(0)
+                .putInt("future_field", 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(root));
     }
 
     @Test
     void duplicateMigrationLedgerEntryFailsClosed() {
         CompoundTag root = codec.encodeImage(TaskRepository.Image.empty());
-        net.minecraft.nbt.ListTag migrations = root.getList("completed_migrations", Tag.TAG_STRING);
+        net.minecraft.nbt.ListTag migrations = root.getListOrEmpty("completed_migrations");
         migrations.add(net.minecraft.nbt.StringTag.valueOf("same"));
         migrations.add(net.minecraft.nbt.StringTag.valueOf("same"));
 
@@ -300,7 +305,8 @@ class TaskCodecTest {
 
     private static TaskSnapshot blueprintTask(TaskId taskId, TaskAssetId assetId) {
         CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                payload, "asset_id", assetId.value());
         return new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, TaskLifecycleState.QUEUED, -1, null,
                 1L, 0L, 0L, 12, 0, 0, 0, payload);

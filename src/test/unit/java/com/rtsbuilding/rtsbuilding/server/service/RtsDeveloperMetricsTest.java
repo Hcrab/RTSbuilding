@@ -30,7 +30,7 @@ class RtsDeveloperMetricsTest {
         RtsDeveloperMetrics.recordTaskSample(playerId,
                 new TaskScheduler.TickStats(3, 12, 300, true, false),
                 new RtsTaskEngine.TaskDiagnostics(
-                        Map.of(TaskType.MINING, 2, TaskType.BUFFER_DRAIN, 1), Map.of()),
+                        Map.of(TaskType.MINING, 2, TaskType.PLACEMENT, 1), Map.of()),
                 new RtsDeveloperMetrics.BufferSample(40, 3, 9));
         RtsDeveloperMetrics.recordPageBuild(playerId);
         RtsDeveloperMetrics.recordPageSend(playerId);

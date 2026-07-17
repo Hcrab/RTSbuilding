@@ -387,13 +387,15 @@ class TaskPersistenceCoordinatorTest {
             TaskSnapshot snapshot = assetTask(TaskLifecycleState.QUEUED);
             if (first == null) first = snapshot;
             TaskAssetMetadata metadata = new TaskAssetMetadata(
-                    new TaskAssetId(snapshot.payloadView().getUUID("asset_id")), snapshot.id(),
+                    new TaskAssetId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                            snapshot.payloadView(), "asset_id")), snapshot.id(),
                     "blueprint", "e".repeat(64), slice, 1L);
             coordinator.reserveVerifiedAssetAdmission(snapshot, metadata);
         }
         TaskSnapshot overflow = assetTask(TaskLifecycleState.QUEUED);
         TaskAssetMetadata overflowMetadata = new TaskAssetMetadata(
-                new TaskAssetId(overflow.payloadView().getUUID("asset_id")), overflow.id(),
+                new TaskAssetId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                        overflow.payloadView(), "asset_id")), overflow.id(),
                 "blueprint", "f".repeat(64), 1L, 1L);
 
         assertThrows(IllegalArgumentException.class,
@@ -460,7 +462,8 @@ class TaskPersistenceCoordinatorTest {
         TaskId taskId = TaskId.create();
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
         CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                payload, "asset_id", assetId.value());
         int cursor = state.terminal() ? 1 : 0;
         return new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, state, workflowEntryId, null, 1L, 0L, 0L,
@@ -477,7 +480,9 @@ class TaskPersistenceCoordinatorTest {
     }
 
     private static TaskAssetMetadata metadata(TaskSnapshot task) {
-        TaskAssetId assetId = new TaskAssetId(task.payload().getUUID("asset_id"));
+        TaskAssetId assetId = new TaskAssetId(
+                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                        task.payload(), "asset_id"));
         return new TaskAssetMetadata(assetId, task.id(), "blueprint", "a".repeat(64), 512L, 4_096L);
     }
 

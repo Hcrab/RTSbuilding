@@ -27,7 +27,7 @@ class RtsNetworkStorageOptimizationTest {
     @BeforeAll
     static void bootstrapMinecraftRegistries() {
         if (LoadingModList.get() == null) {
-            LoadingModList.of(List.of(), List.of(), List.of(), List.of(), Map.of());
+            LoadingModList.of(List.of(), List.of(), List.of(), List.of(), List.of(), Map.of());
         }
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();

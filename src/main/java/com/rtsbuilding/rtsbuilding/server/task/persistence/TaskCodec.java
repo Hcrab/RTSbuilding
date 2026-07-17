@@ -262,7 +262,8 @@ public final class TaskCodec {
             if (!tag.contains("wait")) {
                 throw new TaskCodecException("可选字段 wait 的 NBT 类型错误");
             }
-            CompoundTag wait = tag.getCompoundOrEmpty("wait");
+            CompoundTag wait = tag.getCompound("wait").orElseThrow(
+                    () -> new TaskCodecException("可选字段 wait 的 NBT 类型错误"));
             if (!wait.keySet().equals(WAIT_FIELDS)) {
                 throw new TaskCodecException("wait envelope 缺少字段或包含未知字段");
             }
@@ -273,12 +274,14 @@ public final class TaskCodec {
             if (!tag.contains("workflow")) {
                 throw new TaskCodecException("可选字段 workflow 的 NBT 类型错误");
             }
-            workflowEntryId = tag.getIntOr("workflow", 0);
+            workflowEntryId = tag.getInt("workflow").orElseThrow(
+                    () -> new TaskCodecException("可选字段 workflow 的 NBT 类型错误"));
         }
         if (!tag.contains("payload")) {
             throw new TaskCodecException("缺少 CompoundTag 字段: payload");
         }
-        CompoundTag payload = tag.getCompoundOrEmpty("payload").copy();
+        CompoundTag payload = tag.getCompound("payload").orElseThrow(
+                () -> new TaskCodecException("缺少或类型错误的 CompoundTag 字段: payload")).copy();
         return new TaskSnapshot(
                 new TaskId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "id")),
                 new SubmissionId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "submission")),
@@ -475,19 +478,22 @@ public final class TaskCodec {
 
     private static String requireString(CompoundTag tag, String key) {
         if (!tag.contains(key)) throw new TaskCodecException("缺少字符串字段: " + key);
-        String value = tag.getStringOr(key, "");
+        String value = tag.getString(key).orElseThrow(
+                () -> new TaskCodecException("字段类型不是字符串: " + key));
         if (value.isBlank()) throw new TaskCodecException("字符串字段为空: " + key);
         return value;
     }
 
     private static int requireInt(CompoundTag tag, String key) {
         if (!tag.contains(key)) throw new TaskCodecException("缺少整数值字段: " + key);
-        return tag.getIntOr(key, 0);
+        return tag.getInt(key).orElseThrow(
+                () -> new TaskCodecException("字段类型不是整数: " + key));
     }
 
     private static long requireLong(CompoundTag tag, String key) {
         if (!tag.contains(key)) throw new TaskCodecException("缺少长整数值字段: " + key);
-        return tag.getLongOr(key, 0L);
+        return tag.getLong(key).orElseThrow(
+                () -> new TaskCodecException("字段类型不是长整数: " + key));
     }
 
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String value, String field) {

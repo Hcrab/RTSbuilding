@@ -123,7 +123,8 @@ class DataClusterPersistenceTest {
         cluster.get(MUTABLE).putInt("changed", 71);
 
         assertTrue(cluster.flushAndClose());
-        assertEquals(71, store.lastWritten.getCompound("mutable").getInt("changed"));
+        assertEquals(71, store.lastWritten.getCompoundOrEmpty("mutable")
+                .getIntOr("changed", 0));
         assertEquals(2, valueOf(store.lastWritten, "beta"));
     }
 
@@ -180,7 +181,7 @@ class DataClusterPersistenceTest {
 
     private static DataComponent<Integer> integerComponent(String key) {
         return new DataComponent<>(key, NbtCodec.of(
-                tag -> tag.getInt("value"),
+                tag -> tag.getIntOr("value", 0),
                 (tag, value) -> tag.putInt("value", value)), () -> 0);
     }
 
@@ -198,7 +199,7 @@ class DataClusterPersistenceTest {
     }
 
     private static int valueOf(CompoundTag root, String key) {
-        return root.getCompound(key).getInt("value");
+        return root.getCompoundOrEmpty(key).getIntOr("value", 0);
     }
 
     @SuppressWarnings("unchecked")

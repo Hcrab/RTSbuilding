@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ class RtsPagePayloadSizeGuardTest {
         List<String> matches = new ArrayList<>();
         int oversized = C2SRtsRequestStoragePagePayload.MAX_LOCALIZED_SEARCH_MATCHES + 50;
         for (int i = 0; i < oversized; i++) {
-            ResourceLocation id = ResourceLocation.fromNamespaceAndPath("example", "item_" + i);
+            Identifier id = Identifier.fromNamespaceAndPath("example", "item_" + i);
             matches.add(id.toString());
         }
 

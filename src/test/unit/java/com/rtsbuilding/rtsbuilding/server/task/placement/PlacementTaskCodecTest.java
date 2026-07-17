@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.placement;
 import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -21,7 +21,7 @@ class PlacementTaskCodecTest {
     void roundTripPreservesPurePlacementSnapshot() {
         UUID owner = UUID.randomUUID();
         ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+                Registries.DIMENSION, Identifier.parse("minecraft:overworld"));
         CompoundTag definition = new CompoundTag();
         definition.putLongArray("positions", new long[]{new BlockPos(1, 2, 3).asLong(), 9L});
         PlacementTaskState state = new PlacementTaskState(
@@ -63,7 +63,7 @@ class PlacementTaskCodecTest {
     @Test
     void payloadRejectsWorkflowIdentityDrift() {
         ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+                Registries.DIMENSION, Identifier.parse("minecraft:overworld"));
         PlacementTaskState state = new PlacementTaskState(
                 definition(), 3, 1, 0, 0, 0, List.of());
         assertThrows(IllegalArgumentException.class,
@@ -73,7 +73,8 @@ class PlacementTaskCodecTest {
     private static CompoundTag validTag() {
         CompoundTag tag = new CompoundTag();
         tag.putInt("schema", PlacementTaskCodec.SCHEMA_VERSION);
-        tag.putUUID("owner", UUID.randomUUID());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                tag, "owner", UUID.randomUUID());
         tag.putString("dimension", "minecraft:overworld");
         tag.putInt("workflow", -1);
         tag.put("definition", definition());

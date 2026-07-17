@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -17,8 +17,8 @@ class BuiltInRtsPluginCatalogTest {
     @Test
     void definitionsHaveStableUniqueIdsAndItems() {
         var definitions = BuiltInRtsPluginCatalog.definitions();
-        var ids = new HashSet<ResourceLocation>();
-        var itemIds = new HashSet<ResourceLocation>();
+        var ids = new HashSet<Identifier>();
+        var itemIds = new HashSet<Identifier>();
 
         for (RtsPluginDefinition definition : definitions) {
             assertTrue(ids.add(definition.id()), "插件 id 重复: " + definition.id());
@@ -28,7 +28,7 @@ class BuiltInRtsPluginCatalogTest {
 
     @Test
     void criticalGameplayFeaturesStayOnExpectedPlugins() {
-        Map<ResourceLocation, RtsPluginDefinition> byId = definitionsById();
+        Map<Identifier, RtsPluginDefinition> byId = definitionsById();
 
         assertEnables(byId, BuiltInRtsPluginCatalog.RTS_CONTROL_CORE,
                 RtsFeature.CAMERA, RtsFeature.INTERACT);
@@ -50,7 +50,7 @@ class BuiltInRtsPluginCatalogTest {
 
     @Test
     void rangeExtensionPluginsKeepOrderedRadiusProgression() {
-        Map<ResourceLocation, RtsPluginDefinition> byId = definitionsById();
+        Map<Identifier, RtsPluginDefinition> byId = definitionsById();
 
         assertRange(byId, BuiltInRtsPluginCatalog.RANGE_EXTENSION_I, 16);
         assertRange(byId, BuiltInRtsPluginCatalog.RANGE_EXTENSION_II, 32);
@@ -58,13 +58,13 @@ class BuiltInRtsPluginCatalogTest {
         assertRange(byId, BuiltInRtsPluginCatalog.RANGE_EXTENSION_MAX, Integer.MAX_VALUE);
     }
 
-    private static Map<ResourceLocation, RtsPluginDefinition> definitionsById() {
+    private static Map<Identifier, RtsPluginDefinition> definitionsById() {
         return BuiltInRtsPluginCatalog.definitions().stream()
                 .collect(Collectors.toMap(RtsPluginDefinition::id, Function.identity()));
     }
 
-    private static void assertEnables(Map<ResourceLocation, RtsPluginDefinition> byId,
-            ResourceLocation pluginId, RtsFeature... features) {
+    private static void assertEnables(Map<Identifier, RtsPluginDefinition> byId,
+            Identifier pluginId, RtsFeature... features) {
         RtsPluginDefinition definition = byId.get(pluginId);
         assertTrue(definition != null, "缺少内置插件定义: " + pluginId);
         for (RtsFeature feature : features) {
@@ -72,8 +72,8 @@ class BuiltInRtsPluginCatalogTest {
         }
     }
 
-    private static void assertRange(Map<ResourceLocation, RtsPluginDefinition> byId,
-            ResourceLocation pluginId, int radius) {
+    private static void assertRange(Map<Identifier, RtsPluginDefinition> byId,
+            Identifier pluginId, int radius) {
         RtsPluginDefinition definition = byId.get(pluginId);
         assertTrue(definition != null, "缺少范围插件定义: " + pluginId);
         assertEquals(RtsPluginFamily.RANGE_EXTENSION, definition.family());

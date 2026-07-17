@@ -43,7 +43,8 @@ class DurableBlueprintMigrationProtocolTest {
                         new CompoundTag(), taskId, true));
 
         CompoundTag thin = new CompoundTag();
-        thin.putUUID("durable_task_id", taskId);
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                thin, "durable_task_id", taskId);
         assertEquals(DurableBlueprintTaskBridge.ProjectionClaimDecision.REUSE_MATCHING_THIN,
                 DurableBlueprintTaskBridge.decideProjectionClaim(thin, taskId, false));
     }
@@ -51,7 +52,8 @@ class DurableBlueprintMigrationProtocolTest {
     @Test
     void conflictingThinProjectionFailsClosed() {
         CompoundTag thin = new CompoundTag();
-        thin.putUUID("durable_task_id", UUID.randomUUID());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                thin, "durable_task_id", UUID.randomUUID());
 
         assertEquals(DurableBlueprintTaskBridge.ProjectionClaimDecision.FAIL_CONFLICT,
                 DurableBlueprintTaskBridge.decideProjectionClaim(

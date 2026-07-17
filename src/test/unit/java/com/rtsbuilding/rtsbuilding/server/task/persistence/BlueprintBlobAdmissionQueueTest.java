@@ -208,7 +208,8 @@ class BlueprintBlobAdmissionQueueTest {
 
     private static TaskSnapshot snapshot(TaskId taskId) {
         CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", TaskAssetId.forTask(taskId, "blueprint").value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                payload, "asset_id", TaskAssetId.forTask(taskId, "blueprint").value());
         return new TaskSnapshot(
                 taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, TaskLifecycleState.QUEUED, -1, null,

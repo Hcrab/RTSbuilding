@@ -89,7 +89,8 @@ class AtomicNbtTaskRepositoryTest {
         TaskId taskId = TaskId.create();
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
         CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                payload, "asset_id", assetId.value());
         TaskSnapshot task = new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(),
                 "minecraft:overworld", TaskType.BLUEPRINT, TaskLifecycleState.QUEUED,
                 -1, null, 1L, 0L, 0L, 1, 0, 0, 0, payload);

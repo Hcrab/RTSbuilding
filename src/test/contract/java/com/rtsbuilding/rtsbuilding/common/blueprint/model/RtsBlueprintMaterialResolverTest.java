@@ -14,7 +14,7 @@ class RtsBlueprintMaterialResolverTest {
     void materialResolutionDoesNotTrustImportedMaterialItemOrBlockEntityNbt() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/common/blueprint/model/RtsBlueprint.java"));
-        String body = methodBody(source, "public static List<ResourceLocation> materialItemIds(RtsBlueprintBlock block)");
+        String body = methodBody(source, "public static List<Identifier> materialItemIds(RtsBlueprintBlock block)");
 
         assertTrue(body.contains("BlueprintMaterialResolver.materialItemIds(block.state())"),
                 "Blueprint material cost must be derived from the trusted block state.");

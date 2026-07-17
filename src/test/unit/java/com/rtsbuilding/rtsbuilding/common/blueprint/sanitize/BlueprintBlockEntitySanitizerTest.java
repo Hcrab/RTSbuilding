@@ -27,8 +27,8 @@ class BlueprintBlockEntitySanitizerTest {
 
         CompoundTag sanitized = BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(source);
 
-        assertEquals("minecraft:chest", sanitized.getString("id"));
-        assertEquals("{\"text\":\"Builder Cache\"}", sanitized.getString("CustomName"));
+        assertEquals("minecraft:chest", sanitized.getStringOr("id", ""));
+        assertEquals("{\"text\":\"Builder Cache\"}", sanitized.getStringOr("CustomName", ""));
         assertFalse(sanitized.contains("Items"), "Survival blueprints must not copy container items.");
         assertFalse(sanitized.contains("ForgeCaps"), "Capability payloads can contain free resources.");
         assertFalse(sanitized.contains("Tank"), "Fluid contents must not be copied from blueprint NBT.");
@@ -46,9 +46,9 @@ class BlueprintBlockEntitySanitizerTest {
         source.put("display", nested);
 
         CompoundTag sanitized = BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(source);
-        CompoundTag display = sanitized.getCompound("display");
+        CompoundTag display = sanitized.getCompoundOrEmpty("display");
 
-        assertEquals("keep me", display.getString("owner_note"));
+        assertEquals("keep me", display.getStringOr("owner_note", ""));
         assertFalse(display.contains("preview_stack"), "Nested item stacks must not survive sanitizing.");
     }
 
@@ -65,7 +65,7 @@ class BlueprintBlockEntitySanitizerTest {
 
         CompoundTag sanitized = BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(source);
 
-        assertEquals("minecraft:command_block", sanitized.getString("id"));
+        assertEquals("minecraft:command_block", sanitized.getStringOr("id", ""));
         assertFalse(sanitized.contains("Command"), "Command blocks must not import executable commands.");
         assertFalse(sanitized.contains("SpawnData"), "Spawner payloads must not import entity spawn data.");
         assertFalse(sanitized.contains("Primary"), "Beacon effects must not be imported for free.");

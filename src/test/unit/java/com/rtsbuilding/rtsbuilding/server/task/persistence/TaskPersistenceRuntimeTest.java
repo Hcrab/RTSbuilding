@@ -62,7 +62,8 @@ class TaskPersistenceRuntimeTest {
         TaskId taskId = TaskId.create();
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
         CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                payload, "asset_id", assetId.value());
         TaskSnapshot snapshot = new TaskSnapshot(
                 taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, TaskLifecycleState.QUEUED, 7, null,
@@ -85,7 +86,7 @@ class TaskPersistenceRuntimeTest {
     void stopNeverReportsSuccessWhileAssetReservationIsUnfinished() {
         TaskPersistenceCoordinator coordinator = open(new RecordingRepository());
         TaskSnapshot snapshot = blueprintTask(TaskId.create(), UUID.randomUUID(), 9);
-        TaskAssetId assetId = new TaskAssetId(snapshot.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(snapshot.payloadView());
         coordinator.reserveVerifiedAssetAdmission(snapshot, new TaskAssetMetadata(
                 assetId, snapshot.id(), "blueprint", "a".repeat(64), 128L, 64L));
         TaskPersistenceRuntime runtime = new TaskPersistenceRuntime(Executors::newSingleThreadExecutor);
@@ -105,7 +106,7 @@ class TaskPersistenceRuntimeTest {
         repository.remainingWriteFailures = 1;
         TaskPersistenceCoordinator coordinator = open(repository);
         TaskSnapshot snapshot = blueprintTask(TaskId.create(), UUID.randomUUID(), 10);
-        TaskAssetId assetId = new TaskAssetId(snapshot.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(snapshot.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, snapshot.id(), "blueprint", "b".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -139,7 +140,7 @@ class TaskPersistenceRuntimeTest {
     void blueprintBlockCountMismatchIsRejectedBeforeIdentityReservation() {
         TaskPersistenceCoordinator coordinator = open(new RecordingRepository());
         TaskSnapshot snapshot = blueprintTask(TaskId.create(), UUID.randomUUID(), 12);
-        TaskAssetId assetId = new TaskAssetId(snapshot.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(snapshot.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, snapshot.id(), "blueprint", "d".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -166,7 +167,7 @@ class TaskPersistenceRuntimeTest {
         RecordingRepository repository = new RecordingRepository();
         TaskPersistenceCoordinator coordinator = open(repository);
         TaskSnapshot snapshot = blueprintTask(TaskId.create(), UUID.randomUUID(), -1);
-        TaskAssetId assetId = new TaskAssetId(snapshot.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(snapshot.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, snapshot.id(), "blueprint", "e".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -203,7 +204,7 @@ class TaskPersistenceRuntimeTest {
                 accepted.revision(), accepted.createdGameTime(), accepted.updatedGameTime(),
                 accepted.totalUnits(), accepted.cursorUnits(), accepted.succeededUnits(),
                 accepted.failedUnits(), accepted.payload());
-        TaskAssetId assetId = new TaskAssetId(accepted.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(accepted.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, accepted.id(), "blueprint", "9".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -235,7 +236,7 @@ class TaskPersistenceRuntimeTest {
         RecordingRepository repository = new RecordingRepository();
         TaskPersistenceCoordinator coordinator = open(repository);
         TaskSnapshot snapshot = blueprintTask(TaskId.create(), UUID.randomUUID(), 14);
-        TaskAssetId assetId = new TaskAssetId(snapshot.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(snapshot.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, snapshot.id(), "blueprint", "8".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -274,7 +275,7 @@ class TaskPersistenceRuntimeTest {
         TaskSnapshot ordinary = task(UUID.randomUUID(), 15);
         coordinator.submit(ordinary);
         TaskSnapshot blueprint = blueprintTask(TaskId.create(), UUID.randomUUID(), 16);
-        TaskAssetId assetId = new TaskAssetId(blueprint.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(blueprint.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, blueprint.id(), "blueprint", "7".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -307,7 +308,7 @@ class TaskPersistenceRuntimeTest {
         RecordingRepository repository = new RecordingRepository();
         TaskPersistenceCoordinator coordinator = open(repository);
         TaskSnapshot snapshot = blueprintTask(TaskId.create(), UUID.randomUUID(), 11);
-        TaskAssetId assetId = new TaskAssetId(snapshot.payloadView().getUUID("asset_id"));
+        TaskAssetId assetId = assetId(snapshot.payloadView());
         TaskAssetMetadata metadata = new TaskAssetMetadata(
                 assetId, snapshot.id(), "blueprint", "c".repeat(64), 128L, 64L);
         AtomicBlueprintBlobRepository blobs = mock(AtomicBlueprintBlobRepository.class);
@@ -437,6 +438,12 @@ class TaskPersistenceRuntimeTest {
         assertTrue(executor.awaitTermination(1, TimeUnit.SECONDS));
     }
 
+    private static TaskAssetId assetId(CompoundTag payload) {
+        return new TaskAssetId(
+                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                        payload, "asset_id"));
+    }
+
     private static TaskPersistenceCoordinator open(TaskRepository repository) {
         return TaskPersistenceCoordinator.open(repository, new TaskCodec());
     }
@@ -449,7 +456,8 @@ class TaskPersistenceRuntimeTest {
     private static TaskSnapshot blueprintTask(TaskId taskId, UUID owner, int workflow) {
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
         CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(
+                payload, "asset_id", assetId.value());
         return new TaskSnapshot(
                 taskId, SubmissionId.create(), owner, "minecraft:overworld",
                 TaskType.BLUEPRINT, TaskLifecycleState.QUEUED, workflow, null,

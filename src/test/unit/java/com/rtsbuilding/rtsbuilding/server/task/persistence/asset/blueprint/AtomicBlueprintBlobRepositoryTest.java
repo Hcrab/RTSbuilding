@@ -53,7 +53,7 @@ class AtomicBlueprintBlobRepositoryTest {
         assertEquals(record.sha256(), found.record().sha256());
         assertEquals(taskId, found.record().taskId());
         assertArrayEquals(new byte[]{1, 2, 3},
-                found.record().structure().getByteArray("payload"));
+                found.record().structure().getByteArray("payload").orElseThrow());
         assertEquals(1, repository.scan().assetIds().size());
     }
 
@@ -312,7 +312,7 @@ class AtomicBlueprintBlobRepositoryTest {
         BlueprintBlobRecord decoded = codec.decodeCompressed(codec.encodeCompressed(record));
 
         assertEquals(record.sha256(), decoded.sha256());
-        assertEquals(50_000, decoded.structure().getList("nodes", Tag.TAG_INT).size());
+        assertEquals(50_000, decoded.structure().getListOrEmpty("nodes").size());
         assertTrue(BlueprintBlobCodec.MAX_DECODE_ACCOUNTING_BYTES > BlueprintBlobCodec.MAX_LOGICAL_BYTES);
     }
 
@@ -384,7 +384,8 @@ class AtomicBlueprintBlobRepositoryTest {
         assertEquals(AtomicBlueprintBlobRepository.WriteOutcome.WRITTEN, repository.writeOnce(record));
         var found = assertInstanceOf(
                 AtomicBlueprintBlobRepository.LoadResult.Found.class, repository.load(record.assetId()));
-        assertEquals(logicalPayload.length, found.record().structure().getByteArray("payload").length);
+        assertEquals(logicalPayload.length,
+                found.record().structure().getByteArray("payload").orElseThrow().length);
         assertTrue(found.compressedBytes() <= BlueprintBlobCodec.MAX_COMPRESSED_BYTES);
     }
 

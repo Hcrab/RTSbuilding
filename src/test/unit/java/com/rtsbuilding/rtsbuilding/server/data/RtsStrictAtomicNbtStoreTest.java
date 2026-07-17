@@ -32,7 +32,7 @@ class RtsStrictAtomicNbtStoreTest {
         assertTrue(store.write(root));
         var found = assertInstanceOf(
                 RtsNbtStore.ReadResult.Found.class, store.readResult());
-        assertArrayEquals(payload, found.root().getByteArray("payload"));
+        assertArrayEquals(payload, found.root().getByteArray("payload").orElseThrow());
     }
 
     @Test
