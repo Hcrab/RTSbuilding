@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.render.pass;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
@@ -48,8 +50,8 @@ public final class BoundaryPass implements RenderPass {
     /** 滚动速度（UV 单位/秒） */
     private static final float SCROLL_SPEED = 0.5F;
 
-    /** 回退模式下高度图重算节流间隔（毫秒）——半秒一次绰绰有余 */
-    private static final long FALLBACK_RECALC_MS = 500;
+    /** 默认回退模式下高度图重算节流间隔（毫秒） */
+    private static final long DEFAULT_FALLBACK_RECALC_MS = 500;
 
     /** 增量时间上限（毫秒），避免长时间暂停后滚偏跳帧 */
     private static final float MAX_DELTA_MS = 200.0F;
@@ -78,10 +80,27 @@ public final class BoundaryPass implements RenderPass {
 
     /** 回退模式上次重算时间戳 */
     private long fallbackLastRecalc;
+    
+    /** 获取高度图扫描缓存超时时间 */
+    private long getFallbackRecalcInterval() {
+        return PerformanceConfig.getBoundaryScanCacheTimeout();
+    }
 
     @Override
     public boolean shouldRender(Minecraft mc) {
-        return mc.player != null && mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+        return mc.player != null 
+            && mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
+            && isConfigSafe() && PerformanceConfig.shouldRenderBoundaryWalls();
+    }
+    
+    private boolean isConfigSafe() {
+        try {
+            PerformanceConfig.shouldRenderBoundaryWalls();
+            return true;
+        } catch (IllegalStateException e) {
+            // 如果配置尚未加载，则返回默认行为
+            return true; // 默认情况下渲染边界墙
+        }
     }
 
     @Override
@@ -102,6 +121,26 @@ public final class BoundaryPass implements RenderPass {
             cz = mc.player.getZ();
             r  = FALLBACK_RADIUS;
             useFallback = true;
+        }
+        
+        // 计算与边界的距离
+        var camera = mc.getCameraEntity();
+        if (camera != null) {
+            double distance = Math.sqrt(
+                Math.pow(camera.getX() - cx, 2) +
+                Math.pow(camera.getY() - cy, 2) +
+                Math.pow(camera.getZ() - cz, 2)
+            );
+            
+            // 渲染距离剔除
+            try {
+                if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                    distance > PerformanceConfig.getMaxRenderDistance()) {
+                    return;
+                }
+            } catch (IllegalStateException e) {
+                // 如果配置尚未加载，跳过距离剔除
+            }
         }
 
         // ---- 更新滚动偏移（基于时间增量，避免 System.nanoTime()） ----
@@ -195,7 +234,7 @@ public final class BoundaryPass implements RenderPass {
             return cachedHighestY;
         } else {
             // ---- 回退模式：节流重算 ----
-            if (now - fallbackLastRecalc >= FALLBACK_RECALC_MS) {
+            if (now - fallbackLastRecalc >= getFallbackRecalcInterval()) {
                 cachedHighestY = findHighestBoundaryBlock(level, minX, minZ, maxX, maxZ);
                 fallbackLastRecalc = now;
             }

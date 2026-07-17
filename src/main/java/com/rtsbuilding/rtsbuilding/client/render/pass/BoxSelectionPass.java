@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -91,7 +92,18 @@ public final class BoxSelectionPass implements RenderPass {
 
     @Override
     public boolean shouldRender(Minecraft mc) {
-        return mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+        return mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
+            && isConfigSafe() && PerformanceConfig.shouldRenderBoxSelection();
+    }
+    
+    private boolean isConfigSafe() {
+        try {
+            PerformanceConfig.shouldRenderBoxSelection();
+            return true;
+        } catch (IllegalStateException e) {
+            // 如果配置尚未加载，则返回默认行为
+            return true; // 默认情况下渲染框选
+        }
     }
 
     @Override
@@ -131,6 +143,16 @@ public final class BoxSelectionPass implements RenderPass {
         if (camera == null) return;
         Vec3 cameraPos = camera.getEyePosition(partialTick);
         double distance = smoothTarget.centerDistanceTo(cameraPos);
+        
+        // 渲染距离剔除
+        try {
+            if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                distance > PerformanceConfig.getMaxRenderDistance()) {
+                return;
+            }
+        } catch (IllegalStateException e) {
+            // 如果配置尚未加载，跳过距离剔除
+        }
 
         // 深度检测层 + 无深度穿墙层（颜色从 ARGB 缓存读取）
         selColor.update(selectionColor);
@@ -315,6 +337,26 @@ public final class BoxSelectionPass implements RenderPass {
             var bounds = entity.getBoundingBox()
                     .move(renderX - entity.getX(), renderY - entity.getY(), renderZ - entity.getZ())
                     .inflate(0.03D);
+            
+            // 计算实体与相机的距离
+            var camera = mc.getCameraEntity();
+            if (camera != null) {
+                double distance = Math.sqrt(
+                    Math.pow(renderX - camera.getX(), 2) +
+                    Math.pow(renderY - camera.getY(), 2) +
+                    Math.pow(renderZ - camera.getZ(), 2)
+                );
+                
+                // 渲染距离剔除
+                try {
+                    if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                        distance > PerformanceConfig.getMaxRenderDistance()) {
+                        continue; // 跳过此实体的渲染
+                    }
+                } catch (IllegalStateException e) {
+                    // 如果配置尚未加载，跳过距离剔除
+                }
+            }
 
             CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),
                     bounds.minX, bounds.minY, bounds.minZ,
@@ -371,6 +413,16 @@ public final class BoxSelectionPass implements RenderPass {
                     double camDist = camera != null
                             ? Math.sqrt(camera.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5))
                             : 8.0;
+                    
+                    // 渲染距离剔除
+                    try {
+                        if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                            camDist > PerformanceConfig.getMaxRenderDistance()) {
+                            continue; // 跳过此方块的渲染
+                        }
+                    } catch (IllegalStateException e) {
+                        // 如果配置尚未加载，跳过距离剔除
+                    }
 
                     // 深度检测层
                     CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.brackets(),

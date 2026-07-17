@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
+import com.rtsbuilding.rtsbuilding.client.event.GuiRenderHandler;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.blueprint.BlueprintModule;
@@ -15,6 +16,7 @@ import com.rtsbuilding.rtsbuilding.client.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -60,6 +62,9 @@ public final class RtsClientBootstrap {
             // 初始化内核（创建 InputPipeline、RenderPipeline）
             kernel.initialize();
             RtsbuildingMod.LOGGER.info("RTS client2 kernel initialized with all modules");
+            
+            // 注册GUI渲染事件处理器
+            NeoForge.EVENT_BUS.register(GuiRenderHandler.class);
         });
     }
 }

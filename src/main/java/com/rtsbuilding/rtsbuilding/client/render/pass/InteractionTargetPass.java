@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
@@ -32,7 +33,18 @@ public final class InteractionTargetPass implements RenderPass {
 
     @Override
     public boolean shouldRender(Minecraft mc) {
-        return mc.screen instanceof BuilderScreen;
+        return mc.screen instanceof BuilderScreen
+            && isConfigSafe() && PerformanceConfig.shouldRenderInteractionHighlights();
+    }
+    
+    private boolean isConfigSafe() {
+        try {
+            PerformanceConfig.shouldRenderInteractionHighlights();
+            return true;
+        } catch (IllegalStateException e) {
+            // 如果配置尚未加载，则返回默认行为
+            return true; // 默认情况下渲染交互高亮
+        }
     }
 
     @Override
@@ -81,6 +93,16 @@ public final class InteractionTargetPass implements RenderPass {
 
         // 根据动画后的中心计算距离（厚度缩放）
         double distance = smoothTarget.centerDistanceTo(ray.origin());
+        
+        // 渲染距离剔除
+        try {
+            if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                distance > PerformanceConfig.getMaxRenderDistance()) {
+                return;
+            }
+        } catch (IllegalStateException e) {
+            // 如果配置尚未加载，跳过距离剔除
+        }
 
         // 选择颜色：从 ARGB 缓存读取 float 分量，避免每帧位运算
         blockColor.update(blockTargetColor);
@@ -94,7 +116,7 @@ public final class InteractionTargetPass implements RenderPass {
                 smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),
                 smoothTarget.maxX(), smoothTarget.maxY(), smoothTarget.maxZ(),
                 r, g, b, 0.9f, distance);
-        // 半透明无深度层（穿墙可见）——深度测试开启时渲染
+        // 半透无深度层（穿墙可见）——深度测试开启时渲染
         if (BoxSelectionPass.depthTestEnabled) {
             CornerBracketRenderer.renderCornerBrackets(poseStack, alloc.noDepth(),
                     smoothTarget.minX(), smoothTarget.minY(), smoothTarget.minZ(),

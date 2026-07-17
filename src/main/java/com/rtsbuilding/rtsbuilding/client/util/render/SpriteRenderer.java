@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceTiler;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.GuiRenderEnhancer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -106,12 +107,16 @@ public final class SpriteRenderer {
     public static void drawSprite(GuiGraphics g, SpriteRegion region,
                                    int dstX, int dstY, int dstW, int dstH) {
         FilterState.getInstance().apply(region.texture());
+        // 应用高质量纹理过滤
+        GuiRenderEnhancer.applyHighQualityTextureFiltering(region.texture().location());
         try (BlendScope blend = BlendScope.normal()) {
             g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
                     region.u(), region.v(),
                     region.regionWidth(), region.regionHeight(),
                     region.texture().fullWidth(), region.texture().fullHeight());
         }
+        // 重置纹理过滤
+        GuiRenderEnhancer.resetTextureFiltering();
     }
 
     /**
@@ -122,12 +127,16 @@ public final class SpriteRenderer {
     private static void drawSprite(GuiGraphics g, SpriteRegion region, int themeOffset,
                                     int dstX, int dstY, int dstW, int dstH) {
         FilterState.getInstance().apply(region.texture());
+        // 应用高质量纹理过滤
+        GuiRenderEnhancer.applyHighQualityTextureFiltering(region.texture().location());
         try (BlendScope blend = BlendScope.normal()) {
             g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
                     region.u() + themeOffset, region.v(),
                     region.regionWidth(), region.regionHeight(),
                     region.texture().fullWidth(), region.texture().fullHeight());
         }
+        // 重置纹理过滤
+        GuiRenderEnhancer.resetTextureFiltering();
     }
 
     // ======================== 九宫格渲染 ========================
@@ -157,6 +166,8 @@ public final class SpriteRenderer {
         int u = r.u() + themeOffset;
 
         FilterState.getInstance().apply(texInfo);
+        // 应用高质量纹理过滤
+        GuiRenderEnhancer.applyHighQualityTextureFiltering(texture);
 
         try (BlendScope blend = BlendScope.normal()) {
             NineSliceTiler.forEachTile(
@@ -165,6 +176,8 @@ public final class SpriteRenderer {
                     (sx, sy, sw, sh, dx, dy, dw, dh) ->
                             g.blit(texture, dx, dy, dw, dh, sx, sy, sw, sh, texW, texFileH));
         }
+        // 重置纹理过滤
+        GuiRenderEnhancer.resetTextureFiltering();
     }
 
     // ======================== 面板快捷方法 ========================
@@ -209,6 +222,8 @@ public final class SpriteRenderer {
         int texFileH = texInfo.fullHeight();
 
         FilterState.getInstance().apply(texInfo);
+        // 应用高质量纹理过滤
+        GuiRenderEnhancer.applyHighQualityTextureFiltering(texture);
 
         try (BlendScope blend = BlendScope.normal()) {
             NineSliceTiler.forEachTile(
@@ -217,6 +232,8 @@ public final class SpriteRenderer {
                     (sx, sy, sw, sh, dx, dy, dw, dh) ->
                             g.blit(texture, dx, dy, dw, dh, sx, sy, sw, sh, texW, texFileH));
         }
+        // 重置纹理过滤
+        GuiRenderEnhancer.resetTextureFiltering();
     }
 
     // ======================== 三段式按钮状态渲染 ========================

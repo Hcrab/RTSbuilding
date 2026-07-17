@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
@@ -96,7 +97,18 @@ public final class LinkedStoragePass implements RenderPass {
     public boolean shouldRender(Minecraft mc) {
         // 仅当绑定容器模式（bind_button）激活时才渲染已绑定方块线框
         if (!(mc.screen instanceof BuilderScreen screen)) return false;
-        return screen.isBindModeActive();
+        return screen.isBindModeActive()
+            && isConfigSafe() && PerformanceConfig.shouldRenderStorageLinks();
+    }
+    
+    private boolean isConfigSafe() {
+        try {
+            PerformanceConfig.shouldRenderStorageLinks();
+            return true;
+        } catch (IllegalStateException e) {
+            // 如果配置尚未加载，则返回默认行为
+            return true; // 默认情况下渲染存储链接
+        }
     }
 
     @Override
@@ -250,6 +262,16 @@ public final class LinkedStoragePass implements RenderPass {
             AABB renderBounds = getAnimatedBounds(pos, fullBounds, now);
 
             double distance = cameraPos.distanceTo(renderBounds.getCenter());
+            
+            // 渲染距离剔除
+            try {
+                if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                    distance > PerformanceConfig.getMaxRenderDistance()) {
+                    continue; // 跳过此条目的渲染
+                }
+            } catch (IllegalStateException e) {
+                // 如果配置尚未加载，跳过距离剔除
+            }
 
             // 雾面层——在方块六个面上渲染半透明层，形成柔和光晕
             CornerBracketRenderer.renderFilledFaces(alloc.brackets(), poseStack,
@@ -280,6 +302,16 @@ public final class LinkedStoragePass implements RenderPass {
             AABB renderBounds = expandBoundsFromCenter(a.bounds, t);
 
             double distance = cameraPos.distanceTo(renderBounds.getCenter());
+            
+            // 渲染距离剔除
+            try {
+                if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
+                    distance > PerformanceConfig.getMaxRenderDistance()) {
+                    continue; // 跳过此条目的渲染
+                }
+            } catch (IllegalStateException e) {
+                // 如果配置尚未加载，跳过距离剔除
+            }
 
             // 雾面
             CornerBracketRenderer.renderFilledFaces(alloc.brackets(), poseStack,

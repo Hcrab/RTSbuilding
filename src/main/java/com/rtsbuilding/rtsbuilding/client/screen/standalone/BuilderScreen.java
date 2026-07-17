@@ -23,6 +23,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.rightbar.RightSidebarPane
 import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectionHighlight;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.state.RtsScreenUiStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.render.GuiRenderEnhancer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
@@ -490,6 +491,9 @@ public class BuilderScreen extends Screen {
             return;
         }
 
+        // 启用高质量渲染
+        GuiRenderEnhancer.beginHighQualityRender(guiGraphics);
+        
         // 0. 底层：用不透明黑色填充整个屏幕，屏蔽 Screen 背后的世界渲染
         // （Minecraft 在渲染任何 Screen 前会先渲染世界画面）
         guiGraphics.fill(0, 0, this.width, this.height, 0xFF000000);
@@ -566,6 +570,9 @@ public class BuilderScreen extends Screen {
         if (Minecraft.getInstance().gui.getDebugOverlay().showDebugScreen()) {
             Minecraft.getInstance().gui.getDebugOverlay().render(guiGraphics);
         }
+        
+        // 恢复标准渲染设置
+        GuiRenderEnhancer.endHighQualityRender(guiGraphics);
     }
 
     /**
