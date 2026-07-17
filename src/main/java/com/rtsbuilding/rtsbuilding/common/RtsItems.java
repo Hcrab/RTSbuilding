@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.common;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginItem;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -75,7 +77,8 @@ public final class RtsItems {
      * 插件物品右击时触发安装逻辑，默认最大堆叠 64 个。
      */
     private static DeferredHolder<Item, Item> pluginItem(String id, boolean creative) {
-        DeferredHolder<Item, Item> holder = ITEMS.register(id, () -> new RtsPluginItem(new Item.Properties().stacksTo(64)));
+        DeferredHolder<Item, Item> holder = ITEMS.register(id,
+                () -> new RtsPluginItem(properties(id).stacksTo(64)));
         if (creative) {
             CREATIVE_TAB_ITEMS.add(holder);
         }
@@ -90,7 +93,7 @@ public final class RtsItems {
      * @return 物品的 {@link DeferredHolder}
      */
     public static DeferredHolder<Item, Item> simpleItem(String id, boolean creative) {
-        DeferredHolder<Item, Item> holder = ITEMS.register(id, () -> new Item(new Item.Properties()));
+        DeferredHolder<Item, Item> holder = ITEMS.register(id, () -> new Item(properties(id)));
         if (creative) {
             CREATIVE_TAB_ITEMS.add(holder);
         }
@@ -106,7 +109,7 @@ public final class RtsItems {
      * @return 物品的 {@link DeferredHolder}
      */
     public static DeferredHolder<Item, Item> simpleItem(String id, Item.Properties properties, boolean creative) {
-        DeferredHolder<Item, Item> holder = ITEMS.register(id, () -> new Item(properties));
+        DeferredHolder<Item, Item> holder = ITEMS.register(id, () -> new Item(withId(id, properties)));
         if (creative) {
             CREATIVE_TAB_ITEMS.add(holder);
         }
@@ -156,7 +159,8 @@ public final class RtsItems {
      */
     public static DeferredHolder<Item, BlockItem> blockItem(String id,
             DeferredHolder<Block, ? extends Block> block, boolean creative) {
-        DeferredHolder<Item, BlockItem> holder = ITEMS.register(id, () -> new BlockItem(block.get(), new Item.Properties()));
+        DeferredHolder<Item, BlockItem> holder = ITEMS.register(id,
+                () -> new BlockItem(block.get(), properties(id)));
         if (creative) {
             CREATIVE_TAB_ITEMS.add(holder);
         }
@@ -174,7 +178,8 @@ public final class RtsItems {
      */
     public static DeferredHolder<Item, BlockItem> blockItem(String id,
             DeferredHolder<Block, ? extends Block> block, Item.Properties properties, boolean creative) {
-        DeferredHolder<Item, BlockItem> holder = ITEMS.register(id, () -> new BlockItem(block.get(), properties));
+        DeferredHolder<Item, BlockItem> holder = ITEMS.register(id,
+                () -> new BlockItem(block.get(), withId(id, properties)));
         if (creative) {
             CREATIVE_TAB_ITEMS.add(holder);
         }
@@ -195,6 +200,21 @@ public final class RtsItems {
      */
     public static java.util.Collection<DeferredHolder<Item, ? extends Item>> getAllItems() {
         return ITEMS.getEntries();
+    }
+
+    /**
+     * 26.1 起物品会在构造阶段解析翻译键和模型，因此属性必须先知道最终注册 ID。
+     * 把这条新约束收口在注册器内，避免各个物品类自行拼接资源键。
+     */
+    private static Item.Properties properties(String id) {
+        return withId(id, new Item.Properties());
+    }
+
+    private static Item.Properties withId(String id, Item.Properties properties) {
+        ResourceKey<Item> itemKey = ResourceKey.create(
+                Registries.ITEM,
+                Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, id));
+        return properties.setId(itemKey);
     }
 
     private RtsItems() {

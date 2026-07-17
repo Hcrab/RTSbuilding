@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "E": {"item": "minecraft:ender_pearl"},
-    "Q": {"tag": "c:gems/quartz"},
-    "R": {"tag": "c:dusts/redstone"}
+    "E": "minecraft:ender_pearl",
+    "Q": "#c:gems/quartz",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     "ERE",

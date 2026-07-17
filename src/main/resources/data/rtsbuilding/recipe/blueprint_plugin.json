@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "B": {"item": "minecraft:book"},
-    "P": {"item": "minecraft:paper"},
-    "R": {"tag": "c:dusts/redstone"}
+    "B": "minecraft:book",
+    "P": "minecraft:paper",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     "PPP",

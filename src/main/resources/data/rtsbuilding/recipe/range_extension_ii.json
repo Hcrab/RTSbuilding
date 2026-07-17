@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "I": {"tag": "c:ingots/iron"},
-    "P": {"item": "rtsbuilding:range_extension_i"},
-    "R": {"tag": "c:dusts/redstone"}
+    "I": "#c:ingots/iron",
+    "P": "rtsbuilding:range_extension_i",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     " I ",

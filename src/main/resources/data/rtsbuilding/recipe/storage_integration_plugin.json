@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "C": {"item": "minecraft:chest"},
-    "H": {"item": "minecraft:hopper"},
-    "R": {"tag": "c:dusts/redstone"}
+    "C": "minecraft:chest",
+    "H": "minecraft:hopper",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     "RHR",

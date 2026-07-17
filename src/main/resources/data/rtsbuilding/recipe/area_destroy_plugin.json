@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "tools",
   "key": {
-    "L": {"tag": "c:gems/lapis"},
-    "P": {"item": "minecraft:iron_pickaxe"},
-    "R": {"tag": "c:dusts/redstone"}
+    "L": "#c:gems/lapis",
+    "P": "minecraft:iron_pickaxe",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     " L ",

@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "C": {"item": "minecraft:compass"},
-    "I": {"tag": "c:ingots/copper"},
-    "R": {"tag": "c:dusts/redstone"}
+    "C": "minecraft:compass",
+    "I": "#c:ingots/copper",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     "IRI",

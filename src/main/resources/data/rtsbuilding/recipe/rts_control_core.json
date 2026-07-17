@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {"tag": "c:gems/amethyst"},
-    "E": {"item": "minecraft:ender_eye"},
-    "R": {"tag": "c:dusts/redstone"}
+    "A": "#c:gems/amethyst",
+    "E": "minecraft:ender_eye",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     " R ",

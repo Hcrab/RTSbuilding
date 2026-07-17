@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "B": {"item": "minecraft:book"},
-    "C": {"item": "minecraft:crafting_table"},
-    "R": {"tag": "c:dusts/redstone"}
+    "B": "minecraft:book",
+    "C": "minecraft:crafting_table",
+    "R": "#c:dusts/redstone"
   },
   "pattern": [
     " R ",
