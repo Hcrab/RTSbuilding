@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -319,15 +320,17 @@ public final class RtsPlacementExecutor {
         Item item = BuiltInRegistries.ITEM.get(id);
         ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
         ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : preferredStack.copyWithCount(1);
+        boolean sophisticatedBackpackItem = RtsBackpackCompat.isBackpackItem(protectionStack);
+        boolean selectedPlacesBlock = item instanceof BlockItem || sophisticatedBackpackItem;
         if (!RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, InteractionHand.MAIN_HAND, protectionStack)) {
             return false;
         }
-        if (item instanceof BlockItem && !RtsClaimProtectionService.canPlaceBlock(
+        if (selectedPlacesBlock && !RtsClaimProtectionService.canPlaceBlock(
                 player, placementTargetPos(level, clickedPos, face))) {
             return false;
         }
-        if (skipIfOccupied && item instanceof BlockItem) {
+        if (skipIfOccupied && selectedPlacesBlock) {
             if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
                 return true;
@@ -343,7 +346,8 @@ public final class RtsPlacementExecutor {
             return false;
         }
         ItemStack selectedSoundStack = extracted.copy();
-        boolean selectedPlacesBlock = item instanceof BlockItem;
+        boolean sophisticatedBackpackPlacementOnly = sophisticatedBackpackItem
+                || RtsBackpackCompat.isBackpackItem(extracted);
 
         BlockState beforeClicked = level.getBlockState(clickedPos);
         BlockPos adjacentPos = clickedPos.relative(face);
@@ -356,7 +360,8 @@ public final class RtsPlacementExecutor {
                 hit.getLocation(),
                 rayContext,
                 Config.remotePovBlockReach(),
-                () -> InteractionHelper.useItemOnWithMainHand(player, level, extracted, hit, forcePlace));
+                () -> InteractionHelper.useItemOnWithMainHand(
+                        player, level, extracted, hit, forcePlace || sophisticatedBackpackPlacementOnly));
         AbstractContainerMenu menuAfterSelectedUse = player.containerMenu;
         if (menuAfterSelectedUse != menuBeforeSelectedUse) {
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSelectedUse, clickedPos);
@@ -364,7 +369,7 @@ public final class RtsPlacementExecutor {
 
         TemporaryContextSwitcher.UseOnOutcome finalOutcome = selectedOutcome;
         ItemStack lastAttemptStack = extracted.copy();
-        if (!selectedOutcome.result().consumesAction()) {
+        if (!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()) {
             ItemStack fallbackStack = nextAttemptStack(selectedOutcome, lastAttemptStack);
             lastAttemptStack = fallbackStack.copy();
             AbstractContainerMenu menuBeforeSelectedFallback = player.containerMenu;
@@ -380,7 +385,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSelectedFallback, clickedPos);
             }
         }
-        if (forcePlace && !finalOutcome.result().consumesAction()) {
+        if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction()) {
             ItemStack storageInteractStack = nextAttemptStack(finalOutcome, lastAttemptStack);
             lastAttemptStack = storageInteractStack.copy();
             AbstractContainerMenu menuBeforeStorageInteractFallback = player.containerMenu;
@@ -396,7 +401,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterStorageInteractFallback, clickedPos);
             }
         }
-        if (forcePlace && !finalOutcome.result().consumesAction()) {
+        if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction()) {
             ItemStack storageItemInteractStack = nextAttemptStack(finalOutcome, lastAttemptStack);
             AbstractContainerMenu menuBeforeStorageItemInteractFallback = player.containerMenu;
             finalOutcome = TemporaryContextSwitcher.withTemporaryUseItemContext(

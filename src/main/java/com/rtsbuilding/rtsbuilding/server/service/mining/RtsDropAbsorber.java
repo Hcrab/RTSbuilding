@@ -290,25 +290,15 @@ public final class RtsDropAbsorber {
     private static int enqueueStack(
             com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
             ItemStack stack) {
-        if (buffer.stacks.size()
-                >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
-            return 0;
-        }
-        int accepted = Math.min(buffer.remainingCapacity(), stack.getCount());
-        if (accepted <= 0) return 0;
-        buffer.stacks.addLast(stack.copyWithCount(accepted));
-        buffer.bufferedItems += accepted;
-        return accepted;
+        if (stack == null || stack.isEmpty()) return 0;
+        return buffer.enqueueMerged(stack, stack.getCount());
     }
 
     private static void finishEnqueue(
             ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
             boolean changed) {
-        if (buffer.isFull() && !buffer.fullNoticeSent) {
-            player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
-            buffer.fullNoticeSent = true;
-        }
+        buffer.updateFullState(player.serverLevel().getGameTime());
         if (changed) {
             RtsEffectAccumulator.INSTANCE.markPersistence(
                     player.getUUID(), player.level().dimension());
@@ -370,6 +360,11 @@ public final class RtsDropAbsorber {
         if (fellBack && buffer.shouldSendFallbackNotice(gameTime, 60L)) {
             RtsDeveloperMetrics.recordBufferFallback(player);
             player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.fallback"), false);
+        }
+        buffer.updateFullState(gameTime);
+        if (buffer.shouldNotifyFull(gameTime, 20L)) {
+            player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
+            buffer.fullNoticeSent = true;
         }
         buffer.clearTimingWhenEmpty();
         if (processed > 0) {

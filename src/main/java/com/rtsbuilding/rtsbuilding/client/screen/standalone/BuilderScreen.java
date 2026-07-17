@@ -43,6 +43,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -980,7 +981,9 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.controller.hasSelectedItem()) {
-            if (target.isEntityTarget()) {
+            boolean forceBackpackPlacement = RtsBackpackCompat.isBackpackItem(
+                    this.controller.getSelectedItemPreview());
+            if (target.isEntityTarget() && !forceBackpackPlacement) {
                 this.shapeController.clearShapeBuildSession();
                 this.controller.interactEntityWithPinnedItem(
                         target.entityId(),
@@ -989,7 +992,8 @@ public final class BuilderScreen extends Screen {
                         target.rayOrigin(),
                         target.rayDir());
             } else if (target.blockHit() != null) {
-                if (!forcePlace && !rangeDestroyMode && this.controller.getBuildShape() == BuildShape.BLOCK) {
+                if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode
+                        && this.controller.getBuildShape() == BuildShape.BLOCK) {
                     this.shapeController.clearShapeBuildSession();
                     this.controller.interactBlockWithPinnedItem(
                             target.blockHit(),
@@ -1009,7 +1013,7 @@ public final class BuilderScreen extends Screen {
                 }
                 this.shapeController.placeWithShape(
                         target.blockHit(),
-                        forcePlace,
+                        forcePlace || forceBackpackPlacement,
                         target.rayOrigin(),
                         target.rayDir(),
                         mouseY,

@@ -110,6 +110,10 @@ public final class ScreenShapeController {
 
     public void setBuildShapeFillMode(ShapeFillMode mode) {
         this.buildShapeFillMode = mode;
+        // The quick-build button changes the mode-specific field; keep the active generator in sync.
+        if (!this.destroyModeActive) {
+            this.shapeFillMode = mode;
+        }
     }
 
     /** 返回范围破坏模式的独立填充模式 */
@@ -119,6 +123,10 @@ public final class ScreenShapeController {
 
     public void setDestroyShapeFillMode(ShapeFillMode mode) {
         this.destroyShapeFillMode = mode;
+        // Range destruction has its own fill mode and must update the active preview immediately.
+        if (this.destroyModeActive) {
+            this.shapeFillMode = mode;
+        }
     }
 
     public boolean isLineConnected() {

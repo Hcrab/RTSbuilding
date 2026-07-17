@@ -38,7 +38,7 @@ public class Config {
     public static final ModConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = CLIENT_BUILDER
             .comment("Render translucent block ghost models for placement previews before the player confirms placement.")
             .translation("rtsbuilding.configuration.useBlockGhostPreview")
-            .define("useBlockGhostPreview", true);
+            .define("useBlockGhostPreview", false);
 
     public static final ModConfigSpec.BooleanValue USE_PLACE_BLOCK_GHOST_ANIMATION = CLIENT_BUILDER
             .comment("Render translucent grow-in block ghosts after server-confirmed block placement.")

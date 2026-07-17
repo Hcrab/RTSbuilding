@@ -19,13 +19,16 @@ class RtsRightClickPriorityRoutingTest {
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "if (!forcePlace && !rangeDestroyMode && this.controller.getBuildShape() == BuildShape.BLOCK)",
+                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode",
                 selectedItemBranch);
         int interactPinnedItem = body.indexOf("this.controller.interactBlockWithPinnedItem", selectedItemBranch);
         int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)", selectedItemBranch);
 
         assertTrue(normalInteractGuard >= 0,
                 "普通右键交互优先只能截获单方块模式，形状/范围放置不能被提前返回。");
+        assertTrue(body.indexOf("this.controller.getBuildShape() == BuildShape.BLOCK", normalInteractGuard)
+                        > normalInteractGuard,
+                "普通物品的交互优先仍必须只作用于单方块模式。");
         assertTrue(interactPinnedItem > normalInteractGuard,
                 "normal right-click with a selected storage item should send interact before placement");
         assertTrue(forcePlacementBranch > interactPinnedItem,

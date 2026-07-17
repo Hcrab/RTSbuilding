@@ -16,19 +16,18 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim;
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.task.BoundedQueueSelector;
+import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
@@ -114,22 +113,34 @@ public final class RtsPlacedRecoveryService {
 
         NearbyDropSnapshot beforeBreak = snapshotNearbyDrops(level, targetPos);
         if (beforeBreak.saturated()) {
-            // 无法完整区分旧实体与新掉落时拒绝破坏，避免错误 claim 周围物品。
             return;
         }
         if (!allowAdjacentFallback) {
             ServerHistoryManager.recordBreak(player, List.of(targetPos), face != null ? face : Direction.UP);
         }
-        boolean removed = breakWithSimulatedSilkTouch(player, level, targetPos);
+
+        ItemStack recoveredBlock = recoveryStack(level, targetPos, state);
+        if (recoveredBlock.isEmpty()) {
+            return;
+        }
+        boolean removed = recoverTrackedBlock(player, level, targetPos, state);
         if (!removed || !level.getBlockState(targetPos).isAir()) {
+            tracker.mark(targetPos);
             return;
         }
 
         RtsPlacementSound.playRemoteBlockBreakSound(player, level, targetPos, state);
         tracker.clear(targetPos);
+        ItemEntity recoveredEntity = materializeRecoveredBlock(level, targetPos, recoveredBlock);
         NearbyDropCollection afterBreak = collectNewNearbyDrops(level, targetPos, beforeBreak.entityIds());
         PlacedRecoveryJob queuedRecovery = afterBreak.saturated() ? null
                 : enqueueRecoveryJob(player, session, targetPos, afterBreak.entities());
+        if (recoveredEntity == null) {
+            ItemStack remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, recoveredBlock.copy());
+            if (!remainder.isEmpty()) {
+                player.drop(remainder, false);
+            }
+        }
 
         LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
         boolean removedLinkedRef = session.linkedStorageInfo.remove(targetRef);
@@ -287,8 +298,8 @@ public final class RtsPlacedRecoveryService {
             return new NearbyDropSnapshot(Set.of(), true);
         }
         Set<UUID> ids = new HashSet<>(nearby.size());
-        for (ItemEntity e : nearby) {
-            ids.add(e.getUUID());
+        for (ItemEntity entity : nearby) {
+            ids.add(entity.getUUID());
         }
         return new NearbyDropSnapshot(Set.copyOf(ids), false);
     }
@@ -304,15 +315,14 @@ public final class RtsPlacedRecoveryService {
         level.getEntities(EntityTypeTest.forClass(ItemEntity.class), box,
                 e -> e != null && e.isAlive() && !e.getItem().isEmpty(), all, queryLimit);
         List<ItemEntity> fresh = new ArrayList<>();
-        for (ItemEntity e : all) {
-            if (!safeExistingIds.contains(e.getUUID())) {
-                fresh.add(e);
+        for (ItemEntity entity : all) {
+            if (!safeExistingIds.contains(entity.getUUID())) {
+                fresh.add(entity);
                 if (fresh.size() > maxNewDrops) {
                     return new NearbyDropCollection(List.of(), true);
                 }
             }
         }
-        // 查询结果达到上限时可能仍有未枚举实体；不能声称已经完整区分新旧掉落。
         if (all.size() >= queryLimit) return new NearbyDropCollection(List.of(), true);
         return new NearbyDropCollection(List.copyOf(fresh), false);
     }
@@ -323,28 +333,37 @@ public final class RtsPlacedRecoveryService {
     record NearbyDropCollection(List<ItemEntity> entities, boolean saturated) {
     }
 
-    static boolean breakWithSimulatedSilkTouch(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        if (player == null || level == null || pos == null) return false;
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return true;
-
-        ItemStack fakeTool = new ItemStack(Items.NETHERITE_PICKAXE);
-        if (Enchantments.SILK_TOUCH != null) {
-            var reg = level.holderLookup(Registries.ENCHANTMENT);
-            var enchHolder = reg.get(Enchantments.SILK_TOUCH);
-            enchHolder.ifPresent(holder ->
-                    fakeTool.enchant(holder, 1));
+    static ItemStack recoveryStack(ServerLevel level, BlockPos pos, BlockState state) {
+        if (level == null || pos == null || state == null || state.isAir()) return ItemStack.EMPTY;
+        ItemStack stack = state.getBlock().getCloneItemStack(level, pos, state);
+        if (stack.isEmpty()) {
+            stack = new ItemStack(state.getBlock().asItem());
         }
-
-        boolean removed = player.gameMode.destroyBlock(pos);
-        if (!removed) return false;
-
-        level.levelEvent(null, 2001, pos, net.minecraft.world.level.block.Block.getId(state));
-        return true;
+        return stack;
     }
 
-    static boolean breakPlacedWithSimulatedSilkTool(ServerPlayer player, ServerLevel level, BlockPos pos) {
-        return breakWithSimulatedSilkTouch(player, level, pos);
+    static boolean recoverTrackedBlock(
+            ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+        if (player == null || level == null || pos == null || state == null || state.isAir()) return false;
+        var breakEvent = TemporaryContextSwitcher.withTemporaryMainHandItem(
+                player, ItemStack.EMPTY,
+                () -> CommonHooks.fireBlockBreak(
+                        level, player.gameMode.getGameModeForPlayer(), player, pos, state));
+        if (breakEvent.isCanceled()) {
+            return false;
+        }
+        return level.destroyBlock(pos, false, player);
+    }
+
+    private static ItemEntity materializeRecoveredBlock(
+            ServerLevel level, BlockPos pos, ItemStack recoveredBlock) {
+        ItemEntity entity = new ItemEntity(
+                level,
+                pos.getX() + 0.5D,
+                pos.getY() + 0.5D,
+                pos.getZ() + 0.5D,
+                recoveredBlock.copy());
+        return level.addFreshEntity(entity) ? entity : null;
     }
 
     private static PlacedRecoveryJob enqueueRecoveryJob(

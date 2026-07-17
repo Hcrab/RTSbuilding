@@ -21,6 +21,7 @@ public final class RtsMiningDropBufferState {
     public long firstQueuedGameTime = -1L;
     public boolean fullNoticeSent;
     private long lastFallbackNoticeGameTime = -1L;
+    private long fullSinceGameTime = -1L;
     public int remainingCapacity() {
         return RtsMiningDropBufferPolicy.remainingCapacity(bufferedItems);
     }
@@ -31,6 +32,38 @@ public final class RtsMiningDropBufferState {
 
     public boolean isEmpty() {
         return stacks.isEmpty();
+    }
+
+    /**
+     * Accepts a logical item count while keeping every buffered stack within the item's legal stack size.
+     */
+    public int enqueueMerged(ItemStack prototype, int requestedCount) {
+        if (prototype == null || prototype.isEmpty() || requestedCount <= 0 || isFull()) {
+            return 0;
+        }
+        int remaining = Math.min(requestedCount, remainingCapacity());
+        int requested = remaining;
+        int maxStackSize = Math.max(1, prototype.getMaxStackSize());
+
+        for (ItemStack existing : stacks) {
+            if (remaining <= 0) break;
+            if (!ItemStack.isSameItemSameComponents(existing, prototype)) continue;
+            int free = Math.max(0, Math.min(maxStackSize, existing.getMaxStackSize()) - existing.getCount());
+            if (free <= 0) continue;
+            int moved = Math.min(free, remaining);
+            existing.grow(moved);
+            remaining -= moved;
+        }
+
+        while (remaining > 0 && stacks.size() < MAX_STACKS) {
+            int chunkSize = Math.min(remaining, maxStackSize);
+            stacks.addLast(prototype.copyWithCount(chunkSize));
+            remaining -= chunkSize;
+        }
+
+        int accepted = requested - remaining;
+        bufferedItems += accepted;
+        return accepted;
     }
 
     public void markStorageBlocked(long gameTime) {
@@ -44,6 +77,21 @@ public final class RtsMiningDropBufferState {
     public boolean fallbackEligible(long gameTime, long timeoutTicks) {
         return firstQueuedGameTime >= 0L && gameTime >= firstQueuedGameTime
                 && gameTime - firstQueuedGameTime >= Math.max(0L, timeoutTicks);
+    }
+
+    public void updateFullState(long gameTime) {
+        if (isFull()) {
+            if (fullSinceGameTime < 0L) fullSinceGameTime = gameTime;
+        } else {
+            fullSinceGameTime = -1L;
+            fullNoticeSent = false;
+        }
+    }
+
+    public boolean shouldNotifyFull(long gameTime, long delayTicks) {
+        return isFull() && !fullNoticeSent && fullSinceGameTime >= 0L
+                && gameTime >= fullSinceGameTime
+                && gameTime - fullSinceGameTime >= Math.max(0L, delayTicks);
     }
 
     /** 多个 durable 缓存任务同时回退时，每位玩家只显示一条合并提示。 */
@@ -61,6 +109,7 @@ public final class RtsMiningDropBufferState {
             bufferedItems = 0;
             firstQueuedGameTime = -1L;
             fullNoticeSent = false;
+            fullSinceGameTime = -1L;
         }
     }
 }

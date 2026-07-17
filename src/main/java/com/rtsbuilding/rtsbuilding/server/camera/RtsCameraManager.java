@@ -79,7 +79,9 @@ public final class RtsCameraManager {
      */
     public static void start(ServerPlayer player, boolean startAtPlayerHead) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.rtsbuilding.camera_locked",
+                    net.minecraft.network.chat.Component.translatable("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (RtsProgressionManager.shouldStartHomeSelection(player)) {
@@ -145,7 +147,9 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.rtsbuilding.camera_locked",
+                    net.minecraft.network.chat.Component.translatable("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (!RtsProgressionManager.canChangeHome(player)) {

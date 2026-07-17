@@ -72,8 +72,16 @@ public final class SessionSerializer {
             int accepted = Math.min(stack.getCount(),
                     com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_BUFFERED_ITEMS - count);
             if (accepted <= 0) break;
-            stacks.add(stack.copyWithCount(accepted).save(player.registryAccess()));
-            count += accepted;
+            int remaining = accepted;
+            int maxStackSize = Math.max(1, stack.getMaxStackSize());
+            while (remaining > 0
+                    && stacks.size()
+                    < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                int chunkSize = Math.min(remaining, maxStackSize);
+                stacks.add(stack.copyWithCount(chunkSize).save(player.registryAccess()));
+                count += chunkSize;
+                remaining -= chunkSize;
+            }
         }
         root.put("drop_buffer_stacks", stacks);
         root.putLong("drop_buffer_since", session.miningDropBuffer.firstQueuedGameTime);
@@ -91,10 +99,8 @@ public final class SessionSerializer {
                 i++) {
             ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
             if (stack.isEmpty()) continue;
-            int accepted = Math.min(stack.getCount(), buffer.remainingCapacity());
+            int accepted = buffer.enqueueMerged(stack, stack.getCount());
             if (accepted <= 0) break;
-            buffer.stacks.addLast(stack.copyWithCount(accepted));
-            buffer.bufferedItems += accepted;
         }
         // 旧存档的 since 表示“进入缓存的时间”，不能继续当成真实储存堵塞时间，否则登录即误回退。
         buffer.firstQueuedGameTime = buffer.stacks.isEmpty()
