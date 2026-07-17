@@ -166,18 +166,20 @@ public interface TaskRepository {
             if ("blueprint".equals(metadata.kind()) && task.type() != TaskType.BLUEPRINT) {
                 throw new IllegalArgumentException("blueprint metadata 只能属于 BLUEPRINT task");
             }
-            if (!task.payloadView().hasUUID("asset_id")
-                    || !task.payloadView().getUUID("asset_id").equals(metadata.assetId().value())) {
+            if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(task.payloadView(), "asset_id")
+                    || !com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                            task.payloadView(), "asset_id").equals(metadata.assetId().value())) {
                 throw new IllegalArgumentException("task.payload.asset_id 与 metadata 不一致");
             }
             assetsPerTask.merge(metadata.taskId(), 1, Integer::sum);
         }
         for (TaskSnapshot task : tasks.values()) {
             if (!task.payloadView().contains("asset_id")) continue;
-            if (!task.payloadView().hasUUID("asset_id")) {
+            if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(task.payloadView(), "asset_id")) {
                 throw new IllegalArgumentException("task.payload.asset_id 类型损坏");
             }
-            TaskAssetId assetId = new TaskAssetId(task.payloadView().getUUID("asset_id"));
+            TaskAssetId assetId = new TaskAssetId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                    task.payloadView(), "asset_id"));
             TaskAssetMetadata metadata = manifest.entries().get(assetId);
             if (metadata == null || !metadata.taskId().equals(task.id())
                     || assetsPerTask.getOrDefault(task.id(), 0) != 1) {

@@ -72,7 +72,8 @@ public final class SessionSerializer {
             int accepted = Math.min(stack.getCount(),
                     com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_BUFFERED_ITEMS - count);
             if (accepted <= 0) break;
-            stacks.add(stack.copyWithCount(accepted).save(player.registryAccess()));
+            stacks.add(com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                    stack.copyWithCount(accepted), player.registryAccess()));
             count += accepted;
         }
         root.put("drop_buffer_stacks", stacks);
@@ -89,7 +90,8 @@ public final class SessionSerializer {
         for (int i = 0; i < stacks.size()
                 && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
                 i++) {
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompoundOrEmpty(i));
+            ItemStack stack = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                    stacks.getCompoundOrEmpty(i), player.registryAccess());
             if (stack.isEmpty()) continue;
             int accepted = Math.min(stack.getCount(), buffer.remainingCapacity());
             if (accepted <= 0) break;
@@ -117,7 +119,8 @@ public final class SessionSerializer {
         for (ItemStack stack : session.funnel.funnelBuffer) {
             if (stack != null && !stack.isEmpty()
                     && stacks.size() < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS) {
-                stacks.add(stack.save(player.registryAccess()));
+                stacks.add(com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                        stack, player.registryAccess()));
             }
         }
         root.put("funnel_buffer", stacks);
@@ -142,7 +145,8 @@ public final class SessionSerializer {
         for (int i = 0; i < stacks.size()
                 && session.funnel.funnelBuffer.size()
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS; i++) {
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompoundOrEmpty(i));
+            ItemStack stack = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                    stacks.getCompoundOrEmpty(i), player.registryAccess());
             if (!stack.isEmpty()) session.funnel.funnelBuffer.add(stack);
         }
     }
@@ -383,7 +387,8 @@ public final class SessionSerializer {
                     && session.uiMemory.getQuickSlotPreview(i) != null
                     ? session.uiMemory.getQuickSlotPreview(i) : ItemStack.EMPTY;
             if (!preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.getValue(key))) {
-                tag.put("stack", preview.copyWithCount(1).save(player.registryAccess()));
+                tag.put("stack", com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                        preview.copyWithCount(1), player.registryAccess()));
             }
             list.add(tag);
         }
@@ -405,7 +410,8 @@ public final class SessionSerializer {
             session.uiMemory.setQuickSlotItemId(slot, itemId);
             ItemStack preview = ItemStack.EMPTY;
             if (tag.contains("stack")) {
-                preview = ItemStack.parseOptional(player.registryAccess(), tag.getCompoundOrEmpty("stack"));
+                preview = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                        tag.getCompoundOrEmpty("stack"), player.registryAccess());
                 if (!preview.isEmpty() && !preview.is(BuiltInRegistries.ITEM.getValue(key))) preview = ItemStack.EMPTY;
             }
             session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
@@ -496,7 +502,8 @@ public final class SessionSerializer {
                 CompoundTag claimTag = new CompoundTag();
                 com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(claimTag, "id", claim.entityId());
                 claimTag.putInt("ordinal", claim.ordinal());
-                claimTag.put("stack", claim.expectedStack().save(player.registryAccess()));
+                claimTag.put("stack", com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                        claim.expectedStack(), player.registryAccess()));
                 claims.add(claimTag);
                 serializedClaims++;
             }
@@ -534,8 +541,8 @@ public final class SessionSerializer {
                         || !claimTag.contains("ordinal")
                         || claimTag.getIntOr("ordinal", 0) < 0
                         || !claimTag.contains("stack")) continue;
-                ItemStack expected = ItemStack.parseOptional(
-                        player.registryAccess(), claimTag.getCompoundOrEmpty("stack"));
+                ItemStack expected = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                        claimTag.getCompoundOrEmpty("stack"), player.registryAccess());
                 if (expected.isEmpty()) continue;
                 claims.addLast(new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim(
                         com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(claimTag, "id"), claimTag.getIntOr("ordinal", 0), expected));

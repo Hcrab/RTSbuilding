@@ -185,8 +185,8 @@ public final class DataCluster {
     /** 从原始 NBT 解码一个组件，如果原始数据中不存在则返回默认值 */
     @SuppressWarnings("unchecked")
     private <T> T decodeFromRaw(DataComponent<T> component) {
-        if (rawRoot != null && rawRoot.contains(component.key(), Tag.TAG_COMPOUND)) {
-            CompoundTag slot = rawRoot.getCompound(component.key());
+        if (rawRoot != null && rawRoot.contains(component.key())) {
+            CompoundTag slot = rawRoot.getCompoundOrEmpty(component.key());
             if (!slot.isEmpty()) {
                 T decoded = component.codec().decode(slot);
                 if (decoded != null) return decoded;

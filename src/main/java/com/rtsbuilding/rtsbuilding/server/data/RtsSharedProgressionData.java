@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -38,9 +39,12 @@ public final class RtsSharedProgressionData extends SavedData {
     private static final String KEY_PLUGIN_OWNER = "owner";
     private static final String KEY_PLUGIN_OWNER_NAME = "owner_name";
 
-    private static final Factory<RtsSharedProgressionData> FACTORY = new Factory<>(
-            RtsSharedProgressionData::new,
-            RtsSharedProgressionData::load);
+    private static final SavedDataType<RtsSharedProgressionData> TYPE = new SavedDataType<>(
+            Identifier.fromNamespaceAndPath("rtsbuilding", DATA_NAME),
+            ignored -> new RtsSharedProgressionData(),
+            level -> CompoundTag.CODEC.xmap(
+                    tag -> load(tag, level.registryAccess()),
+                    data -> data.save(new CompoundTag(), level.registryAccess())));
 
     private final Map<String, SharedProgression> groups = new HashMap<>();
 
@@ -83,7 +87,8 @@ public final class RtsSharedProgressionData extends SavedData {
                 if (pluginId == null) {
                     continue;
                 }
-                ItemStack stack = ItemStack.parseOptional(registries, pluginTag.getCompoundOrEmpty(KEY_PLUGIN_STACK));
+                ItemStack stack = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                        pluginTag.getCompoundOrEmpty(KEY_PLUGIN_STACK), registries);
                 if (stack.isEmpty()) {
                     continue;
                 }
@@ -104,7 +109,7 @@ public final class RtsSharedProgressionData extends SavedData {
     }
 
     public static RtsSharedProgressionData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+        return level.getDataStorage().computeIfAbsent(TYPE);
     }
 
     public SharedHome home(String groupKey) {
@@ -187,8 +192,7 @@ public final class RtsSharedProgressionData extends SavedData {
         return this.groups.computeIfAbsent(groupKey, ignored -> new SharedProgression());
     }
 
-    @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    private CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         ListTag groups = new ListTag();
         for (var entry : this.groups.entrySet()) {
             String groupKey = entry.getKey();
@@ -227,7 +231,8 @@ public final class RtsSharedProgressionData extends SavedData {
                     }
                     CompoundTag pluginTag = new CompoundTag();
                     pluginTag.putString(KEY_PLUGIN_ID, plugin.pluginId().toString());
-                    pluginTag.put(KEY_PLUGIN_STACK, plugin.stack().copyWithCount(1).save(registries));
+                    pluginTag.put(KEY_PLUGIN_STACK, com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                            plugin.stack().copyWithCount(1), registries));
                     pluginTag.putLong(KEY_PLUGIN_INSTALLED_GAME_TIME, plugin.installedGameTime());
                     if (plugin.ownerId() != null) {
                         com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(pluginTag, KEY_PLUGIN_OWNER, plugin.ownerId());

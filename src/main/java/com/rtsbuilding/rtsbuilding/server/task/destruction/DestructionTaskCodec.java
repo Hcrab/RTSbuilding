@@ -71,7 +71,7 @@ public final class DestructionTaskCodec {
         List<BlockPos> destroyed = decodePositions(tag.getLongArray("destroyed").orElseGet(() -> new long[0]),
                 targets.size(), "destroyed");
         ListTag encodedHistory = (ListTag) tag.get("history");
-        if (!encodedHistory.isEmpty() && encodedHistory.getElementType() != Tag.TAG_COMPOUND) {
+        if (encodedHistory.stream().anyMatch(element -> element.getId() != Tag.TAG_COMPOUND)) {
             throw new IllegalArgumentException("destruction history 元素类型无效");
         }
         long maxHistory = (long) targets.size() * DestructionTaskState.MAX_HISTORY_RECORDS_PER_TARGET;

@@ -41,19 +41,19 @@ final class CanonicalNbtHasher {
         digest.update(tag.getId());
         switch (tag.getId()) {
             case Tag.TAG_END -> { }
-            case Tag.TAG_BYTE -> digest.update(((NumericTag) tag).getAsByte());
-            case Tag.TAG_SHORT -> putShort(digest, ((NumericTag) tag).getAsShort());
-            case Tag.TAG_INT -> putInt(digest, ((NumericTag) tag).getAsInt());
-            case Tag.TAG_LONG -> putLong(digest, ((NumericTag) tag).getAsLong());
-            case Tag.TAG_FLOAT -> putInt(digest, Float.floatToIntBits(((NumericTag) tag).getAsFloat()));
-            case Tag.TAG_DOUBLE -> putLong(digest, Double.doubleToLongBits(((NumericTag) tag).getAsDouble()));
+            case Tag.TAG_BYTE -> digest.update(((NumericTag) tag).byteValue());
+            case Tag.TAG_SHORT -> putShort(digest, ((NumericTag) tag).shortValue());
+            case Tag.TAG_INT -> putInt(digest, ((NumericTag) tag).intValue());
+            case Tag.TAG_LONG -> putLong(digest, ((NumericTag) tag).longValue());
+            case Tag.TAG_FLOAT -> putInt(digest, Float.floatToIntBits(((NumericTag) tag).floatValue()));
+            case Tag.TAG_DOUBLE -> putLong(digest, Double.doubleToLongBits(((NumericTag) tag).doubleValue()));
             case Tag.TAG_BYTE_ARRAY -> {
                 byte[] values = ((ByteArrayTag) tag).getAsByteArray();
                 putInt(digest, values.length);
                 digest.update(values);
             }
             case Tag.TAG_STRING -> putCanonicalString(
-                    digest, ((StringTag) tag).getAsString(), "NBT 字符串");
+                    digest, ((StringTag) tag).value(), "NBT 字符串");
             case Tag.TAG_LIST -> {
                 ListTag list = (ListTag) tag;
                 putInt(digest, list.size());

@@ -36,7 +36,8 @@ final class RtsPluginPersistence {
             Identifier pluginId = Identifier.tryParse(tag.getStringOr(NBT_PLUGIN_ID, ""));
             if (pluginId == null) continue;
 
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), tag.getCompoundOrEmpty(NBT_STACK));
+            ItemStack stack = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                    tag.getCompoundOrEmpty(NBT_STACK), player.registryAccess());
             if (stack.isEmpty()) {
                 RtsPluginDefinition definition = RtsPluginRegistry.byId(pluginId);
                 if (definition == null) continue;
@@ -55,7 +56,8 @@ final class RtsPluginPersistence {
 
             CompoundTag tag = new CompoundTag();
             tag.putString(NBT_PLUGIN_ID, plugin.pluginId().toString());
-            tag.put(NBT_STACK, plugin.stack().copyWithCount(1).save(player.registryAccess()));
+            tag.put(NBT_STACK, com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                    plugin.stack().copyWithCount(1), player.registryAccess()));
             tag.putLong(NBT_INSTALLED_GAME_TIME, plugin.installedGameTime());
             list.add(tag);
         }

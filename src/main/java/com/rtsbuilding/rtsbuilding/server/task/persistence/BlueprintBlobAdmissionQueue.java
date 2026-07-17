@@ -210,11 +210,11 @@ final class BlueprintBlobAdmissionQueue {
         if (snapshot.totalUnits() != request.blockCount()) {
             throw new IllegalArgumentException("FreezeRequest blockCount 与 snapshot.totalUnits 不一致");
         }
-        if (!snapshot.payloadView().hasUUID("asset_id")) {
+        if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(snapshot.payloadView(), "asset_id")) {
             throw new IllegalArgumentException("蓝图 snapshot 缺少 asset_id");
         }
         TaskAssetId expected = TaskAssetId.forTask(snapshot.id(), "blueprint");
-        if (!expected.value().equals(snapshot.payloadView().getUUID("asset_id"))) {
+        if (!expected.value().equals(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(snapshot.payloadView(), "asset_id"))) {
             throw new IllegalArgumentException("蓝图 snapshot.asset_id 不是确定性 ID");
         }
     }

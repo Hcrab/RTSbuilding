@@ -788,10 +788,11 @@ public final class TaskPersistenceCoordinator {
 
     private static Optional<TaskAssetId> snapshotAssetId(TaskSnapshot snapshot) {
         if (!snapshot.payloadView().contains("asset_id")) return Optional.empty();
-        if (!snapshot.payloadView().hasUUID("asset_id")) {
+        if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(snapshot.payloadView(), "asset_id")) {
             throw new IllegalArgumentException("payload.asset_id 必须是 UUID int-array");
         }
-        return Optional.of(new TaskAssetId(snapshot.payloadView().getUUID("asset_id")));
+        return Optional.of(new TaskAssetId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(
+                snapshot.payloadView(), "asset_id")));
     }
 
     private static final class ReadOnlyTaskQuery implements TaskQuery {

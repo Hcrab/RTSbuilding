@@ -4,9 +4,10 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.world.level.saveddata.SavedDataType;
 
 /**
  * 追踪已放置方块位置的世界存档数据。
@@ -19,9 +20,12 @@ public final class PlacedBlockTrackerData extends SavedData {
     private static final String KEY_PLACED = "placed";
 
     /** 已放置方块追踪数据的工厂实例，用于创建和加载数据 */
-    private static final Factory<PlacedBlockTrackerData> FACTORY = new Factory<>(
+    private static final SavedDataType<PlacedBlockTrackerData> TYPE = new SavedDataType<>(
+            Identifier.fromNamespaceAndPath("rtsbuilding", DATA_NAME),
             PlacedBlockTrackerData::new,
-            PlacedBlockTrackerData::load);
+            CompoundTag.CODEC.xmap(
+                    tag -> load(tag, null),
+                    data -> data.save(new CompoundTag(), null)));
 
     /** 已放置方块位置集合（使用 long 编码的 BlockPos） */
     private final LongOpenHashSet placedPositions;
@@ -46,7 +50,7 @@ public final class PlacedBlockTrackerData extends SavedData {
      * 如果不存在则创建新的实例。
      */
     public static PlacedBlockTrackerData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+        return level.getDataStorage().computeIfAbsent(TYPE);
     }
 
     /** 标记指定位置的方块为已放置状态 */
@@ -68,8 +72,7 @@ public final class PlacedBlockTrackerData extends SavedData {
         return this.placedPositions.contains(pos.asLong());
     }
 
-    @Override
-    public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.@NotNull Provider registries) {
+    private CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         tag.putLongArray(KEY_PLACED, this.placedPositions.toLongArray()); // 将所有已放置方块位置写入 NBT
         return tag;
     }

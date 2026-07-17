@@ -538,7 +538,8 @@ public final class RtsPlacementBatch {
             tag.putBoolean(NBT_SKIP_IF_OCCUPIED, skipIfOccupied);
             tag.putString(NBT_ITEM_ID, itemId);
             if (!itemPrototype.isEmpty()) {
-                tag.put(NBT_ITEM_PROTOTYPE, itemPrototype.save(registryAccess));
+                tag.put(NBT_ITEM_PROTOTYPE, com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.save(
+                        itemPrototype, registryAccess));
             }
             tag.putDouble(NBT_RAY_ORIGIN_X, rayOriginX);
             tag.putDouble(NBT_RAY_ORIGIN_Y, rayOriginY);
@@ -573,7 +574,8 @@ public final class RtsPlacementBatch {
             String itemId = tag.getStringOr(NBT_ITEM_ID, "");
             ItemStack itemPrototype = ItemStack.EMPTY;
             if (tag.contains(NBT_ITEM_PROTOTYPE)) {
-                itemPrototype = ItemStack.parseOptional(registryAccess, tag.getCompoundOrEmpty(NBT_ITEM_PROTOTYPE));
+                itemPrototype = com.rtsbuilding.rtsbuilding.common.persist.RtsItemStackNbt.load(
+                        tag.getCompoundOrEmpty(NBT_ITEM_PROTOTYPE), registryAccess);
             }
             double rayOriginX = tag.getDoubleOr(NBT_RAY_ORIGIN_X, 0.0D);
             double rayOriginY = tag.getDoubleOr(NBT_RAY_ORIGIN_Y, 0.0D);

@@ -371,7 +371,7 @@ public final class TaskCodec {
             case Tag.TAG_LONG, Tag.TAG_DOUBLE -> counter.add(8L);
             case Tag.TAG_BYTE_ARRAY -> counter.add(((ByteArrayTag) tag).getAsByteArray().length);
             case Tag.TAG_STRING -> {
-                String value = ((StringTag) tag).getAsString();
+                String value = ((StringTag) tag).value();
                 int bytes = NbtStringLimits.requireWritable(value, "payload string");
                 counter.add(2L + bytes);
             }
@@ -463,7 +463,7 @@ public final class TaskCodec {
         if (!(value instanceof ListTag list)) {
             throw new TaskCodecException("缺少 ListTag 字段: " + key);
         }
-        if (!list.isEmpty() && list.getElementType() != elementType) {
+        if (list.stream().anyMatch(element -> element.getId() != elementType)) {
             throw new TaskCodecException("ListTag 元素类型错误: " + key);
         }
         return list;
