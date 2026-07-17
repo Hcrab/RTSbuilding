@@ -21,7 +21,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -133,7 +133,7 @@ public final class OverlayInteraction {
         applyLocalCarriedPreview(entry.stack(), wanted);
         ItemStack request = entry.stack().copy();
         request.setCount(1);
-        PacketDistributor.sendToServer(new C2SRtsLinkedPickupPayload(request, wanted));
+        RtsClientNetworkBridge.send(new C2SRtsLinkedPickupPayload(request, wanted));
         ClientRtsController.get().selectStorageEntry(index);
         pendingOverlayCarriedItemId = entry.itemId();
         return true;
@@ -153,7 +153,7 @@ public final class OverlayInteraction {
             return false;
         }
         int amount = Math.max(1, Math.min(requestedAmount, carried.getCount()));
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
+        RtsClientNetworkBridge.send(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
         ItemStack preview = carried.copy();
         preview.setCount(amount);
         enqueueReturnPreview(preview);
@@ -239,7 +239,7 @@ public final class OverlayInteraction {
         if (!canImportMenuSlot(screen, menuSlot)) {
             return false;
         }
-        PacketDistributor.sendToServer(new C2SRtsImportMenuSlotPayload(menuSlot));
+        RtsClientNetworkBridge.send(new C2SRtsImportMenuSlotPayload(menuSlot));
         return true;
     }
 
@@ -264,7 +264,7 @@ public final class OverlayInteraction {
             return false;
         }
         shiftImportDragSlots.add(menuSlot);
-        PacketDistributor.sendToServer(new C2SRtsImportMenuSlotPayload(menuSlot));
+        RtsClientNetworkBridge.send(new C2SRtsImportMenuSlotPayload(menuSlot));
         return true;
     }
 
@@ -334,7 +334,7 @@ public final class OverlayInteraction {
         }
         ItemStack request = entry.stack().copy();
         request.setCount(1);
-        PacketDistributor.sendToServer(new C2SRtsLinkedQuickMovePayload(request));
+        RtsClientNetworkBridge.send(new C2SRtsLinkedQuickMovePayload(request));
         ClientRtsController.get().selectStorageEntry(idx);
         pendingOverlayCarriedItemId = "";
         return true;
@@ -346,7 +346,7 @@ public final class OverlayInteraction {
 
     public static void capturePendingCraftRefill(AbstractContainerScreen<?> screen, double mouseX, double mouseY, int button) {
         clearPendingCraftRefill();
-        if (screen == null || Screen.hasShiftDown()) {
+        if (screen == null || com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
             return;
         }
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT && button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
@@ -382,7 +382,7 @@ public final class OverlayInteraction {
             clearPendingCraftRefill();
             return;
         }
-        PacketDistributor.sendToServer(new C2SRtsCraftRefillPayload(
+        RtsClientNetworkBridge.send(new C2SRtsCraftRefillPayload(
                 new ArrayList<>(pendingCraftRefillBlueprint),
                 pendingCraftResultItemId,
                 pendingCraftResultCount));
@@ -574,6 +574,6 @@ public final class OverlayInteraction {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft != null
                 && minecraft.getWindow() != null
-                && org.lwjgl.glfw.GLFW.glfwGetMouseButton(minecraft.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                && org.lwjgl.glfw.GLFW.glfwGetMouseButton(minecraft.getWindow().handle(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
     }
 }

@@ -92,7 +92,7 @@ public final class DestroyGhostRenderer {
 
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.addChainedFilledBoxVertices(
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                 poseStack, fillBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
@@ -102,7 +102,7 @@ public final class DestroyGhostRenderer {
     private static void renderLineBox(PoseStack poseStack, VertexConsumer lineBuffer, BlockPos pos, float scale,
             float r, float g, float b, float alpha) {
         double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.renderLineBox(
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                 poseStack, lineBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,

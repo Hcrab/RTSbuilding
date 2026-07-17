@@ -13,7 +13,11 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -25,7 +29,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
@@ -64,9 +68,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     private EditBox searchBox;
 
     public RtsCraftTerminalScreen(CraftingMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-        this.imageWidth = VANILLA_BG_W + LINK_PANEL_W + 12;
-        this.imageHeight = 166;
+        super(menu, inventory, title, VANILLA_BG_W + LINK_PANEL_W + 12, 166);
         this.inventoryLabelY = this.imageHeight - 90;
     }
 
@@ -93,20 +95,19 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     @Override
-    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         syncSearchValueFromController();
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick);
         renderCraftResultFallback(guiGraphics);
-        this .setTooltipForNextFrame(guiGraphics, mouseX, mouseY);
     }
 
     @Override
-    protected void renderBg(GuiGraphicsExtractor guiGraphics, float partialTick, int mouseX, int mouseY) {
+    public void extractContents(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         int left = this.leftPos;
         int top = this.topPos;
 
-        guiGraphics.blit(VANILLA_CRAFTING_BG, left, top, 0, 0, VANILLA_BG_W, this.imageHeight);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, VANILLA_CRAFTING_BG,
+                left, top, 0, 0, VANILLA_BG_W, this.imageHeight, 256, 256, 0xFFFFFFFF);
         guiGraphics.fill(left + 3, top + 3, left + VANILLA_BG_W - 3, top + 15, 0xB0212E3D);
         guiGraphics.horizontalLine(left + 3, left + VANILLA_BG_W - 3, top + 15, 0xFF0F151D);
         drawPanelFrame(guiGraphics, left + 27, top + 14, 58, 58, 0x66405B78, 0xFF5B7290, 0xFF10161E);
@@ -114,16 +115,20 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         drawPanelFrame(guiGraphics, left + 7, top + 82, 162, 76, 0x441A222C, 0xFF4A6079, 0xFF10151C);
 
         renderLinkedPanel(guiGraphics, mouseX, mouseY);
+        super.extractContents(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
-    protected void renderLabels(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+    protected void extractLabels(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
         guiGraphics .text(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY, 0xEAF2FF, false);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if ((button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) && Screen.hasShiftDown()) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
+        if ((button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) && com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
             Slot hovered = this.getSlotUnderMouse();
             if (hovered != null && hovered.hasItem()) {
                 int menuSlot = this.menu.slots.indexOf(hovered);
@@ -131,7 +136,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
                     if (menuSlot == 0 && button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                         return true;
                     }
-                    PacketDistributor.sendToServer(new C2SRtsImportMenuSlotPayload(menuSlot));
+                    RtsClientNetworkBridge.send(new C2SRtsImportMenuSlotPayload(menuSlot));
                     return true;
                 }
             }
@@ -143,7 +148,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             }
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
@@ -164,7 +169,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
         if (this.searchBox != null && this.searchBox.isFocused()) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 this.searchBox.setValue("");
@@ -177,19 +183,19 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
                 this.setFocused(null);
                 return true;
             }
-            this.searchBox.keyPressed(keyCode, scanCode, modifiers);
+            this.searchBox.keyPressed(event);
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
-    public boolean charTyped(char codePoint, int modifiers) {
+    public boolean charTyped(CharacterEvent event) {
         if (this.searchBox != null && this.searchBox.isFocused()) {
-            this.searchBox.charTyped(codePoint, modifiers);
+            this.searchBox.charTyped(event);
             return true;
         }
-        return super.charTyped(codePoint, modifiers);
+        return super.charTyped(event);
     }
 
     private void renderLinkedPanel(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
@@ -350,7 +356,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         applyLocalCarriedPreview(entry.stack(), wanted);
         ItemStack request = entry.stack().copy();
         request.setCount(1);
-        PacketDistributor.sendToServer(new C2SRtsLinkedPickupPayload(request, wanted));
+        RtsClientNetworkBridge.send(new C2SRtsLinkedPickupPayload(request, wanted));
         return true;
     }
 
@@ -364,7 +370,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             return false;
         }
         int amount = Math.max(1, Math.min(requestedAmount, carried.getCount()));
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
+        RtsClientNetworkBridge.send(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
 
         carried.shrink(amount);
         this.menu.setCarried(carried.isEmpty() ? ItemStack.EMPTY : carried);
@@ -521,17 +527,9 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             return ItemStack.EMPTY;
         }
 
-        CraftingInput input = CraftingInput.of(3, 3, inputs);
-        java.util.Optional<net.minecraft.world.item.crafting.RecipeHolder<CraftingRecipe>> recipe =
-                minecraft.level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, minecraft.level);
-        if (recipe.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
-
-        ItemStack result = recipe.get().value().assemble(input, minecraft.level.registryAccess());
-        if (result.isEmpty()) {
-            result = recipe.get().value().getResultItem(minecraft.level.registryAccess());
-        }
+        // 26.1 客户端仅同步展示配方，不再持有完整 RecipeManager。
+        // 结果槽由服务端菜单计算并同步，直接读取它可避免客户端重复判定配方。
+        ItemStack result = this.menu.getSlot(0).getItem();
         return result.isEmpty() ? ItemStack.EMPTY : result.copy();
     }
 

@@ -170,7 +170,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
             // by the content scissor that follows.
             // Must be flushed separately from content because the window border lies
             // outside the content clipping region.
-            g.flush();
+            g.nextStratum();
 
             if (shouldClipContent()) {
                 enableContentScissor(g);
@@ -179,7 +179,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
             // Flush content while scissor is still active, so item icons (renderItem) and
             // text batched vertices are clipped to the content region at rasterisation time,
             // preventing visual bleed-through to adjacent panels.
-            g.flush();
+            g.nextStratum();
         } finally {
             if (this.skipHoverDetection) {
                 WindowButton.setGlobalSkipHover(false);

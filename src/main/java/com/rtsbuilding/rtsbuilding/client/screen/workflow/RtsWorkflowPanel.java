@@ -17,7 +17,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 
 import java.util.List;
 
@@ -354,7 +354,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
                 int resumeBtnX = protectBtnX + BTN_W + 2;
                 int cancelBtnX = resumeBtnX + BTN_W + 2;
                 if (isInside(mouseX, mouseY, protectBtnX, rowY, BTN_W, ROW_H)) {
-                    PacketDistributor.sendToServer(new C2SRtsSetWorkflowProtectedPayload(
+                    RtsClientNetworkBridge.send(new C2SRtsSetWorkflowProtectedPayload(
                             status.entryId(), !status.protectedWorkflow()));
                     return;
                 }
@@ -362,16 +362,16 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
                     // ▶ Resume
                     if (status.type() == RtsWorkflowType.BLUEPRINT_BUILD) {
                         // 蓝图：扫描剩余材料需求，弹出材料清单面板
-                        PacketDistributor.sendToServer(new C2SRtsScanBlueprintResumePayload(status.entryId()));
+                        RtsClientNetworkBridge.send(new C2SRtsScanBlueprintResumePayload(status.entryId()));
                     } else {
                         // 范围放置：先扫描，再打开重启面板
-                        PacketDistributor.sendToServer(new C2SRtsScanResumePlacementPayload(status.entryId()));
+                        RtsClientNetworkBridge.send(new C2SRtsScanResumePlacementPayload(status.entryId()));
                     }
                     return;
                 }
                 if (isInside(mouseX, mouseY, cancelBtnX, rowY, BTN_W, ROW_H)) {
                     // ✖ Cancel (delete) this workflow — 用 entryId 而非位置索引
-                    PacketDistributor.sendToServer(new C2SRtsDeleteWorkflowPayload(status.entryId()));
+                    RtsClientNetworkBridge.send(new C2SRtsDeleteWorkflowPayload(status.entryId()));
                     return;
                 }
             } else {
@@ -382,16 +382,16 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
                 int pauseBtnX = protectBtnX + BTN_W + 2;
                 int deleteBtnX = pauseBtnX + BTN_W + 2;
                 if (isInside(mouseX, mouseY, protectBtnX, rowY, BTN_W, ROW_H)) {
-                    PacketDistributor.sendToServer(new C2SRtsSetWorkflowProtectedPayload(
+                    RtsClientNetworkBridge.send(new C2SRtsSetWorkflowProtectedPayload(
                             status.entryId(), !status.protectedWorkflow()));
                     return;
                 }
                 if (isInside(mouseX, mouseY, pauseBtnX, rowY, BTN_W, ROW_H)) {
-                    PacketDistributor.sendToServer(new C2SRtsPauseWorkflowPayload(status.entryId()));
+                    RtsClientNetworkBridge.send(new C2SRtsPauseWorkflowPayload(status.entryId()));
                     return;
                 }
                 if (isInside(mouseX, mouseY, deleteBtnX, rowY, BTN_W, ROW_H)) {
-                    PacketDistributor.sendToServer(new C2SRtsDeleteWorkflowPayload(status.entryId()));
+                    RtsClientNetworkBridge.send(new C2SRtsDeleteWorkflowPayload(status.entryId()));
                     return;
                 }
             }

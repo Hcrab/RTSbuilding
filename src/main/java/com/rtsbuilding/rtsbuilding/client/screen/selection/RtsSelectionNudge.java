@@ -49,7 +49,7 @@ public final class RtsSelectionNudge {
         if (minecraft == null || minecraft.getWindow() == null) {
             return 1;
         }
-        long window = minecraft.getWindow().getWindow();
+        long window = minecraft.getWindow().handle();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
                 ? 4 : 1;
@@ -58,7 +58,7 @@ public final class RtsSelectionNudge {
     private static Direction currentHorizontalFacingDirection() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft != null && minecraft.gameRenderer != null) {
-            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().getYRot());
+            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().yRot());
         }
         if (minecraft != null && minecraft.getCameraEntity() != null) {
             return Direction.fromYRot(minecraft.getCameraEntity().getYRot());

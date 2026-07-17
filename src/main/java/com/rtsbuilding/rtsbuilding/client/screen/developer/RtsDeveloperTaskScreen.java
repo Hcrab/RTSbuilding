@@ -35,7 +35,7 @@ public final class RtsDeveloperTaskScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, this.width, this.height, 0xF0101820);
         var layout = RtsDeveloperTaskLayout.resolve(this.width, this.height,
                 RtsDeveloperScenarioTracker.Scenario.values().length);
@@ -49,7 +49,7 @@ public final class RtsDeveloperTaskScreen extends Screen {
                             tracker.currentStep() + "/" + tracker.requiredSteps()),
                     layout.centerX(), layout.activeStatusY(), 0xFFFFD27F);
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override

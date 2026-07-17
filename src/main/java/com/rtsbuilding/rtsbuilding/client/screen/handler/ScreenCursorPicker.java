@@ -39,7 +39,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = mc.gameRenderer.getMainCamera().position();
         Vec3 dir = computeCursorRayDirection();
         Vec3 to = camPos.add(dir.scale(BLOCK_RAY_DISTANCE));
         BlockHitResult blockHit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
@@ -80,7 +80,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (mc == null || mc.level == null || mc.player == null || mc.getCameraEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = mc.gameRenderer.getMainCamera().position();
         Vec3 dir = computeCursorRayDirection();
         BlockHitResult airHit = createItemAirInteractionHit(camPos, dir);
         if (airHit == null) {
@@ -103,7 +103,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = mc.gameRenderer.getMainCamera().position();
         Vec3 dir = computeCursorRayDirection();
         BlockHitResult hit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
         if (hit != null) {
@@ -117,7 +117,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = mc.gameRenderer.getMainCamera().position();
         Vec3 dir = computeCursorRayDirection();
         return clipBlockHit(mc, camPos, dir, includeFluidSource, false);
     }
@@ -158,8 +158,8 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         double height = Math.max(1.0D, mc.getWindow().getScreenHeight());
         double nx = (mouseX / width) * 2.0D - 1.0D;
         double ny = 1.0D - (mouseY / height) * 2.0D;
-        float yawDeg = mc.gameRenderer.getMainCamera().getYRot();
-        float pitchDeg = mc.gameRenderer.getMainCamera().getXRot();
+        float yawDeg = mc.gameRenderer.getMainCamera().yRot();
+        float pitchDeg = mc.gameRenderer.getMainCamera().xRot();
         double yaw = Math.toRadians(yawDeg);
         double pitch = Math.toRadians(pitchDeg);
         Vec3 forward = new Vec3(
@@ -179,7 +179,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (mc == null || mc.gameRenderer == null) {
             return Vec3.ZERO;
         }
-        return mc.gameRenderer.getMainCamera().getPosition();
+        return mc.gameRenderer.getMainCamera().position();
     }
 
     // ===== Private helpers =====
@@ -289,7 +289,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 || mc.getCameraEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = mc.gameRenderer.getMainCamera().position();
         Vec3 dir = computeCursorRayDirection();
         double planeY = mc.player.blockPosition().getY();
         double t = Math.abs(dir.y) < 1.0E-5D
@@ -316,7 +316,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }
-        Direction face = Direction.getNearest(-normalizedDir.x, -normalizedDir.y, -normalizedDir.z);
+        Direction face = Direction.getApproximateNearest(-normalizedDir.x, -normalizedDir.y, -normalizedDir.z);
         return new BlockHitResult(hitVec, face, hitPos, false);
     }
 
@@ -334,7 +334,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (shape == BuildShape.WALL) {
             return Direction.UP;
         }
-        return Direction.getNearest(-dir.x, -dir.y, -dir.z);
+        return Direction.getApproximateNearest(-dir.x, -dir.y, -dir.z);
     }
 
     private Vec3 resolveAirShapePlaneAnchor(Direction face) {

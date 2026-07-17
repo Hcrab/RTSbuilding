@@ -179,13 +179,13 @@ public final class RtsClientRemoteMenuCompat {
         }
 
         @Override
-        public void startOpen(net.minecraft.world.entity.player.Player player) {
-            this.delegate.startOpen(player);
+        public void startOpen(net.minecraft.world.entity.ContainerUser user) {
+            this.delegate.startOpen(user);
         }
 
         @Override
-        public void stopOpen(net.minecraft.world.entity.player.Player player) {
-            this.delegate.stopOpen(player);
+        public void stopOpen(net.minecraft.world.entity.ContainerUser user) {
+            this.delegate.stopOpen(user);
         }
 
         @Override

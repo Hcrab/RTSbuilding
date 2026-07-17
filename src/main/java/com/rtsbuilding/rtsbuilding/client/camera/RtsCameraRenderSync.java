@@ -14,12 +14,10 @@ public final class RtsCameraRenderSync {
     }
 
     @SubscribeEvent
-    public static void onRenderLevelStage(RenderLevelStageEvent event) {
+    public static void onRenderLevelStage(RenderLevelStageEvent.AfterTranslucentBlocks event) {
         // Sync camera pose every rendered frame to avoid occasional fallback frames
         // where network interpolation briefly shows stale orientation.
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            ClientRtsController.get().syncVisualCameraFrame();
-        }
+        ClientRtsController.get().syncVisualCameraFrame();
     }
 }
 

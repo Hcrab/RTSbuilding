@@ -1,15 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
@@ -31,53 +26,9 @@ public final class UltimineGhostRenderer {
 
     // ── Custom no-depth translucent line render type ──
 
-    private static final RenderType LINES_NO_DEPTH = RenderType.create(
-            "rtsbuilding_ultimine_lines_no_depth",
-            DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES,
-            512,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
-                    .setLineState(RenderStateShard.DEFAULT_LINE)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder LINES_NO_DEPTH_BACKING = new ByteBufferBuilder(LINES_NO_DEPTH.bufferSize());
-
     // ── Custom no-depth translucent quad render type (for entity brackets) ──
 
-    private static final RenderType BRACKET_NO_DEPTH = RenderType.create(
-            "rtsbuilding_ultimine_bracket_no_depth",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder BRACKET_NO_DEPTH_BACKING = new ByteBufferBuilder(BRACKET_NO_DEPTH.bufferSize());
-
     // ── Custom opaque depth-tested quad render type (for entity brackets) ──
-
-    private static final RenderType BRACKET_OPAQUE = RenderType.create(
-            "rtsbuilding_ultimine_bracket_opaque",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder BRACKET_OPAQUE_BACKING = new ByteBufferBuilder(BRACKET_OPAQUE.bufferSize());
 
     // ── Breathing colour parameters ──
 
@@ -96,7 +47,7 @@ public final class UltimineGhostRenderer {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null && mc.level != null && mc.getCameraEntity() != null
                 && mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen) {
-            Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+            Vec3 camPos = mc.gameRenderer.getMainCamera().position();
             Vec3 viewDir = RaycastHelper.computeCursorRayDirection(mc);
             Vec3 rayEnd = camPos.add(viewDir.scale(128.0D));
             EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(mc, camPos, rayEnd, viewDir, 128.0D);
@@ -159,30 +110,14 @@ public final class UltimineGhostRenderer {
 
     static void renderPass2(List<UltimineBlockMerger.EdgeLine> edges, Matrix4f matrix,
             float r, float g, float b, float alpha) {
-        BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
-                DefaultVertexFormat.POSITION_COLOR_NORMAL);
-        for (UltimineBlockMerger.EdgeLine edge : edges) {
-            ndBuffer.addVertex(matrix, (float) edge.x1(), (float) edge.y1(), (float) edge.z1())
-                    .setColor(r, g, b, alpha)
-                    .setNormal(edge.xn(), edge.yn(), edge.zn());
-            ndBuffer.addVertex(matrix, (float) edge.x2(), (float) edge.y2(), (float) edge.z2())
-                    .setColor(r, g, b, alpha)
-                    .setNormal(edge.xn(), edge.yn(), edge.zn());
-        }
-        var meshData = ndBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            LINES_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-        }
+        // 26.1 的无深度副通道需要由 SubmitCustomGeometry 阶段统一提交。
+        // 主线框仍由 renderPass1 绘制，避免此处重新引入共享缓冲区的所有权问题。
     }
 
     static void renderFill(List<BlockPos> outerBlocks, PoseStack poseStack,
             VertexConsumer fillBuffer, float r, float g, float b, float fillA) {
         for (BlockPos pos : outerBlocks) {
-            LevelRenderer.addChainedFilledBoxVertices(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                     poseStack, fillBuffer,
                     pos.getX(), pos.getY(), pos.getZ(),
                     pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1,
@@ -200,42 +135,8 @@ public final class UltimineGhostRenderer {
      */
     private static void renderEntityBrackets(PoseStack poseStack,
             Entity entity, Vec3 camPos) {
-        AABB bounds = entity.getBoundingBox().inflate(0.03D);
-        float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
-        float r = 0.50F * breathFactor;
-        float g = 0.80F * breathFactor;
-        float b = 1.00F * breathFactor;
-        double distance = camPos.distanceTo(bounds.getCenter());
-
-        // Opaque depth-tested brackets (drawn via dedicated RenderType + BufferBuilder)
-        BufferBuilder opaqueBuffer = new BufferBuilder(BRACKET_OPAQUE_BACKING, VertexFormat.Mode.QUADS,
-                DefaultVertexFormat.POSITION_COLOR);
-        CornerBracketRenderer.renderCornerBrackets(
-                poseStack, opaqueBuffer,
-                bounds.minX, bounds.minY, bounds.minZ,
-                bounds.maxX, bounds.maxY, bounds.maxZ,
-                r, g, b, 0.95F, distance);
-        var opaqueMesh = opaqueBuffer.build();
-        if (opaqueMesh != null) {
-            BRACKET_OPAQUE.draw(opaqueMesh);
-        }
-
-        // Transparent no-depth brackets (visible through world geometry)
-        BufferBuilder ndBuffer = new BufferBuilder(BRACKET_NO_DEPTH_BACKING, VertexFormat.Mode.QUADS,
-                DefaultVertexFormat.POSITION_COLOR);
-        CornerBracketRenderer.renderCornerBrackets(
-                poseStack, ndBuffer,
-                bounds.minX, bounds.minY, bounds.minZ,
-                bounds.maxX, bounds.maxY, bounds.maxZ,
-                r, g, b, 0.20F, distance);
-        var meshData = ndBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            BRACKET_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-        }
+        // 旧实现自己创建并提交 RenderType，26.1 已移除这条即时路径。
+        // 实体角标将在统一几何提交适配器接入后恢复，先保证不会破坏世界渲染缓冲区。
     }
 
     // ===== Private helpers =====

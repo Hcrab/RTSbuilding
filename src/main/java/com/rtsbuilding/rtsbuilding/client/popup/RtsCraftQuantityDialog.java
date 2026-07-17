@@ -86,8 +86,8 @@ public final class RtsCraftQuantityDialog {
         Layout layout = resolveLayout(screenWidth, screenHeight);
         CraftRecipeOption selected = getSelectedOption();
 
-        g.pose().pushPose();
-        g.pose().translate(0.0F, 0.0F, 680.0F);
+        g.nextStratum();
+        g.pose().pushMatrix();
         g.fill(0, 0, screenWidth, screenHeight, 0x78000000);
         drawPanelFrame(g, layout.panelX(), layout.panelY(), PANEL_W, PANEL_H, 0xEE171C24, 0xFF6C839A, 0xFF0D1117);
         g.fill(layout.panelX() + 1, layout.panelY() + 1,
@@ -150,7 +150,7 @@ public final class RtsCraftQuantityDialog {
         g .text(font, "Click recipe, Enter confirm, Esc cancel", layout.panelX() + 8, layout.helpY(), 0xAFC0D3, false);
         drawSmallButton(g, font, layout.cancelX(), layout.actionY(), ACTION_W, ACTION_H, "Cancel", 0xAA473030);
         drawSmallButton(g, font, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H, "Craft", 0xAA345A38);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button, int screenWidth, int screenHeight) {

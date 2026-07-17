@@ -70,10 +70,10 @@ public final class RtsBoxHandleRenderer {
 
     private static void renderHandleBox(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             AABB box, AxisColor color, float fillAlpha, float lineAlpha) {
-        LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
                 color.r(), color.g(), color.b(), fillAlpha);
-        LevelRenderer.renderLineBox(poseStack, lineBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer,
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
                 color.r(), color.g(), color.b(), lineAlpha);
     }

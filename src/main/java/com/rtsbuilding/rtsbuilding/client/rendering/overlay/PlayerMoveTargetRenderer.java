@@ -41,7 +41,7 @@ public final class PlayerMoveTargetRenderer {
 
         BlockPos target = highlight.target();
         AABB bounds = new AABB(target).inflate(INFLATE);
-        Vec3 camPos = minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = minecraft.gameRenderer.getMainCamera().position();
         double distance = camPos.distanceTo(Vec3.atCenterOf(target));
         float activeAlpha = ACTIVE_ALPHA * highlight.alpha();
         float noDepthAlpha = NO_DEPTH_ALPHA * highlight.alpha();

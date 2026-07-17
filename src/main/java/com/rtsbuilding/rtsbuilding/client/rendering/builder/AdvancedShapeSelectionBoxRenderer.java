@@ -30,7 +30,7 @@ public final class AdvancedShapeSelectionBoxRenderer {
         }
         if (!screen.isQuickBuildRangeDestroyMode()) {
             AABB outline = renderBox.inflate(0.015D);
-            LevelRenderer.renderLineBox(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                     poseStack,
                     handleLineBuffer,
                     outline.minX, outline.minY, outline.minZ,

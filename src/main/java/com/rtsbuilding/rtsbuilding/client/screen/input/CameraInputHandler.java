@@ -475,13 +475,8 @@ public final class CameraInputHandler {
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
-            if (selection.route() == RtsPickBlockPlacementSelector.Route.MAIN_INVENTORY
-                    && mc.gameMode != null) {
-                mc.gameMode.handlePickItem(selection.slot());
-                this.controller.clearPlacementSelectionPreserveMode();
-                this.controller.setMode(BuilderMode.INTERACT);
-                return true;
-            }
+            // 26.1 已移除按任意背包槽位执行 vanilla pick 的网络入口。
+            // 非快捷栏命中继续走 RTS 自身的放置选择，避免只改客户端背包造成不同步。
         }
         this.controller.selectItemForPlacement(itemId.toString(), preview.getHoverName().getString(), preview);
         return true;
@@ -496,7 +491,7 @@ public final class CameraInputHandler {
         if (mc == null || mc.getWindow() == null) {
             return false;
         }
-        long window = mc.getWindow().getWindow();
+        long window = mc.getWindow().handle();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
     }

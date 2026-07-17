@@ -242,7 +242,7 @@ public final class TopBarPanel {
      * Used to compute the "pressed" visual state for icon buttons.
      */
     public boolean isPrimaryMouseDown() {
-        return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
     }
 
     // ======================== Button Rendering ========================

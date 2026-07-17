@@ -1,12 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 
@@ -24,23 +20,6 @@ public final class DestructiveGhostRenderer {
     private static final double BOUNDARY_PADDING = 0.02D;
 
     // ── Custom no-depth translucent line render type (for envelope outer pass) ──
-
-    private static final RenderType LINES_NO_DEPTH = RenderType.create(
-            "rtsbuilding_destructive_env_no_depth",
-            DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES,
-            512,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.RENDERTYPE_LINES_SHADER)
-                    .setLineState(RenderStateShard.DEFAULT_LINE)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder LINES_NO_DEPTH_BACKING = new ByteBufferBuilder(LINES_NO_DEPTH.bufferSize());
 
     private DestructiveGhostRenderer() {
     }
@@ -102,7 +81,7 @@ public final class DestructiveGhostRenderer {
                 double cellMaxY = pos.getY() + 0.97D;
                 double cellMaxZ = pos.getZ() + 0.97D;
 
-                LevelRenderer.renderLineBox(poseStack, lineBuffer,
+                com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
                         dcc.lineR(), dcc.lineG(), dcc.lineB(), dcc.lineA());
@@ -120,7 +99,7 @@ public final class DestructiveGhostRenderer {
                 float lineR = readyConfirm ? 0.45F : 0.30F;
                 float lineG = readyConfirm ? 0.95F : 0.75F;
                 float lineB = readyConfirm ? 0.45F : 1.00F;
-                LevelRenderer.renderLineBox(poseStack, lineBuffer,
+                com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
                         lineR, lineG, lineB, 0.95F);
@@ -185,14 +164,14 @@ public final class DestructiveGhostRenderer {
             double cellMaxZ = pos.getZ() + 0.97D;
 
             if (renderFill) {
-                LevelRenderer.addChainedFilledBoxVertices(
+                com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                         poseStack, fillBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
                         fillR, fillG, fillB, fillA);
             }
             if (renderLines) {
-                LevelRenderer.renderLineBox(
+                com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                         poseStack, lineBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
@@ -223,13 +202,13 @@ public final class DestructiveGhostRenderer {
         double maxZ = (envelopeOverride == null ? bounds.maxZ() + 1.0D : envelopeOverride.maxZ) + padding;
 
         if (renderFill) {
-            LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
                     minX, minY, minZ, maxX, maxY, maxZ,
                     fillR, fillG, fillB, fillA);
         }
 
         if (renderLines) {
-            LevelRenderer.renderLineBox(poseStack, lineBuffer,
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer,
                     minX, minY, minZ, maxX, maxY, maxZ,
                     lineR, lineG, lineB, lineA);
 
@@ -253,7 +232,7 @@ public final class DestructiveGhostRenderer {
         double maxY = bounds.maxY() + 1.0D + padding;
         double maxZ = bounds.maxZ() + 1.0D + padding;
 
-        LevelRenderer.renderLineBox(poseStack, lineBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ,
                 lineR, lineG, lineB, lineA);
 
@@ -269,19 +248,8 @@ public final class DestructiveGhostRenderer {
     private static void renderEnvelopeNoDepthLineBox(PoseStack poseStack,
             double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
             float r, float g, float b, float alpha) {
-        BufferBuilder ndBuffer = new BufferBuilder(LINES_NO_DEPTH_BACKING, VertexFormat.Mode.LINES,
-                DefaultVertexFormat.POSITION_COLOR_NORMAL);
-        LevelRenderer.renderLineBox(poseStack, ndBuffer,
-                minX, minY, minZ, maxX, maxY, maxZ,
-                r, g, b, alpha);
-        var meshData = ndBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            LINES_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-        }
+        // 26.1 不再允许这里临时创建并立即提交 RenderType。
+        // 普通深度线框仍由调用者持有的缓冲区绘制；穿墙副通道留给统一几何提交适配器恢复。
     }
 
     // ===== Internal records =====

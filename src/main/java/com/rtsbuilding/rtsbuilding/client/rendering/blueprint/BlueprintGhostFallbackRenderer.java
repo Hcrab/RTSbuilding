@@ -66,7 +66,7 @@ public final class BlueprintGhostFallbackRenderer {
                 float fallbackG = block.missing() ? 0.25F : lineG;
                 float fallbackB = block.missing() ? 0.25F : lineB;
 
-                LevelRenderer.renderLineBox(
+                com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                         poseStack, lineBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,

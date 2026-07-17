@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;

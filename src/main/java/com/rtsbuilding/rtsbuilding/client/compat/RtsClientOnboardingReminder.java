@@ -18,6 +18,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 
 import java.util.Locale;
+import java.net.URI;
 
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
@@ -42,7 +43,7 @@ public final class RtsClientOnboardingReminder {
         RtsClientUiStateStore.dismissIntroReminder(currentReminderKey(Minecraft.getInstance()));
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            minecraft.player.sendSystemMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
+            minecraft.player.sendSystemMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"));
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -74,52 +75,52 @@ public final class RtsClientOnboardingReminder {
 
         minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.rts_key",
-                Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
+                Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA));
         minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
                 websiteComponent())
-                .withStyle(ChatFormatting.GOLD), false);
+                .withStyle(ChatFormatting.GOLD));
         minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.feedback",
                 discordComponent(),
                 githubComponent(),
                 Component.literal(RtsCommunityLinks.QQ_GROUP).withStyle(style -> style
                         .withColor(ChatFormatting.GREEN)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, RtsCommunityLinks.QQ_GROUP))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("chat.rtsbuilding.intro.copy_qq")))))
-                .withStyle(ChatFormatting.GRAY), false);
+                        .withClickEvent(new ClickEvent.CopyToClipboard(RtsCommunityLinks.QQ_GROUP))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.translatable("chat.rtsbuilding.intro.copy_qq")))))
+                .withStyle(ChatFormatting.GRAY));
         minecraft.player.sendSystemMessage(Component.translatable("chat.rtsbuilding.intro.config_hint")
                 .withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(" "))
                 .append(Component.translatable("chat.rtsbuilding.intro.dismiss").withStyle(style -> style
                         .withColor(ChatFormatting.YELLOW)
                         .withUnderlined(true)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + DISMISS_COMMAND))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("chat.rtsbuilding.intro.dismiss.hover"))))), false);
+                        .withClickEvent(new ClickEvent.RunCommand("/" + DISMISS_COMMAND))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.translatable("chat.rtsbuilding.intro.dismiss.hover"))))));
     }
 
     private static Component discordComponent() {
         return Component.literal(RtsCommunityLinks.DISCORD_INVITE).withStyle(style -> style
                 .withColor(ChatFormatting.BLUE)
                 .withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.DISCORD_INVITE))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
+                .withClickEvent(new ClickEvent.OpenUrl(URI.create(RtsCommunityLinks.DISCORD_INVITE)))
+                .withHoverEvent(new HoverEvent.ShowText(Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
     }
 
     private static Component websiteComponent() {
         return Component.literal(RtsCommunityLinks.WEBSITE).withStyle(style -> style
                 .withColor(ChatFormatting.BLUE)
                 .withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.WEBSITE))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.WEBSITE))));
+                .withClickEvent(new ClickEvent.OpenUrl(URI.create(RtsCommunityLinks.WEBSITE)))
+                .withHoverEvent(new HoverEvent.ShowText(Component.literal(RtsCommunityLinks.WEBSITE))));
     }
 
     private static Component githubComponent() {
         return Component.literal(RtsCommunityLinks.GITHUB_REPOSITORY).withStyle(style -> style
                 .withColor(ChatFormatting.BLUE)
                 .withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.GITHUB_REPOSITORY))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.GITHUB_REPOSITORY))));
+                .withClickEvent(new ClickEvent.OpenUrl(URI.create(RtsCommunityLinks.GITHUB_REPOSITORY)))
+                .withHoverEvent(new HoverEvent.ShowText(Component.literal(RtsCommunityLinks.GITHUB_REPOSITORY))));
     }
 
     private static String currentReminderKey(Minecraft minecraft) {

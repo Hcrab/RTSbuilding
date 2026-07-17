@@ -857,7 +857,7 @@ public final class ShapeGeometryUtil {
 
     /** 创建形状放置的 BlockHitResult */
     public static BlockHitResult createShapePlacementHit(BlockPos pos, Direction face) {
-        Vec3 faceNormal = Vec3.atLowerCornerOf(face.getNormal());
+        Vec3 faceNormal = Vec3.atLowerCornerOf(face.getUnitVec3i());
         Vec3 hitVec = Vec3.atCenterOf(pos).add(faceNormal.scale(0.5D));
         return new BlockHitResult(hitVec, face, pos, false);
     }

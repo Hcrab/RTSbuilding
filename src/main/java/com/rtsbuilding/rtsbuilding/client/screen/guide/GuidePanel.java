@@ -473,11 +473,11 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     private void drawGuideTextureIcon(GuiGraphicsExtractor g, Identifier texture, int cx, int cy) {
-        g.pose().pushPose();
-        g.pose().translate(cx - 9, cy - 9, 0.0F);
-        g.pose().scale(0.75F, 0.75F, 1.0F);
+        g.pose().pushMatrix();
+        g.pose().translate(cx - 9, cy - 9);
+        g.pose().scale(0.75F, 0.75F);
         g.blit(texture, 0, 0, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

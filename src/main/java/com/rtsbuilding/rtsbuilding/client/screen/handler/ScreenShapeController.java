@@ -446,7 +446,7 @@ public final class ScreenShapeController {
 
     private static Direction resolveVerticalRoundShapeFace(Direction clickedFace, Vec3 rayDir) {
         if (rayDir != null && (Math.abs(rayDir.x) > 1.0E-5D || Math.abs(rayDir.z) > 1.0E-5D)) {
-            Direction nearest = Direction.getNearest(rayDir.x, 0.0D, rayDir.z);
+            Direction nearest = Direction.getApproximateNearest(rayDir.x, 0.0D, rayDir.z);
             if (nearest.getAxis() != Direction.Axis.Y) {
                 return nearest;
             }
@@ -1031,7 +1031,7 @@ public final class ScreenShapeController {
 
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null) return false;
-        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().position();
         Vec3 rayDir = this.screen.computeCursorRayDirection();
         BlockHitResult templateHit = resolveShapeTemplateHit(input);
 
@@ -1580,7 +1580,7 @@ public final class ScreenShapeController {
         if (anchor == null || face == null || mc == null || mc.gameRenderer == null) {
             return null;
         }
-        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().position();
         Vec3 rayDir = this.screen.computeCursorRayDirection();
         if (rayOrigin == null || rayDir == null) {
             return null;
@@ -2391,7 +2391,7 @@ public final class ScreenShapeController {
         if (mc == null) {
             return false;
         }
-        long window = mc.getWindow().getWindow();
+        long window = mc.getWindow().handle();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
     }

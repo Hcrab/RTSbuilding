@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -73,7 +74,7 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
         this.hoveredInventorySlot = -1;
         this.hoveredInstalledPluginId = "";
@@ -110,13 +111,16 @@ public final class RtsPluginManagementScreen extends Screen {
         } else if (!this.hoveredInstalledStack.isEmpty()) {
             g .setTooltipForNextFrame(this.font, this.hoveredInstalledStack, mouseX, mouseY);
         }
-        super.render(g, mouseX, mouseY, partialTick);
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (button != 0) {
-            return super.mouseClicked(mouseX, mouseY, button);
+            return super.mouseClicked(event, doubleClick);
         }
         if (inside(mouseX, mouseY, this.refreshX, this.refreshY, this.refreshW, this.refreshH)) {
             this.controller.requestPluginState();
@@ -131,7 +135,7 @@ public final class RtsPluginManagementScreen extends Screen {
 
         String installedId = installedPluginAt(mouseX, mouseY);
         if (!installedId.isBlank() && isPersonalInstalledPlugin(installedId)) {
-            if (Screen.hasShiftDown() || inside(mouseX, mouseY,
+            if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown() || inside(mouseX, mouseY,
                     installedUninstallX(), installedUninstallY(installedId), 44, 16)) {
                 this.controller.uninstallPlugin(installedId);
                 this.controller.requestPluginState();
@@ -143,7 +147,7 @@ public final class RtsPluginManagementScreen extends Screen {
         if (inventorySlot >= 0) {
             ItemStack stack = inventoryStack(inventorySlot);
             if (RtsClientPluginCatalog.isPluginItem(stack)) {
-                if (Screen.hasShiftDown()) {
+                if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
                     this.controller.installPluginFromInventorySlot(inventorySlot);
                     this.controller.requestPluginState();
                     this.selectedInventorySlot = -1;
@@ -155,18 +159,21 @@ public final class RtsPluginManagementScreen extends Screen {
         }
 
         this.selectedInventorySlot = -1;
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (button == 0
                 && this.selectedInventorySlot >= 0
                 && inside(mouseX, mouseY, this.installX, this.installY, this.installW, this.installH)) {
             installSelectedSlot();
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
@@ -194,7 +201,7 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     @Override
-    protected void renderBlurredBackground(float partialTick) {
+    protected void extractBlurredBackground(GuiGraphicsExtractor graphics) {
     }
 
     private void drawInstalledList(GuiGraphicsExtractor g, int x, int y, int w, int h, int mouseX, int mouseY) {

@@ -50,12 +50,12 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
         g .centeredText(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
         drawGeneralPage(g);
         drawScrollbar(g);
-        super.render(g, mouseX, mouseY, partialTick);
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -79,7 +79,7 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     @Override
-    protected void renderBlurredBackground(float partialTick) {
+    protected void extractBlurredBackground(GuiGraphicsExtractor graphics) {
     }
 
     private void rebuildConfigWidgets() {
@@ -232,7 +232,8 @@ public final class RtsModConfigScreen extends Screen {
             Config.setDeveloperModeEnabled(this.developerMode);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
-                this.minecraft.player.sendSystemMessage(Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()), false);
+                this.minecraft.player.sendSystemMessage(
+                        Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()));
             }
             return;
         }

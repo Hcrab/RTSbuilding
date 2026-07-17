@@ -53,7 +53,7 @@ public final class RtsBlockActionSoundPlayer {
         }
         SoundEvent sound = BuiltInRegistries.SOUND_EVENT.getValue(id);
         SoundInstance soundInstance = new SimpleSoundInstance(
-                sound.getLocation(),
+                sound.location(),
                 SoundSource.BLOCKS,
                 Mth.clamp(payload.volume(), 0.0F, 4.0F),
                 Mth.clamp(payload.pitch(), 0.5F, 2.0F),

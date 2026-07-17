@@ -86,7 +86,7 @@ public class WindowTextBox extends EditBox {
     }
 
     @Override
-    public void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!this.visible) {
             return;
         }
@@ -129,13 +129,17 @@ public class WindowTextBox extends EditBox {
         this.width = innerWidth;
         this.height = innerHeight;
         try {
-            super.renderWidget(g, mouseX, mouseY, partialTick);
+            super.extractWidgetRenderState(g, mouseX, mouseY, partialTick);
         } finally {
             this.width = oldWidth;
             this.height = oldHeight;
             setX(outerX);
             setY(outerY);
         }
+    }
+
+    public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        this.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     public WindowTextBox onTextChanged(Consumer<String> responder) {

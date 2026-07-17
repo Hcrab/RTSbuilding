@@ -149,7 +149,8 @@ public final class BottomPanel {
             sb.setY(storageY);
             sb.setWidth(searchFieldW);
             sb.setHeight(14);
-            sb.render(g, mouseX, mouseY, partialTick);
+            com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.render(
+                    sb, g, mouseX, mouseY, partialTick);
             drawSearchClearButton(g, storageX, storageY, searchW);
         }
 
@@ -550,11 +551,11 @@ public final class BottomPanel {
         if (text == null || text.isEmpty()) {
             return;
         }
-        g.pose().pushPose();
-        g.pose().translate(x, y, 0.0F);
-        g.pose().scale(scale, scale, 1.0F);
+        g.pose().pushMatrix();
+        g.pose().translate(x, y);
+        g.pose().scale(scale, scale);
         g .text(screen.font(), text, 0, 0, color, false);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     // ── Storage grid ──
@@ -774,7 +775,8 @@ public final class BottomPanel {
             csb.setY(searchY + 2);
             csb.setWidth(Math.max(22, searchW - 4));
             csb.setHeight(8);
-            csb.render(g, mouseX, mouseY, partialTick);
+            com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.render(
+                    csb, g, mouseX, mouseY, partialTick);
         }
 
         RtsClientUiUtil.drawPanelFrame(g, applyX, toggleY, CRAFT_PANEL_APPLY_W, CRAFT_PANEL_SEARCH_H, applyBg, 0xFF6E8799, 0xFF111821);
@@ -895,7 +897,7 @@ public final class BottomPanel {
     public boolean handleClick(double mouseX, double mouseY) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         BottomPanelLayoutTypes.BottomPanelTab activeTab = activeBottomPanelTab();
-        if (!layout.contains(mouseX)) {
+        if (!layout.contains(mouseX, mouseY)) {
             return false;
         }
 
@@ -955,7 +957,8 @@ public final class BottomPanel {
         }
 
         var searchBox = screen.getSearchBox();
-        if (searchBox != null && searchBox.mouseClicked(mouseX, mouseY, net.minecraft.client.gui.screens.Screen.hasShiftDown() ? 0 : 0)) {
+        if (searchBox != null && com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.mouseClicked(
+                searchBox, mouseX, mouseY, 0)) {
             screen.focusStorageSearchBox();
             return true;
         }
@@ -1096,7 +1099,7 @@ public final class BottomPanel {
     public boolean handleRightClick(double mouseX, double mouseY) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         BottomPanelLayoutTypes.BottomPanelTab activeTab = activeBottomPanelTab();
-        if (!layout.contains(mouseX)) {
+        if (!layout.contains(mouseX, mouseY)) {
             return false;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
@@ -1232,7 +1235,7 @@ public final class BottomPanel {
             }
 
             if (button == 1) {
-                if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
+                if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
                     if (screen.getPendingGuiBindSlot() == slot) {
                         screen.clearPendingGuiBind();
                     }
@@ -1308,7 +1311,7 @@ public final class BottomPanel {
                         return true;
                     }
                     var stack = Minecraft.getInstance().player.getInventory().getItem(index);
-                    if (net.minecraft.client.gui.screens.Screen.hasShiftDown()
+                    if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()
                             && RtsClientUiStateStore.isOverlayShiftImportEnabled()
                             && !stack.isEmpty()) {
                         this.controller.storeHotbarSlotToLinked(index);
@@ -1352,7 +1355,7 @@ public final class BottomPanel {
             return true;
         }
 
-        if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
+        if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
             this.controller.clearQuickSlot(pinIndex);
             return true;
         }
@@ -1440,7 +1443,8 @@ public final class BottomPanel {
         int toggleX = applyX + CRAFT_PANEL_APPLY_W + 4;
 
         var craftSearchBox = screen.getCraftSearchBox();
-        if (craftSearchBox != null && craftSearchBox.mouseClicked(mouseX, mouseY, 0)) {
+        if (craftSearchBox != null && com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.mouseClicked(
+                craftSearchBox, mouseX, mouseY, 0)) {
             screen.focusCraftSearchBox();
             return true;
         }
@@ -1564,7 +1568,7 @@ public final class BottomPanel {
     }
 
     public boolean isInsideBottomPanel(double mouseX, double mouseY) {
-        return resolveBottomPanelLayout().contains(mouseX);
+        return resolveBottomPanelLayout().contains(mouseX, mouseY);
     }
 
     public boolean isWorldArea(double mouseX, double mouseY) {

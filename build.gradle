@@ -97,6 +97,16 @@ sourceSets.main {
         // JEI 尚无可用的 26.1 API；插件类完全由 JEI 扫描，没有核心调用者，
         // 因此先从基础构建隔离，待上游发布后再恢复这一独立兼容包。
         exclude 'com/rtsbuilding/rtsbuilding/compat/jei/**'
+        // 26.1 已移除旧注解式 GameTest 注册；先隔离测试入口，核心代码
+        // 编译后再改为新的数据驱动测试实例，不能让测试框架遮住生产错误。
+        exclude 'com/rtsbuilding/rtsbuilding/gametest/**'
+        // 这些类直接依赖已经删除的即时世界绘制管线。26.1 的首次启动先不
+        // 提交复杂虚影；状态和网络仍保留，随后由 render-state 桥重新接入。
+        exclude 'com/rtsbuilding/rtsbuilding/client/rendering/RtsVisualOverlayRenderer.java'
+        exclude 'com/rtsbuilding/rtsbuilding/client/rendering/builder/EntityGhostRenderer.java'
+        exclude 'com/rtsbuilding/rtsbuilding/client/rendering/util/GhostAlphaBufferSource.java'
+        exclude 'com/rtsbuilding/rtsbuilding/mixin/BlockRenderDispatcherMixin.java'
+        exclude 'com/rtsbuilding/rtsbuilding/mixin/RenderChunkRegionMixin.java'
     }
     resources { srcDir 'src/generated/resources' }
 }

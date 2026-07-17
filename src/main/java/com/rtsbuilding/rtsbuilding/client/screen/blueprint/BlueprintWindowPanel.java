@@ -242,7 +242,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         box.setWidth(inputW);
         box.setEditable(enabled);
         box.setCenteredText(true);
-        box.renderWidget(g, mouseX, mouseY, partialTick);
+        box.render(g, mouseX, mouseY, partialTick);
         if (!enabled) {
             g.fill(boxX, y, boxX + inputW, y + TEXTBOX_H, 0x55101620);
         }
@@ -273,7 +273,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
             boxes[i].setWidth(inputW);
             boxes[i].setEditable(enabled);
             boxes[i].setCenteredText(true);
-            boxes[i].renderWidget(g, mouseX, mouseY, partialTick);
+            boxes[i].render(g, mouseX, mouseY, partialTick);
             if (!enabled) {
                 g.fill(boxX, rowY, boxX + inputW, rowY + TEXTBOX_H, 0x55101620);
             }
@@ -461,7 +461,8 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         if (box == null) {
             return false;
         }
-        boolean clicked = box.mouseClicked(mouseX, mouseY, button);
+        boolean clicked = com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.mouseClicked(
+                box, mouseX, mouseY, button);
         if (clicked) {
             if (box != this.sizeXInput) this.sizeXInput.setFocused(false);
             if (box != this.sizeYInput) this.sizeYInput.setFocused(false);
@@ -490,7 +491,8 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 focused.setFocused(false);
                 return true;
             }
-            return focused.keyPressed(keyCode, scanCode, modifiers);
+            return com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.keyPressed(
+                    focused, keyCode, scanCode, modifiers);
         }
         if (BlueprintPanel.isCaptureModeActive()) {
             return handleCaptureKey(keyCode);
@@ -501,7 +503,8 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     @Override
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
         WindowTextBox focused = focusedTextBox();
-        return focused != null && focused.charTyped(codePoint, modifiers);
+        return focused != null && com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.charTyped(
+                focused, codePoint);
     }
 
     @Override
@@ -871,13 +874,13 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     private boolean isAltDown() {
-        long window = this.screen.getMinecraft().getWindow().getWindow();
+        long window = this.screen.getMinecraft().getWindow().handle();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
     }
 
     private boolean isShiftDown() {
-        long window = this.screen.getMinecraft().getWindow().getWindow();
+        long window = this.screen.getMinecraft().getWindow().handle();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
     }

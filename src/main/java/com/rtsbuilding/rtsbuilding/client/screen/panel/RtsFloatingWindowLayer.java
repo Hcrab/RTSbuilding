@@ -65,7 +65,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
             // 安全冲刷：RtsWindowPanel.render() 已在 scissor 内 flush 了内容，
             // 此处额外冲刷共享渲染缓冲区，确保 item 渲染这类立即提交的数据
             // 已经在 scissor 完成时被放入帧缓冲区。
-            g.flush();
+            g.nextStratum();
             Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
         }
     }

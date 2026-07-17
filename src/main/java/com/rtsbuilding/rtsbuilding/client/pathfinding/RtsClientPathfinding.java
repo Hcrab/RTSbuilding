@@ -393,7 +393,8 @@ public final class RtsClientPathfinding {
         if (params.useInputSystem()) {
             // Elytra: forwardImpulse = +1 means "press W", activates forward thrust.
             // The adjusted pitch above naturally steers the player toward the target.
-            player.input.forwardImpulse = 1.0F;
+            player.input.keyPresses = new net.minecraft.world.entity.player.Input(
+                    true, false, false, false, false, false, false);
             player.hurtMarked = true;
             return;
         }

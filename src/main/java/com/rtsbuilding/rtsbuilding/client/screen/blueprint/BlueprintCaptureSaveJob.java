@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -221,7 +221,7 @@ final class BlueprintCaptureSaveJob {
             return "";
         }
         try {
-            ItemStack cloneStack = state.getBlock().getCloneItemStack(this.level, pos, state);
+            ItemStack cloneStack = state.getCloneItemStack(this.level, pos, true);
             if (!cloneStack.isEmpty()) {
                 Identifier id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
                 if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {

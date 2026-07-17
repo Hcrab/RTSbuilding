@@ -78,7 +78,7 @@ public final class RtsScreenOverlayRenderer {
             this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
             return;
         }
-        long window = minecraft.getWindow().getWindow();
+        long window = minecraft.getWindow().handle();
         if (hide) {
             if (this.nativeCursorStyle != RtsWindowPanel.ResizeCursor.DEFAULT) {
                 GLFW.glfwSetCursor(window, 0L);
@@ -101,7 +101,7 @@ public final class RtsScreenOverlayRenderer {
             this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
             return;
         }
-        long window = minecraft.getWindow().getWindow();
+        long window = minecraft.getWindow().handle();
         if (this.nativeCursorHidden) {
             GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
             this.nativeCursorHidden = false;

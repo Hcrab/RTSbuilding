@@ -126,7 +126,7 @@ public final class BuildGhostBlockStateResolver {
         if (minecraft == null || minecraft.player == null || minecraft.level == null) return null;
 
         Camera camera = minecraft.gameRenderer.getMainCamera();
-        Vec3 cameraPos = camera.getPosition();
+        Vec3 cameraPos = camera.position();
         Vec3 targetCenter = Vec3.atCenterOf(targetPos);
 
         double dx = targetCenter.x - cameraPos.x;
@@ -147,7 +147,7 @@ public final class BuildGhostBlockStateResolver {
             adjacentPos = actualHit.getBlockPos();
             hitLocation = actualHit.getLocation();
         } else {
-            clickedFace = Direction.getNearest(-viewDir.x, -viewDir.y, -viewDir.z);
+            clickedFace = Direction.getApproximateNearest(-viewDir.x, -viewDir.y, -viewDir.z);
             adjacentPos = targetPos.relative(clickedFace.getOpposite());
             hitLocation = computeFallbackHitLocation(clickedFace, adjacentPos, targetCenter, cameraPos, viewDir);
         }
@@ -160,7 +160,7 @@ public final class BuildGhostBlockStateResolver {
             @Override
             public @NotNull Direction getNearestLookingDirection() { return clickedFace; }
             @Override
-            public @NotNull Direction getNearestLookingVerticalDirection() { return Direction.getNearest(0.0, dy, 0.0); }
+            public @NotNull Direction getNearestLookingVerticalDirection() { return Direction.getApproximateNearest(0.0, dy, 0.0); }
             @Override
             public float getRotation() { return yawDeg; }
         };

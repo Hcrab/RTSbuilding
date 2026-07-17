@@ -4,10 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "BlockEntityRenderDispatcherMixin",
-    "BlockRenderDispatcherMixin",
     "EmbeddiumWorldSliceMixin",
     "SodiumLevelSliceMixin",
-    "RenderChunkRegionMixin",
     "LocalPlayerMixin"
   ],
   "mixins": [

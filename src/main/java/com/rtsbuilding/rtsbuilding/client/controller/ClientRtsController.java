@@ -962,10 +962,7 @@ public final class ClientRtsController {
                 this.cameraOrbitService.capturePreviousView(minecraft);
                 // Clear stale player input to prevent WASD presses from before entering RTS mode from affecting movement
                 if (minecraft.player instanceof LocalPlayer localPlayer) {
-                    localPlayer.input.forwardImpulse = 0.0F;
-                    localPlayer.input.leftImpulse = 0.0F;
-                    localPlayer.input.jumping = false;
-                    localPlayer.input.shiftKeyDown = false;
+                    localPlayer.input.keyPresses = net.minecraft.world.entity.player.Input.EMPTY;
                 }
             }
 
@@ -1161,15 +1158,12 @@ public final class ClientRtsController {
         // isControlledCamera() is overridden by LocalPlayerMixin to return true,
         // so Minecraft's native sync mechanism handles position/rotation packets automatically.
         if (minecraft.player instanceof LocalPlayer localPlayer) {
-            localPlayer.input.jumping = false;
-            localPlayer.input.shiftKeyDown = false;
-            localPlayer.input.forwardImpulse = 0.0F;
-            localPlayer.input.leftImpulse = 0.0F;
+            localPlayer.input.keyPresses = net.minecraft.world.entity.player.Input.EMPTY;
 
             // RTS flight vertical control: when player is flying in RTS mode,
             // Ctrl+Space = ascend, Shift = descend (direct GLFW key state queries)
             if (localPlayer.getAbilities().flying) {
-                long window = minecraft.getWindow().getWindow();
+                long window = minecraft.getWindow().handle();
                 boolean ctrlHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                         || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
                 boolean spaceHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
@@ -1848,7 +1842,7 @@ public final class ClientRtsController {
         if (minecraft.player != null) {
             RtsClientPacketGateway.sendCloseRemoteMenu();
             minecraft.player.closeContainer();
-            minecraft.player.sendSystemMessage(Component.literal("Open failed."), true);
+            minecraft.player.sendSystemMessage(Component.literal("Open failed."));
         }
         minecraft.setScreen(null);
     }

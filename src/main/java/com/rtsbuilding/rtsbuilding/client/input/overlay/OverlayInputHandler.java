@@ -190,6 +190,6 @@ public final class OverlayInputHandler {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft != null
                 && minecraft.getWindow() != null
-                && org.lwjgl.glfw.GLFW.glfwGetMouseButton(minecraft.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                && org.lwjgl.glfw.GLFW.glfwGetMouseButton(minecraft.getWindow().handle(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
     }
 }

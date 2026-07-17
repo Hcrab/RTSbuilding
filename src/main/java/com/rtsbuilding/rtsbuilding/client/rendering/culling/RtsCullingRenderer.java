@@ -63,9 +63,9 @@ public final class RtsCullingRenderer {
         double maxX = box.maxX + 0.01D;
         double maxY = box.maxY + 0.01D;
         double maxZ = box.maxZ + 0.01D;
-        LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ, r, g, b, fillAlpha);
-        LevelRenderer.renderLineBox(poseStack, lineBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ, r, g, b, lineAlpha);
     }
 }

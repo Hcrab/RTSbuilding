@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.client.input.InputWithModifiers;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -99,13 +102,30 @@ public class WindowButton extends AbstractButton {
              textureWidth, textureHeight, onPress);
     }
 
-    @Override
     public void onPress() {
         this.onPress.onPress(this);
     }
 
     @Override
-    protected void renderWidget(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void onPress(@NotNull InputWithModifiers input) {
+        onPress();
+    }
+
+    /**
+     * 旧面板仍以直接绘制子控件的方式组织；在全部面板改成控件树前，
+     * 这里把调用适配到 26.1 的状态提取入口。
+     */
+    public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        this.extractRenderState(graphics, mouseX, mouseY, partialTick);
+    }
+
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return this.mouseClicked(new MouseButtonEvent(
+                mouseX, mouseY, new MouseButtonInfo(button, 0)), false);
+    }
+
+    @Override
+    protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
@@ -134,120 +154,24 @@ public class WindowButton extends AbstractButton {
      * Renders the button with a texture (supports vector scaling and hover effects).
      */
     private void renderWithTexture(GuiGraphicsExtractor guiGraphics) {
-        // Ensure the texture is loaded
-        var textureManager = Minecraft.getInstance().getTextureManager();
-        var texture = textureManager.getTexture(textureLocation);
-
-        if (texture == null) {
-            // Try to trigger automatic texture loading
-            try {
-                // Use setShaderTexture to trigger texture loading
-                RenderSystem.setShaderTexture(0, textureLocation);
-
-                // Try to get the texture again
-                texture = textureManager.getTexture(textureLocation);
-
-                if (texture == null) {
-                    // If still not loaded, draw a red rectangle as a hint
-                    guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
-                    return;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                // If still not loaded, draw a red rectangle as a hint
-                guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
-                return;
-            }
-        }
-
         // Select texture region based on hover state (covered windows forced to non-hover texture)
-        boolean effectiveHovered = isHovered && !globalSkipHover;
+        boolean effectiveHovered = isHovered() && !globalSkipHover;
         int currentV = effectiveHovered ? hoverTextureV : textureV;
         int currentHeight = effectiveHovered ? hoverTextureHeight : textureHeight;
-
-        // Enable blend mode for transparency
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(
-            org.lwjgl.opengl.GL11.GL_SRC_ALPHA,
-            org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA,
-            org.lwjgl.opengl.GL11.GL_ONE,
-            org.lwjgl.opengl.GL11.GL_ZERO
-        );
-
-        // Bind texture (bind before setting parameters)
-        RenderSystem.setShaderTexture(0, textureLocation);
-
-        // Set high-quality texture filter parameters
-        // Minification filter: trilinear (mipmap + linear interpolation)
-        RenderSystem.texParameter(
-            org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
-            org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
-            org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR
-        );
-        // Magnification filter: linear interpolation
-        RenderSystem.texParameter(
-            org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
-            org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
-            org.lwjgl.opengl.GL11.GL_LINEAR
-        );
-        // Try setting anisotropic filtering for better angled scaling quality
-        // Note: anisotropic filtering is an OpenGL extension, check support
-        try {
-            // Use ARB_texture_filter_anisotropic extension constants
-            int GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
-            int GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
-
-            int maxAniso = org.lwjgl.opengl.GL11.glGetInteger(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-            if (maxAniso > 0) {
-                float anisoLevel = Math.min(16.0f, maxAniso);
-                org.lwjgl.opengl.GL11.glTexParameterf(
-                    org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
-                    GL_TEXTURE_MAX_ANISOTROPY_EXT,
-                    anisoLevel
-                );
-            }
-        } catch (Exception e) {
-            // Ignore unsupported anisotropic filtering
-        }
-
-        // Use PoseStack transform for scaling (avoids clipping issues)
-        guiGraphics.pose().pushPose();
-
-        // Calculate scale ratio (using button size and texture size to render)
-        float scaleX = (float) this.width / textureWidth;
-        float scaleY = (float) this.height / textureHeight;
-
-        // Apply scale transform
-        guiGraphics.pose().translate(this.getX(), this.getY(), 0);
-        guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
-
-        // Draw texture at original size (blit automatically uses currently bound texture)
+        // 26.1 只提取 GUI 渲染状态；纹理绑定、混合与过滤由渲染管线统一管理。
         guiGraphics.blit(
+            RenderPipelines.GUI_TEXTURED,
             textureLocation,
-            0,  // Relative to transformed position
-            0,  // Relative to transformed position
+            this.getX(),
+            this.getY(),
             textureU,
-            currentV,      // Use the corresponding V coordinate
-            textureWidth,  // Width to render
-            currentHeight, // Height to render
-            fullTextureWidth,   // Total width of the full texture
-            fullTextureHeight   // Total height of the full texture
-        );
-
-        // Restore transform state
-        guiGraphics.pose().popPose();
-
-        // Restore default settings
-        RenderSystem.disableBlend();
-        RenderSystem.texParameter(
-            org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
-            org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
-            org.lwjgl.opengl.GL11.GL_NEAREST
-        );
-        RenderSystem.texParameter(
-            org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
-            org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
-            org.lwjgl.opengl.GL11.GL_NEAREST
+            currentV,
+            this.width,
+            this.height,
+            textureWidth,
+            currentHeight,
+            fullTextureWidth,
+            fullTextureHeight
         );
     }
 

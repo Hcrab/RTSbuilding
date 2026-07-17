@@ -46,7 +46,7 @@ public final class BlueprintGhostEnvelopeRenderer {
             return; // Skip when there are no valid blocks
         }
 
-        LevelRenderer.renderLineBox(
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                 poseStack, lineBuffer,
                 minX - ENVELOPE_PADDING, minY - ENVELOPE_PADDING, minZ - ENVELOPE_PADDING,
                 maxX + ENVELOPE_PADDING, maxY + ENVELOPE_PADDING, maxZ + ENVELOPE_PADDING,

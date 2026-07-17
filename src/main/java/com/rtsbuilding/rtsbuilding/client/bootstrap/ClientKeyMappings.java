@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -13,6 +14,11 @@ import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class ClientKeyMappings {
+    /**
+     * 26.1 将按键分类从翻译键字符串升级为强类型 ID；仅在客户端注册阶段登记。
+     */
+    public static final KeyMapping.Category CATEGORY = new KeyMapping.Category(
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "rtsbuilding"));
     private static final InputConstants.Key LEGACY_ROTATE_DRAG_DEFAULT =
             InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
     private static final InputConstants.Key LEGACY_PAN_DRAG_DEFAULT =
@@ -22,140 +28,141 @@ public final class ClientKeyMappings {
     private static final InputConstants.Key DEFAULT_PAN_DRAG =
             InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
 
-    public static final KeyMapping TOGGLE_RTS = new KeyMapping(
+    public static final RtsKeyMapping TOGGLE_RTS = new RtsKeyMapping(
             "key.rtsbuilding.toggle_rts",
             GLFW.GLFW_KEY_G,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping QUICK_FUNNEL = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping QUICK_FUNNEL = new RtsKeyMapping(
             "key.rtsbuilding.quick_funnel",
             GLFW.GLFW_KEY_F,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping QUICK_DROP = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping QUICK_DROP = new RtsKeyMapping(
             "key.rtsbuilding.quick_drop",
             GLFW.GLFW_KEY_Q,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping ROTATE_SHAPE = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping ROTATE_SHAPE = new RtsKeyMapping(
             "key.rtsbuilding.rotate_shape",
             GLFW.GLFW_KEY_R,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping OPEN_CRAFT_TERMINAL = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping OPEN_CRAFT_TERMINAL = new RtsKeyMapping(
             "key.rtsbuilding.open_craft_terminal",
             GLFW.GLFW_KEY_C,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping PIN_QUICK_SLOT = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping PIN_QUICK_SLOT = new RtsKeyMapping(
             "key.rtsbuilding.pin_quick_slot",
             GLFW.GLFW_KEY_P,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping BLUEPRINT_CANCEL = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping BLUEPRINT_CANCEL = new RtsKeyMapping(
             "key.rtsbuilding.blueprint_cancel",
             GLFW.GLFW_KEY_X,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping DECREASE_SENSITIVITY = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping DECREASE_SENSITIVITY = new RtsKeyMapping(
             "key.rtsbuilding.decrease_sensitivity",
             GLFW.GLFW_KEY_LEFT_BRACKET,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping INCREASE_SENSITIVITY = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping INCREASE_SENSITIVITY = new RtsKeyMapping(
             "key.rtsbuilding.increase_sensitivity",
             GLFW.GLFW_KEY_RIGHT_BRACKET,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_INTERACT = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping MODE_INTERACT = new RtsKeyMapping(
             "key.rtsbuilding.mode_interact",
             GLFW.GLFW_KEY_I,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_LINK_STORAGE = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping MODE_LINK_STORAGE = new RtsKeyMapping(
             "key.rtsbuilding.mode_link_storage",
             GLFW.GLFW_KEY_L,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_ROTATE = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping MODE_ROTATE = new RtsKeyMapping(
             "key.rtsbuilding.mode_rotate",
             GLFW.GLFW_KEY_R,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_FUNNEL = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping MODE_FUNNEL = new RtsKeyMapping(
             "key.rtsbuilding.mode_funnel",
             GLFW.GLFW_KEY_F,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping ACTION_PRIMARY = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping ACTION_PRIMARY = new RtsKeyMapping(
             "key.rtsbuilding.action_primary",
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MOVE_PLAYER = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping MOVE_PLAYER = new RtsKeyMapping(
             "key.rtsbuilding.move_player",
             KeyConflictContext.GUI,
             KeyModifier.CONTROL,
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping ACTION_BREAK = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping ACTION_BREAK = new RtsKeyMapping(
             "key.rtsbuilding.action_break",
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_LEFT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CONFIRM_BATCH_PLACE = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CONFIRM_BATCH_PLACE = new RtsKeyMapping(
             "key.rtsbuilding.confirm_batch_place",
             GLFW.GLFW_KEY_ENTER,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CONFIRM_BATCH_DESTROY = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CONFIRM_BATCH_DESTROY = new RtsKeyMapping(
             "key.rtsbuilding.confirm_batch_destroy",
             GLFW.GLFW_KEY_ENTER,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_ROTATE_DRAG = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CAMERA_ROTATE_DRAG = new RtsKeyMapping(
             "key.rtsbuilding.camera_rotate_drag",
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_PAN_DRAG = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CAMERA_PAN_DRAG = new RtsKeyMapping(
             "key.rtsbuilding.camera_pan_drag",
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_MIDDLE,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping PICK_BLOCK = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping PICK_BLOCK = new RtsKeyMapping(
             "key.rtsbuilding.pick_block",
             InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_MIDDLE,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_UP = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CAMERA_UP = new RtsKeyMapping(
             "key.rtsbuilding.camera_up",
             GLFW.GLFW_KEY_SPACE,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_UP_SECONDARY = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CAMERA_UP_SECONDARY = new RtsKeyMapping(
             "key.rtsbuilding.camera_up_secondary",
             GLFW.GLFW_KEY_UNKNOWN,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_DOWN = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping CAMERA_DOWN = new RtsKeyMapping(
             "key.rtsbuilding.camera_down_arrow",
             GLFW.GLFW_KEY_LEFT_SHIFT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_FORWARD = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping SELECTION_NUDGE_FORWARD = new RtsKeyMapping(
             "key.rtsbuilding.selection_nudge_forward",
             GLFW.GLFW_KEY_UP,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_BACK = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping SELECTION_NUDGE_BACK = new RtsKeyMapping(
             "key.rtsbuilding.selection_nudge_back",
             GLFW.GLFW_KEY_DOWN,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_LEFT = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping SELECTION_NUDGE_LEFT = new RtsKeyMapping(
             "key.rtsbuilding.selection_nudge_left",
             GLFW.GLFW_KEY_LEFT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_RIGHT = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping SELECTION_NUDGE_RIGHT = new RtsKeyMapping(
             "key.rtsbuilding.selection_nudge_right",
             GLFW.GLFW_KEY_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_UP = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping SELECTION_NUDGE_UP = new RtsKeyMapping(
             "key.rtsbuilding.selection_nudge_up",
             GLFW.GLFW_KEY_PAGE_UP,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_DOWN = new KeyMapping(
+            CATEGORY);
+    public static final RtsKeyMapping SELECTION_NUDGE_DOWN = new RtsKeyMapping(
             "key.rtsbuilding.selection_nudge_down",
             GLFW.GLFW_KEY_PAGE_DOWN,
-            "key.categories.rtsbuilding");
+            CATEGORY);
 
     private ClientKeyMappings() {
     }
 
     @SubscribeEvent
     public static void register(RegisterKeyMappingsEvent event) {
+        event.registerCategory(CATEGORY);
         event.register(TOGGLE_RTS);
         event.register(QUICK_FUNNEL);
         event.register(QUICK_DROP);

@@ -13,7 +13,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 
 import java.util.List;
 
@@ -208,7 +208,7 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
 
         // 重启按钮（材料不足时不可点击）
         if (allMaterialsEnough() && isInsideBtn(mouseX, mouseY, x, btnY, maxW, BTN_H)) {
-            PacketDistributor.sendToServer(new C2SRtsResumePlacementActionPayload(0, this.workflowEntryId));
+            RtsClientNetworkBridge.send(new C2SRtsResumePlacementActionPayload(0, this.workflowEntryId));
             setOpen(false);
         }
     }

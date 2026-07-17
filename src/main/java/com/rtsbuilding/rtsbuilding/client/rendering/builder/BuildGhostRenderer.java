@@ -58,14 +58,9 @@ public final class BuildGhostRenderer {
             if (blockState != null && !blockState.isAir() && blockState.getRenderShape() == RenderShape.MODEL) {
                 BuildGhostModelRenderer.renderModels(minecraft, blocks, poseStack, blockState);
             } else {
-                ItemStack spawnEggStack = BuildGhostBlockStateResolver.resolveSpawnEggStack(minecraft);
-                if (!spawnEggStack.isEmpty()) {
-                    EntityGhostRenderer.renderEntities(minecraft, blocks, poseStack, spawnEggStack);
-                } else if (!BuildGhostBlockStateResolver.resolveEndCrystalStack(minecraft).isEmpty()) {
-                    EntityGhostRenderer.renderEndCrystals(minecraft, blocks, poseStack);
-                } else {
-                    BuildGhostFillRenderer.renderFill(blocks, poseStack, fillBuffer, readyConfirm);
-                }
+                // 实体虚影在 26.1 必须走实体 RenderState；抢滩阶段保守退化为方框填充，
+                // 不在旧即时渲染阶段调用已经失效的实体 renderer。
+                BuildGhostFillRenderer.renderFill(blocks, poseStack, fillBuffer, readyConfirm);
             }
         }
 

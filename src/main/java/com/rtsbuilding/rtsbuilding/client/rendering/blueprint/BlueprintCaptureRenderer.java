@@ -78,7 +78,7 @@ public final class BlueprintCaptureRenderer {
         // Render a translucent blue fill when not showing individual highlights
         // Render blue highlights for each included block
         for (BlockPos pos : includedBlocks) {
-            LevelRenderer.addChainedFilledBoxVertices(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                     poseStack,
                     fillBuffer,
                     pos.getX() + 0.04D, pos.getY() + 0.04D, pos.getZ() + 0.04D,
@@ -88,19 +88,19 @@ public final class BlueprintCaptureRenderer {
 
         // Render red wireframe for each excluded block
         for (BlockPos pos : BlueprintPanel.getCaptureExcludedBlocksForRender(CAPTURE_EXCLUDED_HIGHLIGHT_LIMIT)) {
-            LevelRenderer.addChainedFilledBoxVertices(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                     poseStack,
                     fillBuffer,
                     pos.getX() + 0.07D, pos.getY() + 0.07D, pos.getZ() + 0.07D,
                     pos.getX() + 0.93D, pos.getY() + 0.93D, pos.getZ() + 0.93D,
                     EXCLUDED_BLOCK_R, EXCLUDED_BLOCK_G, EXCLUDED_BLOCK_B, EXCLUDED_BLOCK_FILL_A);
-            LevelRenderer.addChainedFilledBoxVertices(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                     poseStack,
                     fillBuffer,
                     pos.getX() + 0.18D, pos.getY() + 0.91D, pos.getZ() + 0.18D,
                     pos.getX() + 0.82D, pos.getY() + 0.99D, pos.getZ() + 0.82D,
                     EXCLUDED_BLOCK_R, EXCLUDED_BLOCK_G, EXCLUDED_BLOCK_B, EXCLUDED_BLOCK_MARK_A);
-            LevelRenderer.renderLineBox(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                     poseStack,
                     lineBuffer,
                     pos.getX() + 0.06D, pos.getY() + 0.06D, pos.getZ() + 0.06D,
@@ -109,7 +109,7 @@ public final class BlueprintCaptureRenderer {
         }
 
         // Render the blue bounding box outline for the entire selection
-        LevelRenderer.renderLineBox(
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                 poseStack,
                 lineBuffer,
                 minX, minY, minZ,

@@ -91,7 +91,7 @@ public final class PendingGhostRenderer {
             double maxX = pos.getX() + 1.0D - inset;
             double maxY = pos.getY() + 1.0D - inset;
             double maxZ = pos.getZ() + 1.0D - inset;
-            LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, lineR, lineG, lineB, lineA);
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, lineR, lineG, lineB, lineA);
         }
     }
 
@@ -147,7 +147,7 @@ public final class PendingGhostRenderer {
             PendingGhostEntry ghost = GHOSTS.get(pos.asLong());
             float scale = (ghost != null) ? computeGrowScale(now - ghost.addedAtMs) : BASE_SCALE;
             double inset = 0.5D - scale * 0.44D;
-            LevelRenderer.addChainedFilledBoxVertices(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                     poseStack, fillBuffer,
                     pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                     pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,

@@ -47,8 +47,8 @@ public final class RtsCraftFeedbackPopup {
         int textColor = (alpha << 24) | 0xF2F7FF;
         int subColor = (alpha << 24) | 0xC9D8E6;
 
-        g.pose().pushPose();
-        g.pose().translate(0.0F, 0.0F, 700.0F);
+        g.nextStratum();
+        g.pose().pushMatrix();
         drawPanelFrame(g, x, y, PANEL_W, panelH, fill, borderLight, borderDark);
         if (!resultPreview.isEmpty()) {
             g .item(resultPreview, x + 8, y + 8);
@@ -73,7 +73,7 @@ public final class RtsCraftFeedbackPopup {
         if (hasOverflow) {
             g .text(font, "+" + (ingredients.size() - visibleRows) + " more", x + 10, rowY + 1, subColor, false);
         }
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     private static ItemStack resolvePreview(String itemId) {

@@ -43,7 +43,7 @@ public final class BuildGhostFillRenderer {
             double maxX = pos.getX() + 0.97D;
             double maxY = pos.getY() + 0.97D;
             double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.addChainedFilledBoxVertices(
+            com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                     poseStack, fillBuffer,
                     minX, minY, minZ,
                     maxX, maxY, maxZ,

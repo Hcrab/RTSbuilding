@@ -13,7 +13,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 
 import java.util.List;
 
@@ -264,7 +264,7 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
     }
 
     private void sendAction(int strategy) {
-        PacketDistributor.sendToServer(new C2SRtsResumePlacementActionPayload(strategy, this.workflowEntryId));
+        RtsClientNetworkBridge.send(new C2SRtsResumePlacementActionPayload(strategy, this.workflowEntryId));
         setOpen(false);
     }
 

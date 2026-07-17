@@ -156,7 +156,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         if (isEditingPriority(entry.pos())) {
             this.priorityInput.setX(x);
             this.priorityInput.setY(y);
-            this.priorityInput.renderWidget(g, mouseX, mouseY, 0.0F);
+            this.priorityInput.render(g, mouseX, mouseY, 0.0F);
             return;
         }
         boolean hovered = inside(mouseX, mouseY, x, y, PRIORITY_W, CONTROL_H);
@@ -247,14 +247,16 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             cancelPriorityEdit();
             return true;
         }
-        return this.priorityInput.keyPressed(keyCode, scanCode, modifiers);
+        return com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.keyPressed(
+                this.priorityInput, keyCode, scanCode, modifiers);
     }
 
     @Override
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
         return this.priorityInput != null
                 && this.priorityInput.isFocused()
-                && this.priorityInput.charTyped(codePoint, modifiers);
+                && com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.charTyped(
+                        this.priorityInput, codePoint);
     }
 
     @Override

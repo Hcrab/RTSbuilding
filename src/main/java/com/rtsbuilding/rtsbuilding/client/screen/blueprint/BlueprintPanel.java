@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.network.blueprint.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -25,7 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.tinyfd.TinyFileDialogs;
@@ -1098,7 +1098,7 @@ public final class BlueprintPanel {
                     (byte) BlueprintTransform.normalizeSteps(yRotationSteps),
                     (byte) BlueprintTransform.normalizeSteps(xRotationSteps),
                     (byte) BlueprintTransform.normalizeSteps(zRotationSteps));
-            PacketDistributor.sendToServer(payload);
+            RtsClientNetworkBridge.send(payload);
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.uploading", entry.name());
             pinnedAnchor = null;
             return true;
@@ -1193,7 +1193,7 @@ public final class BlueprintPanel {
     private static Direction currentHorizontalFacingDirection() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft != null && minecraft.gameRenderer != null) {
-            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().getYRot());
+            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().yRot());
         }
         if (minecraft != null && minecraft.getCameraEntity() != null) {
             return Direction.fromYRot(minecraft.getCameraEntity().getYRot());
@@ -1209,7 +1209,7 @@ public final class BlueprintPanel {
         if (minecraft == null || minecraft.getWindow() == null) {
             return false;
         }
-        long window = minecraft.getWindow().getWindow();
+        long window = minecraft.getWindow().handle();
         return org.lwjgl.glfw.GLFW.glfwGetKey(window, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
                 == org.lwjgl.glfw.GLFW.GLFW_PRESS
                 || org.lwjgl.glfw.GLFW.glfwGetKey(window, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT)
@@ -1232,7 +1232,7 @@ public final class BlueprintPanel {
         int z = pos.getZ();
         Level level = Minecraft.getInstance().level;
         if (level != null) {
-            y = Mth.clamp(y, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
+            y = Mth.clamp(y, level.getMinY(), level.getMaxY());
         }
         if (controller != null && controller.hasBounds()) {
             double halfExtent = controller.getMaxRadius() + 8.0D;
@@ -1700,13 +1700,13 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
         }
-        boolean confirmed = TinyFileDialogs.tinyfd_messageBox(
+        int confirmed = TinyFileDialogs.tinyfd_messageBox(
                 text("screen.rtsbuilding.blueprints.delete_confirm_title"),
                 text("screen.rtsbuilding.blueprints.delete_confirm_message", entry.name()),
                 "yesno",
                 "warning",
-                false);
-        if (!confirmed) {
+                0);
+        if (confirmed == 0) {
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.delete_cancelled", "");
             return;
         }

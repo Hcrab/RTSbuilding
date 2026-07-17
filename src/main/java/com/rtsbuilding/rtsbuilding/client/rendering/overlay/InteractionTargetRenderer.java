@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
@@ -9,8 +8,6 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
@@ -108,35 +105,7 @@ public final class InteractionTargetRenderer {
 
     // ── Custom no-depth bracket render type ──
 
-    private static final RenderType BRACKET_NO_DEPTH = RenderType.create(
-            "rtsbuilding_target_brackets_no_depth",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder BRACKET_NO_DEPTH_BACKING = new ByteBufferBuilder(BRACKET_NO_DEPTH.bufferSize());
-
     // ── Custom no-depth face-fog render type ──
-
-    private static final RenderType FACE_FOG_NO_DEPTH = RenderType.create(
-            "rtsbuilding_face_fog_no_depth",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 256, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder FACE_FOG_NO_DEPTH_BACKING = new ByteBufferBuilder(FACE_FOG_NO_DEPTH.bufferSize());
 
     // ──────────────────────────────────────────────
     //  Internal helpers
@@ -177,7 +146,7 @@ public final class InteractionTargetRenderer {
         float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
 
         // ── Build ray-cast vectors ──
-        Vec3 camPos = minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 camPos = minecraft.gameRenderer.getMainCamera().position();
         Vec3 viewDir = RaycastHelper.computeCursorRayDirection(minecraft);
         Vec3 rayEnd = camPos.add(viewDir.scale(MAX_REACH));
 
@@ -415,9 +384,6 @@ public final class InteractionTargetRenderer {
         double y1 = bounds.minY, y2 = bounds.maxY;
         double z1 = bounds.minZ, z2 = bounds.maxZ;
 
-        BufferBuilder fogBuffer = new BufferBuilder(FACE_FOG_NO_DEPTH_BACKING, VertexFormat.Mode.QUADS,
-                DefaultVertexFormat.POSITION_COLOR);
-
         switch (face) {
             case DOWN -> RenderingUtil.quad(consumer, poseStack,
                     x1, y1 - off, z1, x2, y1 - off, z1, x2, y1 - off, z2, x1, y1 - off, z2, r, g, b, alpha);
@@ -433,14 +399,6 @@ public final class InteractionTargetRenderer {
                     x2 + off, y1, z1, x2 + off, y1, z2, x2 + off, y2, z2, x2 + off, y2, z1, r, g, b, alpha);
         }
 
-        var meshData = fogBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            FACE_FOG_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-        }
     }
 
     // ══════════════════════════════════════════════

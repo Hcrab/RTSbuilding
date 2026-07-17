@@ -1,10 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.opengl.GL11;
 
 /**
  * High-precision vector texture renderer.
@@ -54,68 +52,30 @@ public final class RtsTextureRenderer {
             float rotationDeg,
             int color
     ) {
-        // 1. Ensure the texture is loaded (same as WindowButton.renderWithTexture)
-        var textureManager = Minecraft.getInstance().getTextureManager();
-        var texture = textureManager.getTexture(texLocation);
-        if (texture == null) {
-            try {
-                RenderSystem.setShaderTexture(0, texLocation);
-                texture = textureManager.getTexture(texLocation);
-                if (texture == null) return;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return;
-            }
+        if (guiGraphics == null || texLocation == null || uWidth <= 0.0F || vHeight <= 0.0F) {
+            return;
         }
-
-        // 2. Enable blending
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        // 3. Bind the texture and set high-quality filter parameters
-        RenderSystem.setShaderTexture(0, texLocation);
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-
-        // 4. Colour tinting
-        boolean hasTint = (color & 0xFFFFFFFFL) != 0xFFFFFFFFL;
-        if (hasTint) {
-            guiGraphics.setColor(
-                    ((color >> 16) & 0xFF) / 255.0f,
-                    ((color >> 8) & 0xFF) / 255.0f,
-                    (color & 0xFF) / 255.0f,
-                    ((color >> 24) & 0xFF) / 255.0f
-            );
-        }
-
-        // 5. Use PoseStack transform (same as WindowButton.renderWithTexture)
         var pose = guiGraphics.pose();
-        pose.pushPose();
-        pose.translate(x, y, 0);
+        pose.pushMatrix();
+        pose.translate(x + width / 2.0F, y + height / 2.0F);
+        if (rotationDeg != 0.0F) {
+            pose.rotate((float) Math.toRadians(rotationDeg));
+        }
         float scaleX = width / uWidth;
         float scaleY = height / vHeight;
-        pose.scale(scaleX, scaleY, 1.0f);
+        pose.scale(scaleX, scaleY);
+        pose.translate(-uWidth / 2.0F, -vHeight / 2.0F);
 
-        // 6. Draw (in transformed coordinates, texture is drawn at (0,0) with original UV size)
         guiGraphics.blit(
+                RenderPipelines.GUI_TEXTURED,
                 texLocation,
                 0, 0,
-                (int) uOffset, (int) vOffset,
+                uOffset, vOffset,
                 (int) uWidth, (int) vHeight,
-                textureWidth, textureHeight
+                (int) uWidth, (int) vHeight,
+                textureWidth, textureHeight,
+                color
         );
-
-        // 7. Restore transform
-        pose.popPose();
-
-        // 8. Restore colour
-        if (hasTint) {
-            guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-
-        // 9. Restore blend and texture filter
-        RenderSystem.disableBlend();
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        pose.popMatrix();
     }
 }

@@ -140,7 +140,7 @@ public final class StorageRenderer {
             return;
         }
 
-        Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().position();
         long now = System.currentTimeMillis();
 
         List<LinkedStorageEntry> entries = controller.getLinkedStorageEntries();

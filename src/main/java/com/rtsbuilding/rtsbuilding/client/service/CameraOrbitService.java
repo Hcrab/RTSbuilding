@@ -260,7 +260,7 @@ public final class CameraOrbitService {
         this.rotateCaptured = true;
         this.restoreCursorX = cursorX;
         this.restoreCursorY = cursorY;
-        GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        GLFW.glfwSetInputMode(minecraft.getWindow().handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
     }
 
     public void endRotateCapture(double fallbackX, double fallbackY) {
@@ -269,10 +269,10 @@ public final class CameraOrbitService {
         }
         Minecraft minecraft = Minecraft.getInstance();
         this.rotateCaptured = false;
-        GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
+        GLFW.glfwSetInputMode(minecraft.getWindow().handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
         double x = this.restoreCursorX == 0.0D ? fallbackX : this.restoreCursorX;
         double y = this.restoreCursorY == 0.0D ? fallbackY : this.restoreCursorY;
-        GLFW.glfwSetCursorPos(minecraft.getWindow().getWindow(), x, y);
+        GLFW.glfwSetCursorPos(minecraft.getWindow().handle(), x, y);
     }
 
     public boolean isRotateCaptured() {
@@ -839,7 +839,7 @@ public final class CameraOrbitService {
             return CameraInput.NONE;
         }
 
-        long window = minecraft.getWindow().getWindow();
+        var window = minecraft.getWindow();
         boolean w = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W);
         boolean s = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S);
         boolean a = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A);

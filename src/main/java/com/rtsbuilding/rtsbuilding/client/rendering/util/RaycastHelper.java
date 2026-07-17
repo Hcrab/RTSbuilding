@@ -135,8 +135,8 @@ public final class RaycastHelper {
         double ny = 1.0D - (mouseY / height) * 2.0D;
 
         // Get camera facing angles
-        float yawDeg = minecraft.gameRenderer.getMainCamera().getYRot();
-        float pitchDeg = minecraft.gameRenderer.getMainCamera().getXRot();
+        float yawDeg = minecraft.gameRenderer.getMainCamera().yRot();
+        float pitchDeg = minecraft.gameRenderer.getMainCamera().xRot();
         double yaw = Math.toRadians(yawDeg);
         double pitch = Math.toRadians(pitchDeg);
 

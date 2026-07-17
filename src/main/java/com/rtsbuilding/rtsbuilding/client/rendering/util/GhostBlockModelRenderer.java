@@ -1,14 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -20,8 +15,6 @@ import net.minecraft.world.level.block.state.BlockState;
  * 树叶颜色的模组能拿到非空坐标。
  */
 public final class GhostBlockModelRenderer {
-    private static final RandomSource RANDOM = RandomSource.create();
-
     private GhostBlockModelRenderer() {
     }
 
@@ -32,36 +25,8 @@ public final class GhostBlockModelRenderer {
 
     public static boolean renderAt(Minecraft minecraft, PoseStack poseStack, MultiBufferSource bufferSource,
             BlockState state, BlockPos pos, float alpha, float scale) {
-        if (minecraft == null || minecraft.level == null || poseStack == null || bufferSource == null
-                || state == null || pos == null || state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
-            return false;
-        }
-
-        VertexConsumer consumer = new GhostAlphaBufferSource.GhostAlphaVertexConsumer(
-                bufferSource.getBuffer(RenderType.translucent()), alpha);
-
-        poseStack.pushPose();
-        try {
-            poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-            if (scale != 1.0F) {
-                poseStack.translate(0.5D, 0.5D, 0.5D);
-                poseStack.scale(scale, scale, scale);
-                poseStack.translate(-0.5D, -0.5D, -0.5D);
-            }
-            minecraft.getBlockRenderer().getModelRenderer().tesselateBlock(
-                    minecraft.level,
-                    minecraft.getBlockRenderer().getBlockModel(state),
-                    state,
-                    pos,
-                    poseStack,
-                    consumer,
-                    false,
-                    RANDOM,
-                    state.getSeed(pos),
-                    OverlayTexture.NO_OVERLAY);
-        } finally {
-            poseStack.popPose();
-        }
-        return true;
+        // 26.1 禁止在旧阶段直接向共享 buffer 写方块模型。保留这个窄边界，
+        // 让业务侧虚影状态继续编译；真正几何由后续 SubmitCustomGeometry 桥接入。
+        return false;
     }
 }

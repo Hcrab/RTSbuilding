@@ -27,7 +27,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Arrays;
@@ -166,7 +166,7 @@ public final class RtsClientInputGate {
         }
 
         if (event.getScreen() instanceof InventoryScreen) {
-            renderInventoryRtsButtons(event.getGuiGraphicsExtractor(), Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
+            renderInventoryRtsButtons(event.getGuiGraphics(), Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
         }
         if (!RtsClientUiStateStore.isContainerOverlayEnabled()) {
             clearOverlaySearchFocus();
@@ -182,7 +182,7 @@ public final class RtsClientInputGate {
         syncOverlayScreen(event.getScreen(), controller);
 
         Minecraft minecraft = Minecraft.getInstance();
-        GuiGraphicsExtractor g = event.getGuiGraphicsExtractor();
+        GuiGraphicsExtractor g = event.getGuiGraphics();
         OverlayProfile profile = overlayProfile();
         double mouseX = toOverlayMouse(event.getMouseX(), profile);
         double mouseY = toOverlayMouse(event.getMouseY(), profile);
@@ -190,8 +190,8 @@ public final class RtsClientInputGate {
         syncOverlaySearchDrafts(controller);
         syncOverlayCraftables(controller);
 
-        g.pose().pushPose();
-        g.pose().scale((float) profile.renderScale(), (float) profile.renderScale(), 1.0F);
+        g.pose().pushMatrix();
+        g.pose().scale((float) profile.renderScale(), (float) profile.renderScale());
 
         if (!layout.overlayCollapsed()) {
             drawOverlayWindowFrame(g, layout.craftPanelX(), layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH());
@@ -338,7 +338,7 @@ public final class RtsClientInputGate {
             renderOverlayInfoPanel(g, minecraft.font, layout);
         }
 
-        g.pose().popPose();
+        g.pose().popMatrix();
 
         if (OVERLAY_CRAFT_DIALOG.isOpen()) {
             OVERLAY_CRAFT_DIALOG.render(
@@ -445,7 +445,7 @@ public final class RtsClientInputGate {
                 event.setCanceled(true);
                 return;
             }
-            if (Screen.hasShiftDown()) {
+            if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
                 if (RtsClientUiStateStore.isOverlayShiftImportEnabled()) {
                     if (tryStartShiftImportDrag((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy)) {
                         captureLeftRelease = true;
@@ -645,7 +645,7 @@ public final class RtsClientInputGate {
                 event.setCanceled(true);
                 return;
             }
-            if (Screen.hasShiftDown()) {
+            if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()) {
                 if (RtsClientUiStateStore.isOverlayShiftImportEnabled()) {
                     if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy, event.getButton())) {
                         captureRightRelease = true;
@@ -693,7 +693,7 @@ public final class RtsClientInputGate {
     public static void onScreenMouseDragged(ScreenEvent.MouseDragged.Pre event) {
         if (shiftImportDragging) {
             if (OverlayInteraction.isLeftMouseDown()
-                    && Screen.hasShiftDown()
+                    && com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown()
                     && RtsClientUiStateStore.isOverlayShiftImportEnabled()
                     && ClientRtsController.get().canUseStorageOverlay()
                     && event.getScreen() == shiftImportDragScreen
@@ -984,7 +984,7 @@ public final class RtsClientInputGate {
             return;
         }
 
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(pendingOverlayCarriedItemId, carried.getCount()));
+        RtsClientNetworkBridge.send(new C2SRtsReturnCarriedPayload(pendingOverlayCarriedItemId, carried.getCount()));
         minecraft.player.containerMenu.setCarried(ItemStack.EMPTY);
         pendingOverlayCarriedItemId = "";
     }

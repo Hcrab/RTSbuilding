@@ -70,7 +70,7 @@ public final class RtsPluginInventoryScreenEvents {
 
     private static boolean isShiftDown() {
         Minecraft minecraft = Minecraft.getInstance();
-        long window = minecraft.getWindow().getWindow();
+        var window = minecraft.getWindow();
         return InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_SHIFT)
                 || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_SHIFT);
     }

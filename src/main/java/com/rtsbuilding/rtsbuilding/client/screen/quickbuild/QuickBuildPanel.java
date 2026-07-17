@@ -723,7 +723,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 int itemX = x + 8 + textWidth + 4;
                 g .item(preview, itemX, itemY);
                 // 立即 flush 物品渲染，确保在 scissor 仍生效时提交到帧缓冲区
-                g.flush();
+                g.nextStratum();
                 rightEdge = itemX + 16;
             }
 
@@ -744,7 +744,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                             if (!preview.isEmpty()) {
                                 int missIconX = missTextX + screen.font().width(missText) + 4;
                                 g .item(preview, missIconX, itemY);
-                                g.flush();
+                                g.nextStratum();
                             }
                         }
                     } catch (NumberFormatException ignored) {

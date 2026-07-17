@@ -50,7 +50,7 @@ public final class RtsHomeScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
         if (this.homeButton != null) {
             this.homeButton.setMessage(homeButtonLabel());
@@ -95,7 +95,7 @@ public final class RtsHomeScreen extends Screen {
         g.fill(x, y, x + contentW, warningBottom, 0xFF1B1F24);
         g.horizontalLine(x, x + contentW, y, 0xFF6E8799);
         drawWrapped(g, warning, x + 10, y + 9, contentW - 20, 0xFFFFD980);
-        super.render(g, mouseX, mouseY, partialTick);
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -104,7 +104,7 @@ public final class RtsHomeScreen extends Screen {
     }
 
     @Override
-    protected void renderBlurredBackground(float partialTick) {
+    protected void extractBlurredBackground(GuiGraphicsExtractor graphics) {
     }
 
     private boolean canChangeHome() {

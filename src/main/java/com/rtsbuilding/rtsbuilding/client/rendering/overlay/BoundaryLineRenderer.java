@@ -44,7 +44,7 @@ public final class BoundaryLineRenderer {
         float yMax = (highestBlock > Integer.MIN_VALUE)
                 ? highestBlock + 5.0F
                 : (float) defaultY + 3.0F;
-        float yMin = (float) level.getMinBuildHeight();
+        float yMin = (float) level.getMinY();
         float wallHeight = yMax - yMin;
 
         var pose = poseStack.last();

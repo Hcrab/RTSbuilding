@@ -99,7 +99,7 @@ public final class EntityGhostRenderer {
                         bufferSource.getBuffer(renderType), GHOST_ALPHA);
 
         float partialTick = minecraft.getTimer().getGameTimeDeltaPartialTick(true);
-        Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().position();
 
         for (BlockPos pos : blocks) {
             // Calculate yaw facing the player

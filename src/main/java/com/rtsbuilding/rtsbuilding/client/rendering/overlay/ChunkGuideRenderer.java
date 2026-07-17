@@ -55,7 +55,7 @@ public final class ChunkGuideRenderer {
 
         // Determine the guide line Y-height: prefer player position, fall back to camera position
         int guideYSource = minecraft.player == null ? cameraBlockPos.getY() : minecraft.player.blockPosition().getY();
-        int guideY = Mth.clamp(guideYSource, minecraft.level.getMinBuildHeight(), minecraft.level.getMaxBuildHeight() - 1);
+        int guideY = Mth.clamp(guideYSource, minecraft.level.getMinY(), minecraft.level.getMaxY() - 1);
 
         // Iterate over all chunks in the range, rendering edge highlights
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
@@ -140,7 +140,7 @@ public final class ChunkGuideRenderer {
         double maxZ = z + 1.0D - inset;
 
         // Draw translucent fill
-        LevelRenderer.addChainedFilledBoxVertices(
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
                 poseStack,
                 fillBuffer,
                 minX, minY, minZ,
@@ -148,7 +148,7 @@ public final class ChunkGuideRenderer {
                 color.r(), color.g(), color.b(), color.a());
 
         // Draw wireframe (slightly brighter than the fill colour)
-        LevelRenderer.renderLineBox(
+        com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.renderLineBox(
                 poseStack,
                 lineBuffer,
                 minX, minY, minZ,

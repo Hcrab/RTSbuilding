@@ -56,6 +56,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -347,7 +351,7 @@ public final class BuilderScreen extends Screen {
     public void showQuickBuildLockedMessage() {
         if (this.minecraft != null && this.minecraft.player != null) {
             this.minecraft.player.sendSystemMessage(
-                    Component.translatable("message.rtsbuilding.quick_build.remote_place_locked"), true);
+                    Component.translatable("message.rtsbuilding.quick_build.remote_place_locked"));
         }
     }
 
@@ -507,7 +511,7 @@ public final class BuilderScreen extends Screen {
             this.cameraInput.stopActiveMining();
             return;
         }
-        long window = this.minecraft.getWindow().getWindow();
+        long window = this.minecraft.getWindow().handle();
         boolean miningInputDown = this.cameraInput.isKeyboardMining()
                 ? ClientKeyMappings.ACTION_BREAK.isDown()
                 : this.cameraInput.getActiveMiningMouseButton() >= 0
@@ -525,11 +529,15 @@ public final class BuilderScreen extends Screen {
 
       @return true if the click was consumed by this screen, false otherwise
      */
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        return handleMouseClicked(event.x(), event.y(), event.button());
+    }
+
+    private boolean handleMouseClicked(double mouseX, double mouseY, int button) {
         RtsUiScaleFrame frame = beginFixedRtsScaleInput();
         if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
             try {
-                return mouseClicked(mouseX / frame.scale(), mouseY / frame.scale(), button);
+                return handleMouseClicked(mouseX / frame.scale(), mouseY / frame.scale(), button);
             } finally {
                 endFixedRtsScaleInput(frame);
             }
@@ -542,7 +550,8 @@ public final class BuilderScreen extends Screen {
         if (handleAreaMineClickBlock(mouseX, mouseY, button)) return true;
         if (handleLeftClickInteractions(mouseX, mouseY, button)) return true;
         if (handleWorldClickActions(mouseX, mouseY, button)) return true;
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(new MouseButtonEvent(
+                mouseX, mouseY, new MouseButtonInfo(button, 0)), false);
     }
 
     /** Handles left/right click in blueprint capture mode. */
@@ -732,7 +741,8 @@ public final class BuilderScreen extends Screen {
         }
         if (this.shapeController.isAwaitingBatchPlaceConfirm()
                 && ClientKeyMappings.CONFIRM_BATCH_PLACE.isActiveAndMatches(mouseKey)) {
-            this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
+            this.shapeController.tryConfirmPendingShapeBuild(
+                    com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown());
             return true;
         }
         return false;
@@ -743,11 +753,15 @@ public final class BuilderScreen extends Screen {
      * Handles mouse release with RTS GUI scale remapping. Routes release events to
      * open dialogs, dragging state, floating windows, and camera input handlers.
      */
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        return handleMouseReleased(event.x(), event.y(), event.button());
+    }
+
+    private boolean handleMouseReleased(double mouseX, double mouseY, int button) {
         RtsUiScaleFrame frame = beginFixedRtsScaleInput();
         if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
             try {
-                return mouseReleased(mouseX / frame.scale(), mouseY / frame.scale(), button);
+                return handleMouseReleased(mouseX / frame.scale(), mouseY / frame.scale(), button);
             } finally {
                 endFixedRtsScaleInput(frame);
             }
@@ -781,7 +795,8 @@ public final class BuilderScreen extends Screen {
         if (this.cameraInput.endMiddlePress(mouseX, mouseY, button)) {
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(new MouseButtonEvent(
+                mouseX, mouseY, new MouseButtonInfo(button, 0)));
     }
     @Override
     /**
@@ -789,11 +804,16 @@ public final class BuilderScreen extends Screen {
      * open dialogs, sensitivity slider dragging, floating windows, camera drag handlers,
      * and search box focus logic.
      */
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        return handleMouseDragged(event.x(), event.y(), event.button(), dragX, dragY);
+    }
+
+    private boolean handleMouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         RtsUiScaleFrame frame = beginFixedRtsScaleInput();
         if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
             try {
-                return mouseDragged(mouseX / frame.scale(), mouseY / frame.scale(), button, dragX / frame.scale(), dragY / frame.scale());
+                return handleMouseDragged(mouseX / frame.scale(), mouseY / frame.scale(), button,
+                        dragX / frame.scale(), dragY / frame.scale());
             } finally {
                 endFixedRtsScaleInput(frame);
             }
@@ -827,7 +847,8 @@ public final class BuilderScreen extends Screen {
         if (isSearchFocused()) {
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(new MouseButtonEvent(
+                mouseX, mouseY, new MouseButtonInfo(button, 0)), dragX, dragY);
     }
     @Override
     /** Handles mouse movement with RTS GUI scale remapping. Updates keyboard-pan drag state. */
@@ -924,7 +945,7 @@ public final class BuilderScreen extends Screen {
             }
             return true;
         }
-        boolean forcePlace = hasShiftDown();
+        boolean forcePlace = com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown();
         boolean rangeDestroyMode = isQuickBuildRangeDestroyMode();
         if ((mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0)
                 && !rangeDestroyMode
@@ -1170,7 +1191,11 @@ public final class BuilderScreen extends Screen {
      * Handles key press events. Dispatches to dialogs, blueprint, overlay, world interaction,
      * search box, tool slot, and sensitivity handlers in priority order.
      */
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        return handleKeyPressed(event.key(), event.scancode(), event.modifiers());
+    }
+
+    private boolean handleKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (handleOverlayKeys(keyCode, scanCode, modifiers)) return true;
         if (handleBlueprintKeys(keyCode, scanCode, modifiers)) return true;
         if (handleHomeSelectionKey(keyCode)) return true;
@@ -1179,7 +1204,7 @@ public final class BuilderScreen extends Screen {
         if (handleSearchFocusKeys(keyCode, scanCode, modifiers)) return true;
         if (handleToolSlotKeys(keyCode, scanCode, modifiers)) return true;
         if (handleSensitivityKeys(keyCode, scanCode)) return true;
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(new KeyEvent(keyCode, scanCode, modifiers));
     }
 
     /** Dispatches key to blueprint capture mode and blueprint panel. */
@@ -1237,7 +1262,8 @@ public final class BuilderScreen extends Screen {
             this.pendingGuiBindSlot = -1;
             return true;
         }
-        if (hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
+        if (com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isControlDown()
+                && keyCode == GLFW.GLFW_KEY_Z) {
             return this.shapeController.undoLastPlacementBatch();
         }
         // Alt+Space: toggle creative flight for the player entity in RTS mode
@@ -1265,7 +1291,7 @@ public final class BuilderScreen extends Screen {
             }
             return true;
         }
-        if (!isSearchFocused() && isMovePlayerActionKey(keyCode, scanCode)) {
+        if (!isSearchFocused() && isMovePlayerActionKey(keyCode, scanCode, modifiers)) {
             return handleMovePlayerActionAt(currentMouseX(), currentMouseY());
         }
         if (!isSearchFocused() && ClientKeyMappings.ACTION_PRIMARY.matches(keyCode, scanCode)) {
@@ -1288,16 +1314,18 @@ public final class BuilderScreen extends Screen {
             quickDropSelectedAtCursor();
             return true;
         }
-        if (!isSearchFocused() && ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode) && !hasControlDown()) {
+        if (!isSearchFocused() && ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode)
+                && !com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isControlDown()) {
             if (hasRecipeViewerLoaded()) {
                 return false; // let super handle it for recipe viewer keybinds
             }
-            this.shapeController.rotateShapeByStep(hasShiftDown() ? -1 : 1);
+            this.shapeController.rotateShapeByStep(
+                    com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown() ? -1 : 1);
             return true;
         }
         if (!isSearchFocused()
                 && ClientKeyMappings.OPEN_CRAFT_TERMINAL.matches(keyCode, scanCode)
-                && !hasControlDown()) {
+                && !com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isControlDown()) {
             persistUiState();
             this.controller.openCraftTerminal();
             return true;
@@ -1337,7 +1365,8 @@ public final class BuilderScreen extends Screen {
         }
         if (this.shapeController.isAwaitingBatchPlaceConfirm()
                 && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
-            this.shapeController.tryConfirmPendingShapeBuild(hasShiftDown());
+            this.shapeController.tryConfirmPendingShapeBuild(
+                    com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isShiftDown());
             return true;
         }
         return false;
@@ -1362,7 +1391,8 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.searchBox != null && this.searchBox.isFocused()) {
-            if (this.searchBox.keyPressed(keyCode, scanCode, modifiers)) {
+            if (com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.keyPressed(
+                    this.searchBox, keyCode, scanCode, modifiers)) {
                 this.bottomPanel.handleStorageSearchChanged(this.searchBox.getValue());
             }
             return true;
@@ -1373,7 +1403,8 @@ public final class BuilderScreen extends Screen {
                 blurSearchFocus();
                 return true;
             }
-            this.craftSearchBox.keyPressed(keyCode, scanCode, modifiers);
+            com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.keyPressed(
+                    this.craftSearchBox, keyCode, scanCode, modifiers);
             return true;
         }
         return false;
@@ -1418,7 +1449,11 @@ public final class BuilderScreen extends Screen {
     }
     @Override
     /** Handles key release for funnel hotkey and camera vertical movement states. */
-    public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+    public boolean keyReleased(KeyEvent event) {
+        return handleKeyReleased(event.key(), event.scancode(), event.modifiers());
+    }
+
+    private boolean handleKeyReleased(int keyCode, int scanCode, int modifiers) {
         if (ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode) && this.funnelHotkeyHeld) {
             this.funnelHotkeyHeld = false;
             deactivateFunnelHotkey();
@@ -1433,7 +1468,7 @@ public final class BuilderScreen extends Screen {
         if (this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, false)) {
             return true;
         }
-        return super.keyReleased(keyCode, scanCode, modifiers);
+        return super.keyReleased(new KeyEvent(keyCode, scanCode, modifiers));
     }
     /**
      * Toggles the player's creative flight state while in RTS mode.
@@ -1507,7 +1542,11 @@ public final class BuilderScreen extends Screen {
     }
     @Override
     /** Handles character-typed input, routing to quantity dialog, blueprint name dialog, search boxes, and ultimine limit input. */
-    public boolean charTyped(char codePoint, int modifiers) {
+    public boolean charTyped(CharacterEvent event) {
+        return handleCharTyped((char) event.codepoint(), 0);
+    }
+
+    private boolean handleCharTyped(char codePoint, int modifiers) {
         if (this.floatingWindowLayer.charTyped(codePoint, modifiers)) {
             return true;
         }
@@ -1515,16 +1554,18 @@ public final class BuilderScreen extends Screen {
             return true;
         }
         if (this.searchBox != null && this.searchBox.isFocused()) {
-            if (this.searchBox.charTyped(codePoint, modifiers)) {
+            if (com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.charTyped(
+                    this.searchBox, codePoint)) {
                 this.bottomPanel.handleStorageSearchChanged(this.searchBox.getValue());
             }
             return true;
         }
         if (this.craftSearchBox != null && this.craftSearchBox.isFocused()) {
-            this.craftSearchBox.charTyped(codePoint, modifiers);
+            com.rtsbuilding.rtsbuilding.client.input.RtsWidgetCompat.charTyped(
+                    this.craftSearchBox, codePoint);
             return true;
         }
-        return super.charTyped(codePoint, modifiers);
+        return super.charTyped(new CharacterEvent(codePoint));
     }
     // ======================== Rendering Methods ========================
     @Override
@@ -1535,7 +1576,7 @@ public final class BuilderScreen extends Screen {
      * quest/storage scan popups, blueprint capture/placement HUD,
      * tooltips, cursor preview, damage flash, and modal layers (wheel, gear, guide, dialogs).
      */
-    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
             return;
         }
@@ -1687,7 +1728,7 @@ public final class BuilderScreen extends Screen {
 
     /**
      * Scales the rendering to the user-configured fixed RTS GUI scale, then recursively
-     * calls {@link #render(GuiGraphicsExtractor, int, int, float)} with adjusted coordinates.
+     * calls {@link #extractRenderState(GuiGraphicsExtractor, int, int, float)} with adjusted coordinates.
      *
      * @return true if the render was handled at a non-unit scale (calling code should return)
      */
@@ -1702,12 +1743,13 @@ public final class BuilderScreen extends Screen {
         this.fixedRtsScaleRenderPass = true;
         double previousActiveRenderScale = this.activeRtsGuiRenderScale;
         this.activeRtsGuiRenderScale = frame.scale();
-        g.pose().pushPose();
-        g.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
+        g.pose().pushMatrix();
+        g.pose().scale((float) frame.scale(), (float) frame.scale());
         try {
-            render(g, (int) Math.round(mouseX / frame.scale()), (int) Math.round(mouseY / frame.scale()), partialTick);
+            extractRenderState(g, (int) Math.round(mouseX / frame.scale()),
+                    (int) Math.round(mouseY / frame.scale()), partialTick);
         } finally {
-            g.pose().popPose();
+            g.pose().popMatrix();
             this.activeRtsGuiRenderScale = previousActiveRenderScale;
             this.fixedRtsScaleRenderPass = false;
             frame.close();
@@ -2089,8 +2131,8 @@ public final class BuilderScreen extends Screen {
         if (direction == null || this.minecraft == null || this.minecraft.gameRenderer == null) {
             return new double[] {0.0D, -1.0D};
         }
-        float yawDeg = this.minecraft.gameRenderer.getMainCamera().getYRot();
-        float pitchDeg = this.minecraft.gameRenderer.getMainCamera().getXRot();
+        float yawDeg = this.minecraft.gameRenderer.getMainCamera().yRot();
+        float pitchDeg = this.minecraft.gameRenderer.getMainCamera().xRot();
         double yaw = Math.toRadians(yawDeg);
         double pitch = Math.toRadians(pitchDeg);
         Vec3 forward = new Vec3(
@@ -2100,9 +2142,9 @@ public final class BuilderScreen extends Screen {
         Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
         Vec3 up = forward.cross(right).normalize();
         Vec3 normal = new Vec3(
-                direction.getNormal().getX(),
-                direction.getNormal().getY(),
-                direction.getNormal().getZ());
+                direction.getUnitVec3i().getX(),
+                direction.getUnitVec3i().getY(),
+                direction.getUnitVec3i().getZ());
         return new double[] {-normal.dot(right), -normal.dot(up)};
     }
 
@@ -2171,7 +2213,7 @@ public final class BuilderScreen extends Screen {
             }
             dropItemId = id.toString();
         }
-        Vec3 origin = this.minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 origin = this.minecraft.gameRenderer.getMainCamera().position();
         Vec3 dir = this.cursorPicker.computeCursorRayDirection();
         Vec3 dropPos = origin.add(dir.scale(3.25D));
         BlockHitResult hit = this.cursorPicker.pickBlockHit(true);
@@ -2277,7 +2319,7 @@ public final class BuilderScreen extends Screen {
             return "";
         }
         BlockState state = this.minecraft.level.getBlockState(pos);
-        ItemStack preview = state.getBlock().getCloneItemStack(this.minecraft.level, pos, state);
+        ItemStack preview = state.getCloneItemStack(this.minecraft.level, pos, true);
         if (preview.isEmpty()) {
             preview = new ItemStack(state.getBlock().asItem());
         }
@@ -2450,8 +2492,8 @@ public final class BuilderScreen extends Screen {
         return ClientKeyMappings.MOVE_PLAYER.isActiveAndMatches(InputConstants.Type.MOUSE.getOrCreate(button));
     }
 
-    private boolean isMovePlayerActionKey(int keyCode, int scanCode) {
-        return ClientKeyMappings.MOVE_PLAYER.isActiveAndMatches(InputConstants.getKey(keyCode, scanCode));
+    private boolean isMovePlayerActionKey(int keyCode, int scanCode, int modifiers) {
+        return ClientKeyMappings.MOVE_PLAYER.matches(keyCode, scanCode, modifiers);
     }
 
     private boolean handleMovePlayerActionAt(double mouseX, double mouseY) {
@@ -2553,11 +2595,11 @@ public final class BuilderScreen extends Screen {
         if (text == null || text.isEmpty()) {
             return;
         }
-        g.pose().pushPose();
-        g.pose().translate(x, y, 0.0F);
-        g.pose().scale(scale, scale, 1.0F);
+        g.pose().pushMatrix();
+        g.pose().translate(x, y);
+        g.pose().scale(scale, scale);
         g .text(this.font, text, 0, 0, color, false);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
     /** Returns whether the player has a non-empty main hand item. */
     private boolean hasMainHandItem() {
@@ -2644,7 +2686,7 @@ public final class BuilderScreen extends Screen {
     /** Returns whether the Alt key is currently held down. */
     private boolean isAltDown() {
         if (this.minecraft == null) return false;
-        long window = this.minecraft.getWindow().getWindow();
+        long window = this.minecraft.getWindow().handle();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
     }
