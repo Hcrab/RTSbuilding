@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
-import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -72,8 +71,6 @@ public class RtsMiningState {
      * 当前正在处理的作业的状态直接由本类的 ultimineTargets / ultimineTotalTargets 等字段持有；
      * 此队列中的作业将在当前作业完成后依次被激活。
      */
-    public final Deque<RtsMiningStateMachine.MiningJob> ultimineJobQueue = new ArrayDeque<>();
-
     // ======================================================================
     // 工作流条目 ID（替代旧的 RtsMiningStateMachine.WORKFLOW_ENTRY_IDS 静态映射）
     // ======================================================================

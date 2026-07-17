@@ -14,9 +14,8 @@ import java.util.function.LongSupplier;
 /**
  * 直接在 {@link TaskSnapshot} 上运行的公平预算调度器。
  *
- * <p>它不缓存任务生命周期、游标或领域 Job。每个 slice 完成后先把新 revision 写回
- * TaskStore，再决定是否在本 tick 继续排队，因此 TaskStore 始终是唯一权威状态源。
- * 在线玩家与世界对象只在 executor 的单个主线程 slice 内解析。</p>
+ * <p>TaskStore 持有可恢复检查点与生命周期；高频但可从世界重建的细粒度进度可暂存在领域执行镜像中。
+ * Slice 即使没有生成新 revision，实际工作量仍必须计入全局预算，避免为了每批写盘而牺牲游戏流畅度。</p>
  */
 public final class DurableTaskScheduler {
     private final LongSupplier nanoClock;
@@ -63,8 +62,8 @@ public final class DurableTaskScheduler {
                 throw new IllegalStateException("durable executor 不能替换 TaskId");
             }
             if (after.revision() == before.revision()) {
-                if (!after.equals(before) || result.processedUnits() != 0) {
-                    throw new IllegalStateException("未产生新 revision 时不得修改状态或报告进度");
+                if (!after.equals(before)) {
+                    throw new IllegalStateException("未产生新 revision 时不得修改 durable snapshot");
                 }
             } else if (after.revision() == before.revision() + 1L) {
                 coordinator.replace(after);

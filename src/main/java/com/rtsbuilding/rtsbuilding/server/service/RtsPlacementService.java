@@ -260,14 +260,7 @@ public final class RtsPlacementService {
      */
     public static String getPlaceBatchItemId(ServerPlayer player) {
         if (player == null) return "";
-        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        if (session == null) return "";
-        if (!session.placement.placeBatchJobs.isEmpty()) {
-            return session.placement.placeBatchJobs.peekFirst().itemId();
-        }
-        if (!session.placement.pendingJobs.isEmpty()) {
-            return session.placement.pendingJobs.peekFirst().itemId();
-        }
-        return "";
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .firstPlacementItemId(player);
     }
 }

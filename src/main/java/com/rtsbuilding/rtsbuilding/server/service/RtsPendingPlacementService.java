@@ -22,8 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 挂起放置作业的 UI/恢复服务。
  *
- * <p>TaskStore 是挂起状态、游标和恢复策略的唯一权威。Session pendingJobs 仅用于
- * 老存档在 root revision 1 落盘确认前的一次性迁移 shadow，绝不能重新进入执行队列。
+ * <p>TaskStore 是挂起状态、游标和恢复策略的唯一权威；Session 不再保存放置任务副本。
  *
  * <p><b>核心职责：</b>范围放置作业的挂起/恢复（蓝图扫描已移至
  * {@link RtsBlueprintJobService}，进度刷新已移至 {@link RtsProgressRefresher}）。
@@ -86,7 +85,6 @@ public final class RtsPendingPlacementService {
             return null;
         }
         var engine = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE;
-        engine.migrateLegacyPlacementShadows(player, session);
         var view = engine.findWaitingPlacement(player, workflowEntryId);
         if (view == null) {
             return null;
@@ -174,7 +172,7 @@ public final class RtsPendingPlacementService {
 
     /**
      * 尝试恢复指定玩家的所有挂起放置作业。
-     * 先接管老 Session shadow，再把 TaskStore 中当前维度的等待任务切换为 QUEUED。
+     * 把 TaskStore 中当前维度的等待任务切换为 QUEUED。
      *
      * @return 恢复的作业数量
      */
@@ -184,7 +182,6 @@ public final class RtsPendingPlacementService {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         var engine = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE;
-        engine.migrateLegacyPlacementShadows(player, session);
         int count = engine.resumeAllWaitingPlacements(player);
         if (count > 0) {
             ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
@@ -195,9 +192,6 @@ public final class RtsPendingPlacementService {
     /** 只检查与本次变化物品相关的挂起任务，避免任意储存变化触发全队列库存查询。 */
     public static void tryResumeAfterStorageChange(ServerPlayer player, java.util.Collection<String> changedItemIds) {
         if (player == null || changedItemIds == null || changedItemIds.isEmpty()) return;
-        com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .migrateLegacyPlacementShadows(player,
-                        ServiceRegistry.getInstance().session().getIfPresent(player));
         com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .resumeWaitingPlacementItems(player, changedItemIds);
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -216,7 +210,6 @@ public final class RtsPendingPlacementService {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         var engine = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE;
-        engine.migrateLegacyPlacementShadows(player, session);
         Long scannedAt = SCAN_TIMESTAMPS.get(player.getUUID());
         PendingPlacementScanTicket ticket = SCAN_CACHE.get(player.getUUID());
         if (ticket == null || scannedAt == null

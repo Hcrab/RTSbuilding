@@ -224,9 +224,8 @@ public final class RtsServerGameTests {
         player.getInventory().setItem(0, new ItemStack(Items.STONE, supportRel.size()));
 
         enqueuePlacementThroughApi(helper, player, supportRel, "minecraft:stone", new ItemStack(Items.STONE));
-        RtsStorageSession placementSession = requireSession(helper, player);
-        helper.assertTrue(placementSession.placement.placeBatchJobs.isEmpty(),
-                "New placement commands should enter TaskStore instead of the legacy Session queue");
+        helper.assertTrue(hasActiveTask(player, TaskType.PLACEMENT),
+                "New placement commands should enter TaskStore immediately");
 
         helper.succeedWhen(() -> {
             for (BlockPos support : supportRel) {
@@ -274,8 +273,8 @@ public final class RtsServerGameTests {
                 }
             }
             for (ServerPlayer player : players) {
-                helper.assertTrue(requireSession(helper, player).placement.placeBatchJobs.isEmpty(),
-                        "Completed placement should not leave another player's job in this session");
+                helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                        "Completed placement should not leave an active durable task");
             }
             stopPlayers(players);
         });
@@ -303,8 +302,8 @@ public final class RtsServerGameTests {
                 }
             }
             for (ServerPlayer player : players) {
-                helper.assertTrue(requireSession(helper, player).destruction.destroyJobs.isEmpty(),
-                        "Completed area destroy should not leave another player's job in this session");
+                helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                        "Completed area destroy should not leave an active durable task");
             }
             stopPlayers(players);
         });
@@ -336,8 +335,56 @@ public final class RtsServerGameTests {
             }
             helper.assertValueEqual(targetsRel.size(), countChestItem(helper, chestRel, Items.DIRT),
                     "Auto-store should put range-destroy drops into the linked chest");
-            helper.assertTrue(requireSession(helper, player).destruction.destroyJobs.isEmpty(),
-                    "Auto-store area destroy should finish without queued targets");
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Auto-store area destroy should finish without an active durable task");
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200)
+    public static void chainMiningAdvancesContinuouslyAndAutoStoresEveryDrop(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(1, 1, 1);
+        List<BlockPos> targetsRel = new ArrayList<>();
+        for (int z = 3; z < 7; z++) {
+            for (int x = 3; x < 11; x++) {
+                BlockPos target = new BlockPos(x, 1, z);
+                targetsRel.add(target);
+                helper.setBlock(target, Blocks.DIRT);
+            }
+        }
+        helper.setBlock(chestRel, Blocks.CHEST);
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        ItemStack shovel = new ItemStack(Items.DIAMOND_SHOVEL);
+        player.getInventory().setItem(0, shovel.copy());
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        RtsAPI.get().bindings().setAutoStoreMinedDrops(player, true);
+        RtsStorageSession session = requireSession(helper, player);
+        RtsAPI.get().mining().startUltimine(player, helper.absolutePos(targetsRel.getFirst()),
+                Direction.UP, (byte) 0, "", shovel, targetsRel.size(), (byte) 0, false);
+
+        boolean[] terminalLogged = {false};
+        helper.succeedWhen(() -> {
+            for (BlockPos targetRel : targetsRel) helper.assertBlockPresent(Blocks.AIR, targetRel);
+            boolean active = hasActiveTask(player, TaskType.MINING);
+            int chestItems = countChestItem(helper, chestRel, Items.DIRT);
+            int bufferItems = countBufferedItem(session, Items.DIRT);
+            int inventoryItems = countPlayerItem(player, Items.DIRT);
+            int worldItems = countWorldItem(helper, targetsRel, Items.DIRT);
+            if (!active && !terminalLogged[0]) {
+                terminalLogged[0] = true;
+                RtsbuildingMod.LOGGER.info(
+                        "RTS GameTest chain drop conservation: chest={} buffer={} inventory={} world={} total={}",
+                        chestItems, bufferItems, inventoryItems, worldItems,
+                        chestItems + bufferItems + inventoryItems + worldItems);
+            }
+            helper.assertValueEqual(targetsRel.size(), chestItems,
+                    "Chain mining should put every drop into linked storage without escrow delay"
+                            + " (buffer=" + bufferItems + ", inventory=" + inventoryItems
+                            + ", world=" + worldItems + ")");
+            helper.assertTrue(!active,
+                    "Completed chain mining should not leave an active durable task");
             stopPlayers(player);
         });
     }
@@ -655,6 +702,11 @@ public final class RtsServerGameTests {
         });
     }
 
+    private static boolean hasActiveTask(ServerPlayer player, TaskType type) {
+        return TaskPersistenceRuntime.INSTANCE.coordinator().query().ownedBy(player.getUUID()).stream()
+                .anyMatch(snapshot -> snapshot.type() == type && !snapshot.state().terminal());
+    }
+
     private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
         return startRtsPlayer(helper, gameType, new Vec3(3.5D, 2.0D, 3.5D));
     }
@@ -783,6 +835,36 @@ public final class RtsServerGameTests {
         return helper.getLevel().getEntitiesOfClass(
                 ItemEntity.class, bounds,
                 entity -> entity.isAlive() && !entity.getItem().isEmpty()).size();
+    }
+
+    private static int countBufferedItem(RtsStorageSession session, Item item) {
+        return session.miningDropBuffer.stacks.stream()
+                .filter(stack -> stack.is(item))
+                .mapToInt(ItemStack::getCount)
+                .sum();
+    }
+
+    private static int countPlayerItem(ServerPlayer player, Item item) {
+        int count = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.is(item)) count += stack.getCount();
+        }
+        return count;
+    }
+
+    private static int countWorldItem(GameTestHelper helper, List<BlockPos> targetsRel, Item item) {
+        BlockPos first = helper.absolutePos(targetsRel.getFirst());
+        BlockPos last = helper.absolutePos(targetsRel.getLast());
+        AABB bounds = new AABB(
+                first.getX(), first.getY(), first.getZ(),
+                last.getX() + 1.0D, last.getY() + 1.0D, last.getZ() + 1.0D).inflate(4.0D);
+        return helper.getLevel().getEntitiesOfClass(
+                        ItemEntity.class, bounds,
+                        entity -> entity.isAlive() && entity.getItem().is(item))
+                .stream()
+                .mapToInt(entity -> entity.getItem().getCount())
+                .sum();
     }
 
     /** 找到远离测试结构且当前未加载的位置，用来验证服务不会隐式强加载区块。 */

@@ -6,15 +6,12 @@ import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsBatchJobTickOps;
-import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementResumePolicy;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskState;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -30,17 +27,15 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
- * 批处理放置作业管理器，负责远程方块放置的排队和每 tick 节流处理。
+ * 远程批量放置的命令构造与单 slice 执行器。
  *
- * <p>管理批处理作业的完整生命周期：将放置请求排队为 {@link PlaceBatchJob}，
- * 通过 {@link #tickPlaceBatchJobs} 以每 tick 最多 {@value #BUILD_BATCH_MAX_BLOCKS_PER_TICK}
- * 个方块的速度节流处理，以及作业的暂停/恢复/完成流程。
+ * <p>本类把请求冻结为 {@link PlaceBatchJob} / {@link PlacementTaskState}，并在任务引擎
+ * 分配的数量与纳秒预算内执行一个 slice；跨 tick 生命周期只由 TaskStore 持有。
  *
  * <p>快速建造作业（形状建造）受 {@link #BUILD_BATCH_MAX_QUEUED_JOBS}=4 限制，
- * 单个方块放置无限制。作业通过 NBT 序列化支持会话持久化。
+ * 单个方块放置无限制。NBT 只用于 durable task payload，不再写入 Session 队列。
  *
  * <p>不负责：单方块放置逻辑（{@link RtsPlacementExecutor}）、
  * 状态计划预解析（{@link RtsPlacementQuickBuild}）、
@@ -133,29 +128,6 @@ public final class RtsPlacementBatch {
      * 个方块。快速建造作业使用预解析的状态计划快速路径；
      * 其他所有作业走交互式单放置路径。
      * 当一个完整作业完成时保存并刷新会话。
-     */
-    public static void tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session) {
-        tickPlaceBatchJobs(player, session, Config.buildBatchBlocksPerTick(), Long.MAX_VALUE);
-    }
-
-    /** 在数量与纳秒截止时间双预算内推进放置任务。 */
-    public static int tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session,
-            int maxBlocks, long deadlineNanos) {
-        return tickPlaceBatchJobs(player, session, maxBlocks, deadlineNanos, null);
-    }
-
-    /** 仅推进指定任务；供 Task Engine 的 PlacementExecutor 使用。 */
-    public static int tickPlaceTask(ServerPlayer player, RtsStorageSession session,
-            PlaceBatchJob job, int maxBlocks, long deadlineNanos) {
-        if (job == null || session == null || session.placement.placeBatchJobs.peekFirst() != job) {
-            return 0;
-        }
-        return tickPlaceBatchJobs(player, session, maxBlocks, deadlineNanos, job);
-    }
-
-    /**
-     * 将旧 PlaceBatchJob 冻结成 detached executor 可使用的纯值状态。
-     * 返回的 definition 不包含 mutable cursor；游标和结果计数只由 PlacementTaskState 持有。
      */
     public static PlacementTaskState snapshotDetachedState(
             PlaceBatchJob job, net.minecraft.core.RegistryAccess registryAccess) {
@@ -264,9 +236,9 @@ public final class RtsPlacementBatch {
             }
         }
         if (!overwriteDropPositions.isEmpty()) {
-            // 方块已变成普通世界掉落；claim admission 失败时物品仍留在世界，不会静默丢失。
-            com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                    .submitBufferEscrow(player, overwriteDropPositions);
+            // 覆盖产生的同步掉落也进入同一个轻量缓存，不另建持久任务或等待磁盘 ACK。
+            com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber
+                    .absorbMinedDropsBatch(player, session, overwriteDropPositions);
         }
         if (outcome != PlacementSliceResult.Outcome.WAITING_RESOURCE && !job.hasNext()) {
             outcome = PlacementSliceResult.Outcome.COMPLETE;
@@ -333,107 +305,6 @@ public final class RtsPlacementBatch {
         RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
-    private static int tickPlaceBatchJobs(ServerPlayer player, RtsStorageSession session,
-            int maxBlocks, long deadlineNanos, PlaceBatchJob onlyJob) {
-        if (player == null || session == null) {
-            return 0;
-        }
-        var pausedJobsSkipped = new RtsBatchJobTickOps.MutableInt(0); // 连续暂停计数，防止无限循环
-        int initialBudget = Math.max(0, Math.min(Config.buildBatchBlocksPerTick(), maxBlocks));
-        int remaining = initialBudget;
-        // 记录此 tick 开始前每个 job 的已放置数，用于按 job 独立更新工作流进度
-        java.util.Map<Integer, Integer> placedBeforeTick = new java.util.HashMap<>();
-        // 收集此 tick 中完成的所有 job，确保每个 job 的工作流都被 complete
-        java.util.List<PlaceBatchJob> fullyCompletedJobs = new java.util.ArrayList<>();
-        // 先记录每个 job 的 tick 前已放置数
-        Iterable<PlaceBatchJob> progressJobs = onlyJob == null
-                ? session.placement.placeBatchJobs : java.util.List.of(onlyJob);
-        for (PlaceBatchJob j : progressJobs) {
-            placedBeforeTick.put(j.workflowEntryId(), j.placedPositions.size());
-        }
-
-        while (remaining > 0 && System.nanoTime() < deadlineNanos
-                && !session.placement.placeBatchJobs.isEmpty()
-                && (onlyJob == null || session.placement.placeBatchJobs.peekFirst() == onlyJob)) {
-            PlaceBatchJob job = session.placement.placeBatchJobs.peekFirst();
-            Optional<com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken> tokenOpt;
-            if (onlyJob != null) {
-                // Task Engine 路径只读取展示令牌，不允许工作流 UI 反向决定任务是否执行。
-                tokenOpt = job.workflowEntryId() < 0
-                        ? Optional.empty()
-                        : RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId());
-                if (job.workflowEntryId() >= 0 && tokenOpt.isEmpty()) break;
-            } else {
-                // 兼容仍直接调用旧批处理入口的代码；迁移完成后可连同该分支删除。
-                var checkResult = RtsBatchJobTickOps.checkPausedOrCancelled(
-                        session.placement.placeBatchJobs, job, player,
-                        PlaceBatchJob::workflowEntryId, pausedJobsSkipped);
-                if (checkResult == null) break;
-                if (checkResult.isEmpty()) continue;
-                tokenOpt = Optional.ofNullable(checkResult.get().token());
-            }
-            boolean hasWorkflowEntry = tokenOpt.isPresent();
-            boolean madeProgress = false;
-            while (remaining > 0 && System.nanoTime() < deadlineNanos && job.hasNext()) {
-                BlockPos clickedPos = job.next();
-                boolean keepGoing = processOnePlacement(player, session, job, clickedPos);
-                remaining--;
-                if (!keepGoing) {
-                    // 放置失败（物品不足），回退索引保留位置，将 job 挂起到 pendingJobs
-                    // 后续通过 resumePendingJob / submitPendingPlacement 唤醒
-                    if (hasWorkflowEntry) {
-                        job.unconsumeLast();
-                        session.placement.placeBatchJobs.removeFirst();
-                        session.placement.addPendingJob(job);
-                        madeProgress = false;
-                        // 搁置当前工作流（通过 token 从 job 的 entryId 重建）
-                        tokenOpt.ifPresent(token -> token.suspend());
-                    } else {
-                        // 空手/主手右键互动没有工作流槽位；菜单打开或普通交互结束时直接收尾。
-                        session.placement.placeBatchJobs.removeFirst();
-                        fullyCompletedJobs.add(job);
-                    }
-                    break;
-                }
-                madeProgress = true;
-            }
-            if (!session.placement.placeBatchJobs.isEmpty() && session.placement.placeBatchJobs.peekFirst() == job && !job.hasNext()) {
-                session.placement.placeBatchJobs.removeFirst();
-                // 立刻处理此 job 的完成：记录历史、更新进度、释放工作流槽位
-                fullyCompletedJobs.add(job);
-            }
-        }
-
-        // 处理所有此 tick 内完成的 job
-        RtsBatchJobTickOps.processCompletedJobs(
-                player, session,
-                fullyCompletedJobs, placedBeforeTick,
-                PlaceBatchJob::workflowEntryId,
-                j -> j.placedPositions.size(),
-                j -> j.skippedWhileProcessing,
-                (p, job) -> {
-                    if (!job.placedPositions.isEmpty()) {
-                        ServerHistoryManager.recordPlacement(p, job.placedPositions, job.face());
-                    }
-                },
-                null,
-                onlyJob == null); // Task Engine 路径由 TaskRecord 终态释放工作流槽位
-
-        // 更新仍在活跃队列中的 job 的中途进度（尚未完成但此 tick 有放置进展）
-        RtsBatchJobTickOps.updateMidProgress(
-                player, session,
-                onlyJob == null ? session.placement.placeBatchJobs
-                        : (session.placement.placeBatchJobs.contains(onlyJob)
-                                ? java.util.List.of(onlyJob) : java.util.List.of()),
-                placedBeforeTick,
-                PlaceBatchJob::workflowEntryId,
-                j -> j.placedPositions.size());
-
-        // 放置完成后扫描世界实际状态，刷新所有工作流进度（不依赖事件触发）
-        return initialBudget - remaining;
-    }
-
-    /** 两种调度入口共享的单目标主线程事务；不拥有任务生命周期或跨 tick 状态。 */
     private static boolean processOnePlacement(
             ServerPlayer player, RtsStorageSession session, PlaceBatchJob job, BlockPos clickedPos) {
         RtsPlacementQuickBuild.StatePlacementPlan statePlan = job.quickBuild()
@@ -494,25 +365,6 @@ public final class RtsPlacementBatch {
 
     /**
      * 工作流消失时收拢已发生的放置副作用，避免直接移除队列后丢失历史与持久化刷新。
-     */
-    public static void cancelPlaceTask(ServerPlayer player, RtsStorageSession session, PlaceBatchJob job) {
-        if (player == null || session == null || job == null) return;
-        boolean removed = session.placement.placeBatchJobs.remove(job)
-                | session.placement.removePendingJob(job);
-        if (!removed) return;
-        if (!job.placedPositions.isEmpty()) {
-            ServerHistoryManager.recordPlacement(player, job.placedPositions, job.face());
-        }
-        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
-        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
-        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
-    }
-
-
-    /**
-     * 单个批处理放置作业，持有共享的放置参数和有序的目标位置列表。
-     * 每个作业由 {@link #tickPlaceBatchJobs} 以每 tick 最多
-     * {@link #BUILD_BATCH_MAX_BLOCKS_PER_TICK} 个方块的速度处理。
      */
     public static final class PlaceBatchJob {
         private final List<BlockPos> clickedPositions;

@@ -4,19 +4,13 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlann
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintPersistence;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -74,59 +68,6 @@ public final class RtsProgressRefresher {
 
     /**
      * 遍历所有放置作业，扫描世界中的实际已放置方块数，更新工作流进度。
-     */
-    private static void refreshPlacementProgress(ServerPlayer player, RtsStorageSession session) {
-        List<RtsPlacementBatch.PlaceBatchJob> allJobs = new ArrayList<>();
-        allJobs.addAll(session.placement.pendingJobs);
-        allJobs.addAll(session.placement.placeBatchJobs);
-
-        for (RtsPlacementBatch.PlaceBatchJob job : allJobs) {
-            String itemId = job.itemId();
-            if (itemId == null || itemId.isBlank()) continue;
-
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
-            if (!(BuiltInRegistries.ITEM.get(id) instanceof BlockItem blockItem)) continue;
-            Block expectedBlock = blockItem.getBlock();
-            if (expectedBlock == net.minecraft.world.level.block.Blocks.AIR) continue;
-
-            List<BlockPos> allPositions = new ArrayList<>(job.clickedPositions());
-            Direction face = job.face();
-            int actualPlaced = 0;
-            for (BlockPos pos : allPositions) {
-                boolean found = false;
-                if (player.serverLevel().hasChunkAt(pos)) {
-                    BlockState state = player.serverLevel().getBlockState(pos);
-                    if (state.getBlock() == expectedBlock) {
-                        found = true;
-                    }
-                }
-                if (!found) {
-                    BlockPos adjPos = pos.relative(face);
-                    if (player.serverLevel().hasChunkAt(adjPos)) {
-                        BlockState adjState = player.serverLevel().getBlockState(adjPos);
-                        if (adjState.getBlock() == expectedBlock) {
-                            found = true;
-                        }
-                    }
-                }
-                if (found) {
-                    actualPlaced++;
-                }
-            }
-
-            int finalActPlaced = actualPlaced;
-            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.setCompletedBlocks(finalActPlaced));
-        }
-    }
-
-    // ======================================================================
-    //  蓝图进度（节流）
-    // ======================================================================
-
-    /**
-     * 扫码已放置但被挖掉的蓝图方块，放回队列重新放置。
-     * 节流：每 20 tick 只扫描一次。
      */
     private static void refreshBlueprintProgress(ServerPlayer player) {
         UUID puid = player.getUUID();

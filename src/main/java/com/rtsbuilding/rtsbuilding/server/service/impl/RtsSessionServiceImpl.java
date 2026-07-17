@@ -162,9 +162,7 @@ public final class RtsSessionServiceImpl implements SessionService {
      * 注意：不会保存会话或清除玩家缓存。
      */
     private void cleanupSession(ServerPlayer player, RtsStorageSession session, boolean notify) {
-        if (!RtsTaskEngine.INSTANCE.mustPreserveLegacyBufferShadow(session)) {
-            RtsDropAbsorber.flushDropBufferToPlayer(player, session);
-        }
+        RtsDropAbsorber.flushDropBufferToPlayer(player, session);
         RtsMiningStateMachine.releaseMiningResources(player, session);
         registry.pathfinding().cancel(player);
         registry.funnel().disableAndFlush(player, session);
@@ -206,20 +204,6 @@ public final class RtsSessionServiceImpl implements SessionService {
         if (persistedPlacementRevision < placementRevision) {
             for (var recoveryJob : session.placement.recoveryJobs) {
                 recoveryJob.requirePersistedRevision(placementRevision);
-            }
-        }
-
-        // 空 shadow + TASK_PREPARED_ACKED 只有在 DROP_BUFFER clear 已落盘后才能放行 Task drain。
-        var buffer = session.miningDropBuffer;
-        if (buffer.isEmpty() && buffer.legacyHandoff != null
-                && buffer.legacyHandoff.phase()
-                == com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferOwnershipPhase.TASK_PREPARED_ACKED) {
-            long clearRevision = cluster.revision(SessionComponents.DROP_BUFFER);
-            if (clearRevision > 0L
-                    && cluster.persistedRevision(SessionComponents.DROP_BUFFER) >= clearRevision) {
-                buffer.legacyHandoff = buffer.legacyHandoff.acknowledgeSessionClear();
-            } else {
-                buffer.handoffClearRevision = clearRevision;
             }
         }
 

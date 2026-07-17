@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.MiningService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
@@ -55,7 +56,10 @@ public final class RtsMiningServiceImpl implements MiningService {
         }
         // 停止 — 委托给 STOP_MINING 流程
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        if (session != null && !RtsMiningValidator.isCommittedUltimineBatch(session)) {
+        boolean committedBatch = session != null
+                && (RtsMiningValidator.isCommittedUltimineBatch(session)
+                || RtsTaskEngine.INSTANCE.hasCommittedMiningBatch(player));
+        if (session != null && !committedBatch) {
             PipelineRegistry.execute(RtsWorkflowType.STOP_MINING,
                     MiningContext.builder(player).build());
         }

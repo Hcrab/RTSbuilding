@@ -38,6 +38,17 @@ public final class MiningTaskState {
             Direction face, int toolSlot, boolean selectedToolRequested,
             boolean toolProtectionEnabled, float blockProgress, int visibleStage,
             List<CompoundTag> historyRecords) {
+        this(mode, workflowEntryId, remainingTargets, totalUnits, cursorUnits,
+                succeededUnits, failedUnits, face, toolSlot, selectedToolRequested,
+                toolProtectionEnabled, blockProgress, visibleStage, historyRecords, false);
+    }
+
+    private MiningTaskState(
+            Mode mode, int workflowEntryId, List<BlockPos> remainingTargets,
+            int totalUnits, int cursorUnits, int succeededUnits, int failedUnits,
+            Direction face, int toolSlot, boolean selectedToolRequested,
+            boolean toolProtectionEnabled, float blockProgress, int visibleStage,
+            List<CompoundTag> historyRecords, boolean trustedTransition) {
         this.mode = Objects.requireNonNull(mode, "mode");
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
         Objects.requireNonNull(remainingTargets, "remainingTargets");
@@ -59,7 +70,9 @@ public final class MiningTaskState {
             throw new IllegalArgumentException("渐进单方块状态必须至少保留当前目标");
         }
         this.workflowEntryId = workflowEntryId;
-        this.remainingTargets = remainingTargets.stream().map(BlockPos::immutable).toList();
+        this.remainingTargets = trustedTransition
+                ? List.copyOf(remainingTargets)
+                : remainingTargets.stream().map(BlockPos::immutable).toList();
         this.totalUnits = totalUnits;
         this.cursorUnits = cursorUnits;
         this.succeededUnits = succeededUnits;
@@ -70,12 +83,16 @@ public final class MiningTaskState {
         this.toolProtectionEnabled = toolProtectionEnabled;
         this.blockProgress = blockProgress;
         this.visibleStage = visibleStage;
-        List<CompoundTag> copiedHistory = new ArrayList<>(historyRecords.size());
-        for (CompoundTag history : historyRecords) {
-            if (history == null || history.isEmpty()) throw new IllegalArgumentException("history record 不能为空");
-            copiedHistory.add(history.copy());
+        if (trustedTransition) {
+            this.historyRecords = List.copyOf(historyRecords);
+        } else {
+            List<CompoundTag> copiedHistory = new ArrayList<>(historyRecords.size());
+            for (CompoundTag history : historyRecords) {
+                if (history == null || history.isEmpty()) throw new IllegalArgumentException("history record 不能为空");
+                copiedHistory.add(history.copy());
+            }
+            this.historyRecords = List.copyOf(copiedHistory);
         }
-        this.historyRecords = List.copyOf(copiedHistory);
     }
 
     public Mode mode() { return mode; }
@@ -96,7 +113,23 @@ public final class MiningTaskState {
         return historyRecords.stream().map(CompoundTag::copy).toList();
     }
 
+    /**
+     * 仅供主线程执行镜像复用已冻结的历史引用；调用方只能追加新 Tag，不能修改已有 Tag。
+     * 对外读取仍必须使用 {@link #historyRecords()} 的防御性副本。
+     */
+    public void appendFrozenHistoryTo(List<CompoundTag> destination) {
+        Objects.requireNonNull(destination, "destination").addAll(historyRecords);
+    }
+
     public boolean complete() { return remainingTargets.isEmpty() || cursorUnits >= totalUnits; }
+
+    /**
+     * 首个渐进挖掘目标已经结束、剩余目标已交给自动批处理时返回 {@code true}。
+     *
+     * <p>鼠标或按键松开只能取消仍处于 {@link Mode#PROGRESSIVE_SINGLE} 的首块挖掘；
+     * 一旦切换到批处理，后续连锁目标不再依赖玩家持续按住输入。</p>
+     */
+    public boolean committedBatch() { return mode == Mode.BATCH; }
 
     public MiningTaskState next(
             Mode nextMode, List<BlockPos> nextTargets,
@@ -105,6 +138,6 @@ public final class MiningTaskState {
         return new MiningTaskState(nextMode, workflowEntryId, nextTargets,
                 totalUnits, nextCursor, nextSucceeded, nextFailed,
                 face, toolSlot, selectedToolRequested, toolProtectionEnabled,
-                nextProgress, nextStage, nextHistory);
+                nextProgress, nextStage, nextHistory, true);
     }
 }

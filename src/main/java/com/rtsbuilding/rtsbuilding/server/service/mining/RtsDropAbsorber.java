@@ -18,30 +18,26 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.items.IItemHandler;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
-import com.rtsbuilding.rtsbuilding.server.task.BufferDrainTaskPayload;
-import com.rtsbuilding.rtsbuilding.server.task.buffer.BufferDrainSliceResult;
-import com.rtsbuilding.rtsbuilding.server.service.buffer.RtsBufferEscrowExecutor;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 /**
- * 挖掘掉落物吸收器，负责在方块被远程破坏后自动收集掉落物品。
+ * 挖掘掉落物缓存入口与限量写回器。
  *
- * <p>当会话启用了 {@code autoStoreMinedDrops}（且进度/插件系统允许 {@code AUTO_STORE_MINED_DROPS} 功能）时，
- * 在破坏位置周围 1.25 格半径内扫描 {@link ItemEntity}，优先存入链接存储处理器，
- * 回退到玩家背包。若两个目标均已满，剩余物品留在世界中。
+ * <p>RTS 连锁挖掘的主路径由 {@link RtsMiningDropCapture} 在掉落实体生成前精确接管，
+ * 这里只把最终 {@link ItemStack} 放进有界内存缓存；AE/RS 与普通容器写入留到 Tick 末限量执行。
+ * 基于世界实体的扫描入口仅保留给其他破坏流程与兼容回退，不能重新接入连锁挖掘热路径。</p>
  *
- * <p>无状态工具类，所有配置存在于会话和进度/插件系统中。
- * 核心方法：
+ * <p>无状态工具类，所有配置和缓冲状态存在于玩家会话中。核心方法：</p>
  * <ul>
- *   <li>{@link #absorbNearbyMinedDrops} — 执行扫描和吸收逻辑</li>
- *   <li>{@link #absorbMinedDropsImmediately} — 便捷包装，吸收后自动触发任务检测和恢复挂起放置</li>
- *   <li>{@link #absorbMinedDropsBatch} — 连锁/区域挖掘批量入口，复用同一个储存上下文</li>
+ *   <li>{@link #enqueueCapturedDrops} — 接收尚未生成到世界的精确掉落</li>
+ *   <li>{@link #drainDropBuffer} — 按 Tick 预算写入链接储存</li>
+ *   <li>{@link #absorbNearbyMinedDrops} — 兼容流程使用的世界实体扫描回退</li>
  * </ul>
  */
 public final class RtsDropAbsorber {
@@ -228,8 +224,7 @@ public final class RtsDropAbsorber {
         if (player == null || session == null || pos == null) {
             return false;
         }
-        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .submitBufferEscrow(player, List.of(pos));
+        return enqueueDrops(player, session, collectDrops(player, List.of(pos)));
     }
 
     /**
@@ -244,89 +239,72 @@ public final class RtsDropAbsorber {
         if (player == null || session == null || positions == null || positions.isEmpty()) {
             return false;
         }
-        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .submitBufferEscrow(player, positions);
+        return enqueueDrops(player, session, collectDrops(player, positions));
     }
 
     /**
-     * 只建立世界掉落的 durable claim 意图，不修改实体，也不访问 AE/RS。
+     * 把本 Tick 已经生成的世界掉落快速转移到有界内存缓存。
      *
-     * <p>中央 Task Engine 必须先持久化返回的 SOURCE_PREPARED 状态并收到 ACK，随后才可调用
-     * {@link #claimPreparedEscrowSlice}。为保证来源校验精确，达到容量边界时保守地留下整个实体，
-     * 不在 PREPARED 阶段切分它。</p>
-     */
-    public static BufferDrainTaskPayload prepareEscrowTask(
-            ServerPlayer player, List<BlockPos> positions, UUID escrowId) {
-        return RtsBufferEscrowExecutor.prepareEscrowTask(player, positions, escrowId);
-    }
-
-    /**
-     * 在 SOURCE_PREPARED revision 已持久化 ACK 后，按预算把来源实体转入 escrow。
-     *
-     * <p>实体 UUID、完整 ItemStack 组件与数量必须全部匹配；任何偏差都进入 RECOVERY_REQUIRED，
-     * 绝不凭快照复制出一份新物品。返回状态必须立即交回 TaskStore。</p>
-     */
-    public static BufferDrainSliceResult claimPreparedEscrowSlice(
-            ServerPlayer player,
-            BufferDrainTaskPayload payload,
-            int maxStacks,
-            long deadlineNanos) {
-        return RtsBufferEscrowExecutor.claimPreparedEscrowSlice(
-                player, payload, maxStacks, deadlineNanos);
-    }
-
-    /**
-     * 执行已 ACK 的 DRAIN_RESERVED 批次。
-     *
-     * <p>Session 在这里仅用于本 tick 解析链接端点；它不保存 escrow、游标或生命周期。
-     * 外部 handler 无事务能力，因此调用后返回 DRAIN_APPLIED 写后记录，中央层必须立刻持久化；
-     * 在该 revision ACK 前不得调用 {@link BufferEscrowState#confirmAppliedAfterAck()}。</p>
-     */
-    public static BufferDrainSliceResult executeReservedDrainSlice(
-            ServerPlayer player,
-            RtsStorageSession transientSession,
-            BufferDrainTaskPayload payload,
-            int maxStacks,
-            long deadlineNanos) {
-        return RtsBufferEscrowExecutor.executeReservedDrainSlice(
-                player, transientSession, payload, maxStacks, deadlineNanos);
-    }
-
-    /**
-     * 一次性读取旧 Session 缓存，形成已由 escrow 持有的迁移快照。
-     *
-     * <p>本方法不清空旧缓存。中央层必须使用已经冻结的 handoff 身份提交并 ACK 任务，再通过
-     * DROP_BUFFER revision ticket 清除旧 Session shadow。</p>
-     */
-    public static BufferDrainTaskPayload snapshotLegacyBuffer(
-            ServerPlayer player, RtsStorageSession session,
-            com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferHandoffState handoff) {
-        return RtsBufferEscrowExecutor.snapshotLegacyBuffer(player, session, handoff);
-    }
-
-    /**
-     * 快速把世界掉落转移到有界缓存；这里只复制/缩减实体，不触碰 AE/RS 网络。
+     * <p>这里只做实体缩减与 {@link ItemStack} 入队，不解析 AE/RS 网络，也不等待任务存档 ACK。
+     * 真正的外部储存写入由 Tick 末的限量 drain 完成，因此挖掘热路径不会被磁盘或网络储存拖住。</p>
      */
     private static boolean enqueueDrops(ServerPlayer player, RtsStorageSession session, List<ItemEntity> drops) {
         var buffer = session.miningDropBuffer;
         boolean changed = false;
         for (ItemEntity entity : drops) {
             if (entity == null || !entity.isAlive() || entity.getItem().isEmpty()) continue;
-            if (buffer.stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
-                break;
-            }
-            int accepted = Math.min(buffer.remainingCapacity(), entity.getItem().getCount());
+            int accepted = enqueueStack(buffer, entity.getItem());
             if (accepted <= 0) break;
-            buffer.stacks.addLast(entity.getItem().copyWithCount(accepted));
-            buffer.bufferedItems += accepted;
-            if (buffer.firstQueuedGameTime < 0L) {
-                buffer.firstQueuedGameTime = player.serverLevel().getGameTime();
-            }
             int remaining = entity.getItem().getCount() - accepted;
             if (remaining <= 0) entity.discard();
             else entity.setItem(entity.getItem().copyWithCount(remaining));
             changed = true;
         }
+        finishEnqueue(player, buffer, changed);
+        return changed;
+    }
+
+    /**
+     * 接管尚未生成到世界的 NeoForge 方块掉落。
+     * 已接受的实体从事件列表移除，缓存装不下的余量继续交给原版生成，不会吞物品。
+     */
+    static boolean enqueueCapturedDrops(
+            ServerPlayer player, RtsStorageSession session, List<ItemEntity> drops) {
+        var buffer = session.miningDropBuffer;
+        boolean changed = false;
+        Iterator<ItemEntity> iterator = drops.iterator();
+        while (iterator.hasNext()) {
+            ItemEntity entity = iterator.next();
+            if (entity == null || entity.getItem().isEmpty()) continue;
+            int accepted = enqueueStack(buffer, entity.getItem());
+            if (accepted <= 0) break;
+            int remaining = entity.getItem().getCount() - accepted;
+            if (remaining <= 0) iterator.remove();
+            else entity.setItem(entity.getItem().copyWithCount(remaining));
+            changed = true;
+        }
+        finishEnqueue(player, buffer, changed);
+        return changed;
+    }
+
+    private static int enqueueStack(
+            com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
+            ItemStack stack) {
+        if (buffer.stacks.size()
+                >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+            return 0;
+        }
+        int accepted = Math.min(buffer.remainingCapacity(), stack.getCount());
+        if (accepted <= 0) return 0;
+        buffer.stacks.addLast(stack.copyWithCount(accepted));
+        buffer.bufferedItems += accepted;
+        return accepted;
+    }
+
+    private static void finishEnqueue(
+            ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
+            boolean changed) {
         if (buffer.isFull() && !buffer.fullNoticeSent) {
             player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
             buffer.fullNoticeSent = true;
@@ -335,7 +313,6 @@ public final class RtsDropAbsorber {
             RtsEffectAccumulator.INSTANCE.markPersistence(
                     player.getUUID(), player.level().dimension());
         }
-        return changed;
     }
 
     /**
@@ -346,40 +323,51 @@ public final class RtsDropAbsorber {
             int maxStacks, long deadlineNanos) {
         var buffer = session.miningDropBuffer;
         if (buffer.isEmpty() || maxStacks <= 0) return 0;
-        boolean timeout = buffer.firstQueuedGameTime >= 0L
-                && player.serverLevel().getGameTime() - buffer.firstQueuedGameTime >= 60L;
-        DropInsertContext insertContext = timeout ? null : createInsertContext(player, session);
+        long gameTime = player.serverLevel().getGameTime();
+        boolean fallbackEligible = buffer.fallbackEligible(gameTime, 60L);
+        // 即使已经到达三秒，也先做最后一次真实写入；网络刚恢复时不应误回退到背包。
+        DropInsertContext insertContext = createInsertContext(player, session);
         int processed = 0;
         boolean storageChanged = false;
+        boolean fellBack = false;
         List<ItemStack> timedOutRemainders = new ArrayList<>();
-        int stackLimit = timeout ? Math.min(maxStacks, 16) : maxStacks;
+        int stackLimit = fallbackEligible ? Math.min(maxStacks, 16) : maxStacks;
         while (processed < stackLimit && System.nanoTime() < deadlineNanos && !buffer.stacks.isEmpty()) {
             ItemStack original = buffer.stacks.removeFirst();
-            ItemStack remainder = timeout ? original.copy() : insertContext.store(original.copy());
+            ItemStack remainder = insertContext.store(original.copy());
             int stored = original.getCount() - remainder.getCount();
             storageChanged |= stored > 0;
-            if (timeout && !remainder.isEmpty()) {
+            if (stored > 0) {
+                // 只有真实外部写入进度才能清除堵塞计时。
+                buffer.markStorageProgress();
+            }
+            if (stored <= 0 && fallbackEligible && !remainder.isEmpty()) {
                 remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
                 if (!remainder.isEmpty()) {
                     mergeRemainder(timedOutRemainders, remainder);
                 }
-            } else if (!timeout && !remainder.isEmpty()) {
+                buffer.bufferedItems -= original.getCount();
+                fellBack = true;
+            } else if (!remainder.isEmpty()) {
                 buffer.stacks.addFirst(remainder);
+                buffer.bufferedItems -= stored;
+                if (stored <= 0) {
+                    buffer.markStorageBlocked(gameTime);
+                    break;
+                }
+            } else {
+                buffer.bufferedItems -= original.getCount();
             }
-            buffer.bufferedItems -= timeout ? original.getCount() : stored;
             processed++;
-            if (!timeout && stored <= 0) break;
         }
         for (ItemStack remainder : timedOutRemainders) {
             player.drop(remainder, false);
         }
-        if (insertContext != null) {
-            notifyStorageChanged(player, insertContext, storageChanged);
-        }
+        notifyStorageChanged(player, insertContext, storageChanged);
         if (storageChanged) {
             QuestService.runQuestDetect(player, session, false);
         }
-        if (timeout && buffer.isEmpty()) {
+        if (fellBack && buffer.shouldSendFallbackNotice(gameTime, 60L)) {
             RtsDeveloperMetrics.recordBufferFallback(player);
             player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.fallback"), false);
         }

@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
@@ -13,10 +11,6 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.session.SessionFlags;
-import com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferHandoffState;
-import com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferMigrationIdentity;
-import com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferOwnershipPhase;
-import com.rtsbuilding.rtsbuilding.server.task.buffer.LegacyBufferSourceFingerprint;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -83,17 +77,7 @@ public final class SessionSerializer {
         }
         root.put("drop_buffer_stacks", stacks);
         root.putLong("drop_buffer_since", session.miningDropBuffer.firstQueuedGameTime);
-        LegacyBufferHandoffState handoff = session.miningDropBuffer.legacyHandoff;
-        if (handoff != null) {
-            CompoundTag encoded = new CompoundTag();
-            encoded.putUUID("migration", handoff.migrationIdentity().value());
-            encoded.putString("source_fingerprint", handoff.sourceFingerprint().sha256());
-            encoded.putLong("queued_at", handoff.firstQueuedGameTime());
-            encoded.putInt("stack_count", handoff.stackCount());
-            encoded.putInt("item_count", handoff.itemCount());
-            encoded.putString("phase", handoff.phase().name());
-            root.put("drop_buffer_handoff", encoded);
-        }
+        root.putBoolean("drop_buffer_blocked_timer_v2", true);
         return root;
     }
 
@@ -112,47 +96,12 @@ public final class SessionSerializer {
             buffer.stacks.addLast(stack.copyWithCount(accepted));
             buffer.bufferedItems += accepted;
         }
+        // 旧存档的 since 表示“进入缓存的时间”，不能继续当成真实储存堵塞时间，否则登录即误回退。
         buffer.firstQueuedGameTime = buffer.stacks.isEmpty()
+                || !root.getBoolean("drop_buffer_blocked_timer_v2")
                 ? -1L
                 : root.getLong("drop_buffer_since");
         buffer.fullNoticeSent = false;
-        buffer.legacyHandoff = null;
-        buffer.handoffClearRevision = 0L;
-        buffer.legacyHandoffConflict = false;
-        if (root.contains("drop_buffer_handoff", Tag.TAG_COMPOUND)) {
-            CompoundTag encoded = root.getCompound("drop_buffer_handoff");
-            try {
-                if (!encoded.hasUUID("migration")
-                        || !encoded.contains("source_fingerprint", Tag.TAG_STRING)
-                        || !encoded.contains("queued_at", Tag.TAG_LONG)
-                        || !encoded.contains("stack_count", Tag.TAG_INT)
-                        || !encoded.contains("item_count", Tag.TAG_INT)
-                        || !encoded.contains("phase", Tag.TAG_STRING)) {
-                    throw new IllegalArgumentException("legacy buffer handoff 字段不完整");
-                }
-                LegacyBufferHandoffState handoff = new LegacyBufferHandoffState(
-                        new LegacyBufferMigrationIdentity(encoded.getUUID("migration")),
-                        new LegacyBufferSourceFingerprint(encoded.getString("source_fingerprint")),
-                        encoded.getLong("queued_at"), encoded.getInt("stack_count"),
-                        encoded.getInt("item_count"),
-                        LegacyBufferOwnershipPhase.valueOf(encoded.getString("phase")));
-                if (!buffer.stacks.isEmpty()
-                        && !handoff.matchesSource(player.registryAccess(), java.util.List.copyOf(buffer.stacks))) {
-                    throw new IllegalArgumentException("legacy buffer handoff 与 Session shadow 不一致");
-                }
-                if (buffer.stacks.isEmpty()
-                        && handoff.phase() == LegacyBufferOwnershipPhase.SESSION_OWNED) {
-                    throw new IllegalArgumentException("SESSION_OWNED handoff 缺少 Session shadow");
-                }
-                buffer.legacyHandoff = handoff;
-            } catch (RuntimeException invalidHandoff) {
-                // 物品仍保留在 Session，但禁止自动迁移或发放；管理员可从存档与日志中恢复。
-                buffer.legacyHandoffConflict = true;
-                com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.error(
-                        "玩家 {} 的 legacy buffer handoff 无法校验，已 fail-closed 保留物品",
-                        player.getUUID(), invalidHandoff);
-            }
-        }
     }
 
     public static CompoundTag serializeFunnel(ServerPlayer player, RtsStorageSession session) {
@@ -522,16 +471,6 @@ public final class SessionSerializer {
         CompoundTag root = new CompoundTag();
         // 新命令不会再写入这些队列；非空值只可能是旧存档迁移 shadow。
         // 在 TaskStore root rev1 ACK 前继续保存 shadow，避免 Session 先清空而迁移任务尚未落盘。
-        if (!session.placement.pendingJobs.isEmpty()) {
-            ListTag pending = new ListTag();
-            for (var job : session.placement.pendingJobs) pending.add(job.toNbt(player.registryAccess()));
-            root.put("pending_placement_jobs", pending);
-        }
-        if (!session.placement.placeBatchJobs.isEmpty()) {
-            ListTag active = new ListTag();
-            for (var job : session.placement.placeBatchJobs) active.add(job.toNbt(player.registryAccess()));
-            root.put("active_placement_jobs", active);
-        }
         ListTag recoveryList = new ListTag();
         int serializedClaims = 0;
         for (var job : session.placement.recoveryJobs) {
@@ -569,18 +508,6 @@ public final class SessionSerializer {
     }
 
     public static void loadPlacement(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        session.placement.clearPendingJobs();
-        session.placement.placeBatchJobs.clear();
-        ListTag pendingList = root.getList("pending_placement_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < pendingList.size(); i++) {
-            session.placement.addPendingJob(
-                    RtsPlacementBatch.PlaceBatchJob.fromNbt(pendingList.getCompound(i), player.registryAccess()));
-        }
-        ListTag activeList = root.getList("active_placement_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < activeList.size(); i++) {
-            session.placement.placeBatchJobs.addLast(
-                    RtsPlacementBatch.PlaceBatchJob.fromNbt(activeList.getCompound(i), player.registryAccess()));
-        }
         session.placement.recoveryJobs.clear();
         ListTag recoveryList = root.getList("placed_recovery_jobs", Tag.TAG_COMPOUND);
         int loadedClaims = 0;
@@ -628,34 +555,11 @@ public final class SessionSerializer {
     // ======================================================================
 
     public static CompoundTag serializeDestroy(ServerPlayer player, RtsStorageSession session) {
-        CompoundTag root = new CompoundTag();
-        // 这里只持久化尚未完成 root ACK 的旧迁移 shadow；生产入口不会再向 Session 入队。
-        if (!session.destruction.destroyJobs.isEmpty()) {
-            ListTag active = new ListTag();
-            for (var job : session.destruction.destroyJobs) active.add(job.toNbt());
-            root.put("active_destroy_jobs", active);
-        }
-        if (!session.destruction.pendingDestroyJobs.isEmpty()) {
-            ListTag pending = new ListTag();
-            for (var job : session.destruction.pendingDestroyJobs) pending.add(job.toNbt());
-            root.put("pending_destroy_jobs", pending);
-        }
-        return root;
+        return new CompoundTag();
     }
 
     public static void loadDestroy(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        session.destruction.destroyJobs.clear();
-        session.destruction.pendingDestroyJobs.clear();
-        ListTag activeList = root.getList("active_destroy_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < activeList.size(); i++) {
-            session.destruction.destroyJobs.addLast(
-                    RtsDestructionBatch.DestructionJob.fromNbt(activeList.getCompound(i)));
-        }
-        ListTag pendingList = root.getList("pending_destroy_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < pendingList.size(); i++) {
-            session.destruction.pendingDestroyJobs.addLast(
-                    RtsDestructionBatch.DestructionJob.fromNbt(pendingList.getCompound(i)));
-        }
+        // 拆除任务只由 TaskStore 持有；旧 Session 队列不再恢复。
     }
 
     // ======================================================================

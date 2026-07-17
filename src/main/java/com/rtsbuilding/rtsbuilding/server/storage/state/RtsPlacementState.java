@@ -1,15 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Deque;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -33,43 +30,6 @@ public class RtsPlacementState {
     // ======================================================================
 
     /** 待处理的放置批次作业队列 */
-    public final Deque<RtsPlacementBatch.PlaceBatchJob> placeBatchJobs = new ArrayDeque<>();
-
-    /**
-     * 因物品不足而被挂起的放置作业队列。
-     * 库存满足条件后可通过 {@code RtsPendingPlacementService.resumeAllPendingJobs}
-     * 将其移回 placeBatchJobs 继续执行。
-     */
-    public final Deque<RtsPlacementBatch.PlaceBatchJob> pendingJobs = new ArrayDeque<>();
-    private final PendingItemIndex<RtsPlacementBatch.PlaceBatchJob> pendingJobsByItem = new PendingItemIndex<>();
-
-    public void addPendingJob(RtsPlacementBatch.PlaceBatchJob job) {
-        if (job == null) return;
-        pendingJobs.addLast(job);
-        pendingJobsByItem.add(job.itemId(), job);
-    }
-
-    public boolean removePendingJob(RtsPlacementBatch.PlaceBatchJob job) {
-        if (job == null || !pendingJobs.remove(job)) return false;
-        pendingJobsByItem.remove(job.itemId(), job);
-        return true;
-    }
-
-    public RtsPlacementBatch.PlaceBatchJob removeFirstPendingJob() {
-        RtsPlacementBatch.PlaceBatchJob job = pendingJobs.pollFirst();
-        if (job != null) pendingJobsByItem.remove(job.itemId(), job);
-        return job;
-    }
-
-    public List<RtsPlacementBatch.PlaceBatchJob> pendingJobsForItems(Collection<String> itemIds) {
-        return pendingJobsByItem.valuesFor(itemIds);
-    }
-
-    public void clearPendingJobs() {
-        pendingJobs.clear();
-        pendingJobsByItem.clear();
-    }
-
     /** 已放置方块被破坏后的掉落物回收作业队列 */
     public final Deque<PlacedRecoveryJob> recoveryJobs = new ArrayDeque<>();
 

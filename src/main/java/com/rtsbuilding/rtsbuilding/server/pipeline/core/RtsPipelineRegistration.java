@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintExecutePip
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintPersistence;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintTickPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.*;
-import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PendingPlacementPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.sync.UiRefreshPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
@@ -162,10 +161,10 @@ public final class RtsPipelineRegistration {
     }
 
     /**
-     * AREA_DESTROY —— 从快速构建预览中破坏形状（异步队列驱动）。
+     * AREA_DESTROY —— 从快速构建预览中破坏形状（TaskStore 驱动）。
      *
-     * <p>对齐范围放置的架构：Pipeline 仅负责入队到 {@code destroyJobs} 队列，
-     * 实际破坏由 {@link RtsDestructionBatch#tickDestroyJobs} 在每 tick 中处理。
+     * <p>Pipeline 只负责校验、借用工具与提交 durable task；
+     * 实际破坏由统一任务引擎在每 tick 的双预算内处理。
      * 采用 {@code asyncCompletion} 生命周期，不再使用 tickable 监控。
      * 工具借用、工作流启动仍发生在 Pipeline 同步阶段；
      * 工作流条目的完成和工具归还在 tick 处理中异步完成。</p>
@@ -210,8 +209,7 @@ public final class RtsPipelineRegistration {
     /**
      * PLACE_BATCH —— 多方块批处理放置（交互式）。
      *
-     * <p>与 PLACE_SINGLE 相同，但添加了 {@link PendingPlacementPipe}
-     * 以在新批处理入队后尝试恢复挂起的作业。</p>
+     * <p>与 PLACE_SINGLE 相同；挂起任务只在相关物品变化或玩家显式重试时恢复。</p>
      */
     private static void registerPlaceBatch() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.PLACE_BATCH)
@@ -219,7 +217,6 @@ public final class RtsPipelineRegistration {
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.PLACE_BATCH, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
-                .pipe(new PendingPlacementPipe())
                 .pipe(new UiRefreshPipe())
                 .asyncCompletion()
                 .register();

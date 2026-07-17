@@ -245,7 +245,10 @@ public class RtsbuildingMod {
             RuntimeException durableFailure = null;
             try {
                 // Minecraft 会在 ServerStopping 之后才移除在线玩家；等所有 logout flush 完成再关 writer。
-                TaskPersistenceRuntime.INSTANCE.stop();
+                // 启动期读取 root 失败时 ServerStopped 仍会触发；此时没有 writer 可关，不能用二次异常覆盖首因。
+                if (TaskPersistenceRuntime.INSTANCE.isStarted()) {
+                    TaskPersistenceRuntime.INSTANCE.stop();
+                }
                 RtsTaskEngine.INSTANCE.resetDurableRuntimeAfterServerStop();
             } catch (RuntimeException failure) {
                 durableFailure = failure;
