@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.TaskScheduler;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import com.rtsbuilding.rtsbuilding.server.task.effect.RtsEffectCommitBarrier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -102,10 +103,33 @@ public final class RtsDeveloperMetrics {
     public static void recordEndpointRebuild(UUID playerId) { mutate(playerId, m -> m.endpointRebuilds++); }
     public static void recordEndpointReuse(UUID playerId) { mutate(playerId, m -> m.endpointReuses++); }
     public static void recordBufferFallback(ServerPlayer player) { mutate(player, m -> m.bufferFallbacks++); }
+    public static void recordSessionSnapshot(ServerPlayer player) { mutate(player, m -> m.sessionSnapshots++); }
+    public static void recordWorkflowSnapshot(ServerPlayer player) { mutate(player, m -> m.workflowSnapshots++); }
+    public static void recordHistorySnapshot(ServerPlayer player) { mutate(player, m -> m.historySnapshots++); }
+    public static void recordPluginSnapshot(ServerPlayer player) { mutate(player, m -> m.pluginSnapshots++); }
+    public static void recordProgressionSnapshot(ServerPlayer player) { mutate(player, m -> m.progressionSnapshots++); }
+
+    /** Effect Barrier 自身也是增量计数器，不扫描任务或副作用对象图。 */
+    public static void recordEffectCommit(RtsEffectCommitBarrier.CommitReport report) {
+        if (report == null || ACTIVE.isEmpty()) return;
+        for (ActiveRun run : ACTIVE.values()) {
+            MutableMetrics metrics = run.metrics();
+            metrics.effectAttemptedTargets += Math.max(0, report.attemptedTargets());
+            metrics.effectCommittedKinds += Math.max(0, report.committedKinds());
+            metrics.effectRetryTargets += Math.max(0, report.retryTargets());
+            metrics.effectDeferredTargets += Math.max(0, report.deferredTargets());
+            metrics.effectFailedTargets += Math.max(0, report.failedTargets());
+        }
+    }
 
     static void recordPageBuild(UUID playerId) { mutate(playerId, m -> m.pageBuilds++); }
     static void recordPageSend(UUID playerId) { mutate(playerId, m -> m.pageSends++); }
     static void recordBufferFallback(UUID playerId) { mutate(playerId, m -> m.bufferFallbacks++); }
+    static void recordSessionSnapshot(UUID playerId) { mutate(playerId, m -> m.sessionSnapshots++); }
+    static void recordWorkflowSnapshot(UUID playerId) { mutate(playerId, m -> m.workflowSnapshots++); }
+    static void recordHistorySnapshot(UUID playerId) { mutate(playerId, m -> m.historySnapshots++); }
+    static void recordPluginSnapshot(UUID playerId) { mutate(playerId, m -> m.pluginSnapshots++); }
+    static void recordProgressionSnapshot(UUID playerId) { mutate(playerId, m -> m.progressionSnapshots++); }
 
     private static void mutate(ServerPlayer player, Consumer<MutableMetrics> action) {
         if (player != null) mutate(player.getUUID(), action);
@@ -124,10 +148,15 @@ public final class RtsDeveloperMetrics {
             Map<TaskType, Integer> maxActive, Map<TaskType, Integer> maxWaiting,
             int bufferItems, int bufferStacks, int maxBufferItems, int maxBufferStacks,
             long bufferAgeTicks, long maxBufferAgeTicks, long bufferFallbacks,
-            long pageBuilds, long pageSends, long endpointRebuilds, long endpointReuses) {
+            long pageBuilds, long pageSends, long endpointRebuilds, long endpointReuses,
+            long sessionSnapshots, long workflowSnapshots, long historySnapshots,
+            long pluginSnapshots, long progressionSnapshots,
+            long effectAttemptedTargets, long effectCommittedKinds, long effectRetryTargets,
+            long effectDeferredTargets, long effectFailedTargets) {
         private static final Snapshot EMPTY = new Snapshot(
                 0, 0, 0, 0, 0, 0, 0, Map.of(), Map.of(),
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         public long averageTickNanos() {
             return tickSamples == 0 ? 0L : tickNanos / tickSamples;
@@ -166,6 +195,16 @@ public final class RtsDeveloperMetrics {
         long pageSends;
         long endpointRebuilds;
         long endpointReuses;
+        long sessionSnapshots;
+        long workflowSnapshots;
+        long historySnapshots;
+        long pluginSnapshots;
+        long progressionSnapshots;
+        long effectAttemptedTargets;
+        long effectCommittedKinds;
+        long effectRetryTargets;
+        long effectDeferredTargets;
+        long effectFailedTargets;
 
         Snapshot snapshot() {
             return new Snapshot(tickSamples, tickNanos, maxTickNanos,
@@ -173,7 +212,11 @@ public final class RtsDeveloperMetrics {
                     Map.copyOf(maxActive), Map.copyOf(maxWaiting),
                     bufferItems, bufferStacks, maxBufferItems, maxBufferStacks,
                     bufferAgeTicks, maxBufferAgeTicks, bufferFallbacks,
-                    pageBuilds, pageSends, endpointRebuilds, endpointReuses);
+                    pageBuilds, pageSends, endpointRebuilds, endpointReuses,
+                    sessionSnapshots, workflowSnapshots, historySnapshots,
+                    pluginSnapshots, progressionSnapshots,
+                    effectAttemptedTargets, effectCommittedKinds, effectRetryTargets,
+                    effectDeferredTargets, effectFailedTargets);
         }
     }
 }

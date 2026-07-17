@@ -46,4 +46,11 @@ public interface FunnelService {
      * @param session 玩家的 RTS 储存会话
      */
     void tick(ServerPlayer player, RtsStorageSession session);
+
+    /** 由统一 Task Engine 调用的预算化入口。 */
+    FunnelTickResult tickBudgeted(
+            ServerPlayer player, RtsStorageSession session, int maxUnits, long deadlineNanos);
+
+    record FunnelTickResult(int processedUnits, boolean active) {
+    }
 }

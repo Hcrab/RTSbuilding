@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -129,6 +130,11 @@ public final class RtsPluginService {
     }
 
     public static void syncToPlayer(ServerPlayer player) {
+        if (player != null) RtsEffectAccumulator.INSTANCE.markPluginState(player.getUUID());
+    }
+
+    /** 仅由 Tick 末 Effect Committer 调用，普通业务入口只登记最新完整快照。 */
+    public static void syncToPlayerNow(ServerPlayer player) {
         if (player == null) {
             return;
         }

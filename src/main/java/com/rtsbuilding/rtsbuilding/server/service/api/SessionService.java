@@ -55,6 +55,23 @@ public interface SessionService {
     void saveToPlayerNbt(ServerPlayer player, RtsStorageSession session);
 
     /**
+     * 只冻结并标记漏斗组件，避免漏斗热路径反复序列化整个会话中的放置、拆除和 UI 数据。
+     */
+    void saveFunnelToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+
+    /** 只冻结并标记放置组件，供回收 claim 的增量变化使用。 */
+    long savePlacementToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+
+    /** 返回放置组件当前内存 revision。 */
+    long placementRevision(ServerPlayer player);
+
+    /** 返回放置组件已经由底层存储确认的 revision。 */
+    long persistedPlacementRevision(ServerPlayer player);
+
+    /** 只保存建造模式；用于模式切换时与漏斗组件分别提交。 */
+    void saveModeToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+
+    /**
      * 玩家启用 RTS 模式时触发的生命周期回调。
      * 负责初始化会话、注册 Tick 服务等。
      *

@@ -53,6 +53,9 @@ public final class SessionComponents {
     /** 自动存入挖掘掉落的持久缓存。 */
     public static final DataComponent<CompoundTag> DROP_BUFFER = bridge("drop_buffer");
 
+    /** 漏斗开关、目标和已从世界实体接管的有限缓冲。 */
+    public static final DataComponent<CompoundTag> FUNNEL = bridge("funnel");
+
     // ==================================================================
     //  工具
     // ==================================================================

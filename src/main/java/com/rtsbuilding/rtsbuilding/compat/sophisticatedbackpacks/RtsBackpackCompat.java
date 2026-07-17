@@ -102,7 +102,7 @@ public final class RtsBackpackCompat {
     }
 
     /**
-     * 仅识别精妙背包本体，不把同模组的升级物品误送进背包专用放置链路。
+     * Only route actual backpack items through the placement-only path; upgrades share the namespace.
      */
     public static boolean isBackpackItem(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
@@ -211,7 +211,7 @@ public final class RtsBackpackCompat {
                     runOnBackpacks = providerClass.getMethod(
                             "runOnBackpacks", net.minecraft.world.entity.player.Player.class, backpackSlotConsumer);
                 } catch (ClassNotFoundException | NoSuchMethodException ignored) {
-                    // 旧版没有统一随身槽位提供器时，仍保留主物品栏与 UUID 虚拟背包回退。
+                    // Older versions keep the main-inventory and virtual-stack fallbacks.
                 }
                 return new BackpackReflection(
                         backpackBlockEntity,
@@ -313,7 +313,7 @@ public final class RtsBackpackCompat {
                 return Optional.empty();
             }
             try {
-                // 随身背包必须使用真实 ItemStack，让精妙背包自己的 wrapper 仓库与饰品槽保持同一实例。
+                // Use the live carried stack so the wrapper and accessory slot share the same backing store.
                 Object wrapper = wrapperFromStack(backpackStack);
                 if (wrapper == null) {
                     return Optional.empty();

@@ -22,16 +22,17 @@ class RtsBackpackRoutingContractTest {
 
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("findCarriedBackpack(player, uuid)"),
-                "UUID 解析必须覆盖精妙背包注册的物品栏、饰品与 Curios/Accessories 槽位。");
+                "UUID resolution must cover Sophisticated Backpacks' carried and accessory slots.");
         assertTrue(screen.contains("forcePlace || forceBackpackPlacement")
                         && screen.contains("!forceBackpackPlacement && !forcePlace"),
-                "客户端右键精妙背包必须绕过交互并进入强制放置链路。");
+                "Right-clicking a backpack must bypass interaction and enter placement.");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
-                        && placement.contains("!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()"),
-                "服务端精妙背包放置失败时不得回退到 useItem 打开界面。");
+                        && placement.contains(
+                        "!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()"),
+                "Failed backpack placement must not fall back to opening the backpack.");
         assertTrue(lifecycle.contains("markDetached(ref)"),
-                "背包被挖走后必须保留 UUID 绑定并切换到随身解析状态。");
+                "Moving a backpack off the ground must preserve its UUID binding.");
         assertFalse(lifecycle.contains("removeBrokenLinkedStorageRef"),
-                "背包被挖走不能删除 UUID 绑定。");
+                "Moving a backpack off the ground must not delete its UUID binding.");
     }
 }

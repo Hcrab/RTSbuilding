@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.history;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -124,6 +125,11 @@ public final class ServerHistoryManager {
     }
 
     public static void sendSync(ServerPlayer player) {
+        if (player != null) RtsEffectAccumulator.INSTANCE.markHistory(player.getUUID());
+    }
+
+    /** 仅由 Tick 末 Effect Committer 调用。 */
+    public static void sendSyncNow(ServerPlayer player) {
         if (player == null) return;
         int undoSize = getUndoSize(player.getUUID());
         RtsClientboundPackets.sendToPlayer(player,

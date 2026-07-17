@@ -176,9 +176,6 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 false,
                 -1);
 
-        if (player != null) {
-            RtsPendingPlacementService.tryResumeAfterStorageChange(player);
-        }
     }
 
     @Override
@@ -187,10 +184,9 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             return 0;
         }
         RtsStorageSession session = registry.session().getIfPresent(player);
-        if (session == null || session.placement.pendingJobs.isEmpty()) {
-            return 0;
-        }
-        int count = RtsPendingPlacementService.resumeAllPendingJobs(player, session);
+        if (session == null) return 0;
+        int count = com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService
+                .resumeAllPendingJobs(player, session);
         if (count > 0) {
             player.displayClientMessage(
                     Component.literal("Resumed " + count + " pending placement job(s)."), true);
@@ -247,14 +243,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     @Override
     public String getPlaceBatchItemId(ServerPlayer player) {
         if (player == null) return "";
-        RtsStorageSession session = registry.session().getIfPresent(player);
-        if (session == null) return "";
-        if (!session.placement.placeBatchJobs.isEmpty()) {
-            return session.placement.placeBatchJobs.peekFirst().itemId();
-        }
-        if (!session.placement.pendingJobs.isEmpty()) {
-            return session.placement.pendingJobs.peekFirst().itemId();
-        }
-        return "";
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .firstPlacementItemId(player);
     }
 }

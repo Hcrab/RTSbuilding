@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.TaskScheduler;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import com.rtsbuilding.rtsbuilding.server.task.effect.RtsEffectCommitBarrier;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -29,13 +30,20 @@ class RtsDeveloperMetricsTest {
         RtsDeveloperMetrics.recordTaskSample(playerId,
                 new TaskScheduler.TickStats(3, 12, 300, true, false),
                 new RtsTaskEngine.TaskDiagnostics(
-                        Map.of(TaskType.MINING, 2, TaskType.BUFFER_DRAIN, 1), Map.of()),
+                        Map.of(TaskType.MINING, 2, TaskType.BLUEPRINT, 1), Map.of()),
                 new RtsDeveloperMetrics.BufferSample(40, 3, 9));
         RtsDeveloperMetrics.recordPageBuild(playerId);
         RtsDeveloperMetrics.recordPageSend(playerId);
         RtsDeveloperMetrics.recordEndpointRebuild(playerId);
         RtsDeveloperMetrics.recordEndpointReuse(playerId);
         RtsDeveloperMetrics.recordBufferFallback(playerId);
+        RtsDeveloperMetrics.recordSessionSnapshot(playerId);
+        RtsDeveloperMetrics.recordWorkflowSnapshot(playerId);
+        RtsDeveloperMetrics.recordHistorySnapshot(playerId);
+        RtsDeveloperMetrics.recordPluginSnapshot(playerId);
+        RtsDeveloperMetrics.recordProgressionSnapshot(playerId);
+        RtsDeveloperMetrics.recordEffectCommit(new RtsEffectCommitBarrier.CommitReport(
+                42L, false, 3, 2, 4, 1, 5, 1, 6));
 
         assertFalse(RtsDeveloperMetrics.finish(playerId, "wrong-run", "small-mining").accepted());
         var finish = RtsDeveloperMetrics.finish(playerId, "run-a", "small-mining");
@@ -57,6 +65,16 @@ class RtsDeveloperMetricsTest {
         assertEquals(1, result.pageSends());
         assertEquals(1, result.endpointRebuilds());
         assertEquals(1, result.endpointReuses());
+        assertEquals(1, result.sessionSnapshots());
+        assertEquals(1, result.workflowSnapshots());
+        assertEquals(1, result.historySnapshots());
+        assertEquals(1, result.pluginSnapshots());
+        assertEquals(1, result.progressionSnapshots());
+        assertEquals(3, result.effectAttemptedTargets());
+        assertEquals(4, result.effectCommittedKinds());
+        assertEquals(1, result.effectRetryTargets());
+        assertEquals(5, result.effectDeferredTargets());
+        assertEquals(1, result.effectFailedTargets());
 
         RtsDeveloperMetrics.recordPageBuild(playerId);
         assertFalse(RtsDeveloperMetrics.finish(playerId, "run-a", "small-mining").accepted());

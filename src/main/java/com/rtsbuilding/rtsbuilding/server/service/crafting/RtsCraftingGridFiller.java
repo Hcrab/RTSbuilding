@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -98,7 +99,7 @@ public final class RtsCraftingGridFiller {
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
             ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                     S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
@@ -135,7 +136,7 @@ public final class RtsCraftingGridFiller {
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
             ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                     S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {

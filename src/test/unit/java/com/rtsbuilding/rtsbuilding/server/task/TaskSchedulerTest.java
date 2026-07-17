@@ -129,6 +129,60 @@ class TaskSchedulerTest {
         assertEquals(1, scheduler.activeTaskCount());
     }
 
+    @Test
+    void blueprintPreparationConsumesBudgetWithoutAdvancingPlayerProgress() {
+        AtomicLong clock = new AtomicLong();
+        TaskScheduler scheduler = new TaskScheduler(clock::get);
+        scheduler.registerExecutor(TaskType.BLUEPRINT,
+                (task, budget) -> TaskStepResult.nextTick(budget.maxUnits(), 0, 0, 0));
+        TaskRecord record = task(UUID.randomUUID());
+        scheduler.submit(record);
+
+        TaskScheduler.TickStats stats = scheduler.tick(1_000L, 7, 7);
+
+        assertEquals(7, stats.processedUnits());
+        assertEquals(0, record.cursorUnits());
+        assertEquals(0, record.completedUnits());
+    }
+
+    @Test
+    void blueprintFunnelAndRecoveryShareOneGlobalUnitBudget() {
+        AtomicLong clock = new AtomicLong();
+        TaskScheduler scheduler = new TaskScheduler(clock::get);
+        for (TaskType type : List.of(
+                TaskType.BLUEPRINT, TaskType.FUNNEL, TaskType.PLACED_RECOVERY)) {
+            scheduler.registerExecutor(type,
+                    (task, budget) -> TaskStepResult.nextTick(budget.maxUnits(), 0, 0, 0));
+        }
+        UUID owner = UUID.randomUUID();
+        scheduler.submit(new TaskRecord(UUID.randomUUID(), owner,
+                TaskType.BLUEPRINT, EMPTY, 100, 0L));
+        scheduler.submit(new TaskRecord(UUID.randomUUID(), owner,
+                TaskType.FUNNEL, EMPTY, 0, 0L));
+        scheduler.submit(new TaskRecord(UUID.randomUUID(), owner,
+                TaskType.PLACED_RECOVERY, EMPTY, 0, 0L));
+
+        TaskScheduler.TickStats stats = scheduler.tick(1_000L, 5, 2);
+
+        assertEquals(5, stats.processedUnits());
+        assertTrue(stats.unitBudgetExhausted());
+    }
+
+    @Test
+    void detachOwnerRemovesOnlineLaneWithoutCancellingDurableLifecycle() {
+        TaskScheduler scheduler = new TaskScheduler(() -> 0L);
+        UUID owner = UUID.randomUUID();
+        TaskRecord record = task(owner);
+        scheduler.submit(record);
+
+        List<TaskRecord> detached = scheduler.detachOwner(owner);
+
+        assertEquals(List.of(record), detached);
+        assertEquals(TaskStatus.QUEUED, record.status());
+        assertEquals(0, scheduler.activeTaskCount());
+        assertTrue(scheduler.detachOwner(owner).isEmpty());
+    }
+
     private static TaskRecord task(UUID owner) {
         return new TaskRecord(UUID.randomUUID(), owner, TaskType.BLUEPRINT, EMPTY, 100, 0L);
     }

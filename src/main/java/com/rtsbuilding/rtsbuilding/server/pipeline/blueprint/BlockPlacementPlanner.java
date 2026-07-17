@@ -15,6 +15,7 @@ import net.minecraft.world.level.material.Fluids;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -83,24 +84,33 @@ public final class BlockPlacementPlanner {
         List<PlacementPlan> plans = new ArrayList<>(blocks.size());
 
         for (RtsBlueprintBlock block : blocks) {
-            if (block.isMissingBlock()) {
-                plans.add(null);
-                continue;
-            }
-
-            BlockPos target = anchor.offset(BlueprintTransform.rotateAroundCenter(
-                    block.relativePos(), ySteps, xSteps, zSteps, centerOffset));
-
-            BlockState state = BlueprintTransform.rotateState(
-                    block.state(), ySteps, xSteps, zSteps);
-
-            List<Item> items = materialItems(block, state);
-            Fluid fluid = items.isEmpty() ? fluidCostFor(state) : Fluids.EMPTY;
-
-            plans.add(new PlacementPlan(target, state, items, fluid, block.blockEntityTag()));
+            plans.add(computeOne(block, anchor, centerOffset, ySteps, xSteps, zSteps));
         }
 
-        return List.copyOf(plans);
+        // 缺失方块使用 null 占位，List.copyOf 会拒绝 null。
+        return Collections.unmodifiableList(plans);
+    }
+
+    /**
+     * 只计算一个蓝图方块的放置计划。
+     *
+     * <p>统一任务引擎用它把大型蓝图的准备阶段切成受数量和纳秒预算约束的小步；
+     * 本方法不读取世界，也不产生材料或方块副作用。</p>
+     */
+    @Nullable
+    public static PlacementPlan computeOne(
+            RtsBlueprintBlock block,
+            BlockPos anchor,
+            BlockPos centerOffset,
+            int ySteps, int xSteps, int zSteps) {
+        if (block == null || block.isMissingBlock()) return null;
+
+        BlockPos target = anchor.offset(BlueprintTransform.rotateAroundCenter(
+                block.relativePos(), ySteps, xSteps, zSteps, centerOffset));
+        BlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
+        List<Item> items = materialItems(block, state);
+        Fluid fluid = items.isEmpty() ? fluidCostFor(state) : Fluids.EMPTY;
+        return new PlacementPlan(target, state, items, fluid, block.blockEntityTag());
     }
 
     // ──────────────────────────────────────────────────────────────────

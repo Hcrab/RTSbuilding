@@ -3,15 +3,22 @@ package com.rtsbuilding.rtsbuilding.gametest;
 import com.mojang.authlib.GameProfile;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.api.RtsAPI;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
+import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.service.ServerTickOrchestrator;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
@@ -20,27 +27,47 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim;
+import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
+import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
+import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
+import io.netty.channel.embedded.EmbeddedChannel;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -48,6 +75,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class RtsServerGameTests {
     private static final String EMPTY_TEMPLATE = "gametest/empty";
+    private static final AtomicInteger PLAYER_SEQUENCE = new AtomicInteger();
     private static final List<Item> JUNK_ITEMS = List.of(
             Items.STONE,
             Items.DIAMOND,
@@ -196,11 +224,10 @@ public final class RtsServerGameTests {
         player.getInventory().setItem(0, new ItemStack(Items.STONE, supportRel.size()));
 
         enqueuePlacementThroughApi(helper, player, supportRel, "minecraft:stone", new ItemStack(Items.STONE));
-        helper.assertTrue(!requireSession(helper, player).placement.placeBatchJobs.isEmpty(),
-                "RTS batch placement should enqueue a placement job");
+        helper.assertTrue(hasActiveTask(player, TaskType.PLACEMENT),
+                "New placement commands should enter TaskStore immediately");
 
         helper.succeedWhen(() -> {
-            tickPlayerWork(player);
             for (BlockPos support : supportRel) {
                 helper.assertBlockPresent(Blocks.STONE, support.above());
             }
@@ -240,17 +267,14 @@ public final class RtsServerGameTests {
         }
 
         helper.succeedWhen(() -> {
-            for (ServerPlayer player : players) {
-                tickPlayerWork(player);
-            }
             for (List<BlockPos> supportsRel : supportGroupsRel) {
                 for (BlockPos supportRel : supportsRel) {
                     helper.assertBlockPresent(Blocks.STONE, supportRel.above());
                 }
             }
             for (ServerPlayer player : players) {
-                helper.assertTrue(requireSession(helper, player).placement.placeBatchJobs.isEmpty(),
-                        "Completed placement should not leave another player's job in this session");
+                helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                        "Completed placement should not leave an active durable task");
             }
             stopPlayers(players);
         });
@@ -272,17 +296,14 @@ public final class RtsServerGameTests {
         }
 
         helper.succeedWhen(() -> {
-            for (ServerPlayer player : players) {
-                tickPlayerWork(player);
-            }
             for (List<BlockPos> targetsRel : targetGroupsRel) {
                 for (BlockPos targetRel : targetsRel) {
                     helper.assertBlockPresent(Blocks.AIR, targetRel);
                 }
             }
             for (ServerPlayer player : players) {
-                helper.assertTrue(requireSession(helper, player).destruction.destroyJobs.isEmpty(),
-                        "Completed area destroy should not leave another player's job in this session");
+                helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                        "Completed area destroy should not leave an active durable task");
             }
             stopPlayers(players);
         });
@@ -309,14 +330,61 @@ public final class RtsServerGameTests {
                 (byte) 0, "", ItemStack.EMPTY, false);
 
         helper.succeedWhen(() -> {
-            tickPlayerWork(player);
             for (BlockPos targetRel : targetsRel) {
                 helper.assertBlockPresent(Blocks.AIR, targetRel);
             }
             helper.assertValueEqual(targetsRel.size(), countChestItem(helper, chestRel, Items.DIRT),
                     "Auto-store should put range-destroy drops into the linked chest");
-            helper.assertTrue(requireSession(helper, player).destruction.destroyJobs.isEmpty(),
-                    "Auto-store area destroy should finish without queued targets");
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Auto-store area destroy should finish without an active durable task");
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200)
+    public static void chainMiningAdvancesContinuouslyAndAutoStoresEveryDrop(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(1, 1, 1);
+        List<BlockPos> targetsRel = new ArrayList<>();
+        for (int z = 3; z < 7; z++) {
+            for (int x = 3; x < 11; x++) {
+                BlockPos target = new BlockPos(x, 1, z);
+                targetsRel.add(target);
+                helper.setBlock(target, Blocks.DIRT);
+            }
+        }
+        helper.setBlock(chestRel, Blocks.CHEST);
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        ItemStack shovel = new ItemStack(Items.DIAMOND_SHOVEL);
+        player.getInventory().setItem(0, shovel.copy());
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        RtsAPI.get().bindings().setAutoStoreMinedDrops(player, true);
+        RtsStorageSession session = requireSession(helper, player);
+        RtsAPI.get().mining().startUltimine(player, helper.absolutePos(targetsRel.getFirst()),
+                Direction.UP, (byte) 0, "", shovel, targetsRel.size(), (byte) 0, false);
+
+        boolean[] terminalLogged = {false};
+        helper.succeedWhen(() -> {
+            for (BlockPos targetRel : targetsRel) helper.assertBlockPresent(Blocks.AIR, targetRel);
+            boolean active = hasActiveTask(player, TaskType.MINING);
+            int chestItems = countChestItem(helper, chestRel, Items.DIRT);
+            int bufferItems = countBufferedItem(session, Items.DIRT);
+            int inventoryItems = countPlayerItem(player, Items.DIRT);
+            int worldItems = countWorldItem(helper, targetsRel, Items.DIRT);
+            if (!active && !terminalLogged[0]) {
+                terminalLogged[0] = true;
+                RtsbuildingMod.LOGGER.info(
+                        "RTS GameTest chain drop conservation: chest={} buffer={} inventory={} world={} total={}",
+                        chestItems, bufferItems, inventoryItems, worldItems,
+                        chestItems + bufferItems + inventoryItems + worldItems);
+            }
+            helper.assertValueEqual(targetsRel.size(), chestItems,
+                    "Chain mining should put every drop into linked storage without escrow delay"
+                            + " (buffer=" + bufferItems + ", inventory=" + inventoryItems
+                            + ", world=" + worldItems + ")");
+            helper.assertTrue(!active,
+                    "Completed chain mining should not leave an active durable task");
             stopPlayers(player);
         });
     }
@@ -420,11 +488,223 @@ public final class RtsServerGameTests {
                 0, itemId(Items.HONEYCOMB), 16, false, List.of());
         assertSingleSearchResult(helper, honeycomb, Items.HONEYCOMB,
                 "Newly stored honeycomb should be immediately searchable");
-        helper.assertValueEqual(11L, totalCount(honeycomb, Items.HONEYCOMB),
-                "Newly stored honeycomb should keep its stored count");
+        long storedHoneycomb = chestsRel.stream()
+                .mapToLong(chestRel -> countChestItem(helper, chestRel, Items.HONEYCOMB))
+                .sum();
+        helper.assertValueEqual(11L, storedHoneycomb,
+                "Newly stored honeycomb should keep its stored count in the backing storage");
 
         stopPlayers(player);
         helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 240)
+    public static void durableBlueprintWaitsForRootAckThenPlacesExactlyOnce(GameTestHelper helper) {
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos anchorRel = new BlockPos(2, 1, 2);
+        BlockPos anchor = helper.absolutePos(anchorRel);
+        SubmissionId submissionId = new SubmissionId(UUID.randomUUID());
+        TaskId taskId = TaskId.fromSubmission(player.getUUID(), submissionId);
+        RtsBlueprint blueprint = simpleBlueprint("ack-blueprint", Blocks.STONE, 3);
+        BlueprintContext context = blueprintContext(player, submissionId, blueprint, anchor);
+
+        PipelineResult first = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD, context);
+        helper.assertTrue(first instanceof PipelineResult.Success,
+                "Durable blueprint command should be accepted into the admission queue");
+        PipelineResult duplicate = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD,
+                blueprintContext(player, submissionId, blueprint, anchor));
+        helper.assertTrue(duplicate instanceof PipelineResult.Success,
+                "Repeating the same submission while pending should be idempotent");
+
+        // 同步 command 返回只代表进入有界 admission；本次服务器 tick 的 root ACK 尚未发生。
+        helper.assertTrue(TaskPersistenceRuntime.INSTANCE.coordinator().query().get(taskId).isEmpty(),
+                "Blueprint root must not be visible before the durability ACK");
+        helper.assertValueEqual(0, RtsWorkflowEngine.getInstance().activeWorkflowCount(player),
+                "Workflow projection must not exist before the durability ACK");
+        helper.assertValueEqual(0,
+                RtsTaskEngine.INSTANCE.diagnostics(player.getUUID()).activeByType()
+                        .getOrDefault(TaskType.BLUEPRINT, 0),
+                "Blueprint executor must not exist before the durability ACK");
+        for (int i = 0; i < 3; i++) {
+            helper.assertBlockPresent(Blocks.AIR, anchorRel.offset(i, 0, 0));
+        }
+
+        // 不手动调用全局 Task Engine；真实 ServerTickEvent 每服每 tick 驱动一次。
+        helper.succeedWhen(() -> {
+            for (int i = 0; i < 3; i++) {
+                helper.assertBlockPresent(Blocks.STONE, anchorRel.offset(i, 0, 0));
+            }
+            var query = TaskPersistenceRuntime.INSTANCE.coordinator().query();
+            var activeRoot = query.get(taskId);
+            var terminalReceipt = query.receipt(taskId);
+            helper.assertValueEqual(1,
+                    (activeRoot.isPresent() ? 1 : 0) + (terminalReceipt.isPresent() ? 1 : 0),
+                    "The deterministic TaskId must have exactly one active root or terminal receipt");
+            long sameSubmissionRoots = query.ownedBy(player.getUUID()).stream()
+                    .filter(snapshot -> snapshot.submissionId().equals(submissionId))
+                    .count();
+            long sameSubmissionFacts = sameSubmissionRoots + (terminalReceipt.isPresent() ? 1L : 0L);
+            helper.assertValueEqual(1L, sameSubmissionFacts,
+                    "Repeating one blueprint submission must leave exactly one durable fact");
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 180)
+    public static void denseFunnelIsBoundedAndNeverUsesAnotherDimensionTarget(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(1, 1, 1);
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        RtsAPI.get().bindings().setMode(player, BuilderMode.FUNNEL);
+        RtsAPI.get().bindings().setFunnelEnabled(player, true);
+        RtsAPI.get().bindings().updateFunnelTarget(player, helper.absolutePos(targetRel));
+        RtsStorageSession session = requireSession(helper, player);
+
+        final int entityCount = 60;
+        AABB scanBox = new AABB(helper.absolutePos(targetRel)).inflate(RtsServiceConstants.FUNNEL_RADIUS);
+        for (int i = 0; i < entityCount; i++) {
+            Vec3 dropPos = Vec3.atCenterOf(helper.absolutePos(targetRel));
+            ItemEntity drop = new ItemEntity(helper.getLevel(), dropPos.x, dropPos.y, dropPos.z,
+                    new ItemStack(Items.COBBLESTONE));
+            helper.getLevel().addFreshEntity(drop);
+        }
+
+        var bounded = ServiceRegistry.getInstance().funnel().tickBudgeted(
+                player, session, 7, Long.MAX_VALUE);
+        helper.assertValueEqual(7, bounded.processedUnits(),
+                "A funnel slice must obey the caller's smaller unit budget");
+        helper.assertValueEqual(7, countChestItem(helper, chestRel, Items.COBBLESTONE),
+                "One bounded funnel slice should move only seven one-item entities");
+        helper.assertValueEqual(entityCount - 7, countLiveDrops(helper, scanBox),
+                "Entities outside the current slice budget must remain in the world");
+
+        session.funnel.funnelTickCooldown = 0;
+        session.funnel.funnelTargetDimension = Level.NETHER;
+        int storedBeforeWrongDimension = countChestItem(helper, chestRel, Items.COBBLESTONE);
+        int liveBeforeWrongDimension = countLiveDrops(helper, scanBox);
+        var wrongDimension = ServiceRegistry.getInstance().funnel().tickBudgeted(
+                player, session, 7, Long.MAX_VALUE);
+        helper.assertValueEqual(0, wrongDimension.processedUnits(),
+                "A funnel target from another dimension must yield without scanning this world");
+        helper.assertValueEqual(storedBeforeWrongDimension,
+                countChestItem(helper, chestRel, Items.COBBLESTONE),
+                "Wrong-dimension funnel work must not mutate linked storage");
+        helper.assertValueEqual(liveBeforeWrongDimension, countLiveDrops(helper, scanBox),
+                "Wrong-dimension funnel work must not consume same-coordinate entities");
+
+        session.funnel.funnelTargetDimension = player.serverLevel().dimension();
+        session.funnel.funnelTickCooldown = 0;
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(entityCount, countChestItem(helper, chestRel, Items.COBBLESTONE),
+                    "The real Task Engine should eventually drain all reachable funnel drops");
+            helper.assertValueEqual(0, countLiveDrops(helper, scanBox),
+                    "Fully stored funnel drops should leave no live ItemEntity behind");
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100)
+    public static void placedRecoveryPreservesUnavailableClaimsAndConsumesOnlyExactLoadedClaim(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(1, 1, 1);
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        RtsStorageSession session = requireSession(helper, player);
+
+        BlockPos target = helper.absolutePos(targetRel);
+        BlockPos unloadedTarget = findUnloadedTarget(helper);
+        helper.assertTrue(!helper.getLevel().hasChunkAt(unloadedTarget),
+                "Recovery fixture requires a genuinely unloaded target chunk");
+
+        ItemEntity mismatch = spawnDrop(helper, target, new ItemStack(Items.DIRT, 2));
+        ItemEntity exact = spawnDrop(helper, target, new ItemStack(Items.IRON_INGOT, 5));
+        PlacedRecoveryJob unloaded = recoveryJob(
+                player, unloadedTarget, UUID.randomUUID(), new ItemStack(Items.GOLD_INGOT), 0);
+        PlacedRecoveryJob mismatched = recoveryJob(
+                player, target, mismatch.getUUID(), new ItemStack(Items.STONE, 2), 0);
+        PlacedRecoveryJob matching = recoveryJob(
+                player, target, exact.getUUID(), exact.getItem(), 0);
+        session.placement.recoveryJobs.addLast(unloaded);
+        session.placement.recoveryJobs.addLast(mismatched);
+        session.placement.recoveryJobs.addLast(matching);
+
+        var result = RtsPlacedRecoveryService.tickBudgeted(player, session, 1, Long.MAX_VALUE);
+        helper.assertValueEqual(1, result.processedUnits(),
+                "One recovery slice should consume exactly one runnable matching claim");
+        helper.assertTrue(!exact.isAlive(),
+                "A matching loaded claim should release its source ItemEntity after insertion");
+        helper.assertValueEqual(5, countChestItem(helper, chestRel, Items.IRON_INGOT),
+                "Recovered items should reach the linked storage exactly once");
+        helper.assertTrue(mismatch.isAlive() && mismatch.getItem().is(Items.DIRT),
+                "A stale claim must not consume an entity whose stack identity changed");
+        helper.assertTrue(session.placement.recoveryJobs.contains(unloaded)
+                        && unloaded.claims().size() == 1,
+                "An unloaded-chunk claim must remain queued without forcing its chunk");
+        helper.assertTrue(session.placement.recoveryJobs.contains(mismatched)
+                        && mismatched.claims().size() == 1,
+                "A mismatched claim must remain queued for conservative recovery");
+        helper.assertTrue(!helper.getLevel().hasChunkAt(unloadedTarget),
+                "Recovery readiness checks must not load the unavailable chunk");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 260)
+    public static void twoPlayersCanUseSameBlueprintSubmissionWithoutCrossTalk(GameTestHelper helper) {
+        List<ServerPlayer> players = startRtsPlayers(helper, 2, GameType.CREATIVE);
+        ServerPlayer first = players.get(0);
+        ServerPlayer second = players.get(1);
+        SubmissionId sharedSubmission = new SubmissionId(UUID.randomUUID());
+        TaskId firstTask = TaskId.fromSubmission(first.getUUID(), sharedSubmission);
+        TaskId secondTask = TaskId.fromSubmission(second.getUUID(), sharedSubmission);
+        helper.assertTrue(!firstTask.equals(secondTask),
+                "Task identity must include the owner even when submission UUIDs match");
+
+        BlockPos firstRel = new BlockPos(2, 1, 2);
+        BlockPos secondRel = new BlockPos(7, 1, 7);
+        PipelineResult firstResult = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD,
+                blueprintContext(first, sharedSubmission,
+                        simpleBlueprint("owner-one", Blocks.GOLD_BLOCK, 1), helper.absolutePos(firstRel)));
+        PipelineResult secondResult = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD,
+                blueprintContext(second, sharedSubmission,
+                        simpleBlueprint("owner-two", Blocks.DIAMOND_BLOCK, 1), helper.absolutePos(secondRel)));
+        helper.assertTrue(firstResult instanceof PipelineResult.Success
+                        && secondResult instanceof PipelineResult.Success,
+                "Both owners should independently enter durable blueprint admission");
+        helper.assertTrue(TaskPersistenceRuntime.INSTANCE.coordinator().query().get(firstTask).isEmpty()
+                        && TaskPersistenceRuntime.INSTANCE.coordinator().query().get(secondTask).isEmpty(),
+                "Neither owner's executor may appear before its own root ACK");
+
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.GOLD_BLOCK, firstRel);
+            helper.assertBlockPresent(Blocks.DIAMOND_BLOCK, secondRel);
+            var query = TaskPersistenceRuntime.INSTANCE.coordinator().query();
+            helper.assertValueEqual(1,
+                    (query.get(firstTask).isPresent() ? 1 : 0)
+                            + (query.receipt(firstTask).isPresent() ? 1 : 0),
+                    "First player must own exactly one active root or terminal receipt");
+            helper.assertValueEqual(1,
+                    (query.get(secondTask).isPresent() ? 1 : 0)
+                            + (query.receipt(secondTask).isPresent() ? 1 : 0),
+                    "Second player must own exactly one active root or terminal receipt");
+            helper.assertTrue(query.ownedBy(first.getUUID()).stream()
+                            .noneMatch(snapshot -> snapshot.id().equals(secondTask)),
+                    "First player's durable roots must never contain the second player's task");
+            helper.assertTrue(query.ownedBy(second.getUUID()).stream()
+                            .noneMatch(snapshot -> snapshot.id().equals(firstTask)),
+                    "Second player's durable roots must never contain the first player's task");
+            stopPlayers(players);
+        });
+    }
+
+    private static boolean hasActiveTask(ServerPlayer player, TaskType type) {
+        return TaskPersistenceRuntime.INSTANCE.coordinator().query().ownedBy(player.getUUID()).stream()
+                .anyMatch(snapshot -> snapshot.type() == type && !snapshot.state().terminal());
     }
 
     private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
@@ -434,28 +714,46 @@ public final class RtsServerGameTests {
     private static List<ServerPlayer> startRtsPlayers(GameTestHelper helper, int count, GameType gameType) {
         List<ServerPlayer> players = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            players.add(startRtsFakePlayer(helper, gameType, new Vec3(3.5D + i, 2.0D, 3.5D), "rtsgt-" + i));
+            players.add(startRegisteredRtsPlayer(
+                    helper, gameType, new Vec3(3.5D + i, 4.0D, 3.5D), nextPlayerName()));
         }
         return players;
     }
 
     private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType, Vec3 relativePos) {
-        ensureCoreServices();
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
-        Vec3 playerPos = helper.absoluteVec(relativePos);
-        player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
-        player.setGameMode(gameType);
-        RtsCameraManager.start(player);
-        helper.assertTrue(RtsCameraManager.isActive(player),
-                "GameTest player should enter RTS mode");
-        requireSession(helper, player);
-        return player;
+        return startRegisteredRtsPlayer(helper, gameType, relativePos, nextPlayerName());
     }
 
-    private static ServerPlayer startRtsFakePlayer(
+    /**
+     * 创建真正登记到 PlayerList 的测试玩家。
+     *
+     * <p>Task Engine、durable activator 和在线 owner 查询均以 PlayerList 为准；
+     * FakePlayerFactory 只创建世界实体，会让测试绕过生产生命周期。每个玩家使用唯一名称，
+     * 避免并行 GameTest 中多个默认 test-mock-player 相互覆盖。</p>
+     */
+    private static ServerPlayer startRegisteredRtsPlayer(
             GameTestHelper helper, GameType gameType, Vec3 relativePos, String name) {
         ensureCoreServices();
-        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), name));
+        GameProfile profile = new GameProfile(UUID.randomUUID(), name);
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+        // 与原版 GameTest 的 mock player 保持相同的模式判定语义，同时仍使用唯一名称并注册进 PlayerList。
+        // 生产放置链会直接查询 isCreative()/isSpectator()；普通 ServerPlayer 在测试连接刚建立时可能尚未
+        // 完成这些派生状态的同步，导致实际 useItemOn 已执行却被错误归入跳过。
+        ServerPlayer player = new ServerPlayer(
+                helper.getLevel().getServer(), helper.getLevel(), profile, cookie.clientInformation()) {
+            @Override
+            public boolean isSpectator() {
+                return gameType == GameType.SPECTATOR;
+            }
+
+            @Override
+            public boolean isCreative() {
+                return gameType == GameType.CREATIVE;
+            }
+        };
+        Connection connection = new Connection(PacketFlow.SERVERBOUND);
+        new EmbeddedChannel(connection);
+        helper.getLevel().getServer().getPlayerList().placeNewPlayer(connection, player, cookie);
         Vec3 playerPos = helper.absoluteVec(relativePos);
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
         player.setGameMode(gameType);
@@ -464,6 +762,10 @@ public final class RtsServerGameTests {
                 "GameTest fake player should enter RTS mode");
         requireSession(helper, player);
         return player;
+    }
+
+    private static String nextPlayerName() {
+        return "rtsgt-" + Integer.toUnsignedString(PLAYER_SEQUENCE.incrementAndGet(), 36);
     }
 
     private static void ensureCoreServices() {
@@ -478,14 +780,16 @@ public final class RtsServerGameTests {
 
     private static void enqueuePlacementThroughApi(GameTestHelper helper, ServerPlayer player,
             List<BlockPos> supportsRel, String itemId, ItemStack prototype) {
-        List<BlockPos> supportsAbs = supportsRel.stream()
+        // 快速建造 API 接收的是最终目标坐标，而不是交互式右键放置所使用的支撑方块坐标。
+        List<BlockPos> targetsAbs = supportsRel.stream()
+                .map(BlockPos::above)
                 .map(helper::absolutePos)
                 .toList();
         Vec3 rayOrigin = player.getEyePosition();
-        Vec3 firstHit = Vec3.atCenterOf(supportsAbs.getFirst()).add(0.0D, 0.5D, 0.0D);
+        Vec3 firstHit = Vec3.atCenterOf(targetsAbs.getFirst());
         Vec3 rayDir = firstHit.subtract(rayOrigin).normalize();
 
-        RtsAPI.get().placement().enqueueBatch(player, asApiPositions(supportsAbs), Direction.UP,
+        RtsAPI.get().placement().enqueueBatch(player, asApiPositions(targetsAbs), Direction.UP,
                 0.5D, 1.0D, 0.5D,
                 (byte) 0, false, false,
                 itemId, prototype,
@@ -501,6 +805,96 @@ public final class RtsServerGameTests {
         return positions;
     }
 
+    /** 创建只包含同一种方块的最小蓝图，避免 GameTest 依赖外部蓝图文件。 */
+    private static RtsBlueprint simpleBlueprint(String name, Block block, int length) {
+        List<RtsBlueprintBlock> blocks = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            blocks.add(new RtsBlueprintBlock(
+                    new BlockPos(i, 0, 0), block.defaultBlockState(), new CompoundTag()));
+        }
+        return RtsBlueprint.create(
+                name, name + ".nbt", BlueprintFormat.VANILLA_NBT,
+                new Vec3i(length, 1, 1), blocks);
+    }
+
+    /** 为真实管道构造完整蓝图上下文，submissionId 由测试显式控制。 */
+    private static BlueprintContext blueprintContext(ServerPlayer player, SubmissionId submissionId,
+            RtsBlueprint blueprint, BlockPos anchor) {
+        return BlueprintContext.builder(player)
+                .submissionId(submissionId.value())
+                .blueprint(blueprint)
+                .anchor(anchor)
+                .yRotationSteps(0)
+                .xRotationSteps(0)
+                .zRotationSteps(0)
+                .totalBlocks(blueprint.blockCount())
+                .build();
+    }
+
+    private static int countLiveDrops(GameTestHelper helper, AABB bounds) {
+        return helper.getLevel().getEntitiesOfClass(
+                ItemEntity.class, bounds,
+                entity -> entity.isAlive() && !entity.getItem().isEmpty()).size();
+    }
+
+    private static int countBufferedItem(RtsStorageSession session, Item item) {
+        return session.miningDropBuffer.stacks.stream()
+                .filter(stack -> stack.is(item))
+                .mapToInt(ItemStack::getCount)
+                .sum();
+    }
+
+    private static int countPlayerItem(ServerPlayer player, Item item) {
+        int count = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.is(item)) count += stack.getCount();
+        }
+        return count;
+    }
+
+    private static int countWorldItem(GameTestHelper helper, List<BlockPos> targetsRel, Item item) {
+        BlockPos first = helper.absolutePos(targetsRel.getFirst());
+        BlockPos last = helper.absolutePos(targetsRel.getLast());
+        AABB bounds = new AABB(
+                first.getX(), first.getY(), first.getZ(),
+                last.getX() + 1.0D, last.getY() + 1.0D, last.getZ() + 1.0D).inflate(4.0D);
+        return helper.getLevel().getEntitiesOfClass(
+                        ItemEntity.class, bounds,
+                        entity -> entity.isAlive() && entity.getItem().is(item))
+                .stream()
+                .mapToInt(entity -> entity.getItem().getCount())
+                .sum();
+    }
+
+    /** 找到远离测试结构且当前未加载的位置，用来验证服务不会隐式强加载区块。 */
+    private static BlockPos findUnloadedTarget(GameTestHelper helper) {
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        for (int offset : new int[] {512, 1024, 2048, 4096}) {
+            BlockPos candidate = origin.offset(offset, 0, offset);
+            if (!helper.getLevel().hasChunkAt(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("GameTest could not find an unloaded recovery target");
+    }
+
+    private static ItemEntity spawnDrop(GameTestHelper helper, BlockPos absolutePos, ItemStack stack) {
+        Vec3 center = Vec3.atCenterOf(absolutePos);
+        ItemEntity entity = new ItemEntity(
+                helper.getLevel(), center.x, center.y, center.z, stack.copy());
+        helper.getLevel().addFreshEntity(entity);
+        return entity;
+    }
+
+    private static PlacedRecoveryJob recoveryJob(ServerPlayer player, BlockPos target,
+            UUID entityId, ItemStack expectedStack, int ordinal) {
+        ArrayDeque<PlacedRecoveryClaim> claims = new ArrayDeque<>();
+        claims.addLast(new PlacedRecoveryClaim(entityId, ordinal, expectedStack));
+        return new PlacedRecoveryJob(
+                UUID.randomUUID(), player.serverLevel().dimension(), target, claims);
+    }
+
     private static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
         return asApiPositions(relativePositions.stream()
                 .map(helper::absolutePos)
@@ -509,13 +903,6 @@ public final class RtsServerGameTests {
 
     private static List<Object> asApiPositions(List<BlockPos> positions) {
         return new ArrayList<>(positions);
-    }
-
-    private static void tickPlayerWork(ServerPlayer player) {
-        ServerTickOrchestrator.getInstance().onPlayerTickPost(player);
-        if (player.getServer() != null) {
-            ServerTickOrchestrator.getInstance().tickMining(player.getServer());
-        }
     }
 
     private static void linkChests(GameTestHelper helper, ServerPlayer player, List<BlockPos> chestsRel) {
@@ -609,6 +996,10 @@ public final class RtsServerGameTests {
 
     private static void stopPlayers(ServerPlayer player) {
         RtsCameraManager.stopIfActive(player);
+        if (player.getServer() != null
+                && player.getServer().getPlayerList().getPlayer(player.getUUID()) == player) {
+            player.getServer().getPlayerList().remove(player);
+        }
     }
 
     private static void stopPlayers(List<ServerPlayer> players) {

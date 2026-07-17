@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,9 +32,19 @@ public class RtsFunnelState {
     /** 漏斗输出目标坐标 */
     public BlockPos funnelTarget;
 
+    /**
+     * 漏斗目标所属维度。目标坐标与维度必须同时存在；旧存档缺少维度时会保守清除目标，
+     * 防止玩家切维后在另一个世界的同坐标误吸物品。
+     */
+    public ResourceKey<Level> funnelTargetDimension;
+
     /** 漏斗冷却刻数 */
     public int funnelTickCooldown;
 
-    /** 漏斗临时缓冲区，存放待处理的掉落物 ItemStack */
+    /**
+     * 旧版漏斗临时缓冲区。A 阶段只按预算排空其中已有的 ItemStack；
+     * 新掉落无法存入储存或背包时继续留在世界中，
+     * 不再复制进尚未落盘的缓冲区。
+     */
     public final List<ItemStack> funnelBuffer = new ArrayList<>();
 }

@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
@@ -40,11 +41,15 @@ public final class RtsBindingServiceImpl implements BindingService {
     @Override
     public void setMode(ServerPlayer player, BuilderMode mode) {
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (RtsStorageBindings.setMode(session, mode)) {
+        BuilderMode previous = session.mode;
+        boolean shouldFlushFunnel = RtsStorageBindings.setMode(session, mode);
+        if (previous == session.mode) return;
+        if (shouldFlushFunnel) {
             registry.funnel().disableAndFlush(player, session);
-            registry.session().saveToPlayerNbt(player, session);
-            registry.serviceOp().refreshPage(player, session);
+            registry.session().saveFunnelToPlayerNbt(player, session);
         }
+        registry.session().saveModeToPlayerNbt(player, session);
+        registry.serviceOp().refreshPage(player, session);
     }
 
     @Override
@@ -91,6 +96,7 @@ public final class RtsBindingServiceImpl implements BindingService {
             registry.funnel().enable(player, session);
         } else {
             registry.funnel().disableAndFlush(player, session);
+            registry.session().saveFunnelToPlayerNbt(player, session);
         }
         registry.serviceOp().refreshPage(player, session);
     }
@@ -182,7 +188,7 @@ public final class RtsBindingServiceImpl implements BindingService {
     private void applyUpdate(ServerPlayer player, RtsStorageSession session, RtsStorageBindings.UpdateResult update) {
         if (player == null || session == null || update == null) return;
         if (update.saveSession()) {
-            registry.session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
         }
         if (update.refreshPage()) {
             registry.serviceOp().markDirty(player, session);

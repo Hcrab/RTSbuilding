@@ -107,5 +107,4 @@ public class RtsStorageSession {
      * <p>仅存储待处理的破坏作业和挂起的破坏作业，
      * 无业务逻辑。工具租赁仍使用 {@link #mining} 中的字段。
      */
-    public final RtsDestructionState destruction = new RtsDestructionState();
 }

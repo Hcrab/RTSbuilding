@@ -40,6 +40,15 @@ public final class ToolBorrowPipe implements PipelinePipe<MiningContext> {
             new TypedKey<>("toolLease", RtsToolLease.class);
     public static final TypedKey<Boolean> KEY_SELECTED_TOOL_REQUESTED =
             new TypedKey<>("selectedToolRequested", Boolean.class);
+    /** 非队列任务成功后，工具所有权已从同步管道移交给 Session/Task。 */
+    public static final TypedKey<Boolean> KEY_TOOL_LEASE_TRANSFERRED =
+            new TypedKey<>("toolLeaseTransferred", Boolean.class);
+    /** 当前管道借到的工具已经在同步阶段归还；回滚不得再次归还。 */
+    public static final TypedKey<Boolean> KEY_TOOL_LEASE_RETURNED =
+            new TypedKey<>("toolLeaseReturned", Boolean.class);
+    /** 同步阶段已经创建领域任务；下游失败时必须撤销任务，即使本次没有借新工具。 */
+    public static final TypedKey<Boolean> KEY_ASYNC_TASK_SUBMITTED =
+            new TypedKey<>("asyncTaskSubmitted", Boolean.class);
 
     @Override
     public PipelineResult execute(MiningContext ctx) {

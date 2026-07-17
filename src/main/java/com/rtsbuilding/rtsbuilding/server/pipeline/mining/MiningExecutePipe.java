@@ -115,12 +115,11 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         }
         session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
 
-        // ── 在会话的 RtsMiningState 中存储工作流条目 ID ────
-        if (mctx.hasWorkflowEntryId()) {
-            session.mining.workflowEntryId = mctx.getWorkflowEntryId();
-        }
-
-        RtsMiningStateMachine.beginRemoteMining(player, session, pos, face, toolSlot);
-        return PipelineResult.success();
+        int workflowEntryId = mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1;
+        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitMiningTargets(player, workflowEntryId, java.util.List.of(pos), face, toolSlot,
+                        session.mining.miningSelectedToolRequested, toolProtectionEnabled, true);
+        return submitted ? PipelineResult.success()
+                : PipelineResult.failure("无法提交挖掘任务到 TaskStore");
     }
 }

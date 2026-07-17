@@ -1089,13 +1089,16 @@ public final class BlueprintPanel {
                 setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.too_large", "");
                 return true;
             }
-            PacketDistributor.sendToServer(new C2SBlueprintPlacePayload(
+            // 一次明确点击只生成一个提交身份；网络层若重发此 payload，会自然复用同一 UUID。
+            C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload(
+                    UUID.randomUUID(),
                     entry.fileName(),
                     data,
                     anchor,
                     (byte) BlueprintTransform.normalizeSteps(yRotationSteps),
                     (byte) BlueprintTransform.normalizeSteps(xRotationSteps),
-                    (byte) BlueprintTransform.normalizeSteps(zRotationSteps)));
+                    (byte) BlueprintTransform.normalizeSteps(zRotationSteps));
+            PacketDistributor.sendToServer(payload);
             setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.uploading", entry.name());
             pinnedAnchor = null;
             return true;

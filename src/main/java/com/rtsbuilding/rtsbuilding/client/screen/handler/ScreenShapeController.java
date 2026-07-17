@@ -110,7 +110,7 @@ public final class ScreenShapeController {
 
     public void setBuildShapeFillMode(ShapeFillMode mode) {
         this.buildShapeFillMode = mode;
-        // 快速建造按钮修改的是模式独立字段；当前正处于建造模式时也必须立即更新生成器读取的活跃字段。
+        // The quick-build button changes the mode-specific field; keep the active generator in sync.
         if (!this.destroyModeActive) {
             this.shapeFillMode = mode;
         }
@@ -123,7 +123,7 @@ public final class ScreenShapeController {
 
     public void setDestroyShapeFillMode(ShapeFillMode mode) {
         this.destroyShapeFillMode = mode;
-        // 范围拆除同理：按钮选中的空心/骨架模式需要立刻进入预览与确认流程。
+        // Range destruction has its own fill mode and must update the active preview immediately.
         if (this.destroyModeActive) {
             this.shapeFillMode = mode;
         }

@@ -151,7 +151,14 @@ public final class RtsWorkflowStore {
         if (server == null || playerId == null) return result;
 
         var legacyStore = new RtsAtomicNbtStore(server, DIRECTORY, FILE_NAME);
-        CompoundTag root = legacyStore.read();
+        RtsNbtStore.ReadResult readResult = legacyStore.readResult();
+        if (readResult instanceof RtsNbtStore.ReadResult.Failed failed) {
+            RtsbuildingMod.LOGGER.error("[Workflow] 旧版存档读取失败，已保留原文件且跳过迁移: {}",
+                    failed.cause().getMessage());
+            return result;
+        }
+        if (readResult instanceof RtsNbtStore.ReadResult.Missing) return result;
+        CompoundTag root = ((RtsNbtStore.ReadResult.Found) readResult).root();
         if (root.isEmpty()) return result;
 
         CompoundTag players = root.getCompound(KEY_PLAYERS);
@@ -164,20 +171,8 @@ public final class RtsWorkflowStore {
         CompoundTag dimensions = playerTag.getCompound(KEY_DIMENSIONS);
         result.putAll(deserializeDimensions(dimensions));
 
-        // 迁移：从旧文件中删除该玩家数据，写回新版
+        // 迁移必须先确认新版玩家文件落盘，再清理旧文件；反过来会在第二次写盘失败时丢失唯一副本。
         if (!result.isEmpty()) {
-            players.remove(playerKey);
-            if (players.isEmpty()) {
-                CompoundTag newRoot = new CompoundTag();
-                newRoot.putInt(KEY_DATA_VERSION, DATA_VERSION);
-                newRoot.put(KEY_PLAYERS, new CompoundTag());
-                legacyStore.write(newRoot);
-            } else {
-                root.put(KEY_PLAYERS, players);
-                legacyStore.write(root);
-            }
-
-            // 将迁移后的数据写入新版文件
             CompoundTag playerData = new CompoundTag();
             CompoundTag dims = new CompoundTag();
             for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> entry : result.entrySet()) {
@@ -187,8 +182,25 @@ public final class RtsWorkflowStore {
                 }
             }
             playerData.put(KEY_DIMENSIONS, dims);
-            cluster(server, playerId).set(WorkflowComponents.FULL_WORKFLOW, playerData);
-            cluster(server, playerId).flush();
+            DataCluster playerCluster = cluster(server, playerId);
+            playerCluster.set(WorkflowComponents.FULL_WORKFLOW, playerData);
+            if (!playerCluster.flush()) {
+                RtsbuildingMod.LOGGER.error(
+                        "[Workflow] 玩家 {} 的新版工作流文件写入失败，旧版数据保持不变，等待下次重试",
+                        playerId);
+                return result;
+            }
+
+            players.remove(playerKey);
+            CompoundTag migratedLegacyRoot = root.copy();
+            migratedLegacyRoot.put(KEY_PLAYERS, players.isEmpty() ? new CompoundTag() : players);
+            migratedLegacyRoot.putInt(KEY_DATA_VERSION, DATA_VERSION);
+            if (!legacyStore.write(migratedLegacyRoot)) {
+                RtsbuildingMod.LOGGER.warn(
+                        "[Workflow] 玩家 {} 的新版数据已落盘，但旧版索引清理失败；已保留双副本，需稍后清理旧文件",
+                        playerId);
+                return result;
+            }
 
             RtsbuildingMod.LOGGER.info("[Workflow] 已迁移玩家 {} 的工作流数据到新版格式", playerId);
         }

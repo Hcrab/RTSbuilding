@@ -30,6 +30,7 @@ public final class BlueprintNetworkHandlers {
             try {
                 RtsBlueprint blueprint = BlueprintReaders.parse(payload.data(), payload.fileName(), player.registryAccess());
                 BlueprintContext ctx = BlueprintContext.builder(player)
+                        .submissionId(payload.submissionId())
                         .blueprint(blueprint)
                         .anchor(payload.anchor())
                         .yRotationSteps(payload.yRotationSteps())

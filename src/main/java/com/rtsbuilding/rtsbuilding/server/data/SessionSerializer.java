@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
-import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageRecentEntries;
@@ -58,6 +56,7 @@ public final class SessionSerializer {
         loadPlacement(player, session, root);
         loadDestroy(player, session, root);
         loadDropBuffer(player, session, root);
+        loadFunnel(player, session, root);
     }
 
     /** 保存完整 ItemStack 组件，确保正常存档/重启不会丢失已接住的掉落。 */
@@ -73,12 +72,20 @@ public final class SessionSerializer {
             int accepted = Math.min(stack.getCount(),
                     com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_BUFFERED_ITEMS - count);
             if (accepted <= 0) break;
-            stacks.add(stack.copyWithCount(accepted).save(player.registryAccess()));
-            count += accepted;
+            int remaining = accepted;
+            int maxStackSize = Math.max(1, stack.getMaxStackSize());
+            while (remaining > 0
+                    && stacks.size()
+                    < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                int chunkSize = Math.min(remaining, maxStackSize);
+                stacks.add(stack.copyWithCount(chunkSize).save(player.registryAccess()));
+                count += chunkSize;
+                remaining -= chunkSize;
+            }
         }
         root.put("drop_buffer_stacks", stacks);
         root.putLong("drop_buffer_since", session.miningDropBuffer.firstQueuedGameTime);
-        root.putLong("drop_buffer_last_progress", session.miningDropBuffer.lastProgressGameTime);
+        root.putBoolean("drop_buffer_blocked_timer_v2", true);
         return root;
     }
 
@@ -92,20 +99,58 @@ public final class SessionSerializer {
                 i++) {
             ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
             if (stack.isEmpty()) continue;
-            int accepted = Math.min(stack.getCount(), buffer.remainingCapacity());
+            int accepted = buffer.enqueueMerged(stack, stack.getCount());
             if (accepted <= 0) break;
-            buffer.stacks.addLast(stack.copyWithCount(accepted));
-            buffer.bufferedItems += accepted;
         }
+        // 旧存档的 since 表示“进入缓存的时间”，不能继续当成真实储存堵塞时间，否则登录即误回退。
         buffer.firstQueuedGameTime = buffer.stacks.isEmpty()
+                || !root.getBoolean("drop_buffer_blocked_timer_v2")
                 ? -1L
                 : root.getLong("drop_buffer_since");
-        buffer.lastProgressGameTime = buffer.stacks.isEmpty()
-                ? -1L
-                : root.contains("drop_buffer_last_progress", Tag.TAG_LONG)
-                        ? root.getLong("drop_buffer_last_progress")
-                        : buffer.firstQueuedGameTime;
         buffer.fullNoticeSent = false;
+    }
+
+    public static CompoundTag serializeFunnel(ServerPlayer player, RtsStorageSession session) {
+        CompoundTag root = new CompoundTag();
+        root.putBoolean("funnel_enabled", session.funnel.funnelEnabled);
+        if (session.funnel.funnelTarget != null && session.funnel.funnelTargetDimension != null) {
+            root.putLong("funnel_target", session.funnel.funnelTarget.asLong());
+            root.putString("funnel_target_dimension",
+                    session.funnel.funnelTargetDimension.location().toString());
+        }
+        root.putInt("funnel_cooldown", Math.max(0, session.funnel.funnelTickCooldown));
+        ListTag stacks = new ListTag();
+        for (ItemStack stack : session.funnel.funnelBuffer) {
+            if (stack != null && !stack.isEmpty()
+                    && stacks.size() < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS) {
+                stacks.add(stack.save(player.registryAccess()));
+            }
+        }
+        root.put("funnel_buffer", stacks);
+        return root;
+    }
+
+    private static void loadFunnel(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
+        session.funnel.funnelEnabled = root.getBoolean("funnel_enabled");
+        ResourceKey<Level> targetDimension = parseDimensionKey(
+                root.getString("funnel_target_dimension"));
+        if (root.contains("funnel_target", Tag.TAG_LONG) && targetDimension != null) {
+            session.funnel.funnelTarget = BlockPos.of(root.getLong("funnel_target")).immutable();
+            session.funnel.funnelTargetDimension = targetDimension;
+        } else {
+            // 旧存档没有维度身份时不能猜测当前世界，否则切维后可能在同坐标误吸物品。
+            session.funnel.funnelTarget = null;
+            session.funnel.funnelTargetDimension = null;
+        }
+        session.funnel.funnelTickCooldown = Math.max(0, root.getInt("funnel_cooldown"));
+        session.funnel.funnelBuffer.clear();
+        ListTag stacks = root.getList("funnel_buffer", Tag.TAG_COMPOUND);
+        for (int i = 0; i < stacks.size()
+                && session.funnel.funnelBuffer.size()
+                < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS; i++) {
+            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
+            if (!stack.isEmpty()) session.funnel.funnelBuffer.add(stack);
+        }
     }
 
     // ======================================================================
@@ -430,31 +475,84 @@ public final class SessionSerializer {
 
     public static CompoundTag serializePlacement(ServerPlayer player, RtsStorageSession session) {
         CompoundTag root = new CompoundTag();
-        ListTag pendingList = new ListTag();
-        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobs) {
-            if (job != null) pendingList.add(job.toNbt(player.registryAccess()));
+        // 新命令不会再写入这些队列；非空值只可能是旧存档迁移 shadow。
+        // 在 TaskStore root rev1 ACK 前继续保存 shadow，避免 Session 先清空而迁移任务尚未落盘。
+        ListTag recoveryList = new ListTag();
+        int serializedClaims = 0;
+        for (var job : session.placement.recoveryJobs) {
+            if (job == null) continue;
+            if (recoveryList.size()
+                    >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
+                    || serializedClaims
+                    >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) {
+                break;
+            }
+            CompoundTag jobTag = new CompoundTag();
+            jobTag.putUUID("operation_id", job.operationId());
+            jobTag.putString("dimension", job.dimension().location().toString());
+            jobTag.putLong("target", job.targetPos().asLong());
+            ListTag claims = new ListTag();
+            for (var claim : job.claims()) {
+                if (claims.size()
+                        >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
+                        || serializedClaims
+                        >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) {
+                    break;
+                }
+                CompoundTag claimTag = new CompoundTag();
+                claimTag.putUUID("id", claim.entityId());
+                claimTag.putInt("ordinal", claim.ordinal());
+                claimTag.put("stack", claim.expectedStack().save(player.registryAccess()));
+                claims.add(claimTag);
+                serializedClaims++;
+            }
+            jobTag.put("entities", claims);
+            recoveryList.add(jobTag);
         }
-        root.put("pending_placement_jobs", pendingList);
-        ListTag activeList = new ListTag();
-        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.placeBatchJobs) {
-            if (job != null) activeList.add(job.toNbt(player.registryAccess()));
-        }
-        root.put("active_placement_jobs", activeList);
+        root.put("placed_recovery_jobs", recoveryList);
         return root;
     }
 
     public static void loadPlacement(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        session.placement.clearPendingJobs();
-        session.placement.placeBatchJobs.clear();
-        ListTag pendingList = root.getList("pending_placement_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < pendingList.size(); i++) {
-            session.placement.addPendingJob(
-                    RtsPlacementBatch.PlaceBatchJob.fromNbt(pendingList.getCompound(i), player.registryAccess()));
-        }
-        ListTag activeList = root.getList("active_placement_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < activeList.size(); i++) {
-            session.placement.placeBatchJobs.addLast(
-                    RtsPlacementBatch.PlaceBatchJob.fromNbt(activeList.getCompound(i), player.registryAccess()));
+        session.placement.recoveryJobs.clear();
+        ListTag recoveryList = root.getList("placed_recovery_jobs", Tag.TAG_COMPOUND);
+        int loadedClaims = 0;
+        for (int i = 0; i < recoveryList.size()
+                && session.placement.recoveryJobs.size()
+                < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
+                && loadedClaims
+                < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; i++) {
+            CompoundTag jobTag = recoveryList.getCompound(i);
+            ResourceKey<Level> dimension = parseDimensionKey(jobTag.getString("dimension"));
+            // 旧版没有 operationId/ordinal/stack，无法证明 claim 身份，保守留给世界实体自行处理。
+            if (dimension == null || !jobTag.hasUUID("operation_id")) continue;
+            java.util.ArrayDeque<com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim>
+                    claims = new java.util.ArrayDeque<>();
+            ListTag encodedClaims = jobTag.getList("entities", Tag.TAG_COMPOUND);
+            for (int j = 0; j < encodedClaims.size()
+                    && claims.size()
+                    < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
+                    && loadedClaims
+                    < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; j++) {
+                CompoundTag claimTag = encodedClaims.getCompound(j);
+                // 旧版只有 UUID、没有物品指纹；保守放弃自动接管，让实体继续留在世界中。
+                if (!claimTag.hasUUID("id")
+                        || !claimTag.contains("ordinal", Tag.TAG_INT)
+                        || claimTag.getInt("ordinal") < 0
+                        || !claimTag.contains("stack", Tag.TAG_COMPOUND)) continue;
+                ItemStack expected = ItemStack.parseOptional(
+                        player.registryAccess(), claimTag.getCompound("stack"));
+                if (expected.isEmpty()) continue;
+                claims.addLast(new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim(
+                        claimTag.getUUID("id"), claimTag.getInt("ordinal"), expected));
+                loadedClaims++;
+            }
+            if (!claims.isEmpty()) {
+                session.placement.recoveryJobs.addLast(
+                        new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob(
+                                jobTag.getUUID("operation_id"), dimension,
+                                BlockPos.of(jobTag.getLong("target")).immutable(), claims));
+            }
         }
     }
 
@@ -463,33 +561,11 @@ public final class SessionSerializer {
     // ======================================================================
 
     public static CompoundTag serializeDestroy(ServerPlayer player, RtsStorageSession session) {
-        CompoundTag root = new CompoundTag();
-        ListTag activeList = new ListTag();
-        for (RtsDestructionBatch.DestructionJob job : session.destruction.destroyJobs) {
-            if (job != null) activeList.add(job.toNbt());
-        }
-        root.put("active_destroy_jobs", activeList);
-        ListTag pendingList = new ListTag();
-        for (RtsDestructionBatch.DestructionJob job : session.destruction.pendingDestroyJobs) {
-            if (job != null) pendingList.add(job.toNbt());
-        }
-        root.put("pending_destroy_jobs", pendingList);
-        return root;
+        return new CompoundTag();
     }
 
     public static void loadDestroy(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        session.destruction.destroyJobs.clear();
-        session.destruction.pendingDestroyJobs.clear();
-        ListTag activeList = root.getList("active_destroy_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < activeList.size(); i++) {
-            session.destruction.destroyJobs.addLast(
-                    RtsDestructionBatch.DestructionJob.fromNbt(activeList.getCompound(i)));
-        }
-        ListTag pendingList = root.getList("pending_destroy_jobs", Tag.TAG_COMPOUND);
-        for (int i = 0; i < pendingList.size(); i++) {
-            session.destruction.pendingDestroyJobs.addLast(
-                    RtsDestructionBatch.DestructionJob.fromNbt(pendingList.getCompound(i)));
-        }
+        // 拆除任务只由 TaskStore 持有；旧 Session 队列不再恢复。
     }
 
     // ======================================================================

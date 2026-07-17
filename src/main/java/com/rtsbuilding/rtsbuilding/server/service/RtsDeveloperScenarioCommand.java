@@ -102,7 +102,17 @@ public final class RtsDeveloperScenarioCommand {
                     .append(",\"pageBuilds\":").append(metrics.pageBuilds())
                     .append(",\"pageSends\":").append(metrics.pageSends())
                     .append(",\"endpointRebuilds\":").append(metrics.endpointRebuilds())
-                    .append(",\"endpointReuses\":").append(metrics.endpointReuses());
+                    .append(",\"endpointReuses\":").append(metrics.endpointReuses())
+                    .append(",\"sessionSnapshots\":").append(metrics.sessionSnapshots())
+                    .append(",\"workflowSnapshots\":").append(metrics.workflowSnapshots())
+                    .append(",\"historySnapshots\":").append(metrics.historySnapshots())
+                    .append(",\"pluginSnapshots\":").append(metrics.pluginSnapshots())
+                    .append(",\"progressionSnapshots\":").append(metrics.progressionSnapshots())
+                    .append(",\"effectAttemptedTargets\":").append(metrics.effectAttemptedTargets())
+                    .append(",\"effectCommittedKinds\":").append(metrics.effectCommittedKinds())
+                    .append(",\"effectRetryTargets\":").append(metrics.effectRetryTargets())
+                    .append(",\"effectDeferredTargets\":").append(metrics.effectDeferredTargets())
+                    .append(",\"effectFailedTargets\":").append(metrics.effectFailedTargets());
         }
         line.append("}\n");
         RtsAsyncJsonlWriter.append(

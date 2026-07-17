@@ -109,6 +109,27 @@ public final class TaskRecord {
         updatedNanos = nowNanos;
     }
 
+    /**
+     * 从 durable TaskSnapshot 恢复完整运行状态；只允许在尚未进入调度器的新记录上调用。
+     * Workflow 仍只是随后创建的展示投影，不能反向覆盖这里恢复出的权威状态。
+     */
+    public synchronized void restoreDurableSnapshot(
+            int cursor, int succeeded, int failed, TaskStatus restoredStatus, long nowNanos) {
+        Objects.requireNonNull(restoredStatus, "restoredStatus");
+        if (status != TaskStatus.QUEUED || cursorUnits != 0 || succeededUnits != 0 || failedUnits != 0) {
+            throw new IllegalStateException("只能恢复尚未调度的新 TaskRecord");
+        }
+        int limit = totalUnits == 0 ? Integer.MAX_VALUE : totalUnits;
+        cursorUnits = Math.max(0, Math.min(limit, cursor));
+        succeededUnits = Math.max(0, Math.min(cursorUnits, succeeded));
+        failedUnits = Math.max(0, Math.min(cursorUnits - succeededUnits, failed));
+        status = restoredStatus;
+        if (status == TaskStatus.WAITING_RESOURCE || status == TaskStatus.PAUSED || status == TaskStatus.FAILED) {
+            visibility = TaskVisibility.PERSISTENT;
+        }
+        updatedNanos = nowNanos;
+    }
+
     private static int addClamped(int current, int delta, int total) {
         long next = (long) current + delta;
         return (int) Math.min(total == 0 ? Integer.MAX_VALUE : total, next);

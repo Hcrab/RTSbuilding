@@ -86,4 +86,17 @@ class TaskRecordTest {
         assertEquals(31, task.succeededUnits());
         assertEquals(9, task.failedUnits());
     }
+
+    @Test
+    void durableBlueprintRestoresPausedReadyProgressWithoutExecutingEarly() {
+        TaskRecord task = new TaskRecord(UUID.randomUUID(), UUID.randomUUID(), TaskType.BLUEPRINT,
+                EMPTY, 100, 0L);
+        task.restoreDurableSnapshot(63, 51, 12, TaskStatus.PAUSED, 1L);
+
+        assertEquals(63, task.cursorUnits());
+        assertEquals(51, task.succeededUnits());
+        assertEquals(12, task.failedUnits());
+        assertEquals(TaskStatus.PAUSED, task.status());
+        assertEquals(TaskVisibility.PERSISTENT, task.visibility());
+    }
 }

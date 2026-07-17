@@ -17,6 +17,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
@@ -109,7 +110,7 @@ public final class RtsPageServiceImpl implements PageService {
         RtsDeveloperMetrics.recordPageSend(player);
         session.transfer.storageViewDirty = false;
         session.browser.page = result.safePage();
-        registry.session().saveToPlayerNbt(player, session);
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
     }
 
     @Override
@@ -132,7 +133,7 @@ public final class RtsPageServiceImpl implements PageService {
 
     private void refreshMissingGuiBindingIcons(ServerPlayer player, RtsStorageSession session) {
         if (RtsStorageBindings.refreshMissingGuiBindingIcons(player, session)) {
-            registry.session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
         }
     }
 

@@ -1,13 +1,29 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
-import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
+import com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
-/**
- * 单方块与连锁挖掘共用的领域数据；TaskRecord 按工作流 ID 持有其生命周期与真实结果统计。
- */
+import java.util.Objects;
+import java.util.UUID;
+
+/** 只含稳定 ID、维度键和纯值 snapshot 的挖掘任务载荷。 */
 public record MiningTaskPayload(
-        ServerPlayer player,
-        RtsStorageSession session,
-        int workflowEntryId) implements TaskPayload {
+        UUID ownerId,
+        ResourceKey<Level> dimension,
+        int workflowEntryId,
+        MiningTaskState state) implements TaskPayload {
+
+    public MiningTaskPayload {
+        Objects.requireNonNull(ownerId, "ownerId");
+        Objects.requireNonNull(dimension, "dimension");
+        Objects.requireNonNull(state, "state");
+        if (workflowEntryId < -1 || workflowEntryId != state.workflowEntryId()) {
+            throw new IllegalArgumentException("mining workflow 身份无效或漂移");
+        }
+    }
+
+    public MiningTaskPayload withState(MiningTaskState nextState) {
+        return new MiningTaskPayload(ownerId, dimension, workflowEntryId, nextState);
+    }
 }

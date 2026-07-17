@@ -113,8 +113,19 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
         if (timeoutService == null) {
-            timeoutService = new RtsWorkflowTimeoutService(playerSlots, playerRefs, eventBus, syncService);
+            timeoutService = new RtsWorkflowTimeoutService(playerSlots, eventBus);
             timeoutService.start(checkInterval, maxIdleTime);
+        }
+    }
+
+    /**
+     * 由服务端全局 Tick 编排器调用。超时服务未显式启动时保持 O(1) 空操作，
+     * 不会在现有世界中凭空启用新的清理行为。
+     */
+    public void tickTimeoutService(MinecraftServer server, long gameTime) {
+        RtsWorkflowTimeoutService service = timeoutService;
+        if (service != null) {
+            service.tick(server, gameTime);
         }
     }
 
@@ -145,7 +156,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
 
     /**
      * 根据 {@link ServerPlayer} 和条目 ID 查找条目。
-     * 公开方法——供 {@link com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry}
+     * 公开方法——供统一 Task Engine
      * 等跨包组件使用，避免重复的 engine.from() → token.isPaused() 两次独立 lookup。
      */
     @Nullable
@@ -273,6 +284,27 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.empty();
         }
         return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+    }
+
+    /**
+     * 在每玩家最多八个槽位中精确查找 durable 蓝图薄投影。
+     * 该查询只读 {@code durable_task_id}，不会把旧 heavy extraData 误认成新执行许可。
+     */
+    public Optional<RtsWorkflowToken> findDurableBlueprintProjection(ServerPlayer player, UUID taskId) {
+        if (player == null || taskId == null) return Optional.empty();
+        playerRefs.putIfAbsent(player.getUUID(), player);
+        ResourceKey<Level> dimension = player.level().dimension();
+        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        if (slots == null) return Optional.empty();
+        for (RtsWorkflowEntry entry : slots.allEntries()) {
+            CompoundTag extra = entry.getExtraData();
+            if (entry.type() == RtsWorkflowType.BLUEPRINT_BUILD && extra != null
+                    && extra.hasUUID("durable_task_id")
+                    && taskId.equals(extra.getUUID("durable_task_id"))) {
+                return Optional.of(new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this));
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

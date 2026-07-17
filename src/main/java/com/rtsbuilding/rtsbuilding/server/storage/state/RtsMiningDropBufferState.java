@@ -8,8 +8,8 @@ import java.util.Deque;
 /**
  * 自动存入的有界中间缓存。
  *
- * <p>它接住真实掉落并保留完整 ItemStack 组件；不负责解析储存或发包。缓存故意不写入普通
- * Session NBT，退出服务器前必须由服务层回退到背包或世界，避免复制物品。</p>
+ * <p>同步生成的挖掘掉落先快速进入这里，再由 Tick 末限量写入 AE/RS 或普通库存。
+ * 它不拥有挖掘工作流生命周期，但在物品写出前是唯一的短期所有者。</p>
  */
 public final class RtsMiningDropBufferState {
     public static final int MAX_BUFFERED_ITEMS = RtsMiningDropBufferPolicy.MAX_BUFFERED_ITEMS;
@@ -17,10 +17,11 @@ public final class RtsMiningDropBufferState {
 
     public final Deque<ItemStack> stacks = new ArrayDeque<>();
     public int bufferedItems;
+    /** 连续一次真实储存写入零进度的起始 Tick；排队和正常写入时间不计入三秒回退。 */
     public long firstQueuedGameTime = -1L;
-    public long lastProgressGameTime = -1L;
     public boolean fullNoticeSent;
-
+    private long lastFallbackNoticeGameTime = -1L;
+    private long fullSinceGameTime = -1L;
     public int remainingCapacity() {
         return RtsMiningDropBufferPolicy.remainingCapacity(bufferedItems);
     }
@@ -34,8 +35,7 @@ public final class RtsMiningDropBufferState {
     }
 
     /**
-     * 按完整 ItemStack 组件合并入队，并把逻辑数量拆成原版允许的正常堆叠。
-     * 这里只管理中间缓冲，不访问绑定存储，也不会接管超过总容量的世界掉落。
+     * Accepts a logical item count while keeping every buffered stack within the item's legal stack size.
      */
     public int enqueueMerged(ItemStack prototype, int requestedCount) {
         if (prototype == null || prototype.isEmpty() || requestedCount <= 0 || isFull()) {
@@ -66,29 +66,50 @@ public final class RtsMiningDropBufferState {
         return accepted;
     }
 
-    public void markQueued(long gameTime) {
+    public void markStorageBlocked(long gameTime) {
         if (firstQueuedGameTime < 0L) firstQueuedGameTime = gameTime;
-        if (lastProgressGameTime < 0L) lastProgressGameTime = gameTime;
     }
 
-    public void markStorageProgress(long gameTime) {
-        lastProgressGameTime = gameTime;
+    public void markStorageProgress() {
+        firstQueuedGameTime = -1L;
     }
 
-    public boolean shouldNotifyFull(long gameTime) {
-        return isFull() && RtsMiningDropBufferPolicy.shouldNotifyFull(lastProgressGameTime, gameTime);
+    public boolean fallbackEligible(long gameTime, long timeoutTicks) {
+        return firstQueuedGameTime >= 0L && gameTime >= firstQueuedGameTime
+                && gameTime - firstQueuedGameTime >= Math.max(0L, timeoutTicks);
     }
 
-    public boolean shouldFallback(long gameTime) {
-        return RtsMiningDropBufferPolicy.shouldFallback(lastProgressGameTime, gameTime);
+    public void updateFullState(long gameTime) {
+        if (isFull()) {
+            if (fullSinceGameTime < 0L) fullSinceGameTime = gameTime;
+        } else {
+            fullSinceGameTime = -1L;
+            fullNoticeSent = false;
+        }
+    }
+
+    public boolean shouldNotifyFull(long gameTime, long delayTicks) {
+        return isFull() && !fullNoticeSent && fullSinceGameTime >= 0L
+                && gameTime >= fullSinceGameTime
+                && gameTime - fullSinceGameTime >= Math.max(0L, delayTicks);
+    }
+
+    /** 多个 durable 缓存任务同时回退时，每位玩家只显示一条合并提示。 */
+    public boolean shouldSendFallbackNotice(long gameTime, long intervalTicks) {
+        if (lastFallbackNoticeGameTime >= 0L && gameTime >= lastFallbackNoticeGameTime
+                && gameTime - lastFallbackNoticeGameTime < intervalTicks) {
+            return false;
+        }
+        lastFallbackNoticeGameTime = gameTime;
+        return true;
     }
 
     public void clearTimingWhenEmpty() {
         if (stacks.isEmpty()) {
             bufferedItems = 0;
             firstQueuedGameTime = -1L;
-            lastProgressGameTime = -1L;
             fullNoticeSent = false;
+            fullSinceGameTime = -1L;
         }
     }
 }

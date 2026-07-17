@@ -7,8 +7,6 @@ package com.rtsbuilding.rtsbuilding.server.storage.state;
 public final class RtsMiningDropBufferPolicy {
     public static final int MAX_BUFFERED_ITEMS = 4096;
     public static final int MAX_STACKS = 4096;
-    public static final int FULL_NOTICE_DELAY_TICKS = 20;
-    public static final int FALLBACK_STALL_TICKS = 60;
 
     private RtsMiningDropBufferPolicy() {
     }
@@ -19,15 +17,5 @@ public final class RtsMiningDropBufferPolicy {
 
     public static boolean isFull(int bufferedItems, int stackCount) {
         return bufferedItems >= MAX_BUFFERED_ITEMS || stackCount >= MAX_STACKS;
-    }
-
-    public static boolean shouldNotifyFull(long lastProgressGameTime, long currentGameTime) {
-        return lastProgressGameTime >= 0L
-                && currentGameTime - lastProgressGameTime >= FULL_NOTICE_DELAY_TICKS;
-    }
-
-    public static boolean shouldFallback(long lastProgressGameTime, long currentGameTime) {
-        return lastProgressGameTime >= 0L
-                && currentGameTime - lastProgressGameTime >= FALLBACK_STALL_TICKS;
     }
 }

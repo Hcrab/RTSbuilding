@@ -1,10 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
+import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolLeaseRollbackPolicy;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -38,27 +37,12 @@ public final class WorkflowPipeline<C extends PipelineContext> {
 
     private final RtsWorkflowType type;
     private final List<PipelinePipe<? super C>> pipes = new ArrayList<>();
-    private final List<TickablePipe> tickablePipes = new ArrayList<>();
     private boolean asyncCompletion;
 
     /**
      * 预计算的可 Tick 管道保留键集，避免每管道执行时分配 HashSet。
      * 这些是保留在可 Tick 阶段的共享数据键——仅在管道有可 Tick Pipe 时使用。
      */
-    private static final Set<String> TICKABLE_RETAIN_KEYS = Set.of(
-            PipelineContext.KEY_WORKFLOW_ENTRY_ID.name(),
-            SessionValidatePipe.KEY_SESSION.name(),
-            ToolBorrowPipe.KEY_TOOL_LEASE.name(),
-            BlueprintContext.KEY_PLACEMENT_PLANS.name(),
-            BlueprintContext.KEY_REMAINING_QUEUE.name(),
-            BlueprintContext.KEY_CENTER_OFFSET.name(),
-            BlueprintContext.KEY_PLACED_COUNT.name(),
-            BlueprintContext.KEY_SKIPPED_MISSING.name(),
-            BlueprintContext.KEY_SKIPPED_UNSUPPORTED.name(),
-            BlueprintContext.KEY_SKIPPED_MISSING_BLOCKS.name(),
-            BlueprintContext.KEY_SKIPPED_BLOCKED.name()
-    );
-
     /**
      * 包级私有——使用 {@link PipelineRegistry#register(RtsWorkflowType)}。
      */
@@ -87,16 +71,11 @@ public final class WorkflowPipeline<C extends PipelineContext> {
      * <p>可 Tick 的 Pipe 在<b>所有</b>同步 Pipe 成功完成后<b>之后</b>运行。
      * 它们每个服务器 Tick 被调用一次，直到发出完成或失败信号。
      * 在 {@link #execute(PipelineContext)} 内部自动完成
-     * 向 {@link TickablePipelineRegistry} 的注册。</p>
+     * 旧可 Tick 管道已经迁入统一 Task Engine。</p>
      *
      * @param pipe 要添加的可 Tick Pipe（不能为 null）
      * @return 此管道实例（流式）
      */
-    public WorkflowPipeline<C> tickable(TickablePipe pipe) {
-        tickablePipes.add(Objects.requireNonNull(pipe, "tickablePipe"));
-        return this;
-    }
-
     /**
      * 将此管道标记为具有异步完成。
      *
@@ -131,7 +110,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
      * 失败时，跳过剩余的 Pipe 并记录失败。</p>
      *
      * <p>如果所有同步 Pipe 成功且此管道有可 Tick 的 Pipe，
-     * 它们会被注册到 {@link TickablePipelineRegistry} 进行逐 Tick 执行。
+     * 长任务会由各自同步准入 Pipe 提交到统一 Task Engine。
      * 此处返回的管道结果仍是 {@link PipelineResult.Success}；
      * 可 Tick 阶段异步运行。</p>
      *
@@ -184,7 +163,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         //（在 finalizeMiningOperation 中的 WorkflowCompletePipe
         // 或可 Tick Pipe）。在此处触发 SYNC_PHASE_COMPLETED
         // 会产生误导，因为实际工作尚未完成。
-        if (tickablePipes.isEmpty() && !asyncCompletion) {
+        if (!asyncCompletion) {
             firePipelineResultEvent(ctx, PipelineResult.success());
         }
 
@@ -192,12 +171,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         // 在注册之前，从上下文中剥离瞬态同步阶段数据以
         // 释放内存（队列模式标志、中间结果等）——仅保留
         // 可 Tick 阶段和最终清理所需的核心数据。
-        if (!tickablePipes.isEmpty()) {
             // 使用预计算键集，避免每管道执行分配 HashSet
-            ctx.retainOnly(TICKABLE_RETAIN_KEYS);
-            TickablePipelineRegistry.register(ctx.player(), ctx, tickablePipes.get(0));
-        }
-
         return PipelineResult.success();
     }
 
@@ -284,16 +258,10 @@ public final class WorkflowPipeline<C extends PipelineContext> {
     /**
      * 返回此管道是否具有可 Tick（逐 Tick）的 Pipe。
      */
-    public boolean hasTickablePhase() {
-        return !tickablePipes.isEmpty();
-    }
 
     /**
      * 返回已注册可 Tick Pipe 的不可修改视图。
      */
-    public List<TickablePipe> tickablePipes() {
-        return Collections.unmodifiableList(tickablePipes);
-    }
 
     // ──────────────────────────────────────────────────────────────────
     //  内部辅助方法
@@ -313,12 +281,31 @@ public final class WorkflowPipeline<C extends PipelineContext> {
      * 如果未设置任何内容则为空操作。</p>
      */
     private static void rollbackIfNeeded(PipelineContext ctx) {
+        boolean taskSubmitted = Boolean.TRUE.equals(
+                ctx.getData(ToolBorrowPipe.KEY_ASYNC_TASK_SUBMITTED));
+        boolean transferred = Boolean.TRUE.equals(
+                ctx.getData(ToolBorrowPipe.KEY_TOOL_LEASE_TRANSFERRED));
+        boolean returned = Boolean.TRUE.equals(
+                ctx.getData(ToolBorrowPipe.KEY_TOOL_LEASE_RETURNED));
+        var rollback = ToolLeaseRollbackPolicy.decide(
+                taskSubmitted, transferred, returned,
+                ctx.hasData(ToolBorrowPipe.KEY_TOOL_LEASE));
+        if (rollback.cancelSubmittedTask() && ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
+            int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
+            var session = ctx.getData(
+                    com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe.KEY_SESSION);
+            if (session != null) {
+                // Task 尚未进入下一 Tick 也能按 workflow 精确撤销；该路径负责归还 Session 持有的租约。
+                com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                        .cancelWorkflowTask(ctx.player(), entryId);
+            }
+        }
         // 按 Pipe 执行顺序的逆序回滚：
         // 先工具租约（非关键，跳过无副作用），
         // 后工作流条目（关键，移除槽位）。
 
         // 1. 先归还借用的工具（防止工具泄漏）
-        if (ctx.hasData(ToolBorrowPipe.KEY_TOOL_LEASE)) {
+        if (rollback.returnPipelineLease()) {
             try {
                 new ToolReturnPipe().execute(ctx);
             } catch (Exception e) {
