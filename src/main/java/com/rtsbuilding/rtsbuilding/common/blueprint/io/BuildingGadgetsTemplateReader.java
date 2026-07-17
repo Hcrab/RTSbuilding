@@ -14,7 +14,7 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -101,13 +101,13 @@ final class BuildingGadgetsTemplateReader {
      */
     private static RtsBlueprint parseMappedStateList(CompoundTag tag, String name, String fileName,
             HolderGetter<Block> blockLookup) throws BlueprintParseException {
-        if (!tag.contains("blockstatemap", Tag.TAG_LIST) || !tag.contains("statelist", Tag.TAG_INT_ARRAY)) {
+        if (!tag.contains("blockstatemap") || !tag.contains("statelist")) {
             throw new BlueprintParseException("Building Gadgets 模板缺少方块状态映射: " + fileName);
         }
 
-        Bounds bounds = Bounds.from(readBlockPos(tag.getCompound("startpos")), readBlockPos(tag.getCompound("endpos")));
-        List<PaletteEntry> palette = readPalette(tag.getList("blockstatemap", Tag.TAG_COMPOUND), blockLookup);
-        int[] stateList = tag.getIntArray("statelist");
+        Bounds bounds = Bounds.from(readBlockPos(tag.getCompoundOrEmpty("startpos")), readBlockPos(tag.getCompoundOrEmpty("endpos")));
+        List<PaletteEntry> palette = readPalette(tag.getListOrEmpty("blockstatemap"), blockLookup);
+        int[] stateList = tag.getIntArray("statelist").orElseGet(() -> new int[0]);
         List<RtsBlueprintBlock> blocks = new ArrayList<>();
         int index = 0;
         // 遍历包围盒内的所有位置，映射到调色板索引
@@ -135,16 +135,16 @@ final class BuildingGadgetsTemplateReader {
     private static RtsBlueprint parseLegacyBody(JsonObject root, String body, String name, String fileName,
             HolderGetter<Block> blockLookup) throws BlueprintParseException {
         CompoundTag nbt = readCompressedBody(body, fileName);
-        if (nbt.contains("blockstatemap", Tag.TAG_LIST) && nbt.contains("statelist", Tag.TAG_INT_ARRAY)) {
+        if (nbt.contains("blockstatemap") && nbt.contains("statelist")) {
             return parseMappedStateList(nbt, name, fileName, blockLookup);
         }
-        if (!nbt.contains("pos", Tag.TAG_LIST) || !nbt.contains("data", Tag.TAG_LIST)) {
+        if (!nbt.contains("pos") || !nbt.contains("data")) {
             throw new BlueprintParseException("Building Gadgets 旧版模板缺少方块数据: " + fileName);
         }
 
         // 解析旧版：编码位置和方块数据
-        ListTag posList = nbt.getList("pos", Tag.TAG_LONG);
-        ListTag dataList = nbt.getList("data", Tag.TAG_COMPOUND);
+        ListTag posList = nbt.getListOrEmpty("pos");
+        ListTag dataList = nbt.getListOrEmpty("data");
         Map<BlockPos, PaletteEntry> byPos = new HashMap<>();
         for (Tag rawPos : posList) {
             if (!(rawPos instanceof LongTag longTag)) {
@@ -155,7 +155,7 @@ final class BuildingGadgetsTemplateReader {
             if (stateIndex < 0 || stateIndex >= dataList.size()) {
                 continue;
             }
-            PaletteEntry entry = readLegacyBlockData(dataList.getCompound(stateIndex), blockLookup);
+            PaletteEntry entry = readLegacyBlockData(dataList.getCompoundOrEmpty(stateIndex), blockLookup);
             byPos.put(legacyPos(encoded), entry);
         }
         if (byPos.isEmpty()) {
@@ -184,22 +184,22 @@ final class BuildingGadgetsTemplateReader {
     private static List<PaletteEntry> readPalette(ListTag paletteTag, HolderGetter<Block> blockLookup) {
         List<PaletteEntry> out = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
-            out.add(readBlockStateEntry(paletteTag.getCompound(i), blockLookup));
+            out.add(readBlockStateEntry(paletteTag.getCompoundOrEmpty(i), blockLookup));
         }
         return out;
     }
 
     /** 读取旧版方块数据 */
     private static PaletteEntry readLegacyBlockData(CompoundTag blockData, HolderGetter<Block> blockLookup) {
-        CompoundTag stateTag = blockData.contains("state", Tag.TAG_COMPOUND)
-                ? blockData.getCompound("state")
+        CompoundTag stateTag = blockData.contains("state")
+                ? blockData.getCompoundOrEmpty("state")
                 : blockData;
         return readBlockStateEntry(stateTag, blockLookup);
     }
 
     /** 读取方块状态条目 */
     private static PaletteEntry readBlockStateEntry(CompoundTag stateTag, HolderGetter<Block> blockLookup) {
-        if (!stateTag.contains("Name", Tag.TAG_STRING)) {
+        if (!stateTag.contains("Name")) {
             return new PaletteEntry(Blocks.AIR.defaultBlockState(), "");
         }
         String missingId = missingBlockId(stateTag);
@@ -209,14 +209,14 @@ final class BuildingGadgetsTemplateReader {
         try {
             return new PaletteEntry(NbtUtils.readBlockState(blockLookup, stateTag), "");
         } catch (Exception ex) {
-            return new PaletteEntry(Blocks.AIR.defaultBlockState(), stateTag.getString("Name"));
+            return new PaletteEntry(Blocks.AIR.defaultBlockState(), stateTag.getStringOr("Name", ""));
         }
     }
 
     /** 检测方块是否缺失 */
     private static String missingBlockId(CompoundTag stateTag) {
-        String name = stateTag.getString("Name");
-        ResourceLocation id = ResourceLocation.tryParse(name);
+        String name = stateTag.getStringOr("Name", "");
+        Identifier id = Identifier.tryParse(name);
         if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
             return name == null ? "" : name;
         }
@@ -246,9 +246,9 @@ final class BuildingGadgetsTemplateReader {
             return fromJson;
         }
 
-        CompoundTag header = nbt.getCompound("header");
-        if (header.contains("bounds", Tag.TAG_COMPOUND)) {
-            Bounds fromNbt = readBoundsFromNbt(header.getCompound("bounds"));
+        CompoundTag header = nbt.getCompoundOrEmpty("header");
+        if (header.contains("bounds")) {
+            Bounds fromNbt = readBoundsFromNbt(header.getCompoundOrEmpty("bounds"));
             if (fromNbt != null && fromNbt.containsAll(byPos.keySet())) {
                 return fromNbt;
             }
@@ -279,13 +279,13 @@ final class BuildingGadgetsTemplateReader {
             return null;
         }
         return Bounds.from(
-                new BlockPos(bounds.getInt("minX"), bounds.getInt("minY"), bounds.getInt("minZ")),
-                new BlockPos(bounds.getInt("maxX"), bounds.getInt("maxY"), bounds.getInt("maxZ")));
+                new BlockPos(bounds.getIntOr("minX", 0), bounds.getIntOr("minY", 0), bounds.getIntOr("minZ", 0)),
+                new BlockPos(bounds.getIntOr("maxX", 0), bounds.getIntOr("maxY", 0), bounds.getIntOr("maxZ", 0)));
     }
 
     /** 从 NBT 标签中读取 BlockPos */
     private static BlockPos readBlockPos(CompoundTag tag) {
-        return new BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z"));
+        return new BlockPos(tag.getIntOr("X", 0), tag.getIntOr("Y", 0), tag.getIntOr("Z", 0));
     }
 
     /** 解码旧版编码坐标 */

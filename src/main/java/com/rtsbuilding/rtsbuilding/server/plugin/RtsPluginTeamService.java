@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ final class RtsPluginTeamService {
         if (player == null) {
             return List.of();
         }
-        Map<ResourceLocation, EffectivePlugin> merged = new LinkedHashMap<>();
+        Map<Identifier, EffectivePlugin> merged = new LinkedHashMap<>();
         for (StoredPlugin stored : installedPlugins(player)) {
             addEffective(merged, stored.plugin(), stored.isOwnedBy(player), stored.ownerName());
         }
@@ -85,7 +85,7 @@ final class RtsPluginTeamService {
     }
 
     static List<ServerPlayer> relatedPlayers(ServerPlayer player) {
-        if (player == null || player.getServer() == null) {
+        if (player == null || player.level().getServer() == null) {
             return List.of();
         }
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
@@ -93,7 +93,7 @@ final class RtsPluginTeamService {
             return List.of(player);
         }
         List<ServerPlayer> related = new ArrayList<>();
-        for (ServerPlayer onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
+        for (ServerPlayer onlinePlayer : player.level().getServer().getPlayerList().getPlayers()) {
             if (onlinePlayer != null && sharedKey.equals(RtsProgressionManager.sharedProgressionKey(onlinePlayer))) {
                 related.add(onlinePlayer);
             }
@@ -177,7 +177,7 @@ final class RtsPluginTeamService {
         return true;
     }
 
-    private static void addEffective(Map<ResourceLocation, EffectivePlugin> merged, RtsInstalledPlugin plugin,
+    private static void addEffective(Map<Identifier, EffectivePlugin> merged, RtsInstalledPlugin plugin,
             boolean personal, String ownerName) {
         if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) {
             return;

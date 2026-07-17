@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * 检查玩家是否已解锁所需的进度功能。
@@ -23,11 +23,11 @@ public record ProgressionGatePipe(RtsFeature feature) implements PipelinePipe<Pi
     @Override
     public PipelineResult execute(PipelineContext ctx) {
         if (!RtsProgressionManager.canUse(ctx.player(), feature)) {
-            ResourceLocation pluginId = BuiltInRtsPluginCatalog.requiredPluginFor(feature);
+            Identifier pluginId = BuiltInRtsPluginCatalog.requiredPluginFor(feature);
             Component pluginName = pluginId == null
                     ? Component.literal(feature.name())
                     : Component.translatable("item." + pluginId.getNamespace() + "." + pluginId.getPath());
-            ctx.player().displayClientMessage(
+            ctx.player().sendSystemMessage(
                     Component.translatable("message.rtsbuilding.plugin_required", pluginName), true);
             return PipelineResult.failure("Feature not unlocked: " + feature.name());
         }

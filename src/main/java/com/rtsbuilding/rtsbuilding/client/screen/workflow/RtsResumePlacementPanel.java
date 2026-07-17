@@ -8,10 +8,10 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -100,7 +100,7 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (scanData == null) return;
 
         Font font = this.screen.font();
@@ -110,15 +110,15 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
 
         // 物品图标 + 名称
         ItemStack displayStack = ItemStack.EMPTY;
-        ResourceLocation id = ResourceLocation.tryParse(scanData.itemId());
+        Identifier id = Identifier.tryParse(scanData.itemId());
         if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-            displayStack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            displayStack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
         }
         if (!displayStack.isEmpty()) {
-            g.renderItem(displayStack, x, y);
-            g.drawString(font, scanData.itemLabel(), x + 20, y + 4, 0xFFFFFF, false);
+            g .item(displayStack, x, y);
+            g .text(font, scanData.itemLabel(), x + 20, y + 4, 0xFFFFFF, false);
         } else {
-            g.drawString(font, scanData.itemId(), x, y + 4, 0xFFFFFF, false);
+            g .text(font, scanData.itemId(), x, y + 4, 0xFFFFFF, false);
         }
         y += 22;
 
@@ -268,10 +268,10 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
         setOpen(false);
     }
 
-    private static void drawStat(GuiGraphics g, Font font, int col1X, int col2X, int y,
+    private static void drawStat(GuiGraphicsExtractor g, Font font, int col1X, int col2X, int y,
                                   String label, String value, int valueColor) {
-        g.drawString(font, label, col1X, y, 0xAAB0C0D0, false);
-        g.drawString(font, value, col2X, y, valueColor, false);
+        g .text(font, label, col1X, y, 0xAAB0C0D0, false);
+        g .text(font, value, col2X, y, valueColor, false);
     }
 
     private static String text(String key, Object... args) {

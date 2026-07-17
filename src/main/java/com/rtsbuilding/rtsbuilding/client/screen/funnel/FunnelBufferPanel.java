@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.record.FunnelBufferEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.List;
 
@@ -22,7 +22,7 @@ public final class FunnelBufferPanel {
         this.controller = controller;
     }
 
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         if (controller.getMode() != BuilderMode.FUNNEL && controller.getFunnelBufferEntries().isEmpty()) {
             return;
         }
@@ -31,7 +31,7 @@ public final class FunnelBufferPanel {
         int toggleY = TOP_H + 6;
         int toggleBg = funnelBufferVisible ? 0xAA2C4E3D : 0xAA2A2D36;
         g.fill(toggleX, toggleY, toggleX + FUNNEL_BUFFER_TOGGLE_W, toggleY + FUNNEL_BUFFER_TOGGLE_H, toggleBg);
-        g.drawCenteredString(screen.font(), "BUFFER", toggleX + FUNNEL_BUFFER_TOGGLE_W / 2, toggleY + 4, 0xFFFFFF);
+        g .centeredText(screen.font(), "BUFFER", toggleX + FUNNEL_BUFFER_TOGGLE_W / 2, toggleY + 4, 0xFFFFFF);
 
         if (!funnelBufferVisible) {
             return;
@@ -44,7 +44,7 @@ public final class FunnelBufferPanel {
             return;
         }
         g.fill(panelX, panelY, panelX + FUNNEL_BUFFER_PANEL_W, panelY + panelH, 0xAA17191F);
-        g.drawString(screen.font(), "Funnel Buffer", panelX + 6, panelY + 4, 0xF0F0F0);
+        g .text(screen.font(), "Funnel Buffer", panelX + 6, panelY + 4, 0xF0F0F0);
 
         List<FunnelBufferEntry> entries = controller.getFunnelBufferEntries();
         int listY = panelY + 16;
@@ -63,9 +63,9 @@ public final class FunnelBufferPanel {
             int slotX = rowX + 2;
             int slotY = rowY + 2;
             g.fill(slotX, slotY, slotX + 18, slotY + 18, 0xAA1E222A);
-            g.renderItem(entry.stack(), slotX + 1, slotY + 1);
-            g.drawString(screen.font(), RtsClientUiUtil.trimToWidth(screen.font(), entry.stack().getHoverName().getString(), rowW - 30), rowX + 24, rowY + 3, 0xFFFFFF);
-            g.drawString(screen.font(), "x" + RtsClientUiUtil.compactCount(entry.count()), rowX + 24, rowY + 12, 0xFFDFAE);
+            g .item(entry.stack(), slotX + 1, slotY + 1);
+            g .text(screen.font(), RtsClientUiUtil.trimToWidth(screen.font(), entry.stack().getHoverName().getString(), rowW - 30), rowX + 24, rowY + 3, 0xFFFFFF);
+            g .text(screen.font(), "x" + RtsClientUiUtil.compactCount(entry.count()), rowX + 24, rowY + 12, 0xFFDFAE);
 
             if (inside(mouseX, mouseY, rowX, rowY, rowW, FUNNEL_BUFFER_ROW_H - 2)) {
                 screen.setHoveredFunnelBufferEntry(entryIndex);
@@ -75,7 +75,7 @@ public final class FunnelBufferPanel {
         }
 
         if (entries.isEmpty()) {
-            g.drawString(screen.font(), "empty", panelX + 6, panelY + 20, 0x99B4BCC8);
+            g .text(screen.font(), "empty", panelX + 6, panelY + 20, 0x99B4BCC8);
         }
     }
 

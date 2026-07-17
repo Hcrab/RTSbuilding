@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 public record C2SRtsMinePayload(
@@ -18,7 +18,7 @@ public record C2SRtsMinePayload(
         boolean allowPlacedBlockRecovery,
         boolean toolProtectionEnabled) implements CustomPacketPayload {
     public static final Type<C2SRtsMinePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_mine"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_mine"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsMinePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

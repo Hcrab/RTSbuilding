@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
@@ -50,13 +50,13 @@ final class BlueprintMaterialInspector {
         if (entry == null) {
             return out;
         }
-        for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
+        for (Map.Entry<Identifier, Integer> material : entry.requiredItems().entrySet()) {
             String itemId = material.getKey().toString();
             int required = Math.max(0, material.getValue());
             if (!BuiltInRegistries.ITEM.containsKey(material.getKey())) {
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.get(material.getKey());
+            Item item = BuiltInRegistries.ITEM.getValue(material.getKey());
             long available = availableItemCount(controller, itemId, item);
             ItemStack stack = new ItemStack(item);
             out.add(new MaterialLine(stack, stack.getHoverName().getString(), displayAvailable(available, required), required));
@@ -135,9 +135,9 @@ final class BlueprintMaterialInspector {
         }
         long buildable = buildableBlockCount(entry, controller);
         int missingTypes = 0;
-        for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
+        for (Map.Entry<Identifier, Integer> material : entry.requiredItems().entrySet()) {
             int required = Math.max(0, material.getValue());
-            long available = availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()));
+            long available = availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.getValue(material.getKey()));
             if (available < required) {
                 missingTypes++;
             }
@@ -173,8 +173,8 @@ final class BlueprintMaterialInspector {
         if (!entry.unsupportedBlocks().isEmpty()) {
             return false;
         }
-        for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
-            if (availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()))
+        for (Map.Entry<Identifier, Integer> material : entry.requiredItems().entrySet()) {
+            if (availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.getValue(material.getKey()))
                     < material.getValue()) {
                 return false;
             }
@@ -193,10 +193,10 @@ final class BlueprintMaterialInspector {
         if (entry == null || entry.blueprint() == null) {
             return 0L;
         }
-        Map<ResourceLocation, Long> remainingItems = new LinkedHashMap<>();
-        for (ResourceLocation id : entry.requiredItems().keySet()) {
+        Map<Identifier, Long> remainingItems = new LinkedHashMap<>();
+        for (Identifier id : entry.requiredItems().keySet()) {
             if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                remainingItems.put(id, availableItemCount(controller, id.toString(), BuiltInRegistries.ITEM.get(id)));
+                remainingItems.put(id, availableItemCount(controller, id.toString(), BuiltInRegistries.ITEM.getValue(id)));
             }
         }
         boolean waterReady = availableWaterBuckets(controller) >= WATER_BUCKET_THRESHOLD;
@@ -219,12 +219,12 @@ final class BlueprintMaterialInspector {
                 }
                 continue;
             }
-            List<ResourceLocation> ids = RtsBlueprint.materialItemIds(block);
+            List<Identifier> ids = RtsBlueprint.materialItemIds(block);
             if (ids.isEmpty()) {
                 continue;
             }
             boolean ready = true;
-            for (ResourceLocation id : ids) {
+            for (Identifier id : ids) {
                 if (remainingItems.getOrDefault(id, 0L) <= 0L) {
                     ready = false;
                     break;
@@ -233,7 +233,7 @@ final class BlueprintMaterialInspector {
             if (!ready) {
                 continue;
             }
-            for (ResourceLocation id : ids) {
+            for (Identifier id : ids) {
                 remainingItems.put(id, remainingItems.getOrDefault(id, 0L) - 1L);
             }
             buildable++;
@@ -298,7 +298,7 @@ final class BlueprintMaterialInspector {
         long total = controller == null ? 0L : controller.getStorageTotalCount(itemId);
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null && item != null && item != Items.AIR) {
-            for (ItemStack stack : minecraft.player.getInventory().items) {
+            for (ItemStack stack : minecraft.player.getInventory().getNonEquipmentItems()) {
                 if (!stack.isEmpty() && stack.getItem() == item) {
                     total = saturatedAdd(total, stack.getCount());
                 }
@@ -323,7 +323,7 @@ final class BlueprintMaterialInspector {
         if (controller == null || fluid == null) {
             return 0L;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        Identifier id = BuiltInRegistries.FLUID.getKey(fluid);
         if (id == null) {
             return 0L;
         }

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.widget;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
@@ -86,7 +86,7 @@ public class WindowTextBox extends EditBox {
     }
 
     @Override
-    public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!this.visible) {
             return;
         }
@@ -105,12 +105,12 @@ public class WindowTextBox extends EditBox {
             int textX = this.centeredText
                     ? x + Math.max(TEXT_PADDING_X, (this.width - font.width(this.placeholder)) / 2)
                     : x + TEXT_PADDING_X;
-            g.drawString(font, this.placeholder, textX, textY, PLACEHOLDER_COLOR, false);
+            g .text(font, this.placeholder, textX, textY, PLACEHOLDER_COLOR, false);
         }
         renderInnerEditBox(g, mouseX, mouseY, partialTick, x, y);
     }
 
-    private void renderInnerEditBox(GuiGraphics g, int mouseX, int mouseY, float partialTick, int outerX, int outerY) {
+    private void renderInnerEditBox(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick, int outerX, int outerY) {
         int oldWidth = this.width;
         int oldHeight = this.height;
         int innerWidth = Math.max(1, oldWidth - TEXT_PADDING_X * 2);

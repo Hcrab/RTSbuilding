@@ -79,7 +79,7 @@ public final class RtsCameraManager {
      */
     public static void start(ServerPlayer player, boolean startAtPlayerHead) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
             return;
         }
         if (RtsProgressionManager.shouldStartHomeSelection(player)) {
@@ -87,7 +87,7 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
             return;
         }
         startNormal(player, startAtPlayerHead);
@@ -98,9 +98,9 @@ public final class RtsCameraManager {
      * <p>将锚点对齐到玩家脚下方块中心，并根据半径限制创建相机实体。</p>
      */
     private static void startNormal(ServerPlayer player, boolean startAtPlayerHead) {
-        cleanupOrphanCameras(player.getServer());
+        cleanupOrphanCameras(player.level().getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         Vec3 playerPos = player.position();
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
         Vec3 anchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
@@ -145,11 +145,11 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
             return;
         }
         if (!RtsProgressionManager.canChangeHome(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
                     "message.rtsbuilding.home.cooldown",
                     RtsProgressionManager.remainingHomeCooldownDays(player)), true);
             return;
@@ -163,9 +163,9 @@ public final class RtsCameraManager {
      * <p>将锚点对齐到玩家所在区块中心（8, Y, 8），进入家选择会话。</p>
      */
     private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead) {
-        cleanupOrphanCameras(player.getServer());
+        cleanupOrphanCameras(player.level().getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         BlockPos playerPos = player.blockPosition();
         // 计算玩家所在区块的中心坐标
         int centerChunkX = playerPos.getX() >> 4;
@@ -207,7 +207,7 @@ public final class RtsCameraManager {
     public static void stop(ServerPlayer player) {
         Session session = SESSIONS.remove(player.getUUID());
         if (session != null) {
-            Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
+            Entity entity = RtsCameraEntityHelper.findCameraEntity(player.level().getServer(), session.cameraUuid());
             if (entity != null) {
                 entity.discard();
             }
@@ -232,7 +232,7 @@ public final class RtsCameraManager {
         if (session == null || !session.homeSelection()) {
             return;
         }
-        Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
+        Entity entity = RtsCameraEntityHelper.findCameraEntity(player.level().getServer(), session.cameraUuid());
         if (entity != null) {
             entity.discard();
         }
@@ -392,8 +392,8 @@ public final class RtsCameraManager {
      */
     @SuppressWarnings("resource")
     private static RtsCameraEntity getOrRestoreCamera(ServerPlayer player, Session session) {
-        Entity baseEntity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
-        if (baseEntity instanceof RtsCameraEntity camera && baseEntity.level() == player.serverLevel()) {
+        Entity baseEntity = RtsCameraEntityHelper.findCameraEntity(player.level().getServer(), session.cameraUuid());
+        if (baseEntity instanceof RtsCameraEntity camera && baseEntity.level() == player.level()) {
             if (camera.getOwnerUuid() == null) {
                 camera.setOwnerUuid(player.getUUID());
             }
@@ -409,7 +409,7 @@ public final class RtsCameraManager {
         }
 
         Vec3 cameraPos = session.cameraPos();
-        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.serverLevel(), player.getUUID(),
+        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.level(), player.getUUID(),
                 cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg(), session.pitchDeg());
 
         SESSIONS.put(player.getUUID(), new Session(

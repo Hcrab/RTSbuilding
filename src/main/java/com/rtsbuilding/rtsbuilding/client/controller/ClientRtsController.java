@@ -1848,7 +1848,7 @@ public final class ClientRtsController {
         if (minecraft.player != null) {
             RtsClientPacketGateway.sendCloseRemoteMenu();
             minecraft.player.closeContainer();
-            minecraft.player.displayClientMessage(Component.literal("Open failed."), true);
+            minecraft.player.sendSystemMessage(Component.literal("Open failed."), true);
         }
         minecraft.setScreen(null);
     }

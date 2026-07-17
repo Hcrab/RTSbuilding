@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record S2CRtsProgressionStatePayload(
         boolean enabled,
@@ -18,7 +18,7 @@ public record S2CRtsProgressionStatePayload(
         int ultimineLimit,
         boolean bypassHomeRadius) implements CustomPacketPayload {
     public static final Type<S2CRtsProgressionStatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_progression_state"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_progression_state"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsProgressionStatePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -68,10 +68,10 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         MenuProvider provider = resolveBindableMenuProvider(level, pos);
         if (!canBindGuiTarget(level, pos)) {
-            player.displayClientMessage(Component.translatable(
+            player.sendSystemMessage(Component.translatable(
                     "message.rtsbuilding.gui_binding.no_bindable_gui"), true);
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -113,8 +113,8 @@ final class RtsGuiBindingHelper {
         if (binding == null || binding.pos() == null || binding.dimension() == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
-        if (!player.serverLevel().dimension().equals(binding.dimension())) {
-            player.displayClientMessage(Component.translatable(
+        if (!player.level().dimension().equals(binding.dimension())) {
+            player.sendSystemMessage(Component.translatable(
                     "message.rtsbuilding.gui_binding.other_dimension"), true);
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -127,7 +127,7 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         BlockPos pos = binding.pos();
         RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos);
         GuiBindingInteraction interaction = createGuiBindingInteraction(player, pos, binding.face());
@@ -155,7 +155,7 @@ final class RtsGuiBindingHelper {
         if (!interactResult.consumesAction()) {
             MenuProvider provider = resolveBindableMenuProvider(level, pos);
             if (provider == null) {
-                player.displayClientMessage(Component.translatable(
+                player.sendSystemMessage(Component.translatable(
                         "message.rtsbuilding.gui_binding.open_failed"), true);
                 return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
             }
@@ -163,7 +163,7 @@ final class RtsGuiBindingHelper {
             if (player.containerMenu != null && player.containerMenu != menuBeforeInteract) {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, player.containerMenu, pos);
             } else {
-                player.displayClientMessage(Component.translatable(
+                player.sendSystemMessage(Component.translatable(
                         "message.rtsbuilding.gui_binding.open_failed"), true);
             }
         }
@@ -200,7 +200,7 @@ final class RtsGuiBindingHelper {
         if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return "";
         }
-        ResourceLocation hintKey = ResourceLocation.tryParse(itemIdHint);
+        Identifier hintKey = Identifier.tryParse(itemIdHint);
         if (hintKey != null && BuiltInRegistries.ITEM.containsKey(hintKey)) {
             return hintKey.toString();
         }
@@ -213,7 +213,7 @@ final class RtsGuiBindingHelper {
         if (item == null || item == Items.AIR) {
             return RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, label);
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        Identifier id = BuiltInRegistries.ITEM.getKey(item);
         if (id != null) {
             return id.toString();
         }

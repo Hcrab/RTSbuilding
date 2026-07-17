@@ -141,12 +141,12 @@ public final class TemporaryContextSwitcher {
      */
     public static <T> T withTemporarySelectedSlot(ServerPlayer player, int toolSlot, Supplier<T> action) {
         int slot = Math.max(0, Math.min(8, toolSlot));
-        int prevSelected = player.getInventory().selected;
-        player.getInventory().selected = slot;
+        int prevSelected = player.getInventory().getSelectedSlot();
+        player.getInventory().setSelectedSlot(slot);
         try {
             return action.get();
         } finally {
-            player.getInventory().selected = prevSelected;
+            player.getInventory().setSelectedSlot(prevSelected);
         }
     }
 

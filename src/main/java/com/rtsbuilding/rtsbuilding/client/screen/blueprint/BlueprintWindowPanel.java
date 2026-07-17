@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -104,7 +104,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (BlueprintPanel.isCaptureModeActive()) {
             renderCaptureContent(g, mouseX, mouseY, partialTick);
         } else {
@@ -112,7 +112,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderCaptureContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private void renderCaptureContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         syncCaptureInputs();
         int x = contentX() + PAD;
         int y = contentY() + 8;
@@ -152,7 +152,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderPlacementContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private void renderPlacementContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         syncPlacementInputs();
         int x = contentX() + PAD;
         int y = contentY() + 8;
@@ -190,7 +190,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 new FooterButton(this.clearButton, true, false));
     }
 
-    private void renderBlueprintSelector(GuiGraphics g, int mouseX, int mouseY, float partialTick, int x, int y, int w) {
+    private void renderBlueprintSelector(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick, int x, int y, int w) {
         int buttonW = SMALL_BUTTON_W;
         int nameX = x + buttonW + GAP;
         int nameW = Math.max(56, w - buttonW * 2 - GAP * 2);
@@ -202,7 +202,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         renderButtonAt(g, this.nextButton, nameX + nameW + CONTROL_GAP, y, buttonW, true, mouseX, mouseY, partialTick);
         String name = RtsClientUiUtil.trimToWidth(this.screen.font(), BlueprintPanel.selectedBlueprintName(), nameW);
         int nameDrawX = nameX + Math.max(0, (nameW - this.screen.font().width(name)) / 2);
-        g.drawString(this.screen.font(), name, nameDrawX, y + 7, 0xFFEAF2FF, false);
+        g .text(this.screen.font(), name, nameDrawX, y + 7, 0xFFEAF2FF, false);
 
         String rawSize = BlueprintPanel.selectedBlueprintSizeText();
         int sizeW = Math.min(74, Math.max(42, this.screen.font().width(rawSize) + 6));
@@ -211,11 +211,11 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         int detailsX = sizeBoxX + sizeW + CONTROL_GAP;
         String size = RtsClientUiUtil.trimToWidth(this.screen.font(), rawSize, sizeW);
         int sizeX = sizeBoxX + Math.max(0, (sizeW - this.screen.font().width(size)) / 2);
-        g.drawString(this.screen.font(), size, sizeX, y + 32, 0xFF9FB3C8, false);
+        g .text(this.screen.font(), size, sizeX, y + 32, 0xFF9FB3C8, false);
         renderButtonAt(g, this.detailsButton, detailsX, y + 27, DETAILS_BUTTON_W, true, mouseX, mouseY, partialTick);
     }
 
-    private void renderCaptureXYZControls(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+    private void renderCaptureXYZControls(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
             int x, int y, int w, boolean enabled) {
         int groupW = Math.max(1, (w - GAP * 2) / 3);
         renderCompactAxisControl(g, mouseX, mouseY, partialTick, "X", this.sizeXInput,
@@ -226,12 +226,12 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 this.sizePlusButtons[2], this.sizeMinusButtons[2], x + (groupW + GAP) * 2, y, groupW, enabled);
     }
 
-    private void renderCompactAxisControl(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+    private void renderCompactAxisControl(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
             String label, WindowTextBox box, WindowButton plusButton, WindowButton minusButton,
             int x, int y, int w, boolean enabled) {
         int labelColor = enabled ? 0xFF9FB3C8 : 0xFF4F5B68;
         int labelY = y + Math.max(0, (TEXTBOX_H - this.screen.font().lineHeight) / 2);
-        g.drawString(this.screen.font(), label, x, labelY, labelColor, false);
+        g .text(this.screen.font(), label, x, labelY, labelColor, false);
         int minusX = x + AXIS_LABEL_W + CONTROL_GAP;
         int inputW = Math.min(CAPTURE_AXIS_INPUT_W,
                 Math.max(34, w - AXIS_LABEL_W - SMALL_BUTTON_W * 2 - CONTROL_GAP * 3));
@@ -249,7 +249,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         renderButtonAt(g, plusButton, boxX + inputW + CONTROL_GAP, y, SMALL_BUTTON_W, enabled, mouseX, mouseY, partialTick);
     }
 
-    private void renderAxisRows(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+    private void renderAxisRows(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
             int x, int y, int w, WindowTextBox xBox, WindowTextBox yBox, WindowTextBox zBox,
             WindowButton[] plusButtons, WindowButton[] minusButtons, boolean enabled, boolean sizeInputs) {
         WindowTextBox[] boxes = {xBox, yBox, zBox};
@@ -264,7 +264,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         int rowX = x + Math.max(0, (w - rowW) / 2);
         for (int i = 0; i < boxes.length; i++) {
             int rowY = y + i * (BUTTON_H + AXIS_ROW_GAP);
-            g.drawString(this.screen.font(), labels[i], rowX, rowY + labelYInset, labelColor, false);
+            g .text(this.screen.font(), labels[i], rowX, rowY + labelYInset, labelColor, false);
             int minusX = rowX + AXIS_LABEL_W + CONTROL_GAP;
             renderButtonAt(g, minusButtons[i], minusX, rowY, SMALL_BUTTON_W, enabled, mouseX, mouseY, partialTick);
             int boxX = minusX + SMALL_BUTTON_W + CONTROL_GAP;
@@ -282,22 +282,22 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         }
     }
 
-    private void drawSectionFrame(GuiGraphics g, int x, int y, int w, int h) {
+    private void drawSectionFrame(GuiGraphicsExtractor g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, 0x33111821);
         g.fill(x, y, x + w, y + 1, 0x55344555);
         g.fill(x, y + h - 1, x + w, y + h, 0x550D1117);
     }
 
-    private void drawSectionTitle(GuiGraphics g, Component text, int x, int y) {
-        g.drawString(this.screen.font(), text, x, y, 0xFFD8E3EE, false);
+    private void drawSectionTitle(GuiGraphicsExtractor g, Component text, int x, int y) {
+        g .text(this.screen.font(), text, x, y, 0xFFD8E3EE, false);
     }
 
-    private void drawLabel(GuiGraphics g, Component text, int x, int y, int color, int maxWidth) {
-        g.drawString(this.screen.font(), RtsClientUiUtil.trimToWidth(this.screen.font(), text.getString(), maxWidth),
+    private void drawLabel(GuiGraphicsExtractor g, Component text, int x, int y, int color, int maxWidth) {
+        g .text(this.screen.font(), RtsClientUiUtil.trimToWidth(this.screen.font(), text.getString(), maxWidth),
                 x, y, color, false);
     }
 
-    private void renderStatusLine(GuiGraphics g, int x, int y, int w, Component status, int color) {
+    private void renderStatusLine(GuiGraphicsExtractor g, int x, int y, int w, Component status, int color) {
         if (status == null) {
             return;
         }
@@ -306,10 +306,10 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         String line = RtsClientUiUtil.trimToWidth(this.screen.font(), status.getString(), w - 12);
         int textX = x + Math.max(6, (w - this.screen.font().width(line)) / 2);
         int textY = y + Math.max(1, (STATUS_H - this.screen.font().lineHeight) / 2);
-        g.drawString(this.screen.font(), line, textX, textY, color, false);
+        g .text(this.screen.font(), line, textX, textY, color, false);
     }
 
-    private void renderStatusLines(GuiGraphics g, int x, int y, int w,
+    private void renderStatusLines(GuiGraphicsExtractor g, int x, int y, int w,
             Component firstLine, Component secondLine, int color) {
         g.fill(x, y, x + w, y + STATUS_H, 0x66111821);
         g.fill(x, y, x + w, y + 1, 0x44344555);
@@ -318,21 +318,21 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         drawCenteredStatusLine(g, secondLine, x, firstY + this.screen.font().lineHeight + 3, w, 0xFFB7CDE2);
     }
 
-    private void drawCenteredStatusLine(GuiGraphics g, Component text, int x, int y, int w, int color) {
+    private void drawCenteredStatusLine(GuiGraphicsExtractor g, Component text, int x, int y, int w, int color) {
         if (text == null) {
             return;
         }
         String line = RtsClientUiUtil.trimToWidth(this.screen.font(), text.getString(), w - 12);
         int textX = x + Math.max(6, (w - this.screen.font().width(line)) / 2);
-        g.drawString(this.screen.font(), line, textX, y, color, false);
+        g .text(this.screen.font(), line, textX, y, color, false);
     }
 
-    private void renderFooterButtons(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+    private void renderFooterButtons(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
             int x, int y, int w, FooterButton... buttons) {
         renderButtonGrid(g, mouseX, mouseY, partialTick, x, y, w, 108, buttons);
     }
 
-    private void renderStackedActionButtons(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+    private void renderStackedActionButtons(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
             int x, int y, int w, FooterButton... buttons) {
         int buttonW = Math.min(180, Math.max(120, w));
         int bx = x + Math.max(0, (w - buttonW) / 2);
@@ -348,7 +348,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderButtonGrid(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+    private void renderButtonGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
             int x, int y, int w, int preferredW, FooterButton... buttons) {
         int count = buttons.length;
         if (count <= 0) {
@@ -371,7 +371,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderButtonAt(GuiGraphics g, WindowButton button, int x, int y, int width, boolean active,
+    private void renderButtonAt(GuiGraphicsExtractor g, WindowButton button, int x, int y, int width, boolean active,
             int mouseX, int mouseY, float partialTick) {
         button.setX(x);
         button.setY(y);
@@ -380,7 +380,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         button.render(g, mouseX, mouseY, partialTick);
     }
 
-    private void renderPrimaryButtonAt(GuiGraphics g, WindowButton button, int x, int y, int width, boolean active,
+    private void renderPrimaryButtonAt(GuiGraphicsExtractor g, WindowButton button, int x, int y, int width, boolean active,
             int mouseX, int mouseY, float partialTick) {
         button.setX(x);
         button.setY(y);
@@ -396,10 +396,10 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 Math.max(8, width - 10));
         int textX = x + (width - this.screen.font().width(label)) / 2;
         int textY = y + (BUTTON_H - this.screen.font().lineHeight) / 2;
-        g.drawString(this.screen.font(), label, textX, textY, 0xFFEAF2FF, false);
+        g .text(this.screen.font(), label, textX, textY, 0xFFEAF2FF, false);
     }
 
-    private void drawButtonHighlight(GuiGraphics g, int x, int y, int w, int h, int color) {
+    private void drawButtonHighlight(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
         g.fill(x - 1, y - 1, x + w + 1, y, color);
         g.fill(x - 1, y + h, x + w + 1, y + h + 1, color);
         g.fill(x - 1, y - 1, x, y + h + 1, color);

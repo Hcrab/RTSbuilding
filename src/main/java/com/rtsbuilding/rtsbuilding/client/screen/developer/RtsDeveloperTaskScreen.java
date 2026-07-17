@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.developer;
 
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -35,7 +35,7 @@ public final class RtsDeveloperTaskScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, this.width, this.height, 0xF0101820);
         var layout = RtsDeveloperTaskLayout.resolve(this.width, this.height,
                 RtsDeveloperScenarioTracker.Scenario.values().length);

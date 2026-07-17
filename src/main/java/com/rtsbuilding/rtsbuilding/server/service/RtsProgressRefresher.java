@@ -71,7 +71,7 @@ public final class RtsProgressRefresher {
      */
     private static void refreshBlueprintProgress(ServerPlayer player) {
         UUID puid = player.getUUID();
-        long currentTick = player.serverLevel().getGameTime();
+        long currentTick = player.level().getGameTime();
         Long lastRefresh = BLUEPRINT_REFRESH_TICK.get(puid);
         boolean shouldScan = lastRefresh == null || (currentTick - lastRefresh) >= BLUEPRINT_REFRESH_INTERVAL;
         if (!shouldScan) return;
@@ -89,7 +89,7 @@ public final class RtsProgressRefresher {
             LinkedList<Integer> remaining = bctx.getRemainingQueue();
             if (plans == null || remaining == null || plans.isEmpty()) continue;
 
-            ServerLevel level = player.serverLevel();
+            ServerLevel level = player.level();
             int total = plans.size();
             Set<Integer> remainingSet = new HashSet<>(remaining);
             LinkedList<Integer> backToQueue = new LinkedList<>();

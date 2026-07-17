@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server;
 import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -60,14 +60,14 @@ public final class RtsStorageUiPayloads {
         if (itemId == null || itemId.isBlank()) {
             return ItemStack.EMPTY;
         }
-        ResourceLocation key = ResourceLocation.tryParse(itemId);
+        Identifier key = Identifier.tryParse(itemId);
         if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
             return ItemStack.EMPTY;
         }
-        if (preview != null && !preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.get(key))) {
+        if (preview != null && !preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.getValue(key))) {
             return preview.copyWithCount(1);
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        return new ItemStack(BuiltInRegistries.ITEM.getValue(key));
     }
 
     /**

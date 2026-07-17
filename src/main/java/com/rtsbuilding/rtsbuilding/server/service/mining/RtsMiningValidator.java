@@ -175,11 +175,11 @@ public final class RtsMiningValidator {
         if (creative) {
             return true;
         }
-        if (!hasValidDestroySpeed(state, player.serverLevel(), pos)) {
+        if (!hasValidDestroySpeed(state, player.level(), pos)) {
             return false;
         }
-        float seedDestroySpeed = seedState.getDestroySpeed(player.serverLevel(), pos);
-        float candidateDestroySpeed = state.getDestroySpeed(player.serverLevel(), pos);
+        float seedDestroySpeed = seedState.getDestroySpeed(player.level(), pos);
+        float candidateDestroySpeed = state.getDestroySpeed(player.level(), pos);
         if (seedDestroySpeed >= 0.0F && candidateDestroySpeed > seedDestroySpeed * 1.5F) {
             return false;
         }
@@ -287,12 +287,12 @@ public final class RtsMiningValidator {
         if (!RtsClaimProtectionService.canBreakBlock(player, seed, Direction.DOWN)) {
             return new java.util.ArrayDeque<>();
         }
-        BlockState seedState = player.serverLevel().getBlockState(seed);
+        BlockState seedState = player.level().getBlockState(seed);
         if (!isBreakableBlock(seedState)) {
             return new java.util.ArrayDeque<>();
         }
         if (!creative) {
-            if (!hasValidDestroySpeed(seedState, player.serverLevel(), seed)) {
+            if (!hasValidDestroySpeed(seedState, player.level(), seed)) {
                 return new java.util.ArrayDeque<>();
             }
             // 连锁收集阶段只验证种子块能开挖；后续候选的工具判定留给批处理，
@@ -304,7 +304,7 @@ public final class RtsMiningValidator {
         }
 
         java.util.List<BlockPos> targets = RtsUltimineCollector.collect(
-                player.serverLevel(),
+                player.level(),
                 seed,
                 limit,
                 (candidatePos, state, seedBlockState) -> isUltimineCandidate(
@@ -329,11 +329,11 @@ public final class RtsMiningValidator {
      * 返回 {@code true} 指示挖掘应停止（恢复成功）。
      */
     public static boolean tryRecoverPlacedBlock(ServerPlayer player, RtsStorageSession session, BlockPos pos, Direction face) {
-        if (PlacedBlockTrackerData.get(player.serverLevel()).isPlaced(pos)
+        if (PlacedBlockTrackerData.get(player.level()).isPlaced(pos)
                 && RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
-            BlockState before = player.serverLevel().getBlockState(pos);
+            BlockState before = player.level().getBlockState(pos);
             RtsPlacedRecoveryService.breakPlaced(player, pos, face, false);
-            BlockState after = player.serverLevel().getBlockState(pos);
+            BlockState after = player.level().getBlockState(pos);
             return !before.equals(after);
         }
         return false;

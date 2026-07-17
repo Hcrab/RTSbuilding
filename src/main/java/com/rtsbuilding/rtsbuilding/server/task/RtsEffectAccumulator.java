@@ -77,7 +77,7 @@ public final class RtsEffectAccumulator {
 
     public void clearDimension(UUID playerId, ResourceKey<Level> dimension) {
         if (playerId == null || dimension == null) return;
-        String dimensionId = dimension.location().toString();
+        String dimensionId = dimension.identifier().toString();
         ledger.discardMatching(target -> target.playerId().equals(playerId)
                 && !target.isGlobal() && target.dimensionId().equals(dimensionId));
     }
@@ -95,6 +95,6 @@ public final class RtsEffectAccumulator {
     private static RtsPlayerEffectTarget dimensionTarget(
             UUID playerId, ResourceKey<Level> dimension) {
         if (dimension == null) throw new IllegalArgumentException("dimension 不能为空");
-        return RtsPlayerEffectTarget.inDimension(playerId, dimension.location().toString());
+        return RtsPlayerEffectTarget.inDimension(playerId, dimension.identifier().toString());
     }
 }

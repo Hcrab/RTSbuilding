@@ -26,7 +26,7 @@ public final class RtsClientboundPackets {
     }
 
     public static boolean isGameTestServerPlayer(ServerPlayer player) {
-        MinecraftServer server = player == null ? null : player.getServer();
+        MinecraftServer server = player == null ? null : player.level().getServer();
         return server != null && GAMETEST_SERVER_CLASS.equals(server.getClass().getName());
     }
 }

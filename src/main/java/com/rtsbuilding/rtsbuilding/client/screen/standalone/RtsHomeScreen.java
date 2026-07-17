@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -50,7 +50,7 @@ public final class RtsHomeScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
         if (this.homeButton != null) {
             this.homeButton.setMessage(homeButtonLabel());
@@ -60,7 +60,7 @@ public final class RtsHomeScreen extends Screen {
         int x = (this.width - contentW) / 2;
         int y = 42;
 
-        g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.home"), this.width / 2, 12, 0xFFFFFFFF);
+        g .centeredText(this.font, Component.translatable("screen.rtsbuilding.home"), this.width / 2, 12, 0xFFFFFFFF);
         drawInfoRow(g, x, y, contentW, Component.translatable("screen.rtsbuilding.progression.title"),
                 Component.translatable(this.controller.isProgressionEnabled()
                         ? "screen.rtsbuilding.progression.survival_on"
@@ -93,7 +93,7 @@ public final class RtsHomeScreen extends Screen {
         int warningHeight = 18 + Math.max(1, this.font.split(warning, contentW - 20).size()) * 10;
         int warningBottom = Math.max(y + 24, Math.min(this.height - FOOTER_H - 8, y + warningHeight));
         g.fill(x, y, x + contentW, warningBottom, 0xFF1B1F24);
-        g.hLine(x, x + contentW, y, 0xFF6E8799);
+        g.horizontalLine(x, x + contentW, y, 0xFF6E8799);
         drawWrapped(g, warning, x + 10, y + 9, contentW - 20, 0xFFFFD980);
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -132,28 +132,28 @@ public final class RtsHomeScreen extends Screen {
         return ticks <= 0L ? 0L : (ticks + TICKS_PER_GAME_DAY - 1L) / TICKS_PER_GAME_DAY;
     }
 
-    private void drawWrapped(GuiGraphics g, Component text, int x, int y, int width, int color) {
+    private void drawWrapped(GuiGraphicsExtractor g, Component text, int x, int y, int width, int color) {
         for (var line : this.font.split(text, width)) {
-            g.drawString(this.font, line, x, y, color);
+            g .text(this.font, line, x, y, color);
             y += 10;
         }
     }
 
-    private void drawInfoRow(GuiGraphics g, int x, int y, int width, Component label, Component value, int valueColor) {
+    private void drawInfoRow(GuiGraphicsExtractor g, int x, int y, int width, Component label, Component value, int valueColor) {
         int labelW = Math.min(132, Math.max(92, width / 3));
         g.fill(x, y, x + width, y + ROW_H, 0xFF17202A);
-        g.hLine(x, x + width, y, 0xFF263545);
-        g.drawString(this.font, label, x + 10, y + 9, 0xFFAFC2D4);
+        g.horizontalLine(x, x + width, y, 0xFF263545);
+        g .text(this.font, label, x + 10, y + 9, 0xFFAFC2D4);
         String valueText = this.font.plainSubstrByWidth(value.getString(), width - labelW - 24);
-        g.drawString(this.font, Component.literal(valueText), x + labelW, y + 9, valueColor);
+        g .text(this.font, Component.literal(valueText), x + labelW, y + 9, valueColor);
     }
 
-    private void renderPageBackground(GuiGraphics g) {
+    private void renderPageBackground(GuiGraphicsExtractor g) {
         g.fill(0, 0, this.width, this.height, 0xFF101820);
         g.fill(0, 0, this.width, 32, 0xFF151B23);
         g.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF151B23);
-        g.hLine(0, this.width, 32, 0xFF273747);
-        g.hLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
+        g.horizontalLine(0, this.width, 32, 0xFF273747);
+        g.horizontalLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
     }
 
     private int footerActionWidth() {

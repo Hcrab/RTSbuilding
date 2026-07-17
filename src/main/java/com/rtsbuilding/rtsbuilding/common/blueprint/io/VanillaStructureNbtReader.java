@@ -11,7 +11,7 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -52,15 +52,15 @@ public final class VanillaStructureNbtReader {
      * @return 解析后的蓝图对象
      */
     public static RtsBlueprint parse(CompoundTag root, String name, String sourceName, RegistryAccess registryAccess) {
-        if (!root.contains("palette", Tag.TAG_LIST) || !root.contains("blocks", Tag.TAG_LIST)) {
+        if (!root.contains("palette") || !root.contains("blocks")) {
             return RtsBlueprint.create(name, sourceName, BlueprintFormat.VANILLA_NBT, Vec3i.ZERO, List.of());
         }
 
         HolderGetter<Block> blocks = registryAccess.lookupOrThrow(Registries.BLOCK);
-        ListTag paletteTag = root.getList("palette", Tag.TAG_COMPOUND);
+        ListTag paletteTag = root.getListOrEmpty("palette");
         List<PaletteEntry> palette = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
-            CompoundTag paletteEntry = paletteTag.getCompound(i);
+            CompoundTag paletteEntry = paletteTag.getCompoundOrEmpty(i);
             String missingId = missingBlockId(paletteEntry);
             palette.add(missingId.isBlank()
                     ? new PaletteEntry(NbtUtils.readBlockState(blocks, paletteEntry), "")
@@ -68,22 +68,22 @@ public final class VanillaStructureNbtReader {
         }
 
         Vec3i size = readSize(root);
-        ListTag blockList = root.getList("blocks", Tag.TAG_COMPOUND);
+        ListTag blockList = root.getListOrEmpty("blocks");
         List<RtsBlueprintBlock> out = new ArrayList<>();
         for (int i = 0; i < blockList.size(); i++) {
-            CompoundTag blockTag = blockList.getCompound(i);
-            int stateIndex = blockTag.getInt("state");
+            CompoundTag blockTag = blockList.getCompoundOrEmpty(i);
+            int stateIndex = blockTag.getIntOr("state", 0);
             if (stateIndex < 0 || stateIndex >= palette.size()) {
                 continue;
             }
             PaletteEntry paletteEntry = palette.get(stateIndex);
             BlockState state = paletteEntry.state();
             BlockPos pos = readPos(blockTag);
-            CompoundTag blockEntityTag = blockTag.contains("nbt", Tag.TAG_COMPOUND)
-                    ? blockTag.getCompound("nbt").copy()
+            CompoundTag blockEntityTag = blockTag.contains("nbt")
+                    ? blockTag.getCompoundOrEmpty("nbt").copy()
                     : new CompoundTag();
-            String materialItemId = blockTag.contains("rtsbuilding_material_item", Tag.TAG_STRING)
-                    ? blockTag.getString("rtsbuilding_material_item")
+            String materialItemId = blockTag.contains("rtsbuilding_material_item")
+                    ? blockTag.getStringOr("rtsbuilding_material_item", "")
                     : "";
             if (!paletteEntry.missingBlockId().isBlank()) {
                 out.add(RtsBlueprintBlock.missing(pos, paletteEntry.missingBlockId(), blockEntityTag));
@@ -99,11 +99,11 @@ public final class VanillaStructureNbtReader {
 
     /** 检测调色板条目是否对应缺失方块 */
     private static String missingBlockId(CompoundTag paletteEntry) {
-        if (!paletteEntry.contains("Name", Tag.TAG_STRING)) {
+        if (!paletteEntry.contains("Name")) {
             return "";
         }
-        String name = paletteEntry.getString("Name");
-        ResourceLocation id = ResourceLocation.tryParse(name);
+        String name = paletteEntry.getStringOr("Name", "");
+        Identifier id = Identifier.tryParse(name);
         if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
             return name == null ? "" : name;
         }
@@ -121,23 +121,23 @@ public final class VanillaStructureNbtReader {
 
     /** 读取蓝图尺寸 */
     private static Vec3i readSize(CompoundTag root) {
-        if (!root.contains("size", Tag.TAG_LIST)) {
+        if (!root.contains("size")) {
             return Vec3i.ZERO;
         }
-        ListTag sizeTag = root.getList("size", Tag.TAG_INT);
+        ListTag sizeTag = root.getListOrEmpty("size");
         if (sizeTag.size() < 3) {
             return Vec3i.ZERO;
         }
-        return new Vec3i(sizeTag.getInt(0), sizeTag.getInt(1), sizeTag.getInt(2));
+        return new Vec3i(sizeTag.getIntOr(0, 0), sizeTag.getIntOr(1, 0), sizeTag.getIntOr(2, 0));
     }
 
     /** 读取方块位置数据 */
     private static BlockPos readPos(CompoundTag blockTag) {
-        ListTag posTag = blockTag.getList("pos", Tag.TAG_INT);
+        ListTag posTag = blockTag.getListOrEmpty("pos");
         if (posTag.size() < 3) {
             return BlockPos.ZERO;
         }
-        return new BlockPos(posTag.getInt(0), posTag.getInt(1), posTag.getInt(2));
+        return new BlockPos(posTag.getIntOr(0, 0), posTag.getIntOr(1, 0), posTag.getIntOr(2, 0));
     }
 
     /** 从文件名中提取干净的名称 */

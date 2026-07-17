@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Client-to-server payload: toggle pause state for a specific workflow entry.
@@ -16,7 +16,7 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record C2SRtsPauseWorkflowPayload(int entryId) implements CustomPacketPayload {
     public static final Type<C2SRtsPauseWorkflowPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_pause_workflow"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_pause_workflow"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsPauseWorkflowPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> buf.writeInt(payload.entryId()),

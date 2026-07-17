@@ -70,7 +70,7 @@ public final class HistoryExecutor {
      * 创造模式额外恢复方块实体 NBT 数据（类似 Ultimine-Rewind 的 RewindExecutor）。
      */
     private static int restoreBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks, net.minecraft.core.Direction face) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         boolean isCreative = player.isCreative();
         int restoredCount = 0;
 
@@ -159,7 +159,7 @@ public final class HistoryExecutor {
      * </ul>
      */
     private static int breakBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         boolean isCreative = player.isCreative();
         int brokenCount = 0;
 

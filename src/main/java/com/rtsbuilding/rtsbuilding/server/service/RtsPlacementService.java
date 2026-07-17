@@ -191,10 +191,10 @@ public final class RtsPlacementService {
         }
         int count = RtsPendingPlacementService.resumeAllPendingJobs(player, session);
         if (count > 0) {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.literal("Resumed " + count + " pending placement job(s)."), true);
         } else {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.literal("No pending placements can be resumed — insufficient items."), true);
         }
         return count;
@@ -215,7 +215,7 @@ public final class RtsPlacementService {
                 player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
             return;
         }
-        RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsPlacementHelper.rotatePlacedBlock(player.level(), pos, (byte) 1);
     }
 
     // =========================================================================

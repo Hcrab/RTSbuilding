@@ -249,7 +249,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             String name = player.getGameProfile().getName();
             RtsbuildingMod.LOGGER.warn("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("message.rtsbuilding.workflow.full_protected"),
                     true);
             return Optional.empty();
@@ -299,8 +299,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         for (RtsWorkflowEntry entry : slots.allEntries()) {
             CompoundTag extra = entry.getExtraData();
             if (entry.type() == RtsWorkflowType.BLUEPRINT_BUILD && extra != null
-                    && extra.hasUUID("durable_task_id")
-                    && taskId.equals(extra.getUUID("durable_task_id"))) {
+                    && com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(extra, "durable_task_id")
+                    && taskId.equals(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(extra, "durable_task_id"))) {
                 return Optional.of(new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this));
             }
         }
@@ -549,7 +549,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         entry.setProtectedWorkflow(protectedWorkflow);
         syncService.notifyPlayer(player, slots);
 
-        player.displayClientMessage(
+        player.sendSystemMessage(
                 Component.translatable(protectedWorkflow
                         ? "message.rtsbuilding.workflow.protected"
                         : "message.rtsbuilding.workflow.replaceable"),

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 
 import java.util.function.Consumer;
@@ -85,7 +85,7 @@ public class WindowSlider {
 
     // ======================== Rendering ========================
 
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
 
         int knobX = knobPosition();

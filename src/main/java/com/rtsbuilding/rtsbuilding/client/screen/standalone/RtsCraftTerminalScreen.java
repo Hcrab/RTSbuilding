@@ -9,14 +9,14 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -31,8 +31,8 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 public final class RtsCraftTerminalScreen extends AbstractContainerScreen<CraftingMenu> {
-    private static final ResourceLocation VANILLA_CRAFTING_BG =
-            ResourceLocation.withDefaultNamespace("textures/gui/container/crafting_table.png");
+    private static final Identifier VANILLA_CRAFTING_BG =
+            Identifier.withDefaultNamespace("textures/gui/container/crafting_table.png");
     private static final int VANILLA_BG_W = 176;
     private static final int LINK_PANEL_X_OFF = VANILLA_BG_W + 6;
     private static final int LINK_PANEL_Y_OFF = 4;
@@ -93,22 +93,22 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         syncSearchValueFromController();
         this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         renderCraftResultFallback(guiGraphics);
-        this.renderTooltip(guiGraphics, mouseX, mouseY);
+        this .setTooltipForNextFrame(guiGraphics, mouseX, mouseY);
     }
 
     @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+    protected void renderBg(GuiGraphicsExtractor guiGraphics, float partialTick, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
 
         guiGraphics.blit(VANILLA_CRAFTING_BG, left, top, 0, 0, VANILLA_BG_W, this.imageHeight);
         guiGraphics.fill(left + 3, top + 3, left + VANILLA_BG_W - 3, top + 15, 0xB0212E3D);
-        guiGraphics.hLine(left + 3, left + VANILLA_BG_W - 3, top + 15, 0xFF0F151D);
+        guiGraphics.horizontalLine(left + 3, left + VANILLA_BG_W - 3, top + 15, 0xFF0F151D);
         drawPanelFrame(guiGraphics, left + 27, top + 14, 58, 58, 0x66405B78, 0xFF5B7290, 0xFF10161E);
         drawPanelFrame(guiGraphics, left + 124, top + 33, 18, 18, 0x663F5A76, 0xFF617A99, 0xFF111821);
         drawPanelFrame(guiGraphics, left + 7, top + 82, 162, 76, 0x441A222C, 0xFF4A6079, 0xFF10151C);
@@ -117,8 +117,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     @Override
-    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY, 0xEAF2FF, false);
+    protected void renderLabels(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+        guiGraphics .text(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY, 0xEAF2FF, false);
     }
 
     @Override
@@ -192,16 +192,16 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         return super.charTyped(codePoint, modifiers);
     }
 
-    private void renderLinkedPanel(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    private void renderLinkedPanel(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
         ClientRtsController controller = ClientRtsController.get();
 
         int panelX = this.leftPos + LINK_PANEL_X_OFF;
         int panelY = this.topPos + LINK_PANEL_Y_OFF;
         drawPanelFrame(guiGraphics, panelX, panelY, LINK_PANEL_W, LINK_PANEL_H, 0xCC141922, 0xFF637993, 0xFF0D1218);
         guiGraphics.fill(panelX + 1, panelY + 1, panelX + LINK_PANEL_W - 1, panelY + 16, 0xA0233345);
-        guiGraphics.hLine(panelX + 1, panelX + LINK_PANEL_W - 1, panelY + 16, 0xFF0F171F);
+        guiGraphics.horizontalLine(panelX + 1, panelX + LINK_PANEL_W - 1, panelY + 16, 0xFF0F171F);
 
-        guiGraphics.drawString(this.font, "Linked", panelX + 6, panelY + 5, 0xEAF2FF, false);
+        guiGraphics .text(this.font, "Linked", panelX + 6, panelY + 5, 0xEAF2FF, false);
         drawMiniButton(guiGraphics, panelX + SORT_BUTTON_X_OFF, panelY + BUTTON_ROW_Y_OFF, sortShort(controller.getStorageSort()));
         drawMiniButton(guiGraphics, panelX + DIR_BUTTON_X_OFF, panelY + BUTTON_ROW_Y_OFF, controller.isStorageSortAscending() ? "A" : "D");
 
@@ -212,7 +212,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
 
         String pageText = (controller.getStoragePage() + 1) + "/" + controller.getStorageTotalPages();
         int pageTextWidth = this.font.width(pageText);
-        guiGraphics.drawString(this.font, pageText, panelX + LINK_PANEL_W - pageTextWidth - 44, panelY + 9, 0xD7E3F2, false);
+        guiGraphics .text(this.font, pageText, panelX + LINK_PANEL_W - pageTextWidth - 44, panelY + 9, 0xD7E3F2, false);
 
         int importX = panelX + CARRIED_IMPORT_X_OFF;
         int importY = panelY + CARRIED_IMPORT_Y_OFF;
@@ -225,7 +225,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int clearX = searchX + LINK_GRID_W - LINK_SEARCH_CLEAR_W;
         drawPanelFrame(guiGraphics, clearX, searchY, LINK_SEARCH_CLEAR_W, LINK_SEARCH_H, 0xAA2A3441, 0xFF647B95, 0xFF111921);
         String clearLabel = this.searchBox != null && !this.searchBox.getValue().isEmpty() ? "x" : ".";
-        guiGraphics.drawCenteredString(this.font, clearLabel, clearX + (LINK_SEARCH_CLEAR_W / 2), searchY + 2, 0xEAF2FF);
+        guiGraphics .centeredText(this.font, clearLabel, clearX + (LINK_SEARCH_CLEAR_W / 2), searchY + 2, 0xEAF2FF);
 
         List<StorageEntry> entries = controller.getStorageEntries();
         int maxSlots = Math.min(entries.size(), LINK_COLS * LINK_ROWS);
@@ -241,14 +241,14 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
                 continue;
             }
             StorageEntry entry = entries.get(i);
-            guiGraphics.renderItem(entry.stack(), slotX + 1, slotY + 1);
+            guiGraphics .item(entry.stack(), slotX + 1, slotY + 1);
             drawCountOverlay(guiGraphics, slotX, slotY, RtsClientUiUtil.compactCount(entry.count()));
         }
 
         int hovered = resolveLinkedSlotIndex(mouseX, mouseY);
         if (hovered >= 0 && hovered < maxSlots) {
             StorageEntry entry = entries.get(hovered);
-            guiGraphics.renderTooltip(this.font, entry.stack(), (int) mouseX, (int) mouseY);
+            guiGraphics .setTooltipForNextFrame(this.font, entry.stack(), (int) mouseX, (int) mouseY);
         }
     }
 
@@ -359,7 +359,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         if (carried.isEmpty()) {
             return false;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(carried.getItem());
         if (itemId == null) {
             return false;
         }
@@ -478,7 +478,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         return new Rect2i(slotX, slotY, LINK_SLOT_SIZE, LINK_SLOT_SIZE);
     }
 
-    private void renderCraftResultFallback(GuiGraphics guiGraphics) {
+    private void renderCraftResultFallback(GuiGraphicsExtractor guiGraphics) {
         if (this.menu == null || this.menu.slots.isEmpty()) {
             return;
         }
@@ -495,8 +495,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         if (result.isEmpty()) {
             return;
         }
-        guiGraphics.renderItem(result, slotX, slotY);
-        guiGraphics.renderItemDecorations(this.font, result, slotX, slotY);
+        guiGraphics .item(result, slotX, slotY);
+        guiGraphics .itemDecorations(this.font, result, slotX, slotY);
     }
 
     private ItemStack resolveLocalCraftPreview() {
@@ -535,17 +535,17 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         return result.isEmpty() ? ItemStack.EMPTY : result.copy();
     }
 
-    private void drawCountOverlay(GuiGraphics guiGraphics, int slotX, int slotY, String countText) {
+    private void drawCountOverlay(GuiGraphicsExtractor guiGraphics, int slotX, int slotY, String countText) {
         RtsClientUiUtil.drawSlotCountOverlay(guiGraphics, this.font, slotX, slotY, LINK_SLOT_SIZE, countText, 0xFFE8F4FF);
     }
 
-    private void drawMiniButton(GuiGraphics guiGraphics, int x, int y, String label) {
+    private void drawMiniButton(GuiGraphicsExtractor guiGraphics, int x, int y, String label) {
         drawSmallButton(guiGraphics, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label, 0xAA2B3642);
     }
 
-    private void drawSmallButton(GuiGraphics guiGraphics, int x, int y, int w, int h, String label, int fill) {
+    private void drawSmallButton(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, String label, int fill) {
         drawPanelFrame(guiGraphics, x, y, w, h, fill, 0xFF667D95, 0xFF111821);
-        guiGraphics.drawCenteredString(this.font, label, x + (w / 2), y + 2, 0xFFFFFF);
+        guiGraphics .centeredText(this.font, label, x + (w / 2), y + 2, 0xFFFFFF);
     }
 
     private static String sortShort(RtsStorageSort sort) {
@@ -560,7 +560,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
 
-    private static void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
+    private static void drawPanelFrame(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
         RtsClientUiUtil.drawPanelFrame(guiGraphics, x, y, w, h, fillColor, light, dark);
     }
 }

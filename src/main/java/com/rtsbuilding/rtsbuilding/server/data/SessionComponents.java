@@ -26,7 +26,7 @@ public final class SessionComponents {
             "mode",
             NbtCodec.of(
                     tag -> {
-                        String name = tag.getString("mode");
+                        String name = tag.getStringOr("mode", "");
                         try {
                             return name.isEmpty() ? BuilderMode.INTERACT : BuilderMode.valueOf(name);
                         } catch (IllegalArgumentException e) {
@@ -67,7 +67,7 @@ public final class SessionComponents {
                 NbtCodec.of(
                         tag -> tag,
                         (tag, v) -> {
-                            for (String k : v.getAllKeys()) {
+                            for (String k : v.keySet()) {
                                 tag.put(k, v.get(k));
                             }
                         }

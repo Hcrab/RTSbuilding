@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Server-to-client payload for ultimine overall progress.
@@ -17,7 +17,7 @@ public record S2CRtsUltimineProgressPayload(
         int processed,
         int total) implements CustomPacketPayload {
     public static final Type<S2CRtsUltimineProgressPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_ultimine_progress"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_ultimine_progress"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsUltimineProgressPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

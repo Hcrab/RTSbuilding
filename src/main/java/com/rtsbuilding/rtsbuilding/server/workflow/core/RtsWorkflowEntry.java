@@ -313,19 +313,19 @@ public final class RtsWorkflowEntry {
      * @return 恢复了所有字段的新条目
      */
     public static RtsWorkflowEntry fromNbt(CompoundTag tag) {
-        int id = tag.getInt(NBT_ID);
+        int id = tag.getIntOr(NBT_ID, 0);
         RtsWorkflowEntry entry = new RtsWorkflowEntry(id);
 
-        if (tag.contains(NBT_TYPE, Tag.TAG_STRING)) {
+        if (tag.contains(NBT_TYPE)) {
             try {
-                entry.type = RtsWorkflowType.valueOf(tag.getString(NBT_TYPE));
+                entry.type = RtsWorkflowType.valueOf(tag.getStringOr(NBT_TYPE, ""));
             } catch (IllegalArgumentException ignored) {
                 // Unknown type — leave as null (idle)
             }
         }
 
         // 优先级以 rank 形式存储；查找匹配的枚举值
-        int priorityRank = tag.getInt(NBT_PRIORITY);
+        int priorityRank = tag.getIntOr(NBT_PRIORITY, 0);
         for (RtsWorkflowPriority p : RtsWorkflowPriority.values()) {
             if (p.rank() == priorityRank) {
                 entry.priority = p;
@@ -333,37 +333,37 @@ public final class RtsWorkflowEntry {
             }
         }
 
-        entry.totalBlocks = Math.max(0, tag.getInt(NBT_TOTAL_BLOCKS));
-        entry.completedBlocks = Math.max(0, tag.getInt(NBT_COMPLETED_BLOCKS));
-        entry.failedBlocks = Math.max(0, tag.getInt(NBT_FAILED_BLOCKS));
+        entry.totalBlocks = Math.max(0, tag.getIntOr(NBT_TOTAL_BLOCKS, 0));
+        entry.completedBlocks = Math.max(0, tag.getIntOr(NBT_COMPLETED_BLOCKS, 0));
+        entry.failedBlocks = Math.max(0, tag.getIntOr(NBT_FAILED_BLOCKS, 0));
 
-        if (tag.contains(NBT_MISSING_ITEMS, Tag.TAG_LIST)) {
-            ListTag items = tag.getList(NBT_MISSING_ITEMS, Tag.TAG_STRING);
+        if (tag.contains(NBT_MISSING_ITEMS)) {
+            ListTag items = tag.getListOrEmpty(NBT_MISSING_ITEMS);
             for (int i = 0; i < items.size(); i++) {
-                String item = items.getString(i);
+                String item = items.getStringOr(i, "");
                 if (item != null && !item.isBlank()) {
                     entry.missingItems.add(item);
                 }
             }
         }
 
-        entry.detailMessage = tag.contains(NBT_DETAIL, Tag.TAG_STRING)
-                ? tag.getString(NBT_DETAIL) : "";
-        entry.suspended = tag.getBoolean(NBT_SUSPENDED);
-        entry.paused = tag.getBoolean(NBT_PAUSED);
-        entry.protectedWorkflow = tag.getBoolean(NBT_PROTECTED);
+        entry.detailMessage = tag.contains(NBT_DETAIL)
+                ? tag.getStringOr(NBT_DETAIL, "") : "";
+        entry.suspended = tag.getBooleanOr(NBT_SUSPENDED, false);
+        entry.paused = tag.getBooleanOr(NBT_PAUSED, false);
+        entry.protectedWorkflow = tag.getBooleanOr(NBT_PROTECTED, false);
 
         // 恢复工作流类型特定的额外数据
-        if (tag.contains(NBT_EXTRA_DATA, Tag.TAG_COMPOUND)) {
-            entry.extraData = tag.getCompound(NBT_EXTRA_DATA).copy();
+        if (tag.contains(NBT_EXTRA_DATA)) {
+            entry.extraData = tag.getCompoundOrEmpty(NBT_EXTRA_DATA).copy();
         }
 
         // 恢复时间戳——仅在存在时覆盖
-        if (tag.contains(NBT_CREATED_AT, Tag.TAG_ANY_NUMERIC)) {
-            entry.setCreatedAtRaw(tag.getLong(NBT_CREATED_AT));
+        if (tag.contains(NBT_CREATED_AT)) {
+            entry.setCreatedAtRaw(tag.getLongOr(NBT_CREATED_AT, 0L));
         }
-        if (tag.contains(NBT_LAST_UPDATED_AT, Tag.TAG_ANY_NUMERIC)) {
-            entry.lastUpdatedAt = tag.getLong(NBT_LAST_UPDATED_AT);
+        if (tag.contains(NBT_LAST_UPDATED_AT)) {
+            entry.lastUpdatedAt = tag.getLongOr(NBT_LAST_UPDATED_AT, 0L);
         }
 
         return entry;

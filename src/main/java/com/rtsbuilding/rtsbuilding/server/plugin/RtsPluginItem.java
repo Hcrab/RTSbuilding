@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -46,7 +46,7 @@ public class RtsPluginItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents,
             TooltipFlag tooltipFlag) {
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (itemId != null && RtsbuildingMod.MODID.equals(itemId.getNamespace())) {
             String pluginPath = itemId.getPath();
             tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin." + pluginPath)

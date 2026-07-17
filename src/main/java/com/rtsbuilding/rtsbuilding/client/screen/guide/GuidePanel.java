@@ -8,9 +8,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarIconRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
@@ -46,7 +46,7 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         GuideTypes.GuidePanelRect rect = contentRect();
         GuideTypes.GuideTopic[] topics = topics();
         this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - 1));
@@ -72,7 +72,7 @@ public final class GuidePanel extends RtsWindowPanel {
             if (this.context == GuideTypes.GuideContext.BOTTOM) {
                 String label = RtsClientUiUtil.trimToWidth(screen.font(),
                         Component.translatable(topics[i].titleKey()).getString(), tabW - 8);
-                g.drawString(screen.font(), label, tabX + 4, ty + 5,
+                g .text(screen.font(), label, tabX + 4, ty + 5,
                         active ? 0xFFF4FBFF : 0xFFB9C7D5, false);
             } else {
                 drawTopicIcon(g, topics[i].icon(), tabX + 10, ty + 9,
@@ -86,7 +86,7 @@ public final class GuidePanel extends RtsWindowPanel {
         int lineY = rect.y() + 10;
         int maxTextW = textMaxWidth(rect.w(), tabW);
         GuideTypes.GuideTopic topic = topics[this.page];
-        g.drawString(screen.font(),
+        g .text(screen.font(),
                 RtsClientUiUtil.trimToWidth(screen.font(),
                         Component.translatable(topic.titleKey()).getString(), maxTextW),
                 textX, lineY, 0xFFE7C46A, false);
@@ -100,7 +100,7 @@ public final class GuidePanel extends RtsWindowPanel {
         screen.enableRtsScissor(g, textX, bodyTop, textX + maxTextW, bodyTop + bodyAreaH);
         try {
             for (int i = this.textScroll; i < lineEnd; i++) {
-                g.drawString(screen.font(), bodyLines.get(i), textX,
+                g .text(screen.font(), bodyLines.get(i), textX,
                         bodyTop + (i - this.textScroll) * 12, 0xE6EDF8, false);
             }
         } finally {
@@ -209,7 +209,7 @@ public final class GuidePanel extends RtsWindowPanel {
         markBroughtToFront();
     }
 
-    public void renderTopHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    public void renderTopHint(GuiGraphicsExtractor g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         if (this.open && this.context == GuideTypes.GuideContext.TOP) {
             return;
         }
@@ -238,8 +238,8 @@ public final class GuidePanel extends RtsWindowPanel {
             return;
         }
         int y = 12;
-        g.drawString(screen.font(), ">", hintX, y, 0xFFE7C46A, false);
-        g.drawString(screen.font(), hint, hintX + 8, y, 0xFFE7C46A, false);
+        g .text(screen.font(), ">", hintX, y, 0xFFE7C46A, false);
+        g .text(screen.font(), hint, hintX + 8, y, 0xFFE7C46A, false);
     }
 
     private Component title() {
@@ -395,7 +395,7 @@ public final class GuidePanel extends RtsWindowPanel {
         return lines;
     }
 
-    private void drawVerticalScrollbar(GuiGraphics g, int x, int y, int h, int scroll, int total, int visible) {
+    private void drawVerticalScrollbar(GuiGraphicsExtractor g, int x, int y, int h, int scroll, int total, int visible) {
         if (total <= visible || h <= 0) {
             return;
         }
@@ -407,7 +407,7 @@ public final class GuidePanel extends RtsWindowPanel {
         g.fill(x, knobY, x + trackW, knobY + knobH, 0xCC8FB4D0);
     }
 
-    private void drawTopicIcon(GuiGraphics g, GuideTypes.GuideIcon icon, int cx, int cy, int color) {
+    private void drawTopicIcon(GuiGraphicsExtractor g, GuideTypes.GuideIcon icon, int cx, int cy, int color) {
         switch (icon) {
             case HAND -> drawGuideTextureIcon(g, TOPBAR_INTERACT_ACTIVE, cx, cy);
             case LINK -> drawGuideTextureIcon(g, TOPBAR_LINK_ACTIVE, cx, cy);
@@ -434,10 +434,10 @@ public final class GuidePanel extends RtsWindowPanel {
             }
             case CLOCK -> {
                 g.fill(cx - 6, cy - 6, cx + 6, cy + 6, 0x331B222C);
-                g.hLine(cx - 4, cx + 4, cy - 6, color);
-                g.hLine(cx - 4, cx + 4, cy + 6, color);
-                g.vLine(cx - 6, cy - 4, cy + 4, color);
-                g.vLine(cx + 6, cy - 4, cy + 4, color);
+                g.horizontalLine(cx - 4, cx + 4, cy - 6, color);
+                g.horizontalLine(cx - 4, cx + 4, cy + 6, color);
+                g.verticalLine(cx - 6, cy - 4, cy + 4, color);
+                g.verticalLine(cx + 6, cy - 4, cy + 4, color);
                 g.fill(cx, cy - 4, cx + 2, cy + 1, color);
                 g.fill(cx, cy, cx + 5, cy + 2, color);
             }
@@ -472,7 +472,7 @@ public final class GuidePanel extends RtsWindowPanel {
         }
     }
 
-    private void drawGuideTextureIcon(GuiGraphics g, ResourceLocation texture, int cx, int cy) {
+    private void drawGuideTextureIcon(GuiGraphicsExtractor g, Identifier texture, int cx, int cy) {
         g.pose().pushPose();
         g.pose().translate(cx - 9, cy - 9, 0.0F);
         g.pose().scale(0.75F, 0.75F, 1.0F);

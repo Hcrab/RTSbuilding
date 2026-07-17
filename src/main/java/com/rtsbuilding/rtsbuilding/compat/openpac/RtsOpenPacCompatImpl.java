@@ -109,7 +109,7 @@ final class RtsOpenPacCompatImpl {
             Object protectedResult = this.onEntityPlaceBlockMethod.invoke(
                     protection,
                     player,
-                    player.serverLevel(),
+                    player.level(),
                     pos);
             return !Boolean.TRUE.equals(protectedResult);
         } catch (ReflectiveOperationException | RuntimeException exception) {
@@ -157,7 +157,7 @@ final class RtsOpenPacCompatImpl {
                     player,
                     hand,
                     heldItem,
-                    player.serverLevel(),
+                    player.level(),
                     pos,
                     face,
                     breaking,
@@ -171,7 +171,7 @@ final class RtsOpenPacCompatImpl {
     }
 
     private Object api(ServerPlayer player) throws ReflectiveOperationException {
-        return this.apiGetMethod.invoke(null, player.getServer());
+        return this.apiGetMethod.invoke(null, player.level().getServer());
     }
 
     private void warnOnce(String message, Throwable throwable) {

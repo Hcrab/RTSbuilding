@@ -19,7 +19,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -47,7 +47,7 @@ public final class BlueprintTickPipe {
     public static TaskStepResult execute(BlueprintTaskPayload payload, TaskBudget budget) {
         BlueprintContext context = payload.context();
         ServerPlayer player = payload.player();
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         List<PlacementPlan> plans = context.getPlacementPlans();
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (plans == null || remaining == null) {
@@ -221,7 +221,7 @@ public final class BlueprintTickPipe {
         BlockPlacer.applyBlueprintBlockEntity(level, plan.target(), blockEntityTag(player, plan));
         BlockPlacer.trackPlaced(level, plan.target());
         for (Item item : plan.items()) {
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            Identifier id = BuiltInRegistries.ITEM.getKey(item);
             if (id != null) service.noteBlockPlaced(player, plan.target(), id.toString());
         }
         return PlaceResult.PLACED;

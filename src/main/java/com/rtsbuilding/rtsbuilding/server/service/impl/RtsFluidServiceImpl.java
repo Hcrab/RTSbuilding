@@ -93,7 +93,7 @@ public final class RtsFluidServiceImpl implements FluidService {
         if (!RtsCameraManager.isActive(player) || pos == null) {
             return false;
         }
-        Level level = player.serverLevel();
+        Level level = player.level();
         if (!level.hasChunkAt(pos)) {
             return false;
         }

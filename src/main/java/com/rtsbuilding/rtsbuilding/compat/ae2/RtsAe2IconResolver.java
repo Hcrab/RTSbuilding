@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.compat.ae2;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -74,7 +74,7 @@ public final class RtsAe2IconResolver {
     }
 
     private static String resolveItemNamespace(BlockState state) {
-        ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        Identifier blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         if (blockId == null) {
             return "";
         }
@@ -128,18 +128,18 @@ public final class RtsAe2IconResolver {
             }
 
             if (!preferredNamespace.isBlank()) {
-                ResourceLocation preferred = ResourceLocation.tryParse(preferredNamespace + ":" + path);
+                Identifier preferred = Identifier.tryParse(preferredNamespace + ":" + path);
                 if (preferred != null && BuiltInRegistries.ITEM.containsKey(preferred)) {
                     return preferred.toString();
                 }
             }
 
-            ResourceLocation ae2 = ResourceLocation.tryParse("ae2:" + path);
+            Identifier ae2 = Identifier.tryParse("ae2:" + path);
             if (ae2 != null && BuiltInRegistries.ITEM.containsKey(ae2)) {
                 return ae2.toString();
             }
 
-            for (ResourceLocation key : BuiltInRegistries.ITEM.keySet()) {
+            for (Identifier key : BuiltInRegistries.ITEM.keySet()) {
                 if (path.equals(key.getPath())) {
                     return key.toString();
                 }

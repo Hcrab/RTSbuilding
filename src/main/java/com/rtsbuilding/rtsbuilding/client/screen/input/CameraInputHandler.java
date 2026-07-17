@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -452,7 +452,7 @@ public final class CameraInputHandler {
         if (item == Items.AIR) {
             return false;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
         if (itemId == null) {
             return false;
         }
@@ -470,7 +470,7 @@ public final class CameraInputHandler {
                         return !candidate.isEmpty() && candidate.getItem() == preview.getItem();
                     });
             if (selection.route() == RtsPickBlockPlacementSelector.Route.HOTBAR) {
-                inventory.selected = selection.slot();
+                inventory.setSelectedSlot(selection.slot());
                 this.controller.clearPlacementSelectionPreserveMode();
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;

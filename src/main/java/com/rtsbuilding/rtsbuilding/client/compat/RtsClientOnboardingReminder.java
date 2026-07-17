@@ -42,7 +42,7 @@ public final class RtsClientOnboardingReminder {
         RtsClientUiStateStore.dismissIntroReminder(currentReminderKey(Minecraft.getInstance()));
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
+            minecraft.player.sendSystemMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -72,14 +72,14 @@ public final class RtsClientOnboardingReminder {
             return;
         }
 
-        minecraft.player.displayClientMessage(Component.translatable(
+        minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.rts_key",
                 Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
-        minecraft.player.displayClientMessage(Component.translatable(
+        minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
                 websiteComponent())
                 .withStyle(ChatFormatting.GOLD), false);
-        minecraft.player.displayClientMessage(Component.translatable(
+        minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.feedback",
                 discordComponent(),
                 githubComponent(),
@@ -88,7 +88,7 @@ public final class RtsClientOnboardingReminder {
                         .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, RtsCommunityLinks.QQ_GROUP))
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("chat.rtsbuilding.intro.copy_qq")))))
                 .withStyle(ChatFormatting.GRAY), false);
-        minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.config_hint")
+        minecraft.player.sendSystemMessage(Component.translatable("chat.rtsbuilding.intro.config_hint")
                 .withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(" "))
                 .append(Component.translatable("chat.rtsbuilding.intro.dismiss").withStyle(style -> style
@@ -136,7 +136,7 @@ public final class RtsClientOnboardingReminder {
             }
         }
         if (minecraft.level != null) {
-            return "level:" + minecraft.level.dimension().location().toString().toLowerCase(Locale.ROOT);
+            return "level:" + minecraft.level.dimension().identifier().toString().toLowerCase(Locale.ROOT);
         }
         return "unknown";
     }

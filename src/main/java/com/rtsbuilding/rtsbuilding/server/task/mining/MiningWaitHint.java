@@ -21,7 +21,7 @@ public record MiningWaitHint(String kind, String value) {
     public static MiningWaitHint chunk(ResourceKey<Level> dimension, BlockPos target) {
         Objects.requireNonNull(dimension, "dimension");
         Objects.requireNonNull(target, "target");
-        return new MiningWaitHint("chunk", dimension.location() + ":"
+        return new MiningWaitHint("chunk", dimension.identifier() + ":"
                 + (target.getX() >> 4) + ":" + (target.getZ() >> 4));
     }
 }

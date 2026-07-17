@@ -175,7 +175,7 @@ public class RtsbuildingMod {
         static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
             if (event.getEntity() instanceof ServerPlayer serverPlayer) {
                 // 清理旧世界/重连残留的相机实体
-                RtsCameraManager.cleanupOrphanCameras(serverPlayer.getServer());
+                RtsCameraManager.cleanupOrphanCameras(serverPlayer.level().getServer());
                 // 注册该玩家的伤害反馈会话
                 RtsDamageFeedbackManager.remember(serverPlayer);
                 // 加载玩家的进程数据（如已解锁的升级）
@@ -184,7 +184,7 @@ public class RtsbuildingMod {
                 RtsPluginService.syncRelatedPlayers(serverPlayer);
                 // 从世界存档恢复工作流，使之前的蓝图放置等任务继续执行
                 RtsWorkflowEngine.getInstance().loadPlayerFromStore(
-                        serverPlayer.getServer(), serverPlayer);
+                        serverPlayer.level().getServer(), serverPlayer);
             }
         }
 

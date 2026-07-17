@@ -30,9 +30,9 @@ public final class RtsDeveloperScenarioCommand {
                                 .then(Commands.argument("runId", StringArgumentType.word())
                                         .executes(context -> checkpoint(
                                                 context.getSource().getPlayerOrException(),
-                                                StringArgumentType.getString(context, "action"),
-                                                StringArgumentType.getString(context, "task"),
-                                                StringArgumentType.getString(context, "runId")))))));
+                                                StringArgumentType.getStringOr(context, "action", ""),
+                                                StringArgumentType.getStringOr(context, "task", ""),
+                                                StringArgumentType.getStringOr(context, "runId", "")))))));
     }
 
     private static int checkpoint(ServerPlayer player, String action, String task, String runId) {
@@ -76,7 +76,7 @@ public final class RtsDeveloperScenarioCommand {
                 .append("\",\"action\":\"").append(escape(action))
                 .append("\",\"player\":\"").append(player.getUUID())
                 .append("\",\"dimension\":\"")
-                .append(escape(player.level().dimension().location().toString())).append('"');
+                .append(escape(player.level().dimension().identifier().toString())).append('"');
         if (metrics != null) {
             line.append(",\"taskTickAverageNanos\":").append(metrics.averageTickNanos())
                     .append(",\"taskTickMaxNanos\":").append(metrics.maxTickNanos())

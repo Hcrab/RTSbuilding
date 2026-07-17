@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -56,11 +56,11 @@ public final class RtsToolLeaseManager {
                 || toolItemId == null || toolItemId.isBlank()) {
             return RtsToolLease.empty();
         }
-        ResourceLocation id = ResourceLocation.tryParse(toolItemId);
+        Identifier id = Identifier.tryParse(toolItemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return RtsToolLease.empty();
         }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = BuiltInRegistries.ITEM.getValue(id);
         if (item instanceof BlockItem || toolPrototype.getItem() != item) {
             return RtsToolLease.empty();
         }

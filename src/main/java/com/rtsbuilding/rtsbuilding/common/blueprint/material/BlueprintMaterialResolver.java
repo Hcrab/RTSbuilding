@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.material;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -20,12 +20,12 @@ public final class BlueprintMaterialResolver {
     private BlueprintMaterialResolver() {
     }
 
-    public static List<ResourceLocation> materialItemIds(BlockState state) {
+    public static List<Identifier> materialItemIds(BlockState state) {
         Item item = materialItem(state);
         if (item == Items.AIR) {
             return List.of();
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        Identifier id = BuiltInRegistries.ITEM.getKey(item);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return List.of();
         }

@@ -53,7 +53,7 @@ public final class RtsPlacementSound {
         if (player == null || pos == null) {
             return;
         }
-        BlockState state = player.serverLevel().getBlockState(pos);
+        BlockState state = player.level().getBlockState(pos);
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsPlaceAnimationPayload(pos.immutable(), state));
     }
 

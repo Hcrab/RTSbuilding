@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,7 @@ public record C2SRtsRequestStoragePagePayload(
     public static final int MAX_LOCALIZED_SEARCH_MATCHES = 256;
 
     public static final Type<C2SRtsRequestStoragePagePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_storage_page"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_storage_page"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

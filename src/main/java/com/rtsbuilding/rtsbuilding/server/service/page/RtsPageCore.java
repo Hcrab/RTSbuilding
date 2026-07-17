@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -112,11 +112,11 @@ public final class RtsPageCore {
                     for (var entry : localCounts.entrySet()) {
                         String itemId = entry.getKey();
                         long count = entry.getValue();
-                        ResourceLocation id = ResourceLocation.tryParse(itemId);
+                        Identifier id = Identifier.tryParse(itemId);
                         if (id == null) continue;
                         ItemStack prototype = aggregate.getPrototype(itemId);
                         if (prototype.isEmpty()) {
-                            var item = BuiltInRegistries.ITEM.get(id);
+                            var item = BuiltInRegistries.ITEM.getValue(id);
                             prototype = new ItemStack(item);
                         }
                         mergeExactEntry(exactEntries, prototype, count);
@@ -132,7 +132,7 @@ public final class RtsPageCore {
                     for (int i = 0; i < handler.getSlots(); i++) {
                         ItemStack stack = handler.getStackInSlot(i);
                         if (stack.isEmpty()) continue;
-                        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
                         if (id == null) continue;
                         long reportedCount = getHandlerReportedCount(handler, i, stack);
                         mergeCount(localCounts, id.toString(), reportedCount);
@@ -158,7 +158,7 @@ public final class RtsPageCore {
                 for (int tank = 0; tank < handler.getTanks(); tank++) {
                     FluidStack fluid = handler.getFluidInTank(tank);
                     if (fluid.isEmpty()) continue;
-                    ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+                    Identifier id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
                     if (id == null) continue;
                     String fluidId = id.toString();
                     mergeCount(fluidAmounts, fluidId, fluid.getAmount());
@@ -169,7 +169,7 @@ public final class RtsPageCore {
             long internalFluidCapacityMb = RtsStorageFluids.internalFluidCapacityMb(player);
             for (String fluidId : fluidAmounts.keySet()) {
                 mergeCount(fluidCapacities, fluidId, internalFluidCapacityMb);
-                ResourceLocation rl = ResourceLocation.tryParse(fluidId);
+                Identifier rl = Identifier.tryParse(fluidId);
                 if (rl != null) {
                     mergeCount(localNamespaceTotals, rl.getNamespace(), fluidAmounts.getOrDefault(fluidId, 0L));
                 }
@@ -210,7 +210,7 @@ public final class RtsPageCore {
             List<Entry> entries = new ArrayList<>();
             for (Entry exactEntry : exactEntries) {
                 String id = exactEntry.itemId();
-                ResourceLocation rl = ResourceLocation.tryParse(id);
+                Identifier rl = Identifier.tryParse(id);
                 if (!RtsPageSharedHelpers.matchesSearchQuery(
                         rl, id, exactEntry.label(), query,
                         session.browser.pinyinSearchEnabled, session.browser.localizedSearchMatches)) {
@@ -226,7 +226,7 @@ public final class RtsPageCore {
             List<FluidEntry> fluidEntries = new ArrayList<>();
             for (var e : fluidAmounts.entrySet()) {
                 String id = e.getKey();
-                ResourceLocation rl = ResourceLocation.tryParse(id);
+                Identifier rl = Identifier.tryParse(id);
                 if (!RtsPageSharedHelpers.matchesSearchQuery(
                         rl, id, null, query, session.browser.pinyinSearchEnabled, session.browser.localizedSearchMatches)) {
                     continue;
@@ -379,7 +379,7 @@ public final class RtsPageCore {
             if (stack.isEmpty()) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
             if (id == null) {
                 continue;
             }
@@ -407,7 +407,7 @@ public final class RtsPageCore {
         if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
             return;
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (id == null) {
             return;
         }

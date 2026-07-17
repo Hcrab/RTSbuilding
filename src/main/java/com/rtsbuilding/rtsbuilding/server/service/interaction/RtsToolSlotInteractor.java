@@ -37,7 +37,7 @@ public final class RtsToolSlotInteractor {
     public static InteractionResult interactWithToolSlot(ServerPlayer player, ServerLevel level, Entity targetEntity,
             BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
-        int previousSelected = player.getInventory().selected;
+        int previousSelected = player.getInventory().getSelectedSlot();
         Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
@@ -46,7 +46,7 @@ public final class RtsToolSlotInteractor {
                 rayContext,
                 Config.remotePovBlockReach(),
                 () -> {
-            player.getInventory().selected = slot;
+            player.getInventory().setSelectedSlot(slot);
             try {
                 if (targetEntity != null) {
                     return InteractionHelper.interactEntityWithMainHand(player, level, targetEntity, hit);
@@ -86,7 +86,7 @@ public final class RtsToolSlotInteractor {
                 }
                 return InteractionResult.PASS;
             } finally {
-                player.getInventory().selected = previousSelected;
+                player.getInventory().setSelectedSlot(previousSelected);
             }
                 });
     }
@@ -97,7 +97,7 @@ public final class RtsToolSlotInteractor {
     public static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
             int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
-        int previousSelected = player.getInventory().selected;
+        int previousSelected = player.getInventory().getSelectedSlot();
         Vec3 fallback = hit == null ? player.getEyePosition() : hit;
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
@@ -106,7 +106,7 @@ public final class RtsToolSlotInteractor {
                 rayContext,
                 Config.remotePovBlockReach(),
                 () -> {
-            player.getInventory().selected = slot;
+            player.getInventory().setSelectedSlot(slot);
             try {
                 return TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
                         player,
@@ -114,7 +114,7 @@ public final class RtsToolSlotInteractor {
                         player.getMainHandItem(),
                         InteractionHand.MAIN_HAND));
             } finally {
-                player.getInventory().selected = previousSelected;
+                player.getInventory().setSelectedSlot(previousSelected);
             }
                 });
     }

@@ -55,7 +55,7 @@ public final class RtsRefinedStorageCompat {
         if (player == null || pos == null || REFLECTION == null) {
             return false;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         return level != null && level.hasChunkAt(pos) && REFLECTION.hasNetworkNodeProvider(level, pos);
     }
 
@@ -63,7 +63,7 @@ public final class RtsRefinedStorageCompat {
         if (player == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         if (level == null || !level.hasChunkAt(pos)) {
             return null;
         }

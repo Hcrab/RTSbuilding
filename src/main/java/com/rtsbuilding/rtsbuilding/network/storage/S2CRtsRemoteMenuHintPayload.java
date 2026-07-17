@@ -5,11 +5,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record S2CRtsRemoteMenuHintPayload(BlockPos pos) implements CustomPacketPayload {
     public static final Type<S2CRtsRemoteMenuHintPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_remote_menu_hint"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_remote_menu_hint"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsRemoteMenuHintPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> buf.writeBlockPos(payload.pos()),

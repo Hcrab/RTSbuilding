@@ -69,7 +69,7 @@ public final class RtsDeveloperMetrics {
             if (session != null) {
                 var buffer = session.miningDropBuffer;
                 long age = buffer.firstQueuedGameTime < 0L ? 0L
-                        : Math.max(0L, player.serverLevel().getGameTime() - buffer.firstQueuedGameTime);
+                        : Math.max(0L, player.level().getGameTime() - buffer.firstQueuedGameTime);
                 bufferSample = new BufferSample(buffer.bufferedItems, buffer.stacks.size(), age);
             }
             recordTaskSample(entry.getKey(), stats, tasks, bufferSample);

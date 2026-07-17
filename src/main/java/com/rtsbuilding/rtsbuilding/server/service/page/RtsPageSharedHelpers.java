@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
@@ -55,7 +55,7 @@ public final class RtsPageSharedHelpers {
 
     // ---- search ------------------------------------------------------------------
 
-    static boolean matchesSearchQuery(ResourceLocation id, String rawId, String label, String query,
+    static boolean matchesSearchQuery(Identifier id, String rawId, String label, String query,
             boolean pinyinSearchEnabled, Set<String> localizedSearchMatches) {
         if (query == null || query.isEmpty()) {
             return true;
@@ -76,7 +76,7 @@ public final class RtsPageSharedHelpers {
             return true;
         }
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
-        return normalizedLabel.contains(query) || (pinyinSearchEnabled && RtsPinyinSearch.contains(label, query));
+        return normalizedLabel.contains(query) || (pinyinSearchEnabled && RtsPinyinSearch.contains(label));
     }
 
     public static Set<String> sanitizeLocalizedSearchMatches(List<String> localizedSearchMatches) {
@@ -88,7 +88,7 @@ public final class RtsPageSharedHelpers {
             if (itemId == null || itemId.isBlank()) {
                 continue;
             }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 continue;
             }
@@ -147,8 +147,8 @@ public final class RtsPageSharedHelpers {
     }
 
     static int compareTabKey(String a, String b) {
-        ResourceLocation aId = ResourceLocation.tryParse(a);
-        ResourceLocation bId = ResourceLocation.tryParse(b);
+        Identifier aId = Identifier.tryParse(a);
+        Identifier bId = Identifier.tryParse(b);
         String aName = aId == null ? a : aId.getPath();
         String bName = bId == null ? b : bId.getPath();
         int byName = aName.compareToIgnoreCase(bName);

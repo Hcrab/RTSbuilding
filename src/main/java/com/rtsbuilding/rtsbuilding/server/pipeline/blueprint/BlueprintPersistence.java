@@ -16,7 +16,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -122,8 +122,8 @@ public final class BlueprintPersistence {
         data.putInt(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
         data.putBoolean(KEY_PREPARING, bctx.isPreparing());
         ResourceKey<Level> sourceDimension = bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION);
-        if (sourceDimension == null) sourceDimension = player.serverLevel().dimension();
-        data.putString(KEY_SOURCE_DIMENSION, sourceDimension.location().toString());
+        if (sourceDimension == null) sourceDimension = player.level().dimension();
+        data.putString(KEY_SOURCE_DIMENSION, sourceDimension.identifier().toString());
 
         // 持久化到工作流条目
         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
@@ -153,29 +153,29 @@ public final class BlueprintPersistence {
         CompoundTag data = entry.getExtraData();
         if (data == null || data.isEmpty()) return;
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
 
         // ── 重建蓝图 ─────────────────────────────────────────────
-        CompoundTag structureTag = data.contains(KEY_BLUEPRINT_STRUCTURE, Tag.TAG_COMPOUND)
-                ? data.getCompound(KEY_BLUEPRINT_STRUCTURE) : null;
+        CompoundTag structureTag = data.contains(KEY_BLUEPRINT_STRUCTURE)
+                ? data.getCompoundOrEmpty(KEY_BLUEPRINT_STRUCTURE) : null;
         if (structureTag == null || structureTag.isEmpty()) return;
 
-        String bpName = data.getString(KEY_BP_NAME);
-        String bpSource = data.getString(KEY_BP_SOURCE);
+        String bpName = data.getStringOr(KEY_BP_NAME, "");
+        String bpSource = data.getStringOr(KEY_BP_SOURCE, "");
         RtsBlueprint blueprint = VanillaStructureNbtReader.parse(structureTag, bpName, bpSource, level.registryAccess());
         if (blueprint.blocks().isEmpty()) return;
 
         // ── 读取放置参数 ─────────────────────────────────────────
-        BlockPos anchor = new BlockPos(data.getInt(KEY_ANCHOR_X), data.getInt(KEY_ANCHOR_Y), data.getInt(KEY_ANCHOR_Z));
+        BlockPos anchor = new BlockPos(data.getIntOr(KEY_ANCHOR_X, 0), data.getIntOr(KEY_ANCHOR_Y, 0), data.getIntOr(KEY_ANCHOR_Z, 0));
         BlockPos centerOffset = new BlockPos(
-                data.getInt(KEY_CENTER_OFFSET_X), data.getInt(KEY_CENTER_OFFSET_Y), data.getInt(KEY_CENTER_OFFSET_Z));
-        int ySteps = data.getInt(KEY_Y_STEPS);
-        int xSteps = data.getInt(KEY_X_STEPS);
-        int zSteps = data.getInt(KEY_Z_STEPS);
-        ResourceKey<Level> sourceDimension = player.serverLevel().dimension();
-        String sourceDimensionId = data.getString(KEY_SOURCE_DIMENSION);
+                data.getIntOr(KEY_CENTER_OFFSET_X, 0), data.getIntOr(KEY_CENTER_OFFSET_Y, 0), data.getIntOr(KEY_CENTER_OFFSET_Z, 0));
+        int ySteps = data.getIntOr(KEY_Y_STEPS, 0);
+        int xSteps = data.getIntOr(KEY_X_STEPS, 0);
+        int zSteps = data.getIntOr(KEY_Z_STEPS, 0);
+        ResourceKey<Level> sourceDimension = player.level().dimension();
+        String sourceDimensionId = data.getStringOr(KEY_SOURCE_DIMENSION, "");
         if (!sourceDimensionId.isBlank()) {
-            ResourceLocation parsed = ResourceLocation.tryParse(sourceDimensionId);
+            Identifier parsed = Identifier.tryParse(sourceDimensionId);
             if (parsed != null) {
                 sourceDimension = ResourceKey.create(Registries.DIMENSION, parsed);
             } else {
@@ -186,14 +186,14 @@ public final class BlueprintPersistence {
         } else {
             RtsbuildingMod.LOGGER.info(
                     "[BlueprintPersistence] 蓝图工作流 #{} 缺少来源维度，按旧数据迁移到当前维度 {}",
-                    entry.id(), sourceDimension.location());
+                    entry.id(), sourceDimension.identifier());
         }
 
         // ── 重算放置计划 ─────────────────────────────────────────
         // ── 重建剩余队列 ─────────────────────────────────────────
         LinkedList<Integer> remaining = new LinkedList<>();
-        if (data.contains(KEY_REMAINING, Tag.TAG_INT_ARRAY)) {
-            int[] arr = data.getIntArray(KEY_REMAINING);
+        if (data.contains(KEY_REMAINING)) {
+            int[] arr = data.getIntArray(KEY_REMAINING).orElseGet(() -> new int[0]);
             for (int idx : arr) {
                 remaining.add(idx);
             }
@@ -203,16 +203,16 @@ public final class BlueprintPersistence {
         }
 
         // ── 读取进度计数 ─────────────────────────────────────────
-        int placedCount = data.getInt(KEY_PLACED_COUNT);
-        int skippedMissing = data.getInt(KEY_SKIPPED_MISSING);
-        int skippedUnsupported = data.getInt(KEY_SKIPPED_UNSUPPORTED);
-        int skippedMissingBlocks = data.getInt(KEY_SKIPPED_MISSING_BLOCKS);
-        int skippedBlocked = data.getInt(KEY_SKIPPED_BLOCKED);
+        int placedCount = data.getIntOr(KEY_PLACED_COUNT, 0);
+        int skippedMissing = data.getIntOr(KEY_SKIPPED_MISSING, 0);
+        int skippedUnsupported = data.getIntOr(KEY_SKIPPED_UNSUPPORTED, 0);
+        int skippedMissingBlocks = data.getIntOr(KEY_SKIPPED_MISSING_BLOCKS, 0);
+        int skippedBlocked = data.getIntOr(KEY_SKIPPED_BLOCKED, 0);
 
         // ── 构建管线上下文 ───────────────────────────────────────
         SubmissionId legacySubmission = SubmissionId.fromLegacy(
                 player.getUUID(), "blueprint",
-                sourceDimension.location() + ":" + entry.id());
+                sourceDimension.identifier() + ":" + entry.id());
         BlueprintContext ctx = BlueprintContext.builder(player)
                 .submissionId(legacySubmission.value())
                 .blueprint(blueprint)
@@ -225,7 +225,7 @@ public final class BlueprintPersistence {
 
         // 设置共享数据
         ctx.setData(BlueprintContext.KEY_CENTER_OFFSET, centerOffset);
-        boolean preparing = data.getBoolean(KEY_PREPARING);
+        boolean preparing = data.getBooleanOr(KEY_PREPARING, false);
         ctx.setPreparing(preparing);
         ctx.setData(BlueprintContext.KEY_SOURCE_DIMENSION, sourceDimension);
         ctx.setPlacedCount(placedCount);

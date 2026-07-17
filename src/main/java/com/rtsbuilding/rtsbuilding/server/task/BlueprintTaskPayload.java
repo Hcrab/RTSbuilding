@@ -38,7 +38,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
     private final NoProgressCycleTracker placementCycle = new NoProgressCycleTracker();
 
     public BlueprintTaskPayload(BlueprintContext context, @Nullable LinkedList<Integer> restoredRemaining) {
-        this(context, restoredRemaining, context.player().serverLevel().dimension());
+        this(context, restoredRemaining, context.player().level().dimension());
     }
 
     public BlueprintTaskPayload(BlueprintContext context, @Nullable LinkedList<Integer> restoredRemaining,
@@ -89,7 +89,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
 
     /** 正常进度最多每秒写一次快照；等待和终态由调用方强制写。 */
     public boolean shouldCheckpoint(boolean force) {
-        long tick = player().serverLevel().getGameTime();
+        long tick = player().level().getGameTime();
         if (!force && lastCheckpointTick != Long.MIN_VALUE && tick - lastCheckpointTick < 20L) {
             return false;
         }

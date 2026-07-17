@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -208,127 +208,127 @@ public final class BuilderScreenConstants {
 
     // ======================== Texture assets ========================
     /** PR #71 QuickBuild shape sheet: single block. */
-    public static final ResourceLocation QUICK_BUILD_SINGLE_BLOCK = quickBuildTexture("single_block");
+    public static final Identifier QUICK_BUILD_SINGLE_BLOCK = quickBuildTexture("single_block");
     /** PR #71 QuickBuild shape sheet: line. */
-    public static final ResourceLocation QUICK_BUILD_LINE_BLOCK = quickBuildTexture("line_block");
+    public static final Identifier QUICK_BUILD_LINE_BLOCK = quickBuildTexture("line_block");
     /** PR #71 QuickBuild shape sheet: square placeholder until final art lands. */
-    public static final ResourceLocation QUICK_BUILD_SQUARE_BLOCK = quickBuildTexture("square_block");
+    public static final Identifier QUICK_BUILD_SQUARE_BLOCK = quickBuildTexture("square_block");
     /** PR #71 QuickBuild shape sheet: wall placeholder until final art lands. */
-    public static final ResourceLocation QUICK_BUILD_WALL_BLOCK = quickBuildTexture("wall_block");
+    public static final Identifier QUICK_BUILD_WALL_BLOCK = quickBuildTexture("wall_block");
     /** PR #71 QuickBuild shape sheet: circle placeholder until final art lands. */
-    public static final ResourceLocation QUICK_BUILD_CIRCLE_BLOCK = quickBuildTexture("circle_block");
+    public static final Identifier QUICK_BUILD_CIRCLE_BLOCK = quickBuildTexture("circle_block");
     /** QuickBuild shape sheet: cylinder. */
-    public static final ResourceLocation QUICK_BUILD_CYLINDER_BLOCK = quickBuildTexture("cylinder_block");
+    public static final Identifier QUICK_BUILD_CYLINDER_BLOCK = quickBuildTexture("cylinder_block");
     /** QuickBuild shape sheet: ball. */
-    public static final ResourceLocation QUICK_BUILD_BALL_BLOCK = quickBuildTexture("ball_block");
+    public static final Identifier QUICK_BUILD_BALL_BLOCK = quickBuildTexture("ball_block");
     /** PR #71 QuickBuild shape sheet: box placeholder until final art lands. */
-    public static final ResourceLocation QUICK_BUILD_BOX_BLOCK = quickBuildTexture("box_block");
+    public static final Identifier QUICK_BUILD_BOX_BLOCK = quickBuildTexture("box_block");
 
-    public static final ResourceLocation QUICK_BUILD_CHAIN_BLOCK = quickBuildTexture("chain_block");
+    public static final Identifier QUICK_BUILD_CHAIN_BLOCK = quickBuildTexture("chain_block");
 
     // ======================== Top-bar mode textures ========================
     /** Interact mode (inactive) */
-    public static final ResourceLocation TOPBAR_INTERACT_INACTIVE = topbarTexture("mode_interact_inactive");
+    public static final Identifier TOPBAR_INTERACT_INACTIVE = topbarTexture("mode_interact_inactive");
     /** Interact mode (hover) */
-    public static final ResourceLocation TOPBAR_INTERACT_HOVER = topbarTexture("mode_interact_hover");
+    public static final Identifier TOPBAR_INTERACT_HOVER = topbarTexture("mode_interact_hover");
     /** Interact mode (active) */
-    public static final ResourceLocation TOPBAR_INTERACT_ACTIVE = topbarTexture("mode_interact_active");
+    public static final Identifier TOPBAR_INTERACT_ACTIVE = topbarTexture("mode_interact_active");
     /** Interact mode (pressed) */
-    public static final ResourceLocation TOPBAR_INTERACT_PRESSED = topbarTexture("mode_interact_pressed");
+    public static final Identifier TOPBAR_INTERACT_PRESSED = topbarTexture("mode_interact_pressed");
 
     /** Link mode (inactive) */
-    public static final ResourceLocation TOPBAR_LINK_INACTIVE = topbarTexture("mode_link_inactive");
+    public static final Identifier TOPBAR_LINK_INACTIVE = topbarTexture("mode_link_inactive");
     /** Link mode (hover) */
-    public static final ResourceLocation TOPBAR_LINK_HOVER = topbarTexture("mode_link_hover");
+    public static final Identifier TOPBAR_LINK_HOVER = topbarTexture("mode_link_hover");
     /** Link mode (active) */
-    public static final ResourceLocation TOPBAR_LINK_ACTIVE = topbarTexture("mode_link_active");
+    public static final Identifier TOPBAR_LINK_ACTIVE = topbarTexture("mode_link_active");
     /** Link mode (pressed) */
-    public static final ResourceLocation TOPBAR_LINK_PRESSED = topbarTexture("mode_link_pressed");
+    public static final Identifier TOPBAR_LINK_PRESSED = topbarTexture("mode_link_pressed");
 
     /** Funnel mode (inactive) */
-    public static final ResourceLocation TOPBAR_FUNNEL_INACTIVE = topbarTexture("mode_funnel_inactive");
+    public static final Identifier TOPBAR_FUNNEL_INACTIVE = topbarTexture("mode_funnel_inactive");
     /** Funnel mode (hover) */
-    public static final ResourceLocation TOPBAR_FUNNEL_HOVER = topbarTexture("mode_funnel_hover");
+    public static final Identifier TOPBAR_FUNNEL_HOVER = topbarTexture("mode_funnel_hover");
     /** Funnel mode (active) */
-    public static final ResourceLocation TOPBAR_FUNNEL_ACTIVE = topbarTexture("mode_funnel_active");
+    public static final Identifier TOPBAR_FUNNEL_ACTIVE = topbarTexture("mode_funnel_active");
     /** Funnel mode (pressed) */
-    public static final ResourceLocation TOPBAR_FUNNEL_PRESSED = topbarTexture("mode_funnel_pressed");
+    public static final Identifier TOPBAR_FUNNEL_PRESSED = topbarTexture("mode_funnel_pressed");
 
     /** Rotate mode (inactive) */
-    public static final ResourceLocation TOPBAR_ROTATE_INACTIVE = topbarTexture("mode_rotate_inactive");
+    public static final Identifier TOPBAR_ROTATE_INACTIVE = topbarTexture("mode_rotate_inactive");
     /** Rotate mode (hover) */
-    public static final ResourceLocation TOPBAR_ROTATE_HOVER = topbarTexture("mode_rotate_hover");
+    public static final Identifier TOPBAR_ROTATE_HOVER = topbarTexture("mode_rotate_hover");
     /** Rotate mode (active) */
-    public static final ResourceLocation TOPBAR_ROTATE_ACTIVE = topbarTexture("mode_rotate_active");
+    public static final Identifier TOPBAR_ROTATE_ACTIVE = topbarTexture("mode_rotate_active");
     /** Rotate mode (pressed) */
-    public static final ResourceLocation TOPBAR_ROTATE_PRESSED = topbarTexture("mode_rotate_pressed");
+    public static final Identifier TOPBAR_ROTATE_PRESSED = topbarTexture("mode_rotate_pressed");
 
     /** Quick build (inactive) */
-    public static final ResourceLocation TOPBAR_QUICK_BUILD_INACTIVE = topbarTexture("quick_build_inactive");
+    public static final Identifier TOPBAR_QUICK_BUILD_INACTIVE = topbarTexture("quick_build_inactive");
     /** Quick build (hover) */
-    public static final ResourceLocation TOPBAR_QUICK_BUILD_HOVER = topbarTexture("quick_build_hover");
+    public static final Identifier TOPBAR_QUICK_BUILD_HOVER = topbarTexture("quick_build_hover");
     /** Quick build (active) */
-    public static final ResourceLocation TOPBAR_QUICK_BUILD_ACTIVE = topbarTexture("quick_build_active");
+    public static final Identifier TOPBAR_QUICK_BUILD_ACTIVE = topbarTexture("quick_build_active");
     /** Quick build (pressed) */
-    public static final ResourceLocation TOPBAR_QUICK_BUILD_PRESSED = topbarTexture("quick_build_pressed");
+    public static final Identifier TOPBAR_QUICK_BUILD_PRESSED = topbarTexture("quick_build_pressed");
 
     /** Chain mine (inactive) */
-    public static final ResourceLocation TOPBAR_ULTIMINE_INACTIVE = topbarTexture("ultimine_inactive");
+    public static final Identifier TOPBAR_ULTIMINE_INACTIVE = topbarTexture("ultimine_inactive");
     /** Chain mine (hover) */
-    public static final ResourceLocation TOPBAR_ULTIMINE_HOVER = topbarTexture("ultimine_hover");
+    public static final Identifier TOPBAR_ULTIMINE_HOVER = topbarTexture("ultimine_hover");
     /** Chain mine (active) */
-    public static final ResourceLocation TOPBAR_ULTIMINE_ACTIVE = topbarTexture("ultimine_active");
+    public static final Identifier TOPBAR_ULTIMINE_ACTIVE = topbarTexture("ultimine_active");
     /** Chain mine (pressed) */
-    public static final ResourceLocation TOPBAR_ULTIMINE_PRESSED = topbarTexture("ultimine_pressed");
+    public static final Identifier TOPBAR_ULTIMINE_PRESSED = topbarTexture("ultimine_pressed");
 
     /** Chunk view (inactive) */
-    public static final ResourceLocation TOPBAR_CHUNK_VIEW_INACTIVE = topbarTexture("chunk_view_inactive");
+    public static final Identifier TOPBAR_CHUNK_VIEW_INACTIVE = topbarTexture("chunk_view_inactive");
     /** Chunk view (hover) */
-    public static final ResourceLocation TOPBAR_CHUNK_VIEW_HOVER = topbarTexture("chunk_view_hover");
+    public static final Identifier TOPBAR_CHUNK_VIEW_HOVER = topbarTexture("chunk_view_hover");
     /** Chunk view (active) */
-    public static final ResourceLocation TOPBAR_CHUNK_VIEW_ACTIVE = topbarTexture("chunk_view_active");
+    public static final Identifier TOPBAR_CHUNK_VIEW_ACTIVE = topbarTexture("chunk_view_active");
     /** Chunk view (pressed) */
-    public static final ResourceLocation TOPBAR_CHUNK_VIEW_PRESSED = topbarTexture("chunk_view_pressed");
+    public static final Identifier TOPBAR_CHUNK_VIEW_PRESSED = topbarTexture("chunk_view_pressed");
 
     /** 范围剔除（未激活） */
-    public static final ResourceLocation TOPBAR_RANGE_CULLING_INACTIVE = topbarTexture("filter_block_inactive");
+    public static final Identifier TOPBAR_RANGE_CULLING_INACTIVE = topbarTexture("filter_block_inactive");
     /** 范围剔除（悬停） */
-    public static final ResourceLocation TOPBAR_RANGE_CULLING_HOVER = topbarTexture("filter_block_hover");
+    public static final Identifier TOPBAR_RANGE_CULLING_HOVER = topbarTexture("filter_block_hover");
     /** 范围剔除（已激活） */
-    public static final ResourceLocation TOPBAR_RANGE_CULLING_ACTIVE = topbarTexture("filter_block_active");
+    public static final Identifier TOPBAR_RANGE_CULLING_ACTIVE = topbarTexture("filter_block_active");
     /** 范围剔除（按下） */
-    public static final ResourceLocation TOPBAR_RANGE_CULLING_PRESSED = topbarTexture("filter_block_pressed");
+    public static final Identifier TOPBAR_RANGE_CULLING_PRESSED = topbarTexture("filter_block_pressed");
 
     /** Settings gear (inactive) */
-    public static final ResourceLocation TOPBAR_GEAR_INACTIVE = topbarTexture("settings_gear_inactive");
+    public static final Identifier TOPBAR_GEAR_INACTIVE = topbarTexture("settings_gear_inactive");
     /** Settings gear (hover) */
-    public static final ResourceLocation TOPBAR_GEAR_HOVER = topbarTexture("settings_gear_hover");
+    public static final Identifier TOPBAR_GEAR_HOVER = topbarTexture("settings_gear_hover");
     /** Settings gear (active) */
-    public static final ResourceLocation TOPBAR_GEAR_ACTIVE = topbarTexture("settings_gear_active");
+    public static final Identifier TOPBAR_GEAR_ACTIVE = topbarTexture("settings_gear_active");
     /** Settings gear (pressed) */
-    public static final ResourceLocation TOPBAR_GEAR_PRESSED = topbarTexture("settings_gear_pressed");
+    public static final Identifier TOPBAR_GEAR_PRESSED = topbarTexture("settings_gear_pressed");
 
     /** Quest detect (inactive) */
-    public static final ResourceLocation TOPBAR_QUEST_DETECT_INACTIVE = topbarTexture("quest_detect_inactive");
+    public static final Identifier TOPBAR_QUEST_DETECT_INACTIVE = topbarTexture("quest_detect_inactive");
     /** Quest detect (hover) */
-    public static final ResourceLocation TOPBAR_QUEST_DETECT_HOVER = topbarTexture("quest_detect_hover");
+    public static final Identifier TOPBAR_QUEST_DETECT_HOVER = topbarTexture("quest_detect_hover");
     /** Quest detect (active) */
-    public static final ResourceLocation TOPBAR_QUEST_DETECT_ACTIVE = topbarTexture("quest_detect_active");
+    public static final Identifier TOPBAR_QUEST_DETECT_ACTIVE = topbarTexture("quest_detect_active");
     /** Quest detect (pressed) */
-    public static final ResourceLocation TOPBAR_QUEST_DETECT_PRESSED = topbarTexture("quest_detect_pressed");
+    public static final Identifier TOPBAR_QUEST_DETECT_PRESSED = topbarTexture("quest_detect_pressed");
 
     // ======================== Utility methods ========================
 
     /** Builds QuickBuild texture paths */
-    private static ResourceLocation quickBuildTexture(String key) {
-        ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/quickbuild/" + key + ".png");
-        return id == null ? ResourceLocation.withDefaultNamespace("missingno") : id;
+    private static Identifier quickBuildTexture(String key) {
+        Identifier id = Identifier.tryParse("rtsbuilding:textures/gui/quickbuild/" + key + ".png");
+        return id == null ? Identifier.withDefaultNamespace("missingno") : id;
     }
 
     /** Builds top-bar texture paths */
-    private static ResourceLocation topbarTexture(String key) {
-        ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/topbar/" + key + ".png");
-        return id == null ? ResourceLocation.withDefaultNamespace("missingno") : id;
+    private static Identifier topbarTexture(String key) {
+        Identifier id = Identifier.tryParse("rtsbuilding:textures/gui/topbar/" + key + ".png");
+        return id == null ? Identifier.withDefaultNamespace("missingno") : id;
     }
 
     private BuilderScreenConstants() {

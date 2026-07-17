@@ -22,7 +22,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
@@ -2375,11 +2375,11 @@ public final class ScreenShapeController {
             if (itemId == null || itemId.isBlank()) {
                 return false;
             }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 return false;
             }
-            return BuiltInRegistries.ITEM.get(key) instanceof BlockItem;
+            return BuiltInRegistries.ITEM.getValue(key) instanceof BlockItem;
         }
         return this.screen.canUseToolSlotShapeSource();
     }

@@ -20,10 +20,10 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.CreativeModeTab;
 import net.neoforged.fml.ModList;
@@ -73,7 +73,7 @@ public final class BottomPanel {
 
     // ── Rendering ──
 
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         BottomPanelLayoutTypes.BottomPanelTab activeTab = activeBottomPanelTab();
         int bottomH = layout.panelH();
@@ -103,12 +103,12 @@ public final class BottomPanel {
             g.fill(refreshX, refreshY, refreshX + 1, refreshY + 12, 0xFF92F7A0);
             g.fill(refreshX + 11, refreshY, refreshX + 12, refreshY + 12, 0xFF92F7A0);
         }
-        g.drawCenteredString(screen.font(), "R", refreshX + 6, refreshY + 2, refreshDirty ? 0xFFFFFFFF : 0xEAF4FF);
+        g .centeredText(screen.font(), "R", refreshX + 6, refreshY + 2, refreshDirty ? 0xFFFFFFFF : 0xEAF4FF);
         int guideX = bottomGuideButtonX(layout);
         int guideY = bottomGuideButtonY(layout);
         boolean guideHover = inside(mouseX, mouseY, guideX, guideY, 12, 12);
         g.fill(guideX, guideY, guideX + 12, guideY + 12, guideHover ? 0xCC41576F : 0xAA2B3542);
-        g.drawCenteredString(screen.font(), "i", guideX + 6, guideY + 2, 0xEAF4FF);
+        g .centeredText(screen.font(), "i", guideX + 6, guideY + 2, 0xEAF4FF);
         drawPluginManagementButton(g, layout, mouseX, mouseY);
 
         if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
@@ -122,7 +122,7 @@ public final class BottomPanel {
 
         drawSortButton(g, sortX, sortY, "S");
         drawSortButton(g, sortX, sortY + SORT_BUTTON_SIZE + 4, this.controller.isStorageSortAscending() ? "A" : "D");
-        g.drawString(screen.font(), sortLabel(this.controller.getStorageSort()), sortX + SORT_BUTTON_SIZE + 4, sortY + 6, 0xFFFFFF);
+        g .text(screen.font(), sortLabel(this.controller.getStorageSort()), sortX + SORT_BUTTON_SIZE + 4, sortY + 6, 0xFFFFFF);
         drawSortButton(g, sortX + SORT_BUTTON_SIZE + 26, sortY, "+");
         drawSortButton(g, sortX + SORT_BUTTON_SIZE + 26, sortY + SORT_BUTTON_SIZE + 4, "-");
         drawCraftDock(g, mouseX, mouseY, sortX, sortY + (SORT_BUTTON_SIZE + 4) * 2);
@@ -186,16 +186,16 @@ public final class BottomPanel {
         renderCraftablesPanel(g, mouseX, mouseY, craftPanelX, craftPanelY, CRAFT_PANEL_W, craftPanelH, partialTick);
     }
 
-    public void renderCraftFeedback(GuiGraphics g) {
+    public void renderCraftFeedback(GuiGraphicsExtractor g) {
         RtsCraftFeedbackPopup.render(g, screen.font(), screen.width, this.controller);
     }
 
     // ── Tab rendering ──
 
-    private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
+    private void renderBottomPanelTabs(GuiGraphicsExtractor g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
         int labelX = layout.panelX() + 8;
         int labelY = layout.panelY() + 5;
-        g.drawString(screen.font(), "RTS", labelX, labelY, 0xF2F6FB);
+        g .text(screen.font(), "RTS", labelX, labelY, 0xF2F6FB);
         for (BottomPanelLayoutTypes.BottomPanelTab tab : visibleBottomPanelTabs()) {
             drawBottomPanelTab(g, layout, tab, bottomPanelTabLabel(tab), mouseX, mouseY);
         }
@@ -203,7 +203,7 @@ public final class BottomPanel {
     }
 
     private void drawBottomPanelTab(
-            GuiGraphics g,
+            GuiGraphicsExtractor g,
             BottomPanelLayoutTypes.BottomPanelLayout layout,
             BottomPanelLayoutTypes.BottomPanelTab tab,
             String label,
@@ -217,7 +217,7 @@ public final class BottomPanel {
         int fill = active ? 0xCC355B4C : hover ? 0xAA334052 : 0x8826303B;
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, BOTTOM_PANEL_HEADER_H - 3, fill,
                 active ? 0xFF7CCB93 : 0xFF536679, 0xFF0D1015);
-        g.drawCenteredString(screen.font(), screen.trimToWidth(label, w - 8), x + w / 2, y + 4,
+        g .centeredText(screen.font(), screen.trimToWidth(label, w - 8), x + w / 2, y + 4,
                 active ? 0xFFFFFFFF : 0xFFD8E2EE);
     }
 
@@ -232,14 +232,14 @@ public final class BottomPanel {
         return x;
     }
 
-    private void drawSelectedPlacementStatus(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout) {
+    private void drawSelectedPlacementStatus(GuiGraphicsExtractor g, BottomPanelLayoutTypes.BottomPanelLayout layout) {
         int x = selectedPlacementStatusX(layout);
         int w = selectedPlacementStatusW(layout);
         if (x < 0 || w <= 0) {
             return;
         }
         int y = layout.panelY() + 6;
-        g.drawString(screen.font(), screen.trimToWidth(selectedPlacementStatusText(), w), x, y, 0xFFD8E2EE);
+        g .text(screen.font(), screen.trimToWidth(selectedPlacementStatusText(), w), x, y, 0xFFD8E2EE);
     }
 
     private int selectedPlacementStatusX(BottomPanelLayoutTypes.BottomPanelLayout layout) {
@@ -335,7 +335,7 @@ public final class BottomPanel {
 
     // ── Toolbar ── hotbar / pinned slots ──
 
-    private void renderToolArea(GuiGraphics g, int mouseX, int mouseY, int storageX, int rowY, int storageW) {
+    private void renderToolArea(GuiGraphicsExtractor g, int mouseX, int mouseY, int storageX, int rowY, int storageW) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
             return;
         }
@@ -356,18 +356,18 @@ public final class BottomPanel {
                     ? (this.controller.isEmptyHandSelected() ? 0xCC9B604B : 0xB06F5146)
                     : (i == selected ? 0xCC3A6E57 : 0xAA1B1E25);
             g.fill(cx, cy, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, bg);
-            g.hLine(cx, cx + HOTBAR_SLOT, cy, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
-            g.hLine(cx, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, 0xFF0C0D10);
-            g.vLine(cx, cy, cy + HOTBAR_SLOT, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
-            g.vLine(cx + HOTBAR_SLOT, cy, cy + HOTBAR_SLOT, 0xFF0C0D10);
+            g.horizontalLine(cx, cx + HOTBAR_SLOT, cy, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
+            g.horizontalLine(cx, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, 0xFF0C0D10);
+            g.verticalLine(cx, cy, cy + HOTBAR_SLOT, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
+            g.verticalLine(cx + HOTBAR_SLOT, cy, cy + HOTBAR_SLOT, 0xFF0C0D10);
 
             if (emptyHandButton) {
                 drawEmptyHandButton(g, cx, cy);
             } else {
                 var stack = Minecraft.getInstance().player.getInventory().getItem(i);
                 if (!stack.isEmpty()) {
-                    g.renderItem(stack, cx + 1, cy + 1);
-                    g.renderItemDecorations(screen.font(), stack, cx + 1, cy + 1);
+                    g .item(stack, cx + 1, cy + 1);
+                    g .itemDecorations(screen.font(), stack, cx + 1, cy + 1);
                 }
             }
             if (mouseX >= cx && mouseX <= cx + HOTBAR_SLOT && mouseY >= cy && mouseY <= cy + HOTBAR_SLOT) {
@@ -403,18 +403,18 @@ public final class BottomPanel {
                     && !this.controller.getQuickSlotItemId(pinIndex).isBlank();
             int bg = filled ? 0xAA253043 : 0xAA1A1A1A;
             g.fill(cx, cy, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, bg);
-            g.hLine(cx, cx + HOTBAR_SLOT, cy, 0xFF67758A);
-            g.hLine(cx, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, 0xFF0C0D10);
-            g.vLine(cx, cy, cy + HOTBAR_SLOT, 0xFF67758A);
-            g.vLine(cx + HOTBAR_SLOT, cy, cy + HOTBAR_SLOT, 0xFF0C0D10);
+            g.horizontalLine(cx, cx + HOTBAR_SLOT, cy, 0xFF67758A);
+            g.horizontalLine(cx, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, 0xFF0C0D10);
+            g.verticalLine(cx, cy, cy + HOTBAR_SLOT, 0xFF67758A);
+            g.verticalLine(cx + HOTBAR_SLOT, cy, cy + HOTBAR_SLOT, 0xFF0C0D10);
 
             if (pageButton) {
                 g.fill(cx + 1, cy + 1, cx + HOTBAR_SLOT - 1, cy + HOTBAR_SLOT - 1, 0xAA2C3A26);
-                g.drawCenteredString(screen.font(), "+", cx + HOTBAR_SLOT / 2, cy + 5, 0xE9F7DA);
+                g .centeredText(screen.font(), "+", cx + HOTBAR_SLOT / 2, cy + 5, 0xE9F7DA);
             } else if (pinIndex < totalPins) {
                 var preview = this.controller.getQuickSlotPreview(pinIndex);
                 if (!preview.isEmpty()) {
-                    g.renderItem(preview, cx + 1, cy + 1);
+                    g .item(preview, cx + 1, cy + 1);
                     if (this.controller.getQuickSlotItemId(pinIndex).equals(this.controller.getSelectedItemId())) {
                         g.fill(cx + 1, cy + 1, cx + HOTBAR_SLOT - 1, cy + HOTBAR_SLOT - 1, 0x3340FF80);
                     }
@@ -422,7 +422,7 @@ public final class BottomPanel {
                     drawSlotCountOverlay(g, cx, cy, HOTBAR_SLOT, RtsClientUiUtil.compactCount(count),
                             count > 0 ? 0xFFF7E6A8 : 0xFFB4B9C3);
                 } else {
-                    g.drawCenteredString(screen.font(), Integer.toString(pinIndex + 1), cx + HOTBAR_SLOT / 2, cy + 5, 0x88D0D8E4);
+                    g .centeredText(screen.font(), Integer.toString(pinIndex + 1), cx + HOTBAR_SLOT / 2, cy + 5, 0x88D0D8E4);
                 }
             }
             if (mouseX >= cx && mouseX <= cx + HOTBAR_SLOT && mouseY >= cy && mouseY <= cy + HOTBAR_SLOT) {
@@ -436,7 +436,7 @@ public final class BottomPanel {
         }
     }
 
-    private void drawEmptyHandButton(GuiGraphics g, int x, int y) {
+    private void drawEmptyHandButton(GuiGraphicsExtractor g, int x, int y) {
         int size = 10;
         int left = x + (HOTBAR_SLOT - size) / 2;
         int top = y + (HOTBAR_SLOT - size) / 2;
@@ -445,12 +445,12 @@ public final class BottomPanel {
 
     // ── Sort / paging / search ──
 
-    private void drawSortButton(GuiGraphics g, int x, int y, String label) {
+    private void drawSortButton(GuiGraphicsExtractor g, int x, int y, String label) {
         g.fill(x, y, x + SORT_BUTTON_SIZE, y + SORT_BUTTON_SIZE, 0xAA29323D);
-        g.drawCenteredString(screen.font(), label, x + SORT_BUTTON_SIZE / 2, y + 4, 0xFFFFFF);
+        g .centeredText(screen.font(), label, x + SORT_BUTTON_SIZE / 2, y + 4, 0xFFFFFF);
     }
 
-    private void drawPager(GuiGraphics g, int x, int y, BottomPanelLayoutTypes.BottomPanelLayout layout) {
+    private void drawPager(GuiGraphicsExtractor g, int x, int y, BottomPanelLayoutTypes.BottomPanelLayout layout) {
         int page = this.controller.getStoragePage();
         int totalPages = this.controller.getStorageTotalPages();
         if (activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
@@ -459,10 +459,10 @@ public final class BottomPanel {
             page = this.creativePage;
         }
         g.fill(x, y, x + 16, y + 14, 0xAA2A2A2A);
-        g.drawString(screen.font(), "<", x + 5, y + 3, 0xFFFFFF);
+        g .text(screen.font(), "<", x + 5, y + 3, 0xFFFFFF);
         g.fill(x + 58, y, x + 74, y + 14, 0xAA2A2A2A);
-        g.drawString(screen.font(), ">", x + 63, y + 3, 0xFFFFFF);
-        g.drawString(screen.font(), (page + 1) + "/" + totalPages, x + 19, y + 3, 0xFFFFFF);
+        g .text(screen.font(), ">", x + 63, y + 3, 0xFFFFFF);
+        g .text(screen.font(), (page + 1) + "/" + totalPages, x + 19, y + 3, 0xFFFFFF);
     }
 
     private int computeSearchFieldWidth(int searchAreaWidth) {
@@ -473,26 +473,26 @@ public final class BottomPanel {
         return searchX + computeSearchFieldWidth(searchAreaWidth) + 2;
     }
 
-    private void drawSearchClearButton(GuiGraphics g, int searchX, int searchY, int searchAreaWidth) {
+    private void drawSearchClearButton(GuiGraphicsExtractor g, int searchX, int searchY, int searchAreaWidth) {
         int x = getSearchClearButtonX(searchX, searchAreaWidth);
         int y = searchY + 1;
         boolean focused = screen.isSearchFocused();
         int bg = focused ? 0xAA3B4755 : 0xAA2A313B;
         g.fill(x, y, x + SEARCH_CLEAR_SIZE, y + SEARCH_CLEAR_SIZE, bg);
-        g.hLine(x, x + SEARCH_CLEAR_SIZE, y, 0xFF637283);
-        g.hLine(x, x + SEARCH_CLEAR_SIZE, y + SEARCH_CLEAR_SIZE, 0xFF101318);
-        g.vLine(x, y, y + SEARCH_CLEAR_SIZE, 0xFF637283);
-        g.vLine(x + SEARCH_CLEAR_SIZE, y, y + SEARCH_CLEAR_SIZE, 0xFF101318);
+        g.horizontalLine(x, x + SEARCH_CLEAR_SIZE, y, 0xFF637283);
+        g.horizontalLine(x, x + SEARCH_CLEAR_SIZE, y + SEARCH_CLEAR_SIZE, 0xFF101318);
+        g.verticalLine(x, y, y + SEARCH_CLEAR_SIZE, 0xFF637283);
+        g.verticalLine(x + SEARCH_CLEAR_SIZE, y, y + SEARCH_CLEAR_SIZE, 0xFF101318);
         var sb = screen.getSearchBox();
         int textColor = sb != null && !sb.getValue().isEmpty() ? 0xFFFFFF : 0x99A6B5;
-        g.drawCenteredString(screen.font(), "x", x + SEARCH_CLEAR_SIZE / 2, y + 3, textColor);
+        g .centeredText(screen.font(), "x", x + SEARCH_CLEAR_SIZE / 2, y + 3, textColor);
     }
 
     // ── Category panel ──
 
-    private void drawCategoryPanel(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawCategoryPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height) {
         g.fill(x, y, x + width, y + height, 0x8820222A);
-        g.drawCenteredString(screen.font(), Component.translatable("screen.rtsbuilding.storage.category"), x + width / 2, y + 2, 0xFFFFFF);
+        g .centeredText(screen.font(), Component.translatable("screen.rtsbuilding.storage.category"), x + width / 2, y + 2, 0xFFFFFF);
 
         int upX0 = x + width - 24;
         int upX1 = x + width - 13;
@@ -502,8 +502,8 @@ public final class BottomPanel {
         int arrowY1 = y + 11;
         g.fill(upX0, arrowY0, upX1, arrowY1, 0xAA2A2A2A);
         g.fill(downX0, arrowY0, downX1, arrowY1, 0xAA2A2A2A);
-        g.drawCenteredString(screen.font(), "^", upX0 + 5, y + 2, 0xFFFFFF);
-        g.drawCenteredString(screen.font(), "v", downX0 + 5, y + 2, 0xFFFFFF);
+        g .centeredText(screen.font(), "^", upX0 + 5, y + 2, 0xFFFFFF);
+        g .centeredText(screen.font(), "v", downX0 + 5, y + 2, 0xFFFFFF);
 
         int listY = y + 13;
         int listH = height - 15;
@@ -530,7 +530,7 @@ public final class BottomPanel {
                 int toggleX = x + width - 12;
                 int toggleY = rowY + 1;
                 g.fill(toggleX, toggleY, toggleX + 9, toggleY + CATEGORY_ROW_H - 3, 0xAA2A313B);
-                g.drawCenteredString(screen.font(), category.expanded() ? "-" : "+", toggleX + 4, rowY + 3, 0xFFFFFF);
+                g .centeredText(screen.font(), category.expanded() ? "-" : "+", toggleX + 4, rowY + 3, 0xFFFFFF);
                 labelRight = toggleX - 3;
             }
 
@@ -546,20 +546,20 @@ public final class BottomPanel {
         }
     }
 
-    private void drawScaledText(GuiGraphics g, String text, int x, int y, int color, float scale) {
+    private void drawScaledText(GuiGraphicsExtractor g, String text, int x, int y, int color, float scale) {
         if (text == null || text.isEmpty()) {
             return;
         }
         g.pose().pushPose();
         g.pose().translate(x, y, 0.0F);
         g.pose().scale(scale, scale, 1.0F);
-        g.drawString(screen.font(), text, 0, 0, color, false);
+        g .text(screen.font(), text, 0, 0, color, false);
         g.pose().popPose();
     }
 
     // ── Storage grid ──
 
-    private void drawStorageGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawStorageGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
@@ -571,10 +571,10 @@ public final class BottomPanel {
             int cy = y + (i / cols) * SLOT;
             int box = SLOT - 2;
             g.fill(cx, cy, cx + box, cy + box, 0xAA111111);
-            g.hLine(cx, cx + box, cy, 0xFF4A4A4A);
-            g.hLine(cx, cx + box, cy + box, 0xFF1B1B1B);
-            g.vLine(cx, cy, cy + box, 0xFF4A4A4A);
-            g.vLine(cx + box, cy, cy + box, 0xFF1B1B1B);
+            g.horizontalLine(cx, cx + box, cy, 0xFF4A4A4A);
+            g.horizontalLine(cx, cx + box, cy + box, 0xFF1B1B1B);
+            g.verticalLine(cx, cy, cy + box, 0xFF4A4A4A);
+            g.verticalLine(cx + box, cy, cy + box, 0xFF1B1B1B);
 
             if (i < entries.size()) {
                 var entry = entries.get(i);
@@ -583,7 +583,7 @@ public final class BottomPanel {
                 if (selected) {
                     g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3326C56D);
                 }
-                g.renderItem(entry.stack(), cx + 2, cy + 2);
+                g .item(entry.stack(), cx + 2, cy + 2);
                 drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
 
                 if (mouseX >= cx && mouseX <= cx + box && mouseY >= cy && mouseY <= cy + box) {
@@ -599,7 +599,7 @@ public final class BottomPanel {
         }
     }
 
-    private void renderStorageEmptyState(GuiGraphics g, int x, int y, int width, int height) {
+    private void renderStorageEmptyState(GuiGraphicsExtractor g, int x, int y, int width, int height) {
         int messageW = Math.max(24, width - 12);
         Component title = this.controller.isStorageLinked()
                 ? Component.translatable("screen.rtsbuilding.storage.empty_linked")
@@ -608,8 +608,8 @@ public final class BottomPanel {
                 ? Component.translatable("screen.rtsbuilding.storage.empty_linked.detail")
                 : Component.translatable("screen.rtsbuilding.storage.empty_unlinked.detail");
         int centerY = y + Math.max(8, height / 2 - 10);
-        g.drawCenteredString(screen.font(), screen.trimToWidth(title.getString(), messageW), x + width / 2, centerY, 0xFFE7C46A);
-        g.drawCenteredString(screen.font(), screen.trimToWidth(detail.getString(), messageW), x + width / 2, centerY + 12, 0xFFB8C7D6);
+        g .centeredText(screen.font(), screen.trimToWidth(title.getString(), messageW), x + width / 2, centerY, 0xFFE7C46A);
+        g .centeredText(screen.font(), screen.trimToWidth(detail.getString(), messageW), x + width / 2, centerY + 12, 0xFFB8C7D6);
     }
 
     /**
@@ -617,7 +617,7 @@ public final class BottomPanel {
      * only changes the RTS placement preview; it does not request storage extraction
      * and does not mutate the player's inventory.
      */
-    private void drawCreativeGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawCreativeGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
@@ -631,10 +631,10 @@ public final class BottomPanel {
             int cy = y + (i / cols) * SLOT;
             int box = SLOT - 2;
             g.fill(cx, cy, cx + box, cy + box, 0xAA11151D);
-            g.hLine(cx, cx + box, cy, 0xFF596D84);
-            g.hLine(cx, cx + box, cy + box, 0xFF10151B);
-            g.vLine(cx, cy, cy + box, 0xFF596D84);
-            g.vLine(cx + box, cy, cy + box, 0xFF10151B);
+            g.horizontalLine(cx, cx + box, cy, 0xFF596D84);
+            g.horizontalLine(cx, cx + box, cy + box, 0xFF10151B);
+            g.verticalLine(cx, cy, cy + box, 0xFF596D84);
+            g.verticalLine(cx + box, cy, cy + box, 0xFF10151B);
 
             int index = start + i;
             if (index >= entries.size()) {
@@ -646,7 +646,7 @@ public final class BottomPanel {
             if (selected) {
                 g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3326C56D);
             }
-            g.renderItem(entry.stack(), cx + 2, cy + 2);
+            g .item(entry.stack(), cx + 2, cy + 2);
             if (inside(mouseX, mouseY, cx, cy, box, box)) {
                 this.hoveredCreativeEntry = index;
                 g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, selected ? 0x3340FF80 : 0x22FFFFFF);
@@ -658,12 +658,12 @@ public final class BottomPanel {
             int centerY = y + Math.max(8, height / 2 - 10);
             Component title = Component.translatable("screen.rtsbuilding.creative.empty");
             Component detail = Component.translatable("screen.rtsbuilding.creative.empty.detail");
-            g.drawCenteredString(screen.font(), screen.trimToWidth(title.getString(), messageW), x + width / 2, centerY, 0xFFE7C46A);
-            g.drawCenteredString(screen.font(), screen.trimToWidth(detail.getString(), messageW), x + width / 2, centerY + 12, 0xFFB8C7D6);
+            g .centeredText(screen.font(), screen.trimToWidth(title.getString(), messageW), x + width / 2, centerY, 0xFFE7C46A);
+            g .centeredText(screen.font(), screen.trimToWidth(detail.getString(), messageW), x + width / 2, centerY + 12, 0xFFB8C7D6);
         }
     }
 
-    private void drawRecentGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawRecentGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
@@ -674,10 +674,10 @@ public final class BottomPanel {
             int cy = y + (i / cols) * SLOT;
             int box = SLOT - 2;
             g.fill(cx, cy, cx + box, cy + box, 0xAA161C24);
-            g.hLine(cx, cx + box, cy, 0xFF526171);
-            g.hLine(cx, cx + box, cy + box, 0xFF10151B);
-            g.vLine(cx, cy, cy + box, 0xFF526171);
-            g.vLine(cx + box, cy, cy + box, 0xFF10151B);
+            g.horizontalLine(cx, cx + box, cy, 0xFF526171);
+            g.horizontalLine(cx, cx + box, cy + box, 0xFF10151B);
+            g.verticalLine(cx, cy, cy + box, 0xFF526171);
+            g.verticalLine(cx + box, cy, cy + box, 0xFF10151B);
 
             if (i >= entries.size()) {
                 continue;
@@ -685,7 +685,7 @@ public final class BottomPanel {
 
             RecentEntry entry = entries.get(i);
             if (!entry.preview().isEmpty()) {
-                g.renderItem(entry.preview(), cx + 2, cy + 2);
+                g .item(entry.preview(), cx + 2, cy + 2);
             }
             drawSlotCountOverlay(g, cx, cy, box,
                     formatRecentAmount(entry),
@@ -706,13 +706,13 @@ public final class BottomPanel {
         return entry.fluid() ? RtsClientUiUtil.compactFluidAmount(amount) : RtsClientUiUtil.compactCount(amount);
     }
 
-    private void drawSlotCountOverlay(GuiGraphics g, int slotX, int slotY, int box, String countText, int color) {
+    private void drawSlotCountOverlay(GuiGraphicsExtractor g, int slotX, int slotY, int box, String countText, int color) {
         RtsClientUiUtil.drawSlotCountOverlay(g, screen.font(), slotX, slotY, box, countText, color);
     }
 
     // ── Fluid grid ──
 
-    private void drawFluidGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawFluidGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = 2;
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
@@ -723,10 +723,10 @@ public final class BottomPanel {
             int cx = x + (i % cols) * SLOT;
             int cy = y + (i / cols) * SLOT;
             g.fill(cx, cy, cx + box, cy + box, 0xAA2E1E12);
-            g.hLine(cx, cx + box, cy, 0xFFFFA553);
-            g.hLine(cx, cx + box, cy + box, 0xFF23140A);
-            g.vLine(cx, cy, cy + box, 0xFFFFA553);
-            g.vLine(cx + box, cy, cy + box, 0xFF23140A);
+            g.horizontalLine(cx, cx + box, cy, 0xFFFFA553);
+            g.horizontalLine(cx, cx + box, cy + box, 0xFF23140A);
+            g.verticalLine(cx, cy, cy + box, 0xFFFFA553);
+            g.verticalLine(cx + box, cy, cy + box, 0xFF23140A);
 
             if (i < entries.size()) {
                 var entry = entries.get(i);
@@ -735,7 +735,7 @@ public final class BottomPanel {
                     g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3367D8FF);
                 }
                 if (!entry.preview().isEmpty()) {
-                    g.renderItem(entry.preview(), cx + 2, cy + 2);
+                    g .item(entry.preview(), cx + 2, cy + 2);
                 }
                 drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactFluidAmount(entry.amount()), 0xFFFCCB8A);
 
@@ -751,11 +751,11 @@ public final class BottomPanel {
 
     // ── Crafting panel ──
 
-    private void renderCraftablesPanel(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
+    private void renderCraftablesPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
         syncCraftSearchValueFromController();
 
         RtsClientUiUtil.drawPanelFrame(g, x, y, width, height, 0xAA141922, 0xFF637993, 0xFF0D1218);
-        g.drawString(screen.font(), "Craft", x + 5, y + 4, 0xEAF2FF);
+        g .text(screen.font(), "Craft", x + 5, y + 4, 0xEAF2FF);
 
         int searchX = x + 4;
         int searchY = y + 15;
@@ -778,14 +778,14 @@ public final class BottomPanel {
         }
 
         RtsClientUiUtil.drawPanelFrame(g, applyX, toggleY, CRAFT_PANEL_APPLY_W, CRAFT_PANEL_SEARCH_H, applyBg, 0xFF6E8799, 0xFF111821);
-        g.drawCenteredString(screen.font(),
+        g .centeredText(screen.font(),
                 "OK",
                 applyX + CRAFT_PANEL_APPLY_W / 2,
                 toggleY + 2,
                 craftSearchDirty ? 0xFFFFFF : 0xFFB8C7D6);
 
         RtsClientUiUtil.drawPanelFrame(g, toggleX, toggleY, CRAFT_PANEL_TOGGLE_W, CRAFT_PANEL_SEARCH_H, toggleBg, 0xFF667D95, 0xFF111821);
-        g.drawCenteredString(screen.font(),
+        g .centeredText(screen.font(),
                 this.controller.isCraftablesShowUnavailable() ? "ALL" : "MAKE",
                 toggleX + CRAFT_PANEL_TOGGLE_W / 2,
                 toggleY + 2,
@@ -815,7 +815,7 @@ public final class BottomPanel {
                 }
 
                 CraftableEntry entry = entries.get(index);
-                g.renderItem(entry.stack(), slotX + 1, slotY + 1);
+                g .item(entry.stack(), slotX + 1, slotY + 1);
                 if (entry.resultCount() > 1) {
                     drawSlotCountOverlay(g, slotX, slotY, CRAFT_PANEL_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
                 }
@@ -861,12 +861,12 @@ public final class BottomPanel {
 
     // ── Craft dock ──
 
-    private void drawCraftDock(GuiGraphics g, int mouseX, int mouseY, int x, int y) {
+    private void drawCraftDock(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
         boolean craftHovered = inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE);
         int craftFill = craftHovered ? 0xCC385465 : 0xAA24303A;
         RtsClientUiUtil.drawPanelFrame(g, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE, craftFill, 0xFF6E8799, 0xFF111821);
-        g.drawCenteredString(screen.font(), "C", dock.cX() + CRAFT_DOCK_C_SIZE / 2, dock.cY() + 5, 0xFFFFFF);
+        g .centeredText(screen.font(), "C", dock.cX() + CRAFT_DOCK_C_SIZE / 2, dock.cY() + 5, 0xFFFFFF);
 
         for (int slot = 0; slot < this.controller.getGuiBindingCount(); slot++) {
             int slotX = dock.slotX(slot);
@@ -882,10 +882,10 @@ public final class BottomPanel {
             RtsClientUiUtil.drawPanelFrame(g, slotX, slotY, CRAFT_DOCK_SLOT_SIZE, CRAFT_DOCK_SLOT_SIZE, fill, 0xFF698097, 0xFF0F151C);
             var preview = this.controller.getGuiBindingPreview(slot);
             if (bound && !pending && !preview.isEmpty()) {
-                g.renderItem(preview, slotX + 1, slotY + 1);
+                g .item(preview, slotX + 1, slotY + 1);
             } else {
                 String text = (!bound || pending) ? "+" : Integer.toString(slot + 1);
-                g.drawCenteredString(screen.font(), text, slotX + CRAFT_DOCK_SLOT_SIZE / 2, slotY + 2, 0xFFFFFF);
+                g .centeredText(screen.font(), text, slotX + CRAFT_DOCK_SLOT_SIZE / 2, slotY + 2, 0xFFFFFF);
             }
         }
     }
@@ -895,7 +895,7 @@ public final class BottomPanel {
     public boolean handleClick(double mouseX, double mouseY) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         BottomPanelLayoutTypes.BottomPanelTab activeTab = activeBottomPanelTab();
-        if (!layout.contains(mouseX, mouseY)) {
+        if (!layout.contains(mouseX)) {
             return false;
         }
 
@@ -1096,7 +1096,7 @@ public final class BottomPanel {
     public boolean handleRightClick(double mouseX, double mouseY) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         BottomPanelLayoutTypes.BottomPanelTab activeTab = activeBottomPanelTab();
-        if (!layout.contains(mouseX, mouseY)) {
+        if (!layout.contains(mouseX)) {
             return false;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
@@ -1564,7 +1564,7 @@ public final class BottomPanel {
     }
 
     public boolean isInsideBottomPanel(double mouseX, double mouseY) {
-        return resolveBottomPanelLayout().contains(mouseX, mouseY);
+        return resolveBottomPanelLayout().contains(mouseX);
     }
 
     public boolean isWorldArea(double mouseX, double mouseY) {
@@ -1626,7 +1626,7 @@ public final class BottomPanel {
         return layout.panelY() + 3;
     }
 
-    private void drawPluginManagementButton(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout,
+    private void drawPluginManagementButton(GuiGraphicsExtractor g, BottomPanelLayoutTypes.BottomPanelLayout layout,
             int mouseX, int mouseY) {
         if (!hasPluginManagementButtonSpace(layout)) {
             return;
@@ -1638,7 +1638,7 @@ public final class BottomPanel {
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, 12,
                 hover ? 0xCC3A4D60 : 0xAA273441, 0xFF5D7287, 0xFF0D1015);
         String label = screen.trimToWidth(Component.translatable("screen.rtsbuilding.plugins.short").getString(), w - 8);
-        g.drawCenteredString(screen.font(), label, x + w / 2, y + 2, 0xFFEAF2FF);
+        g .centeredText(screen.font(), label, x + w / 2, y + 2, 0xFFEAF2FF);
     }
 
     private boolean isInsidePluginManagementButton(BottomPanelLayoutTypes.BottomPanelLayout layout, double mouseX, double mouseY) {
@@ -1850,10 +1850,10 @@ public final class BottomPanel {
     }
 
     private static String formatTabLabel(String tabKey) {
-        ResourceLocation key = ResourceLocation.tryParse(tabKey);
+        Identifier key = Identifier.tryParse(tabKey);
         if (key != null) {
             try {
-                CreativeModeTab tab = BuiltInRegistries.CREATIVE_MODE_TAB.get(key);
+                CreativeModeTab tab = BuiltInRegistries.CREATIVE_MODE_TAB.getValue(key);
                 if (tab != null) {
                     String label = tab.getDisplayName().getString();
                     if (label != null && !label.isBlank()) {
@@ -1988,14 +1988,14 @@ public final class BottomPanel {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
             return 0;
         }
-        return Mth.clamp(Minecraft.getInstance().player.getInventory().selected, 0, 8);
+        return Mth.clamp(Minecraft.getInstance().player.getInventory().getSelectedSlot(), 0, 8);
     }
 
     private void setSelectedToolSlot(int slot) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
             return;
         }
-        Minecraft.getInstance().player.getInventory().selected = Mth.clamp(slot, 0, 8);
+        Minecraft.getInstance().player.getInventory().setSelectedSlot(Mth.clamp(slot, 0, 8));
     }
 
     private int getHotbarSlotsWidth() {

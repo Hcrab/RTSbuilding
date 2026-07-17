@@ -166,17 +166,17 @@ public final class RtsInteractionHandlers {
                     if (status.suspended()) {
                         // 挂起任务必须先恢复真实 TaskStore revision；工作流由 tick 末单向投影。
                         RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
-                        serverPlayer.displayClientMessage(
+                        serverPlayer.sendSystemMessage(
                                 Component.translatable("message.rtsbuilding.workflow.resumed"),
                                 true);
                     } else if (token.isPaused()) {
                         RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
-                        serverPlayer.displayClientMessage(
+                        serverPlayer.sendSystemMessage(
                                 Component.translatable("message.rtsbuilding.workflow.thread_resumed"),
                                 true);
                     } else {
                         RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, true);
-                        serverPlayer.displayClientMessage(
+                        serverPlayer.sendSystemMessage(
                                 Component.translatable("message.rtsbuilding.workflow.paused"),
                                 true);
                     }

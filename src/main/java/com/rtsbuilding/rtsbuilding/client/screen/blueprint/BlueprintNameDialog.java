@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintCaptureGeometry.capturePreviewSummaryLine;
@@ -20,7 +20,7 @@ final class BlueprintNameDialog {
     private BlueprintNameDialog() {
     }
 
-    static void render(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY,
+    static void render(GuiGraphicsExtractor g, Font font, int screenW, int screenH, int mouseX, int mouseY,
             boolean capture, String value, BlueprintEntry currentEntry, BlockPos capturePointA, BlockPos capturePointB,
             long captureBlockCount) {
         BlueprintPanelLayout.NameDialogLayout layout = nameDialogLayout(screenW, screenH, capture);
@@ -30,29 +30,29 @@ final class BlueprintNameDialog {
         String title = capture
                 ? text("screen.rtsbuilding.blueprints.name_dialog_capture_title")
                 : text("screen.rtsbuilding.blueprints.name_dialog_rename_title");
-        g.drawString(font, trim(font, title, layout.w() - 36), layout.x() + 8, layout.y() + 6, 0xFFEAF2FF, false);
+        g .text(font, trim(font, title, layout.w() - 36), layout.x() + 8, layout.y() + 6, 0xFFEAF2FF, false);
         int closeX = closeX(layout);
         drawButton(g, font, closeX, layout.y() + 3, CLOSE_SIZE, CLOSE_SIZE, "x",
                 inside(mouseX, mouseY, closeX, layout.y() + 3, CLOSE_SIZE, CLOSE_SIZE));
 
         int textY = layout.y() + 30;
         if (capture) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), layout.w() - 20),
+            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), layout.w() - 20),
                     layout.x() + 10, textY, 0xFFCDEBFF, false);
             textY += 12;
-            g.drawString(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
+            g .text(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
                     layout.w() - 20),
                     layout.x() + 10, textY, 0xFFB8FFB8, false);
         } else if (currentEntry != null) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
+            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
                     layout.w() - 20), layout.x() + 10, textY, 0xFF9EACB9, false);
         }
 
-        g.drawString(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(), layout.inputY() - 11,
+        g .text(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(), layout.inputY() - 11,
                 0xFFB7CDE2, false);
         drawFrame(g, layout.inputX(), layout.inputY(), layout.inputW(), 18, 0xDD05070B, 0xFF8BA4B8, 0xFF0B0E13);
         String displayValue = value + ((Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
-        g.drawString(font, trim(font, displayValue, layout.inputW() - 8), layout.inputX() + 4, layout.inputY() + 5,
+        g .text(font, trim(font, displayValue, layout.inputW() - 8), layout.inputX() + 4, layout.inputY() + 5,
                 0xFFEAF2FF, false);
 
         drawButton(g, font, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H,
@@ -63,28 +63,28 @@ final class BlueprintNameDialog {
                 inside(mouseX, mouseY, layout.cancelX(), layout.buttonY(), layout.cancelW(), BUTTON_H));
     }
 
-    static void renderContent(GuiGraphics g, Font font, int x, int y, int w, int h, int mouseX, int mouseY,
+    static void renderContent(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, int mouseX, int mouseY,
             boolean capture, String value, BlueprintEntry currentEntry, BlockPos capturePointA, BlockPos capturePointB,
             long captureBlockCount) {
         int textY = y + 10;
         if (capture) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - 20),
+            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - 20),
                     x + 10, textY, 0xFFCDEBFF, false);
             textY += 12;
-            g.drawString(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
+            g .text(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
                     w - 20), x + 10, textY, 0xFFB8FFB8, false);
         } else if (currentEntry != null) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
+            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
                     w - 20), x + 10, textY, 0xFF9EACB9, false);
         }
 
         NameContentLayout layout = contentLayout(x, y, w, h);
-        g.drawString(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(),
+        g .text(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(),
                 layout.inputY() - 11, 0xFFB7CDE2, false);
         drawFrame(g, layout.inputX(), layout.inputY(), layout.inputW(), 18,
                 0xDD05070B, 0xFF8BA4B8, 0xFF0B0E13);
         String displayValue = value + ((Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
-        g.drawString(font, trim(font, displayValue, layout.inputW() - 8),
+        g .text(font, trim(font, displayValue, layout.inputW() - 8),
                 layout.inputX() + 4, layout.inputY() + 5, 0xFFEAF2FF, false);
 
         drawButton(g, font, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H,

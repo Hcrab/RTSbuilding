@@ -5,9 +5,9 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.CraftFeedbackIngredient;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
@@ -21,7 +21,7 @@ public final class RtsCraftFeedbackPopup {
     private RtsCraftFeedbackPopup() {
     }
 
-    public static void render(GuiGraphics g, Font font, int screenWidth, ClientRtsController controller) {
+    public static void render(GuiGraphicsExtractor g, Font font, int screenWidth, ClientRtsController controller) {
         if (g == null || font == null || controller == null) {
             return;
         }
@@ -51,40 +51,40 @@ public final class RtsCraftFeedbackPopup {
         g.pose().translate(0.0F, 0.0F, 700.0F);
         drawPanelFrame(g, x, y, PANEL_W, panelH, fill, borderLight, borderDark);
         if (!resultPreview.isEmpty()) {
-            g.renderItem(resultPreview, x + 8, y + 8);
+            g .item(resultPreview, x + 8, y + 8);
         }
-        g.drawString(font, "Crafted x" + controller.getCraftFeedbackCount(), x + 30, y + 9, textColor, false);
-        g.drawString(font, font.plainSubstrByWidth(resultLabel, PANEL_W - 38), x + 30, y + 21, subColor, false);
+        g .text(font, "Crafted x" + controller.getCraftFeedbackCount(), x + 30, y + 9, textColor, false);
+        g .text(font, font.plainSubstrByWidth(resultLabel, PANEL_W - 38), x + 30, y + 21, subColor, false);
 
-        g.drawString(font, "Consumed", x + 8, y + 40, subColor, false);
+        g .text(font, "Consumed", x + 8, y + 40, subColor, false);
 
         int rowY = y + 54;
         for (int i = 0; i < visibleRows; i++) {
             CraftFeedbackIngredient ingredient = ingredients.get(i);
             g.fill(x + 8, rowY - 2, x + PANEL_W - 8, rowY + 14, (alpha << 24) | 0x22303C);
             if (!ingredient.preview().isEmpty()) {
-                g.renderItem(ingredient.preview(), x + 10, rowY - 1);
+                g .item(ingredient.preview(), x + 10, rowY - 1);
             }
             String label = ingredient.label() == null || ingredient.label().isBlank() ? ingredient.itemId() : ingredient.label();
-            g.drawString(font, font.plainSubstrByWidth(label, PANEL_W - 72), x + 30, rowY + 1, textColor, false);
-            g.drawString(font, "x" + ingredient.count(), x + PANEL_W - 30, rowY + 1, subColor, false);
+            g .text(font, font.plainSubstrByWidth(label, PANEL_W - 72), x + 30, rowY + 1, textColor, false);
+            g .text(font, "x" + ingredient.count(), x + PANEL_W - 30, rowY + 1, subColor, false);
             rowY += ROW_H;
         }
         if (hasOverflow) {
-            g.drawString(font, "+" + (ingredients.size() - visibleRows) + " more", x + 10, rowY + 1, subColor, false);
+            g .text(font, "+" + (ingredients.size() - visibleRows) + " more", x + 10, rowY + 1, subColor, false);
         }
         g.pose().popPose();
     }
 
     private static ItemStack resolvePreview(String itemId) {
-        ResourceLocation key = ResourceLocation.tryParse(itemId == null ? "" : itemId);
+        Identifier key = Identifier.tryParse(itemId == null ? "" : itemId);
         if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
             return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        return new ItemStack(BuiltInRegistries.ITEM.getValue(key));
     }
 
-    private static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
+    private static void drawPanelFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fillColor, int light, int dark) {
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
     }
 }

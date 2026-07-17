@@ -53,7 +53,7 @@ public final class BlueprintExecutePipe implements PipelinePipe<PipelineContext>
                 blueprint.size(), bctx.getYRotationSteps(),
                 bctx.getXRotationSteps(), bctx.getZRotationSteps());
         bctx.setData(BlueprintContext.KEY_CENTER_OFFSET, centerOffset);
-        bctx.setData(BlueprintContext.KEY_SOURCE_DIMENSION, ctx.player().serverLevel().dimension());
+        bctx.setData(BlueprintContext.KEY_SOURCE_DIMENSION, ctx.player().level().dimension());
         bctx.setPlacedCount(0);
         bctx.setSkippedMissing(0);
         bctx.setSkippedUnsupported(0);

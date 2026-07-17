@@ -6,7 +6,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record C2SRtsSetGuiBindingPayload(
         byte slot,
@@ -15,7 +15,7 @@ public record C2SRtsSetGuiBindingPayload(
         byte faceId,
         String itemIdHint) implements CustomPacketPayload {
     public static final Type<C2SRtsSetGuiBindingPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_gui_binding"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_gui_binding"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetGuiBindingPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

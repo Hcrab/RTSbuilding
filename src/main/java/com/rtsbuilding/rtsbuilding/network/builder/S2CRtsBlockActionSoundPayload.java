@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * 把方块自身的放置/破坏音色发送给操作玩家。
@@ -17,7 +17,7 @@ public record S2CRtsBlockActionSoundPayload(
         float pitch,
         boolean breakAction) implements CustomPacketPayload {
     public static final Type<S2CRtsBlockActionSoundPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_block_action_sound"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_block_action_sound"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsBlockActionSoundPayload> STREAM_CODEC =
             StreamCodec.of(

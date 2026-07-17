@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * 客户端→服务端：请求扫描挂起的蓝图作业的剩余材料需求。
@@ -16,7 +16,7 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record C2SRtsScanBlueprintResumePayload(int workflowEntryId) implements CustomPacketPayload {
     public static final Type<C2SRtsScanBlueprintResumePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_scan_blueprint_resume"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_scan_blueprint_resume"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsScanBlueprintResumePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> buf.writeInt(payload.workflowEntryId()),

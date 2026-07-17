@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Collection;
@@ -17,8 +17,8 @@ import java.util.Map;
  * callers.
  */
 public final class RtsPluginRegistry {
-    private static final Map<ResourceLocation, RtsPluginDefinition> BY_ID = new LinkedHashMap<>();
-    private static final Map<ResourceLocation, RtsPluginDefinition> BY_ITEM = new LinkedHashMap<>();
+    private static final Map<Identifier, RtsPluginDefinition> BY_ID = new LinkedHashMap<>();
+    private static final Map<Identifier, RtsPluginDefinition> BY_ITEM = new LinkedHashMap<>();
 
     static {
         for (RtsPluginDefinition definition : BuiltInRtsPluginCatalog.definitions()) {
@@ -34,7 +34,7 @@ public final class RtsPluginRegistry {
         return BY_ID.values();
     }
 
-    public static RtsPluginDefinition byId(ResourceLocation id) {
+    public static RtsPluginDefinition byId(Identifier id) {
         return id == null ? null : BY_ID.get(id);
     }
 
@@ -42,7 +42,7 @@ public final class RtsPluginRegistry {
         if (stack == null || stack.isEmpty()) {
             return null;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         return itemId == null ? null : BY_ITEM.get(itemId);
     }
 

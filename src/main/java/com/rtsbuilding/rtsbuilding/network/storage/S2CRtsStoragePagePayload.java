@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
@@ -57,7 +57,7 @@ public record S2CRtsStoragePagePayload(
     public static final byte RECENT_FLUID_CRAFTED = 5;
 
     public static final Type<S2CRtsStoragePagePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_storage_page"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_storage_page"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsStoragePagePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

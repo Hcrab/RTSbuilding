@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.blueprint.model;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.material.BlueprintMaterialResolver;
 import net.minecraft.core.Vec3i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -25,7 +25,7 @@ public record RtsBlueprint(
         BlueprintFormat format,
         Vec3i size,
         List<RtsBlueprintBlock> blocks,
-        Map<ResourceLocation, Integer> requiredItems) {
+        Map<Identifier, Integer> requiredItems) {
 
     /**
      * 创建蓝图实例，并自动计算材料清单。
@@ -36,12 +36,12 @@ public record RtsBlueprint(
             BlueprintFormat format,
             Vec3i size,
             List<RtsBlueprintBlock> blocks) {
-        Map<ResourceLocation, Integer> requirements = new LinkedHashMap<>();
+        Map<Identifier, Integer> requirements = new LinkedHashMap<>();
         for (RtsBlueprintBlock block : blocks) {
             if (block.isMissingBlock()) {
                 continue;
             }
-            for (ResourceLocation id : materialItemIds(block)) {
+            for (Identifier id : materialItemIds(block)) {
                 requirements.merge(id, 1, Integer::sum);
             }
         }
@@ -68,7 +68,7 @@ public record RtsBlueprint(
      * 不再参与生存模式扣料。真实消耗必须从方块状态推导，避免蓝图文件把钻石块伪装成泥土，
      * 或把泥土伪装成钻石来骗过材料系统。</p>
      */
-    public static List<ResourceLocation> materialItemIds(RtsBlueprintBlock block) {
+    public static List<Identifier> materialItemIds(RtsBlueprintBlock block) {
         if (block == null || block.isMissingBlock()) {
             return List.of();
         }

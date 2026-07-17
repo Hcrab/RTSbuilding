@@ -47,7 +47,7 @@ public final class MiningSpeedCalculator {
                         player,
                         toolSlot,
                         () -> removeMiningSpeedPenalty(player,
-                                state.getDestroyProgress(player, player.serverLevel(), pos))));
+                                state.getDestroyProgress(player, player.level(), pos))));
     }
 
     // ======================================================================
@@ -62,7 +62,7 @@ public final class MiningSpeedCalculator {
      * {@code ClientboundContainerSetSlotPacket} 同步风暴。</p>
      */
     public static float computeDestroyStepForTool(ServerPlayer player, BlockState state, BlockPos pos, ItemStack tool) {
-        float destroySpeed = state.getDestroySpeed(player.serverLevel(), pos);
+        float destroySpeed = state.getDestroySpeed(player.level(), pos);
         if (destroySpeed == -1.0F) {
             return 0.0F;
         }

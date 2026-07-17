@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -26,7 +26,7 @@ public record S2CRtsPluginStatePayload(
     private static final int MAX_TEAM_NAME_CHARS = 128;
 
     public static final Type<S2CRtsPluginStatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_plugin_state"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_plugin_state"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsPluginStatePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

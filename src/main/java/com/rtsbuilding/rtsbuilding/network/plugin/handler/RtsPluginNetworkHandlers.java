@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsInstallPluginPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsRequestPluginsPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsUninstallPluginPayload;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -26,7 +26,7 @@ public final class RtsPluginNetworkHandlers {
     public static void handleUninstall(C2SRtsUninstallPluginPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
-                ResourceLocation pluginId = ResourceLocation.tryParse(payload.pluginId());
+                Identifier pluginId = Identifier.tryParse(payload.pluginId());
                 RtsPluginService.uninstall(player, pluginId);
             }
         });

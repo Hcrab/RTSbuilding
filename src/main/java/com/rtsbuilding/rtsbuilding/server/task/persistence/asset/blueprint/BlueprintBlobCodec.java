@@ -76,16 +76,16 @@ public final class BlueprintBlobCodec {
 
     public BlueprintBlobRecord decode(CompoundTag root) {
         try {
-            if (!root.getAllKeys().equals(EXACT_FIELDS)) {
+            if (!root.keySet().equals(EXACT_FIELDS)) {
                 throw new BlobCodecException("蓝图 blob 包含缺失或未知字段");
             }
             require(root, "schema", Tag.TAG_INT);
-            if (root.getInt("schema") != CURRENT_SCHEMA) {
-                throw new BlobCodecException("不支持的蓝图 blob schema: " + root.getInt("schema"));
+            if (root.getIntOr("schema", 0) != CURRENT_SCHEMA) {
+                throw new BlobCodecException("不支持的蓝图 blob schema: " + root.getIntOr("schema", 0));
             }
             require(root, "asset_id", Tag.TAG_INT_ARRAY);
             require(root, "task_id", Tag.TAG_INT_ARRAY);
-            if (!root.hasUUID("asset_id") || !root.hasUUID("task_id")) {
+            if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(root, "asset_id") || !com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(root, "task_id")) {
                 throw new BlobCodecException("蓝图 blob UUID 字段损坏");
             }
             require(root, "block_count", Tag.TAG_INT);
@@ -95,11 +95,11 @@ public final class BlueprintBlobCodec {
             require(root, "sha256", Tag.TAG_STRING);
             require(root, "structure", Tag.TAG_COMPOUND);
             BlueprintBlobRecord record = new BlueprintBlobRecord(
-                    new TaskAssetId(root.getUUID("asset_id")),
-                    new TaskId(root.getUUID("task_id")),
-                    root.getInt("block_count"),
-                    root.getString("name"), root.getString("source_name"), root.getString("format"),
-                    root.getString("sha256"), root.getCompound("structure"));
+                    new TaskAssetId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(root, "asset_id")),
+                    new TaskId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(root, "task_id")),
+                    root.getIntOr("block_count", 0),
+                    root.getStringOr("name", ""), root.getStringOr("source_name", ""), root.getStringOr("format", ""),
+                    root.getStringOr("sha256", ""), root.getCompoundOrEmpty("structure"));
             validateLogical(record);
             if (!hashContent(record).equals(record.sha256())) {
                 throw new BlobCodecException("蓝图 blob sha256 校验失败");
@@ -185,8 +185,8 @@ public final class BlueprintBlobCodec {
 
     private static CompoundTag contentTag(BlueprintBlobRecord record) {
         CompoundTag content = new CompoundTag();
-        content.putUUID("asset_id", record.assetId().value());
-        content.putUUID("task_id", record.taskId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(content, "asset_id", record.assetId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(content, "task_id", record.taskId().value());
         content.putInt("block_count", record.blockCount());
         content.putString("name", record.name());
         content.putString("source_name", record.sourceName());
@@ -203,8 +203,8 @@ public final class BlueprintBlobCodec {
     private static String hashContent(TaskAssetId assetId, TaskId taskId, int blockCount, String name,
             String sourceName, String format, CompoundTag structure) {
         CompoundTag content = new CompoundTag();
-        content.putUUID("asset_id", assetId.value());
-        content.putUUID("task_id", taskId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(content, "asset_id", assetId.value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(content, "task_id", taskId.value());
         content.putInt("block_count", blockCount);
         content.putString("name", name);
         content.putString("source_name", sourceName);
@@ -214,7 +214,7 @@ public final class BlueprintBlobCodec {
     }
 
     private static void require(CompoundTag root, String key, int type) {
-        if (!root.contains(key, type)) throw new BlobCodecException("缺少或错误的 blob 字段: " + key);
+        if (!root.contains(key)) throw new BlobCodecException("缺少或错误的 blob 字段: " + key);
     }
 
     private static String safe(String value) {

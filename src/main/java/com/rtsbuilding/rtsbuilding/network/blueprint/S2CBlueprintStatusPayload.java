@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record S2CBlueprintStatusPayload(byte status, String messageKey, String detail) implements CustomPacketPayload {
     public static final byte INFO = 0;
@@ -18,7 +18,7 @@ public record S2CBlueprintStatusPayload(byte status, String messageKey, String d
     }
 
     public static final Type<S2CBlueprintStatusPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_blueprint_status"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_blueprint_status"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CBlueprintStatusPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

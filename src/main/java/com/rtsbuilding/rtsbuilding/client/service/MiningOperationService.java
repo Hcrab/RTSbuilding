@@ -10,7 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -349,7 +349,7 @@ public final class MiningOperationService {
         if (prototype.isEmpty()) {
             return "";
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(prototype.getItem());
+        Identifier id = BuiltInRegistries.ITEM.getKey(prototype.getItem());
         return id == null ? "" : id.toString();
     }
 

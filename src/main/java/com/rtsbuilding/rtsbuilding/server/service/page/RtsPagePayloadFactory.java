@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -80,8 +80,8 @@ public final class RtsPagePayloadFactory {
         if (player == null || session == null || session.linkedStorageInfo.isEmpty()) {
             return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
-        ResourceKey<Level> currentDimension = player.serverLevel().dimension();
-        ServerLevel level = player.serverLevel();
+        ResourceKey<Level> currentDimension = player.level().dimension();
+        ServerLevel level = player.level();
         List<LinkedStorageRef> storageRefs = session.linkedStorageInfo.getAll();
         List<Long> positions = new ArrayList<>(storageRefs.size());
         List<String> names = new ArrayList<>(storageRefs.size());
@@ -124,7 +124,7 @@ public final class RtsPagePayloadFactory {
         }
         BlockPos pos = ref.pos();
         Item item = level.getBlockState(pos).getBlock().asItem();
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        Identifier id = BuiltInRegistries.ITEM.getKey(item);
         return id == null ? "" : id.toString();
     }
 
@@ -139,7 +139,7 @@ public final class RtsPagePayloadFactory {
             if (stack.isEmpty()) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
             if (id == null) {
                 continue;
             }

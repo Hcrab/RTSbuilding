@@ -62,15 +62,15 @@ public final class RtsLinkedStorageBindingService {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(player.level().dimension(), pos.immutable());
         Object itemHandler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
         Object fluidHandler = RtsLinkedCapabilities.findFluidHandler(player, pos);
         if (itemHandler == null && fluidHandler == null) {
             return RtsStorageBindings.UpdateResult.refreshFirst(false);
         }
 
-        UUID backpackUuid = readBackpackUuid(player.serverLevel(), pos);
-        String backpackItemId = readBackpackItemId(player.serverLevel(), pos);
+        UUID backpackUuid = readBackpackUuid(player.level(), pos);
+        String backpackItemId = readBackpackItemId(player.level(), pos);
         byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
 
         if (session.linkedStorageInfo.contains(ref)) {
@@ -79,7 +79,7 @@ public final class RtsLinkedStorageBindingService {
                 session.linkedStorageInfo.remove(ref);
             } else {
                 session.linkedStorageInfo.setMode(ref, normalizedMode);
-                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.level(), ref.pos()));
                 applyBackpackMetadata(session, ref, backpackUuid, backpackItemId);
             }
         } else {
@@ -92,7 +92,7 @@ public final class RtsLinkedStorageBindingService {
                     return RtsStorageBindings.UpdateResult.none();
                 }
                 session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
-                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.level(), ref.pos()));
             }
         }
         // Mark BD network caches as stale so the resolver re-resolves them
@@ -116,7 +116,7 @@ public final class RtsLinkedStorageBindingService {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(player.level().dimension(), pos.immutable());
         if (!session.linkedStorageInfo.contains(ref)) {
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -129,7 +129,7 @@ public final class RtsLinkedStorageBindingService {
         }
         session.linkedStorageInfo.setMode(ref, normalizedMode);
         session.linkedStorageInfo.setPriority(ref, normalizedPriority);
-        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.level(), ref.pos()));
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
@@ -177,7 +177,7 @@ public final class RtsLinkedStorageBindingService {
         if (player == null || session == null || pos == null) {
             return false;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         if (!level.hasChunkAt(pos)) {
             return false;
         }
@@ -203,7 +203,7 @@ public final class RtsLinkedStorageBindingService {
         if (player == null || session == null || pos == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         if (!level.hasChunkAt(pos)) {
             return null;
         }

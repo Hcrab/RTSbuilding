@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.Slot;
@@ -108,12 +108,12 @@ public final class RtsCraftingGridFiller {
                 blueprint[i] = ItemStack.EMPTY;
                 continue;
             }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 blueprint[i] = ItemStack.EMPTY;
                 continue;
             }
-            blueprint[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
+            blueprint[i] = new ItemStack(BuiltInRegistries.ITEM.getValue(key));
         }
         refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
     }
@@ -165,11 +165,11 @@ public final class RtsCraftingGridFiller {
         if (recipeId == null || recipeId.isBlank()) {
             return;
         }
-        ResourceLocation key = ResourceLocation.tryParse(recipeId);
+        Identifier key = Identifier.tryParse(recipeId);
         if (key == null) {
             return;
         }
-        RecipeHolder<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        RecipeHolder<?> raw = player.level().getRecipeManager().byKey(key).orElse(null);
         if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
             return;
         }

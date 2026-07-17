@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -75,7 +75,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         List<LinkedStorageEntry> entries = this.controller.getLinkedStorageEntries();
         this.scroll = Mth.clamp(this.scroll, 0, maxScroll(entries));
 
@@ -85,23 +85,23 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         int visibleRows = visibleRows();
         boolean hasScrollbar = entries.size() > visibleRows;
         int rowW = w - (hasScrollbar ? SCROLLBAR_W + SCROLLBAR_GAP : 0);
-        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.header"),
+        g .text(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.header"),
                 x, y, 0xFFD8E3EE, false);
 
         if (entries.isEmpty()) {
             int emptyY = y + HEADER_H + 12;
-            g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.empty"),
+            g .text(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.empty"),
                     x, emptyY, 0xFFFFD480, false);
-            g.drawString(this.screen.font(),
+            g .text(this.screen.font(),
                     RtsClientUiUtil.trimToWidth(this.screen.font(),
                             Component.translatable("screen.rtsbuilding.storage_links.empty_detail").getString(), w),
                     x, emptyY + 12, 0xFFBFD0E0, false);
             return;
         }
 
-        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.priority"),
+        g .text(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.priority"),
                 priorityBoxX(x, rowW), y + 12, 0xFF9FB3C8, false);
-        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.mode_extract_header"),
+        g .text(this.screen.font(), Component.translatable("screen.rtsbuilding.storage_links.mode_extract_header"),
                 extractButtonX(x, rowW), y + 12, 0xFF9FB3C8, false);
 
         int firstY = y + HEADER_H;
@@ -113,7 +113,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         renderScrollbar(g, entries.size(), x + rowW + SCROLLBAR_GAP, firstY, visibleRows * ROW_H);
     }
 
-    private void renderRow(GuiGraphics g, int mouseX, int mouseY, LinkedStorageEntry entry,
+    private void renderRow(GuiGraphicsExtractor g, int mouseX, int mouseY, LinkedStorageEntry entry,
             int x, int y, int w) {
         boolean hovered = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + ROW_H - 2;
         int fill = hovered ? 0xCC243244 : 0xAA1A222D;
@@ -121,11 +121,11 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
         ItemStack preview = entry.preview();
         if (preview != null && !preview.isEmpty()) {
-            g.renderItem(preview, x + 5, y + 5);
+            g .item(preview, x + 5, y + 5);
         } else {
             g.fill(x + 5, y + 5, x + 21, y + 21, 0xAA101820);
-            g.hLine(x + 5, x + 21, y + 5, 0xFF566D83);
-            g.vLine(x + 5, y + 5, y + 21, 0xFF566D83);
+            g.horizontalLine(x + 5, x + 21, y + 5, 0xFF566D83);
+            g.verticalLine(x + 5, y + 5, y + 21, 0xFF566D83);
         }
 
         int priorityX = priorityBoxX(x, w);
@@ -134,8 +134,8 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         int unlinkX = unlinkButtonX(x, w);
         String name = RtsClientUiUtil.trimToWidth(this.screen.font(), entry.label(),
                 Math.max(30, priorityX - (x + 26) - 6));
-        g.drawString(this.screen.font(), name, x + 26, y + 4, 0xFFEAF2FF, false);
-        g.drawString(this.screen.font(), formatPos(entry), x + 26, y + 15, 0xFF9FB3C8, false);
+        g .text(this.screen.font(), name, x + 26, y + 4, 0xFFEAF2FF, false);
+        g .text(this.screen.font(), formatPos(entry), x + 26, y + 15, 0xFF9FB3C8, false);
 
         renderPriorityControl(g, mouseX, mouseY, entry, priorityX, priorityY);
         renderExtractToggle(g, mouseX, mouseY, entry, extractX, priorityY);
@@ -151,7 +151,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                 unlinkX + UNLINK_W / 2, buttonY + 4, 0xFFFFF0F0);
     }
 
-    private void renderPriorityControl(GuiGraphics g, int mouseX, int mouseY,
+    private void renderPriorityControl(GuiGraphicsExtractor g, int mouseX, int mouseY,
             LinkedStorageEntry entry, int x, int y) {
         if (isEditingPriority(entry.pos())) {
             this.priorityInput.setX(x);
@@ -165,10 +165,10 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                 hovered ? 0xFF8EA9C4 : 0xFF566D83,
                 0xFF0D1117);
         String text = RtsClientUiUtil.trimToWidth(this.screen.font(), Integer.toString(entry.priority()), PRIORITY_W - 6);
-        g.drawString(this.screen.font(), text, x + 4, y + 4, 0xFFEAF2FF, false);
+        g .text(this.screen.font(), text, x + 4, y + 4, 0xFFEAF2FF, false);
     }
 
-    private void renderExtractToggle(GuiGraphics g, int mouseX, int mouseY,
+    private void renderExtractToggle(GuiGraphicsExtractor g, int mouseX, int mouseY,
             LinkedStorageEntry entry, int x, int y) {
         boolean extractOnly = entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
         boolean hovered = inside(mouseX, mouseY, x, y, EXTRACT_W, CONTROL_H);
@@ -415,7 +415,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
 
-    private void renderScrollbar(GuiGraphics g, int totalRows, int x, int y, int h) {
+    private void renderScrollbar(GuiGraphicsExtractor g, int totalRows, int x, int y, int h) {
         int maxScroll = maxScroll(this.controller.getLinkedStorageEntries());
         if (maxScroll <= 0) {
             return;

@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -101,13 +101,13 @@ public final class RtsPendingPlacementService {
         }
 
         // 获取物品的显示名称
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        Identifier id = Identifier.tryParse(itemId);
         String itemLabel = itemId;
         Block expectedBlock = null;
         if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
             itemLabel = stack.getHoverName().getString();
-            if (BuiltInRegistries.ITEM.get(id) instanceof net.minecraft.world.item.BlockItem blockItem) {
+            if (BuiltInRegistries.ITEM.getValue(id) instanceof net.minecraft.world.item.BlockItem blockItem) {
                 expectedBlock = blockItem.getBlock();
             }
         }
@@ -122,11 +122,11 @@ public final class RtsPendingPlacementService {
                 BlockPos targetPos = job.quickBuild()
                         ? pos
                         : com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor
-                                .placementTargetPos(player.serverLevel(), pos, job.face());
-                if (!player.serverLevel().hasChunkAt(targetPos)) {
+                                .placementTargetPos(player.level(), pos, job.face());
+                if (!player.level().hasChunkAt(targetPos)) {
                     continue;
                 }
-                BlockState currentState = player.serverLevel().getBlockState(targetPos);
+                BlockState currentState = player.level().getBlockState(targetPos);
                 Block currentBlock = currentState.getBlock();
 
                 if (currentBlock == expectedBlock) {
@@ -253,9 +253,9 @@ public final class RtsPendingPlacementService {
         if (!template.isEmpty() || itemId == null || itemId.isBlank()) {
             return template;
         }
-        ResourceLocation fallbackId = ResourceLocation.tryParse(itemId);
+        Identifier fallbackId = Identifier.tryParse(itemId);
         if (fallbackId != null && BuiltInRegistries.ITEM.containsKey(fallbackId)) {
-            return new ItemStack(BuiltInRegistries.ITEM.get(fallbackId));
+            return new ItemStack(BuiltInRegistries.ITEM.getValue(fallbackId));
         }
         return template;
     }

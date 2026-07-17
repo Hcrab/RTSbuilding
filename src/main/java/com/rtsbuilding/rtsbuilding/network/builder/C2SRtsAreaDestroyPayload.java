@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -20,7 +20,7 @@ public record C2SRtsAreaDestroyPayload(
     public static final int MAX_POSITIONS = 98304;
 
     public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_area_destroy"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_area_destroy"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaDestroyPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

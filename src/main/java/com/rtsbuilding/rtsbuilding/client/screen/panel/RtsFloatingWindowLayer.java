@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -39,7 +39,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
      * Windows with lower click times (clicked longer ago) are rendered first,
      * so the most recently clicked window appears on top.
      */
-    public void renderFloatingWindows(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderFloatingWindows(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         if (this.frontToBackWindows.isEmpty()) return;
         this.frontToBackWindows.sort(Comparator.comparingLong(RtsWindowPanel::getLastClickTime));
 
@@ -80,7 +80,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
      * from the preceding render pass, so we iterate in reverse to find the
      * topmost window at the cursor position first.
      */
-    public void renderFloatingWindowOverlays(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderFloatingWindowOverlays(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
             if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {

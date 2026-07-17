@@ -101,7 +101,7 @@ public final class TaskCodec {
                 case 2 -> ROOT_V2_FIELDS;
                 default -> throw new TaskCodecException("不支持的 task schema: " + schema);
             };
-            if (!root.getAllKeys().equals(expectedRootFields)) {
+            if (!root.keySet().equals(expectedRootFields)) {
                 throw new TaskCodecException("task root 缺少字段或包含当前 schema 未知字段");
             }
 
@@ -114,7 +114,7 @@ public final class TaskCodec {
             Map<TaskId, TaskSnapshot> tasks = new LinkedHashMap<>();
             long imageBytes = 0L;
             for (int i = 0; i < encodedTasks.size(); i++) {
-                TaskSnapshot snapshot = decodeSnapshot(encodedTasks.getCompound(i));
+                TaskSnapshot snapshot = decodeSnapshot(encodedTasks.getCompoundOrEmpty(i));
                 imageBytes = addSaturated(imageBytes, estimateSnapshotBytes(snapshot));
                 if (imageBytes > MAX_IMAGE_ESTIMATED_BYTES) {
                     throw new TaskCodecException("task 存档超过总量上限");
@@ -126,7 +126,7 @@ public final class TaskCodec {
 
             Map<TaskId, TaskTombstone> tombstones = new LinkedHashMap<>();
             for (int i = 0; i < encodedTombstones.size(); i++) {
-                TaskTombstone tombstone = decodeTombstone(encodedTombstones.getCompound(i));
+                TaskTombstone tombstone = decodeTombstone(encodedTombstones.getCompoundOrEmpty(i));
                 if (tombstones.putIfAbsent(tombstone.taskId(), tombstone) != null) {
                     throw new TaskCodecException("重复墓碑: " + tombstone.taskId());
                 }
@@ -143,7 +143,7 @@ public final class TaskCodec {
                 throw new TaskCodecException("迁移台账超过数量上限");
             }
             for (int i = 0; i < encodedMigrations.size(); i++) {
-                String migration = encodedMigrations.getString(i);
+                String migration = encodedMigrations.getStringOr(i, "");
                 if (migration.isBlank()) throw new TaskCodecException("迁移标识不能为空");
                 if (migration.length() > 128) throw new TaskCodecException("迁移标识过长");
                 NbtStringLimits.requireWritable(migration, "migrationId");
@@ -164,7 +164,7 @@ public final class TaskCodec {
                 }
                 Map<TaskAssetId, TaskAssetMetadata> decodedAssets = new LinkedHashMap<>();
                 for (int i = 0; i < encodedAssets.size(); i++) {
-                    TaskAssetMetadata metadata = decodeAsset(encodedAssets.getCompound(i));
+                    TaskAssetMetadata metadata = decodeAsset(encodedAssets.getCompoundOrEmpty(i));
                     if (decodedAssets.putIfAbsent(metadata.assetId(), metadata) != null) {
                         throw new TaskCodecException("重复 assetId: " + metadata.assetId());
                     }
@@ -184,8 +184,8 @@ public final class TaskCodec {
 
     private static CompoundTag encodeAsset(TaskAssetMetadata metadata) {
         CompoundTag tag = new CompoundTag();
-        tag.putUUID("asset_id", metadata.assetId().value());
-        tag.putUUID("task_id", metadata.taskId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "asset_id", metadata.assetId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "task_id", metadata.taskId().value());
         tag.putString("kind", metadata.kind());
         tag.putString("sha256", metadata.sha256());
         tag.putLong("compressed_bytes", metadata.compressedBytes());
@@ -194,7 +194,7 @@ public final class TaskCodec {
     }
 
     private static TaskAssetMetadata decodeAsset(CompoundTag tag) {
-        if (!tag.getAllKeys().equals(ASSET_FIELDS)) {
+        if (!tag.keySet().equals(ASSET_FIELDS)) {
             throw new TaskCodecException("asset metadata 缺少字段或包含未知字段");
         }
         requireUuid(tag, "asset_id");
@@ -204,8 +204,8 @@ public final class TaskCodec {
             throw new TaskCodecException("asset sha256 必须是 canonical 小写十六进制");
         }
         return new TaskAssetMetadata(
-                new TaskAssetId(tag.getUUID("asset_id")),
-                new TaskId(tag.getUUID("task_id")),
+                new TaskAssetId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "asset_id")),
+                new TaskId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "task_id")),
                 requireString(tag, "kind"),
                 sha256,
                 requireLong(tag, "compressed_bytes"),
@@ -219,9 +219,9 @@ public final class TaskCodec {
 
     private CompoundTag encodeSnapshotUnchecked(TaskSnapshot snapshot) {
         CompoundTag tag = new CompoundTag();
-        tag.putUUID("id", snapshot.id().value());
-        tag.putUUID("submission", snapshot.submissionId().value());
-        tag.putUUID("owner", snapshot.ownerId());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "id", snapshot.id().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "submission", snapshot.submissionId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "owner", snapshot.ownerId());
         tag.putString("dimension", snapshot.dimensionId());
         tag.putString("type", snapshot.type().name());
         tag.putString("state", snapshot.state().name());
@@ -247,7 +247,7 @@ public final class TaskCodec {
         Set<String> expected = new LinkedHashSet<>(SNAPSHOT_REQUIRED_FIELDS);
         if (tag.contains("workflow")) expected.add("workflow");
         if (tag.contains("wait")) expected.add("wait");
-        if (!tag.getAllKeys().equals(expected)) {
+        if (!tag.keySet().equals(expected)) {
             throw new TaskCodecException("task snapshot 缺少字段或包含未知字段");
         }
         requireUuid(tag, "id");
@@ -259,30 +259,30 @@ public final class TaskCodec {
                 TaskLifecycleState.class, requireString(tag, "state"), "state");
         TaskWaitKey waitKey = null;
         if (tag.contains("wait")) {
-            if (!tag.contains("wait", Tag.TAG_COMPOUND)) {
+            if (!tag.contains("wait")) {
                 throw new TaskCodecException("可选字段 wait 的 NBT 类型错误");
             }
-            CompoundTag wait = tag.getCompound("wait");
-            if (!wait.getAllKeys().equals(WAIT_FIELDS)) {
+            CompoundTag wait = tag.getCompoundOrEmpty("wait");
+            if (!wait.keySet().equals(WAIT_FIELDS)) {
                 throw new TaskCodecException("wait envelope 缺少字段或包含未知字段");
             }
             waitKey = new TaskWaitKey(requireString(wait, "kind"), requireString(wait, "value"));
         }
         int workflowEntryId = -1;
         if (tag.contains("workflow")) {
-            if (!tag.contains("workflow", Tag.TAG_INT)) {
+            if (!tag.contains("workflow")) {
                 throw new TaskCodecException("可选字段 workflow 的 NBT 类型错误");
             }
-            workflowEntryId = tag.getInt("workflow");
+            workflowEntryId = tag.getIntOr("workflow", 0);
         }
-        if (!tag.contains("payload", Tag.TAG_COMPOUND)) {
+        if (!tag.contains("payload")) {
             throw new TaskCodecException("缺少 CompoundTag 字段: payload");
         }
-        CompoundTag payload = tag.getCompound("payload").copy();
+        CompoundTag payload = tag.getCompoundOrEmpty("payload").copy();
         return new TaskSnapshot(
-                new TaskId(tag.getUUID("id")),
-                new SubmissionId(tag.getUUID("submission")),
-                tag.getUUID("owner"),
+                new TaskId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "id")),
+                new SubmissionId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "submission")),
+                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "owner"),
                 dimension,
                 type,
                 state,
@@ -385,7 +385,7 @@ public final class TaskCodec {
             case Tag.TAG_COMPOUND -> {
                 CompoundTag compound = (CompoundTag) tag;
                 counter.add(8L);
-                for (String key : compound.getAllKeys()) {
+                for (String key : compound.keySet()) {
                     int keyBytes = NbtStringLimits.requireWritable(key, "payload key");
                     counter.add(3L + keyBytes);
                     measureTag(compound.get(key), counter, depth + 1);
@@ -429,9 +429,9 @@ public final class TaskCodec {
 
     private CompoundTag encodeTombstone(TaskTombstone tombstone) {
         CompoundTag tag = new CompoundTag();
-        tag.putUUID("id", tombstone.taskId().value());
-        tag.putUUID("submission", tombstone.submissionId().value());
-        tag.putUUID("owner", tombstone.ownerId());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "id", tombstone.taskId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "submission", tombstone.submissionId().value());
+        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(tag, "owner", tombstone.ownerId());
         tag.putString("dimension", tombstone.dimensionId());
         tag.putLong("revision", tombstone.revision());
         tag.putString("state", tombstone.terminalState().name());
@@ -441,16 +441,16 @@ public final class TaskCodec {
     }
 
     private TaskTombstone decodeTombstone(CompoundTag tag) {
-        if (!tag.getAllKeys().equals(TOMBSTONE_FIELDS)) {
+        if (!tag.keySet().equals(TOMBSTONE_FIELDS)) {
             throw new TaskCodecException("tombstone 缺少字段或包含未知字段");
         }
         requireUuid(tag, "id");
         requireUuid(tag, "submission");
         requireUuid(tag, "owner");
         return new TaskTombstone(
-                new TaskId(tag.getUUID("id")),
-                new SubmissionId(tag.getUUID("submission")),
-                tag.getUUID("owner"),
+                new TaskId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "id")),
+                new SubmissionId(com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "submission")),
+                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(tag, "owner"),
                 requireString(tag, "dimension"),
                 requireLong(tag, "revision"),
                 parseEnum(TaskLifecycleState.class, requireString(tag, "state"), "state"),
@@ -470,24 +470,24 @@ public final class TaskCodec {
     }
 
     private static void requireUuid(CompoundTag tag, String key) {
-        if (!tag.hasUUID(key)) throw new TaskCodecException("缺少 UUID 字段: " + key);
+        if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(tag, key)) throw new TaskCodecException("缺少 UUID 字段: " + key);
     }
 
     private static String requireString(CompoundTag tag, String key) {
-        if (!tag.contains(key, Tag.TAG_STRING)) throw new TaskCodecException("缺少字符串字段: " + key);
-        String value = tag.getString(key);
+        if (!tag.contains(key)) throw new TaskCodecException("缺少字符串字段: " + key);
+        String value = tag.getStringOr(key, "");
         if (value.isBlank()) throw new TaskCodecException("字符串字段为空: " + key);
         return value;
     }
 
     private static int requireInt(CompoundTag tag, String key) {
-        if (!tag.contains(key, Tag.TAG_INT)) throw new TaskCodecException("缺少整数值字段: " + key);
-        return tag.getInt(key);
+        if (!tag.contains(key)) throw new TaskCodecException("缺少整数值字段: " + key);
+        return tag.getIntOr(key, 0);
     }
 
     private static long requireLong(CompoundTag tag, String key) {
-        if (!tag.contains(key, Tag.TAG_LONG)) throw new TaskCodecException("缺少长整数值字段: " + key);
-        return tag.getLong(key);
+        if (!tag.contains(key)) throw new TaskCodecException("缺少长整数值字段: " + key);
+        return tag.getLongOr(key, 0L);
     }
 
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String value, String field) {

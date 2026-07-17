@@ -9,7 +9,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
@@ -44,7 +44,7 @@ public final class RtsGuiCompatSetupCommand {
         dispatcher.register(Commands.literal(COMMAND_NAME)
                 .then(Commands.argument("caseId", StringArgumentType.word())
                         .executes(context -> setupCase(context.getSource(),
-                                StringArgumentType.getString(context, "caseId")))));
+                                StringArgumentType.getStringOr(context, "caseId", "")))));
     }
 
     private static int setupCase(CommandSourceStack source, String caseId) {
@@ -58,7 +58,7 @@ public final class RtsGuiCompatSetupCommand {
 
     private static int setupSingleBlock(CommandSourceStack source, String caseId, String targetBlockId) {
         try {
-            ResourceLocation blockId = ResourceLocation.parse(targetBlockId);
+            Identifier blockId = Identifier.parse(targetBlockId);
             Block block = BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
             if (block == null || block == Blocks.AIR) {
                 source.sendFailure(Component.literal("RTS GUI compat: target block is not registered: "
@@ -67,7 +67,7 @@ public final class RtsGuiCompatSetupCommand {
             }
 
             ServerPlayer player = source.getPlayerOrException();
-            ServerLevel level = player.serverLevel();
+            ServerLevel level = player.level();
             BlockPos base = player.blockPosition();
             int distance = resolveInt(TARGET_DISTANCE_PROPERTY, TARGET_DISTANCE_ENV, DEFAULT_TARGET_DISTANCE);
             BlockPos targetPos = base.offset(0, 0, Math.max(2, distance));

@@ -6,9 +6,9 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
@@ -33,7 +33,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     private static final int CLOSE_SHEET_W = 450;
     private static final int CLOSE_SHEET_H = 900;
     private static final int CLOSE_STATE_H = 450;
-    private static final ResourceLocation CLOSE_BUTTON_TEXTURE = ResourceLocation.tryParse(
+    private static final Identifier CLOSE_BUTTON_TEXTURE = Identifier.tryParse(
             "rtsbuilding:textures/gui/general/close_button.png");
     private static final int SNAP_THRESHOLD = 6;
 
@@ -108,7 +108,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
      * Draws the panel-specific contents inside the window body. The base class
      * has already drawn the frame/title bar and applied the content scissor.
      */
-    protected abstract void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick);
+    protected abstract void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick);
 
     /**
      * Handles a click inside the content area. Returning true consumes the
@@ -150,7 +150,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!this.open || !canShowWindow()) {
             this.mouseHovering = false;
             return;
@@ -190,7 +190,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         }
     }
 
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         render(g, mouseX, mouseY, 0.0F);
     }
 
@@ -611,7 +611,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         clampWindowToScreen();
     }
 
-    private void renderWindowFrame(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderWindowFrame(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         int light = this.mouseHovering ? getHoverBorderLightColor() : getBorderLightColor();
         int dark = this.mouseHovering ? getHoverBorderDarkColor() : getBorderDarkColor();
         RtsClientUiUtil.drawPanelFrame(g, this.windowX, this.windowY, this.windowWidth, this.windowHeight,
@@ -622,7 +622,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
                     this.windowY + titleH, getTitleBarColor());
             String title = RtsClientUiUtil.trimToWidth(this.screen.font(), getTitle().getString(),
                     Math.max(8, this.windowWidth - 36));
-            g.drawString(this.screen.font(), title, this.windowX + 8,
+            g .text(this.screen.font(), title, this.windowX + 8,
                     this.windowY + Math.max(1, (titleH - this.screen.font().lineHeight) / 2),
                     getTitleTextColor(), false);
         }
@@ -633,7 +633,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         }
     }
 
-    private void enableContentScissor(GuiGraphics g) {
+    private void enableContentScissor(GuiGraphicsExtractor g) {
         int x1 = contentX();
         int y1 = contentY();
         int x2 = x1 + contentWidth();

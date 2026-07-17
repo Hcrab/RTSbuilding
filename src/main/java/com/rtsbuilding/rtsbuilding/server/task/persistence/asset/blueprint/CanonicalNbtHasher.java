@@ -61,7 +61,7 @@ final class CanonicalNbtHasher {
             }
             case Tag.TAG_COMPOUND -> {
                 CompoundTag compound = (CompoundTag) tag;
-                List<String> keys = new ArrayList<>(compound.getAllKeys());
+                List<String> keys = new ArrayList<>(compound.keySet());
                 keys.sort(String::compareTo);
                 putInt(digest, keys.size());
                 for (String key : keys) {

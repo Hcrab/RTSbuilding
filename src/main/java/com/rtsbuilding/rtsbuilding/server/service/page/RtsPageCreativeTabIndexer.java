@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -77,11 +77,11 @@ public final class RtsPageCreativeTabIndexer {
             return;
         }
         for (String itemId : counts.keySet()) {
-            ResourceLocation rl = ResourceLocation.tryParse(itemId);
+            Identifier rl = Identifier.tryParse(itemId);
             if (rl == null || !BuiltInRegistries.ITEM.containsKey(rl)) {
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.get(rl);
+            Item item = BuiltInRegistries.ITEM.getValue(rl);
             java.util.Set<String> tabs = resolveCreativeTabKeys(itemId, item, operatorTabs);
             if (tabs.isEmpty()) {
                 continue;
@@ -117,12 +117,12 @@ public final class RtsPageCreativeTabIndexer {
             if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
                 continue;
             }
-            ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
+            Identifier key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
             indexCreativeTabContents(tab, key, operatorTabs);
         }
     }
 
-    private static void indexCreativeTabContents(CreativeModeTab tab, ResourceLocation key, boolean operatorTabs) {
+    private static void indexCreativeTabContents(CreativeModeTab tab, Identifier key, boolean operatorTabs) {
         if (key == null || !tab.shouldDisplay()) {
             return;
         }
@@ -131,7 +131,7 @@ public final class RtsPageCreativeTabIndexer {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
             if (itemId == null) {
                 continue;
             }

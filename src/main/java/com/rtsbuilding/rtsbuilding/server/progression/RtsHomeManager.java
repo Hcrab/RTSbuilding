@@ -6,7 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
@@ -26,7 +26,7 @@ final class RtsHomeManager {
         }
         int chunkX = player.blockPosition().getX() >> 4;
         int chunkZ = player.blockPosition().getZ() >> 4;
-        HOME_SELECTIONS.put(player.getUUID(), new HomeSelection(player.serverLevel().dimension(), chunkX, chunkZ));
+        HOME_SELECTIONS.put(player.getUUID(), new HomeSelection(player.level().dimension(), chunkX, chunkZ));
     }
 
     static void endHomeSelection(ServerPlayer player) {
@@ -41,7 +41,7 @@ final class RtsHomeManager {
 
     static boolean canSelectHome(ServerPlayer player, BlockPos pos) {
         HomeSelection selection = player == null ? null : HOME_SELECTIONS.get(player.getUUID());
-        if (selection == null || pos == null || !selection.dimension().equals(player.serverLevel().dimension())) {
+        if (selection == null || pos == null || !selection.dimension().equals(player.level().dimension())) {
             return false;
         }
         int chunkX = pos.getX() >> 4;
@@ -59,16 +59,16 @@ final class RtsHomeManager {
                 || !root.contains(RtsProgressionPersistence.NBT_HOME_DIMENSION)) {
             return null;
         }
-        ResourceLocation dimensionId = ResourceLocation.tryParse(
-                root.getString(RtsProgressionPersistence.NBT_HOME_DIMENSION));
+        Identifier dimensionId = Identifier.tryParse(
+                root.getStringOr(RtsProgressionPersistence.NBT_HOME_DIMENSION, ""));
         if (dimensionId == null) {
             return null;
         }
         ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
         return new HomeAnchor(
-                BlockPos.of(root.getLong(RtsProgressionPersistence.NBT_HOME_POS)).immutable(),
+                BlockPos.of(root.getLongOr(RtsProgressionPersistence.NBT_HOME_POS, 0L)).immutable(),
                 dimension,
-                root.getLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME));
+                root.getLongOr(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, 0L));
     }
 
     static HomeAnchor getHome(ServerPlayer player) {
@@ -98,7 +98,7 @@ final class RtsHomeManager {
             return false;
         }
         HomeAnchor home = getHome(player);
-        if (home == null || !home.dimension().equals(player.serverLevel().dimension())) {
+        if (home == null || !home.dimension().equals(player.level().dimension())) {
             return false;
         }
         double radius = RtsProgressionManager.getActionRadius(player);
@@ -123,7 +123,7 @@ final class RtsHomeManager {
         if (home == null) {
             return 0L;
         }
-        long elapsed = Math.max(0L, player.serverLevel().getGameTime() - home.setGameTime());
+        long elapsed = Math.max(0L, player.level().getGameTime() - home.setGameTime());
         return Math.max(0L, RtsProgressionManager.HOME_RELOCATION_COOLDOWN_TICKS - elapsed);
     }
 
@@ -148,12 +148,12 @@ final class RtsHomeManager {
             root.putInt(RtsProgressionPersistence.NBT_VERSION, 1);
             root.putLong(RtsProgressionPersistence.NBT_HOME_POS, pos.immutable().asLong());
             root.putString(RtsProgressionPersistence.NBT_HOME_DIMENSION,
-                    player.serverLevel().dimension().location().toString());
-            root.putLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.serverLevel().getGameTime());
+                    player.level().dimension().identifier().toString());
+            root.putLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.level().getGameTime());
             RtsProgressionPersistence.save(player, root);
         } else {
             RtsProgressionPersistence.sharedProgressionData(player).setHome(
-                    sharedKey, pos, player.serverLevel().dimension(), player.serverLevel().getGameTime());
+                    sharedKey, pos, player.level().dimension(), player.level().getGameTime());
         }
         endHomeSelection(player);
         return true;

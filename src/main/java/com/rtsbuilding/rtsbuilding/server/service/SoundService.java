@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -109,10 +109,10 @@ public final class SoundService {
      * 根据物品 ID 构造用于声音播放的 ItemStack。
      */
     public static ItemStack createSoundStack(String itemId) {
-        ResourceLocation id = ResourceLocation.tryParse(itemId == null ? "" : itemId);
+        Identifier id = Identifier.tryParse(itemId == null ? "" : itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(id));
+        return new ItemStack(BuiltInRegistries.ITEM.getValue(id));
     }
 }

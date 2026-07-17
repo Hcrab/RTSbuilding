@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -31,7 +31,7 @@ record BlueprintEntry(
         String sizeText,
         int blockCount,
         RtsBlueprint blueprint,
-        Map<ResourceLocation, Integer> requiredItems,
+        Map<Identifier, Integer> requiredItems,
         Map<String, Integer> unsupportedBlocks,
         Map<String, Integer> missingBlueprintBlocks,
         List<ItemStack> previewItems,
@@ -42,11 +42,11 @@ record BlueprintEntry(
     static BlueprintEntry from(Path path, String fileName, RtsBlueprint blueprint, String error) {
         Vec3i size = blueprint.size();
         List<ItemStack> preview = new ArrayList<>();
-        for (ResourceLocation id : blueprint.requiredItems().keySet()) {
+        for (Identifier id : blueprint.requiredItems().keySet()) {
             if (!BuiltInRegistries.ITEM.containsKey(id)) {
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.get(id);
+            Item item = BuiltInRegistries.ITEM.getValue(id);
             ItemStack stack = new ItemStack(item);
             if (!stack.isEmpty()) {
                 preview.add(stack);

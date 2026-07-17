@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -166,7 +166,7 @@ public final class RtsClientInputGate {
         }
 
         if (event.getScreen() instanceof InventoryScreen) {
-            renderInventoryRtsButtons(event.getGuiGraphics(), Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
+            renderInventoryRtsButtons(event.getGuiGraphicsExtractor(), Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
         }
         if (!RtsClientUiStateStore.isContainerOverlayEnabled()) {
             clearOverlaySearchFocus();
@@ -182,7 +182,7 @@ public final class RtsClientInputGate {
         syncOverlayScreen(event.getScreen(), controller);
 
         Minecraft minecraft = Minecraft.getInstance();
-        GuiGraphics g = event.getGuiGraphics();
+        GuiGraphicsExtractor g = event.getGuiGraphicsExtractor();
         OverlayProfile profile = overlayProfile();
         double mouseX = toOverlayMouse(event.getMouseX(), profile);
         double mouseY = toOverlayMouse(event.getMouseY(), profile);
@@ -207,14 +207,14 @@ public final class RtsClientInputGate {
 
         int searchBg = overlaySearchFocused ? 0xAA304153 : 0xAA202731;
         g.fill(layout.searchX(), layout.headerY(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, searchBg);
-        g.hLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY(), 0xFF61758A);
-        g.hLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
-        g.vLine(layout.searchX(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF61758A);
-        g.vLine(layout.searchX() + layout.searchW(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
+        g.horizontalLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY(), 0xFF61758A);
+        g.horizontalLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
+        g.verticalLine(layout.searchX(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF61758A);
+        g.verticalLine(layout.searchX() + layout.searchW(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
 
         String searchText = overlaySearchDraft == null ? "" : overlaySearchDraft;
         String display = trimToWidth(minecraft.font, searchText, Math.max(8, layout.searchW() - OVERLAY_SEARCH_CLEAR_W - 5));
-        g.drawString(minecraft.font, display, layout.searchX() + 2, layout.headerY() + 2, 0xEAF2FF, false);
+        g .text(minecraft.font, display, layout.searchX() + 2, layout.headerY() + 2, 0xEAF2FF, false);
         if (overlaySearchFocused && (System.currentTimeMillis() / 300L) % 2L == 0L) {
             int caretX = layout.searchX() + 2 + minecraft.font.width(display) + 1;
             g.fill(caretX, layout.headerY() + 2, caretX + 1, layout.headerY() + OVERLAY_HEADER_H - 2, 0xFFEAF2FF);
@@ -250,7 +250,7 @@ public final class RtsClientInputGate {
             g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xAA131313);
             if (i < maxSlots) {
                 var entry = entries.get(i);
-                g.renderItem(entry.stack(), cx + 1, cy + 1);
+                g .item(entry.stack(), cx + 1, cy + 1);
                 drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
             }
         }
@@ -261,17 +261,17 @@ public final class RtsClientInputGate {
                 int cx = layout.returnX() + i * SLOT_PITCH;
                 int cy = layout.returnY();
                 g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xAA20262E);
-                g.hLine(cx, cx + SLOT_SIZE, cy, 0xFF4E5A67);
-                g.hLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF161A20);
-                g.vLine(cx, cy, cy + SLOT_SIZE, 0xFF4E5A67);
-                g.vLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF161A20);
+                g.horizontalLine(cx, cx + SLOT_SIZE, cy, 0xFF4E5A67);
+                g.horizontalLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF161A20);
+                g.verticalLine(cx, cy, cy + SLOT_SIZE, 0xFF4E5A67);
+                g.verticalLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF161A20);
 
                 ItemStack preview = RETURN_QUEUE[i];
                 if (!preview.isEmpty()) {
-                    g.renderItem(preview, cx + 1, cy + 1);
+                    g .item(preview, cx + 1, cy + 1);
                     drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(preview.getCount()), 0xFFE8F6FF);
                 } else {
-                    g.drawString(minecraft.font, "+", cx + 6, cy + 5, 0xAACEE1FF, false);
+                    g .text(minecraft.font, "+", cx + 6, cy + 5, 0xAACEE1FF, false);
                 }
             }
         }
@@ -286,8 +286,8 @@ public final class RtsClientInputGate {
             int hoveredStorage = resolveOverlaySlotIndex(mouseX, mouseY, layout.gridX(), layout.gridY(), visibleStorageRows);
             if (hoveredStorage >= 0 && hoveredStorage < maxSlots) {
                 var entry = entries.get(hoveredStorage);
-                g.renderTooltip(minecraft.font, entry.stack(), (int) mouseX, (int) mouseY);
-                g.drawString(
+                g .setTooltipForNextFrame(minecraft.font, entry.stack(), (int) mouseX, (int) mouseY);
+                g .text(
                         minecraft.font,
                         storageCountDetail(controller, entry.count()),
                         (int) mouseX + 10,
@@ -298,12 +298,12 @@ public final class RtsClientInputGate {
             int hoveredCraft = resolveOverlayCraftableEntryIndex(mouseX, mouseY, layout);
             if (hoveredCraft >= 0 && hoveredCraft < controller.getCraftableEntries().size()) {
                 CraftableEntry entry = controller.getCraftableEntries().get(hoveredCraft);
-                g.renderTooltip(minecraft.font, entry.stack(), (int) mouseX, (int) mouseY);
+                g .setTooltipForNextFrame(minecraft.font, entry.stack(), (int) mouseX, (int) mouseY);
                 String detail = entry.craftable()
                         ? "Right click: choose recipe/count"
                         : entry.missingSummary();
                 if (detail != null && !detail.isBlank()) {
-                    g.drawString(minecraft.font,
+                    g .text(minecraft.font,
                             detail,
                             (int) mouseX + 10,
                             (int) mouseY + 18,
@@ -317,8 +317,8 @@ public final class RtsClientInputGate {
                 ItemStack preview = controller.getQuickSlotPreview(hoveredQuick);
                 String itemId = controller.getQuickSlotItemId(hoveredQuick);
                 if (!preview.isEmpty()) {
-                    g.renderTooltip(minecraft.font, preview, (int) mouseX, (int) mouseY);
-                    g.drawString(minecraft.font,
+                    g .setTooltipForNextFrame(minecraft.font, preview, (int) mouseX, (int) mouseY);
+                    g .text(minecraft.font,
                             "x" + (itemId == null ? 0 : resolvePinnedItemCount(itemId)),
                             (int) mouseX + 10,
                             (int) mouseY + 18,
@@ -330,7 +330,7 @@ public final class RtsClientInputGate {
             if (hoveredReturn >= 0) {
                 ItemStack preview = RETURN_QUEUE[hoveredReturn];
                 if (!preview.isEmpty()) {
-                    g.renderTooltip(minecraft.font, preview, (int) mouseX, (int) mouseY);
+                    g .setTooltipForNextFrame(minecraft.font, preview, (int) mouseX, (int) mouseY);
                 }
             }
         }

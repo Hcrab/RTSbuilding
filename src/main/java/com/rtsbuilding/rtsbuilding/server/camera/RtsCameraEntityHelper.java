@@ -53,11 +53,11 @@ final class RtsCameraEntityHelper {
      * @param player   目标玩家
      */
     static void discardOwnedCameras(ServerPlayer player) {
-        if (player == null || player.getServer() == null) {
+        if (player == null || player.level().getServer() == null) {
             return;
         }
         UUID ownerUuid = player.getUUID();
-        for (ServerLevel level : player.getServer().getAllLevels()) {
+        for (ServerLevel level : player.level().getServer().getAllLevels()) {
             for (Entity entity : level.getAllEntities()) {
                 if (entity instanceof RtsCameraEntity camera
                         && ownerUuid.equals(camera.getOwnerUuid())) {

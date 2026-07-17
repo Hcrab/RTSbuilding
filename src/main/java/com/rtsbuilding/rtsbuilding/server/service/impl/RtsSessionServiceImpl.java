@@ -144,7 +144,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         sessions.remove(player.getUUID());
         cleanupPlayerCaches(player);
         RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
-        RtsWorkflowEngine.getInstance().saveAll(player.getServer());
+        RtsWorkflowEngine.getInstance().saveAll(player.level().getServer());
     }
 
     @Override

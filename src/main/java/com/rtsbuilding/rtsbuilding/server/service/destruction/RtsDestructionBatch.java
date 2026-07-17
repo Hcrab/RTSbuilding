@@ -169,7 +169,7 @@ public final class RtsDestructionBatch {
         int limit = Math.max(0, Math.min(DESTROY_MAX_BLOCKS_PER_TICK, maxBlocks));
         int processed = 0;
         DestructionSliceResult.Outcome outcome = DestructionSliceResult.Outcome.CONTINUE;
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         // 同一 slice 的掉落先合并进轻量缓存，避免每破坏一个方块都触发一次外部储存写入。
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
 
@@ -279,7 +279,7 @@ public final class RtsDestructionBatch {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
 
         // 按 Y 降序排列（从上往下逐层破坏）
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
@@ -359,11 +359,11 @@ public final class RtsDestructionBatch {
 
     private static HistoryBlockRecord decodeHistoryRecord(ServerPlayer player, CompoundTag tag) {
         BlockState state = NbtUtils.readBlockState(
-                player.registryAccess().lookupOrThrow(Registries.BLOCK), tag.getCompound("state"));
+                player.registryAccess().lookupOrThrow(Registries.BLOCK), tag.getCompoundOrEmpty("state"));
         if (state.isAir()) throw new IllegalArgumentException("detached destruction history 方块状态无效");
-        CompoundTag blockEntity = tag.contains("blockEntity", net.minecraft.nbt.Tag.TAG_COMPOUND)
-                ? tag.getCompound("blockEntity").copy() : null;
-        return new HistoryBlockRecord(BlockPos.of(tag.getLong("pos")), state, blockEntity);
+        CompoundTag blockEntity = tag.contains("blockEntity")
+                ? tag.getCompoundOrEmpty("blockEntity").copy() : null;
+        return new HistoryBlockRecord(BlockPos.of(tag.getLongOr("pos", 0L)), state, blockEntity);
     }
 
     // =========================================================================
@@ -494,17 +494,17 @@ public final class RtsDestructionBatch {
          * 从 {@link CompoundTag} 反序列化 {@link DestructionJob}。
          */
         public static DestructionJob fromNbt(CompoundTag tag) {
-            long[] posArray = tag.getLongArray(NBT_POSITIONS);
+            long[] posArray = tag.getLongArray(NBT_POSITIONS).orElseGet(() -> new long[0]);
             List<BlockPos> positions = new ArrayList<>(posArray.length);
             for (long l : posArray) {
                 positions.add(BlockPos.of(l));
             }
-            byte toolSlot = tag.getByte(NBT_TOOL_SLOT);
-            boolean toolProtectionEnabled = tag.getBoolean(NBT_TOOL_PROTECTION);
-            boolean selectedToolRequested = tag.getBoolean(NBT_SELECTED_TOOL);
-            int workflowEntryId = tag.getInt(NBT_WORKFLOW_ENTRY_ID);
-            int totalTargets = tag.getInt(NBT_TOTAL_TARGETS);
-            int index = tag.getInt(NBT_INDEX);
+            byte toolSlot = tag.getByteOr(NBT_TOOL_SLOT, (byte) 0);
+            boolean toolProtectionEnabled = tag.getBooleanOr(NBT_TOOL_PROTECTION, false);
+            boolean selectedToolRequested = tag.getBooleanOr(NBT_SELECTED_TOOL, false);
+            int workflowEntryId = tag.getIntOr(NBT_WORKFLOW_ENTRY_ID, 0);
+            int totalTargets = tag.getIntOr(NBT_TOTAL_TARGETS, 0);
+            int index = tag.getIntOr(NBT_INDEX, 0);
 
             DestructionJob job = new DestructionJob(
                     positions, toolSlot, toolProtectionEnabled,

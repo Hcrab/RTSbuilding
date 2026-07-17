@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -68,11 +68,11 @@ public final class RtsStorageFluids {
         if (session == null || fluidId == null || fluidId.isBlank()) {
             return false;
         }
-        ResourceLocation fluidKey = ResourceLocation.tryParse(fluidId);
+        Identifier fluidKey = Identifier.tryParse(fluidId);
         if (fluidKey == null || !BuiltInRegistries.FLUID.containsKey(fluidKey)) {
             return false;
         }
-        Fluid fluid = BuiltInRegistries.FLUID.get(fluidKey);
+        Fluid fluid = BuiltInRegistries.FLUID.getValue(fluidKey);
         if (fluid == null) {
             return false;
         }
@@ -82,7 +82,7 @@ public final class RtsStorageFluids {
             return false;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
         int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
@@ -156,12 +156,12 @@ public final class RtsStorageFluids {
         if (itemId == null || itemId.isBlank() || extractItemHandlers.isEmpty()) {
             return false;
         }
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return false;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = BuiltInRegistries.ITEM.getValue(id);
         ItemStack extracted = gate.extractOneFromNetwork(extractItemHandlers, player, item);
         if (extracted.isEmpty()) {
             return false;
@@ -195,7 +195,7 @@ public final class RtsStorageFluids {
         if (!executed.remainder().isEmpty()) {
             gate.refundToLinked(insertItemHandlers, player, executed.remainder());
         }
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
+        Identifier fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
         if (fluidId != null) {
             RtsStorageRecentEntries.recordRecentFluid(
                     session,
@@ -246,7 +246,7 @@ public final class RtsStorageFluids {
             moveToPlayerInventoryOrDrop(gate, player, executed.remainder());
         }
         player.containerMenu.broadcastChanges();
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
+        Identifier fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
         if (fluidId != null) {
             RtsStorageRecentEntries.recordRecentFluid(
                     session,

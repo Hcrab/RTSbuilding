@@ -35,7 +35,7 @@ public final class MiningLoadoutState {
         String key = roleKey(role);
         if (!loadout.contains(key)) return OptionalInt.empty();
 
-        int slot = loadout.getInt(key);
+        int slot = loadout.getIntOr(key, 0);
         return slot >= MIN_SLOT && slot <= MAX_SLOT ? OptionalInt.of(slot) : OptionalInt.empty();
     }
 

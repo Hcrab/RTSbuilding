@@ -153,7 +153,7 @@ public final class RtsProgressionManager {
                 isEnabled(),
                 home != null,
                 home == null ? BlockPos.ZERO : home.pos(),
-                home == null ? "" : home.dimension().location().toString(),
+                home == null ? "" : home.dimension().identifier().toString(),
                 RtsHomeManager.remainingHomeCooldownTicks(player),
                 (int) Math.round(getActionRadius(player)),
                 getFluidCapacityBuckets(player),
@@ -170,7 +170,7 @@ public final class RtsProgressionManager {
             syncToPlayer(player);
             return;
         }
-        for (ServerPlayer onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
+        for (ServerPlayer onlinePlayer : player.level().getServer().getPlayerList().getPlayers()) {
             if (sharedKey.equals(RtsProgressionPersistence.sharedProgressionKey(onlinePlayer))) {
                 syncToPlayer(onlinePlayer);
             }

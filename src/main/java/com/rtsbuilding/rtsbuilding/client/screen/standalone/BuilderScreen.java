@@ -53,14 +53,14 @@ import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -346,7 +346,7 @@ public final class BuilderScreen extends Screen {
     /** 用 actionbar 提示，避免弹窗遮挡 RTS 视野和其他面板。 */
     public void showQuickBuildLockedMessage() {
         if (this.minecraft != null && this.minecraft.player != null) {
-            this.minecraft.player.displayClientMessage(
+            this.minecraft.player.sendSystemMessage(
                     Component.translatable("message.rtsbuilding.quick_build.remote_place_locked"), true);
         }
     }
@@ -1535,7 +1535,7 @@ public final class BuilderScreen extends Screen {
      * quest/storage scan popups, blueprint capture/placement HUD,
      * tooltips, cursor preview, damage flash, and modal layers (wheel, gear, guide, dialogs).
      */
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
             return;
         }
@@ -1597,7 +1597,7 @@ public final class BuilderScreen extends Screen {
      * Handles creative entries, storage entries, recent items, fluids, craftables,
      * funnel buffer, GUI bind slots, empty hand slot, and discoverability hints.
      */
-    private void renderHoveredItemTooltips(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderHoveredItemTooltips(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         boolean modalOpen = isMouseOverFloatingWindow(mouseX, mouseY);
         boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
@@ -1670,14 +1670,14 @@ public final class BuilderScreen extends Screen {
             boolean funnelCursor = shouldRenderFunnelCursor();
             this.overlayRenderer.updateNativeCursorVisibility(funnelCursor);
             if (funnelCursor) {
-                g.renderItem(FUNNEL_CURSOR_STACK, mouseX + 8, mouseY + 8);
+                g .item(FUNNEL_CURSOR_STACK, mouseX + 8, mouseY + 8);
             } else if (this.pendingGuiBindSlot >= 0) {
                 drawGuiBindCursor(g, mouseX, mouseY);
             } else {
                 ItemStack cursorPreview = resolveCursorPreview();
                 if (!cursorPreview.isEmpty() && !isSearchFocused()
                         && !isMouseOverFloatingWindow(mouseX, mouseY)) {
-                    g.renderItem(cursorPreview, mouseX + 10, mouseY + 10);
+                    g .item(cursorPreview, mouseX + 10, mouseY + 10);
                 }
             }
         } else {
@@ -1687,11 +1687,11 @@ public final class BuilderScreen extends Screen {
 
     /**
      * Scales the rendering to the user-configured fixed RTS GUI scale, then recursively
-     * calls {@link #render(GuiGraphics, int, int, float)} with adjusted coordinates.
+     * calls {@link #render(GuiGraphicsExtractor, int, int, float)} with adjusted coordinates.
      *
      * @return true if the render was handled at a non-unit scale (calling code should return)
      */
-    private boolean renderWithFixedRtsGuiScale(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private boolean renderWithFixedRtsGuiScale(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         RtsUiScaleFrame frame = enterFixedRtsGuiScale();
         if (frame == null || Math.abs(frame.scale() - 1.0D) < 0.001D) {
             if (frame != null) {
@@ -1770,18 +1770,18 @@ public final class BuilderScreen extends Screen {
      * Renders a hint message at the top of the screen related to the guide panel when
      * the top bar buttons are visible.
      */
-    public void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    public void renderTopGuideHint(GuiGraphicsExtractor g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         this.guidePanel.renderTopHint(g, topButtons);
     }
     /**
      * Draws a small "+" icon inside a green-bordered slot at the cursor position,
      * indicating the player is in GUI binding mode and should click a block to bind it.
      */
-    private void drawGuiBindCursor(GuiGraphics g, int mouseX, int mouseY) {
+    private void drawGuiBindCursor(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         int x = mouseX + 8;
         int y = mouseY + 8;
         RtsClientUiUtil.drawPanelFrame(g, x, y, CRAFT_DOCK_SLOT_SIZE, CRAFT_DOCK_SLOT_SIZE, 0xCC2D6B47, 0xFF78B28C, 0xFF0F151C);
-        g.drawCenteredString(this.font, "+", x + CRAFT_DOCK_SLOT_SIZE / 2, y + 1, 0xFFFFFF);
+        g .centeredText(this.font, "+", x + CRAFT_DOCK_SLOT_SIZE / 2, y + 1, 0xFFFFFF);
     }
     /** Returns true if any recipe viewer mod (JEI, EMI, REI) is loaded. */
     private static boolean hasRecipeViewerLoaded() {
@@ -2165,7 +2165,7 @@ public final class BuilderScreen extends Screen {
             if (toolStack.isEmpty()) {
                 return;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+            Identifier id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
             if (id == null) {
                 return;
             }
@@ -2255,7 +2255,7 @@ public final class BuilderScreen extends Screen {
         if (this.minecraft == null || this.minecraft.player == null) {
             return 0;
         }
-        return Mth.clamp(this.minecraft.player.getInventory().selected, 0, 8);
+        return Mth.clamp(this.minecraft.player.getInventory().getSelectedSlot(), 0, 8);
     }
     /** Returns the ItemStack in the player's currently selected hotbar slot. */
     private ItemStack getSelectedToolStack() {
@@ -2326,7 +2326,7 @@ public final class BuilderScreen extends Screen {
         if (this.minecraft == null || this.minecraft.player == null) {
             return;
         }
-        this.minecraft.player.getInventory().selected = Mth.clamp(slot, 0, 8);
+        this.minecraft.player.getInventory().setSelectedSlot(Mth.clamp(slot, 0, 8));
     }
 
     /**
@@ -2481,7 +2481,7 @@ public final class BuilderScreen extends Screen {
      * Enables a scissor region for clipping, adjusting coordinates for the
      * active RTS GUI render scale if a fixed-scale pass is in progress.
      */
-    public void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) {
+    public void enableRtsScissor(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2) {
         double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
         if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
             g.enableScissor(
@@ -2503,23 +2503,23 @@ public final class BuilderScreen extends Screen {
         return Component.translatable(key, args).getString();
     }
 
-    private void renderLeftDockedTooltip(GuiGraphics g, ItemStack stack) {
+    private void renderLeftDockedTooltip(GuiGraphicsExtractor g, ItemStack stack) {
         int x = leftTooltipAnchorX();
         int y = leftTooltipAnchorY();
-        g.renderTooltip(this.font, stack, x, y);
+        g .setTooltipForNextFrame(this.font, stack, x, y);
     }
 
-    private void renderLeftDockedTooltip(GuiGraphics g, Component text) {
+    private void renderLeftDockedTooltip(GuiGraphicsExtractor g, Component text) {
         int x = leftTooltipAnchorX();
         int y = leftTooltipAnchorY();
-        g.renderTooltip(this.font, text, x, y);
+        g .setTooltipForNextFrame(this.font, text, x, y);
     }
 
-    private void renderLeftDockedTooltipDetail(GuiGraphics g, String detail, int color) {
+    private void renderLeftDockedTooltipDetail(GuiGraphicsExtractor g, String detail, int color) {
         if (detail == null || detail.isBlank()) {
             return;
         }
-        g.drawString(this.font, detail, leftTooltipAnchorX() + 10,
+        g .text(this.font, detail, leftTooltipAnchorX() + 10,
                 leftTooltipAnchorY() + LEFT_TOOLTIP_DETAIL_Y_OFFSET, color);
     }
 
@@ -2549,14 +2549,14 @@ public final class BuilderScreen extends Screen {
      * Draws text at a scaled size, useful for rendering labels that need to be
      * smaller or larger than the default font size.
      */
-    private void drawScaledText(GuiGraphics g, String text, int x, int y, int color, float scale) {
+    private void drawScaledText(GuiGraphicsExtractor g, String text, int x, int y, int color, float scale) {
         if (text == null || text.isEmpty()) {
             return;
         }
         g.pose().pushPose();
         g.pose().translate(x, y, 0.0F);
         g.pose().scale(scale, scale, 1.0F);
-        g.drawString(this.font, text, 0, 0, color, false);
+        g .text(this.font, text, 0, 0, color, false);
         g.pose().popPose();
     }
     /** Returns whether the player has a non-empty main hand item. */

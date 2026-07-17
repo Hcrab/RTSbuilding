@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -52,7 +52,7 @@ public final class RtsBackpackCompat {
         }
         return REFLECTION.getBackpackStack(blockEntity)
                 .map(stack -> BuiltInRegistries.ITEM.getKey(stack.getItem()))
-                .map(ResourceLocation::toString);
+                .map(Identifier::toString);
     }
 
     public static Optional<IItemHandler> openBackpack(UUID uuid, String itemId) {
@@ -63,11 +63,11 @@ public final class RtsBackpackCompat {
         if (!isAvailable() || uuid == null || itemId == null || itemId.isBlank()) {
             return findBackpackHandlerByUuid(fallbackPlayer, uuid);
         }
-        ResourceLocation itemKey = ResourceLocation.tryParse(itemId);
+        Identifier itemKey = Identifier.tryParse(itemId);
         if (itemKey == null || !BuiltInRegistries.ITEM.containsKey(itemKey)) {
             return findBackpackHandlerByUuid(fallbackPlayer, uuid);
         }
-        Item item = BuiltInRegistries.ITEM.get(itemKey);
+        Item item = BuiltInRegistries.ITEM.getValue(itemKey);
         if (item == null) {
             return findBackpackHandlerByUuid(fallbackPlayer, uuid);
         }
@@ -92,7 +92,7 @@ public final class RtsBackpackCompat {
     }
 
     private static boolean isSophisticatedBackpackItem(ItemStack stack) {
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         return itemId != null && MOD_ID.equals(itemId.getNamespace());
     }
 

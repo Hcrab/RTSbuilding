@@ -10,7 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -142,11 +142,11 @@ public final class BuildPlacementService {
         }
         ItemStack preview = qsPreview;
         if (preview.isEmpty()) {
-            ResourceLocation id = ResourceLocation.tryParse(qsItemId);
+            Identifier id = Identifier.tryParse(qsItemId);
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
                 return;
             }
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            preview = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
         }
         String label = qsLabel;
         if (label == null || label.isBlank()) {
@@ -192,10 +192,10 @@ public final class BuildPlacementService {
         if (payloadItemId.isBlank()) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {
-                int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
+                int slot = Mth.clamp(mc.player.getInventory().getSelectedSlot(), 0, 8);
                 ItemStack toolStack = mc.player.getInventory().getItem(slot);
                 if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
-                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                    Identifier id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
                     if (id != null) {
                         payloadItemId = id.toString();
                     }
@@ -238,10 +238,10 @@ public final class BuildPlacementService {
         if (payloadItemId.isBlank()) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {
-                int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
+                int slot = Mth.clamp(mc.player.getInventory().getSelectedSlot(), 0, 8);
                 ItemStack toolStack = mc.player.getInventory().getItem(slot);
                 if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
-                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                    Identifier id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
                     if (id != null) {
                         payloadItemId = id.toString();
                     }

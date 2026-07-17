@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Server-to-client payload carrying an updated RTS camera anchor position.
@@ -20,7 +20,7 @@ public record S2CRtsCameraAnchorPayload(
         double maxRadius) implements CustomPacketPayload {
 
     public static final Type<S2CRtsCameraAnchorPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_camera_anchor"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_camera_anchor"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCameraAnchorPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

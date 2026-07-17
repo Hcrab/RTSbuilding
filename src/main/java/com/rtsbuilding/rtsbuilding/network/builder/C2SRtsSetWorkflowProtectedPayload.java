@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * 客户端请求设置某个工作流是否“不被覆盖”。
@@ -16,7 +16,7 @@ public record C2SRtsSetWorkflowProtectedPayload(
         boolean protectedWorkflow) implements CustomPacketPayload {
 
     public static final Type<C2SRtsSetWorkflowProtectedPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_workflow_protected"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_workflow_protected"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetWorkflowProtectedPayload> STREAM_CODEC =
             StreamCodec.of(

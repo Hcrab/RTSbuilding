@@ -11,7 +11,7 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,20 +39,20 @@ final class LitematicReader {
      */
     static RtsBlueprint parse(byte[] data, String fileName, RegistryAccess registryAccess) throws BlueprintParseException {
         CompoundTag root = readCompressed(data, fileName);
-        if (!root.contains("Regions", Tag.TAG_COMPOUND)) {
+        if (!root.contains("Regions")) {
             throw new BlueprintParseException("Litematic 文件缺少 Regions 数据: " + fileName);
         }
 
         HolderGetter<Block> blockLookup = registryAccess.lookupOrThrow(Registries.BLOCK);
-        CompoundTag regions = root.getCompound("Regions");
+        CompoundTag regions = root.getCompoundOrEmpty("Regions");
         List<PendingBlock> pending = new ArrayList<>();
 
         // 遍历所有区域，读取每个区域的方块数据
-        for (String regionName : regions.getAllKeys()) {
-            if (!regions.contains(regionName, Tag.TAG_COMPOUND)) {
+        for (String regionName : regions.keySet()) {
+            if (!regions.contains(regionName)) {
                 continue;
             }
-            readRegion(fileName, regions.getCompound(regionName), blockLookup, pending);
+            readRegion(fileName, regions.getCompoundOrEmpty(regionName), blockLookup, pending);
         }
 
         if (pending.isEmpty()) {
@@ -115,14 +115,14 @@ final class LitematicReader {
         }
 
         // 读取调色板和方块实体
-        List<PaletteEntry> palette = readPalette(region.getList("BlockStatePalette", Tag.TAG_COMPOUND), blockLookup);
+        List<PaletteEntry> palette = readPalette(region.getListOrEmpty("BlockStatePalette"), blockLookup);
         if (palette.isEmpty()) {
             throw new BlueprintParseException("Litematic 区域缺少 BlockStatePalette: " + fileName);
         }
 
         Map<BlockPos, CompoundTag> blockEntities = readBlockEntities(region);
-        long[] blockStates = region.contains("BlockStates", Tag.TAG_LONG_ARRAY)
-                ? region.getLongArray("BlockStates")
+        long[] blockStates = region.contains("BlockStates")
+                ? region.getLongArray("BlockStates").orElseGet(() -> new long[0])
                 : new long[0];
         int bits = bitsPerEntry(palette.size());
         if (palette.size() > 1 && blockStates.length == 0) {
@@ -163,7 +163,7 @@ final class LitematicReader {
             throws BlueprintParseException {
         List<PaletteEntry> out = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
-            CompoundTag paletteEntry = paletteTag.getCompound(i);
+            CompoundTag paletteEntry = paletteTag.getCompoundOrEmpty(i);
             String missingId = missingBlockId(paletteEntry);
             if (!missingId.isBlank()) {
                 out.add(new PaletteEntry(Blocks.AIR.defaultBlockState(), missingId));
@@ -181,12 +181,12 @@ final class LitematicReader {
     /** 读取方块实体数据 */
     private static Map<BlockPos, CompoundTag> readBlockEntities(CompoundTag region) {
         Map<BlockPos, CompoundTag> out = new HashMap<>();
-        if (!region.contains("TileEntities", Tag.TAG_LIST)) {
+        if (!region.contains("TileEntities")) {
             return out;
         }
-        ListTag list = region.getList("TileEntities", Tag.TAG_COMPOUND);
+        ListTag list = region.getListOrEmpty("TileEntities");
         for (int i = 0; i < list.size(); i++) {
-            CompoundTag tag = list.getCompound(i);
+            CompoundTag tag = list.getCompoundOrEmpty(i);
             BlockPos pos = readBlockEntityPos(tag);
             if (pos != null) {
                 out.put(pos, tag.copy());
@@ -198,13 +198,13 @@ final class LitematicReader {
     /** 从方块实体标签中读取位置（支持多种格式） */
     private static BlockPos readBlockEntityPos(CompoundTag tag) {
         if (tag.contains("x") && tag.contains("y") && tag.contains("z")) {
-            return new BlockPos(tag.getInt("x"), tag.getInt("y"), tag.getInt("z"));
+            return new BlockPos(tag.getIntOr("x", 0), tag.getIntOr("y", 0), tag.getIntOr("z", 0));
         }
-        if (tag.contains("Pos", Tag.TAG_COMPOUND)) {
+        if (tag.contains("Pos")) {
             Vec3i pos = readVec(tag, "Pos", null);
             return pos == null ? null : new BlockPos(pos);
         }
-        if (tag.contains("Pos", Tag.TAG_INT_ARRAY) || tag.contains("Pos", Tag.TAG_LIST)) {
+        if (tag.contains("Pos") || tag.contains("Pos")) {
             Vec3i pos = readVec(tag, "Pos", null);
             return pos == null ? null : new BlockPos(pos);
         }
@@ -245,11 +245,11 @@ final class LitematicReader {
 
     /** 检测调色板条目是否对应缺失方块 */
     private static String missingBlockId(CompoundTag paletteEntry) {
-        if (!paletteEntry.contains("Name", Tag.TAG_STRING)) {
+        if (!paletteEntry.contains("Name")) {
             return "";
         }
-        String name = paletteEntry.getString("Name");
-        ResourceLocation id = ResourceLocation.tryParse(name);
+        String name = paletteEntry.getStringOr("Name", "");
+        Identifier id = Identifier.tryParse(name);
         if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
             return name == null ? "" : name;
         }
@@ -270,12 +270,12 @@ final class LitematicReader {
         if (!root.contains(key)) {
             return fallback;
         }
-        if (root.contains(key, Tag.TAG_COMPOUND)) {
-            CompoundTag tag = root.getCompound(key);
-            return new Vec3i(tag.getInt("x"), tag.getInt("y"), tag.getInt("z"));
+        if (root.contains(key)) {
+            CompoundTag tag = root.getCompoundOrEmpty(key);
+            return new Vec3i(tag.getIntOr("x", 0), tag.getIntOr("y", 0), tag.getIntOr("z", 0));
         }
-        if (root.contains(key, Tag.TAG_INT_ARRAY)) {
-            int[] values = root.getIntArray(key);
+        if (root.contains(key)) {
+            int[] values = root.getIntArray(key).orElseGet(() -> new int[0]);
             if (values.length >= 3) {
                 return new Vec3i(values[0], values[1], values[2]);
             }
@@ -287,10 +287,10 @@ final class LitematicReader {
                 return new Vec3i(values[0], values[1], values[2]);
             }
         }
-        if (root.contains(key, Tag.TAG_LIST)) {
-            ListTag values = root.getList(key, Tag.TAG_INT);
+        if (root.contains(key)) {
+            ListTag values = root.getListOrEmpty(key);
             if (values.size() >= 3) {
-                return new Vec3i(values.getInt(0), values.getInt(1), values.getInt(2));
+                return new Vec3i(values.getIntOr(0, 0), values.getIntOr(1, 0), values.getIntOr(2, 0));
             }
         }
         return fallback;
@@ -298,10 +298,10 @@ final class LitematicReader {
 
     /** 读取蓝图名称 */
     private static String readName(CompoundTag root, String fileName) {
-        if (root.contains("Metadata", Tag.TAG_COMPOUND)) {
-            CompoundTag metadata = root.getCompound("Metadata");
-            if (metadata.contains("Name", Tag.TAG_STRING) && !metadata.getString("Name").isBlank()) {
-                return metadata.getString("Name");
+        if (root.contains("Metadata")) {
+            CompoundTag metadata = root.getCompoundOrEmpty("Metadata");
+            if (metadata.contains("Name") && !metadata.getStringOr("Name", "").isBlank()) {
+                return metadata.getStringOr("Name", "");
             }
         }
         return cleanName(fileName);

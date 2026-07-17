@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.common.blueprint.rule;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,10 +21,10 @@ public final class BlueprintReplaceRules {
     /** 蓝图软替换方块标签 —— 通过数据包扩展的软替换方块集 */
     public static final TagKey<Block> SOFT_REPLACEABLE = TagKey.create(
             Registries.BLOCK,
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "blueprint_soft_replaceable"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "blueprint_soft_replaceable"));
 
     /** 原版软替换方块硬编码列表 —— 花、草、蘑菇、藤蔓等易替换方块 */
-    private static final Set<ResourceLocation> VANILLA_SOFT_REPLACEABLE = Set.of(
+    private static final Set<Identifier> VANILLA_SOFT_REPLACEABLE = Set.of(
             vanilla("short_grass"),      // 矮草丛
             vanilla("tall_grass"),       // 高草丛
             vanilla("fern"),             // 蕨
@@ -87,8 +87,8 @@ public final class BlueprintReplaceRules {
         return VANILLA_SOFT_REPLACEABLE.contains(BuiltInRegistries.BLOCK.getKey(state.getBlock()));
     }
 
-    /** 创建 minecraft 命名空间的 {@link ResourceLocation} */
-    private static ResourceLocation vanilla(String path) {
-        return ResourceLocation.fromNamespaceAndPath("minecraft", path);
+    /** 创建 minecraft 命名空间的 {@link Identifier} */
+    private static Identifier vanilla(String path) {
+        return Identifier.fromNamespaceAndPath("minecraft", path);
     }
 }

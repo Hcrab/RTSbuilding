@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
@@ -11,10 +11,10 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * <p>
  * This utility class provides two main entry points:
  * <ul>
- *   <li>{@link #renderIcon(TopBarTypes.TopBarButtonId, GuiGraphics, int, int, int, boolean, Font)} -
+ *   <li>{@link #renderIcon(TopBarTypes.TopBarButtonId, GuiGraphicsExtractor, int, int, int, boolean, Font)} -
  *       A single dispatch method that selects and draws the correct icon for a given button type.</li>
  *   <li>{@link #topbarModeTexture(TopBarTypes.TopBarButtonId, boolean, boolean, boolean)} -
-     *       Selects a {@link ResourceLocation} for texture-based icons (INTERACT, LINK, FUNNEL, ROTATE,
+     *       Selects a {@link Identifier} for texture-based icons (INTERACT, LINK, FUNNEL, ROTATE,
      *       QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GEAR).</li>
  * </ul>
  * <p>
@@ -33,7 +33,7 @@ public final class TopBarIconRenderer {
      * before calling this method.
      *
      * @param id     the button identifier whose icon should be drawn
-     * @param g      the {@link GuiGraphics} used for rendering
+     * @param g      the {@link GuiGraphicsExtractor} used for rendering
      * @param cx     the X coordinate of the icon center
      * @param cy     the Y coordinate of the icon center
      * @param color  the base ARGB color for the icon outline or fill
@@ -41,7 +41,7 @@ public final class TopBarIconRenderer {
      * @param font   the {@link Font} used for text-based icons; may be {@code null} for
      *               purely pixel-art icons
      */
-    public static void renderIcon(TopBarTypes.TopBarButtonId id, GuiGraphics g, int cx, int cy, int color, boolean active, Font font) {
+    public static void renderIcon(TopBarTypes.TopBarButtonId id, GuiGraphicsExtractor g, int cx, int cy, int color, boolean active, Font font) {
         switch (id) {
             case INTERACT -> drawInteractModeIcon(g, cx, cy, color);
             case LINK -> drawLinkModeIcon(g, cx, cy, color, active);
@@ -58,7 +58,7 @@ public final class TopBarIconRenderer {
     }
 
     /**
-     * Selects the appropriate texture {@link ResourceLocation} for a top bar button
+     * Selects the appropriate texture {@link Identifier} for a top bar button
      * based on its current visual state.
      * <p>
      * Each button type has four texture variants: inactive, hover, active, and pressed.
@@ -71,10 +71,10 @@ public final class TopBarIconRenderer {
      * @param active  whether the button is in its activated/toggled state
      * @param hovered whether the mouse is hovering over the button
      * @param pressed whether the mouse button is pressed on this button
-     * @return the {@link ResourceLocation} for the resolved texture, or {@code null} if
+     * @return the {@link Identifier} for the resolved texture, or {@code null} if
      *         this button type has no texture icon and should fall back to pixel-art drawing
      */
-    public static ResourceLocation topbarModeTexture(TopBarTypes.TopBarButtonId id, boolean active, boolean hovered, boolean pressed) {
+    public static Identifier topbarModeTexture(TopBarTypes.TopBarButtonId id, boolean active, boolean hovered, boolean pressed) {
         String state = active ? "active" : pressed ? "pressed" : hovered ? "hover" : "inactive";
         return switch (id) {
             case INTERACT -> switch (state) {
@@ -141,7 +141,7 @@ public final class TopBarIconRenderer {
      * Draws the INTERACT mode icon: a stepped arrow pointing from bottom-left toward top-right.
      * A small blue accent highlight appears at the tip when hovered/active.
      */
-    private static void drawInteractModeIcon(GuiGraphics g, int cx, int cy, int color) {
+    private static void drawInteractModeIcon(GuiGraphicsExtractor g, int cx, int cy, int color) {
         g.fill(cx - 7, cy - 8, cx - 5, cy + 7, color);
         g.fill(cx - 5, cy - 6, cx - 3, cy + 5, color);
         g.fill(cx - 3, cy - 4, cx - 1, cy + 3, color);
@@ -157,7 +157,7 @@ public final class TopBarIconRenderer {
      * Draws the LINK mode icon: two interlocking chain loop segments.
      * When active, the left loop gets a blue tint and the right loop a green tint.
      */
-    private static void drawLinkModeIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
+    private static void drawLinkModeIcon(GuiGraphicsExtractor g, int cx, int cy, int color, boolean active) {
         int left = active ? 0xFF88BEF4 : color;
         int right = active ? 0xFF78B28C : color;
         drawMiniChainLoop(g, cx - 5, cy + 1, left);
@@ -171,7 +171,7 @@ public final class TopBarIconRenderer {
      * to a narrow tube at the bottom. When active, the top, middle, and tip use distinct
      * warm accent colors.
      */
-    private static void drawFunnelModeIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
+    private static void drawFunnelModeIcon(GuiGraphicsExtractor g, int cx, int cy, int color, boolean active) {
         int top = active ? 0xFFFFC472 : color;
         int mid = active ? 0xFF78B28C : color;
         int tip = active ? 0xFF88BEF4 : color;
@@ -187,7 +187,7 @@ public final class TopBarIconRenderer {
      * Draws the ROTATE mode icon: a circular rotation arrow with a hollow center.
      * The arrow loops clockwise with a small cutout in the middle.
      */
-    private static void drawRotateModeIcon(GuiGraphics g, int cx, int cy, int color) {
+    private static void drawRotateModeIcon(GuiGraphicsExtractor g, int cx, int cy, int color) {
         g.fill(cx - 5, cy - 7, cx + 5, cy - 5, color);
         g.fill(cx + 4, cy - 6, cx + 7, cy - 2, color);
         g.fill(cx + 6, cy - 2, cx + 8, cy + 1, color);
@@ -199,10 +199,10 @@ public final class TopBarIconRenderer {
         g.fill(cx - 8, cy + 4, cx - 3, cy + 7, color);
         g.fill(cx - 8, cy + 1, cx - 5, cy + 4, color);
         g.fill(cx - 3, cy - 3, cx + 4, cy + 4, 0xFF1B222C);
-        g.hLine(cx - 3, cx + 3, cy - 3, color);
-        g.hLine(cx - 3, cx + 3, cy + 3, color);
-        g.vLine(cx - 3, cy - 3, cy + 3, color);
-        g.vLine(cx + 3, cy - 3, cy + 3, color);
+        g.horizontalLine(cx - 3, cx + 3, cy - 3, color);
+        g.horizontalLine(cx - 3, cx + 3, cy + 3, color);
+        g.verticalLine(cx - 3, cy - 3, cy + 3, color);
+        g.verticalLine(cx + 3, cy - 3, cy + 3, color);
     }
 
     /**
@@ -210,7 +210,7 @@ public final class TopBarIconRenderer {
      * with a small flag extending to the upper-right. When active, the bracket gets
      * a warm yellow accent.
      */
-    private static void drawQuickBuildIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
+    private static void drawQuickBuildIcon(GuiGraphicsExtractor g, int cx, int cy, int color, boolean active) {
         int accent = active ? 0xFFFFC96B : color;
         g.fill(cx - 8, cy - 6, cx + 6, cy - 4, accent);
         g.fill(cx - 8, cy - 6, cx - 6, cy + 6, accent);
@@ -224,7 +224,7 @@ public final class TopBarIconRenderer {
     /**
      * Draws the QUEST DETECT icon: a checkmark / tick shape.
      */
-    private static void drawQuestCheckIcon(GuiGraphics g, int cx, int cy, int color) {
+    private static void drawQuestCheckIcon(GuiGraphicsExtractor g, int cx, int cy, int color) {
         g.fill(cx - 7, cy + 1, cx - 3, cy + 5, color);
         g.fill(cx - 4, cy + 4, cx, cy + 8, color);
         g.fill(cx - 1, cy + 1, cx + 3, cy + 5, color);
@@ -236,7 +236,7 @@ public final class TopBarIconRenderer {
      * Draws the CHUNK VIEW icon: a grid pattern representing chunk boundaries.
      * When active, the background gets a subtle blue glow.
      */
-    private static void drawChunkCurtainIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
+    private static void drawChunkCurtainIcon(GuiGraphicsExtractor g, int cx, int cy, int color, boolean active) {
         int glow = active ? 0x4488BEF4 : 0x221D2530;
         g.fill(cx - 8, cy - 7, cx + 8, cy + 7, glow);
         g.fill(cx - 7, cy - 6, cx - 6, cy + 6, color);
@@ -251,7 +251,7 @@ public final class TopBarIconRenderer {
      * Draws the GEAR (settings) icon: a cog shape with four outer notches and a solid center.
      * The center contains a small dark hole.
      */
-    private static void drawGearIcon(GuiGraphics g, int cx, int cy, int color) {
+    private static void drawGearIcon(GuiGraphicsExtractor g, int cx, int cy, int color) {
         g.fill(cx - 2, cy - 8, cx + 2, cy - 5, color);
         g.fill(cx - 2, cy + 5, cx + 2, cy + 8, color);
         g.fill(cx - 8, cy - 2, cx - 5, cy + 2, color);
@@ -270,7 +270,7 @@ public final class TopBarIconRenderer {
      * Draws a small chain loop segment used by {@link #drawLinkModeIcon}.
      * Renders a rectangular ring with a dark center void.
      */
-    private static void drawMiniChainLoop(GuiGraphics g, int cx, int cy, int color) {
+    private static void drawMiniChainLoop(GuiGraphicsExtractor g, int cx, int cy, int color) {
         g.fill(cx - 5, cy - 4, cx + 5, cy - 2, color);
         g.fill(cx - 5, cy + 2, cx + 5, cy + 4, color);
         g.fill(cx - 5, cy - 3, cx - 3, cy + 3, color);

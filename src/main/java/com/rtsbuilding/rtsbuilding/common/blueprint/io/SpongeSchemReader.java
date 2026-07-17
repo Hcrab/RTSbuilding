@@ -13,7 +13,7 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,8 +42,8 @@ final class SpongeSchemReader {
     static RtsBlueprint parse(byte[] data, String fileName, RegistryAccess registryAccess) throws BlueprintParseException {
         CompoundTag root = readCompressed(data, fileName);
         // 有些 Schematic 文件在最外层包含 "Schematic" 键
-        CompoundTag schematic = root.contains("Schematic", Tag.TAG_COMPOUND) ? root.getCompound("Schematic") : root;
-        if (!schematic.contains("Blocks", Tag.TAG_COMPOUND)) {
+        CompoundTag schematic = root.contains("Schematic") ? root.getCompoundOrEmpty("Schematic") : root;
+        if (!schematic.contains("Blocks")) {
             throw new BlueprintParseException("Schematic 文件缺少 Blocks 数据: " + fileName);
         }
 
@@ -54,8 +54,8 @@ final class SpongeSchemReader {
             throw new BlueprintParseException("Schematic 尺寸无效: " + fileName);
         }
 
-        CompoundTag blocksRoot = schematic.getCompound("Blocks");
-        CompoundTag paletteTag = blocksRoot.getCompound("Palette");
+        CompoundTag blocksRoot = schematic.getCompoundOrEmpty("Blocks");
+        CompoundTag paletteTag = blocksRoot.getCompoundOrEmpty("Palette");
         byte[] packed = readBlockData(blocksRoot);
         HolderLookup<Block> blockLookup = registryAccess.lookupOrThrow(Registries.BLOCK);
         Map<Integer, PaletteEntry> palette = readPalette(paletteTag, blockLookup);
@@ -98,34 +98,34 @@ final class SpongeSchemReader {
 
     /** 读取正数尺寸值（支持 short 或 int） */
     private static int readPositiveDimension(CompoundTag tag, String key) {
-        return tag.contains(key, Tag.TAG_SHORT) ? Short.toUnsignedInt(tag.getShort(key)) : tag.getInt(key);
+        return tag.contains(key) ? Short.toUnsignedInt(tag.getShortOr(key, (short) 0)) : tag.getIntOr(key, 0);
     }
 
     /** 读取方块数据字节数组 */
     private static byte[] readBlockData(CompoundTag blocksRoot) throws BlueprintParseException {
-        if (!blocksRoot.contains("Data", Tag.TAG_BYTE_ARRAY)) {
+        if (!blocksRoot.contains("Data")) {
             throw new BlueprintParseException("Schematic 缺少 Blocks.Data");
         }
         Tag raw = blocksRoot.get("Data");
         if (raw instanceof ByteArrayTag byteArrayTag) {
             return byteArrayTag.getAsByteArray();
         }
-        return blocksRoot.getByteArray("Data");
+        return blocksRoot.getByteArray("Data").orElseGet(() -> new byte[0]);
     }
 
     /** 读取调色板并解析方块状态 */
     private static Map<Integer, PaletteEntry> readPalette(CompoundTag paletteTag, HolderLookup<Block> blockLookup)
             throws BlueprintParseException {
         Map<Integer, PaletteEntry> out = new HashMap<>();
-        for (String key : paletteTag.getAllKeys()) {
+        for (String key : paletteTag.keySet()) {
             String missingId = missingBlockId(key);
             if (!missingId.isBlank()) {
-                out.put(paletteTag.getInt(key), new PaletteEntry(Blocks.AIR.defaultBlockState(), missingId));
+                out.put(paletteTag.getIntOr(key, 0), new PaletteEntry(Blocks.AIR.defaultBlockState(), missingId));
                 continue;
             }
             try {
                 BlockState state = BlockStateParser.parseForBlock(blockLookup, key, false).blockState();
-                out.put(paletteTag.getInt(key), new PaletteEntry(state, ""));
+                out.put(paletteTag.getIntOr(key, 0), new PaletteEntry(state, ""));
             } catch (CommandSyntaxException ex) {
                 throw new BlueprintParseException("Schematic 调色板中存在未知方块状态: " + key, ex);
             }
@@ -140,7 +140,7 @@ final class SpongeSchemReader {
         }
         int propertyStart = stateKey.indexOf('[');
         String blockId = propertyStart >= 0 ? stateKey.substring(0, propertyStart) : stateKey;
-        ResourceLocation id = ResourceLocation.tryParse(blockId);
+        Identifier id = Identifier.tryParse(blockId);
         if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
             return blockId;
         }

@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record S2CRtsQuestDetectStatusPayload(
         byte phase,
@@ -17,7 +17,7 @@ public record S2CRtsQuestDetectStatusPayload(
     public static final byte PHASE_ERROR = 3;
 
     public static final Type<S2CRtsQuestDetectStatusPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_quest_detect_status"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_quest_detect_status"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsQuestDetectStatusPayload> STREAM_CODEC =
             StreamCodec.of(

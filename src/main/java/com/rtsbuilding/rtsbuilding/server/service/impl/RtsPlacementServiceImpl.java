@@ -188,10 +188,10 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         int count = com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService
                 .resumeAllPendingJobs(player, session);
         if (count > 0) {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.literal("Resumed " + count + " pending placement job(s)."), true);
         } else {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.literal("No pending placements can be resumed — insufficient items."), true);
         }
         return count;
@@ -210,7 +210,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
             return;
         }
-        RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsPlacementHelper.rotatePlacedBlock(player.level(), pos, (byte) 1);
     }
 
     @Override

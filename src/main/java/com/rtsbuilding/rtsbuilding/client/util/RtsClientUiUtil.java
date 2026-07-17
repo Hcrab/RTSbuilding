@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 public final class RtsClientUiUtil {
@@ -11,12 +11,12 @@ public final class RtsClientUiUtil {
     private RtsClientUiUtil() {
     }
 
-    public static void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
+    public static void drawPanelFrame(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
         guiGraphics.fill(x, y, x + w, y + h, fillColor);
-        guiGraphics.hLine(x, x + w, y, light);
-        guiGraphics.hLine(x, x + w, y + h, dark);
-        guiGraphics.vLine(x, y, y + h, light);
-        guiGraphics.vLine(x + w, y, y + h, dark);
+        guiGraphics.horizontalLine(x, x + w, y, light);
+        guiGraphics.horizontalLine(x, x + w, y + h, dark);
+        guiGraphics.verticalLine(x, y, y + h, light);
+        guiGraphics.verticalLine(x + w, y, y + h, dark);
     }
 
     public static String trimToWidth(Font font, String text, int maxWidth) {
@@ -32,13 +32,13 @@ public final class RtsClientUiUtil {
         return text.substring(0, cut) + ellipsis;
     }
 
-    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, String text,
+    public static void drawCenteredStringNoShadow(GuiGraphicsExtractor guiGraphics, Font font, String text,
             int centerX, int y, int color) {
         String safeText = text == null ? "" : text;
-        guiGraphics.drawString(font, safeText, centerX - font.width(safeText) / 2, y, color, false);
+        guiGraphics .text(font, safeText, centerX - font.width(safeText) / 2, y, color, false);
     }
 
-    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, Component text,
+    public static void drawCenteredStringNoShadow(GuiGraphicsExtractor guiGraphics, Font font, Component text,
             int centerX, int y, int color) {
         drawCenteredStringNoShadow(guiGraphics, font, text == null ? "" : text.getString(), centerX, y, color);
     }
@@ -89,7 +89,7 @@ public final class RtsClientUiUtil {
         return buckets + " B";
     }
 
-    public static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
+    public static void drawSlotCountOverlay(GuiGraphicsExtractor guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
         if (font == null || countText == null || countText.isEmpty()) {
             return;
         }
@@ -103,7 +103,7 @@ public final class RtsClientUiUtil {
         int scaledX = Math.round((slotX + slotSize - 2) / SLOT_COUNT_SCALE);
         int scaledY = Math.round((slotY + slotSize - 7) / SLOT_COUNT_SCALE);
         int textWidth = font.width(countText);
-        guiGraphics.drawString(font, countText, scaledX - textWidth, scaledY, color, true);
+        guiGraphics .text(font, countText, scaledX - textWidth, scaledY, color, true);
         guiGraphics.pose().popPose();
     }
 }

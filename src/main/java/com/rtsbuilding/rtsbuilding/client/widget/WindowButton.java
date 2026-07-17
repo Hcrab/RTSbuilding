@@ -3,11 +3,11 @@ package com.rtsbuilding.rtsbuilding.client.widget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -21,7 +21,7 @@ public class WindowButton extends AbstractButton {
     }
 
     private final OnPress onPress;
-    private final ResourceLocation textureLocation;
+    private final Identifier textureLocation;
     private final int textureU;
     private final int textureV;
     private final int textureWidth;
@@ -72,7 +72,7 @@ public class WindowButton extends AbstractButton {
      * @param onPress click callback
      */
     public WindowButton(int x, int y, int width, int height, Component message,
-                       ResourceLocation textureLocation, int textureU, int textureV,
+                       Identifier textureLocation, int textureU, int textureV,
                        int textureWidth, int textureHeight, int hoverTextureV, int hoverTextureHeight,
                        int fullTextureWidth, int fullTextureHeight, OnPress onPress) {
         super(x, y, width, height, message);
@@ -92,7 +92,7 @@ public class WindowButton extends AbstractButton {
      * Creates a textured button (legacy-compatible, uses same texture for hover).
      */
     public WindowButton(int x, int y, int width, int height, Component message,
-                       ResourceLocation textureLocation, int textureU, int textureV,
+                       Identifier textureLocation, int textureU, int textureV,
                        int textureWidth, int textureHeight, OnPress onPress) {
         this(x, y, width, height, message, textureLocation, textureU, textureV,
              textureWidth, textureHeight, textureV, textureHeight,
@@ -105,7 +105,7 @@ public class WindowButton extends AbstractButton {
     }
 
     @Override
-    protected void renderWidget(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    protected void renderWidget(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
@@ -126,14 +126,14 @@ public class WindowButton extends AbstractButton {
 
         // Draw text
         if (!label.isEmpty()) {
-            guiGraphics.drawString(minecraft.font, label, textX, textY, textColor, false);
+            guiGraphics .text(minecraft.font, label, textX, textY, textColor, false);
         }
     }
 
     /**
      * Renders the button with a texture (supports vector scaling and hover effects).
      */
-    private void renderWithTexture(GuiGraphics guiGraphics) {
+    private void renderWithTexture(GuiGraphicsExtractor guiGraphics) {
         // Ensure the texture is loaded
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(textureLocation);
@@ -254,7 +254,7 @@ public class WindowButton extends AbstractButton {
     /**
      * Renders the button with solid colours (RTS dark style).
      */
-    private void renderWithSolidColor(GuiGraphics guiGraphics) {
+    private void renderWithSolidColor(GuiGraphicsExtractor guiGraphics) {
         // Determine background colour (covered windows forced to non-hover colour)
         int backgroundColor = (!globalSkipHover && this.isHoveredOrFocused()) ? BUTTON_HOVER : BUTTON_BACKGROUND;
         RtsClientUiUtil.drawPanelFrame(guiGraphics,

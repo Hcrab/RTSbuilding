@@ -8,10 +8,10 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -113,7 +113,7 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (scanData == null) return;
 
         Font font = this.screen.font();
@@ -125,7 +125,7 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
         String progress = text("screen.rtsbuilding.workflow.blueprint_resume.progress",
                 scanData.completedCount(), scanData.totalCount(),
                 scanData.totalCount() - scanData.completedCount());
-        g.drawString(font, progress, x, y, 0xFFE7C46A, false);
+        g .text(font, progress, x, y, 0xFFE7C46A, false);
         y += ROW_H;
 
         // ── 分隔线 ──
@@ -133,13 +133,13 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
         y += 4;
 
         // ── 列标题 ──
-        g.drawString(font, text("screen.rtsbuilding.workflow.blueprint_resume.material"),
+        g .text(font, text("screen.rtsbuilding.workflow.blueprint_resume.material"),
                 x, y, 0xAAB0C0D0, false);
         int col2X = x + maxW - 130;
         int col3X = x + maxW - 70;
-        g.drawString(font, text("screen.rtsbuilding.workflow.blueprint_resume.required"),
+        g .text(font, text("screen.rtsbuilding.workflow.blueprint_resume.required"),
                 col2X, y, 0xAAB0C0D0, false);
-        g.drawString(font, text("screen.rtsbuilding.workflow.blueprint_resume.available"),
+        g .text(font, text("screen.rtsbuilding.workflow.blueprint_resume.available"),
                 col3X, y, 0xAAB0C0D0, false);
         y += ROW_H;
 
@@ -155,20 +155,20 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
 
             // 物品图标
             ItemStack displayStack = ItemStack.EMPTY;
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            Identifier id = Identifier.tryParse(itemId);
             if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                displayStack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+                displayStack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
             }
             if (!displayStack.isEmpty()) {
-                g.renderItem(displayStack, x, y);
-                g.drawString(font, truncateLabel(itemLabel, font, 100), x + 18, y + 4, 0xFFFFFF, false);
+                g .item(displayStack, x, y);
+                g .text(font, truncateLabel(itemLabel, font, 100), x + 18, y + 4, 0xFFFFFF, false);
             } else {
-                g.drawString(font, itemLabel, x, y + 4, 0xFFFFFF, false);
+                g .text(font, itemLabel, x, y + 4, 0xFFFFFF, false);
             }
 
-            g.drawString(font, String.valueOf(req), col2X, y + 4, 0xEAF2FF, false);
+            g .text(font, String.valueOf(req), col2X, y + 4, 0xEAF2FF, false);
             int color = enough ? 0x88F4BE : 0xFF7070;
-            g.drawString(font, enough ? String.valueOf(avail)
+            g .text(font, enough ? String.valueOf(avail)
                             : text("screen.rtsbuilding.workflow.blueprint_resume.missing", missing),
                     col3X, y + 4, color, false);
 

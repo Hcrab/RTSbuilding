@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +26,7 @@ public record S2CRtsWorkflowProgressBatchPayload(
         List<S2CRtsWorkflowProgressPayload> entries) implements CustomPacketPayload {
 
     public static final Type<S2CRtsWorkflowProgressBatchPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_workflow_progress_batch"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_workflow_progress_batch"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsWorkflowProgressBatchPayload> STREAM_CODEC =
             StreamCodec.of(

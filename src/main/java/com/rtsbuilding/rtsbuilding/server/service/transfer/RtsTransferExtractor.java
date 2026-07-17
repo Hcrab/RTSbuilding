@@ -277,7 +277,7 @@ public final class RtsTransferExtractor {
             return ItemStack.EMPTY;
         }
         ItemStack out = ItemStack.EMPTY;
-        int selected = RtsTransferUtils.clampHotbarSlot(player.getInventory().selected);
+        int selected = RtsTransferUtils.clampHotbarSlot(player.getInventory().getSelectedSlot());
         ItemStack selectedPart = extractMatchingFromPlayerSlot(player, targetItem, preferred, selected, remaining);
         out = mergeExtractedStacks(out, selectedPart);
         remaining -= selectedPart.getCount();

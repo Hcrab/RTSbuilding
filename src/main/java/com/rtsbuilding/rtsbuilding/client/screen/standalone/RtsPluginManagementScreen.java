@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.controller.PluginStateManager;
 import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -73,7 +73,7 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
         this.hoveredInventorySlot = -1;
         this.hoveredInstalledPluginId = "";
@@ -83,7 +83,7 @@ public final class RtsPluginManagementScreen extends Screen {
         drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEF111820, 0xFF6C8197);
         g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1,
                 layout.y() + HEADER_H, 0xEE1A2430);
-        g.drawString(this.font, this.title, layout.x() + PAD, layout.y() + 10, 0xFFFFFFFF, false);
+        g .text(this.font, this.title, layout.x() + PAD, layout.y() + 10, 0xFFFFFFFF, false);
 
         int leftX = layout.x() + PAD;
         int leftY = layout.y() + HEADER_H + 8;
@@ -98,17 +98,17 @@ public final class RtsPluginManagementScreen extends Screen {
         if (this.selectedInventorySlot >= 0) {
             ItemStack selected = inventoryStack(this.selectedInventorySlot);
             if (!selected.isEmpty()) {
-                g.renderItem(selected, mouseX + 8, mouseY + 8);
+                g .item(selected, mouseX + 8, mouseY + 8);
             }
         }
 
         if (this.hoveredInventorySlot >= 0) {
             ItemStack hovered = inventoryStack(this.hoveredInventorySlot);
             if (!hovered.isEmpty()) {
-                g.renderTooltip(this.font, hovered, mouseX, mouseY);
+                g .setTooltipForNextFrame(this.font, hovered, mouseX, mouseY);
             }
         } else if (!this.hoveredInstalledStack.isEmpty()) {
-            g.renderTooltip(this.font, this.hoveredInstalledStack, mouseX, mouseY);
+            g .setTooltipForNextFrame(this.font, this.hoveredInstalledStack, mouseX, mouseY);
         }
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -197,14 +197,14 @@ public final class RtsPluginManagementScreen extends Screen {
     protected void renderBlurredBackground(float partialTick) {
     }
 
-    private void drawInstalledList(GuiGraphics g, int x, int y, int w, int h, int mouseX, int mouseY) {
+    private void drawInstalledList(GuiGraphicsExtractor g, int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(g, x, y, w, h, 0xCC17202A, 0xFF43566B);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.plugins.installed"),
+        g .text(this.font, Component.translatable("screen.rtsbuilding.plugins.installed"),
                 x + 7, y + 7, 0xFFEAF2FF, false);
         String teamName = this.controller.getPluginTeamName();
         boolean hasTeam = teamName != null && !teamName.isBlank();
         if (hasTeam) {
-            g.drawString(this.font, trim(Component.translatable("screen.rtsbuilding.plugins.team", teamName).getString(), w - 16),
+            g .text(this.font, trim(Component.translatable("screen.rtsbuilding.plugins.team", teamName).getString(), w - 16),
                     x + 7, y + 18, 0xFF9FB0C2, false);
         }
         List<PluginStateManager.InstalledPluginView> installed = this.controller.getInstalledPlugins();
@@ -233,16 +233,16 @@ public final class RtsPluginManagementScreen extends Screen {
                     hover ? 0xAA2A3846 : 0x88202B36);
             ItemStack stack = plugin.stack();
             if (!stack.isEmpty()) {
-                g.renderItem(stack, x + 7, rowY + 4);
+                g .item(stack, x + 7, rowY + 4);
             }
             String name = stack.isEmpty() ? plugin.pluginId() : stack.getHoverName().getString();
-            g.drawString(this.font, trim(name, w - 76), x + 28, rowY + 5, 0xFFFFFFFF, false);
+            g .text(this.font, trim(name, w - 76), x + 28, rowY + 5, 0xFFFFFFFF, false);
             String status = pluginStatus(plugin);
-            g.drawString(this.font, trim(status, w - 82), x + 28, rowY + 16, 0xFFB8C7D6, false);
+            g .text(this.font, trim(status, w - 82), x + 28, rowY + 16, 0xFFB8C7D6, false);
             if (plugin.personal()) {
                 int uninstallX = x + w - 50;
                 g.fill(uninstallX, rowY + 5, uninstallX + 44, rowY + 21, 0xCC3A2630);
-                g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.plugins.uninstall"),
+                g .centeredText(this.font, Component.translatable("screen.rtsbuilding.plugins.uninstall"),
                         uninstallX + 22, rowY + 9, 0xFFFFD4D4);
             }
             rowY += INSTALLED_ROW_H;
@@ -250,7 +250,7 @@ public final class RtsPluginManagementScreen extends Screen {
         drawInstalledScrollBar(g, x, y, w, h, hasTeam, installed.size(), visibleRows, maxScroll);
     }
 
-    private void drawInstallArea(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
+    private void drawInstallArea(GuiGraphicsExtractor g, int x, int y, int w, int mouseX, int mouseY) {
         this.installX = x;
         this.installY = y;
         this.installW = w;
@@ -266,9 +266,9 @@ public final class RtsPluginManagementScreen extends Screen {
         int refreshFill = this.refreshFeedbackTicks > 0 ? 0xCC2F5B45 : refreshHover ? 0xCC2B4055 : 0xAA1D2A37;
         drawFrame(g, this.refreshX, this.refreshY, this.refreshW, this.refreshH, refreshFill,
                 refreshHover ? 0xFF9FC7E6 : 0xFF5C7188);
-        g.drawCenteredString(this.font, Component.translatable("screen.rtsbuilding.plugins.refresh"),
+        g .centeredText(this.font, Component.translatable("screen.rtsbuilding.plugins.refresh"),
                 this.refreshX + this.refreshW / 2, this.refreshY + 4, 0xFFEAF2FF);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.plugins.install_area"),
+        g .text(this.font, Component.translatable("screen.rtsbuilding.plugins.install_area"),
                 x + 8, y + 7, 0xFFEAF2FF, false);
         Component hint = this.selectedInventorySlot >= 0
                 ? Component.translatable("screen.rtsbuilding.plugins.drop_to_install")
@@ -276,10 +276,10 @@ public final class RtsPluginManagementScreen extends Screen {
         drawWrapped(g, hint, x + 8, y + 22, w - 16, 0xFF9FB0C2);
     }
 
-    private void drawInventoryPlugins(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
+    private void drawInventoryPlugins(GuiGraphicsExtractor g, int x, int y, int w, int mouseX, int mouseY) {
         int gridW = INVENTORY_COLS * SLOT;
         int gridX = x + Math.max(0, (w - gridW) / 2);
-        g.drawString(this.font, Component.translatable("screen.rtsbuilding.plugins.inventory"),
+        g .text(this.font, Component.translatable("screen.rtsbuilding.plugins.inventory"),
                 x, y, 0xFFEAF2FF, false);
         int slotY = y + 14;
         int[] slots = displayedInventorySlots();
@@ -297,8 +297,8 @@ public final class RtsPluginManagementScreen extends Screen {
             int fill = selected ? 0xCC2F6B47 : plugin ? 0xAA25364A : 0x77313A45;
             drawFrame(g, sx, sy, SLOT, SLOT, fill, hover ? 0xFF9FB8D3 : 0xFF46576A);
             if (!stack.isEmpty()) {
-                g.renderItem(stack, sx + 1, sy + 1);
-                g.renderItemDecorations(this.font, stack, sx + 1, sy + 1);
+                g .item(stack, sx + 1, sy + 1);
+                g .itemDecorations(this.font, stack, sx + 1, sy + 1);
             }
         }
     }
@@ -391,10 +391,10 @@ public final class RtsPluginManagementScreen extends Screen {
             return ItemStack.EMPTY;
         }
         Inventory inventory = this.minecraft.player.getInventory();
-        if (slot < 0 || slot >= inventory.items.size()) {
+        if (slot < 0 || slot >= inventory.getNonEquipmentItems().size()) {
             return ItemStack.EMPTY;
         }
-        return inventory.items.get(slot);
+        return inventory.getNonEquipmentItems().get(slot);
     }
 
     private int[] displayedInventorySlots() {
@@ -409,22 +409,22 @@ public final class RtsPluginManagementScreen extends Screen {
         return slots;
     }
 
-    private void drawWrapped(GuiGraphics g, Component text, int x, int y, int width, int color) {
+    private void drawWrapped(GuiGraphicsExtractor g, Component text, int x, int y, int width, int color) {
         for (var line : this.font.split(text, width)) {
-            g.drawString(this.font, line, x, y, color, false);
+            g .text(this.font, line, x, y, color, false);
             y += 10;
         }
     }
 
-    private void drawFrame(GuiGraphics g, int x, int y, int w, int h, int fill, int border) {
+    private void drawFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fill, int border) {
         g.fill(x, y, x + w, y + h, fill);
-        g.hLine(x, x + w, y, border);
-        g.hLine(x, x + w, y + h, 0xFF0B1016);
-        g.vLine(x, y, y + h, border);
-        g.vLine(x + w, y, y + h, 0xFF0B1016);
+        g.horizontalLine(x, x + w, y, border);
+        g.horizontalLine(x, x + w, y + h, 0xFF0B1016);
+        g.verticalLine(x, y, y + h, border);
+        g.verticalLine(x + w, y, y + h, 0xFF0B1016);
     }
 
-    private void drawInstalledScrollBar(GuiGraphics g, int x, int y, int w, int h, boolean hasTeam,
+    private void drawInstalledScrollBar(GuiGraphicsExtractor g, int x, int y, int w, int h, boolean hasTeam,
             int totalRows, int visibleRows, int maxScroll) {
         if (maxScroll <= 0) {
             return;
@@ -451,7 +451,7 @@ public final class RtsPluginManagementScreen extends Screen {
         return new InstalledListMetrics(leftX, leftY, leftW, leftH, maxScroll);
     }
 
-    private void renderPageBackground(GuiGraphics g) {
+    private void renderPageBackground(GuiGraphicsExtractor g) {
         g.fill(0, 0, this.width, this.height, 0xD80D1117);
     }
 

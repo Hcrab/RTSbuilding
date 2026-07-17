@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * 服务端→客户端：同步当前撤回状态。
@@ -16,7 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 public record S2CRtsHistorySyncPayload(
         int undoSize) implements CustomPacketPayload {
     public static final Type<S2CRtsHistorySyncPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_history_sync"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_history_sync"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsHistorySyncPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

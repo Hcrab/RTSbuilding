@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -65,10 +65,10 @@ public final class RtsPluginService {
     }
 
     public static boolean installFromInventorySlot(ServerPlayer player, int inventorySlot) {
-        if (player == null || inventorySlot < 0 || inventorySlot >= player.getInventory().items.size()) {
+        if (player == null || inventorySlot < 0 || inventorySlot >= player.getInventory().getNonEquipmentItems().size()) {
             return fail(player, "message.rtsbuilding.plugin.invalid_slot");
         }
-        ItemStack stack = player.getInventory().items.get(inventorySlot);
+        ItemStack stack = player.getInventory().getNonEquipmentItems().get(inventorySlot);
         InstallResult result = validateInstall(player, stack);
         if (!result.success()) {
             return fail(player, result.messageKey());
@@ -102,7 +102,7 @@ public final class RtsPluginService {
         return true;
     }
 
-    public static boolean uninstall(ServerPlayer player, ResourceLocation pluginId) {
+    public static boolean uninstall(ServerPlayer player, Identifier pluginId) {
         if (player == null || pluginId == null) {
             return false;
         }
@@ -177,7 +177,7 @@ public final class RtsPluginService {
         if (migrated.isEmpty()) {
             return;
         }
-        player.displayClientMessage(RtsLegacySkillTreeMigration.migrationMessage(migrated), false);
+        player.sendSystemMessage(RtsLegacySkillTreeMigration.migrationMessage(migrated), false);
         syncRelatedPlayers(player);
     }
 
@@ -229,7 +229,7 @@ public final class RtsPluginService {
         syncRelatedPlayers(player);
     }
 
-    private static boolean hasPlugin(ServerPlayer player, ResourceLocation pluginId) {
+    private static boolean hasPlugin(ServerPlayer player, Identifier pluginId) {
         if (player == null || pluginId == null) {
             return false;
         }
@@ -241,7 +241,7 @@ public final class RtsPluginService {
         return false;
     }
 
-    private static boolean hasEffectivePlugin(ServerPlayer player, ResourceLocation pluginId) {
+    private static boolean hasEffectivePlugin(ServerPlayer player, Identifier pluginId) {
         if (player == null || pluginId == null) {
             return false;
         }
@@ -255,14 +255,14 @@ public final class RtsPluginService {
 
     private static boolean fail(ServerPlayer player, String key) {
         if (player != null && key != null && !key.isBlank()) {
-            player.displayClientMessage(Component.translatable(key), true);
+            player.sendSystemMessage(Component.translatable(key), true);
         }
         return false;
     }
 
     private static void success(ServerPlayer player, String key) {
         if (player != null && key != null && !key.isBlank()) {
-            player.displayClientMessage(Component.translatable(key), true);
+            player.sendSystemMessage(Component.translatable(key), true);
         }
     }
 

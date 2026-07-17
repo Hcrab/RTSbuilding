@@ -44,7 +44,7 @@ public final class BlueprintBlockEntitySanitizer {
         }
 
         CompoundTag out = new CompoundTag();
-        for (String key : source.getAllKeys()) {
+        for (String key : source.keySet()) {
             Tag value = source.get(key);
             if (value == null || shouldDropBlueprintKey(key)) {
                 continue;
@@ -132,22 +132,22 @@ public final class BlueprintBlockEntitySanitizer {
     }
 
     private static boolean looksLikeItemStack(CompoundTag tag) {
-        return tag.contains("id", Tag.TAG_STRING)
+        return tag.contains("id")
                 && (hasNumeric(tag, "count") || hasNumeric(tag, "Count"));
     }
 
     private static boolean looksLikeFluidStack(CompoundTag tag) {
-        if (tag.contains("FluidName", Tag.TAG_STRING) && hasNumeric(tag, "Amount")) {
+        if (tag.contains("FluidName") && hasNumeric(tag, "Amount")) {
             return true;
         }
-        return (tag.contains("fluid", Tag.TAG_STRING) || tag.contains("Fluid", Tag.TAG_STRING))
+        return (tag.contains("fluid") || tag.contains("Fluid"))
                 && (hasNumeric(tag, "amount") || hasNumeric(tag, "Amount"));
     }
 
     private static boolean hasNumeric(CompoundTag tag, String key) {
-        return tag.contains(key, Tag.TAG_BYTE)
-                || tag.contains(key, Tag.TAG_SHORT)
-                || tag.contains(key, Tag.TAG_INT)
-                || tag.contains(key, Tag.TAG_LONG);
+        return tag.contains(key)
+                || tag.contains(key)
+                || tag.contains(key)
+                || tag.contains(key);
     }
 }

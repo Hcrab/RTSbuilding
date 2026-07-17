@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
@@ -33,7 +33,7 @@ final class BlueprintPanelUi {
     /**
      * Draws a standard RTS blueprint button in its inactive or hover state.
      */
-    static void drawButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover) {
+    static void drawButton(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, String label, boolean hover) {
         drawButton(g, font, x, y, w, h, label, hover, false);
     }
 
@@ -44,21 +44,21 @@ final class BlueprintPanelUi {
      * decides whether a button is enabled, hovered, active, or should trigger an
      * action.</p>
      */
-    static void drawButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover, boolean active) {
+    static void drawButton(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, String label, boolean hover, boolean active) {
         int fill = active ? 0xCC2E6A50 : (hover ? 0xCC334052 : 0xAA24303C);
         drawFrame(g, x, y, w, h, fill, 0xFF64788E, 0xFF0D1015);
-        g.drawCenteredString(font, trim(font, label, w - 6), x + w / 2, y + 3, 0xFFEAF2FF);
+        g .centeredText(font, trim(font, label, w - 6), x + w / 2, y + 3, 0xFFEAF2FF);
     }
 
     /**
      * Draws the thin framed rectangles used by the blueprint panel.
      */
-    static void drawFrame(GuiGraphics g, int x, int y, int w, int h, int fill, int light, int dark) {
+    static void drawFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fill, int light, int dark) {
         g.fill(x, y, x + w, y + h, fill);
-        g.hLine(x, x + w, y, light);
-        g.hLine(x, x + w, y + h, dark);
-        g.vLine(x, y, y + h, light);
-        g.vLine(x + w, y, y + h, dark);
+        g.horizontalLine(x, x + w, y, light);
+        g.horizontalLine(x, x + w, y + h, dark);
+        g.verticalLine(x, y, y + h, light);
+        g.verticalLine(x + w, y, y + h, dark);
     }
 
     /**

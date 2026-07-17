@@ -74,7 +74,7 @@ public final class RtsPlacementBatch {
             int workflowEntryId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             if (sendRemoteHint && player != null) {
-                player.displayClientMessage(
+                player.sendSystemMessage(
                         Component.translatable("message.rtsbuilding.quick_build.remote_place_locked"), true);
             }
             return false;
@@ -205,12 +205,12 @@ public final class RtsPlacementBatch {
                 BlockPos targetPos = job.quickBuild()
                         ? clickedPos
                         : RtsPlacementExecutor.placementTargetPos(
-                                player.serverLevel(), clickedPos, job.face());
-                if (!player.serverLevel().hasChunkAt(targetPos)) {
+                                player.level(), clickedPos, job.face());
+                if (!player.level().hasChunkAt(targetPos)) {
                     job.unconsumeLast();
                     break;
                 }
-                BlockState targetState = player.serverLevel().getBlockState(targetPos);
+                BlockState targetState = player.level().getBlockState(targetPos);
                 boolean alreadyExpected = targetState.getBlock() == expectedBlock;
                 boolean conflict = !alreadyExpected && !targetState.isAir() && !targetState.canBeReplaced();
                 if (alreadyExpected
@@ -260,9 +260,9 @@ public final class RtsPlacementBatch {
 
     private static Block expectedPlacementBlock(PlaceBatchJob job) {
         String itemId = job.itemId();
-        net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+        net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(itemId);
         if (id == null || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id)
-                || !(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id)
+                || !(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(id)
                 instanceof net.minecraft.world.item.BlockItem blockItem)) return null;
         Block expectedBlock = blockItem.getBlock();
         return expectedBlock == Blocks.AIR ? null : expectedBlock;
@@ -271,7 +271,7 @@ public final class RtsPlacementBatch {
     /** 覆盖策略的单格世界事务；调用点已经受 TaskStore revision ACK 与 slice 预算保护。 */
     private static boolean prepareOverwriteConflict(
             ServerPlayer player, BlockPos pos, BlockState current, List<BlockPos> dropPositions) {
-        var level = player.serverLevel();
+        var level = player.level();
         if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.UP)) return false;
 
         List<ItemStack> drops = Block.getDrops(current, level, pos, level.getBlockEntity(pos));
@@ -284,7 +284,7 @@ public final class RtsPlacementBatch {
             }
             if (!drops.isEmpty()) dropPositions.add(pos.immutable());
         } else {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("message.rtsbuilding.placement.tool_required", current.getBlock().getName()),
                     true);
         }
@@ -312,10 +312,10 @@ public final class RtsPlacementBatch {
         boolean keepGoing;
         if (statePlan != null) {
             BlockPos trackedPos = clickedPos;
-            BlockState beforeState = player.serverLevel().getBlockState(trackedPos);
+            BlockState beforeState = player.level().getBlockState(trackedPos);
             keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(player, session, clickedPos, statePlan);
             if (keepGoing && (beforeState.isAir() || beforeState.canBeReplaced())
-                    && !player.serverLevel().getBlockState(trackedPos).isAir()) {
+                    && !player.level().getBlockState(trackedPos).isAir()) {
                 job.placedPositions.add(trackedPos);
             } else if (keepGoing) {
                 job.skippedWhileProcessing++;
@@ -328,9 +328,9 @@ public final class RtsPlacementBatch {
                 clickedPos.getY() + job.hitOffsetY(),
                 clickedPos.getZ() + job.hitOffsetZ());
         BlockPos adjPos = clickedPos.relative(job.face());
-        BlockState beforeClicked = player.serverLevel().getBlockState(clickedPos);
-        BlockState beforeAdjacent = player.serverLevel().hasChunkAt(adjPos)
-                ? player.serverLevel().getBlockState(adjPos) : null;
+        BlockState beforeClicked = player.level().getBlockState(clickedPos);
+        BlockState beforeAdjacent = player.level().hasChunkAt(adjPos)
+                ? player.level().getBlockState(adjPos) : null;
         keepGoing = RtsPlacementExecutor.placeSelectedInternal(
                 player,
                 session,
@@ -356,7 +356,7 @@ public final class RtsPlacementBatch {
                 job.sendRemoteHint());
         if (keepGoing) {
             BlockPos actualPos = RtsPlacementHelper.detectPlacedPos(
-                    player.serverLevel(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
+                    player.level(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
             if (actualPos != null) job.placedPositions.add(actualPos);
             else job.skippedWhileProcessing++;
         }
@@ -558,34 +558,34 @@ public final class RtsPlacementBatch {
          * 从 {@link CompoundTag} 反序列化 {@link PlaceBatchJob}。
          */
         public static PlaceBatchJob fromNbt(CompoundTag tag, net.minecraft.core.RegistryAccess registryAccess) {
-            long[] posArray = tag.getLongArray(NBT_POSITIONS);
+            long[] posArray = tag.getLongArray(NBT_POSITIONS).orElseGet(() -> new long[0]);
             List<BlockPos> positions = new ArrayList<>(posArray.length);
             for (long l : posArray) {
                 positions.add(BlockPos.of(l));
             }
-            Direction face = Direction.from3DDataValue(tag.getByte(NBT_FACE));
-            double hitOffsetX = tag.getDouble(NBT_HIT_OFFSET_X);
-            double hitOffsetY = tag.getDouble(NBT_HIT_OFFSET_Y);
-            double hitOffsetZ = tag.getDouble(NBT_HIT_OFFSET_Z);
-            byte rotateSteps = tag.getByte(NBT_ROTATE_STEPS);
-            boolean forcePlace = tag.getBoolean(NBT_FORCE_PLACE);
-            boolean skipIfOccupied = tag.getBoolean(NBT_SKIP_IF_OCCUPIED);
-            String itemId = tag.getString(NBT_ITEM_ID);
+            Direction face = Direction.from3DDataValue(tag.getByteOr(NBT_FACE, (byte) 0));
+            double hitOffsetX = tag.getDoubleOr(NBT_HIT_OFFSET_X, 0.0D);
+            double hitOffsetY = tag.getDoubleOr(NBT_HIT_OFFSET_Y, 0.0D);
+            double hitOffsetZ = tag.getDoubleOr(NBT_HIT_OFFSET_Z, 0.0D);
+            byte rotateSteps = tag.getByteOr(NBT_ROTATE_STEPS, (byte) 0);
+            boolean forcePlace = tag.getBooleanOr(NBT_FORCE_PLACE, false);
+            boolean skipIfOccupied = tag.getBooleanOr(NBT_SKIP_IF_OCCUPIED, false);
+            String itemId = tag.getStringOr(NBT_ITEM_ID, "");
             ItemStack itemPrototype = ItemStack.EMPTY;
-            if (tag.contains(NBT_ITEM_PROTOTYPE, Tag.TAG_COMPOUND)) {
-                itemPrototype = ItemStack.parseOptional(registryAccess, tag.getCompound(NBT_ITEM_PROTOTYPE));
+            if (tag.contains(NBT_ITEM_PROTOTYPE)) {
+                itemPrototype = ItemStack.parseOptional(registryAccess, tag.getCompoundOrEmpty(NBT_ITEM_PROTOTYPE));
             }
-            double rayOriginX = tag.getDouble(NBT_RAY_ORIGIN_X);
-            double rayOriginY = tag.getDouble(NBT_RAY_ORIGIN_Y);
-            double rayOriginZ = tag.getDouble(NBT_RAY_ORIGIN_Z);
-            double rayDirX = tag.getDouble(NBT_RAY_DIR_X);
-            double rayDirY = tag.getDouble(NBT_RAY_DIR_Y);
-            double rayDirZ = tag.getDouble(NBT_RAY_DIR_Z);
-            boolean quickBuild = tag.getBoolean(NBT_QUICK_BUILD);
-            boolean forceEmptyHand = tag.getBoolean(NBT_FORCE_EMPTY_HAND);
-            boolean sendRemoteHint = tag.getBoolean(NBT_SEND_REMOTE_HINT);
-            int workflowEntryId = tag.getInt(NBT_WORKFLOW_ENTRY_ID);
-            int index = tag.getInt(NBT_INDEX);
+            double rayOriginX = tag.getDoubleOr(NBT_RAY_ORIGIN_X, 0.0D);
+            double rayOriginY = tag.getDoubleOr(NBT_RAY_ORIGIN_Y, 0.0D);
+            double rayOriginZ = tag.getDoubleOr(NBT_RAY_ORIGIN_Z, 0.0D);
+            double rayDirX = tag.getDoubleOr(NBT_RAY_DIR_X, 0.0D);
+            double rayDirY = tag.getDoubleOr(NBT_RAY_DIR_Y, 0.0D);
+            double rayDirZ = tag.getDoubleOr(NBT_RAY_DIR_Z, 0.0D);
+            boolean quickBuild = tag.getBooleanOr(NBT_QUICK_BUILD, false);
+            boolean forceEmptyHand = tag.getBooleanOr(NBT_FORCE_EMPTY_HAND, false);
+            boolean sendRemoteHint = tag.getBooleanOr(NBT_SEND_REMOTE_HINT, false);
+            int workflowEntryId = tag.getIntOr(NBT_WORKFLOW_ENTRY_ID, 0);
+            int index = tag.getIntOr(NBT_INDEX, 0);
 
             PlaceBatchJob job = new PlaceBatchJob(
                     positions, face, hitOffsetX, hitOffsetY, hitOffsetZ,

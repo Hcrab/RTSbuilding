@@ -24,7 +24,7 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayConte
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -70,7 +70,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ);
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         Entity targetEntity = null;
         BlockHitResult blockHit = null;
         BlockPos effectiveBlockPos = null;
@@ -169,7 +169,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
             if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM && itemId != null && !itemId.isBlank()) {
                 registry.page().recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
             } else if (!toolSnapshot.isEmpty()) {
-                ResourceLocation toolId = BuiltInRegistries.ITEM.getKey(toolSnapshot.getItem());
+                Identifier toolId = BuiltInRegistries.ITEM.getKey(toolSnapshot.getItem());
                 if (toolId != null) {
                     registry.page().recordRecentItem(session, toolId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
                 }

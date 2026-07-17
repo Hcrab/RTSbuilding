@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
@@ -634,7 +634,7 @@ public final class StorageStateManager {
         if (index < 0 || index >= QUICK_SLOT_COUNT || stack == null || stack.isEmpty()) {
             return;
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (id == null) {
             return;
         }
@@ -746,7 +746,7 @@ public final class StorageStateManager {
             }
             ItemStack preview = stack.copy();
             preview.setCount(1);
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
+            Identifier id = BuiltInRegistries.ITEM.getKey(preview.getItem());
             if (id == null) {
                 continue;
             }
@@ -758,7 +758,7 @@ public final class StorageStateManager {
             int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
             for (int i = 0; i < totalItemSize; i++) {
                 String itemId = payload.totalItemIds().get(i);
-                ResourceLocation id = ResourceLocation.tryParse(itemId);
+                Identifier id = Identifier.tryParse(itemId);
                 if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
                     continue;
                 }
@@ -770,11 +770,11 @@ public final class StorageStateManager {
                 Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
         for (int i = 0; i < fluidSize; i++) {
             String fluidId = payload.fluidIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(fluidId);
+            Identifier id = Identifier.tryParse(fluidId);
             if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) {
                 continue;
             }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
+            Fluid fluid = BuiltInRegistries.FLUID.getValue(id);
             FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
             String label = fluid.getFluidType().getDescription(fluidStack).getString();
@@ -809,7 +809,7 @@ public final class StorageStateManager {
         int funnelBufferSize = Math.min(payload.funnelBufferItemIds().size(), payload.funnelBufferCounts().size());
         for (int i = 0; i < funnelBufferSize; i++) {
             String itemId = payload.funnelBufferItemIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
+            Identifier id = Identifier.tryParse(itemId);
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
                 continue;
             }
@@ -817,7 +817,7 @@ public final class StorageStateManager {
             if (count <= 0L) {
                 continue;
             }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
             this.funnelBufferEntries.add(new FunnelBufferEntry(stack, itemId, count));
         }
         this.storageRevision++;
@@ -854,12 +854,12 @@ public final class StorageStateManager {
                                 Math.min(payload.craftable().size(), payload.missingSummaries().size()))));
         int optionFlatIndex = 0;
         for (int i = 0; i < size; i++) {
-            ResourceLocation id = ResourceLocation.tryParse(payload.resultItemIds().get(i));
+            Identifier id = Identifier.tryParse(payload.resultItemIds().get(i));
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
                 optionFlatIndex += i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
                 continue;
             }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
             int resultCount = Math.max(1, payload.resultCounts().get(i));
             stack.setCount(Math.min(resultCount, stack.getMaxStackSize()));
             int optionCount = i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
@@ -915,11 +915,11 @@ public final class StorageStateManager {
         int ingredientSize = Math.min(payload.consumedItemIds().size(), payload.consumedCounts().size());
         for (int i = 0; i < ingredientSize; i++) {
             String consumedItemId = payload.consumedItemIds().get(i);
-            ResourceLocation consumedKey = ResourceLocation.tryParse(consumedItemId);
+            Identifier consumedKey = Identifier.tryParse(consumedItemId);
             if (consumedKey == null || !BuiltInRegistries.ITEM.containsKey(consumedKey)) {
                 continue;
             }
-            ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(consumedKey));
+            ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.getValue(consumedKey));
             decodedIngredients.add(new CraftFeedbackIngredient(
                     consumedItemId,
                     preview.getHoverName().getString(),
@@ -1141,14 +1141,14 @@ public final class StorageStateManager {
             if (itemId == null || itemId.isBlank()) {
                 continue;
             }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 continue;
             }
             ItemStack preview = payloadQuickSlotPreviews != null && i < payloadQuickSlotPreviews.size()
                     ? payloadQuickSlotPreviews.get(i)
                     : ItemStack.EMPTY;
-            if (preview == null || preview.isEmpty() || !preview.is(BuiltInRegistries.ITEM.get(key))) {
+            if (preview == null || preview.isEmpty() || !preview.is(BuiltInRegistries.ITEM.getValue(key))) {
                 preview = resolveQuickSlotFallbackPreview(itemId, key);
             } else {
                 preview = preview.copyWithCount(1);
@@ -1157,13 +1157,13 @@ public final class StorageStateManager {
         }
     }
 
-    private ItemStack resolveQuickSlotFallbackPreview(String itemId, ResourceLocation key) {
+    private ItemStack resolveQuickSlotFallbackPreview(String itemId, Identifier key) {
         for (StorageEntry entry : this.storageEntries) {
             if (entry != null && itemId.equals(entry.itemId()) && entry.stack() != null && !entry.stack().isEmpty()) {
                 return entry.stack().copyWithCount(1);
             }
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        return new ItemStack(BuiltInRegistries.ITEM.getValue(key));
     }
 
     private void applyGuiBindingPayload(List<String> payloadGuiBindings, List<String> payloadGuiBindingItemIds) {
@@ -1178,13 +1178,13 @@ public final class StorageStateManager {
             this.guiBindingLabels[i] = label == null ? "" : label;
             String itemId = payloadGuiBindingItemIds.get(i);
             this.guiBindingItemIds[i] = itemId == null ? "" : itemId;
-            ResourceLocation key = ResourceLocation.tryParse(this.guiBindingItemIds[i]);
+            Identifier key = Identifier.tryParse(this.guiBindingItemIds[i]);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 this.guiBindingItemIds[i] = "";
                 this.guiBindingPreviews[i] = ItemStack.EMPTY;
                 continue;
             }
-            this.guiBindingPreviews[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
+            this.guiBindingPreviews[i] = new ItemStack(BuiltInRegistries.ITEM.getValue(key));
         }
     }
 
@@ -1226,9 +1226,9 @@ public final class StorageStateManager {
         String iconItemId = index >= 0 && index < payload.linkedIconItemIds().size()
                 ? payload.linkedIconItemIds().get(index)
                 : "";
-        ResourceLocation iconKey = ResourceLocation.tryParse(iconItemId);
+        Identifier iconKey = Identifier.tryParse(iconItemId);
         if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
+            preview = new ItemStack(BuiltInRegistries.ITEM.getValue(iconKey));
         }
         return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
     }
@@ -1310,7 +1310,7 @@ public final class StorageStateManager {
         if (idText == null || idText.isBlank()) {
             return null;
         }
-        ResourceLocation id = ResourceLocation.tryParse(idText);
+        Identifier id = Identifier.tryParse(idText);
         if (id == null) {
             return null;
         }
@@ -1321,7 +1321,7 @@ public final class StorageStateManager {
             if (!BuiltInRegistries.FLUID.containsKey(id)) {
                 return null;
             }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
+            Fluid fluid = BuiltInRegistries.FLUID.getValue(id);
             FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
             String label = fluid.getFluidType().getDescription(fluidStack).getString();
@@ -1330,7 +1330,7 @@ public final class StorageStateManager {
         if (!BuiltInRegistries.ITEM.containsKey(id)) {
             return null;
         }
-        ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+        ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.getValue(id));
         return new RecentEntry(false, idText, preview.getHoverName().getString(), Math.max(0L, amount), 0L, kind, preview);
     }
 }

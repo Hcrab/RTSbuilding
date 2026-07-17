@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record C2SRtsInteractPayload(
         int entityId,
@@ -30,7 +30,7 @@ public record C2SRtsInteractPayload(
     public static final int NO_ENTITY = -1;
 
     public static final Type<C2SRtsInteractPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_interact"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_interact"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsInteractPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

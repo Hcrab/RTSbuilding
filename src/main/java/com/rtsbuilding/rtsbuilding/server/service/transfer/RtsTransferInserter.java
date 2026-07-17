@@ -282,6 +282,6 @@ public final class RtsTransferInserter {
         } else {
             message = context + ": linked+inventory full, dropped " + overflow.dropped() + ".";
         }
-        player.displayClientMessage(net.minecraft.network.chat.Component.literal(message), true);
+        player.sendSystemMessage(net.minecraft.network.chat.Component.literal(message), true);
     }
 }

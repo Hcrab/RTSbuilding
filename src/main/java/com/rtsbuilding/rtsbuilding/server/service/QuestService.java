@@ -66,7 +66,7 @@ public final class QuestService {
             }
             return;
         }
-        long now = player.serverLevel().getGameTime();
+        long now = player.level().getGameTime();
         if (!force && now < session.transfer.nextQuestDetectTick) {
             return;
         }

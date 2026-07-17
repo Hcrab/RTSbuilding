@@ -20,7 +20,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.inventory.ContainerLevelAccess;
@@ -75,7 +75,7 @@ public final class RtsCraftingExecutor {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
-            player.displayClientMessage(Component.literal("Link at least one storage first."), true);
+            player.sendSystemMessage(Component.literal("Link at least one storage first."), true);
             return;
         }
         player.openMenu(new SimpleMenuProvider(
@@ -84,12 +84,12 @@ public final class RtsCraftingExecutor {
                         new ContainerLevelAccess() {
                             @Override
                             public <T> Optional<T> evaluate(BiFunction<Level, BlockPos, T> evaluator) {
-                                return Optional.ofNullable(evaluator.apply(player.serverLevel(), player.blockPosition()));
+                                return Optional.ofNullable(evaluator.apply(player.level(), player.blockPosition()));
                             }
 
                             @Override
                             public void execute(BiConsumer<Level, BlockPos> consumer) {
-                                consumer.accept(player.serverLevel(), player.blockPosition());
+                                consumer.accept(player.level(), player.blockPosition());
                             }
                         }),
                 Component.literal("RTS Craft Terminal")));
@@ -116,12 +116,12 @@ public final class RtsCraftingExecutor {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
-        ResourceLocation key = ResourceLocation.tryParse(recipeId);
+        Identifier key = Identifier.tryParse(recipeId);
         if (key == null) {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
-        RecipeHolder<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        RecipeHolder<?> raw = player.level().getRecipeManager().byKey(key).orElse(null);
         if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
@@ -141,7 +141,7 @@ public final class RtsCraftingExecutor {
 
         ItemStack previewResult = resolveCraftablePreviewResult(craftingRecipe, player);
         String resultLabel = previewResult.isEmpty() ? "item" : previewResult.getHoverName().getString();
-        ResourceLocation previewResultId = previewResult.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(previewResult.getItem());
+        Identifier previewResultId = previewResult.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(previewResult.getItem());
         int requestedCrafts = Math.max(1, Math.min(999, craftCount));
         int completedCrafts = 0;
         int totalCraftedCount = 0;
@@ -168,9 +168,9 @@ public final class RtsCraftingExecutor {
         RtsCraftingSearch.refreshCraftables(player, session);
         if (completedCrafts <= 0) {
             if (storageFull) {
-                player.displayClientMessage(Component.literal("Craft: linked storage is full."), true);
+                player.sendSystemMessage(Component.literal("Craft: linked storage is full."), true);
             } else {
-                player.displayClientMessage(Component.literal("Craft: missing ingredients."), true);
+                player.sendSystemMessage(Component.literal("Craft: missing ingredients."), true);
             }
             return;
         }
@@ -190,7 +190,7 @@ public final class RtsCraftingExecutor {
         } else {
             summary.append(".");
         }
-        player.displayClientMessage(Component.literal(summary.toString()), true);
+        player.sendSystemMessage(Component.literal(summary.toString()), true);
         QuestService.runQuestDetect(player, session, false);
         // 合成完成后自动尝试恢复挂起放置作业
         RtsPendingPlacementService.tryResumeAfterStorageChange(player, java.util.List.of(craftedItemId));
@@ -234,7 +234,7 @@ public final class RtsCraftingExecutor {
         }
 
         CraftingInput input = CraftingInput.of(3, 3, inputStacks);
-        if (!recipe.matches(input, player.serverLevel())) {
+        if (!recipe.matches(input, player.level())) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
@@ -270,7 +270,7 @@ public final class RtsCraftingExecutor {
             }
         }
 
-        ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
+        Identifier resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
         return new CraftExecutionResult(true, false,
                 resultId == null ? "" : resultId.toString(),
                 Math.max(1, result.getCount()),

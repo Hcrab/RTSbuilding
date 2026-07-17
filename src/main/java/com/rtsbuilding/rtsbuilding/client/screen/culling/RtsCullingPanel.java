@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -30,7 +30,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         int x = LAYOUT.contentLeft(contentX());
         int w = LAYOUT.contentInnerWidth(contentWidth());
         drawLine(g, text("screen.rtsbuilding.culling.count", manager.boxes().size()),
@@ -57,7 +57,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 x, LAYOUT.hintRowY(contentY()), MUTED, w);
     }
 
-    private void drawWideButton(GuiGraphics g, int x, int y, String label, boolean hovered) {
+    private void drawWideButton(GuiGraphicsExtractor g, int x, int y, String label, boolean hovered) {
         RtsClientUiUtil.drawPanelFrame(g, x, LAYOUT.buttonTop(y),
                 RtsCullingPanelLayout.DELETE_BUTTON_WIDTH, LAYOUT.buttonHeight(),
                 hovered ? 0xFF9A3340 : 0xFF742833,
@@ -141,8 +141,8 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 LAYOUT.deleteButtonRowY(contentY()), RtsCullingPanelLayout.DELETE_BUTTON_WIDTH);
     }
 
-    private void drawLine(GuiGraphics g, String label, int x, int y, int color, int width) {
-        g.drawString(screen.font(), screen.trimToWidth(label, width), x, y, color, false);
+    private void drawLine(GuiGraphicsExtractor g, String label, int x, int y, int color, int width) {
+        g .text(screen.font(), screen.trimToWidth(label, width), x, y, color, false);
     }
 
     private String phaseText() {

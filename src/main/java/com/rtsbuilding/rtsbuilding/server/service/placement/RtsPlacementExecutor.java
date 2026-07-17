@@ -20,7 +20,7 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -96,7 +96,7 @@ public final class RtsPlacementExecutor {
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         boolean useSelectedStorageItem = itemId != null && !itemId.isBlank();
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         Vec3 hitLocation = new Vec3(hitX, hitY, hitZ);
         BlockHitResult hit = new BlockHitResult(hitLocation, face, clickedPos, false);
         Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(null, hit, hitLocation);
@@ -229,7 +229,7 @@ public final class RtsPlacementExecutor {
         if (mainHandUseFallback.result().consumesAction()) {
             if (!sourceSnapshot.isEmpty()) {
                 SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+                Identifier sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
                 if (sourceId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session,
@@ -279,7 +279,7 @@ public final class RtsPlacementExecutor {
             if (itemInteractFallback.result().consumesAction()) {
                 if (!sourceSnapshot.isEmpty()) {
                     SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+                    Identifier sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
                     if (sourceId != null) {
                         ServiceRegistry.getInstance().page().recordRecentItem(
                                 session,
@@ -311,12 +311,12 @@ public final class RtsPlacementExecutor {
         List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return false;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = BuiltInRegistries.ITEM.getValue(id);
         ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
         ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : preferredStack.copyWithCount(1);
         if (!RtsClaimProtectionService.canInteractBlock(
@@ -466,7 +466,7 @@ public final class RtsPlacementExecutor {
             } else {
                 SoundService.playRemoteUseSound(player, level, null, placedPos, sourceSnapshot);
             }
-            ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+            Identifier sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
             if (sourceId != null) {
                 ServiceRegistry.getInstance().page().recordRecentItem(
                         session,
@@ -476,7 +476,7 @@ public final class RtsPlacementExecutor {
             }
         } else if (!sourceSnapshot.isEmpty()) {
             SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-            ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+            Identifier sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
             if (sourceId != null) {
                 ServiceRegistry.getInstance().page().recordRecentItem(
                         session,

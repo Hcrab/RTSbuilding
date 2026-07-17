@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -24,14 +24,14 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayCraftablesPanel(
-            GuiGraphics g,
+            GuiGraphicsExtractor g,
             Font font,
             double mouseX,
             double mouseY,
             OverlayLayout layout,
             ClientRtsController controller) {
         String header = layout.craftCollapsed() ? "Craft +" : "Craft -";
-        g.drawString(font, trimToWidth(font, header, Math.max(8, layout.craftPanelW() - 8)),
+        g .text(font, trimToWidth(font, header, Math.max(8, layout.craftPanelW() - 8)),
                 layout.craftPanelX() + 5, layout.craftPanelY() + 4, 0xEAF2FF, false);
         if (layout.craftCollapsed()) {
             return;
@@ -41,7 +41,7 @@ public final class OverlayRenderer {
         drawPanelFrame(g, layout.craftSearchX(), layout.craftSearchY(), layout.craftSearchW(), CRAFT_SEARCH_H, searchBg, 0xFF5E738A, 0xFF111921);
         String searchText = overlayCraftSearchDraft == null ? "" : overlayCraftSearchDraft;
         String display = trimToWidth(font, searchText, Math.max(10, layout.craftSearchW() - 5));
-        g.drawString(font, display, layout.craftSearchX() + 2, layout.craftSearchY() + 2, 0xEAF2FF, false);
+        g .text(font, display, layout.craftSearchX() + 2, layout.craftSearchY() + 2, 0xEAF2FF, false);
         if (overlayCraftSearchFocused && (System.currentTimeMillis() / 300L) % 2L == 0L) {
             int caretX = layout.craftSearchX() + 2 + font.width(display) + 1;
             g.fill(caretX, layout.craftSearchY() + 2, caretX + 1, layout.craftSearchY() + CRAFT_SEARCH_H - 2, 0xFFEAF2FF);
@@ -84,7 +84,7 @@ public final class OverlayRenderer {
                 }
 
                 CraftableEntry entry = entries.get(index);
-                g.renderItem(entry.stack(), slotX + 1, slotY + 1);
+                g .item(entry.stack(), slotX + 1, slotY + 1);
                 if (entry.resultCount() > 1) {
                     drawSlotCountOverlay(g, font, slotX, slotY, CRAFT_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
                 }
@@ -102,7 +102,7 @@ public final class OverlayRenderer {
     //  Info button
     // =========================================================================
 
-    public static void renderOverlayInfoButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
+    public static void renderOverlayInfoButton(GuiGraphicsExtractor g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
         int bg = overlayInfoOpen || inside(mouseX, mouseY, layout.infoX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H)
                 ? 0xAA3E5368
                 : 0xAA24303A;
@@ -115,7 +115,7 @@ public final class OverlayRenderer {
     //  Shift import button
     // =========================================================================
 
-    public static void renderOverlayShiftImportButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
+    public static void renderOverlayShiftImportButton(GuiGraphicsExtractor g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
         boolean enabled = RtsClientUiStateStore.isOverlayShiftImportEnabled();
         boolean hovered = inside(mouseX, mouseY, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE);
         int bg = enabled
@@ -138,7 +138,7 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayBottomControls(
-            GuiGraphics g,
+            GuiGraphicsExtractor g,
             Font font,
             OverlayLayout layout) {
         drawMiniButton(g, font, layout.closeX(), layout.controlsY(), OVERLAY_CLOSE_W, OVERLAY_BOTTOM_BUTTON_H,
@@ -155,7 +155,7 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayRefreshButton(
-            GuiGraphics g,
+            GuiGraphicsExtractor g,
             Font font,
             OverlayLayout layout,
             double mouseX,
@@ -211,14 +211,14 @@ public final class OverlayRenderer {
         return new OverlayInfoRect(x, y, panelW, panelH, closeX, closeY);
     }
 
-    public static void renderOverlayInfoPanel(GuiGraphics g, Font font, OverlayLayout layout) {
+    public static void renderOverlayInfoPanel(GuiGraphicsExtractor g, Font font, OverlayLayout layout) {
         OverlayInfoRect rect = resolveOverlayInfoRect(font, layout);
         List<Component> lines = overlayInfoLines();
 
         drawPanelFrame(g, rect.x(), rect.y(), rect.w(), rect.h(), 0xF0182028, 0xFF7489A0, 0xFF0B1016);
         g.fill(rect.x() + 1, rect.y() + 1, rect.x() + rect.w() - 1,
                 rect.y() + OVERLAY_INFO_TITLE_H, 0xCC233345);
-        g.drawString(font, Component.translatable("screen.rtsbuilding.overlay.help.title"),
+        g .text(font, Component.translatable("screen.rtsbuilding.overlay.help.title"),
                 rect.x() + 7, rect.y() + 5, 0xF2F7FF, false);
         drawPanelFrame(g, rect.closeX(), rect.closeY(), OVERLAY_INFO_CLOSE_SIZE, OVERLAY_INFO_CLOSE_SIZE,
                 0xCC2B3440, 0xFF7F92A8, 0xFF0D1117);
@@ -228,7 +228,7 @@ public final class OverlayRenderer {
         int textY = rect.y() + OVERLAY_INFO_TITLE_H + 5;
         for (Component line : lines) {
             for (var splitLine : font.split(line, rect.w() - 12)) {
-                g.drawString(font, splitLine, rect.x() + 6, textY, 0xFFD8E6F5, false);
+                g .text(font, splitLine, rect.x() + 6, textY, 0xFFD8E6F5, false);
                 textY += 9;
             }
         }
@@ -238,7 +238,7 @@ public final class OverlayRenderer {
     //  Quickbar rendering
     // =========================================================================
 
-    public static void renderQuickbar(GuiGraphics g, Font font, int x, int y) {
+    public static void renderQuickbar(GuiGraphicsExtractor g, Font font, int x, int y) {
         ClientRtsController controller = ClientRtsController.get();
         for (int i = 0; i < QUICKBAR_SLOTS; i++) {
             int cx = x + i * SLOT_PITCH;
@@ -248,13 +248,13 @@ public final class OverlayRenderer {
             boolean filled = itemId != null && !itemId.isBlank();
             int bg = filled ? 0xAA253043 : 0xAA1A1A1A;
             g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, bg);
-            g.hLine(cx, cx + SLOT_SIZE, cy, 0xFF67758A);
-            g.hLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF0C0D10);
-            g.vLine(cx, cy, cy + SLOT_SIZE, 0xFF67758A);
-            g.vLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF0C0D10);
+            g.horizontalLine(cx, cx + SLOT_SIZE, cy, 0xFF67758A);
+            g.horizontalLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF0C0D10);
+            g.verticalLine(cx, cy, cy + SLOT_SIZE, 0xFF67758A);
+            g.verticalLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF0C0D10);
 
             if (!preview.isEmpty()) {
-                g.renderItem(preview, cx + 1, cy + 1);
+                g .item(preview, cx + 1, cy + 1);
                 if (itemId.equals(controller.getSelectedItemId())) {
                     g.fill(cx + 1, cy + 1, cx + SLOT_SIZE - 1, cy + SLOT_SIZE - 1, 0x3340FF80);
                 }

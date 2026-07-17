@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
@@ -122,15 +122,15 @@ public final class BlockPlacementPlanner {
      * 优先使用蓝图记录的材质 ID；若为空则回退到方块的 asItem()。
      */
     public static List<Item> materialItems(RtsBlueprintBlock block, BlockState state) {
-        List<ResourceLocation> ids = RtsBlueprint.materialItemIds(block);
+        List<Identifier> ids = RtsBlueprint.materialItemIds(block);
         if (ids.isEmpty() && state != null) {
             Item fallback = state.getBlock().asItem();
             return fallback == Items.AIR ? List.of() : List.of(fallback);
         }
         List<Item> out = new ArrayList<>(ids.size());
-        for (ResourceLocation id : ids) {
+        for (Identifier id : ids) {
             if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
-            Item item = BuiltInRegistries.ITEM.get(id);
+            Item item = BuiltInRegistries.ITEM.getValue(id);
             if (item != null && item != Items.AIR) out.add(item);
         }
         return out.isEmpty() ? List.of() : List.copyOf(out);

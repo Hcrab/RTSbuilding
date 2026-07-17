@@ -64,9 +64,9 @@ public final class RtsBindingServiceImpl implements BindingService {
     public void unlinkStorage(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+        if (removeLinkedRef(session, player.level().dimension(), pos)) {
             RtsEndpointLeaseCache.INSTANCE.invalidate(
-                    player.getUUID(), player.serverLevel().dimension(), pos);
+                    player.getUUID(), player.level().dimension(), pos);
             registry.serviceOp().afterModification(player, session);
         }
     }

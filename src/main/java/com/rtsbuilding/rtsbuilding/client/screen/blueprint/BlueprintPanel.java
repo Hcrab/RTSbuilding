@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -70,7 +70,7 @@ public final class BlueprintPanel {
     private BlueprintPanel() {
     }
 
-    public static void render(GuiGraphics g, Font font, ClientRtsController controller,
+    public static void render(GuiGraphicsExtractor g, Font font, ClientRtsController controller,
             int x, int y, int w, int h, int mouseX, int mouseY) {
         if (!Config.areBlueprintsEnabled()) {
             CAPTURE.clearSilently();
@@ -97,7 +97,7 @@ public final class BlueprintPanel {
         String searchLabel = search.isBlank() && !searchFocused
                 ? text("screen.rtsbuilding.blueprints.search")
                 : search + (searchFocused && (Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
-        g.drawString(font, trim(font, searchLabel, top.searchW() - 8), top.searchX() + 4, buttonY + 3,
+        g .text(font, trim(font, searchLabel, top.searchW() - 8), top.searchX() + 4, buttonY + 3,
                 search.isBlank() && !searchFocused ? 0x8898A8B8 : 0xFFEAF2FF, false);
 
         int listY = y + 19;
@@ -111,7 +111,7 @@ public final class BlueprintPanel {
         int listW = Math.max(120, w - detailsW - 8);
         renderList(g, font, controller, x, listY, listW, listH, mouseX, mouseY);
         renderDetails(g, font, controller, x + listW + 8, listY, detailsW, listH, mouseX, mouseY);
-        g.drawString(font, trim(font, statusText.getString(), w - 8), x + 2, statusY, statusColor, false);
+        g .text(font, trim(font, statusText.getString(), w - 8), x + 2, statusY, statusColor, false);
     }
 
     public static boolean mouseClicked(double mouseX, double mouseY, int x, int y, int w, int h) {
@@ -253,7 +253,7 @@ public final class BlueprintPanel {
         materialDialogScroll = 0;
     }
 
-    public static void renderNameDialog(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY) {
+    public static void renderNameDialog(GuiGraphicsExtractor g, Font font, int screenW, int screenH, int mouseX, int mouseY) {
         if (!isNameDialogOpen()) {
             return;
         }
@@ -320,7 +320,7 @@ public final class BlueprintPanel {
         return true;
     }
 
-    public static void renderMaterialDialog(GuiGraphics g, Font font, ClientRtsController controller,
+    public static void renderMaterialDialog(GuiGraphicsExtractor g, Font font, ClientRtsController controller,
             int screenW, int screenH, int mouseX, int mouseY) {
         if (!materialDialogOpen) {
             return;
@@ -434,7 +434,7 @@ public final class BlueprintPanel {
         }
     }
 
-    public static void renderPlacementHud(GuiGraphics g, Font font, ClientRtsController controller,
+    public static void renderPlacementHud(GuiGraphicsExtractor g, Font font, ClientRtsController controller,
             int screenW, int screenH, int mouseX, int mouseY, int topSafeY, int bottomSafeY) {
         if (!Config.areBlueprintsEnabled() || CAPTURE.isActive()) {
             return;
@@ -895,7 +895,7 @@ public final class BlueprintPanel {
         CAPTURE.setSelectionSize(x, y, z, BlueprintPanel::setStatus);
     }
 
-    public static void renderCaptureOverlay(GuiGraphics g, Font font, int screenW, int screenH, int mouseX, int mouseY,
+    public static void renderCaptureOverlay(GuiGraphicsExtractor g, Font font, int screenW, int screenH, int mouseX, int mouseY,
             int topSafeY) {
         if (!Config.areBlueprintsEnabled() || !CAPTURE.isActive()) {
             return;
@@ -906,7 +906,7 @@ public final class BlueprintPanel {
         int infoX = (screenW - infoW) / 2;
         int infoY = topSafeY;
         drawFrame(g, infoX, infoY, infoW, infoH, 0xDD101820, 0xFF5B7894, 0xFF0B0F14);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_tool_title"), infoW - 12),
+        g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_tool_title"), infoW - 12),
                 infoX + 6, infoY + 6, 0xFFEAF2FF, false);
         String state = CAPTURE.pointA() == null
                 ? text("screen.rtsbuilding.blueprints.capture_waiting_a")
@@ -920,7 +920,7 @@ public final class BlueprintPanel {
                 ? state
                 : text("screen.rtsbuilding.blueprints.capture_live_size",
                         CAPTURE.sizeText());
-        g.drawString(font, trim(font, sizeLine + "  " + state, infoW - 112), infoX + 6, infoY + 20,
+        g .text(font, trim(font, sizeLine + "  " + state, infoW - 112), infoX + 6, infoY + 20,
                 CAPTURE.pointA() != null && CAPTURE.pointB() != null ? 0xFF8EEA9B : 0xFFFFC06C, false);
         if (CAPTURE.pointB() == null && !CAPTURE.isSaving()) {
             return;
@@ -936,7 +936,7 @@ public final class BlueprintPanel {
                 text("screen.rtsbuilding.blueprints.capture_cancel"),
                 inside(mouseX, mouseY, cancelX, buttonY, 46, DETAIL_BUTTON_H));
         if (CAPTURE.isSaving()) {
-            g.drawString(font, trim(font, CAPTURE.saveProgressLine(), infoW - 12), infoX + 6, infoY + 33,
+            g .text(font, trim(font, CAPTURE.saveProgressLine(), infoW - 12), infoX + 6, infoY + 33,
                     0xFFB7CDE2, false);
         }
 
@@ -1292,15 +1292,15 @@ public final class BlueprintPanel {
         setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.save_failed", failureDetail(throwable));
     }
 
-    private static void renderDisabled(GuiGraphics g, Font font, int x, int y, int w, int h) {
+    private static void renderDisabled(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h) {
         drawFrame(g, x, y, w, h, 0x8811161E, 0xFF415266, 0xFF0B0E13);
         Component title = Component.translatable("screen.rtsbuilding.blueprints.disabled");
         Component detail = Component.translatable("screen.rtsbuilding.blueprints.status.disabled");
-        g.drawString(font, trim(font, title.getString(), w - 12), x + 6, y + 8, 0xFFEAF2FF, false);
-        g.drawString(font, trim(font, detail.getString(), w - 12), x + 6, y + 22, 0xFF9EACB9, false);
+        g .text(font, trim(font, title.getString(), w - 12), x + 6, y + 8, 0xFFEAF2FF, false);
+        g .text(font, trim(font, detail.getString(), w - 12), x + 6, y + 22, 0xFF9EACB9, false);
     }
 
-    private static void renderList(GuiGraphics g, Font font, ClientRtsController controller,
+    private static void renderList(GuiGraphicsExtractor g, Font font, ClientRtsController controller,
             int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(g, x, y, w, h, 0x8811161E, 0xFF415266, 0xFF0B0E13);
         List<BlueprintEntry> filtered = filteredEntries();
@@ -1312,7 +1312,7 @@ public final class BlueprintPanel {
             Component empty = ENTRIES.isEmpty()
                     ? Component.translatable("screen.rtsbuilding.blueprints.empty")
                     : Component.translatable("screen.rtsbuilding.blueprints.no_results");
-            g.drawString(font, trim(font, empty.getString(), w - 12), x + 6, y + 8, 0xFF9EACB9, false);
+            g .text(font, trim(font, empty.getString(), w - 12), x + 6, y + 8, 0xFF9EACB9, false);
             return;
         }
         for (int row = 0; row < visibleRows; row++) {
@@ -1338,7 +1338,7 @@ public final class BlueprintPanel {
                 boolean showActions = hover || selected;
                 int rightTextX = showActions ? actions.saveX() - 4 : cellX + actualW - 38;
                 g.fill(cellX, rowY + 1, cellX + actualW, rowY + ROW_H - 1, bg);
-                g.drawString(font, trim(font, entry.name(), Math.max(32, rightTextX - cellX - 8)), cellX + 5, rowY + 4,
+                g .text(font, trim(font, entry.name(), Math.max(32, rightTextX - cellX - 8)), cellX + 5, rowY + 4,
                         entry.error().isBlank() ? 0xFFEAF2FF : 0xFFFFB0A0, false);
                 if (showActions) {
                     if (entry.error().isBlank()) {
@@ -1353,10 +1353,10 @@ public final class BlueprintPanel {
                             text("screen.rtsbuilding.blueprints.delete"),
                             inside(mouseX, mouseY, actions.deleteX(), actions.buttonY(), actions.deleteW(), DETAIL_BUTTON_H));
                 } else {
-                    g.drawString(font, stats.percent() + "%", cellX + actualW - 36, rowY + 4,
+                    g .text(font, stats.percent() + "%", cellX + actualW - 36, rowY + 4,
                             enough ? 0xFF9BE6A5 : 0xFF9CA6B2, false);
                 }
-                g.drawString(font, trim(font, entry.sizeText(), Math.max(24, actualW - 70)), cellX + 5, rowY + 14,
+                g .text(font, trim(font, entry.sizeText(), Math.max(24, actualW - 70)), cellX + 5, rowY + 14,
                         0xFF8FA2B7, false);
                 int barX = cellX + 64;
                 int barY = rowY + ROW_H - 5;
@@ -1368,33 +1368,33 @@ public final class BlueprintPanel {
         }
     }
 
-    private static void renderCaptureLockedBottom(GuiGraphics g, Font font, int x, int y, int w, int h) {
+    private static void renderCaptureLockedBottom(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h) {
         drawFrame(g, x, y, w, h, 0x8811161E, 0xFF415266, 0xFF0B0E13);
         int textX = x + 8;
         int textY = y + 8;
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_tool_title"), w - 16),
+        g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_tool_title"), w - 16),
                 textX, textY, 0xFFEAF2FF, false);
         textY += 14;
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.status.capture_locked"), w - 16),
+        g .text(font, trim(font, text("screen.rtsbuilding.blueprints.status.capture_locked"), w - 16),
                 textX, textY, 0xFFFFC06C, false);
     }
 
-    private static void renderDetails(GuiGraphics g, Font font, ClientRtsController controller,
+    private static void renderDetails(GuiGraphicsExtractor g, Font font, ClientRtsController controller,
             int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(g, x, y, w, h, 0x8811161E, 0xFF415266, 0xFF0B0E13);
         BlueprintEntry entry = selectedEntry();
         if (entry == null) {
-            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.select_hint"), w - 12), x + 6, y + 8,
+            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.select_hint"), w - 12), x + 6, y + 8,
                     0xFF9EACB9, false);
             return;
         }
-        g.drawString(font, trim(font, entry.name(), w - 12), x + 6, y + 6, 0xFFEAF2FF, false);
-        g.drawString(font, entry.format().extension().toUpperCase(Locale.ROOT) + "  " + entry.sizeText(), x + 6, y + 18,
+        g .text(font, trim(font, entry.name(), w - 12), x + 6, y + 6, 0xFFEAF2FF, false);
+        g .text(font, entry.format().extension().toUpperCase(Locale.ROOT) + "  " + entry.sizeText(), x + 6, y + 18,
                 0xFF9EACB9, false);
         BuildStats stats = buildStats(entry, controller);
         boolean enough = stats.percent() >= 100;
         String materialLine = materialSummary(entry, controller, stats);
-        g.drawString(font, trim(font, materialLine, w - 12), x + 6, y + 31, enough ? 0xFF8EEA9B : 0xFFFFC06C, false);
+        g .text(font, trim(font, materialLine, w - 12), x + 6, y + 31, enough ? 0xFF8EEA9B : 0xFFFFC06C, false);
 
         int progressX = x + 6;
         int progressY = y + 44;
@@ -1406,7 +1406,7 @@ public final class BlueprintPanel {
         int contentY = y + 56;
         renderPreviewItems(g, entry, x + 6, contentY, y + h - 4);
         if (!entry.error().isBlank()) {
-            g.drawString(font, trim(font, entry.error(), w - 12), x + 6, y + h - 16, 0xFFFFA0A0, false);
+            g .text(font, trim(font, entry.error(), w - 12), x + 6, y + h - 16, 0xFFFFA0A0, false);
         }
     }
 
@@ -1427,7 +1427,7 @@ public final class BlueprintPanel {
         materialDialogScroll = 0;
     }
 
-    private static void renderPreviewItems(GuiGraphics g, BlueprintEntry entry, int x, int y, int bottomY) {
+    private static void renderPreviewItems(GuiGraphicsExtractor g, BlueprintEntry entry, int x, int y, int bottomY) {
         for (int i = 0; i < entry.previewItems().size() && i < 18; i++) {
             int px = x + (i % 6) * 20;
             int py = y + (i / 6) * 20;
@@ -1435,7 +1435,7 @@ public final class BlueprintPanel {
                 break;
             }
             g.fill(px, py, px + 18, py + 18, 0xAA1A2029);
-            g.renderItem(entry.previewItems().get(i), px + 1, py + 1);
+            g .item(entry.previewItems().get(i), px + 1, py + 1);
         }
     }
 

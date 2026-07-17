@@ -10,7 +10,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -34,25 +34,25 @@ final class RtsLegacySkillTreeMigration {
     private static final String NBT_PLUGIN_MIGRATION_VERSION = "plugin_migration_version";
     private static final String LEGACY_OWNER_NAME = "Legacy Skill Tree";
 
-    private static final ResourceLocation CAMERA_CORE = node("camera_core");
-    private static final ResourceLocation RADIUS_1 = node("radius_1");
-    private static final ResourceLocation RADIUS_2 = node("radius_2");
-    private static final ResourceLocation RADIUS_3 = node("radius_3");
-    private static final ResourceLocation RADIUS_MAX = node("radius_max");
-    private static final ResourceLocation STORAGE_LINK = node("storage_link");
-    private static final ResourceLocation REMOTE_PLACE = node("remote_place");
-    private static final ResourceLocation REMOTE_BREAK = node("remote_break");
-    private static final ResourceLocation ROTATE_BLOCK = node("rotate_block");
-    private static final ResourceLocation AUTO_STORE_MINED = node("auto_store_mined");
-    private static final ResourceLocation FUNNEL = node("funnel");
-    private static final ResourceLocation FLUID_BUFFER = node("fluid_buffer");
-    private static final ResourceLocation REMOTE_GUI = node("remote_gui");
-    private static final ResourceLocation CRAFT_TERMINAL = node("craft_terminal");
-    private static final ResourceLocation JEI_TRANSFER = node("jei_transfer");
-    private static final ResourceLocation ULTIMINE = node("ultimine");
-    private static final ResourceLocation AREA_DESTROY = node("area_destroy");
-    private static final ResourceLocation BLUEPRINTS = node("blueprints");
-    private static final ResourceLocation FIELD_DEPLOYMENT = node("field_deployment");
+    private static final Identifier CAMERA_CORE = node("camera_core");
+    private static final Identifier RADIUS_1 = node("radius_1");
+    private static final Identifier RADIUS_2 = node("radius_2");
+    private static final Identifier RADIUS_3 = node("radius_3");
+    private static final Identifier RADIUS_MAX = node("radius_max");
+    private static final Identifier STORAGE_LINK = node("storage_link");
+    private static final Identifier REMOTE_PLACE = node("remote_place");
+    private static final Identifier REMOTE_BREAK = node("remote_break");
+    private static final Identifier ROTATE_BLOCK = node("rotate_block");
+    private static final Identifier AUTO_STORE_MINED = node("auto_store_mined");
+    private static final Identifier FUNNEL = node("funnel");
+    private static final Identifier FLUID_BUFFER = node("fluid_buffer");
+    private static final Identifier REMOTE_GUI = node("remote_gui");
+    private static final Identifier CRAFT_TERMINAL = node("craft_terminal");
+    private static final Identifier JEI_TRANSFER = node("jei_transfer");
+    private static final Identifier ULTIMINE = node("ultimine");
+    private static final Identifier AREA_DESTROY = node("area_destroy");
+    private static final Identifier BLUEPRINTS = node("blueprints");
+    private static final Identifier FIELD_DEPLOYMENT = node("field_deployment");
 
     private RtsLegacySkillTreeMigration() {
     }
@@ -82,9 +82,9 @@ final class RtsLegacySkillTreeMigration {
         }
 
         CompoundTag currentRoot = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
-        CompoundTag oldPersistentRoot = player.getPersistentData().getCompound(OLD_PERSISTENT_ROOT);
+        CompoundTag oldPersistentRoot = player.getPersistentData().getCompoundOrEmpty(OLD_PERSISTENT_ROOT);
         if (migrationVersion(currentRoot, oldPersistentRoot) < MIGRATION_VERSION) {
-            LinkedHashSet<ResourceLocation> personalNodes = readUnlockedNodes(currentRoot);
+            LinkedHashSet<Identifier> personalNodes = readUnlockedNodes(currentRoot);
             personalNodes.addAll(readUnlockedNodes(oldPersistentRoot));
             changed |= addMigratedPlugins(
                     player,
@@ -108,12 +108,12 @@ final class RtsLegacySkillTreeMigration {
     }
 
     private static boolean addMigratedPlugins(ServerPlayer player, List<RtsPluginTeamService.StoredPlugin> installed,
-            List<RtsPluginDefinition> added, Set<ResourceLocation> legacyNodes, UUID ownerId, String ownerName) {
+            List<RtsPluginDefinition> added, Set<Identifier> legacyNodes, UUID ownerId, String ownerName) {
         if (legacyNodes == null || legacyNodes.isEmpty()) {
             return false;
         }
         boolean changed = false;
-        for (ResourceLocation pluginId : pluginsFor(legacyNodes)) {
+        for (Identifier pluginId : pluginsFor(legacyNodes)) {
             RtsPluginDefinition definition = RtsPluginRegistry.byId(pluginId);
             if (definition == null) {
                 continue;
@@ -132,8 +132,8 @@ final class RtsLegacySkillTreeMigration {
         return changed;
     }
 
-    private static LinkedHashSet<ResourceLocation> pluginsFor(Set<ResourceLocation> nodes) {
-        LinkedHashSet<ResourceLocation> plugins = new LinkedHashSet<>();
+    private static LinkedHashSet<Identifier> pluginsFor(Set<Identifier> nodes) {
+        LinkedHashSet<Identifier> plugins = new LinkedHashSet<>();
         if (!nodes.isEmpty()) {
             plugins.add(BuiltInRtsPluginCatalog.RTS_CONTROL_CORE);
         }
@@ -163,7 +163,7 @@ final class RtsLegacySkillTreeMigration {
         return plugins;
     }
 
-    private static void addHighestRangeExtension(Set<ResourceLocation> nodes, LinkedHashSet<ResourceLocation> plugins) {
+    private static void addHighestRangeExtension(Set<Identifier> nodes, LinkedHashSet<Identifier> plugins) {
         if (nodes.contains(RADIUS_MAX)) {
             plugins.add(BuiltInRtsPluginCatalog.RANGE_EXTENSION_MAX);
         } else if (nodes.contains(RADIUS_3)) {
@@ -175,8 +175,8 @@ final class RtsLegacySkillTreeMigration {
         }
     }
 
-    private static boolean containsAny(Set<ResourceLocation> nodes, ResourceLocation... ids) {
-        for (ResourceLocation id : ids) {
+    private static boolean containsAny(Set<Identifier> nodes, Identifier... ids) {
+        for (Identifier id : ids) {
             if (nodes.contains(id)) {
                 return true;
             }
@@ -184,14 +184,14 @@ final class RtsLegacySkillTreeMigration {
         return false;
     }
 
-    private static LinkedHashSet<ResourceLocation> readUnlockedNodes(CompoundTag root) {
-        LinkedHashSet<ResourceLocation> nodes = new LinkedHashSet<>();
+    private static LinkedHashSet<Identifier> readUnlockedNodes(CompoundTag root) {
+        LinkedHashSet<Identifier> nodes = new LinkedHashSet<>();
         if (root == null || root.isEmpty()) {
             return nodes;
         }
-        ListTag list = root.getList(NBT_UNLOCKED_NODES, Tag.TAG_STRING);
+        ListTag list = root.getListOrEmpty(NBT_UNLOCKED_NODES);
         for (int i = 0; i < list.size(); i++) {
-            ResourceLocation id = ResourceLocation.tryParse(list.getString(i));
+            Identifier id = Identifier.tryParse(list.getStringOr(i, ""));
             if (id != null && RtsbuildingMod.MODID.equals(id.getNamespace())) {
                 nodes.add(id);
             }
@@ -201,16 +201,16 @@ final class RtsLegacySkillTreeMigration {
 
     private static int migrationVersion(CompoundTag currentRoot, CompoundTag oldPersistentRoot) {
         return Math.max(
-                currentRoot == null ? 0 : currentRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION),
-                oldPersistentRoot == null ? 0 : oldPersistentRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION));
+                currentRoot == null ? 0 : currentRoot.getIntOr(NBT_PLUGIN_MIGRATION_VERSION, 0),
+                oldPersistentRoot == null ? 0 : oldPersistentRoot.getIntOr(NBT_PLUGIN_MIGRATION_VERSION, 0));
     }
 
     private static ItemStack pluginStack(RtsPluginDefinition definition) {
-        return new ItemStack(BuiltInRegistries.ITEM.get(definition.itemId()));
+        return new ItemStack(BuiltInRegistries.ITEM.getValue(definition.itemId()));
     }
 
-    private static ResourceLocation node(String path) {
-        return ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
+    private static Identifier node(String path) {
+        return Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
     }
 
     static Component migrationMessage(List<RtsPluginDefinition> added) {

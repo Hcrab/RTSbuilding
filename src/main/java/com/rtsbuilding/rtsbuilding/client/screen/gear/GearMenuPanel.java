@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
@@ -75,7 +75,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         this.scroll = Mth.clamp(this.scroll, 0, maxScroll());
         int x = contentX();
         int y = contentY() + CONTENT_TOP_PADDING - this.scroll;
@@ -161,7 +161,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 Math.max(TOP_H + 6, this.screen.height - this.windowHeight - 8));
     }
 
-    private void renderControls(GuiGraphics g, int mouseX, int mouseY, int x, int controlsY, int w) {
+    private void renderControls(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int controlsY, int w) {
         int rowY = controlsY;
         rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
                 "screen.rtsbuilding.settings.category.controls", this.controlsExpanded);
@@ -333,21 +333,21 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
     }
 
-    private int drawSectionHeader(GuiGraphics g, int mouseX, int mouseY, int x, int w, int y,
+    private int drawSectionHeader(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int w, int y,
             String titleKey, boolean expanded) {
         boolean hover = inside(mouseX, mouseY, x + 8, y, w - 16, SECTION_HEADER_H);
         int bg = hover ? 0xCC2C3948 : 0xCC202A35;
         RtsClientUiUtil.drawPanelFrame(g, x + 8, y, w - 16, SECTION_HEADER_H,
                 bg, 0xFF596D82, 0xFF0B1016);
-        g.drawString(screen.font(), expanded ? "v" : ">", x + 16, y + 7, 0xEAF4FF, false);
-        g.drawString(screen.font(), trimToWidth(text(titleKey), w - 58), x + 31, y + 7, 0xF4F7FF, false);
+        g .text(screen.font(), expanded ? "v" : ">", x + 16, y + 7, 0xEAF4FF, false);
+        g .text(screen.font(), trimToWidth(text(titleKey), w - 58), x + 31, y + 7, 0xF4F7FF, false);
         return y + SECTION_HEADER_H;
     }
 
-    private void drawSensitivityRow(GuiGraphics g, int rowY, int x, int w, SensitivityControl control) {
-        g.drawString(screen.font(), Component.translatable(control.labelKey),
+    private void drawSensitivityRow(GuiGraphicsExtractor g, int rowY, int x, int w, SensitivityControl control) {
+        g .text(screen.font(), Component.translatable(control.labelKey),
                 x + 16, rowY + 5, 0xC8D3DF, false);
-        g.drawString(screen.font(), sensitivityLabel(control),
+        g .text(screen.font(), sensitivityLabel(control),
                 x + w - 60, rowY + 5, 0xEAF4FF, false);
 
         int trackX = x + 16;
@@ -361,11 +361,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
         g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8, 0xFF5FE36C);
     }
 
-    private void drawScaleRow(GuiGraphics g, int mouseX, int mouseY, int rowY, int x, int w) {
+    private void drawScaleRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int rowY, int x, int w) {
         int minusX = x + w - 124;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.settings.ui_scale"),
+        g .text(screen.font(), Component.translatable("screen.rtsbuilding.settings.ui_scale"),
                 x + 16, rowY + 8, 0xC8D3DF, false);
         drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 6, 22, 22, "-", false);
         RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 6, 56, 22, 0xCC1A232E, 0xFF566B80, 0xFF0D1218);
@@ -374,14 +374,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 6, 22, 22, "+", false);
     }
 
-    private void drawSoundLimitRow(GuiGraphics g, int mouseX, int mouseY, int rowY, int x, int w) {
+    private void drawSoundLimitRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int rowY, int x, int w) {
         int minusX = x + w - 124;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
-        g.drawString(screen.font(), trimToWidth(
+        g .text(screen.font(), trimToWidth(
                         text("screen.rtsbuilding.settings.block_sounds_per_tick"), w - 156),
                 x + 16, rowY + 3, 0xC8D3DF, false);
-        g.drawString(screen.font(), trimToWidth(
+        g .text(screen.font(), trimToWidth(
                         text("screen.rtsbuilding.settings.block_sounds_per_tick.hint"), w - 156),
                 x + 16, rowY + 18, 0x9FB0C2, false);
         drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 8, 22, 22, "-", false);
@@ -393,32 +393,32 @@ public final class GearMenuPanel extends RtsWindowPanel {
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 8, 22, 22, "+", false);
     }
 
-    private void drawSimpleToggleRow(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
+    private void drawSimpleToggleRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int w, int rowY,
             String labelKey, boolean active) {
-        g.drawString(screen.font(), trimToWidth(text(labelKey), w - 126),
+        g .text(screen.font(), trimToWidth(text(labelKey), w - 126),
                 x + 16, rowY + 9, 0xC8D3DF, false);
         drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
                 text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
 
-    private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
+    private void drawSettingsToggleWithHint(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int w, int rowY,
             String labelKey, String hintKey, boolean active) {
         boolean expandable = hintCanExpand(x, w, hintKey);
         boolean expanded = expandable && this.expandedHintKeys.contains(hintKey);
         int hintX = hintTextX(x, expandable);
         int hintW = hintTextMaxWidth(x, w, expandable);
         String label = trimToWidth(text(labelKey), w - 116);
-        g.drawString(screen.font(), label, x + 16, rowY + 2, 0xC8D3DF, false);
+        g .text(screen.font(), label, x + 16, rowY + 2, 0xC8D3DF, false);
         if (expandable) {
             drawHintExpandButton(g, mouseX, mouseY, x, rowY, expanded);
         }
         if (expanded) {
             List<FormattedCharSequence> lines = wrappedHintLines(x, w, hintKey);
             for (int i = 0; i < lines.size(); i++) {
-                g.drawString(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H, 0x9FB0C2, false);
+                g .text(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H, 0x9FB0C2, false);
             }
         } else {
-            g.drawString(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13, 0x9FB0C2, false);
+            g .text(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13, 0x9FB0C2, false);
         }
         drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
                 text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
@@ -930,7 +930,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return SECTION_HEADER_H + (expanded ? expandedContentHeight : 0);
     }
 
-    private void renderScrollbar(GuiGraphics g, int x, int y, int w, int h) {
+    private void renderScrollbar(GuiGraphicsExtractor g, int x, int y, int w, int h) {
         int maxScroll = maxScroll();
         if (maxScroll <= 0) {
             return;
@@ -948,7 +948,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
 
-    private void drawToggleButton(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h,
+    private void drawToggleButton(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h,
             boolean active, String label) {
         boolean hover = inside(mouseX, mouseY, x, y, w, h);
         int bg = active ? (hover ? 0xDD45BA53 : 0xDD329A42) : (hover ? 0xDD3D4957 : 0xDD28313C);
@@ -986,7 +986,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return x + 16;
     }
 
-    private void drawHintExpandButton(GuiGraphics g, int mouseX, int mouseY, int x, int rowY, boolean expanded) {
+    private void drawHintExpandButton(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int rowY, boolean expanded) {
         int buttonX = hintExpandButtonX(x);
         int buttonY = rowY + 12;
         boolean hover = inside(mouseX, mouseY, buttonX, buttonY,
@@ -998,7 +998,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 buttonX + HINT_EXPAND_BUTTON_SIZE / 2, buttonY + 2, 0xDDEBFA);
     }
 
-    private void drawGearMenuRow(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h,
+    private void drawGearMenuRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h,
             String label, boolean active) {
         boolean hover = inside(mouseX, mouseY, x, y, w, h);
         int bg = active ? 0xCC2D7C4B : (hover ? 0xCC334054 : 0xCC26303D);

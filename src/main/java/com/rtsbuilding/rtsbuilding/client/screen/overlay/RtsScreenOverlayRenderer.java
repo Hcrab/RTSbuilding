@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -57,7 +57,7 @@ public final class RtsScreenOverlayRenderer {
         this.damageFlashStartMs = System.currentTimeMillis();
     }
 
-    public void renderDamageFlash(GuiGraphics g) {
+    public void renderDamageFlash(GuiGraphicsExtractor g) {
         if (this.damageFlashStartMs < 0L) {
             return;
         }
@@ -146,7 +146,7 @@ public final class RtsScreenOverlayRenderer {
         };
     }
 
-    public void renderHomeSelectionOverlay(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderHomeSelectionOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         updateNativeCursorVisibility(false);
         int panelW = Math.min(360, this.screen.width - 24);
         int panelX = (this.screen.width - panelW) / 2;
@@ -155,18 +155,18 @@ public final class RtsScreenOverlayRenderer {
         var cooldownLines = this.screen.font().split(cooldown, panelW - 20);
         int panelH = 58 + Math.max(1, cooldownLines.size()) * 10;
         RtsClientUiUtil.drawPanelFrame(g, panelX, panelY, panelW, panelH, 0xCC101820, 0xFF6E8799, 0xFF0D1218);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.title"), panelX + panelW / 2, panelY + 8, 0xFFFFFF);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.area"), panelX + panelW / 2, panelY + 22, 0xD8E6F5);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.confirm"), panelX + panelW / 2, panelY + 34, 0xBFD2E6);
+        g .centeredText(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.title"), panelX + panelW / 2, panelY + 8, 0xFFFFFF);
+        g .centeredText(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.area"), panelX + panelW / 2, panelY + 22, 0xD8E6F5);
+        g .centeredText(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.confirm"), panelX + panelW / 2, panelY + 34, 0xBFD2E6);
         int cooldownY = panelY + 46;
         for (var line : cooldownLines) {
-            g.drawString(this.screen.font(), line, panelX + (panelW - this.screen.font().width(line)) / 2, cooldownY, 0xFFE7C46A);
+            g .text(this.screen.font(), line, panelX + (panelW - this.screen.font().width(line)) / 2, cooldownY, 0xFFE7C46A);
             cooldownY += 10;
         }
         BlockHitResult hit = this.screen.isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
         if (hit != null) {
             BlockPos pos = hit.getBlockPos();
-            g.drawCenteredString(this.screen.font(),
+            g .centeredText(this.screen.font(),
                     Component.translatable("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()),
                     this.screen.width / 2,
                     panelY + panelH + 14,
@@ -174,14 +174,14 @@ public final class RtsScreenOverlayRenderer {
         }
     }
 
-    public void renderQuestDetectPopup(GuiGraphics g) {
+    public void renderQuestDetectPopup(GuiGraphicsExtractor g) {
         if (!this.controller.isQuestDetectPopupVisible()) {
             return;
         }
         int x = Mth.clamp((this.screen.width - QUEST_DETECT_POPUP_W) / 2, 8, Math.max(8, this.screen.width - QUEST_DETECT_POPUP_W - 8));
         int y = TOP_H + 8;
         RtsClientUiUtil.drawPanelFrame(g, x, y, QUEST_DETECT_POPUP_W, QUEST_DETECT_POPUP_H, 0xEE151A22, 0xFF61758A, 0xFF0D1117);
-        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.quest_scan.title"), x + 9, y + 7, 0xF2F7FF, false);
+        g .text(this.screen.font(), Component.translatable("screen.rtsbuilding.quest_scan.title"), x + 9, y + 7, 0xF2F7FF, false);
         byte phase = this.controller.getQuestDetectPhase();
         String status = questDetectStatusText(phase).getString();
         int statusColor = phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR
@@ -189,7 +189,7 @@ public final class RtsScreenOverlayRenderer {
                 : phase == S2CRtsQuestDetectStatusPayload.PHASE_UNAVAILABLE
                         ? 0xFFE7C46A
                         : 0xFFCFE3F7;
-        g.drawString(this.screen.font(), this.screen.trimToWidth(status, QUEST_DETECT_POPUP_W - 18), x + 9, y + 19, statusColor, false);
+        g .text(this.screen.font(), this.screen.trimToWidth(status, QUEST_DETECT_POPUP_W - 18), x + 9, y + 19, statusColor, false);
         int barX = x + 9;
         int barY = y + 34;
         int barW = QUEST_DETECT_POPUP_W - 18;
@@ -205,13 +205,13 @@ public final class RtsScreenOverlayRenderer {
         if (fillW > 0) {
             g.fill(barX, barY, barX + fillW, barY + barH, progressColor);
         }
-        g.hLine(barX, barX + barW, barY, 0xFF405064);
-        g.hLine(barX, barX + barW, barY + barH, 0xFF0A0D12);
-        g.vLine(barX, barY, barY + barH, 0xFF405064);
-        g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
+        g.horizontalLine(barX, barX + barW, barY, 0xFF405064);
+        g.horizontalLine(barX, barX + barW, barY + barH, 0xFF0A0D12);
+        g.verticalLine(barX, barY, barY + barH, 0xFF405064);
+        g.verticalLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
     }
 
-    public void renderStorageScanPopup(GuiGraphics g) {
+    public void renderStorageScanPopup(GuiGraphicsExtractor g) {
         if (!this.controller.isStorageScanPopupVisible()) {
             return;
         }
@@ -229,7 +229,7 @@ public final class RtsScreenOverlayRenderer {
         Component label = Component.translatable(this.controller.isStorageScanRunning()
                 ? "screen.rtsbuilding.storage_scan.scanning"
                 : "screen.rtsbuilding.storage_scan.ready");
-        g.drawString(this.screen.font(), this.screen.trimToWidth(label.getString(), popupW - 18), x + 9, y + 6, 0xF2F7FF, false);
+        g .text(this.screen.font(), this.screen.trimToWidth(label.getString(), popupW - 18), x + 9, y + 6, 0xF2F7FF, false);
         int barX = x + 9;
         int barY = y + 20;
         int barW = popupW - 18;
@@ -240,10 +240,10 @@ public final class RtsScreenOverlayRenderer {
             g.fill(barX, barY, barX + fillW, barY + barH,
                     this.controller.isStorageScanRunning() ? 0xFF88BEF4 : 0xFF78B28C);
         }
-        g.hLine(barX, barX + barW, barY, 0xFF405064);
-        g.hLine(barX, barX + barW, barY + barH, 0xFF0A0D12);
-        g.vLine(barX, barY, barY + barH, 0xFF405064);
-        g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
+        g.horizontalLine(barX, barX + barW, barY, 0xFF405064);
+        g.horizontalLine(barX, barX + barW, barY + barH, 0xFF0A0D12);
+        g.verticalLine(barX, barY, barY + barH, 0xFF405064);
+        g.verticalLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
     }
 
 

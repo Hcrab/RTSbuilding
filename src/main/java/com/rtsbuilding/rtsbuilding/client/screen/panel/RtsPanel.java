@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Unified RTS panel interface.
@@ -19,10 +19,10 @@ public interface RtsPanel {
     default void tick() {}
 
     /** Renders the panel content */
-    default void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
+    default void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {}
 
     /** Renders tooltips (after hover detection) */
-    default void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {}
+    default void renderOverlays(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
     // --- Input events ---
 

@@ -347,11 +347,11 @@ public final class RtsWorkflowSlotManager {
      */
     public static RtsWorkflowSlotManager loadFromNbt(CompoundTag tag) {
         RtsWorkflowSlotManager manager = new RtsWorkflowSlotManager();
-        manager.nextId = tag.getInt(NBT_NEXT_ID);
-        if (tag.contains(NBT_ENTRIES, Tag.TAG_LIST)) {
-            ListTag entriesList = tag.getList(NBT_ENTRIES, Tag.TAG_COMPOUND);
+        manager.nextId = tag.getIntOr(NBT_NEXT_ID, 0);
+        if (tag.contains(NBT_ENTRIES)) {
+            ListTag entriesList = tag.getListOrEmpty(NBT_ENTRIES);
             for (int i = 0; i < entriesList.size(); i++) {
-                RtsWorkflowEntry entry = RtsWorkflowEntry.fromNbt(entriesList.getCompound(i));
+                RtsWorkflowEntry entry = RtsWorkflowEntry.fromNbt(entriesList.getCompoundOrEmpty(i));
                 if (entry.isOccupied()) {
                     manager.entries.add(entry);
                     manager.entryIndex.put(entry.id(), entry);

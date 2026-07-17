@@ -239,7 +239,7 @@ final class RtsFtbCompatImpl {
 
     private long countInPlayerInventory(Object itemTask, ServerPlayer player) {
         long total = 0L;
-        for (ItemStack stack : player.getInventory().items) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
             if (stack.isEmpty()) {
                 continue;
             }

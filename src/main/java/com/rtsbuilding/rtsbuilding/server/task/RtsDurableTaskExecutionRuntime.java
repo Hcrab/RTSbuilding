@@ -98,7 +98,7 @@ final class RtsDurableTaskExecutionRuntime {
         PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                 .decode(snapshot.payload());
         var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
-        if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
+        if (player == null || !player.level().dimension().equals(payload.dimension())) {
             return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
                     payload.state().failedUnits(), snapshot.payload());
         }
@@ -112,7 +112,7 @@ final class RtsDurableTaskExecutionRuntime {
                         .from(player, payload.workflowEntryId()).isEmpty()) {
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
-                    null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
+                    null, player.level().getGameTime(), payload.state().cursorUnits(),
                     payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
@@ -129,11 +129,11 @@ final class RtsDurableTaskExecutionRuntime {
         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey waitKey = null;
         if (result.outcome()
                 == com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult.Outcome.WAITING_RESOURCE) {
-            String itemId = result.state().definition().getString("itemId");
+            String itemId = result.state().definition().getStringOr("itemId", "");
             waitKey = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
                     "item", itemId.isBlank() ? "rtsbuilding:any-placement-item" : itemId);
         }
-        var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
+        var next = snapshot.nextRevision(lifecycle, waitKey, player.level().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload));
         if (lifecycle.terminal()) {
@@ -152,7 +152,7 @@ final class RtsDurableTaskExecutionRuntime {
         DestructionTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec
                 .decode(snapshot.payload());
         var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
-        if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
+        if (player == null || !player.level().dimension().equals(payload.dimension())) {
             return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
                     payload.state().failedUnits(), snapshot.payload());
         }
@@ -165,7 +165,7 @@ final class RtsDurableTaskExecutionRuntime {
                 .from(player, payload.workflowEntryId()).isEmpty()) {
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
-                    null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
+                    null, player.level().getGameTime(), payload.state().cursorUnits(),
                     payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
@@ -185,7 +185,7 @@ final class RtsDurableTaskExecutionRuntime {
                 ? new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
                         "tool", "hotbar:" + Byte.toUnsignedInt(result.state().toolSlot()))
                 : null;
-        var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
+        var next = snapshot.nextRevision(lifecycle, waitKey, player.level().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
         if (lifecycle.terminal()) {
@@ -248,7 +248,7 @@ final class RtsDurableTaskExecutionRuntime {
         int uncheckpointedUnits = overlay == null ? 0 : overlay.uncheckpointedUnits();
         long lastCheckpointGameTime = overlay == null ? gameTime : overlay.lastCheckpointGameTime();
         var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
-        if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
+        if (player == null || !player.level().dimension().equals(payload.dimension())) {
             return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -261,7 +261,7 @@ final class RtsDurableTaskExecutionRuntime {
             miningProgressOverlays.remove(snapshot.id());
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
-                    null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
+                    null, player.level().getGameTime(), payload.state().cursorUnits(),
                     payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
@@ -283,7 +283,7 @@ final class RtsDurableTaskExecutionRuntime {
             }
             var checkpoint = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING,
-                    null, player.serverLevel().getGameTime(), result.state().cursorUnits(),
+                    null, player.level().getGameTime(), result.state().cursorUnits(),
                     result.state().succeededUnits(), result.state().failedUnits(),
                     com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec
                             .encode(payload.withState(result.state())));
@@ -317,7 +317,7 @@ final class RtsDurableTaskExecutionRuntime {
         var waitKey = result.waitHint() == null ? null
                 : new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
                         result.waitHint().kind(), result.waitHint().value());
-        var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
+        var next = snapshot.nextRevision(lifecycle, waitKey, player.level().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec
                         .encode(payload.withState(result.state())));

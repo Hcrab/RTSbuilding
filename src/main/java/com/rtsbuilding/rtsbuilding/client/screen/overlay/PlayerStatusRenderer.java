@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 
 import java.util.function.Function;
@@ -29,7 +29,7 @@ public final class PlayerStatusRenderer {
      * Renders all player status bars (HP, food, armor, absorption) at the
      * top-right corner of the screen. Absorption is only drawn when active.
      */
-    public void render(GuiGraphics g) {
+    public void render(GuiGraphicsExtractor g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.player == null || mc.player.isRemoved()) return;
 
@@ -53,7 +53,7 @@ public final class PlayerStatusRenderer {
         drawStatusBar(g, hx, y, barW, barH,
                 Mth.clamp(health / maxHealth, 0.0F, 1.0F),
                 pct -> pct > 0.5F ? 0xFFD04040 : (pct > 0.25F ? 0xFFD08030 : 0xFFC03020));
-        g.drawString(this.screen.font(), String.format("HP %.0f/%.0f", health, maxHealth),
+        g .text(this.screen.font(), String.format("HP %.0f/%.0f", health, maxHealth),
                 hx + 4, y + 1, 0xFFFFFFFF, false);
         y += barH + gap;
 
@@ -61,7 +61,7 @@ public final class PlayerStatusRenderer {
         drawStatusBar(g, hx, y, barW, barH,
                 Mth.clamp(food / 20.0F, 0.0F, 1.0F),
                 pct -> pct > 0.5F ? 0xFFC89030 : (pct > 0.25F ? 0xFFB07820 : 0xFFA06010));
-        g.drawString(this.screen.font(), String.format("FD %d/20", food),
+        g .text(this.screen.font(), String.format("FD %d/20", food),
                 hx + 4, y + 1, 0xFFFFFFFF, false);
         y += barH + gap;
 
@@ -70,7 +70,7 @@ public final class PlayerStatusRenderer {
         drawStatusBar(g, hx, y, barW, barH,
                 Mth.clamp(armor / armorMax, 0.0F, 1.0F),
                 pct -> 0xFF6B8FA0);
-        g.drawString(this.screen.font(), String.format("AD %d", armor),
+        g .text(this.screen.font(), String.format("AD %d", armor),
                 hx + 4, y + 1, 0xFFFFFFFF, false);
         y += barH + gap;
 
@@ -80,7 +80,7 @@ public final class PlayerStatusRenderer {
             drawStatusBar(g, hx, y, barW, barH,
                     Mth.clamp(absorption / absMax, 0.0F, 1.0F),
                     pct -> 0xFFE8C840);
-            g.drawString(this.screen.font(), String.format("AB %.0f", absorption),
+            g .text(this.screen.font(), String.format("AB %.0f", absorption),
                     hx + 4, y + 1, 0xFFFFFFFF, false);
         }
     }
@@ -96,13 +96,13 @@ public final class PlayerStatusRenderer {
      * @param fillPct  fill ratio in [0, 1]
      * @param colorFn  maps the fill ratio to the fill ARGB colour
      */
-    private static void drawStatusBar(GuiGraphics g, int x, int y, int w, int h,
+    private static void drawStatusBar(GuiGraphicsExtractor g, int x, int y, int w, int h,
                                        float fillPct, Function<Float, Integer> colorFn) {
         g.fill(x, y, x + w, y + h, 0xAA1A1E24);
-        g.hLine(x, x + w, y, 0xFF3C4A5A);
-        g.hLine(x, x + w, y + h, 0xFF0A0D12);
-        g.vLine(x, y, y + h, 0xFF3C4A5A);
-        g.vLine(x + w, y, y + h, 0xFF0A0D12);
+        g.horizontalLine(x, x + w, y, 0xFF3C4A5A);
+        g.horizontalLine(x, x + w, y + h, 0xFF0A0D12);
+        g.verticalLine(x, y, y + h, 0xFF3C4A5A);
+        g.verticalLine(x + w, y, y + h, 0xFF0A0D12);
 
         int fillW = Math.max(0, (int) ((w - 2) * fillPct));
         if (fillW > 0) {

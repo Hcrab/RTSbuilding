@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManage
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
 
@@ -75,7 +75,7 @@ public final class RtsWorkflowStore {
 
                 CompoundTag slotsTag = slots.saveToNbt();
                 if (slotsTag != null && !slotsTag.isEmpty()) {
-                    dimensions.put(dimension.location().toString(), slotsTag);
+                    dimensions.put(dimension.identifier().toString(), slotsTag);
                     hasData = true;
                 }
             }
@@ -107,7 +107,7 @@ public final class RtsWorkflowStore {
         DataCluster dc = cluster(server, playerId);
         CompoundTag root = dc.get(WorkflowComponents.FULL_WORKFLOW);
         if (!root.isEmpty() && root.contains(KEY_DIMENSIONS)) {
-            return deserializeDimensions(root.getCompound(KEY_DIMENSIONS));
+            return deserializeDimensions(root.getCompoundOrEmpty(KEY_DIMENSIONS));
         }
 
         // 回退：尝试旧版全量文件
@@ -125,12 +125,12 @@ public final class RtsWorkflowStore {
 
     private static Map<ResourceKey<Level>, RtsWorkflowSlotManager> deserializeDimensions(CompoundTag dimensions) {
         Map<ResourceKey<Level>, RtsWorkflowSlotManager> result = new HashMap<>();
-        for (String dimKey : dimensions.getAllKeys()) {
-            ResourceLocation dimLocation = ResourceLocation.tryParse(dimKey);
+        for (String dimKey : dimensions.keySet()) {
+            Identifier dimLocation = Identifier.tryParse(dimKey);
             if (dimLocation == null) continue;
 
             ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimLocation);
-            CompoundTag slotsTag = dimensions.getCompound(dimKey);
+            CompoundTag slotsTag = dimensions.getCompoundOrEmpty(dimKey);
             if (slotsTag != null && !slotsTag.isEmpty()) {
                 RtsWorkflowSlotManager slots = RtsWorkflowSlotManager.loadFromNbt(slotsTag);
                 if (slots.occupiedCount() > 0) {
@@ -161,14 +161,14 @@ public final class RtsWorkflowStore {
         CompoundTag root = ((RtsNbtStore.ReadResult.Found) readResult).root();
         if (root.isEmpty()) return result;
 
-        CompoundTag players = root.getCompound(KEY_PLAYERS);
+        CompoundTag players = root.getCompoundOrEmpty(KEY_PLAYERS);
         if (players.isEmpty()) return result;
 
         String playerKey = playerId.toString();
         if (!players.contains(playerKey)) return result;
 
-        CompoundTag playerTag = players.getCompound(playerKey);
-        CompoundTag dimensions = playerTag.getCompound(KEY_DIMENSIONS);
+        CompoundTag playerTag = players.getCompoundOrEmpty(playerKey);
+        CompoundTag dimensions = playerTag.getCompoundOrEmpty(KEY_DIMENSIONS);
         result.putAll(deserializeDimensions(dimensions));
 
         // 迁移必须先确认新版玩家文件落盘，再清理旧文件；反过来会在第二次写盘失败时丢失唯一副本。
@@ -178,7 +178,7 @@ public final class RtsWorkflowStore {
             for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> entry : result.entrySet()) {
                 CompoundTag slotsTag = entry.getValue().saveToNbt();
                 if (slotsTag != null) {
-                    dims.put(entry.getKey().location().toString(), slotsTag);
+                    dims.put(entry.getKey().identifier().toString(), slotsTag);
                 }
             }
             playerData.put(KEY_DIMENSIONS, dims);

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.bindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -39,12 +39,12 @@ public final class RtsQuickSlotBindingService {
         String normalized = "";
         ItemStack normalizedPreview = ItemStack.EMPTY;
         if (itemId != null && !itemId.isBlank()) {
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
                 return RtsStorageBindings.UpdateResult.none();
             }
             normalized = itemId;
-            Item item = BuiltInRegistries.ITEM.get(key);
+            Item item = BuiltInRegistries.ITEM.getValue(key);
             if (previewStack != null && !previewStack.isEmpty() && previewStack.is(item)) {
                 normalizedPreview = previewStack.copyWithCount(1);
             } else {

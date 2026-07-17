@@ -53,7 +53,7 @@ public final class RtsMiningDropCapture {
         CaptureContext context = stack.peek();
         if (context == null
                 || event.getBreaker() != context.player()
-                || event.getLevel() != context.player().serverLevel()) {
+                || event.getLevel() != context.player().level()) {
             return;
         }
         // 只移除已进入缓存的部分；缓存满时余量仍由 NeoForge 正常生成到世界。

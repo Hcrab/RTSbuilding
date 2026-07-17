@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -16,19 +16,19 @@ import java.util.Set;
  * it maps items to RTS feature gates and numeric limits.
  */
 public final class BuiltInRtsPluginCatalog {
-    public static final ResourceLocation RTS_CONTROL_CORE = id("rts_control_core");
-    public static final ResourceLocation REMOTE_CONTROL_PLUGIN = id("remote_control_plugin");
-    public static final ResourceLocation STORAGE_INTEGRATION_PLUGIN = id("storage_integration_plugin");
-    public static final ResourceLocation CRAFT_TERMINAL_PLUGIN = id("craft_terminal_plugin");
-    public static final ResourceLocation CHAIN_BREAK_PLUGIN = id("chain_break_plugin");
-    public static final ResourceLocation AREA_DESTROY_PLUGIN = id("area_destroy_plugin");
-    public static final ResourceLocation BLUEPRINT_PLUGIN = id("blueprint_plugin");
-    public static final ResourceLocation RANGE_CULLING_PLUGIN = id("range_culling_plugin");
-    public static final ResourceLocation FIELD_DEPLOYMENT_PLUGIN = id("field_deployment_plugin");
-    public static final ResourceLocation RANGE_EXTENSION_I = id("range_extension_i");
-    public static final ResourceLocation RANGE_EXTENSION_II = id("range_extension_ii");
-    public static final ResourceLocation RANGE_EXTENSION_III = id("range_extension_iii");
-    public static final ResourceLocation RANGE_EXTENSION_MAX = id("range_extension_max");
+    public static final Identifier RTS_CONTROL_CORE = id("rts_control_core");
+    public static final Identifier REMOTE_CONTROL_PLUGIN = id("remote_control_plugin");
+    public static final Identifier STORAGE_INTEGRATION_PLUGIN = id("storage_integration_plugin");
+    public static final Identifier CRAFT_TERMINAL_PLUGIN = id("craft_terminal_plugin");
+    public static final Identifier CHAIN_BREAK_PLUGIN = id("chain_break_plugin");
+    public static final Identifier AREA_DESTROY_PLUGIN = id("area_destroy_plugin");
+    public static final Identifier BLUEPRINT_PLUGIN = id("blueprint_plugin");
+    public static final Identifier RANGE_CULLING_PLUGIN = id("range_culling_plugin");
+    public static final Identifier FIELD_DEPLOYMENT_PLUGIN = id("field_deployment_plugin");
+    public static final Identifier RANGE_EXTENSION_I = id("range_extension_i");
+    public static final Identifier RANGE_EXTENSION_II = id("range_extension_ii");
+    public static final Identifier RANGE_EXTENSION_III = id("range_extension_iii");
+    public static final Identifier RANGE_EXTENSION_MAX = id("range_extension_max");
 
     private BuiltInRtsPluginCatalog() {
     }
@@ -62,13 +62,13 @@ public final class BuiltInRtsPluginCatalog {
         );
     }
 
-    private static RtsPluginDefinition definition(ResourceLocation pluginId, RtsPluginFamily family,
+    private static RtsPluginDefinition definition(Identifier pluginId, RtsPluginFamily family,
             Set<RtsFeature> features, int radiusBlocks, boolean fieldDeployment) {
         return new RtsPluginDefinition(pluginId, pluginId, family, features, radiusBlocks, fieldDeployment);
     }
 
     /** 返回解锁指定功能的内置插件；没有对应插件时返回 {@code null}。 */
-    public static ResourceLocation requiredPluginFor(RtsFeature feature) {
+    public static Identifier requiredPluginFor(RtsFeature feature) {
         if (feature == null) {
             return null;
         }
@@ -80,7 +80,7 @@ public final class BuiltInRtsPluginCatalog {
         return null;
     }
 
-    private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
     }
 }

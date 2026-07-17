@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.overlay.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -107,7 +107,7 @@ public final class RtsVisualOverlayRenderer {
 
     /** 使用原版 forcefield 纹理渲染 RTS 边界，避免发布包携带额外小资源。 */
     private static final RenderType BOUNDARY_BARRIER = RenderType.entityTranslucent(
-            ResourceLocation.fromNamespaceAndPath("minecraft", "textures/misc/forcefield.png"));
+            Identifier.fromNamespaceAndPath("minecraft", "textures/misc/forcefield.png"));
 
     private static final RenderType LINES = RenderType.lines();
     private static final RenderType FILLED_BOX = RenderType.debugFilledBox();

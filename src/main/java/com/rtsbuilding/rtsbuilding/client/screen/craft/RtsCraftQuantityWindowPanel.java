@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -78,22 +78,22 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Layout layout = resolveLayout();
         int visibleRows = visibleOptionRows(layout);
         ensureSelectionVisible(visibleRows);
         CraftRecipeOption selected = getSelectedOption();
 
         if (!this.preview.isEmpty()) {
-            g.renderItem(this.preview, layout.x(), layout.y());
+            g .item(this.preview, layout.x(), layout.y());
         }
         String label = screen.font().plainSubstrByWidth(this.itemLabel, Math.max(24, layout.w() - 28));
-        g.drawString(screen.font(), label, layout.x() + 22, layout.y() + 1, 0xE4ECF6, false);
+        g .text(screen.font(), label, layout.x() + 22, layout.y() + 1, 0xE4ECF6, false);
         int selectedCount = selected == null ? 1 : Math.max(1, selected.resultCount());
-        g.drawString(screen.font(), "Each craft: x" + selectedCount,
+        g .text(screen.font(), "Each craft: x" + selectedCount,
                 layout.x() + 22, layout.y() + 13, 0xAFC0D3, false);
 
-        g.drawString(screen.font(), "Recipes", layout.optionsX(), layout.optionsY() - 10, 0xD8E3EE, false);
+        g .text(screen.font(), "Recipes", layout.optionsX(), layout.optionsY() - 10, 0xD8E3EE, false);
         drawPanelFrame(g, layout.optionsX(), layout.optionsY(), layout.optionsW(), layout.optionsH(),
                 0xAA202833, 0xFF61758A, 0xFF11161C);
         for (int row = 0; row < visibleRows; row++) {
@@ -110,15 +110,15 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
             g.fill(layout.optionsX() + 2, rowY, layout.optionsX() + layout.optionsW() - 2,
                     rowY + OPTION_ROW_H - 1, fill);
             String summary = "x" + Math.max(1, option.resultCount()) + " " + normalizeOptionSummary(option.summary());
-            g.drawString(screen.font(), screen.font().plainSubstrByWidth(summary, layout.optionsW() - 56),
+            g .text(screen.font(), screen.font().plainSubstrByWidth(summary, layout.optionsW() - 56),
                     layout.optionsX() + 6, rowY + 4, 0xF2F7FF, false);
-            g.drawString(screen.font(), option.craftable() ? "MAKE" : "MISS",
+            g .text(screen.font(), option.craftable() ? "MAKE" : "MISS",
                     layout.optionsX() + layout.optionsW() - 30, rowY + 4,
                     option.craftable() ? 0xC9F0C7 : 0xF0C4C4, false);
         }
         if (this.recipeOptions.size() > visibleRows) {
             String pageText = (this.selectedRecipeIndex + 1) + "/" + this.recipeOptions.size();
-            g.drawString(screen.font(), pageText,
+            g .text(screen.font(), pageText,
                     layout.optionsX() + layout.optionsW() - screen.font().width(pageText) - 4,
                     layout.optionsY() - 10, 0xAFC0D3, false);
         }
@@ -129,7 +129,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
                         ? normalizeOptionSummary(selected.summary())
                         : normalizeOptionMissingSummary(selected.missingSummary());
         int detailColor = selected != null && !selected.craftable() ? 0xFFD6AAAA : 0xFFBCD0E2;
-        g.drawString(screen.font(), screen.font().plainSubstrByWidth(detail, layout.w()),
+        g .text(screen.font(), screen.font().plainSubstrByWidth(detail, layout.w()),
                 layout.x(), layout.detailY(), detailColor, false);
 
         drawSmallButton(g, layout.minusTenX(), layout.inputY(), STEP_W, STEP_H, "-10", 0xAA2A3340);
@@ -141,7 +141,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         drawSmallButton(g, layout.plusOneX(), layout.inputY(), STEP_W, STEP_H, "+1", 0xAA2A3340);
         drawSmallButton(g, layout.plusTenX(), layout.inputY(), STEP_W, STEP_H, "+10", 0xAA2A3340);
 
-        g.drawString(screen.font(), screen.font().plainSubstrByWidth("Enter confirm, Esc cancel", layout.w()),
+        g .text(screen.font(), screen.font().plainSubstrByWidth("Enter confirm, Esc cancel", layout.w()),
                 layout.x(), layout.helpY(), 0xAFC0D3, false);
         drawSmallButton(g, layout.cancelX(), layout.actionY(), ACTION_W, ACTION_H, "Cancel", 0xAA473030);
         drawSmallButton(g, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H, "Craft", 0xAA345A38);
@@ -432,13 +432,13 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         return summary == null || summary.isBlank() ? "Missing ingredients." : summary;
     }
 
-    private void drawSmallButton(GuiGraphics g, int x, int y, int w, int h, String label, int fill) {
+    private void drawSmallButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, int fill) {
         drawPanelFrame(g, x, y, w, h, fill, 0xFF667D95, 0xFF111821);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
                 x + (w / 2), y + Math.max(2, (h - screen.font().lineHeight) / 2), 0xFFFFFF);
     }
 
-    private static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
+    private static void drawPanelFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fillColor, int light, int dark) {
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
     }
 

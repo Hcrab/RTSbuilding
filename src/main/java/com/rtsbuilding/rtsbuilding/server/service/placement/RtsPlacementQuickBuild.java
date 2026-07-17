@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -77,11 +77,11 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation id = ResourceLocation.tryParse(jobItemId);
+        Identifier id = Identifier.tryParse(jobItemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return null;
         }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = BuiltInRegistries.ITEM.getValue(id);
         ItemStack templateStack = job.itemPrototype();
         if (templateStack.isEmpty()) {
             templateStack = new ItemStack(item);
@@ -92,12 +92,12 @@ public final class RtsPlacementQuickBuild {
         }
 
         BlockPos templatePos = job.templatePosition();
-        if (templatePos == null || job.face() == null || !player.serverLevel().hasChunkAt(templatePos)) {
+        if (templatePos == null || job.face() == null || !player.level().hasChunkAt(templatePos)) {
             return null;
         }
         templateStack.setCount(1);
         BlockPlaceContext context = new BlockPlaceContext(
-                player.serverLevel(),
+                player.level(),
                 player,
                 InteractionHand.MAIN_HAND,
                 templateStack,
@@ -107,7 +107,7 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
+        Identifier sourceId = BuiltInRegistries.ITEM.getKey(item);
         if (sourceId == null) {
             return null;
         }
@@ -139,7 +139,7 @@ public final class RtsPlacementQuickBuild {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return true;
         }

@@ -76,7 +76,7 @@ public final class RtsDropAbsorber {
                 continue;
             }
             AABB box = new AABB(pos).inflate(Config.dropScanRadius());
-            uniqueDrops.addAll(player.serverLevel().getEntitiesOfClass(
+            uniqueDrops.addAll(player.level().getEntitiesOfClass(
                     ItemEntity.class,
                     box,
                     entity -> entity != null && entity.isAlive() && !entity.getItem().isEmpty()));
@@ -306,7 +306,7 @@ public final class RtsDropAbsorber {
             com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
             boolean changed) {
         if (buffer.isFull() && !buffer.fullNoticeSent) {
-            player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
+            player.sendSystemMessage(Component.translatable("message.rtsbuilding.drop_buffer.full"), true);
             buffer.fullNoticeSent = true;
         }
         if (changed) {
@@ -323,7 +323,7 @@ public final class RtsDropAbsorber {
             int maxStacks, long deadlineNanos) {
         var buffer = session.miningDropBuffer;
         if (buffer.isEmpty() || maxStacks <= 0) return 0;
-        long gameTime = player.serverLevel().getGameTime();
+        long gameTime = player.level().getGameTime();
         boolean fallbackEligible = buffer.fallbackEligible(gameTime, 60L);
         // 即使已经到达三秒，也先做最后一次真实写入；网络刚恢复时不应误回退到背包。
         DropInsertContext insertContext = createInsertContext(player, session);
@@ -369,7 +369,7 @@ public final class RtsDropAbsorber {
         }
         if (fellBack && buffer.shouldSendFallbackNotice(gameTime, 60L)) {
             RtsDeveloperMetrics.recordBufferFallback(player);
-            player.displayClientMessage(Component.translatable("message.rtsbuilding.drop_buffer.fallback"), false);
+            player.sendSystemMessage(Component.translatable("message.rtsbuilding.drop_buffer.fallback"), false);
         }
         buffer.clearTimingWhenEmpty();
         if (processed > 0) {

@@ -28,15 +28,15 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        if (!player.level().hasChunkAt(pos)) {
             return null;
         }
-        IItemHandler direct = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        IItemHandler direct = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            IItemHandler sided = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
+            IItemHandler sided = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
             if (sided != null) {
                 return sided;
             }
@@ -64,15 +64,15 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        if (!player.level().hasChunkAt(pos)) {
             return null;
         }
-        IFluidHandler direct = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+        IFluidHandler direct = player.level().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            IFluidHandler sided = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
+            IFluidHandler sided = player.level().getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
             if (sided != null) {
                 return sided;
             }

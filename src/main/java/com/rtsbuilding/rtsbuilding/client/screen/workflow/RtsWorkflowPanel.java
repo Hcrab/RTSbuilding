@@ -15,7 +15,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowProgressProc
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -92,11 +92,11 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
     }
 
     @Override
-    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderOverlays(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         if (!this.open || !canShowWindow() || this.screen == null) return;
         RtsWorkflowStatus hovered = workflowAtProtectionButton(mouseX, mouseY);
         if (hovered == null) return;
-        g.renderTooltip(this.screen.font(), Component.translatable(hovered.protectedWorkflow()
+        g .setTooltipForNextFrame(this.screen.font(), Component.translatable(hovered.protectedWorkflow()
                 ? "screen.rtsbuilding.workflow.allow_replace"
                 : "screen.rtsbuilding.workflow.keep"), mouseX, mouseY);
     }
@@ -115,7 +115,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!this.open || !canShowWindow()) {
             this.mouseHovering = false;
             return;
@@ -144,7 +144,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         int baseX = contentX();
         int baseY = contentY() + PADDING;
 
@@ -167,7 +167,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
     //  Row rendering
     // ======================================================================
 
-    private int renderWorkflowRow(GuiGraphics g, int x, int y,
+    private int renderWorkflowRow(GuiGraphicsExtractor g, int x, int y,
                                    RtsWorkflowStatus status,
                                    int mouseX, int mouseY) {
         Font font = this.screen.font();
@@ -191,7 +191,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
             RtsClientUiUtil.drawPanelFrame(g, x, y, rowW, ROW_H,
                     bg, border, 0xFF0D0D0A);
-            g.drawString(font, RtsClientUiUtil.trimToWidth(font, label, rowW - 8),
+            g .text(font, RtsClientUiUtil.trimToWidth(font, label, rowW - 8),
                     x + 4, y + 2, labelColor, false);
 
             // Dimmed progress bar
@@ -203,11 +203,11 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
             if (fillW > 0) {
                 g.fill(barX, barY, barX + fillW, barY + BAR_H, barFill);
             }
-            g.hLine(barX, barX + barW, barY, protectedWorkflow ? 0xFF70B8D0 : 0xFF5A4A2A);
-            g.hLine(barX, barX + barW, barY + BAR_H, 0xFF0A0A05);
-            g.vLine(barX, barY, barY + BAR_H, protectedWorkflow ? 0xFF70B8D0 : 0xFF5A4A2A);
-            g.vLine(barX + barW, barY, barY + BAR_H, 0xFF0A0A05);
-            g.drawString(font, RtsClientUiUtil.trimToWidth(font, progress, barW - 4),
+            g.horizontalLine(barX, barX + barW, barY, protectedWorkflow ? 0xFF70B8D0 : 0xFF5A4A2A);
+            g.horizontalLine(barX, barX + barW, barY + BAR_H, 0xFF0A0A05);
+            g.verticalLine(barX, barY, barY + BAR_H, protectedWorkflow ? 0xFF70B8D0 : 0xFF5A4A2A);
+            g.verticalLine(barX + barW, barY, barY + BAR_H, 0xFF0A0A05);
+            g .text(font, RtsClientUiUtil.trimToWidth(font, progress, barW - 4),
                     barX + 2, barY + 1, 0xAAFFFFFF, false);
 
             int protectBtnX = x + rowW + 2;
@@ -245,7 +245,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
             RtsClientUiUtil.drawPanelFrame(g, x, y, rowW, ROW_H,
                     bg, border, 0xFF0D1117);
-            g.drawString(font, RtsClientUiUtil.trimToWidth(font, label, rowW - 8),
+            g .text(font, RtsClientUiUtil.trimToWidth(font, label, rowW - 8),
                     x + 4, y + 2, labelColor, false);
 
             // Progress bar
@@ -257,13 +257,13 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
             if (fillW > 0) {
                 g.fill(barX, barY, barX + fillW, barY + BAR_H, barFill);
             }
-            g.hLine(barX, barX + barW, barY, protectedWorkflow ? 0xFF70B8D0 : 0xFF405064);
-            g.hLine(barX, barX + barW, barY + BAR_H, 0xFF0A0D12);
-            g.vLine(barX, barY, barY + BAR_H, protectedWorkflow ? 0xFF70B8D0 : 0xFF405064);
-            g.vLine(barX + barW, barY, barY + BAR_H, 0xFF0A0D12);
+            g.horizontalLine(barX, barX + barW, barY, protectedWorkflow ? 0xFF70B8D0 : 0xFF405064);
+            g.horizontalLine(barX, barX + barW, barY + BAR_H, 0xFF0A0D12);
+            g.verticalLine(barX, barY, barY + BAR_H, protectedWorkflow ? 0xFF70B8D0 : 0xFF405064);
+            g.verticalLine(barX + barW, barY, barY + BAR_H, 0xFF0A0D12);
 
             // Progress text overlay
-            g.drawString(font, RtsClientUiUtil.trimToWidth(font, progress, barW - 4),
+            g .text(font, RtsClientUiUtil.trimToWidth(font, progress, barW - 4),
                     barX + 2, barY + 1, 0xCCFFFFFF, false);
 
             boolean isPaused = status.paused();
@@ -303,7 +303,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
         return y + ROW_H;
     }
 
-    private void renderProtectionButton(GuiGraphics g, Font font, int x, int y,
+    private void renderProtectionButton(GuiGraphicsExtractor g, Font font, int x, int y,
                                         boolean protectedWorkflow, int mouseX, int mouseY) {
         boolean hovered = isInside(mouseX, mouseY, x, y, BTN_W, ROW_H);
         int bg;

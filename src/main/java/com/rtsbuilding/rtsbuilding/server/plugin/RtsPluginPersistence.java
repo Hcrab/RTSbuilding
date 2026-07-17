@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -29,20 +29,20 @@ final class RtsPluginPersistence {
 
     static List<RtsInstalledPlugin> load(ServerPlayer player) {
         CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PLUGINS);
-        ListTag list = root.getList(NBT_INSTALLED, Tag.TAG_COMPOUND);
+        ListTag list = root.getListOrEmpty(NBT_INSTALLED);
         List<RtsInstalledPlugin> installed = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
-            CompoundTag tag = list.getCompound(i);
-            ResourceLocation pluginId = ResourceLocation.tryParse(tag.getString(NBT_PLUGIN_ID));
+            CompoundTag tag = list.getCompoundOrEmpty(i);
+            Identifier pluginId = Identifier.tryParse(tag.getStringOr(NBT_PLUGIN_ID, ""));
             if (pluginId == null) continue;
 
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), tag.getCompound(NBT_STACK));
+            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), tag.getCompoundOrEmpty(NBT_STACK));
             if (stack.isEmpty()) {
                 RtsPluginDefinition definition = RtsPluginRegistry.byId(pluginId);
                 if (definition == null) continue;
-                stack = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(definition.itemId()));
+                stack = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(definition.itemId()));
             }
-            installed.add(new RtsInstalledPlugin(pluginId, stack, tag.getLong(NBT_INSTALLED_GAME_TIME)));
+            installed.add(new RtsInstalledPlugin(pluginId, stack, tag.getLongOr(NBT_INSTALLED_GAME_TIME, 0L)));
         }
         return installed;
     }

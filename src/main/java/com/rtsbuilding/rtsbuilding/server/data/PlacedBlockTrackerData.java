@@ -34,7 +34,7 @@ public final class PlacedBlockTrackerData extends SavedData {
     /** 从 NBT 中加载已放置方块追踪数据 */
     private static PlacedBlockTrackerData load(CompoundTag tag, HolderLookup.Provider registries) {
         PlacedBlockTrackerData data = new PlacedBlockTrackerData();
-        long[] packed = tag.getLongArray(KEY_PLACED);
+        long[] packed = tag.getLongArray(KEY_PLACED).orElseGet(() -> new long[0]);
         for (long value : packed) {
             data.placedPositions.add(value);
         }

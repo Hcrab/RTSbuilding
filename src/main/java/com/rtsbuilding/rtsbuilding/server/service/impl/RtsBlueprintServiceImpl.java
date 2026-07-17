@@ -132,7 +132,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
         if (session == null) {
             return;
         }
-        RtsPlacementSound.playRemotePlacedBlockSound(player, player.serverLevel(), pos);
+        RtsPlacementSound.playRemotePlacedBlockSound(player, player.level(), pos);
         registry.page().recordRecentItem(session, itemId, (byte) 1, 1L);
     }
 

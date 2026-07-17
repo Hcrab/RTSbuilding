@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -21,9 +21,9 @@ public record TaskTombstone(TaskId taskId, SubmissionId submissionId, UUID owner
             throw new IllegalArgumentException("dimensionId 无效");
         }
         NbtStringLimits.requireWritable(dimensionId, "dimensionId");
-        ResourceLocation dimension = ResourceLocation.tryParse(dimensionId);
+        Identifier dimension = Identifier.tryParse(dimensionId);
         if (dimension == null || !dimension.toString().equals(dimensionId)) {
-            throw new IllegalArgumentException("dimensionId 必须是规范 ResourceLocation");
+            throw new IllegalArgumentException("dimensionId 必须是规范 Identifier");
         }
         if (revision < 1L) throw new IllegalArgumentException("revision 必须为正数");
         if (!terminalState.terminal()) throw new IllegalArgumentException("墓碑只能记录终态");

@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -83,7 +83,7 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return;
         }
@@ -91,7 +91,7 @@ public final class RtsTransferPlayerIntegration {
         if (carried.isEmpty()) {
             return;
         }
-        ResourceLocation carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        Identifier carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
         if (carriedId == null || !itemId.equals(carriedId.toString())) {
             return;
         }
@@ -128,11 +128,11 @@ public final class RtsTransferPlayerIntegration {
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return;
         }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = BuiltInRegistries.ITEM.getValue(id);
         int wanted = Math.max(1, Math.min(64, amount));
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromQuickDropSources(
                 extractHandlers, player, item, wanted);
@@ -141,17 +141,17 @@ public final class RtsTransferPlayerIntegration {
         }
         Vec3 dropPos = new Vec3(dropX, dropY, dropZ);
         BlockPos dropBlock = BlockPos.containing(dropPos);
-        if (!player.serverLevel().hasChunkAt(dropBlock)
+        if (!player.level().hasChunkAt(dropBlock)
                 || !RtsCameraManager.isWithinActionRange(player, dropBlock)
                 || !RtsProgressionManager.canAccessHomeRadius(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             return;
         }
-        ItemEntity dropped = new ItemEntity(player.serverLevel(), dropPos.x, dropPos.y, dropPos.z, extracted);
+        ItemEntity dropped = new ItemEntity(player.level(), dropPos.x, dropPos.y, dropPos.z, extracted);
         dropped.setDeltaMovement(Vec3.ZERO);
         dropped.setPickUpDelay(10);
-        player.serverLevel().addFreshEntity(dropped);
+        player.level().addFreshEntity(dropped);
         ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
     }
 
@@ -212,7 +212,7 @@ public final class RtsTransferPlayerIntegration {
                 if (gained.isEmpty()) {
                     break;
                 }
-                ResourceLocation gainedId = BuiltInRegistries.ITEM.getKey(gained.getItem());
+                Identifier gainedId = BuiltInRegistries.ITEM.getKey(gained.getItem());
                 if (gainedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session, gainedId.toString(),
@@ -236,7 +236,7 @@ public final class RtsTransferPlayerIntegration {
                 return;
             }
             if (menu instanceof CraftingMenu && menuSlot == 0) {
-                ResourceLocation craftedId = BuiltInRegistries.ITEM.getKey(moved.getItem());
+                Identifier craftedId = BuiltInRegistries.ITEM.getKey(moved.getItem());
                 if (craftedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session, craftedId.toString(),
@@ -386,13 +386,13 @@ public final class RtsTransferPlayerIntegration {
         if (movedCount > 0) {
             player.containerMenu.broadcastChanges();
             ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.literal(inventoryFull
                             ? "Moved " + movedCount + " items to inventory. Inventory is full."
                             : "Moved " + movedCount + " items to inventory."),
                     true);
         } else if (inventoryFull) {
-            player.displayClientMessage(Component.literal("Inventory is full."), true);
+            player.sendSystemMessage(Component.literal("Inventory is full."), true);
         }
     }
 }

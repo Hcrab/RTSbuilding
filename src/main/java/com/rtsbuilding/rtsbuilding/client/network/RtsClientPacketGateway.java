@@ -20,7 +20,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -215,7 +215,7 @@ public final class RtsClientPacketGateway {
             if (item == null) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            Identifier id = BuiltInRegistries.ITEM.getKey(item);
             if (id == null) {
                 continue;
             }
@@ -234,7 +234,7 @@ public final class RtsClientPacketGateway {
         return matches;
     }
 
-    private static boolean matchesLocalizedSearch(ResourceLocation id, String label, String[] tokens) {
+    private static boolean matchesLocalizedSearch(Identifier id, String label, String[] tokens) {
         String rawId = id.toString().toLowerCase(Locale.ROOT);
         String namespace = id.getNamespace().toLowerCase(Locale.ROOT);
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
@@ -253,7 +253,7 @@ public final class RtsClientPacketGateway {
             }
             if (!rawId.contains(token)
                     && !normalizedLabel.contains(token)
-                    && !RtsPinyinSearch.contains(label, token)) {
+                    && !RtsPinyinSearch.contains(label)) {
                 return false;
             }
         }

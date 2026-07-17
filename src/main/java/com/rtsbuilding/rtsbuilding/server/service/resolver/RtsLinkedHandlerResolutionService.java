@@ -58,7 +58,7 @@ public final class RtsLinkedHandlerResolutionService {
         List<LinkedHandler> out = new ArrayList<>();
 
         if (!session.linkedStorageInfo.getAll().isEmpty()) {
-            ResourceKey<Level> currentDimension = player.serverLevel().dimension();
+            ResourceKey<Level> currentDimension = player.level().dimension();
             for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
                 if (ref == null || ref.pos() == null) {
                     continue;
@@ -71,8 +71,8 @@ public final class RtsLinkedHandlerResolutionService {
 
                 if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
                         && RtsProgressionManager.canAccessHomeRadius(player, pos)
-                        && player.serverLevel().hasChunkAt(pos)) {
-                    Object endpointIdentity = player.serverLevel().getBlockEntity(pos);
+                        && player.level().hasChunkAt(pos)) {
+                    Object endpointIdentity = player.level().getBlockEntity(pos);
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
                             player.getUUID(), currentDimension, pos, backpackUuid, endpointIdentity,
                             () -> backpackLink
@@ -91,7 +91,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.level(), pos));
                 boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
                 out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, allowStore), allowStore,
                         linkedPriority(session, ref)));
@@ -116,7 +116,7 @@ public final class RtsLinkedHandlerResolutionService {
         }
         if (session.bdCache.handler != null) {
             LinkedStorageRef bdRef = new LinkedStorageRef(
-                    player.serverLevel().dimension(),
+                    player.level().dimension(),
                     BlockPos.ZERO);
             out.add(new LinkedHandler(bdRef, session.bdCache.name, session.bdCache.handler, true, 0));
         }
@@ -166,7 +166,7 @@ public final class RtsLinkedHandlerResolutionService {
         List<LinkedFluidHandler> out = new ArrayList<>();
 
         if (!session.linkedStorageInfo.getAll().isEmpty()) {
-            ResourceKey<Level> currentDimension = player.serverLevel().dimension();
+            ResourceKey<Level> currentDimension = player.level().dimension();
             for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
                 if (ref == null || ref.pos() == null || !currentDimension.equals(ref.dimension())) {
                     continue;
@@ -175,7 +175,7 @@ public final class RtsLinkedHandlerResolutionService {
                 if (!RtsProgressionManager.canAccessHomeRadius(player, pos)) {
                     continue;
                 }
-                if (!player.serverLevel().hasChunkAt(pos)) {
+                if (!player.level().hasChunkAt(pos)) {
                     continue;
                 }
                 IFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(player, pos);
@@ -183,7 +183,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.level(), pos));
                 boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
                 out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, allowStore), allowStore,
                         linkedPriority(session, ref)));
@@ -205,7 +205,7 @@ public final class RtsLinkedHandlerResolutionService {
                     ? session.bdCache.name
                     : RtsBdCompat.getNetworkDisplayName(player);
             LinkedStorageRef bdRef = new LinkedStorageRef(
-                    player.serverLevel().dimension(),
+                    player.level().dimension(),
                     BlockPos.ZERO);
             out.add(new LinkedFluidHandler(bdRef, bdName, session.bdCache.fluidHandler, true, 0));
         }
@@ -253,7 +253,7 @@ public final class RtsLinkedHandlerResolutionService {
     }
 
     private static IItemHandler findMatchingBackpackBlockHandler(ServerPlayer player, BlockPos pos, UUID expectedUuid) {
-        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.serverLevel(), pos))) {
+        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.level(), pos))) {
             return null;
         }
         return RtsLinkedCapabilities.findLinkedItemHandler(player, pos);

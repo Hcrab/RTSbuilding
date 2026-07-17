@@ -19,7 +19,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -85,11 +85,11 @@ public final class SessionSerializer {
         var buffer = session.miningDropBuffer;
         buffer.stacks.clear();
         buffer.bufferedItems = 0;
-        ListTag stacks = root.getList("drop_buffer_stacks", Tag.TAG_COMPOUND);
+        ListTag stacks = root.getListOrEmpty("drop_buffer_stacks");
         for (int i = 0; i < stacks.size()
                 && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
                 i++) {
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
+            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompoundOrEmpty(i));
             if (stack.isEmpty()) continue;
             int accepted = Math.min(stack.getCount(), buffer.remainingCapacity());
             if (accepted <= 0) break;
@@ -98,9 +98,9 @@ public final class SessionSerializer {
         }
         // 旧存档的 since 表示“进入缓存的时间”，不能继续当成真实储存堵塞时间，否则登录即误回退。
         buffer.firstQueuedGameTime = buffer.stacks.isEmpty()
-                || !root.getBoolean("drop_buffer_blocked_timer_v2")
+                || !root.getBooleanOr("drop_buffer_blocked_timer_v2", false)
                 ? -1L
-                : root.getLong("drop_buffer_since");
+                : root.getLongOr("drop_buffer_since", 0L);
         buffer.fullNoticeSent = false;
     }
 
@@ -110,7 +110,7 @@ public final class SessionSerializer {
         if (session.funnel.funnelTarget != null && session.funnel.funnelTargetDimension != null) {
             root.putLong("funnel_target", session.funnel.funnelTarget.asLong());
             root.putString("funnel_target_dimension",
-                    session.funnel.funnelTargetDimension.location().toString());
+                    session.funnel.funnelTargetDimension.identifier().toString());
         }
         root.putInt("funnel_cooldown", Math.max(0, session.funnel.funnelTickCooldown));
         ListTag stacks = new ListTag();
@@ -125,24 +125,24 @@ public final class SessionSerializer {
     }
 
     private static void loadFunnel(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
-        session.funnel.funnelEnabled = root.getBoolean("funnel_enabled");
+        session.funnel.funnelEnabled = root.getBooleanOr("funnel_enabled", false);
         ResourceKey<Level> targetDimension = parseDimensionKey(
-                root.getString("funnel_target_dimension"));
-        if (root.contains("funnel_target", Tag.TAG_LONG) && targetDimension != null) {
-            session.funnel.funnelTarget = BlockPos.of(root.getLong("funnel_target")).immutable();
+                root.getStringOr("funnel_target_dimension", ""));
+        if (root.contains("funnel_target") && targetDimension != null) {
+            session.funnel.funnelTarget = BlockPos.of(root.getLongOr("funnel_target", 0L)).immutable();
             session.funnel.funnelTargetDimension = targetDimension;
         } else {
             // 旧存档没有维度身份时不能猜测当前世界，否则切维后可能在同坐标误吸物品。
             session.funnel.funnelTarget = null;
             session.funnel.funnelTargetDimension = null;
         }
-        session.funnel.funnelTickCooldown = Math.max(0, root.getInt("funnel_cooldown"));
+        session.funnel.funnelTickCooldown = Math.max(0, root.getIntOr("funnel_cooldown", 0));
         session.funnel.funnelBuffer.clear();
-        ListTag stacks = root.getList("funnel_buffer", Tag.TAG_COMPOUND);
+        ListTag stacks = root.getListOrEmpty("funnel_buffer");
         for (int i = 0; i < stacks.size()
                 && session.funnel.funnelBuffer.size()
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS; i++) {
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompound(i));
+            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), stacks.getCompoundOrEmpty(i));
             if (!stack.isEmpty()) session.funnel.funnelBuffer.add(stack);
         }
     }
@@ -183,27 +183,27 @@ public final class SessionSerializer {
     }
 
     private static void loadBrowserFields(RtsStorageSession session, CompoundTag tag) {
-        session.browser.page = tag.contains("page", Tag.TAG_INT) ? Math.max(0, tag.getInt("page")) : 0;
-        session.browser.search = tag.contains("search", Tag.TAG_STRING) ? tag.getString("search").trim() : "";
-        session.browser.category = RtsStoragePageBuilder.normalizeCategory(tag.getString("category"));
-        session.browser.sort = parseSort(tag.getInt("sort"));
-        session.browser.ascending = tag.contains("ascending", Tag.TAG_BYTE) && tag.getBoolean("ascending");
-        session.browser.craftSearch = tag.contains("craft_search", Tag.TAG_STRING) ? tag.getString("craft_search").trim() : "";
-        session.browser.craftShowUnavailable = tag.contains("craft_show_unavailable", Tag.TAG_BYTE) && tag.getBoolean("craft_show_unavailable");
-        session.browser.craftRequestedCount = tag.contains("craft_requested_count", Tag.TAG_INT)
-                ? Math.max(1, Math.min(999, tag.getInt("craft_requested_count")))
+        session.browser.page = tag.contains("page") ? Math.max(0, tag.getIntOr("page", 0)) : 0;
+        session.browser.search = tag.contains("search") ? tag.getStringOr("search", "").trim() : "";
+        session.browser.category = RtsStoragePageBuilder.normalizeCategory(tag.getStringOr("category", ""));
+        session.browser.sort = parseSort(tag.getIntOr("sort", 0));
+        session.browser.ascending = tag.contains("ascending") && tag.getBooleanOr("ascending", false);
+        session.browser.craftSearch = tag.contains("craft_search") ? tag.getStringOr("craft_search", "").trim() : "";
+        session.browser.craftShowUnavailable = tag.contains("craft_show_unavailable") && tag.getBooleanOr("craft_show_unavailable", false);
+        session.browser.craftRequestedCount = tag.contains("craft_requested_count")
+                ? Math.max(1, Math.min(999, tag.getIntOr("craft_requested_count", 0)))
                 : RtsBrowserState.CRAFTABLE_BATCH_SIZE;
     }
 
     private static void loadFlagsFields(RtsStorageSession session, CompoundTag tag) {
-        session.sessionFlags.autoStoreMinedDrops = !tag.contains("auto_store", Tag.TAG_BYTE) || tag.getBoolean("auto_store");
-        session.sessionFlags.useBdNetwork = !tag.contains("use_bd", Tag.TAG_BYTE) || tag.getBoolean("use_bd");
+        session.sessionFlags.autoStoreMinedDrops = !tag.contains("auto_store") || tag.getBooleanOr("auto_store", false);
+        session.sessionFlags.useBdNetwork = !tag.contains("use_bd") || tag.getBooleanOr("use_bd", false);
         session.sessionFlags.internalFluidMb.clear();
-        ListTag fluids = tag.getList("fluids", Tag.TAG_COMPOUND);
+        ListTag fluids = tag.getListOrEmpty("fluids");
         for (int i = 0; i < fluids.size(); i++) {
-            CompoundTag ft = fluids.getCompound(i);
-            String id = ft.getString("id");
-            long amount = ft.getLong("amount");
+            CompoundTag ft = fluids.getCompoundOrEmpty(i);
+            String id = ft.getStringOr("id", "");
+            long amount = ft.getLongOr("amount", 0L);
             if (!id.isBlank() && amount > 0) {
                 session.sessionFlags.internalFluidMb.put(id, amount);
             }
@@ -239,11 +239,11 @@ public final class SessionSerializer {
 
             CompoundTag linkedTag = new CompoundTag();
             linkedTag.putLong("pos", ref.pos().asLong());
-            linkedTag.putString("dimension", ref.dimension().location().toString());
+            linkedTag.putString("dimension", ref.dimension().identifier().toString());
             linkedTag.putByte("mode", linkMode);
             linkedTag.putInt("priority", priority);
             UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
-            if (backpackUuid != null) linkedTag.putUUID("bpUuid", backpackUuid);
+            if (backpackUuid != null) com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(linkedTag, "bpUuid", backpackUuid);
             String backpackItemId = session.linkedStorageInfo.getBackpackItemId(ref);
             if (isRegisteredItemId(backpackItemId)) linkedTag.putString("bpItem", backpackItemId);
             if (session.linkedStorageInfo.isDetached(ref)) linkedTag.putBoolean("bpDetached", true);
@@ -256,7 +256,7 @@ public final class SessionSerializer {
         if (!session.linkedStorageInfo.isEmpty()) {
             LinkedStorageRef first = session.linkedStorageInfo.get(0);
             if (first != null && first.dimension() != null) {
-                root.putString("linked_dimension", first.dimension().location().toString());
+                root.putString("linked_dimension", first.dimension().identifier().toString());
             }
         }
         return root;
@@ -265,22 +265,22 @@ public final class SessionSerializer {
     public static void loadLinkedStorage(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         session.linkedStorageInfo.clear();
 
-        byte[] linkedModes = root.getByteArray("linked_modes");
-        int[] linkedPriorities = root.getIntArray("linked_priorities");
+        byte[] linkedModes = root.getByteArray("linked_modes").orElseGet(() -> new byte[0]);
+        int[] linkedPriorities = root.getIntArray("linked_priorities").orElseGet(() -> new int[0]);
 
         ResourceKey<Level> legacyDimension = null;
-        String legacyDimensionId = root.getString("linked_dimension");
+        String legacyDimensionId = root.getStringOr("linked_dimension", "");
         if (!legacyDimensionId.isBlank()) legacyDimension = parseDimensionKey(legacyDimensionId);
 
-        ListTag linkedEntries = root.getList("linked_entries", Tag.TAG_COMPOUND);
+        ListTag linkedEntries = root.getListOrEmpty("linked_entries");
         if (!linkedEntries.isEmpty()) {
             loadLinkedStorageModern(linkedEntries, session);
             return;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         ResourceKey<Level> dimension = legacyDimension == null ? level.dimension() : legacyDimension;
-        long[] linkedPackedPositions = root.getLongArray("linked_positions");
+        long[] linkedPackedPositions = root.getLongArray("linked_positions").orElseGet(() -> new long[0]);
         for (int i = 0; i < linkedPackedPositions.length; i++) {
             LinkedStorageRef ref = new LinkedStorageRef(dimension, BlockPos.of(linkedPackedPositions[i]).immutable());
             if (!session.linkedStorageInfo.contains(ref)) {
@@ -295,23 +295,23 @@ public final class SessionSerializer {
 
     private static void loadLinkedStorageModern(ListTag linkedEntries, RtsStorageSession session) {
         for (int i = 0; i < linkedEntries.size(); i++) {
-            CompoundTag linkedTag = linkedEntries.getCompound(i);
-            if (!linkedTag.contains("pos", Tag.TAG_LONG)) continue;
+            CompoundTag linkedTag = linkedEntries.getCompoundOrEmpty(i);
+            if (!linkedTag.contains("pos")) continue;
 
-            ResourceKey<Level> dimension = parseDimensionKey(linkedTag.getString("dimension"));
+            ResourceKey<Level> dimension = parseDimensionKey(linkedTag.getStringOr("dimension", ""));
             if (dimension == null) continue;
 
-            LinkedStorageRef ref = new LinkedStorageRef(dimension, BlockPos.of(linkedTag.getLong("pos")).immutable());
+            LinkedStorageRef ref = new LinkedStorageRef(dimension, BlockPos.of(linkedTag.getLongOr("pos", 0L)).immutable());
             if (!session.linkedStorageInfo.contains(ref)) {
-                byte linkMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkedTag.getByte("mode"));
-                int priority = linkedTag.contains("priority", Tag.TAG_INT) ? linkedTag.getInt("priority") : 0;
-                UUID backpackUuid = linkedTag.contains("bpUuid", Tag.TAG_INT_ARRAY) ? linkedTag.getUUID("bpUuid") : null;
-                String backpackItemId = isRegisteredItemId(linkedTag.getString("bpItem"))
-                        ? linkedTag.getString("bpItem") : null;
+                byte linkMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkedTag.getByteOr("mode", (byte) 0));
+                int priority = linkedTag.contains("priority") ? linkedTag.getIntOr("priority", 0) : 0;
+                UUID backpackUuid = linkedTag.contains("bpUuid") ? com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(linkedTag, "bpUuid") : null;
+                String backpackItemId = isRegisteredItemId(linkedTag.getStringOr("bpItem", ""))
+                        ? linkedTag.getStringOr("bpItem", "") : null;
                 session.linkedStorageInfo.add(ref, linkMode,
                         RtsLinkedStorageResolver.sanitizeLinkedStoragePriority(priority),
                         backpackUuid, backpackItemId);
-                if (linkedTag.getBoolean("bpDetached")) session.linkedStorageInfo.markDetached(ref);
+                if (linkedTag.getBooleanOr("bpDetached", false)) session.linkedStorageInfo.markDetached(ref);
             }
         }
     }
@@ -352,16 +352,16 @@ public final class SessionSerializer {
 
     private static void loadRecentEntries(RtsStorageSession session, CompoundTag root) {
         session.uiMemory.getRecentEntries().clear();
-        ListTag list = root.getList("recent_entries", Tag.TAG_COMPOUND);
+        ListTag list = root.getListOrEmpty("recent_entries");
         for (int i = 0; i < list.size(); i++) {
-            CompoundTag tag = list.getCompound(i);
-            String id = tag.getString("id");
-            long amount = tag.getLong("amount");
+            CompoundTag tag = list.getCompoundOrEmpty(i);
+            String id = tag.getStringOr("id", "");
+            long amount = tag.getLongOr("amount", 0L);
             if (id.isBlank() || amount <= 0L) continue;
-            ResourceLocation key = ResourceLocation.tryParse(id);
+            Identifier key = Identifier.tryParse(id);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
             session.uiMemory.addRecentEntryLast(new RecentEntry(
-                    id, amount, Math.max(0L, tag.getLong("capacity")), tag.getByte("kind")));
+                    id, amount, Math.max(0L, tag.getLongOr("capacity", 0L)), tag.getByteOr("kind", (byte) 0)));
             if (session.uiMemory.getRecentEntries().size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) break;
         }
     }
@@ -373,7 +373,7 @@ public final class SessionSerializer {
         for (int i = 0; i < session.uiMemory.getQuickSlotCount(); i++) {
             String itemId = session.uiMemory.getQuickSlotItemId(i);
             if (itemId.isBlank()) continue;
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
 
             CompoundTag tag = new CompoundTag();
@@ -382,7 +382,7 @@ public final class SessionSerializer {
             ItemStack preview = i < session.uiMemory.getQuickSlotPreviews().length
                     && session.uiMemory.getQuickSlotPreview(i) != null
                     ? session.uiMemory.getQuickSlotPreview(i) : ItemStack.EMPTY;
-            if (!preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.get(key))) {
+            if (!preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.getValue(key))) {
                 tag.put("stack", preview.copyWithCount(1).save(player.registryAccess()));
             }
             list.add(tag);
@@ -393,23 +393,23 @@ public final class SessionSerializer {
     private static void loadQuickSlots(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         Arrays.fill(session.uiMemory.getQuickSlotItemIds(), "");
         Arrays.fill(session.uiMemory.getQuickSlotPreviews(), ItemStack.EMPTY);
-        ListTag list = root.getList("quick_slots", Tag.TAG_COMPOUND);
+        ListTag list = root.getListOrEmpty("quick_slots");
         for (int i = 0; i < list.size(); i++) {
-            CompoundTag tag = list.getCompound(i);
-            int slot = tag.getInt("slot");
-            String itemId = tag.getString("item_id");
+            CompoundTag tag = list.getCompoundOrEmpty(i);
+            int slot = tag.getIntOr("slot", 0);
+            String itemId = tag.getStringOr("item_id", "");
             if (slot < 0 || slot >= RtsStorageBindings.QUICK_SLOT_COUNT || itemId.isBlank()) continue;
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
+            Identifier key = Identifier.tryParse(itemId);
             if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
 
             session.uiMemory.setQuickSlotItemId(slot, itemId);
             ItemStack preview = ItemStack.EMPTY;
-            if (tag.contains("stack", Tag.TAG_COMPOUND)) {
-                preview = ItemStack.parseOptional(player.registryAccess(), tag.getCompound("stack"));
-                if (!preview.isEmpty() && !preview.is(BuiltInRegistries.ITEM.get(key))) preview = ItemStack.EMPTY;
+            if (tag.contains("stack")) {
+                preview = ItemStack.parseOptional(player.registryAccess(), tag.getCompoundOrEmpty("stack"));
+                if (!preview.isEmpty() && !preview.is(BuiltInRegistries.ITEM.getValue(key))) preview = ItemStack.EMPTY;
             }
             session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
-                    ? new ItemStack(BuiltInRegistries.ITEM.get(key))
+                    ? new ItemStack(BuiltInRegistries.ITEM.getValue(key))
                     : preview.copyWithCount(1));
         }
     }
@@ -425,7 +425,7 @@ public final class SessionSerializer {
             CompoundTag tag = new CompoundTag();
             tag.putInt("slot", i);
             tag.putLong("pos", binding.pos().asLong());
-            tag.putString("dimension", binding.dimension().location().toString());
+            tag.putString("dimension", binding.dimension().identifier().toString());
             if (binding.face() != null) tag.putByte("face", (byte) binding.face().get3DDataValue());
             tag.putString("label", binding.label() == null ? "" : binding.label());
             tag.putString("item_id", binding.itemId() == null ? "" : binding.itemId());
@@ -436,28 +436,28 @@ public final class SessionSerializer {
 
     private static void loadGuiBindings(RtsStorageSession session, CompoundTag root) {
         Arrays.fill(session.uiMemory.getGuiBindings(), null);
-        ListTag list = root.getList("gui_bindings", Tag.TAG_COMPOUND);
+        ListTag list = root.getListOrEmpty("gui_bindings");
         for (int i = 0; i < list.size(); i++) {
-            CompoundTag tag = list.getCompound(i);
-            int slot = tag.getInt("slot");
+            CompoundTag tag = list.getCompoundOrEmpty(i);
+            int slot = tag.getIntOr("slot", 0);
             if (slot < 0 || slot >= RtsStorageBindings.GUI_BINDING_SLOT_COUNT
-                    || !tag.contains("pos", Tag.TAG_LONG)) continue;
+                    || !tag.contains("pos")) continue;
 
-            String dimensionId = tag.getString("dimension");
-            ResourceLocation key = ResourceLocation.tryParse(dimensionId);
+            String dimensionId = tag.getStringOr("dimension", "");
+            Identifier key = Identifier.tryParse(dimensionId);
             if (key == null) continue;
 
-            String label = tag.getString("label");
-            String itemId = tag.getString("item_id");
-            ResourceLocation itemKey = ResourceLocation.tryParse(itemId);
+            String label = tag.getStringOr("label", "");
+            String itemId = tag.getStringOr("item_id", "");
+            Identifier itemKey = Identifier.tryParse(itemId);
             String normalizedItemId = itemKey != null && BuiltInRegistries.ITEM.containsKey(itemKey) ? itemId : "";
             Direction face = null;
-            if (tag.contains("face", Tag.TAG_BYTE)) {
-                int faceId = tag.getByte("face");
+            if (tag.contains("face")) {
+                int faceId = tag.getByteOr("face", (byte) 0);
                 if (faceId >= 0 && faceId < Direction.values().length) face = Direction.from3DDataValue(faceId);
             }
             session.uiMemory.setGuiBinding(slot, new GuiBinding(
-                    BlockPos.of(tag.getLong("pos")).immutable(),
+                    BlockPos.of(tag.getLongOr("pos", 0L)).immutable(),
                     ResourceKey.create(Registries.DIMENSION, key),
                     label, normalizedItemId, face));
         }
@@ -482,8 +482,8 @@ public final class SessionSerializer {
                 break;
             }
             CompoundTag jobTag = new CompoundTag();
-            jobTag.putUUID("operation_id", job.operationId());
-            jobTag.putString("dimension", job.dimension().location().toString());
+            com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(jobTag, "operation_id", job.operationId());
+            jobTag.putString("dimension", job.dimension().identifier().toString());
             jobTag.putLong("target", job.targetPos().asLong());
             ListTag claims = new ListTag();
             for (var claim : job.claims()) {
@@ -494,7 +494,7 @@ public final class SessionSerializer {
                     break;
                 }
                 CompoundTag claimTag = new CompoundTag();
-                claimTag.putUUID("id", claim.entityId());
+                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.putUuid(claimTag, "id", claim.entityId());
                 claimTag.putInt("ordinal", claim.ordinal());
                 claimTag.put("stack", claim.expectedStack().save(player.registryAccess()));
                 claims.add(claimTag);
@@ -509,43 +509,43 @@ public final class SessionSerializer {
 
     public static void loadPlacement(ServerPlayer player, RtsStorageSession session, CompoundTag root) {
         session.placement.recoveryJobs.clear();
-        ListTag recoveryList = root.getList("placed_recovery_jobs", Tag.TAG_COMPOUND);
+        ListTag recoveryList = root.getListOrEmpty("placed_recovery_jobs");
         int loadedClaims = 0;
         for (int i = 0; i < recoveryList.size()
                 && session.placement.recoveryJobs.size()
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
                 && loadedClaims
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; i++) {
-            CompoundTag jobTag = recoveryList.getCompound(i);
-            ResourceKey<Level> dimension = parseDimensionKey(jobTag.getString("dimension"));
+            CompoundTag jobTag = recoveryList.getCompoundOrEmpty(i);
+            ResourceKey<Level> dimension = parseDimensionKey(jobTag.getStringOr("dimension", ""));
             // 旧版没有 operationId/ordinal/stack，无法证明 claim 身份，保守留给世界实体自行处理。
-            if (dimension == null || !jobTag.hasUUID("operation_id")) continue;
+            if (dimension == null || !com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(jobTag, "operation_id")) continue;
             java.util.ArrayDeque<com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim>
                     claims = new java.util.ArrayDeque<>();
-            ListTag encodedClaims = jobTag.getList("entities", Tag.TAG_COMPOUND);
+            ListTag encodedClaims = jobTag.getListOrEmpty("entities");
             for (int j = 0; j < encodedClaims.size()
                     && claims.size()
                     < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
                     && loadedClaims
                     < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; j++) {
-                CompoundTag claimTag = encodedClaims.getCompound(j);
+                CompoundTag claimTag = encodedClaims.getCompoundOrEmpty(j);
                 // 旧版只有 UUID、没有物品指纹；保守放弃自动接管，让实体继续留在世界中。
-                if (!claimTag.hasUUID("id")
-                        || !claimTag.contains("ordinal", Tag.TAG_INT)
-                        || claimTag.getInt("ordinal") < 0
-                        || !claimTag.contains("stack", Tag.TAG_COMPOUND)) continue;
+                if (!com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.hasUuid(claimTag, "id")
+                        || !claimTag.contains("ordinal")
+                        || claimTag.getIntOr("ordinal", 0) < 0
+                        || !claimTag.contains("stack")) continue;
                 ItemStack expected = ItemStack.parseOptional(
-                        player.registryAccess(), claimTag.getCompound("stack"));
+                        player.registryAccess(), claimTag.getCompoundOrEmpty("stack"));
                 if (expected.isEmpty()) continue;
                 claims.addLast(new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim(
-                        claimTag.getUUID("id"), claimTag.getInt("ordinal"), expected));
+                        com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(claimTag, "id"), claimTag.getIntOr("ordinal", 0), expected));
                 loadedClaims++;
             }
             if (!claims.isEmpty()) {
                 session.placement.recoveryJobs.addLast(
                         new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob(
-                                jobTag.getUUID("operation_id"), dimension,
-                                BlockPos.of(jobTag.getLong("target")).immutable(), claims));
+                                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.getUuid(jobTag, "operation_id"), dimension,
+                                BlockPos.of(jobTag.getLongOr("target", 0L)).immutable(), claims));
             }
         }
     }
@@ -569,13 +569,13 @@ public final class SessionSerializer {
     /** 将维度 ID 字符串解析为 ResourceKey<Level> */
     public static ResourceKey<Level> parseDimensionKey(String dimensionId) {
         if (dimensionId == null || dimensionId.isBlank()) return null;
-        ResourceLocation key = ResourceLocation.tryParse(dimensionId);
+        Identifier key = Identifier.tryParse(dimensionId);
         return key == null ? null : ResourceKey.create(Registries.DIMENSION, key);
     }
 
     private static boolean isRegisteredItemId(String itemId) {
         if (itemId == null || itemId.isBlank()) return false;
-        ResourceLocation key = ResourceLocation.tryParse(itemId);
+        Identifier key = Identifier.tryParse(itemId);
         return key != null && BuiltInRegistries.ITEM.containsKey(key);
     }
 }

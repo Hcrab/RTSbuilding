@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -42,7 +42,7 @@ public final class RtsBlockActionSoundPlayer {
         if (minecraft.getSoundManager() == null) {
             return;
         }
-        ResourceLocation id = ResourceLocation.tryParse(payload.soundId());
+        Identifier id = Identifier.tryParse(payload.soundId());
         if (id == null || !BuiltInRegistries.SOUND_EVENT.containsKey(id)) {
             return;
         }
@@ -51,7 +51,7 @@ public final class RtsBlockActionSoundPlayer {
                 RtsClientUiStateStore.getRtsBlockSoundsPerTick())) {
             return;
         }
-        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(id);
+        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.getValue(id);
         SoundInstance soundInstance = new SimpleSoundInstance(
                 sound.getLocation(),
                 SoundSource.BLOCKS,

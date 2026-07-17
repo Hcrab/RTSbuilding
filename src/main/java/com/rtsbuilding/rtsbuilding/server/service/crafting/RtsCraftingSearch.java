@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
@@ -73,7 +73,7 @@ public final class RtsCraftingSearch {
 
         List<AvailableCraftItem> availableStacks = snapshotAvailableCraftItems(player, session, activeLinked);
         Map<String, List<CraftableCandidate>> byResultItem = new LinkedHashMap<>();
-        for (RecipeHolder<CraftingRecipe> holder : player.serverLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
+        for (RecipeHolder<CraftingRecipe> holder : player.level().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
             if (!supportsWorkbenchCraftPanelRecipe(holder.value())) {
                 continue;
             }
@@ -220,7 +220,7 @@ public final class RtsCraftingSearch {
         if (result.isEmpty()) {
             return null;
         }
-        ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
+        Identifier resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
         if (resultId == null) {
             return null;
         }
@@ -296,7 +296,7 @@ public final class RtsCraftingSearch {
     }
 
     private static boolean matchesCraftablesSearch(
-            ResourceLocation resultId, String resultLabel, String search,
+            Identifier resultId, String resultLabel, String search,
             boolean pinyinSearchEnabled, Set<String> localizedSearchMatches) {
         String query = search == null ? "" : search.toLowerCase(Locale.ROOT).trim();
         if (query.isEmpty()) {
@@ -320,7 +320,7 @@ public final class RtsCraftingSearch {
                 continue;
             }
             if (!rawId.contains(token) && !label.contains(token)
-                    && !(pinyinSearchEnabled && RtsPinyinSearch.contains(resultLabel, token))) {
+                    && !(pinyinSearchEnabled && RtsPinyinSearch.contains(resultLabel))) {
                 return false;
             }
         }

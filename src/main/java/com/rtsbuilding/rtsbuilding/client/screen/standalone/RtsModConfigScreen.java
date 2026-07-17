@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -50,9 +50,9 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
+        g .centeredText(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
         drawGeneralPage(g);
         drawScrollbar(g);
         super.render(g, mouseX, mouseY, partialTick);
@@ -232,7 +232,7 @@ public final class RtsModConfigScreen extends Screen {
             Config.setDeveloperModeEnabled(this.developerMode);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
-                this.minecraft.player.displayClientMessage(Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()), false);
+                this.minecraft.player.sendSystemMessage(Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()), false);
             }
             return;
         }
@@ -300,7 +300,7 @@ public final class RtsModConfigScreen extends Screen {
         }
     }
 
-    private void drawGeneralPage(GuiGraphics g) {
+    private void drawGeneralPage(GuiGraphicsExtractor g) {
         int x = contentX();
         int y = viewportTop() - this.scroll;
         int width = contentWidth();
@@ -392,30 +392,30 @@ public final class RtsModConfigScreen extends Screen {
                 && mouseY >= viewportTop() && mouseY <= viewportBottom();
     }
 
-    private void renderPageBackground(GuiGraphics g) {
+    private void renderPageBackground(GuiGraphicsExtractor g) {
         g.fill(0, 0, this.width, this.height, 0xFF101820);
         g.fill(0, 0, this.width, HEADER_H, 0xFF151B23);
         g.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF151B23);
-        g.hLine(0, this.width, HEADER_H, 0xFF273747);
-        g.hLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
+        g.horizontalLine(0, this.width, HEADER_H, 0xFF273747);
+        g.horizontalLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
     }
 
-    private void drawSection(GuiGraphics g, int x, int y, Component label) {
-        g.drawString(this.font, label, x + 2, y + 5, 0xFFF4F7FF);
-        g.hLine(x, x + contentWidth(), y + SECTION_H - 1, 0xFF263545);
+    private void drawSection(GuiGraphicsExtractor g, int x, int y, Component label) {
+        g .text(this.font, label, x + 2, y + 5, 0xFFF4F7FF);
+        g.horizontalLine(x, x + contentWidth(), y + SECTION_H - 1, 0xFF263545);
     }
 
-    private void drawOptionRow(GuiGraphics g, int x, int y, int width, Component label, Component hint) {
+    private void drawOptionRow(GuiGraphicsExtractor g, int x, int y, int width, Component label, Component hint) {
         int controlW = controlWidth(width);
         int hintW = Math.max(24, width - controlW - 34);
         g.fill(x, y, x + width, y + OPTION_ROW_H - 2, 0xFF17202A);
-        g.hLine(x, x + width, y, 0xFF263545);
-        g.drawString(this.font, label, x + 10, y + 7, 0xFFEAF2FF);
+        g.horizontalLine(x, x + width, y, 0xFF263545);
+        g .text(this.font, label, x + 10, y + 7, 0xFFEAF2FF);
         String hintText = this.font.plainSubstrByWidth(hint.getString(), hintW);
-        g.drawString(this.font, Component.literal(hintText), x + 10, y + 20, 0xFFAFC2D4);
+        g .text(this.font, Component.literal(hintText), x + 10, y + 20, 0xFFAFC2D4);
     }
 
-    private void drawScrollbar(GuiGraphics g) {
+    private void drawScrollbar(GuiGraphicsExtractor g) {
         int max = maxScroll();
         int viewportH = viewportHeight();
         int contentH = contentHeight();

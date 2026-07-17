@@ -88,7 +88,7 @@ public final class RtsPlacedRecoveryService {
         if (!undoRecovery && !RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
             return;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(level);
         BlockPos targetPos = pos.immutable();
         if (!tracker.isPlaced(targetPos)) {
@@ -131,7 +131,7 @@ public final class RtsPlacedRecoveryService {
         PlacedRecoveryJob queuedRecovery = afterBreak.saturated() ? null
                 : enqueueRecoveryJob(player, session, targetPos, afterBreak.entities());
 
-        LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
+        LinkedStorageRef targetRef = new LinkedStorageRef(player.level().dimension(), targetPos);
         boolean removedLinkedRef = session.linkedStorageInfo.remove(targetRef);
         if (removedLinkedRef) {
             // linkedStorageInfo 与 recovery claim 属于不同组件；两者同时变化时只做一次完整冻结。
@@ -193,8 +193,8 @@ public final class RtsPlacedRecoveryService {
                     jobs,
                     candidate -> candidate.claims().isEmpty()
                             || (candidate.requiredPersistedRevision() <= persistedPlacementRevision
-                            && player.serverLevel().dimension().equals(candidate.dimension())
-                            && player.serverLevel().hasChunkAt(candidate.targetPos())),
+                            && player.level().dimension().equals(candidate.dimension())
+                            && player.level().hasChunkAt(candidate.targetPos())),
                     inspectionBudget);
             inspectedJobs += selection.inspected();
             if (!selection.found()) {
@@ -205,7 +205,7 @@ public final class RtsPlacedRecoveryService {
                 jobs.removeFirst();
                 continue;
             }
-            ServerLevel jobLevel = player.serverLevel();
+            ServerLevel jobLevel = player.level();
 
             // durability ACK、维度和区块门禁通过后才解析外部网络，避免等待落盘期间每 tick 探测 AE/RS。
             if (orderedLinked == null) {
@@ -253,7 +253,7 @@ public final class RtsPlacedRecoveryService {
             if (hasLinkedRecoveryTarget) {
                 RtsTransferInserter.sendStorageOverflowHint(player, "Absorb", overflow);
             } else if (overflow.dropped() > 0) {
-                player.displayClientMessage(
+                player.sendSystemMessage(
                         Component.literal("Inventory full, dropped " + overflow.dropped() + "."), true);
             }
         }
@@ -378,7 +378,7 @@ public final class RtsPlacedRecoveryService {
         }
         if (claims.isEmpty()) return null;
         PlacedRecoveryJob job = new PlacedRecoveryJob(
-                UUID.randomUUID(), player.serverLevel().dimension(), targetPos.immutable(), claims);
+                UUID.randomUUID(), player.level().dimension(), targetPos.immutable(), claims);
         session.placement.recoveryJobs.addLast(job);
         return job;
     }

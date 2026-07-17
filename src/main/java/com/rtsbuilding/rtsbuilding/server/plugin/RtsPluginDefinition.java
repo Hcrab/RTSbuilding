@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -15,14 +15,14 @@ import java.util.Set;
  * not own player inventory mutation, persistence, networking, or UI layout.
  */
 public final class RtsPluginDefinition {
-    private final ResourceLocation id;
-    private final ResourceLocation itemId;
+    private final Identifier id;
+    private final Identifier itemId;
     private final RtsPluginFamily family;
     private final Set<RtsFeature> features;
     private final int radiusBlocks;
     private final boolean fieldDeployment;
 
-    public RtsPluginDefinition(ResourceLocation id, ResourceLocation itemId, RtsPluginFamily family,
+    public RtsPluginDefinition(Identifier id, Identifier itemId, RtsPluginFamily family,
             Set<RtsFeature> features, int radiusBlocks, boolean fieldDeployment) {
         this.id = id;
         this.itemId = itemId;
@@ -34,11 +34,11 @@ public final class RtsPluginDefinition {
         this.fieldDeployment = fieldDeployment;
     }
 
-    public ResourceLocation id() {
+    public Identifier id() {
         return id;
     }
 
-    public ResourceLocation itemId() {
+    public Identifier itemId() {
         return itemId;
     }
 

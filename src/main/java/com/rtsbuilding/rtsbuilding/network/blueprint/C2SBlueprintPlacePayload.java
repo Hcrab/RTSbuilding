@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.UUID;
 
@@ -21,7 +21,7 @@ public record C2SBlueprintPlacePayload(
     public static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
 
     public static final Type<C2SBlueprintPlacePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_blueprint_place"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_blueprint_place"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SBlueprintPlacePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {

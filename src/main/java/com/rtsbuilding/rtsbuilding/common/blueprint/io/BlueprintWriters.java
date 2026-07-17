@@ -9,7 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -280,14 +280,14 @@ public final class BlueprintWriters {
         try {
             ItemStack cloneStack = state.getBlock().getCloneItemStack(level, pos, state);
             if (!cloneStack.isEmpty()) {
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
+                Identifier id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
                 if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
                     return id.toString();
                 }
             }
         } catch (RuntimeException ignored) {
         }
-        ResourceLocation fallback = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        Identifier fallback = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
         return fallback == null || !BuiltInRegistries.ITEM.containsKey(fallback) ? "" : fallback.toString();
     }
 }

@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public record S2CRtsBreakAnimationPayload(BlockPos pos, BlockState state, BlockState resultState) implements CustomPacketPayload {
     public static final Type<S2CRtsBreakAnimationPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_break_animation"));
+            Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_break_animation"));
 
     public S2CRtsBreakAnimationPayload {
         pos = pos == null ? BlockPos.ZERO : pos;

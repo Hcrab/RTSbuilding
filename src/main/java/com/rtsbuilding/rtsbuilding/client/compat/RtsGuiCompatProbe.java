@@ -77,7 +77,7 @@ public final class RtsGuiCompatProbe {
         event.getDispatcher().register(Commands.literal("rtsbuilding_gui_compat_run")
                 .executes(context -> startFromCommand(CASE_ID))
                 .then(Commands.argument("caseId", StringArgumentType.word())
-                        .executes(context -> startFromCommand(StringArgumentType.getString(context, "caseId")))));
+                        .executes(context -> startFromCommand(StringArgumentType.getStringOr(context, "caseId", "")))));
     }
 
     @SubscribeEvent

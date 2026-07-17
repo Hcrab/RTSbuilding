@@ -448,7 +448,7 @@ public final class OverlayInteraction {
     //  Inventory RTS buttons
     // =========================================================================
 
-    public static void renderInventoryRtsButtons(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.gui.Font font, Screen screen, double mouseX, double mouseY) {
+    public static void renderInventoryRtsButtons(net.minecraft.client.gui.GuiGraphicsExtractor g, net.minecraft.client.gui.Font font, Screen screen, double mouseX, double mouseY) {
         if (!ClientRtsController.get().isProgressionEnabled()) {
             return;
         }

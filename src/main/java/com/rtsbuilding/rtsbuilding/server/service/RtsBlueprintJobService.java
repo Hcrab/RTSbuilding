@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -57,7 +57,7 @@ public final class RtsBlueprintJobService {
             return null;
         }
 
-        var level = player.serverLevel();
+        var level = player.level();
         int totalRemaining = remaining.size();
         int alreadyPlacedCount = 0;
         int conflictCount = 0;
@@ -80,19 +80,19 @@ public final class RtsBlueprintJobService {
         if (player.isCreative()) {
             bottleneckAvailable = Integer.MAX_VALUE;
         } else {
-            Map<ResourceLocation, Integer> matReqs = new LinkedHashMap<>();
+            Map<Identifier, Integer> matReqs = new LinkedHashMap<>();
             for (int idx : remaining) {
                 PlacementPlan plan = plans.get(idx);
                 if (plan == null) continue;
                 for (Item item : plan.items()) {
-                    ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+                    Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
                     if (itemId != null) {
                         matReqs.merge(itemId, 1, Integer::sum);
                     }
                 }
             }
             long minAvailable = Long.MAX_VALUE;
-            for (Map.Entry<ResourceLocation, Integer> entry : matReqs.entrySet()) {
+            for (Map.Entry<Identifier, Integer> entry : matReqs.entrySet()) {
                 int req = entry.getValue();
                 if (req <= 0) continue;
                 long avail = countMaterial(player, entry.getKey());
@@ -137,12 +137,12 @@ public final class RtsBlueprintJobService {
         int total = plans.size();
         int completed = bctx.getPlacedCount();
 
-        Map<ResourceLocation, Integer> materialRequirements = new LinkedHashMap<>();
+        Map<Identifier, Integer> materialRequirements = new LinkedHashMap<>();
         for (int idx : remaining) {
             PlacementPlan plan = plans.get(idx);
             if (plan == null) continue;
             for (Item item : plan.items()) {
-                ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+                Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
                 if (itemId != null) {
                     materialRequirements.merge(itemId, 1, Integer::sum);
                 }
@@ -155,16 +155,16 @@ public final class RtsBlueprintJobService {
         List<Long> available = new ArrayList<>(materialRequirements.size());
 
         if (player.isCreative()) {
-            for (Map.Entry<ResourceLocation, Integer> entry : materialRequirements.entrySet()) {
-                ResourceLocation id = entry.getKey();
+            for (Map.Entry<Identifier, Integer> entry : materialRequirements.entrySet()) {
+                Identifier id = entry.getKey();
                 itemIds.add(id.toString());
                 itemLabels.add(itemLabel(id));
                 required.add(entry.getValue());
                 available.add((long) Integer.MAX_VALUE);
             }
         } else {
-            for (Map.Entry<ResourceLocation, Integer> entry : materialRequirements.entrySet()) {
-                ResourceLocation id = entry.getKey();
+            for (Map.Entry<Identifier, Integer> entry : materialRequirements.entrySet()) {
+                Identifier id = entry.getKey();
                 int req = entry.getValue();
                 long avail = countMaterial(player, id);
 
@@ -204,16 +204,16 @@ public final class RtsBlueprintJobService {
     //  辅助方法
     // ======================================================================
 
-    private static String itemLabel(ResourceLocation id) {
+    private static String itemLabel(Identifier id) {
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return id != null ? id.toString() : "unknown";
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString();
+        return new ItemStack(BuiltInRegistries.ITEM.getValue(id)).getHoverName().getString();
     }
 
-    private static long countMaterial(ServerPlayer player, ResourceLocation itemId) {
+    private static long countMaterial(ServerPlayer player, Identifier itemId) {
         if (itemId == null || !BuiltInRegistries.ITEM.containsKey(itemId)) return 0;
-        ItemStack template = new ItemStack(BuiltInRegistries.ITEM.get(itemId));
+        ItemStack template = new ItemStack(BuiltInRegistries.ITEM.getValue(itemId));
         long available = 0;
         available = RtsCountUtil.saturatedAdd(available,
                 ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,

@@ -7,8 +7,8 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.developer.RtsDeveloperTaskScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.neoforged.fml.ModList;
 import org.lwjgl.glfw.GLFW;
 
@@ -29,7 +29,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * <b>Key responsibilities:</b>
  * <ul>
  *   <li>Layout construction ({@link #buildTopBarButtonLayouts()})</li>
- *   <li>Button rendering ({@link #render(GuiGraphics, int, int)})</li>
+ *   <li>Button rendering ({@link #render(GuiGraphicsExtractor, int, int)})</li>
  *   <li>Click dispatch ({@link #handleClick(double, double)})</li>
  *   <li>Status bar text composition</li>
  * </ul>
@@ -75,7 +75,7 @@ public final class TopBarPanel {
      * status bar showing the current mode, storage link status, and
      * shape-editing state.
      */
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         screen.ensureFillModeForShape(this.controller.getBuildShape());
         List<TopBarTypes.TopBarButtonLayout> topButtons = buildTopBarButtonLayouts();
         for (TopBarTypes.TopBarButtonLayout button : topButtons) {
@@ -108,8 +108,8 @@ public final class TopBarPanel {
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         TopBarLayout.Status status = TopBarLayout.status(screen.width);
-        g.drawString(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(), 0xF0F0F0, false);
-        g.drawString(screen.font(), screen.trimToWidth(row2, status.width()), status.x(), status.row2Y(),
+        g .text(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(), 0xF0F0F0, false);
+        g .text(screen.font(), screen.trimToWidth(row2, status.width()), status.x(), status.row2Y(),
                 this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
     }
 
@@ -251,7 +251,7 @@ public final class TopBarPanel {
      * Routes the rendering of a single top bar button to the appropriate
      * method based on whether it is icon-only or text-based.
      */
-    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
+    private void drawTopButton(GuiGraphicsExtractor g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
         if (button.iconOnly()) {
             drawTopIconButton(g, mouseX, mouseY, button);
             return;
@@ -262,15 +262,15 @@ public final class TopBarPanel {
     /**
      * Renders a text-based top bar button with background, border, and centered label.
      */
-    private void drawTopButtonSized(GuiGraphics g, int x, String label, boolean active, int w) {
+    private void drawTopButtonSized(GuiGraphicsExtractor g, int x, String label, boolean active, int w) {
         int y = TopBarLayout.BUTTON_Y;
         int h = TOP_BUTTON_H;
         int bg = active ? 0xFF2E6A50 : 0xAA1F2329;
         g.fill(x, y, x + w, y + h, bg);
-        g.hLine(x, x + w, y, 0xFF5B6673);
-        g.hLine(x, x + w, y + h, 0xFF0D0E10);
-        g.vLine(x, y, y + h, 0xFF5B6673);
-        g.vLine(x + w, y, y + h, 0xFF0D0E10);
+        g.horizontalLine(x, x + w, y, 0xFF5B6673);
+        g.horizontalLine(x, x + w, y + h, 0xFF0D0E10);
+        g.verticalLine(x, y, y + h, 0xFF5B6673);
+        g.verticalLine(x + w, y, y + h, 0xFF0D0E10);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
     }
@@ -283,7 +283,7 @@ public final class TopBarPanel {
      * <p>
      * The button background colour changes based on active, pressed, and hovered states.
      */
-    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
+    private void drawTopIconButton(GuiGraphicsExtractor g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
         int x = button.x();
         int y = TopBarLayout.BUTTON_Y;
         int w = button.width();
@@ -310,7 +310,7 @@ public final class TopBarPanel {
         }
 
         // Try texture-based icon first
-        ResourceLocation textureIcon = TopBarIconRenderer.topbarModeTexture(button.id(), button.active(), hovered, pressed);
+        Identifier textureIcon = TopBarIconRenderer.topbarModeTexture(button.id(), button.active(), hovered, pressed);
         if (textureIcon != null) {
             g.blit(textureIcon, x + (w - TOP_BUTTON_H) / 2, y, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
             return;
@@ -319,8 +319,8 @@ public final class TopBarPanel {
         // Fall back to pixel-art background + icon
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, light, dark);
         if (pressed) {
-            g.hLine(x + 1, x + w - 1, y + 1, dark);
-            g.vLine(x + 1, y + 1, y + h - 1, dark);
+            g.horizontalLine(x + 1, x + w - 1, y + 1, dark);
+            g.verticalLine(x + 1, y + 1, y + h - 1, dark);
         }
 
         // Draw the pixel-art icon at the button centre
@@ -338,7 +338,7 @@ public final class TopBarPanel {
     /**
      * Delegates guide hint rendering below the top bar to {@link BuilderScreen}.
      */
-    private void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    private void renderTopGuideHint(GuiGraphicsExtractor g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         screen.renderTopGuideHint(g, topButtons);
     }
 

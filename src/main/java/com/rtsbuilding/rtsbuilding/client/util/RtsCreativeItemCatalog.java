@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
@@ -78,7 +78,7 @@ public final class RtsCreativeItemCatalog {
             if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY || !tab.shouldDisplay()) {
                 continue;
             }
-            ResourceLocation tabId = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
+            Identifier tabId = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
             if (tabId == null) {
                 continue;
             }
@@ -117,7 +117,7 @@ public final class RtsCreativeItemCatalog {
         if (mc == null || mc.level == null) {
             return "no-level";
         }
-        String dimension = String.valueOf(mc.level.dimension().location());
+        String dimension = String.valueOf(mc.level.dimension().identifier());
         boolean operatorTabs = mc.player != null && mc.player.canUseGameMasterBlocks();
         return dimension + "|op=" + operatorTabs;
     }
@@ -148,7 +148,7 @@ public final class RtsCreativeItemCatalog {
         }
         ItemStack preview = stack.copy();
         preview.setCount(1);
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(preview.getItem());
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(preview.getItem());
         if (itemId == null) {
             return;
         }
@@ -177,7 +177,7 @@ public final class RtsCreativeItemCatalog {
         }
     }
 
-    private static String safeTabLabel(CreativeModeTab tab, ResourceLocation fallback) {
+    private static String safeTabLabel(CreativeModeTab tab, Identifier fallback) {
         try {
             String label = tab.getDisplayName().getString();
             return label == null || label.isBlank() ? fallback.toString() : label;
@@ -233,7 +233,7 @@ public final class RtsCreativeItemCatalog {
     }
 
     private static String humanizeTabKey(String tabKey) {
-        ResourceLocation key = ResourceLocation.tryParse(tabKey);
+        Identifier key = Identifier.tryParse(tabKey);
         return humanizeToken(key == null ? tabKey : key.getPath());
     }
 

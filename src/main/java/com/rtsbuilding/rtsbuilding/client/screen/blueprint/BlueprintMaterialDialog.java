@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 
 import java.util.List;
@@ -24,7 +24,7 @@ final class BlueprintMaterialDialog {
     private BlueprintMaterialDialog() {
     }
 
-    static int render(GuiGraphics g, Font font, BlueprintEntry entry, ClientRtsController controller,
+    static int render(GuiGraphicsExtractor g, Font font, BlueprintEntry entry, ClientRtsController controller,
             int screenW, int screenH, int mouseX, int mouseY, int scroll) {
         Layout layout = layout(screenW, screenH);
         List<DetailLine> lines = detailLines(entry, controller);
@@ -35,12 +35,12 @@ final class BlueprintMaterialDialog {
         g.fill(0, 0, screenW, screenH, 0x66000000);
         drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
         g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1, layout.y() + TITLE_H, 0xCC233345);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.details_title"), layout.w() - 70),
+        g .text(font, trim(font, text("screen.rtsbuilding.blueprints.details_title"), layout.w() - 70),
                 layout.x() + 8, layout.y() + 6, 0xFFEAF2FF, false);
         drawButton(g, font, layout.closeX(), closeY(layout), CLOSE_SIZE, CLOSE_SIZE, "x",
                 inside(mouseX, mouseY, layout.closeX(), closeY(layout), CLOSE_SIZE, CLOSE_SIZE));
 
-        g.drawString(font, trim(font, entry.name(), layout.w() - 20), layout.x() + 10, layout.y() + 31, 0xFFEAF2FF, false);
+        g .text(font, trim(font, entry.name(), layout.w() - 20), layout.x() + 10, layout.y() + 31, 0xFFEAF2FF, false);
         BuildStats stats = buildStats(entry, controller);
         String summary = lines.isEmpty()
                 ? text("screen.rtsbuilding.blueprints.materials_all_ready")
@@ -52,12 +52,12 @@ final class BlueprintMaterialDialog {
                         stats.unsupportedTypes(),
                         stats.missingBlockTypes());
         int summaryColor = lines.isEmpty() || stats.percent() >= 100 ? 0xFF8EEA9B : 0xFFFFC06C;
-        g.drawString(font, trim(font, summary, layout.w() - 20), layout.x() + 10, layout.y() + 44, summaryColor, false);
+        g .text(font, trim(font, summary, layout.w() - 20), layout.x() + 10, layout.y() + 44, summaryColor, false);
 
         drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(), 0x99101620, 0xFF415266, 0xFF0B0E13);
         if (lines.isEmpty()) {
             String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
-            g.drawString(font, trim(font, message, layout.listW() - 14), layout.listX() + 7, layout.listY() + 8,
+            g .text(font, trim(font, message, layout.listW() - 14), layout.listX() + 7, layout.listY() + 8,
                     summaryColor, false);
             return clampedScroll;
         }
@@ -67,7 +67,7 @@ final class BlueprintMaterialDialog {
         return clampedScroll;
     }
 
-    static int renderContent(GuiGraphics g, Font font, BlueprintEntry entry, ClientRtsController controller,
+    static int renderContent(GuiGraphicsExtractor g, Font font, BlueprintEntry entry, ClientRtsController controller,
             int x, int y, int w, int h, int mouseX, int mouseY, int scroll) {
         Layout layout = layoutFromBounds(x, y, w, h);
         List<DetailLine> lines = detailLines(entry, controller);
@@ -75,7 +75,7 @@ final class BlueprintMaterialDialog {
         int columns = columns(layout);
         int clampedScroll = Mth.clamp(scroll, 0, maxScroll(lines.size(), visible, columns));
 
-        g.drawString(font, trim(font, entry.name(), layout.w() - 20),
+        g .text(font, trim(font, entry.name(), layout.w() - 20),
                 layout.x() + 10, layout.y() + 8, 0xFFEAF2FF, false);
         BuildStats stats = buildStats(entry, controller);
         String summary = lines.isEmpty()
@@ -88,14 +88,14 @@ final class BlueprintMaterialDialog {
                         stats.unsupportedTypes(),
                         stats.missingBlockTypes());
         int summaryColor = lines.isEmpty() || stats.percent() >= 100 ? 0xFF8EEA9B : 0xFFFFC06C;
-        g.drawString(font, trim(font, summary, layout.w() - 20),
+        g .text(font, trim(font, summary, layout.w() - 20),
                 layout.x() + 10, layout.y() + 21, summaryColor, false);
 
         drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(),
                 0x99101620, 0xFF415266, 0xFF0B0E13);
         if (lines.isEmpty()) {
             String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
-            g.drawString(font, trim(font, message, layout.listW() - 14),
+            g .text(font, trim(font, message, layout.listW() - 14),
                     layout.listX() + 7, layout.listY() + 8, summaryColor, false);
             return clampedScroll;
         }
@@ -126,7 +126,7 @@ final class BlueprintMaterialDialog {
         return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
     }
 
-    private static void renderRows(GuiGraphics g, Font font, List<DetailLine> lines, Layout layout,
+    private static void renderRows(GuiGraphicsExtractor g, Font font, List<DetailLine> lines, Layout layout,
             int mouseX, int mouseY, int scroll, int visible, int columns) {
         int cellW = (layout.listW() - 8 - (columns - 1) * COLUMN_GAP) / columns;
         for (int row = 0; row < visible; row++) {
@@ -142,22 +142,22 @@ final class BlueprintMaterialDialog {
                     g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H, 0x66324126);
                 }
                 if (!line.preview().isEmpty()) {
-                    g.renderItem(line.preview(), rowX + 4, rowY + 2);
+                    g .item(line.preview(), rowX + 4, rowY + 2);
                 } else {
                     g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18, 0xAA36506A);
                     RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "?", rowX + 13, rowY + 6, 0xFFFFD080);
                 }
                 int detailW = Math.min(86, Math.max(54, cellW / 3));
                 int detailX = rowX + cellW - detailW - 4;
-                g.drawString(font, trim(font, line.label(), Math.max(24, detailX - rowX - 28)), rowX + 26, rowY + 2,
+                g .text(font, trim(font, line.label(), Math.max(24, detailX - rowX - 28)), rowX + 26, rowY + 2,
                         0xFFEAF2FF, false);
-                g.drawString(font, trim(font, line.detail(), detailW), detailX, rowY + 7,
+                g .text(font, trim(font, line.detail(), detailW), detailX, rowY + 7,
                         line.color(), false);
             }
         }
     }
 
-    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll, int visible, int columns) {
+    private static void renderScrollbar(GuiGraphicsExtractor g, int lineCount, Layout layout, int scroll, int visible, int columns) {
         int maxScroll = maxScroll(lineCount, visible, columns);
         if (maxScroll <= 0) {
             return;

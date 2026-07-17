@@ -27,7 +27,7 @@ public final class PlayerComponents {
                 NbtCodec.of(
                         tag -> tag,
                         (tag, v) -> {
-                            for (String k : v.getAllKeys()) {
+                            for (String k : v.keySet()) {
                                 tag.put(k, v.get(k));
                             }
                         }

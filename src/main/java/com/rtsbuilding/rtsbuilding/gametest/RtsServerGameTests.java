@@ -595,7 +595,7 @@ public final class RtsServerGameTests {
         helper.assertValueEqual(liveBeforeWrongDimension, countLiveDrops(helper, scanBox),
                 "Wrong-dimension funnel work must not consume same-coordinate entities");
 
-        session.funnel.funnelTargetDimension = player.serverLevel().dimension();
+        session.funnel.funnelTargetDimension = player.level().dimension();
         session.funnel.funnelTickCooldown = 0;
         helper.succeedWhen(() -> {
             helper.assertValueEqual(entityCount, countChestItem(helper, chestRel, Items.COBBLESTONE),
@@ -892,7 +892,7 @@ public final class RtsServerGameTests {
         ArrayDeque<PlacedRecoveryClaim> claims = new ArrayDeque<>();
         claims.addLast(new PlacedRecoveryClaim(entityId, ordinal, expectedStack));
         return new PlacedRecoveryJob(
-                UUID.randomUUID(), player.serverLevel().dimension(), target, claims);
+                UUID.randomUUID(), player.level().dimension(), target, claims);
     }
 
     private static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
@@ -996,9 +996,9 @@ public final class RtsServerGameTests {
 
     private static void stopPlayers(ServerPlayer player) {
         RtsCameraManager.stopIfActive(player);
-        if (player.getServer() != null
-                && player.getServer().getPlayerList().getPlayer(player.getUUID()) == player) {
-            player.getServer().getPlayerList().remove(player);
+        if (player.level().getServer() != null
+                && player.level().getServer().getPlayerList().getPlayer(player.getUUID()) == player) {
+            player.level().getServer().getPlayerList().remove(player);
         }
     }
 

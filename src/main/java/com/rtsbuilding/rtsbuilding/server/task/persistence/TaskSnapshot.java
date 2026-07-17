@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -45,9 +45,9 @@ public record TaskSnapshot(
         if (dimensionId.isBlank()) throw new IllegalArgumentException("dimensionId 不能为空");
         if (dimensionId.length() > 256) throw new IllegalArgumentException("dimensionId 不能超过 256 个字符");
         NbtStringLimits.requireWritable(dimensionId, "dimensionId");
-        ResourceLocation dimension = ResourceLocation.tryParse(dimensionId);
+        Identifier dimension = Identifier.tryParse(dimensionId);
         if (dimension == null || !dimension.toString().equals(dimensionId)) {
-            throw new IllegalArgumentException("dimensionId 必须是规范 ResourceLocation");
+            throw new IllegalArgumentException("dimensionId 必须是规范 Identifier");
         }
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
         if (revision < 1L) throw new IllegalArgumentException("revision 必须从 1 开始");

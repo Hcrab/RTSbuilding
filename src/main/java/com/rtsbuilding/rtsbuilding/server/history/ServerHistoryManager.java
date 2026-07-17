@@ -46,11 +46,11 @@ public final class ServerHistoryManager {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
-        List<HistoryBlockRecord> records = captureBlocks(player.serverLevel(), positions);
+        List<HistoryBlockRecord> records = captureBlocks(player.level(), positions);
         if (records.isEmpty()) {
             return;
         }
-        HistoryEntry entry = new HistoryEntry(false, records, face, player.serverLevel().dimension());
+        HistoryEntry entry = new HistoryEntry(false, records, face, player.level().dimension());
         PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
         ph.undoStack.add(entry);
         if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
@@ -64,7 +64,7 @@ public final class ServerHistoryManager {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
-        List<HistoryBlockRecord> records = captureBlocks(player.serverLevel(), positions);
+        List<HistoryBlockRecord> records = captureBlocks(player.level(), positions);
         if (records.isEmpty()) {
             return;
         }
@@ -79,7 +79,7 @@ public final class ServerHistoryManager {
     }
 
     private static void pushBreakEntry(ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
-        HistoryEntry entry = new HistoryEntry(true, records, face, player.serverLevel().dimension());
+        HistoryEntry entry = new HistoryEntry(true, records, face, player.level().dimension());
         PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
         ph.undoStack.add(entry);
         if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
@@ -98,7 +98,7 @@ public final class ServerHistoryManager {
         HistoryEntry entry = undo(player);
         if (entry == null) return 0;
 
-        if (!entry.getDimension().equals(player.serverLevel().dimension())) {
+        if (!entry.getDimension().equals(player.level().dimension())) {
             PlayerHistory ph = playerHistories.get(player.getUUID());
             if (ph != null) {
                 ph.undoStack.addLast(entry);
