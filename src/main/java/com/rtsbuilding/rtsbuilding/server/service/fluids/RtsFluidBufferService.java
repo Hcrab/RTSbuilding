@@ -3,18 +3,14 @@ package com.rtsbuilding.rtsbuilding.server.service.fluids;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidContainerDrain;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidPlatform;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidVolume;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
-
-import java.util.Optional;
 
 /**
  * 内部流体缓冲区管理器，存储少量流体至 {@link RtsStorageSession} 会话对象中。
@@ -47,7 +43,10 @@ public final class RtsFluidBufferService {
         if (player == null) {
             return Config.internalFluidCapacityMb();
         }
-        return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * FluidType.BUCKET_VOLUME);
+        return Math.max(
+                0L,
+                (long) RtsProgressionManager.getFluidCapacityBuckets(player)
+                        * RtsFluidVolume.BUCKET_AMOUNT);
     }
 
     /**
@@ -117,39 +116,22 @@ public final class RtsFluidBufferService {
      * 如果物品无法排出或请求的量超过可用流体，则返回空结果。
      */
     public static DrainOutcome drainContainer(ItemStack container, int amount, boolean execute) {
-        if (container.isEmpty() || amount <= 0) {
+        RtsFluidContainerDrain result =
+                RtsFluidPlatform.bridge().drainContainer(container, amount, execute);
+        if (result.isEmpty()) {
             return DrainOutcome.EMPTY;
         }
-        ItemStack single = container.copyWithCount(1);
-        Optional<IFluidHandlerItem> optHandler = FluidUtil.getFluidHandler(single);
-        if (optHandler.isEmpty()) {
-            return DrainOutcome.EMPTY;
-        }
-
-        IFluidHandlerItem handler = optHandler.get();
-        FluidStack simulated = handler.drain(amount, IFluidHandler.FluidAction.SIMULATE);
-        if (simulated.isEmpty()) {
-            return DrainOutcome.EMPTY;
-        }
-        if (!execute) {
-            return new DrainOutcome(simulated.copy(), handler.getContainer().copy());
-        }
-
-        FluidStack drained = handler.drain(amount, IFluidHandler.FluidAction.EXECUTE);
-        if (drained.isEmpty()) {
-            return DrainOutcome.EMPTY;
-        }
-        return new DrainOutcome(drained.copy(), handler.getContainer().copy());
+        return new DrainOutcome(result.fluid(), result.remainder());
     }
 
     /**
      * 排空流体容器物品的结果。
      */
-    public record DrainOutcome(FluidStack fluid, ItemStack remainder) {
-        public static final DrainOutcome EMPTY = new DrainOutcome(FluidStack.EMPTY, ItemStack.EMPTY);
+    public record DrainOutcome(RtsFluidVolume fluid, ItemStack remainder) {
+        public static final DrainOutcome EMPTY = new DrainOutcome(RtsFluidVolume.EMPTY, ItemStack.EMPTY);
 
         public boolean isEmpty() {
-            return this.fluid.isEmpty();
+            return this.fluid == null || this.fluid.isEmpty();
         }
     }
 }

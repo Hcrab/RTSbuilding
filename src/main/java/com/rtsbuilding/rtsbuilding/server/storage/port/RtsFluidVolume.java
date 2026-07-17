@@ -11,6 +11,8 @@ import net.minecraft.world.level.material.Fluids;
  * 应在此领域值中显式扩展，而不是让 Loader 类型重新进入业务层。</p>
  */
 public record RtsFluidVolume(Fluid fluid, int amount) {
+    /** RTSBuilding 跨 Loader 使用的标准桶容量，单位与现有储存协议一致。 */
+    public static final int BUCKET_AMOUNT = 1_000;
     public static final RtsFluidVolume EMPTY = new RtsFluidVolume(Fluids.EMPTY, 0);
 
     public RtsFluidVolume {

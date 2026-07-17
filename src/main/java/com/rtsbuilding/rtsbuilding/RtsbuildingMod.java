@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.platform.neoforge.storage.NeoForgeFluidPlatformBridge;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -18,6 +19,7 @@ import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidPlatform;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
@@ -83,6 +85,7 @@ public class RtsbuildingMod {
      * @param modContainer 模组容器，用于注册配置
      */
     public RtsbuildingMod(IEventBus modEventBus, ModContainer modContainer) {
+        RtsFluidPlatform.install(NeoForgeFluidPlatformBridge.INSTANCE);
         modEventBus.addListener(this::commonSetup);
         RtsEntities.register(modEventBus);
         RtsBlocks.register(modEventBus);

@@ -7,6 +7,8 @@ import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidBufferService;
 import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidNetworkOperator;
 import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidWorldPlacer;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidVolume;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -20,9 +22,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -38,7 +37,7 @@ import java.util.List;
  * 网络操作（跨链接处理器和缓冲区的计数/提取/插入）到 {@link RtsFluidNetworkOperator}。
  */
 public final class RtsStorageFluids {
-    private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
+    private static final int FLUID_TRANSFER_MB = RtsFluidVolume.BUCKET_AMOUNT;
 
     private RtsStorageFluids() {
     }
@@ -83,7 +82,7 @@ public final class RtsStorageFluids {
         }
 
         ServerLevel level = player.level();
-        FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
+        RtsFluidVolume transfer = new RtsFluidVolume(fluid, FLUID_TRANSFER_MB);
         int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
                 ? RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, face, transfer)
@@ -168,28 +167,26 @@ public final class RtsStorageFluids {
         }
 
         RtsFluidBufferService.DrainOutcome simulated = RtsFluidBufferService.drainContainer(extracted, FLUID_TRANSFER_MB, false);
-        if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        if (simulated.isEmpty() || simulated.fluid().amount() < FLUID_TRANSFER_MB) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
-        FluidStack targetFluid = simulated.fluid().copy();
-        targetFluid.setAmount(FLUID_TRANSFER_MB);
+        RtsFluidVolume targetFluid = simulated.fluid().withAmount(FLUID_TRANSFER_MB);
         if (RtsFluidNetworkOperator.insertFluidIntoNetwork(
-                player, session, fluidHandlers, targetFluid.getFluid(), targetFluid.getAmount(), false)
+                player, session, fluidHandlers, targetFluid.fluid(), targetFluid.amount(), false)
                 < FLUID_TRANSFER_MB) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
 
         RtsFluidBufferService.DrainOutcome executed = RtsFluidBufferService.drainContainer(extracted, FLUID_TRANSFER_MB, true);
-        if (executed.isEmpty() || executed.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        if (executed.isEmpty() || executed.fluid().amount() < FLUID_TRANSFER_MB) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
-        FluidStack insertFluid = executed.fluid().copy();
-        insertFluid.setAmount(FLUID_TRANSFER_MB);
+        RtsFluidVolume insertFluid = executed.fluid().withAmount(FLUID_TRANSFER_MB);
         int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(
-                player, session, fluidHandlers, insertFluid.getFluid(), insertFluid.getAmount(), true);
+                player, session, fluidHandlers, insertFluid.fluid(), insertFluid.amount(), true);
         if (inserted < FLUID_TRANSFER_MB) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
@@ -198,7 +195,7 @@ public final class RtsStorageFluids {
         if (!executed.remainder().isEmpty()) {
             gate.refundToLinked(insertItemHandlers, player, executed.remainder());
         }
-        Identifier fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
+        Identifier fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.fluid());
         if (fluidId != null) {
             RtsStorageRecentEntries.recordRecentFluid(
                     session,
@@ -220,25 +217,23 @@ public final class RtsStorageFluids {
 
         ItemStack single = inSlot.copyWithCount(1);
         RtsFluidBufferService.DrainOutcome simulated = RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, false);
-        if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        if (simulated.isEmpty() || simulated.fluid().amount() < FLUID_TRANSFER_MB) {
             return false;
         }
-        FluidStack targetFluid = simulated.fluid().copy();
-        targetFluid.setAmount(FLUID_TRANSFER_MB);
+        RtsFluidVolume targetFluid = simulated.fluid().withAmount(FLUID_TRANSFER_MB);
         if (RtsFluidNetworkOperator.insertFluidIntoNetwork(
-                player, session, fluidHandlers, targetFluid.getFluid(), targetFluid.getAmount(), false)
+                player, session, fluidHandlers, targetFluid.fluid(), targetFluid.amount(), false)
                 < FLUID_TRANSFER_MB) {
             return false;
         }
 
         RtsFluidBufferService.DrainOutcome executed = RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, true);
-        if (executed.isEmpty() || executed.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        if (executed.isEmpty() || executed.fluid().amount() < FLUID_TRANSFER_MB) {
             return false;
         }
-        FluidStack insertFluid = executed.fluid().copy();
-        insertFluid.setAmount(FLUID_TRANSFER_MB);
+        RtsFluidVolume insertFluid = executed.fluid().withAmount(FLUID_TRANSFER_MB);
         int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(
-                player, session, fluidHandlers, insertFluid.getFluid(), insertFluid.getAmount(), true);
+                player, session, fluidHandlers, insertFluid.fluid(), insertFluid.amount(), true);
         if (inserted < FLUID_TRANSFER_MB) {
             return false;
         }
@@ -252,7 +247,7 @@ public final class RtsStorageFluids {
             moveToPlayerInventoryOrDrop(gate, player, executed.remainder());
         }
         player.containerMenu.broadcastChanges();
-        Identifier fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
+        Identifier fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.fluid());
         if (fluidId != null) {
             RtsStorageRecentEntries.recordRecentFluid(
                     session,

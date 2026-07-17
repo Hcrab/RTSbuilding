@@ -20,16 +20,12 @@ class RtsStoragePortBoundaryContractTest {
 
     @Test
     void semanticPortDoesNotImportNeoForgeApis() throws IOException {
-        String source = Files.readString(SERVER_ROOT.resolve("storage/port/RtsItemStorage.java"));
-        String fluidStorage = Files.readString(SERVER_ROOT.resolve("storage/port/RtsFluidStorage.java"));
-        String fluidVolume = Files.readString(SERVER_ROOT.resolve("storage/port/RtsFluidVolume.java"));
-
-        assertFalse(source.contains("import net.neoforged"),
-                "Loader 无关端口不得直接导入 NeoForge API");
-        assertFalse(fluidStorage.contains("import net.neoforged"),
-                "Loader 无关流体端口不得直接导入 NeoForge API");
-        assertFalse(fluidVolume.contains("import net.neoforged"),
-                "Loader 无关流体值不得直接导入 NeoForge API");
+        try (var files = Files.walk(SERVER_ROOT.resolve("storage/port"))) {
+            for (Path path : files.filter(file -> file.toString().endsWith(".java")).toList()) {
+                assertFalse(Files.readString(path).contains("import net.neoforged"),
+                        SERVER_ROOT.relativize(path) + " 不得直接导入 NeoForge API");
+            }
+        }
     }
 
     @Test
@@ -58,7 +54,11 @@ class RtsStoragePortBoundaryContractTest {
         for (String relative : Set.of(
                 "storage/model/LinkedFluidHandler.java",
                 "storage/view/LinkedFluidHandlerView.java",
+                "storage/RtsStorageFluids.java",
                 "service/fluids/RtsFluidNetworkOperator.java",
+                "service/fluids/RtsFluidBufferService.java",
+                "service/fluids/RtsFluidWorldPlacer.java",
+                "pipeline/blueprint/BlueprintTickPipe.java",
                 "service/page/RtsPageCore.java")) {
             String source = Files.readString(SERVER_ROOT.resolve(relative));
             assertFalse(source.contains("import net.neoforged.neoforge.fluids"),

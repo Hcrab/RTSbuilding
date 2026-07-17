@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BlueprintService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.BlockPlacer;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidVolume;
 import com.rtsbuilding.rtsbuilding.server.task.BlueprintTaskPayload;
 import com.rtsbuilding.rtsbuilding.server.task.TaskBudget;
 import com.rtsbuilding.rtsbuilding.server.task.TaskStepResult;
@@ -28,7 +29,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.fluids.FluidType;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -190,7 +190,7 @@ public final class BlueprintTickPipe {
                 if (plan.fluidCost() == Fluids.WATER) {
                     if (!hasReusableWater(player)) return PlaceResult.UNSUPPORTED;
                 } else if (plan.fluidCost() == Fluids.LAVA) {
-                    if (service.countFluidMb(player, Fluids.LAVA) < FluidType.BUCKET_VOLUME) {
+                    if (service.countFluidMb(player, Fluids.LAVA) < RtsFluidVolume.BUCKET_AMOUNT) {
                         return PlaceResult.UNSUPPORTED;
                     }
                 } else {
@@ -213,7 +213,7 @@ public final class BlueprintTickPipe {
             return PlaceResult.BLOCKED;
         }
         if (!player.isCreative() && plan.fluidCost() == Fluids.LAVA
-                && !service.extractFluid(player, Fluids.LAVA, FluidType.BUCKET_VOLUME)) {
+                && !service.extractFluid(player, Fluids.LAVA, RtsFluidVolume.BUCKET_AMOUNT)) {
             level.removeBlock(plan.target(), false);
             refund(player, extracted);
             return PlaceResult.UNSUPPORTED;
@@ -252,7 +252,7 @@ public final class BlueprintTickPipe {
         if (plan.items().isEmpty()) {
             if (plan.fluidCost() == Fluids.WATER) return hasReusableWater(player);
             if (plan.fluidCost() == Fluids.LAVA) {
-                return service.countFluidMb(player, Fluids.LAVA) >= FluidType.BUCKET_VOLUME;
+                return service.countFluidMb(player, Fluids.LAVA) >= RtsFluidVolume.BUCKET_AMOUNT;
             }
             return false;
         }
@@ -263,7 +263,7 @@ public final class BlueprintTickPipe {
     private static boolean hasReusableWater(ServerPlayer player) {
         BlueprintService service = blueprint();
         return service.countMaterial(player, Items.WATER_BUCKET)
-                + service.countFluidMb(player, Fluids.WATER) / FluidType.BUCKET_VOLUME >= 2L;
+                + service.countFluidMb(player, Fluids.WATER) / RtsFluidVolume.BUCKET_AMOUNT >= 2L;
     }
 
     private static void refund(ServerPlayer player, List<ItemStack> stacks) {
