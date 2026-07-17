@@ -51,6 +51,21 @@ class RtsUiArchitectureContractTest {
                 "取消预览不得继续显示成含糊的“清除”");
     }
 
+    @Test
+    void rtsOverlayDoesNotUseMenuBlurAndTopBarTexturesUseExplicitPipeline() throws IOException {
+        String screen = read("screen/standalone/BuilderScreen.java");
+        String topBar = read("screen/topbar/TopBarPanel.java");
+
+        assertTrue(screen.contains("public void extractBackground("),
+                "RTS 主界面必须接管背景层，不能继承普通菜单 blur");
+        assertFalse(screen.contains("super.extractBackground("),
+                "RTS 背景层不得重新调用 Screen 的菜单背景链路");
+        assertTrue(topBar.contains("RenderPipelines.GUI_TEXTURED"),
+                "26.1 顶栏 PNG 必须通过明确的 GUI texture pipeline 提交");
+        assertFalse(topBar.contains("g.blit(textureIcon,"),
+                "不得恢复会令顶栏纹理透明的旧式无 pipeline blit");
+    }
+
     private static String read(String relative) throws IOException {
         return Files.readString(CLIENT_ROOT.resolve(relative));
     }

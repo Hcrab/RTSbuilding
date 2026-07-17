@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.developer.RtsDeveloperTaskScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.neoforged.fml.ModList;
 import org.lwjgl.glfw.GLFW;
@@ -331,7 +332,19 @@ public final class TopBarPanel {
         // Try texture-based icon first
         Identifier textureIcon = TopBarIconRenderer.topbarModeTexture(button.id(), button.active(), hovered, pressed);
         if (textureIcon != null) {
-            g.blit(textureIcon, x + (w - TOP_BUTTON_H) / 2, y, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
+            // 26.1 的 GUI 纹理必须带明确 pipeline 提交到当前内容 stratum。
+            // 旧的无 pipeline blit 重载不会按普通 GUI 纹理状态处理，表现为按钮全部透明。
+            g.blit(
+                    RenderPipelines.GUI_TEXTURED,
+                    textureIcon,
+                    x + (w - TOP_BUTTON_H) / 2,
+                    y,
+                    0,
+                    0,
+                    TOP_BUTTON_H,
+                    TOP_BUTTON_H,
+                    TOP_BUTTON_H,
+                    TOP_BUTTON_H);
             return;
         }
 

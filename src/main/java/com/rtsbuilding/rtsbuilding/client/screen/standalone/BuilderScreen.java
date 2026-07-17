@@ -1573,6 +1573,20 @@ public final class BuilderScreen extends Screen {
         return super.charTyped(new CharacterEvent(codePoint));
     }
     // ======================== Rendering Methods ========================
+    /**
+     * RTS 主界面是覆盖在实时世界上的操作层，不是暂停菜单。
+     *
+     * <p>26.1 的 {@link Screen} 默认会在背景 stratum 提交菜单 blur 和菜单背景；
+     * 若沿用该实现，世界会被模糊，且后续 GUI render state 可能与 RTS 顶栏的纹理
+     * 提交顺序冲突。因此这里明确不向背景层提交任何内容，只让 RTS 自己的顶部栏、
+     * 底部栏和浮窗进入内容层。</p>
+     */
+    @Override
+    public void extractBackground(
+            GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // 有意留空：RTS 必须保持实时世界清晰可见。
+    }
+
     @Override
     /**
      * Main render entry point. Uses fixed RTS GUI scaling when enabled.
