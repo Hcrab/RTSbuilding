@@ -15,9 +15,8 @@ public final class RtsCameraRenderSync {
 
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
-        // Sync camera pose every rendered frame to avoid occasional fallback frames
-        // where network interpolation briefly shows stale orientation.
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        // 在世界几何渲染前同步相机姿态，确保帧间插值使用最新的 prev/current 位置
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY) {
             ClientRtsController.get().syncVisualCameraFrame();
         }
     }
