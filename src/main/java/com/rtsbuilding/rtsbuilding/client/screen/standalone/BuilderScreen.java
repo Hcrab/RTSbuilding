@@ -27,6 +27,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
+import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.RtsScreenOverlayRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
@@ -141,6 +142,8 @@ public final class BuilderScreen extends Screen {
     private final ScreenCursorPicker cursorPicker = new ScreenCursorPicker();
     /** Handler for camera movement, drag rotation, panning, and mining actions. */
     private final CameraInputHandler cameraInput = new CameraInputHandler();
+    /** 长按 Alt 唤出的 RTS 鼠标模式轮盘。 */
+    private final BuilderModeWheel modeWheel = new BuilderModeWheel();
     /** Guide/onboarding panel that explains UI elements and controls. */
     private final GuidePanel guidePanel = new GuidePanel();
     /** Gear (settings) menu panel with configuration toggles and sliders. */
@@ -165,6 +168,18 @@ public final class BuilderScreen extends Screen {
     private boolean funnelHotkeyHeld = false;
     /** The builder mode that was active before the funnel hotkey was pressed, for restoration on release. */
     private BuilderMode modeBeforeFunnelHotkey = BuilderMode.INTERACT;
+    /** F 快捷键是否临时替换了一个非漏斗模式。 */
+    private boolean funnelHotkeyTemporaryMode = false;
+    /** 漏斗模式下右键短点触发的一次短吸取剩余 tick。 */
+    private int funnelClickPulseTicks = 0;
+    /** 上一 tick 的物理 Alt 状态，保证每次按住只打开一次轮盘。 */
+    private boolean modeWheelAltWasDown = false;
+    /** 轮盘点击关闭后仍需吞掉的鼠标松开事件。 */
+    private int modeWheelConsumedMouseButton = -1;
+    /** 最近一次 RTS 固定缩放渲染所使用的虚拟宽度。 */
+    private int lastRtsUiWidth = 0;
+    /** 最近一次 RTS 固定缩放渲染所使用的虚拟高度。 */
+    private int lastRtsUiHeight = 0;
     /** Whether we are currently inside a fixed-RTS-scale render pass (for UI scaling). */
     private boolean fixedRtsScaleRenderPass = false;
     /** Whether we are currently inside a fixed-RTS-scale input pass (for UI scaling). */
@@ -459,7 +474,14 @@ public final class BuilderScreen extends Screen {
         persistUiState();
         this.uiStateManager.flush();
         this.pendingGuiBindSlot = -1;
+        if (this.funnelHotkeyTemporaryMode && this.controller.getMode() == BuilderMode.FUNNEL) {
+            this.controller.setMode(this.modeBeforeFunnelHotkey);
+        }
         this.funnelHotkeyHeld = false;
+        this.funnelHotkeyTemporaryMode = false;
+        this.funnelClickPulseTicks = 0;
+        this.modeWheel.close();
+        this.modeWheelConsumedMouseButton = -1;
         this.cameraInput.resetCameraVerticalHeld();
         this.cameraInput.stopActiveMining();
         if (this.controller.isFunnelEnabled()) {
@@ -477,6 +499,19 @@ public final class BuilderScreen extends Screen {
     public void removed() {
         super.removed();
         this.cameraInput.resetCameraVerticalHeld();
+        this.modeWheel.close();
+        this.modeWheelAltWasDown = false;
+        this.modeWheelConsumedMouseButton = -1;
+        boolean restoreModeAfterFunnel = this.funnelHotkeyTemporaryMode;
+        this.funnelHotkeyHeld = false;
+        this.funnelClickPulseTicks = 0;
+        if (this.controller.isFunnelEnabled()) {
+            this.controller.setFunnelEnabled(false);
+        }
+        if (restoreModeAfterFunnel && this.controller.getMode() == BuilderMode.FUNNEL) {
+            this.controller.setMode(this.modeBeforeFunnelHotkey);
+        }
+        this.funnelHotkeyTemporaryMode = false;
         this.overlayRenderer.updateNativeCursorVisibility(false);
         RtsCullingClientState.clearActiveManager(this.cullingManager);
     }
@@ -491,8 +526,15 @@ public final class BuilderScreen extends Screen {
         // 每 tick 写入脏状态（无脏时零开销）
         this.uiStateManager.flush();
         enforceBlueprintPlacementModeLock();
+        updateModeWheelAltState();
         if (this.rtsFlightToggleCooldownTicks > 0) {
             this.rtsFlightToggleCooldownTicks--;
+        }
+        if (this.funnelClickPulseTicks > 0 && !this.funnelHotkeyHeld) {
+            this.funnelClickPulseTicks--;
+            if (this.funnelClickPulseTicks == 0 && this.controller.isFunnelEnabled()) {
+                this.controller.setFunnelEnabled(false);
+            }
         }
         if (this.controller.getMode() == BuilderMode.FUNNEL && this.controller.isFunnelEnabled()) {
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
@@ -536,6 +578,20 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.modeWheel.isOpen()) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                BuilderMode selectedMode = this.modeWheel.hoveredMode(mouseX, mouseY);
+                if (selectedMode != null) {
+                    selectModeFromWheel(selectedMode);
+                    this.modeWheel.close();
+                    this.modeWheelConsumedMouseButton = button;
+                }
+            } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                this.modeWheel.close();
+                this.modeWheelConsumedMouseButton = button;
+            }
+            return true;
+        }
         if (handleOverlayClicks(mouseX, mouseY, button)) return true;
         if (handleBlueprintCaptureClicks(mouseX, mouseY, button)) return true;
         if (handleHomeSelectionClicks(mouseX, mouseY, button)) return true;
@@ -679,19 +735,8 @@ public final class BuilderScreen extends Screen {
             if (primaryMouse && this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
                 return true;
             }
-            if (primaryMouse && !panMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.LINK_STORAGE) {
-                return true;
-            }
             if (primaryMouse && isInsideBottomPanel(mouseX, mouseY)) {
                 return this.bottomPanel.handleRightClick(mouseX, mouseY);
-            }
-            if (primaryMouse && isWorldArea(mouseX, mouseY) && this.controller.getMode() == BuilderMode.ROTATE && !panMouse) {
-                BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                if (hit != null) {
-                    clearShapeBuildSession();
-                    this.controller.rotateBlock(hit.getBlockPos());
-                }
-                return true;
             }
             if (isMovePlayerActionMouse(button) && isWorldArea(mouseX, mouseY)) {
                 return handleMovePlayerActionAt(mouseX, mouseY);
@@ -754,6 +799,13 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (button == this.modeWheelConsumedMouseButton) {
+            this.modeWheelConsumedMouseButton = -1;
+            return true;
+        }
+        if (this.modeWheel.isOpen()) {
+            return true;
+        }
         if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
             this.cameraInput.stopActiveMining();
             return true;
@@ -800,6 +852,9 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.modeWheel.isOpen()) {
+            return true;
+        }
         if (handleFloatingWindowDrag(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
@@ -915,6 +970,7 @@ public final class BuilderScreen extends Screen {
         }
         if (this.controller.getMode() == BuilderMode.FUNNEL) {
             this.shapeController.clearShapeBuildSession();
+            startFunnelClickPulse();
             return true;
         }
         if (this.controller.getMode() == BuilderMode.ROTATE) {
@@ -1125,6 +1181,9 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.modeWheel.isOpen()) {
+            return true;
+        }
         if (handleFloatingWindowScroll(mouseX, mouseY, scrollX, scrollY)) {
             return true;
         }
@@ -1175,6 +1234,17 @@ public final class BuilderScreen extends Screen {
      * search box, tool slot, and sensitivity handlers in priority order.
      */
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (this.modeWheel.isOpen()) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                this.modeWheel.close();
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_SPACE && (modifiers & GLFW.GLFW_MOD_ALT) != 0) {
+                this.modeWheel.close();
+            } else {
+                return true;
+            }
+        }
         if (handleOverlayKeys(keyCode, scanCode, modifiers)) return true;
         if (handleBlueprintKeys(keyCode, scanCode, modifiers)) return true;
         if (handleHomeSelectionKey(keyCode)) return true;
@@ -1275,17 +1345,20 @@ public final class BuilderScreen extends Screen {
         if (!isSearchFocused() && ClientKeyMappings.ACTION_PRIMARY.matches(keyCode, scanCode)) {
             return runPrimaryActionAt(currentMouseX(), currentMouseY());
         }
-        if (!isSearchFocused() && handleModeKeyPressed(keyCode, scanCode)) {
-            return true;
-        }
         if (!isSearchFocused()
                 && isBlueprintPlacementModeLocked()
                 && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
             return true;
         }
         if (!isSearchFocused() && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
+            if (this.funnelHotkeyHeld) {
+                return true;
+            }
             activateFunnelHotkey();
             this.funnelHotkeyHeld = true;
+            return true;
+        }
+        if (!isSearchFocused() && handleModeKeyPressed(keyCode, scanCode)) {
             return true;
         }
         if (!isSearchFocused() && ClientKeyMappings.QUICK_DROP.matches(keyCode, scanCode)) {
@@ -1423,6 +1496,11 @@ public final class BuilderScreen extends Screen {
     @Override
     /** Handles key release for funnel hotkey and camera vertical movement states. */
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_LEFT_ALT || keyCode == GLFW.GLFW_KEY_RIGHT_ALT) {
+            this.modeWheel.close();
+            this.modeWheelAltWasDown = isAltDown();
+            return true;
+        }
         if (ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode) && this.funnelHotkeyHeld) {
             this.funnelHotkeyHeld = false;
             deactivateFunnelHotkey();
@@ -1487,7 +1565,7 @@ public final class BuilderScreen extends Screen {
             return switchToModeFromKey(BuilderMode.ROTATE, false);
         }
         if (ClientKeyMappings.MODE_FUNNEL.matches(keyCode, scanCode)) {
-            return switchToModeFromKey(BuilderMode.FUNNEL, true);
+            return switchToModeFromKey(BuilderMode.FUNNEL, false);
         }
         return false;
     }
@@ -1545,6 +1623,8 @@ public final class BuilderScreen extends Screen {
         }
         this.lastMouseX = mouseX;
         this.lastMouseY = mouseY;
+        this.lastRtsUiWidth = this.width;
+        this.lastRtsUiHeight = this.height;
         resetHoverStates();
         guiGraphics.fill(0, 0, this.width, TOP_H, 0xC0101116);
         if (this.controller.isHomeSelectionMode()) {
@@ -1578,6 +1658,10 @@ public final class BuilderScreen extends Screen {
         this.overlayRenderer.updateNativeCursor(this.floatingWindowLayer.resizeCursorAt(mouseX, mouseY));
         this.bottomPanel.renderCraftFeedback(guiGraphics);
         this.overlayRenderer.renderDamageFlash(guiGraphics);
+        if (this.modeWheel.isOpen()) {
+            this.overlayRenderer.updateNativeCursorVisibility(false);
+            this.modeWheel.render(guiGraphics, this.font, mouseX, mouseY, this.controller.getMode());
+        }
     }
 
     /** Resets all panel hover states before each render frame. */
@@ -2031,7 +2115,9 @@ public final class BuilderScreen extends Screen {
         }
         this.cameraInput.stopActiveMining();
         this.shapeController.clearShapeBuildSession();
-        if (this.controller.getMode() != BuilderMode.FUNNEL) {
+        this.funnelClickPulseTicks = 0;
+        this.funnelHotkeyTemporaryMode = this.controller.getMode() != BuilderMode.FUNNEL;
+        if (this.funnelHotkeyTemporaryMode) {
             this.modeBeforeFunnelHotkey = this.controller.getMode();
         }
         this.controller.setMode(BuilderMode.FUNNEL);
@@ -2044,10 +2130,67 @@ public final class BuilderScreen extends Screen {
     private void deactivateFunnelHotkey() {
         if (this.controller.getMode() == BuilderMode.FUNNEL || this.controller.isFunnelEnabled()) {
             this.controller.setFunnelEnabled(false);
-            this.controller.setMode(this.modeBeforeFunnelHotkey == BuilderMode.FUNNEL
-                    ? BuilderMode.INTERACT
-                    : this.modeBeforeFunnelHotkey);
+            if (this.funnelHotkeyTemporaryMode) {
+                this.controller.setMode(this.modeBeforeFunnelHotkey);
+            }
         }
+        this.funnelHotkeyTemporaryMode = false;
+    }
+
+    /**
+     * 在常驻漏斗模式中执行一次短吸取。持续时间覆盖服务端漏斗调度间隔，
+     * 但不会把漏斗重新变成进入模式后永久自动运行。
+     */
+    private void startFunnelClickPulse() {
+        if (this.controller.getMode() != BuilderMode.FUNNEL || this.funnelHotkeyHeld) {
+            return;
+        }
+        this.controller.setFunnelEnabled(true);
+        this.funnelClickPulseTicks = 6;
+    }
+
+    /**
+     * 根据物理 Alt 边沿打开或关闭模式轮盘。轮盘锚点沿用最近一次固定缩放
+     * 渲染的虚拟坐标系，避免高 RTS UI 缩放时靠右、靠下出屏。
+     */
+    private void updateModeWheelAltState() {
+        boolean altDown = isAltDown();
+        if (altDown && !this.modeWheelAltWasDown && canOpenModeWheel()) {
+            this.cameraInput.stopActiveMining();
+            this.cameraInput.cancelPointerGestures();
+            int uiWidth = this.lastRtsUiWidth > 0 ? this.lastRtsUiWidth : this.width;
+            int uiHeight = this.lastRtsUiHeight > 0 ? this.lastRtsUiHeight : this.height;
+            this.modeWheel.open(currentMouseX(), currentMouseY(), uiWidth, uiHeight);
+        } else if (!altDown && this.modeWheelAltWasDown) {
+            this.modeWheel.close();
+        }
+        this.modeWheelAltWasDown = altDown;
+    }
+
+    /** 仅在没有占用 Alt 的选择流程时允许模式轮盘接管输入。 */
+    private boolean canOpenModeWheel() {
+        return this.controller.isEnabled()
+                && !this.controller.isHomeSelectionMode()
+                && !isSearchFocused()
+                && !isBlueprintPlacementModeLocked()
+                && !BlueprintPanel.isCaptureModeActive()
+                && !this.cullingManager.isManagementMode()
+                && this.controller.getAreaMinePhase() == MiningOperationService.AREA_MINE_PHASE_NONE
+                && this.shapeController.advancedRangeDestroyActiveHandle() == null;
+    }
+
+    /**
+     * 提交轮盘选择到唯一的 BuilderMode 状态源。顶部栏直接读取该状态，
+     * 因此对应按钮会同步显示为已选中样式。
+     */
+    private void selectModeFromWheel(BuilderMode mode) {
+        this.cameraInput.stopActiveMining();
+        this.shapeController.clearShapeBuildSession();
+        this.funnelHotkeyHeld = false;
+        this.funnelHotkeyTemporaryMode = false;
+        this.funnelClickPulseTicks = 0;
+        this.controller.setFunnelEnabled(false);
+        this.controller.setMode(mode);
     }
 
     private boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {

@@ -108,9 +108,35 @@ public final class TopBarPanel {
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         TopBarLayout.Status status = TopBarLayout.status(screen.width);
+        String visibleRow2 = screen.trimToWidth(row2, status.width());
         g.drawString(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(), 0xF0F0F0, false);
-        g.drawString(screen.font(), screen.trimToWidth(row2, status.width()), status.x(), status.row2Y(),
+        g.drawString(screen.font(), visibleRow2, status.x(), status.row2Y(),
                 this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
+        renderContextualModeTip(g, status, visibleRow2);
+    }
+
+    /**
+     * 在第二行右侧空白处绘制当前模式的操作提示。空间不足时整段隐藏，
+     * 避免提示与储存状态在高 UI 缩放或较长翻译下互相覆盖。
+     */
+    private void renderContextualModeTip(GuiGraphics g, TopBarLayout.Status status, String visibleRow2) {
+        String key = modeTipKey(this.controller.getMode());
+        if (key.isBlank()) {
+            return;
+        }
+        String tip = screen.text(key);
+        int tipX = TopBarLayout.contextualHintX(
+                status,
+                screen.font().width(visibleRow2),
+                screen.font().width(tip),
+                12);
+        if (tipX >= 0) {
+            g.drawString(screen.font(), tip, tipX, status.row2Y(), 0xB8FFB8, false);
+        }
+    }
+
+    static String modeTipKey(BuilderMode mode) {
+        return mode == BuilderMode.FUNNEL ? "screen.rtsbuilding.mode_tip.funnel" : "";
     }
 
     // ======================== Click Handling ========================
@@ -151,7 +177,7 @@ public final class TopBarPanel {
                 }
                 case FUNNEL -> {
                     this.controller.setMode(BuilderMode.FUNNEL);
-                    this.controller.setFunnelEnabled(true);
+                    this.controller.setFunnelEnabled(false);
                     screen.clearShapeBuildSession();
                 }
                 case ROTATE -> {

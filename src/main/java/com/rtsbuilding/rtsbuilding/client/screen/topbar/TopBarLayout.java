@@ -48,6 +48,15 @@ public final class TopBarLayout {
                 STATUS_ROW_1_Y, STATUS_ROW_2_Y);
     }
 
+    /**
+     * 将模式提示贴到状态栏右侧；左侧状态没有留下完整提示所需空间时不显示。
+     */
+    public static int contextualHintX(Status status, int leftTextWidth, int hintWidth, int gap) {
+        int hintX = status.x() + status.width() - hintWidth;
+        int minimumHintX = status.x() + leftTextWidth + gap;
+        return hintX >= minimumHintX ? hintX : -1;
+    }
+
     private static int put(EnumMap<TopBarTypes.TopBarButtonId, Integer> positions,
             TopBarTypes.TopBarButtonId id, int x, int width, int gap) {
         positions.put(id, x);

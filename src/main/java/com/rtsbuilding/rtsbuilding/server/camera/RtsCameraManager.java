@@ -30,7 +30,9 @@ public final class RtsCameraManager {
     private static final float MAX_PITCH = 90.0F;
 
     // 旋转输入钳位值
-    private static final float ROT_INPUT_CLAMP = 20.0F;
+    // 平滑客户端会把一个 tick 内的高频鼠标事件汇总后发送。160 仍能拦截异常尖峰，
+    // 同时不会把合法的高轮询率鼠标拖拽截成每 tick 最多 4.8° 的阶梯。
+    private static final float ROT_INPUT_CLAMP = 160.0F;
     // 水平旋转增益
     private static final float ROTATE_GAIN_X = 0.24F;
     // 垂直旋转增益

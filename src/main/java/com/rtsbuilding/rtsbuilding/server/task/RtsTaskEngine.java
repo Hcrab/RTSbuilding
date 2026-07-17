@@ -718,9 +718,12 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState state) {
         MiningTaskPayload payload = new MiningTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), state.workflowEntryId(), state);
-        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
-                player.getUUID(), "mining",
-                player.serverLevel().dimension().location() + ":" + state.workflowEntryId());
+        /*
+         * workflowEntryId 只在当前工作流存档代次内单调递增，旧世界/测试存档恢复时可能再次出现相同值。
+         * 这里处理的是玩家刚刚发起的新操作，不是旧 durable 记录迁移；必须生成新的 submission，
+         * 否则历史终态回执会把合法的新连锁挖掘误判为重放，首块进度永远无法开始。
+         */
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
                 .fromSubmission(player.getUUID(), submission);
         long gameTime = player.serverLevel().getGameTime();

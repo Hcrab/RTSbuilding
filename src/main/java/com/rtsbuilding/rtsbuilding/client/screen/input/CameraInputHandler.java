@@ -58,6 +58,10 @@ public final class CameraInputHandler {
     private boolean rightDragRotated = false;
     /** Accumulated right-click drag distance */
     private double rightDragDistance = 0.0D;
+    /** 跨过拖动阈值前暂存的水平位移，避免微拖既转镜头又触发点击。 */
+    private double pendingRightDragX = 0.0D;
+    /** 跨过拖动阈值前暂存的垂直位移。 */
+    private double pendingRightDragY = 0.0D;
 
     /** Whether middle-click drag is active */
     private boolean middlePressActive = false;
@@ -174,6 +178,28 @@ public final class CameraInputHandler {
 
     // ======================== 右键拖拽状态管理 ========================
 
+    /**
+     * 取消尚未结束的鼠标点击/拖动判定。
+     *
+     * <p>模式轮盘等模态界面接管鼠标时必须调用本方法，避免打开轮盘前按下的
+     * 右键在轮盘关闭后又被解释成一次世界交互或旋转操作。</p>
+     */
+    public void cancelPointerGestures() {
+        this.rightPressActive = false;
+        this.rightPressButton = -1;
+        this.rightPressCanPrimary = false;
+        this.rightPressCanRotate = false;
+        this.rightDragRotated = false;
+        this.rightDragDistance = 0.0D;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
+        this.middlePressActive = false;
+        this.middlePressButton = -1;
+        this.middlePressCanPan = false;
+        this.middlePressCanPick = false;
+        this.middleDragDistance = 0.0D;
+    }
+
     public void beginRightPress(double mouseX, double mouseY, int button, boolean primaryMouse, boolean rotateMouse) {
         this.rightPressActive = true;
         this.rightPressButton = button;
@@ -181,6 +207,8 @@ public final class CameraInputHandler {
         this.rightPressCanRotate = rotateMouse;
         this.rightDragRotated = false;
         this.rightDragDistance = 0.0D;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
     }
 
     public boolean isRightDragActive(int button) {
@@ -202,16 +230,21 @@ public final class CameraInputHandler {
                 && screen.isWorldArea(mouseX, mouseY)
                 && !isAltDown()) {
             this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
-            if (this.rightDragDistance > 1.5D) {
-                this.rightDragRotated = true;
+            this.pendingRightDragX += dragX;
+            this.pendingRightDragY += dragY;
+            if (this.rightDragDistance <= 1.5D) {
+                return true;
             }
+            this.rightDragRotated = true;
             if (CameraInputHandler.isPanDragActionMouse(button)) {
                 // Default middle button: camera pan (movement)
-                this.controller.queuePanDrag(dragX, dragY);
+                this.controller.queuePanDrag(this.pendingRightDragX, this.pendingRightDragY);
             } else if (this.rightPressCanRotate) {
                 // Default right button: camera rotation
-                this.controller.queueRotateDrag(dragX, dragY);
+                this.controller.queueRotateDrag(this.pendingRightDragX, this.pendingRightDragY);
             }
+            this.pendingRightDragX = 0.0D;
+            this.pendingRightDragY = 0.0D;
             return true;
         }
         return false;
@@ -234,6 +267,8 @@ public final class CameraInputHandler {
         this.rightPressButton = -1;
         this.rightPressCanPrimary = false;
         this.rightPressCanRotate = false;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
         if (this.rightDragRotated) {
             this.rightDragRotated = false;
             this.rightDragDistance = 0.0D;

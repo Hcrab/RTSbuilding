@@ -34,4 +34,16 @@ class TopBarLayoutTest {
         assertTrue(layout.x(TopBarTypes.TopBarButtonId.GEAR) >= developerRight + 5);
         assertTrue(layout.x(TopBarTypes.TopBarButtonId.GEAR) + iconWidth <= width);
     }
+
+    @Test
+    void contextualHintUsesRightEdgeWhenThereIsEnoughSpace() {
+        var status = TopBarLayout.status(854);
+        assertEquals(666, TopBarLayout.contextualHintX(status, 420, 180, 12));
+    }
+
+    @Test
+    void contextualHintIsHiddenInsteadOfOverlappingStatusText() {
+        var status = TopBarLayout.status(480);
+        assertEquals(-1, TopBarLayout.contextualHintX(status, 330, 180, 12));
+    }
 }

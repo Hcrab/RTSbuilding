@@ -26,6 +26,7 @@ public final class CameraOrbitService {
     // =========================================================================
 
     private static final float ROT_INPUT_CLAMP = 20.0F;
+    private static final float MAX_SMOOTH_ROTATE_ACCUMULATION = 160.0F;
     private static final float ROTATE_GAIN_X = 0.24F;
     private static final float ROTATE_GAIN_Y = 0.22F;
     private static final float ROT_SENS_MIN = 1.00F;
@@ -38,6 +39,17 @@ public final class CameraOrbitService {
     private static final int INPUT_SENS_DEFAULT_INDEX = 2;
     private static final float ROT_EMA_ALPHA = 0.28F;
     private static final float ROT_EMA_DECAY = 0.78F;
+    private static final float SMOOTH_TICK_SECONDS = 0.05F;
+    private static final float MOVE_ACCELERATION_SECONDS = 0.055F;
+    private static final float MOVE_DECELERATION_SECONDS = 0.050F;
+    private static final float MOVE_SMOOTH_EPSILON = 0.002F;
+    private static final float SCROLL_RESPONSE_SECONDS = 0.045F;
+    private static final float SCROLL_SMOOTH_EPSILON = 0.0005F;
+    private static final float MAX_SMOOTH_SCROLL_REMAINING = 16.0F;
+    private static final float VISUAL_POSITION_RESPONSE_SECONDS = 0.018F;
+    private static final float VISUAL_ROTATION_RESPONSE_SECONDS = 0.014F;
+    private static final double VISUAL_POSITION_EPSILON = 1.0e-4D;
+    private static final float VISUAL_ROTATION_EPSILON = 1.0e-3F;
     private static final double MIN_CAMERA_HEIGHT_OFFSET = -35.0D;
     private static final double MAX_CAMERA_HEIGHT_OFFSET = 110.0D;
     private static final float MIN_CAMERA_PITCH = -90.0F;
@@ -45,7 +57,6 @@ public final class CameraOrbitService {
     private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
     private static final int CAMERA_IDLE_HEARTBEAT_TICKS = 20;
     private static final int CAMERA_RESTORE_COOLDOWN_TICKS = 10;
-    private static final long NANOS_PER_TICK = 50_000_000L;
     private static final float MAX_SMOOTH_FRAME_TICKS = 2.00F;
 
     // =========================================================================
@@ -63,9 +74,13 @@ public final class CameraOrbitService {
     private float pendingPanX;
     private float pendingPanY;
     private float pendingScroll;
+    private float pendingNetworkScroll;
+    private float smoothScrollRemaining;
     private int pendingRotateSteps;
     private float pendingRawRotateX;
     private float pendingRawRotateY;
+    private float pendingSmoothRotateX;
+    private float pendingSmoothRotateY;
 
     // =========================================================================
     //  Fields — EMA smoothing
@@ -73,6 +88,9 @@ public final class CameraOrbitService {
 
     private float emaRotateX;
     private float emaRotateY;
+    private float smoothForward;
+    private float smoothStrafe;
+    private float smoothVertical;
     private int cameraMoveHeartbeatTicks;
     private int cameraRestoreCooldownTicks;
     private long lastSmoothCameraFrameNanos;
@@ -102,6 +120,15 @@ public final class CameraOrbitService {
     private double localHeightOffset;
     private float localYawDeg;
     private float localPitchDeg;
+
+    // 渲染姿态与逻辑姿态分离：逻辑姿态和服务端保持同一份输入积分，
+    // 镜像相机只用这组视觉姿态做很短的帧间追随，避免双重积分造成漂移。
+    private boolean visualPoseReady;
+    private double visualX;
+    private double visualY;
+    private double visualZ;
+    private float visualYawDeg;
+    private float visualPitchDeg;
 
     // =========================================================================
     //  Fields — mirror camera & previous view restoration
@@ -140,14 +167,22 @@ public final class CameraOrbitService {
         this.pendingPanX = 0.0F;
         this.pendingPanY = 0.0F;
         this.pendingScroll = 0.0F;
+        this.pendingNetworkScroll = 0.0F;
+        this.smoothScrollRemaining = 0.0F;
         this.pendingRotateSteps = 0;
         this.pendingRawRotateX = 0.0F;
         this.pendingRawRotateY = 0.0F;
+        this.pendingSmoothRotateX = 0.0F;
+        this.pendingSmoothRotateY = 0.0F;
         this.emaRotateX = 0.0F;
         this.emaRotateY = 0.0F;
+        this.smoothForward = 0.0F;
+        this.smoothStrafe = 0.0F;
+        this.smoothVertical = 0.0F;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
         this.lastSmoothCameraFrameNanos = 0L;
+        snapVisualPoseToLocal();
     }
 
     /** Called by the controller when disabling the camera (normal disable). */
@@ -161,11 +196,19 @@ public final class CameraOrbitService {
         this.pendingPanX = 0.0F;
         this.pendingPanY = 0.0F;
         this.pendingScroll = 0.0F;
+        this.pendingNetworkScroll = 0.0F;
+        this.smoothScrollRemaining = 0.0F;
         this.pendingRotateSteps = 0;
         this.pendingRawRotateX = 0.0F;
         this.pendingRawRotateY = 0.0F;
+        this.pendingSmoothRotateX = 0.0F;
+        this.pendingSmoothRotateY = 0.0F;
         this.emaRotateX = 0.0F;
         this.emaRotateY = 0.0F;
+        this.smoothForward = 0.0F;
+        this.smoothStrafe = 0.0F;
+        this.smoothVertical = 0.0F;
+        this.visualPoseReady = false;
     }
 
     /** Called by the controller when disabling on death. */
@@ -174,6 +217,14 @@ public final class CameraOrbitService {
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
         this.lastSmoothCameraFrameNanos = 0L;
+        this.smoothForward = 0.0F;
+        this.smoothStrafe = 0.0F;
+        this.smoothVertical = 0.0F;
+        this.smoothScrollRemaining = 0.0F;
+        this.pendingNetworkScroll = 0.0F;
+        this.pendingSmoothRotateX = 0.0F;
+        this.pendingSmoothRotateY = 0.0F;
+        this.visualPoseReady = false;
         this.previousCameraEntity = null;
         this.localMirrorCamera = null;
     }
@@ -210,11 +261,18 @@ public final class CameraOrbitService {
         this.pendingPanX = 0.0F;
         this.pendingPanY = 0.0F;
         this.pendingScroll = 0.0F;
+        this.pendingNetworkScroll = 0.0F;
+        this.smoothScrollRemaining = 0.0F;
         this.pendingRotateSteps = 0;
         this.pendingRawRotateX = 0.0F;
         this.pendingRawRotateY = 0.0F;
+        this.pendingSmoothRotateX = 0.0F;
+        this.pendingSmoothRotateY = 0.0F;
         this.emaRotateX = 0.0F;
         this.emaRotateY = 0.0F;
+        this.smoothForward = 0.0F;
+        this.smoothStrafe = 0.0F;
+        this.smoothVertical = 0.0F;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
         this.lastSmoothCameraFrameNanos = 0L;
@@ -426,6 +484,20 @@ public final class CameraOrbitService {
     public void setSmoothCamera(boolean smoothCamera) {
         if (this.smoothCamera != smoothCamera) {
             this.lastSmoothCameraFrameNanos = 0L;
+            this.smoothForward = 0.0F;
+            this.smoothStrafe = 0.0F;
+            this.smoothVertical = 0.0F;
+            if (smoothCamera) {
+                this.smoothScrollRemaining = Mth.clamp(
+                        this.smoothScrollRemaining + this.pendingScroll,
+                        -MAX_SMOOTH_SCROLL_REMAINING,
+                        MAX_SMOOTH_SCROLL_REMAINING);
+                this.pendingScroll = 0.0F;
+            } else {
+                this.pendingScroll += this.smoothScrollRemaining;
+                this.smoothScrollRemaining = 0.0F;
+            }
+            snapVisualPoseToLocal();
         }
         this.smoothCamera = smoothCamera;
     }
@@ -512,19 +584,23 @@ public final class CameraOrbitService {
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
-        this.pendingRawRotateX += (float) dragX;
-        this.pendingRawRotateY += (float) dragY;
         if (this.smoothCamera) {
             applyImmediateRotation((float) dragX, (float) dragY);
+        } else {
+            this.pendingRawRotateX += (float) dragX;
+            this.pendingRawRotateY += (float) dragY;
         }
     }
 
     public void queueScroll(double scrollY) {
         float scroll = (float) scrollY * getWheelZoomSensitivityScale();
-        this.pendingScroll += scroll;
         if (this.smoothCamera) {
-            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-                    scroll, 0, false);
+            this.smoothScrollRemaining = Mth.clamp(
+                    this.smoothScrollRemaining + scroll,
+                    -MAX_SMOOTH_SCROLL_REMAINING,
+                    MAX_SMOOTH_SCROLL_REMAINING);
+        } else {
+            this.pendingScroll += scroll;
         }
     }
 
@@ -540,9 +616,22 @@ public final class CameraOrbitService {
     // =========================================================================
 
     private void applyImmediateRotation(float dragX, float dragY) {
+        if (!this.localStateReady) {
+            return;
+        }
         float sens = getRotateViewSensitivityScale() * this.rotateSensitivity;
-        float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
-        float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
+        float requestedYaw = Mth.clamp(dragX * sens, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float requestedPitch = Mth.clamp(dragY * sens, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float nextYawTotal = Mth.clamp(
+                this.pendingSmoothRotateX + requestedYaw,
+                -MAX_SMOOTH_ROTATE_ACCUMULATION, MAX_SMOOTH_ROTATE_ACCUMULATION);
+        float nextPitchTotal = Mth.clamp(
+                this.pendingSmoothRotateY + requestedPitch,
+                -MAX_SMOOTH_ROTATE_ACCUMULATION, MAX_SMOOTH_ROTATE_ACCUMULATION);
+        float yawDelta = nextYawTotal - this.pendingSmoothRotateX;
+        float pitchDelta = nextPitchTotal - this.pendingSmoothRotateY;
+        this.pendingSmoothRotateX = nextYawTotal;
+        this.pendingSmoothRotateY = nextPitchTotal;
         applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, yawDelta, pitchDelta, 0.0F, 0, false);
     }
 
@@ -553,7 +642,7 @@ public final class CameraOrbitService {
             return;
         }
         applyLocalPrediction(forward, strafe, vertical, panX, panY, rotateX, rotateY, scroll, rotateSteps, fast);
-        snapLocalMirrorCameraPose();
+        snapVisualMirrorCameraPose();
     }
 
     // =========================================================================
@@ -581,28 +670,58 @@ public final class CameraOrbitService {
 
         CameraInput cameraInput = readCameraInput(minecraft);
         float keyboardScale = getKeyboardMoveSensitivityScale();
-        float forward = cameraInput.forward * keyboardScale;
-        float strafe = cameraInput.strafe * keyboardScale;
-        float vertical = cameraInput.vertical * keyboardScale;
+        if (this.smoothCamera) {
+            this.smoothForward = RtsCameraSmoothingMath.approachAxis(
+                    this.smoothForward, cameraInput.forward, SMOOTH_TICK_SECONDS,
+                    MOVE_ACCELERATION_SECONDS, MOVE_DECELERATION_SECONDS, MOVE_SMOOTH_EPSILON);
+            this.smoothStrafe = RtsCameraSmoothingMath.approachAxis(
+                    this.smoothStrafe, cameraInput.strafe, SMOOTH_TICK_SECONDS,
+                    MOVE_ACCELERATION_SECONDS, MOVE_DECELERATION_SECONDS, MOVE_SMOOTH_EPSILON);
+            this.smoothVertical = RtsCameraSmoothingMath.approachAxis(
+                    this.smoothVertical, cameraInput.vertical, SMOOTH_TICK_SECONDS,
+                    MOVE_ACCELERATION_SECONDS, MOVE_DECELERATION_SECONDS, MOVE_SMOOTH_EPSILON);
+        } else {
+            this.smoothForward = cameraInput.forward;
+            this.smoothStrafe = cameraInput.strafe;
+            this.smoothVertical = cameraInput.vertical;
+        }
+        float forward = this.smoothForward * keyboardScale;
+        float strafe = this.smoothStrafe * keyboardScale;
+        float vertical = this.smoothVertical * keyboardScale;
         boolean fast = cameraInput.fast;
 
         float safeRawX = Mth.clamp(this.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
         float safeRawY = Mth.clamp(this.pendingRawRotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
 
-        this.emaRotateX += (safeRawX - this.emaRotateX) * ROT_EMA_ALPHA;
-        this.emaRotateY += (safeRawY - this.emaRotateY) * ROT_EMA_ALPHA;
-
-        if (Math.abs(safeRawX) < 0.0001F) {
-            this.emaRotateX *= ROT_EMA_DECAY;
-        }
-        if (Math.abs(safeRawY) < 0.0001F) {
-            this.emaRotateY *= ROT_EMA_DECAY;
-        }
-
         float rotateSensitivityScale = getRotateViewSensitivityScale();
-        float rotateXForTick = Mth.clamp(this.emaRotateX * this.rotateSensitivity * rotateSensitivityScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float rotateYForTick = Mth.clamp(this.emaRotateY * this.rotateSensitivity * rotateSensitivityScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float scrollForTick = this.pendingScroll;
+        float rotateXForTick;
+        float rotateYForTick;
+        if (this.smoothCamera) {
+            // 平滑模式的本地旋转已经按原始拖动即时预测；网络也发送同一批原始输入，
+            // 服务端允许同 tick 汇总后的有界值，避免高频鼠标事件撞到 20 的旧上限后
+            // 出现“本 tick 停住、下一 tick 再动”的卡顿。
+            this.emaRotateX = 0.0F;
+            this.emaRotateY = 0.0F;
+            rotateXForTick = this.pendingSmoothRotateX;
+            rotateYForTick = this.pendingSmoothRotateY;
+        } else {
+            this.emaRotateX += (safeRawX - this.emaRotateX) * ROT_EMA_ALPHA;
+            this.emaRotateY += (safeRawY - this.emaRotateY) * ROT_EMA_ALPHA;
+            if (Math.abs(safeRawX) < 0.0001F) {
+                this.emaRotateX *= ROT_EMA_DECAY;
+            }
+            if (Math.abs(safeRawY) < 0.0001F) {
+                this.emaRotateY *= ROT_EMA_DECAY;
+            }
+            rotateXForTick = Mth.clamp(
+                    this.emaRotateX * this.rotateSensitivity * rotateSensitivityScale,
+                    -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+            rotateYForTick = Mth.clamp(
+                    this.emaRotateY * this.rotateSensitivity * rotateSensitivityScale,
+                    -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        }
+        float localScrollForTick = this.smoothCamera ? 0.0F : this.pendingScroll;
+        float scrollForTick = this.pendingScroll + this.pendingNetworkScroll;
         if (Math.abs(rotateXForTick) < CAMERA_INPUT_EPSILON) {
             rotateXForTick = 0.0F;
             this.emaRotateX = 0.0F;
@@ -625,7 +744,7 @@ public final class CameraOrbitService {
                     forward, strafe, vertical,
                     this.pendingPanX, this.pendingPanY,
                     rotateXForTick, rotateYForTick,
-                    scrollForTick, this.pendingRotateSteps, fast);
+                    localScrollForTick, this.pendingRotateSteps, fast);
         }
 
         if (hasCameraInput || ++this.cameraMoveHeartbeatTicks >= CAMERA_IDLE_HEARTBEAT_TICKS) {
@@ -645,9 +764,12 @@ public final class CameraOrbitService {
         this.pendingPanX = 0.0F;
         this.pendingPanY = 0.0F;
         this.pendingScroll = 0.0F;
+        this.pendingNetworkScroll = 0.0F;
         this.pendingRotateSteps = 0;
         this.pendingRawRotateX = 0.0F;
         this.pendingRawRotateY = 0.0F;
+        this.pendingSmoothRotateX = 0.0F;
+        this.pendingSmoothRotateY = 0.0F;
     }
 
     // =========================================================================
@@ -672,13 +794,16 @@ public final class CameraOrbitService {
             return;
         }
 
+        float frameSeconds = smoothFrameDeltaSeconds();
         if (this.smoothCamera) {
-            applySmoothFrameMovement(minecraft);
+            applySmoothFrameMovement(minecraft, frameSeconds);
+            updateVisualPose(frameSeconds);
         } else {
             this.lastSmoothCameraFrameNanos = 0L;
+            snapVisualPoseToLocal();
         }
 
-        snapLocalMirrorCameraPose();
+        snapVisualMirrorCameraPose();
 
         if (minecraft.getCameraEntity() != this.localMirrorCamera) {
             if (this.cameraRestoreCooldownTicks <= 0) {
@@ -692,40 +817,110 @@ public final class CameraOrbitService {
         }
     }
 
-    private void applySmoothFrameMovement(Minecraft minecraft) {
+    private float smoothFrameDeltaSeconds() {
         long now = System.nanoTime();
         if (this.lastSmoothCameraFrameNanos == 0L) {
             this.lastSmoothCameraFrameNanos = now;
-            return;
+            return 0.0F;
         }
 
         long elapsed = now - this.lastSmoothCameraFrameNanos;
         this.lastSmoothCameraFrameNanos = now;
         if (elapsed <= 0L) {
-            return;
+            return 0.0F;
         }
+        return Mth.clamp(
+                elapsed / 1_000_000_000.0F,
+                0.0F,
+                MAX_SMOOTH_FRAME_TICKS * SMOOTH_TICK_SECONDS);
+    }
 
-        float tickDelta = Mth.clamp(elapsed / (float) NANOS_PER_TICK, 0.0F, MAX_SMOOTH_FRAME_TICKS);
+    private void applySmoothFrameMovement(Minecraft minecraft, float frameSeconds) {
+        float tickDelta = frameSeconds / SMOOTH_TICK_SECONDS;
         if (tickDelta <= CAMERA_INPUT_EPSILON) {
             return;
         }
 
         CameraInput input = readCameraInput(minecraft);
-        if (!input.hasMovement()) {
+        float scrollForFrame = 0.0F;
+        if (Math.abs(this.smoothScrollRemaining) > SCROLL_SMOOTH_EPSILON) {
+            RtsCameraSmoothingMath.DecayStep scrollStep =
+                    RtsCameraSmoothingMath.consumeRemaining(
+                            this.smoothScrollRemaining,
+                            frameSeconds,
+                            SCROLL_RESPONSE_SECONDS,
+                            SCROLL_SMOOTH_EPSILON);
+            scrollForFrame = scrollStep.consumed();
+            this.smoothScrollRemaining = scrollStep.remaining();
+            this.pendingNetworkScroll += scrollForFrame;
+        }
+
+        if (Math.abs(this.smoothForward) <= MOVE_SMOOTH_EPSILON
+                && Math.abs(this.smoothStrafe) <= MOVE_SMOOTH_EPSILON
+                && Math.abs(this.smoothVertical) <= MOVE_SMOOTH_EPSILON
+                && Math.abs(scrollForFrame) <= SCROLL_SMOOTH_EPSILON) {
             return;
         }
 
         applyLocalPrediction(
-                input.forward * getKeyboardMoveSensitivityScale() * tickDelta,
-                input.strafe * getKeyboardMoveSensitivityScale() * tickDelta,
-                input.vertical * getKeyboardMoveSensitivityScale() * tickDelta,
-                0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0, input.fast);
+                this.smoothForward * getKeyboardMoveSensitivityScale() * tickDelta,
+                this.smoothStrafe * getKeyboardMoveSensitivityScale() * tickDelta,
+                this.smoothVertical * getKeyboardMoveSensitivityScale() * tickDelta,
+                0.0F, 0.0F, 0.0F, 0.0F, scrollForFrame, 0, input.fast);
     }
 
-    private void snapLocalMirrorCameraPose() {
-        if (this.localMirrorCamera != null) {
-            this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+    private void updateVisualPose(float frameSeconds) {
+        if (!this.visualPoseReady) {
+            snapVisualPoseToLocal();
+            return;
         }
+        if (!(frameSeconds > 0.0F)) {
+            return;
+        }
+
+        float positionAlpha = RtsCameraSmoothingMath.exponentialAlpha(
+                frameSeconds, VISUAL_POSITION_RESPONSE_SECONDS);
+        float rotationAlpha = RtsCameraSmoothingMath.exponentialAlpha(
+                frameSeconds, VISUAL_ROTATION_RESPONSE_SECONDS);
+        this.visualX = approachVisualPosition(this.visualX, this.localX, positionAlpha);
+        this.visualY = approachVisualPosition(this.visualY, this.localY, positionAlpha);
+        this.visualZ = approachVisualPosition(this.visualZ, this.localZ, positionAlpha);
+        this.visualYawDeg = approachVisualAngle(this.visualYawDeg, this.localYawDeg, rotationAlpha);
+        this.visualPitchDeg = approachVisualAngle(this.visualPitchDeg, this.localPitchDeg, rotationAlpha);
+    }
+
+    private void snapVisualPoseToLocal() {
+        if (!this.localStateReady) {
+            this.visualPoseReady = false;
+            return;
+        }
+        this.visualX = this.localX;
+        this.visualY = this.localY;
+        this.visualZ = this.localZ;
+        this.visualYawDeg = this.localYawDeg;
+        this.visualPitchDeg = this.localPitchDeg;
+        this.visualPoseReady = true;
+    }
+
+    private void snapVisualMirrorCameraPose() {
+        if (this.localMirrorCamera != null) {
+            if (!this.visualPoseReady) {
+                snapVisualPoseToLocal();
+            }
+            this.localMirrorCamera.snapTo(
+                    this.visualX, this.visualY, this.visualZ,
+                    this.visualYawDeg, this.visualPitchDeg);
+        }
+    }
+
+    private static double approachVisualPosition(double current, double target, float alpha) {
+        double next = current + ((target - current) * alpha);
+        return Math.abs(target - next) <= VISUAL_POSITION_EPSILON ? target : next;
+    }
+
+    private static float approachVisualAngle(float current, float target, float alpha) {
+        float next = RtsCameraSmoothingMath.interpolateAngleDegrees(current, target, alpha);
+        return Math.abs(Mth.wrapDegrees(target - next)) <= VISUAL_ROTATION_EPSILON ? target : next;
     }
 
     private void ensureLocalMirrorCamera(Minecraft minecraft) {
@@ -737,7 +932,12 @@ public final class CameraOrbitService {
             return;
         }
         this.localMirrorCamera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), minecraft.level);
-        this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+        if (!this.visualPoseReady) {
+            snapVisualPoseToLocal();
+        }
+        this.localMirrorCamera.snapTo(
+                this.visualX, this.visualY, this.visualZ,
+                this.visualYawDeg, this.visualPitchDeg);
     }
 
     // =========================================================================
@@ -875,10 +1075,6 @@ public final class CameraOrbitService {
             this.strafe = strafe;
             this.vertical = vertical;
             this.fast = fast;
-        }
-
-        boolean hasMovement() {
-            return this.forward != 0.0F || this.strafe != 0.0F || this.vertical != 0.0F;
         }
     }
 }
