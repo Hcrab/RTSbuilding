@@ -16,7 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -48,8 +48,8 @@ public final class RtsFluidServiceImpl implements FluidService {
 
         List<LinkedHandler> activeItemHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> activeFluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
-        List<IItemHandler> extractItemHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeItemHandlers);
-        List<IItemHandler> insertItemHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeItemHandlers);
+        List<RtsItemStorage> extractItemHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeItemHandlers);
+        List<RtsItemStorage> insertItemHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeItemHandlers);
 
         boolean changed = RtsStorageFluids.storeFluidFromContainer(
                 fluidTransferGate,

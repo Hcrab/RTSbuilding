@@ -16,7 +16,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 
 import java.util.ArrayList;
@@ -188,7 +188,7 @@ public final class RtsDropAbsorber {
             return new DropInsertContext(aggregate, List.of());
         }
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+        List<RtsItemStorage> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
         return new DropInsertContext(null, handlers);
     }
 
@@ -198,7 +198,7 @@ public final class RtsDropAbsorber {
         }
     }
 
-    private record DropInsertContext(RtsAggregateStorage aggregate, List<IItemHandler> handlers) {
+    private record DropInsertContext(RtsAggregateStorage aggregate, List<RtsItemStorage> handlers) {
         ItemStack store(ItemStack stack) {
             if (stack == null || stack.isEmpty()) {
                 return ItemStack.EMPTY;

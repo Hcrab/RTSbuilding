@@ -68,18 +68,19 @@ public final class RtsFluidBufferService {
      * 将流体插入会话的内部缓冲区。返回实际存储的量（以 mb 为单位），
      * 可能少于请求的量，如果缓冲区接近容量上限。
      */
-    public static int insertIntoBuffer(RtsStorageSession session, ServerPlayer player, FluidStack fluidStack, boolean execute) {
-        if (session == null || player == null || fluidStack == null || fluidStack.isEmpty()) {
+    public static int insertIntoBuffer(
+            RtsStorageSession session, ServerPlayer player, Fluid fluid, int amount, boolean execute) {
+        if (session == null || player == null || fluid == null || amount <= 0) {
             return 0;
         }
-        Identifier id = BuiltInRegistries.FLUID.getKey(fluidStack.getFluid());
+        Identifier id = BuiltInRegistries.FLUID.getKey(fluid);
         if (id == null) {
             return 0;
         }
         String fluidId = id.toString();
         long stored = session.sessionFlags.internalFluidMb.getOrDefault(fluidId, 0L);
         long space = Math.max(0L, internalFluidCapacityMb(player) - stored);
-        int toInternal = (int) Math.min((long) fluidStack.getAmount(), space);
+        int toInternal = (int) Math.min((long) amount, space);
         if (toInternal > 0 && execute) {
             session.sessionFlags.internalFluidMb.put(fluidId, stored + toInternal);
         }

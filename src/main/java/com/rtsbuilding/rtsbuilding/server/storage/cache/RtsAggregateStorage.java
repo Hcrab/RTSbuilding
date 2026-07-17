@@ -1,9 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
-import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +48,7 @@ public final class RtsAggregateStorage {
     /**
      * 以指定优先级挂载一个处理器，并关联一个缓存。
      */
-    public void mount(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    public void mount(int priority, RtsItemStorage handler, RtsHandlerCache cache) {
         if (inUse.get()) {
             this.pendingMutations.add(() -> {
                 doMount(priority, handler, cache);
@@ -59,7 +58,7 @@ public final class RtsAggregateStorage {
         doMount(priority, handler, cache);
     }
 
-    private void doMount(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    private void doMount(int priority, RtsItemStorage handler, RtsHandlerCache cache) {
         this.priorityMounts
                 .computeIfAbsent(priority, k -> new ArrayList<>())
                 .add(new CachedHandlerSlot(priority, handler, cache));
@@ -69,7 +68,7 @@ public final class RtsAggregateStorage {
     /**
      * 按身份标识卸载一个处理器。
      */
-    public void unmount(IItemHandler handler) {
+    public void unmount(RtsItemStorage handler) {
         if (inUse.get()) {
             this.pendingMutations.add(() -> doUnmount(handler));
             return;
@@ -77,9 +76,9 @@ public final class RtsAggregateStorage {
         doUnmount(handler);
     }
 
-    private void doUnmount(IItemHandler handler) {
+    private void doUnmount(RtsItemStorage handler) {
         for (var entry : this.priorityMounts.entrySet()) {
-            entry.getValue().removeIf(cs -> cs.handler == handler);
+            entry.getValue().removeIf(cs -> cs.handler.identity() == handler.identity());
         }
         this.priorityMounts.entrySet().removeIf(e -> e.getValue().isEmpty());
         rebuildFlatOrder();
@@ -291,41 +290,43 @@ public final class RtsAggregateStorage {
         this.flatOrdered = Collections.unmodifiableList(list);
     }
 
-    private static ItemStack insertToHandler(IItemHandler handler, ItemStack stack, boolean simulate) {
+    private static ItemStack insertToHandler(
+            RtsItemStorage handler, ItemStack stack, boolean simulate) {
         if (handler == null || stack == null || stack.isEmpty()) {
             return stack == null ? ItemStack.EMPTY : stack;
         }
 
-        // 针对 AnySlotInsertItemHandler 的优化（如 AE2 网络）：
+        // 针对大型网络任意槽插入的优化（如 AE2 网络）：
         // 跳过槽位迭代，因为插入与槽位无关，
         // 避免在大存储网络（10000+ 槽位）上产生 O(slots) 浪费调用。
-        if (handler instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.insertItemAnywhere(stack, simulate);
+        if (handler.supportsInsertAnywhere()) {
+            return handler.insertAnywhere(stack, simulate);
         }
 
         ItemStack remain = stack.copy();
-        for (int slot = 0; slot < handler.getSlots() && !remain.isEmpty(); slot++) {
-            remain = handler.insertItem(slot, remain, simulate);
+        for (int slot = 0; slot < handler.slotCount() && !remain.isEmpty(); slot++) {
+            remain = handler.insert(slot, remain, simulate);
         }
         return remain;
     }
 
-    private static ItemStack extractOneHandler(IItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
+    private static ItemStack extractOneHandler(
+            RtsItemStorage handler, Item targetItem, ItemStack preferred, int limit) {
         if (handler == null || targetItem == null || limit <= 0) {
             return ItemStack.EMPTY;
         }
 
-        // AnySlotInsertItemHandler 的批量提取快速路径（AE2、BD 等）：
+        // 大型网络储存的批量提取快速路径（AE2、BD 等）：
         // 跳过逐槽位扫描，让处理器直接批量提取。
         // 仅当 preferred 为空（无需 NBT 变体）时安全。
-        if ((preferred == null || preferred.isEmpty()) && handler instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.extractItemAnywhere(targetItem, limit, false);
+        if ((preferred == null || preferred.isEmpty()) && handler.supportsExtractAnywhere()) {
+            return handler.extractAnywhere(targetItem, limit, false);
         }
 
         int remaining = limit;
         ItemStack out = ItemStack.EMPTY;
-        for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
-            ItemStack slotStack = handler.getStackInSlot(slot);
+        for (int slot = 0; slot < handler.slotCount() && remaining > 0; slot++) {
+            ItemStack slotStack = handler.stackInSlot(slot);
             if (slotStack.isEmpty() || slotStack.getItem() != targetItem) {
                 continue;
             }
@@ -333,7 +334,7 @@ public final class RtsAggregateStorage {
                     && !ItemStack.isSameItemSameComponents(slotStack, preferred)) {
                 continue;
             }
-            ItemStack extracted = handler.extractItem(slot, remaining, false);
+            ItemStack extracted = handler.extract(slot, remaining, false);
             if (extracted.isEmpty()) continue;
 
             if (out.isEmpty()) {
@@ -342,10 +343,10 @@ public final class RtsAggregateStorage {
                 out.grow(extracted.getCount());
             } else {
                 // 错误变体——放回去。如果处理器拒绝接收（
-                // getStackInSlot 和 extractItem 调用之间的并发修改），
+                // stackInSlot 和 extract 调用之间的并发修改），
                 // 即使 NBT 变体不匹配也将其包含在输出中以防物品丢失。
                 // 数据安全 > 变体纯度。
-                ItemStack leftover = handler.insertItem(slot, extracted, false);
+                ItemStack leftover = handler.insert(slot, extracted, false);
                 if (leftover.isEmpty()) {
                     continue; // 完全归还给了处理器——可以安全跳过
                 }
@@ -380,6 +381,6 @@ public final class RtsAggregateStorage {
 
     // ---- 值类型 ------------------------------------------------------------
 
-    record CachedHandlerSlot(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    record CachedHandlerSlot(int priority, RtsItemStorage handler, RtsHandlerCache cache) {
     }
 }

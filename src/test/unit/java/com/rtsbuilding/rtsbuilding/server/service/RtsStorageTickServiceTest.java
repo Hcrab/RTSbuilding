@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -53,36 +52,36 @@ class RtsStorageTickServiceTest {
     }
 
     /** 故意让所有实例 equals() 相等，用于验证缓存严格采用对象身份。 */
-    private static final class CountingHandler implements IItemHandler, RefreshableSnapshotHandler {
+    private static final class CountingHandler implements RtsItemStorage {
         private int refreshes;
 
         @Override
-        public void ensureFreshSnapshot() {
+        public void refreshSnapshot() {
             this.refreshes++;
         }
 
         @Override
-        public int getSlots() {
+        public int slotCount() {
             return 0;
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
+        public ItemStack stackInSlot(int slot) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        public ItemStack insert(int slot, ItemStack stack, boolean simulate) {
             return stack;
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        public ItemStack extract(int slot, int amount, boolean simulate) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public int getSlotLimit(int slot) {
+        public int slotLimit(int slot) {
             return 64;
         }
 

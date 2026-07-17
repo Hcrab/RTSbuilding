@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
-import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -22,11 +21,11 @@ class RtsHandlerCacheTest {
         assertEquals(2, handler.attempts);
     }
 
-    private static final class FailOnceRefreshHandler implements IItemHandler, RefreshableSnapshotHandler {
+    private static final class FailOnceRefreshHandler implements RtsItemStorage {
         private int attempts;
 
         @Override
-        public void ensureFreshSnapshot() {
+        public void refreshSnapshot() {
             this.attempts++;
             if (this.attempts == 1) {
                 throw new IllegalStateException("network changed during snapshot");
@@ -34,27 +33,27 @@ class RtsHandlerCacheTest {
         }
 
         @Override
-        public int getSlots() {
+        public int slotCount() {
             return 0;
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
+        public ItemStack stackInSlot(int slot) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        public ItemStack insert(int slot, ItemStack stack, boolean simulate) {
             return stack;
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        public ItemStack extract(int slot, int amount, boolean simulate) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public int getSlotLimit(int slot) {
+        public int slotLimit(int slot) {
             return 64;
         }
 

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.model;
 
 import net.minecraft.core.BlockPos;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidStorage;
 
 /**
  * 已解析的链接流体处理器——将链接存储引用与其对应的流体处理器绑定。
@@ -14,7 +14,8 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
  * @param allowStore 是否允许存入流体（false = 仅提取模式）
  * @param priority   优先级（AE 风格，影响插入顺序）
  */
-public record LinkedFluidHandler(LinkedStorageRef ref, String name, IFluidHandler handler, boolean allowStore, int priority) {
+public record LinkedFluidHandler(
+        LinkedStorageRef ref, String name, RtsFluidStorage handler, boolean allowStore, int priority) {
     public BlockPos pos() {
         return this.ref.pos();
     }

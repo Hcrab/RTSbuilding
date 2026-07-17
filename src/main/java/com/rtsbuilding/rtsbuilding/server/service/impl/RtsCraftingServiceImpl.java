@@ -10,7 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -112,7 +112,8 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+    public void refillCraftGridFromBlueprint(
+            CraftingMenu menu, List<RtsItemStorage> handlers, ServerPlayer player,
                                              ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsStorageCrafting.refillCraftGridFromBlueprint(menu, handlers, player, blueprint, fillAll, includePlayerFallback);
     }

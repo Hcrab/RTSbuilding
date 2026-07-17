@@ -1,19 +1,17 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
-import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
-import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
 
 /**
- * 单个 {@link IItemHandler} 的槽位级别缓存，支持变更检测。
+ * 单个 {@link RtsItemStorage} 的槽位级别缓存，支持变更检测。
  *
- * <p>采用快照对比模式：每次调用 {@link #update(IItemHandler)}
+ * <p>采用快照对比模式：每次调用 {@link #update(RtsItemStorage)}
  * 都会与上一次快照进行差异比较，仅返回发生变更的物品集合。
  * 这避免了在每次页面刷新或转移操作时反复调用 {@code getStackInSlot()}。
  *
@@ -49,19 +47,17 @@ public final class RtsHandlerCache {
      * 仅实际发生变更的槽位会影响映射。
      * 这避免了在大型 AE2 式存储系统中每次 tick 都执行完整的 O(n) 重建。
      */
-    public Set<String> update(IItemHandler handler) {
+    public Set<String> update(RtsItemStorage handler) {
         Objects.requireNonNull(handler, "handler");
 
         // 给予基于快照的处理器（如 AE2）在每个更新周期刷新其内部缓存的机会。
         // 这将昂贵扫描与热路径 getSlots() 调用解耦。
-        if (handler instanceof RefreshableSnapshotHandler refreshable) {
-            try {
-                refreshable.ensureFreshSnapshot();
+        try {
+                handler.refreshSnapshot();
             } catch (RuntimeException ignored) {
                 // 外部网络可能在维度/网格切换的同一 Tick 失效；保留旧快照，下个周期重试。
                 return Set.of();
             }
-        }
 
         int slots = numSlots(handler);
 
@@ -75,7 +71,7 @@ public final class RtsHandlerCache {
         // 对于 ReportedCountItemHandler（如 AE2），槽位堆叠是原型，
         // 每个槽位的 NBT 不会变化，因此可以在 hasChanged() 中跳过
         // 昂贵的 isSameItemSameComponents() 检查。
-        boolean skipNbtCompare = handler instanceof ReportedCountItemHandler;
+        boolean skipNbtCompare = handler.hasAggregatedCounts();
 
         // ── 阶段一：扫描变化的槽位并应用增量变更 ──
         for (int slot = 0; slot < slots; slot++) {
@@ -201,7 +197,7 @@ public final class RtsHandlerCache {
      * <p>
      * 与 {@link #invalidate()} 不同，此方法将映射引用置空，
      * 这样即使缓存对象本身被短暂持有，条目也能被收集。
-     * <b>调用此方法后不要再调用 {@link #update(IItemHandler)}</b>，
+     * <b>调用此方法后不要再调用 {@link #update(RtsItemStorage)}</b>，
      * 除非先调用 {@link #invalidate()}。
      */
     public void release() {
@@ -215,29 +211,27 @@ public final class RtsHandlerCache {
     //  内部方法
     // ======================================================================
 
-    private int numSlots(IItemHandler handler) {
+    private int numSlots(RtsItemStorage handler) {
         try {
-            return handler.getSlots();
+            return handler.slotCount();
         } catch (Exception e) {
             return 0;
         }
     }
 
-    private static CachedSlot readSlot(IItemHandler handler, int slot) {
+    private static CachedSlot readSlot(RtsItemStorage handler, int slot) {
         try {
-            ItemStack stack = handler.getStackInSlot(slot);
+            ItemStack stack = handler.stackInSlot(slot);
             if (stack == null || stack.isEmpty()) {
                 return CachedSlot.EMPTY;
             }
             Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
             // 对返回代表性堆叠的 AE2/BD 等使用真实报告计数
-            long count = (handler instanceof ReportedCountItemHandler rc)
-                    ? Math.max(0L, rc.getReportedCount(slot))
-                    : stack.getCount();
+            long count = Math.max(0L, handler.reportedCount(slot));
             // ReportedCount 处理器（如 AE2 网络）通过 getStackInSlot() 返回原型的全新副本——
             // 可直接保留引用。原版处理器返回槽位 ItemStack 的活动引用，
             // 可能被外部修改——必须快照以保持缓存一致。
-            ItemStack stored = (handler instanceof ReportedCountItemHandler)
+            ItemStack stored = handler.hasAggregatedCounts()
                     ? stack
                     : stack.copy();
             return new CachedSlot(id.toString(), stack.getItem(), count, stored);

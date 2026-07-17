@@ -31,7 +31,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -308,8 +308,8 @@ public final class RtsPlacementExecutor {
             return false;
         }
 
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {

@@ -23,7 +23,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -82,7 +82,7 @@ public final class RtsTransferPlayerIntegration {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return;
@@ -126,8 +126,8 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return;
@@ -177,8 +177,8 @@ public final class RtsTransferPlayerIntegration {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         Slot slot = menu.slots.get(menuSlot);
         if (slot == null || !slot.hasItem() || !slot.mayPickup(player)) {
             return;
@@ -272,7 +272,7 @@ public final class RtsTransferPlayerIntegration {
         if (activeLinked.isEmpty() && !includePlayerMainInventory) {
             return;
         }
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         ItemStack carried = player.containerMenu.getCarried();
         int maxStack = prototype.getMaxStackSize();
         int wanted = Math.min(amount, maxStack);
@@ -315,8 +315,8 @@ public final class RtsTransferPlayerIntegration {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         int maxStack = Math.max(1, prototype.getMaxStackSize());
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromLinked(
                 extractHandlers, prototype.getItem(), prototype, maxStack);
@@ -356,19 +356,19 @@ public final class RtsTransferPlayerIntegration {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         int movedCount = 0;
         boolean inventoryFull = false;
-        outer: for (IItemHandler handler : extractHandlers) {
-            for (int slot = 0; slot < handler.getSlots(); slot++) {
+        outer: for (RtsItemStorage handler : extractHandlers) {
+            for (int slot = 0; slot < handler.slotCount(); slot++) {
                 while (true) {
-                    ItemStack preview = handler.getStackInSlot(slot);
+                    ItemStack preview = handler.stackInSlot(slot);
                     if (preview.isEmpty()) {
                         break;
                     }
                     int requestAmount = Math.max(1, preview.getMaxStackSize());
-                    ItemStack extracted = handler.extractItem(slot, requestAmount, false);
+                    ItemStack extracted = handler.extract(slot, requestAmount, false);
                     if (extracted.isEmpty()) {
                         break;
                     }

@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.performance;
 
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -107,7 +107,7 @@ class RtsPerformanceBaselineTest {
         }
     }
 
-    private static final class CountingItemHandler implements IItemHandler {
+    private static final class CountingItemHandler implements RtsItemStorage {
         private final int slots;
         private int stackReads;
 
@@ -116,28 +116,28 @@ class RtsPerformanceBaselineTest {
         }
 
         @Override
-        public int getSlots() {
+        public int slotCount() {
             return slots;
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
+        public ItemStack stackInSlot(int slot) {
             stackReads++;
             return new ItemStack(Items.STONE, 64);
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        public ItemStack insert(int slot, ItemStack stack, boolean simulate) {
             return stack;
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        public ItemStack extract(int slot, int amount, boolean simulate) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public int getSlotLimit(int slot) {
+        public int slotLimit(int slot) {
             return 64;
         }
 

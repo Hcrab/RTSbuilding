@@ -22,7 +22,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -63,8 +63,8 @@ public final class RtsLinkedItemInteractor {
             return InteractionResult.PASS;
         }
 
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         Identifier id = Identifier.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
@@ -121,7 +121,8 @@ public final class RtsLinkedItemInteractor {
         return hasLinkedHandlers || includePlayerMainInventory || creativeSource;
     }
 
-    private static ItemStack extractSelectedItem(ServerPlayer player, List<IItemHandler> extractHandlers, Item item,
+    private static ItemStack extractSelectedItem(
+            ServerPlayer player, List<RtsItemStorage> extractHandlers, Item item,
             boolean includePlayerMainInventory, boolean creativeSource) {
         if (creativeSource) {
             return new ItemStack(item);

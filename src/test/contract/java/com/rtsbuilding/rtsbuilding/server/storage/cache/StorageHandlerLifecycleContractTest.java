@@ -17,7 +17,8 @@ class StorageHandlerLifecycleContractTest {
     @Test
     void endpointOwnerMustDetachTickBorrowerBeforeDestructiveRelease() throws IOException {
         String source = read("server/storage/cache/RtsEndpointLeaseCache.java");
-        int detach = source.indexOf("detachHandler(playerId, handler)");
+        int detach = source.indexOf(
+                "detachHandler(playerId, NeoForgeItemStorageAdapter.wrap(handler))");
         int release = source.indexOf("releaseNetworkHandler(handler)");
 
         assertTrue(detach >= 0, "端点销毁前必须通知 Tick 聚合缓存卸载借用对象");

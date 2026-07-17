@@ -1,55 +1,60 @@
 package com.rtsbuilding.rtsbuilding.server.storage.view;
 
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidVolume;
 
 /**
- * 包装 {@link IFluidHandler} 以强制执行仅提取存储规则。
+ * 包装 {@link RtsFluidStorage} 以强制执行仅提取存储规则。
  *
  * <p>当 {@code allowStore} 为 false 时，{@link #fill} 返回 0 以拒绝所有
  * 流体插入。排出操作始终委托给原始处理器。
  */
-public final class LinkedFluidHandlerView implements IFluidHandler {
-    private final IFluidHandler delegate;
+public final class LinkedFluidHandlerView implements RtsFluidStorage {
+    private final RtsFluidStorage delegate;
     private final boolean allowStore;
 
-    public LinkedFluidHandlerView(IFluidHandler delegate, boolean allowStore) {
+    public LinkedFluidHandlerView(RtsFluidStorage delegate, boolean allowStore) {
         this.delegate = delegate;
         this.allowStore = allowStore;
     }
 
     @Override
-    public int getTanks() {
-        return this.delegate.getTanks();
+    public int tankCount() {
+        return this.delegate.tankCount();
     }
 
     @Override
-    public FluidStack getFluidInTank(int tank) {
-        return this.delegate.getFluidInTank(tank);
+    public RtsFluidVolume fluidInTank(int tank) {
+        return this.delegate.fluidInTank(tank);
     }
 
     @Override
-    public int getTankCapacity(int tank) {
-        return this.delegate.getTankCapacity(tank);
+    public int tankCapacity(int tank) {
+        return this.delegate.tankCapacity(tank);
     }
 
     @Override
-    public boolean isFluidValid(int tank, FluidStack stack) {
-        return this.delegate.isFluidValid(tank, stack);
+    public boolean isFluidValid(int tank, RtsFluidVolume volume) {
+        return this.delegate.isFluidValid(tank, volume);
     }
 
     @Override
-    public int fill(FluidStack resource, FluidAction action) {
-        return this.allowStore ? this.delegate.fill(resource, action) : 0;
+    public int fill(RtsFluidVolume volume, boolean execute) {
+        return this.allowStore ? this.delegate.fill(volume, execute) : 0;
     }
 
     @Override
-    public FluidStack drain(FluidStack resource, FluidAction action) {
-        return this.delegate.drain(resource, action);
+    public RtsFluidVolume drain(RtsFluidVolume volume, boolean execute) {
+        return this.delegate.drain(volume, execute);
     }
 
     @Override
-    public FluidStack drain(int maxDrain, FluidAction action) {
-        return this.delegate.drain(maxDrain, action);
+    public RtsFluidVolume drain(int maxDrain, boolean execute) {
+        return this.delegate.drain(maxDrain, execute);
+    }
+
+    @Override
+    public Object identity() {
+        return delegate.identity();
     }
 }

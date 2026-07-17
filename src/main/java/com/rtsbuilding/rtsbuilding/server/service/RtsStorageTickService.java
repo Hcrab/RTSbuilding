@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p><b>核心数据：</b>
  * <ul>
  *   <li>{@link #playerStorage} — 每玩家的 {@link RtsAggregateStorage} 聚合缓存实例</li>
- *   <li>{@link #playerHandlers} — 每玩家的 {@link IItemHandler} → {@link RtsHandlerCache} 映射</li>
+ *   <li>{@link #playerHandlers} — 每玩家的 {@link RtsItemStorage} → {@link RtsHandlerCache} 映射</li>
  *   <li>{@link #tickTrackers} — 每玩家的 {@link TickTracker} 自适应 tick 状态</li>
  * </ul>
  *
@@ -72,41 +72,41 @@ public final class RtsStorageTickService {
      * 注册或更新玩家的聚合存储以及给定的处理器。
      * 如果处理器身份匹配，则重用现有缓存。
      */
-    public RtsAggregateStorage registerPlayer(ServerPlayer player, List<IItemHandler> handlers) {
+    public RtsAggregateStorage registerPlayer(ServerPlayer player, List<RtsItemStorage> handlers) {
         if (player == null) return null;
         return registerPlayer(player.getUUID(), handlers);
     }
 
     /** 以玩家 ID 注册处理器，供生命周期边界和无游戏运行时的回归测试复用。 */
-    public RtsAggregateStorage registerPlayer(UUID uuid, List<IItemHandler> handlers) {
+    public RtsAggregateStorage registerPlayer(UUID uuid, List<RtsItemStorage> handlers) {
         if (uuid == null) return null;
-        List<IItemHandler> normalizedHandlers = distinctByIdentity(handlers);
+        List<RtsItemStorage> normalizedHandlers = distinctByIdentity(handlers);
         RtsAggregateStorage storage = this.playerStorage.computeIfAbsent(uuid, k -> new RtsAggregateStorage());
 
         // Unmount stale handlers
         List<HandlerCachePair> existing = this.playerHandlers.getOrDefault(uuid, List.of());
-        Set<IItemHandler> newSet = Collections.newSetFromMap(new IdentityHashMap<>());
-        newSet.addAll(normalizedHandlers);
+        Set<Object> newSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        normalizedHandlers.forEach(handler -> newSet.add(handler.identity()));
 
         // Unmount removed handlers
         for (HandlerCachePair p : existing) {
-            if (!newSet.contains(p.handler)) {
+            if (!newSet.contains(p.handler.identity())) {
                 storage.unmount(p.handler);
                 p.cache.release();
             }
         }
 
         // Mount new handlers (reuse existing cache if available)
-        Map<IItemHandler, RtsHandlerCache> cacheMap = new IdentityHashMap<>();
+        Map<Object, RtsHandlerCache> cacheMap = new IdentityHashMap<>();
         for (HandlerCachePair p : existing) {
-            cacheMap.put(p.handler, p.cache);
+            cacheMap.put(p.handler.identity(), p.cache);
         }
 
         List<HandlerCachePair> newPairs = new ArrayList<>();
         for (int priority = 0; priority < normalizedHandlers.size(); priority++) {
-            IItemHandler handler = normalizedHandlers.get(priority);
-            RtsHandlerCache cache = cacheMap.getOrDefault(handler, new RtsHandlerCache());
-            if (!cacheMap.containsKey(handler)) {
+            RtsItemStorage handler = normalizedHandlers.get(priority);
+            RtsHandlerCache cache = cacheMap.getOrDefault(handler.identity(), new RtsHandlerCache());
+            if (!cacheMap.containsKey(handler.identity())) {
                 storage.mount(normalizedHandlers.size() - priority, handler, cache); // reverse priority: first = highest
                 // Immediately populate the cache so page builds don't skip this handler
                 cache.update(handler);
@@ -156,7 +156,7 @@ public final class RtsStorageTickService {
      * <p>此服务不拥有 AE/BD Handler 的销毁权，只拥有对应的槽位快照。返回后调用方
      * 才可以安全地清空 Handler 内部引用。重复调用是安全的。</p>
      */
-    public boolean detachHandler(UUID playerId, IItemHandler handler) {
+    public boolean detachHandler(UUID playerId, RtsItemStorage handler) {
         if (playerId == null || handler == null) return false;
         List<HandlerCachePair> existing = this.playerHandlers.get(playerId);
         if (existing == null || existing.isEmpty()) return false;
@@ -165,7 +165,7 @@ public final class RtsStorageTickService {
         boolean detached = false;
         RtsAggregateStorage storage = this.playerStorage.get(playerId);
         for (HandlerCachePair pair : existing) {
-            if (pair.handler == handler) {
+            if (pair.handler.identity() == handler.identity()) {
                 if (storage != null) storage.unmount(pair.handler);
                 pair.cache.release();
                 detached = true;
@@ -280,12 +280,12 @@ public final class RtsStorageTickService {
         return this.playerStorage.get(player.getUUID());
     }
 
-    private static List<IItemHandler> distinctByIdentity(List<IItemHandler> handlers) {
+    private static List<RtsItemStorage> distinctByIdentity(List<RtsItemStorage> handlers) {
         if (handlers == null || handlers.isEmpty()) return List.of();
-        Set<IItemHandler> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<IItemHandler> result = new ArrayList<>(handlers.size());
-        for (IItemHandler handler : handlers) {
-            if (handler != null && seen.add(handler)) result.add(handler);
+        Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<RtsItemStorage> result = new ArrayList<>(handlers.size());
+        for (RtsItemStorage handler : handlers) {
+            if (handler != null && seen.add(handler.identity())) result.add(handler);
         }
         return result;
     }
@@ -303,12 +303,12 @@ public final class RtsStorageTickService {
      * 这确保了平滑的缩放：少槽位=即时响应，
      * 多槽位=优雅的后退，没有突变的阈值跳跃。
      */
-    private static int calculateInitialRate(List<IItemHandler> handlers) {
+    private static int calculateInitialRate(List<RtsItemStorage> handlers) {
         if (handlers == null || handlers.isEmpty()) return RtsServiceConstants.DEFAULT_TICK_RATE;
         int totalSlots = 0;
-        for (IItemHandler h : handlers) {
+        for (RtsItemStorage h : handlers) {
             try {
-                totalSlots += h.getSlots();
+                totalSlots += h.slotCount();
             } catch (Exception ignored) {
             }
         }
@@ -322,7 +322,7 @@ public final class RtsStorageTickService {
 
     // ---- 值类型 -----------------------------------------------------------
 
-    record HandlerCachePair(IItemHandler handler, RtsHandlerCache cache) {
+    record HandlerCachePair(RtsItemStorage handler, RtsHandlerCache cache) {
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
-import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -17,9 +16,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidVolume;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.*;
 
@@ -128,9 +127,9 @@ public final class RtsPageCore {
 
             if (!usedCache) {
                 for (LinkedHandler linked : itemHandlers) {
-                    IItemHandler handler = linked.handler();
-                    for (int i = 0; i < handler.getSlots(); i++) {
-                        ItemStack stack = handler.getStackInSlot(i);
+                    RtsItemStorage handler = linked.handler();
+                    for (int i = 0; i < handler.slotCount(); i++) {
+                        ItemStack stack = handler.stackInSlot(i);
                         if (stack.isEmpty()) continue;
                         Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
                         if (id == null) continue;
@@ -154,15 +153,15 @@ public final class RtsPageCore {
                 mergeCount(fluidAmounts, entry.getKey(), entry.getValue());
             }
             for (LinkedFluidHandler linked : fluidHandlers) {
-                IFluidHandler handler = linked.handler();
-                for (int tank = 0; tank < handler.getTanks(); tank++) {
-                    FluidStack fluid = handler.getFluidInTank(tank);
+                RtsFluidStorage handler = linked.handler();
+                for (int tank = 0; tank < handler.tankCount(); tank++) {
+                    RtsFluidVolume fluid = handler.fluidInTank(tank);
                     if (fluid.isEmpty()) continue;
-                    Identifier id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+                    Identifier id = BuiltInRegistries.FLUID.getKey(fluid.fluid());
                     if (id == null) continue;
                     String fluidId = id.toString();
-                    mergeCount(fluidAmounts, fluidId, fluid.getAmount());
-                    mergeCount(fluidCapacities, fluidId, Math.max(0, handler.getTankCapacity(tank)));
+                    mergeCount(fluidAmounts, fluidId, fluid.amount());
+                    mergeCount(fluidCapacities, fluidId, Math.max(0, handler.tankCapacity(tank)));
                 }
             }
 
@@ -342,8 +341,11 @@ public final class RtsPageCore {
         return search == null || search.isBlank();
     }
 
-    public static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
-        return sanitizeCount(RtsAe2Compat.getReportedCount(handler, slot, stack));
+    public static long getHandlerReportedCount(
+            RtsItemStorage handler, int slot, ItemStack stack) {
+        return sanitizeCount(handler == null
+                ? (stack == null || stack.isEmpty() ? 0L : stack.getCount())
+                : handler.reportedCount(slot));
     }
 
     static void mergeCount(Map<String, Long> counts, String key, long amount) {

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -68,7 +69,7 @@ class RtsEndpointLeaseCacheTest {
     void invalidationMustDetachTickBorrowerBeforeReleasingHandler() {
         ReleasableHandler handler = new ReleasableHandler();
         RtsEndpointLeaseCache ownedCache = new RtsEndpointLeaseCache((owner, leasedHandler) -> {
-            RtsStorageTickService.INSTANCE.detachHandler(owner, leasedHandler);
+            RtsStorageTickService.INSTANCE.detachHandler(owner, (RtsItemStorage) leasedHandler);
             ((ReleasableHandler) leasedHandler).release();
         });
 
@@ -95,7 +96,7 @@ class RtsEndpointLeaseCacheTest {
         Object endpointIdentity = new Object();
         ReleasableHandler handler = new ReleasableHandler();
         RtsEndpointLeaseCache ownedCache = new RtsEndpointLeaseCache((owner, leasedHandler) -> {
-            RtsStorageTickService.INSTANCE.detachHandler(owner, leasedHandler);
+            RtsStorageTickService.INSTANCE.detachHandler(owner, (RtsItemStorage) leasedHandler);
             ((ReleasableHandler) leasedHandler).release();
         });
 
@@ -120,12 +121,14 @@ class RtsEndpointLeaseCacheTest {
     }
 
     /** 模拟 AE2 release() 清空内部网络引用后，旧缓存仍尝试刷新的真实崩溃条件。 */
-    private static final class ReleasableHandler implements IItemHandler, RefreshableSnapshotHandler {
+    private static final class ReleasableHandler
+            implements IItemHandler, RefreshableSnapshotHandler, RtsItemStorage {
         private final AtomicInteger releaseCount = new AtomicInteger();
         private final AtomicInteger refreshAttempts = new AtomicInteger();
         private boolean released;
 
-        void release() {
+        @Override
+        public void release() {
             this.released = true;
             this.releaseCount.incrementAndGet();
         }
@@ -136,6 +139,41 @@ class RtsEndpointLeaseCacheTest {
             if (this.released) {
                 throw new IllegalStateException("released handler was refreshed");
             }
+        }
+
+        @Override
+        public void refreshSnapshot() {
+            ensureFreshSnapshot();
+        }
+
+        @Override
+        public Object identity() {
+            return this;
+        }
+
+        @Override
+        public int slotCount() {
+            return getSlots();
+        }
+
+        @Override
+        public ItemStack stackInSlot(int slot) {
+            return getStackInSlot(slot);
+        }
+
+        @Override
+        public ItemStack insert(int slot, ItemStack stack, boolean simulate) {
+            return insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extract(int slot, int amount, boolean simulate) {
+            return extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int slotLimit(int slot) {
+            return getSlotLimit(slot);
         }
 
         @Override

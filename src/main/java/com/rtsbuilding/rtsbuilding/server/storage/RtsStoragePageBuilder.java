@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 import java.util.Map;
@@ -63,7 +63,7 @@ public final class RtsStoragePageBuilder {
         RtsPageCreativeTabIndexer.clearCreativeTabCacheState();
     }
 
-    public static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
+    public static long getHandlerReportedCount(RtsItemStorage handler, int slot, ItemStack stack) {
         return RtsPageCore.getHandlerReportedCount(handler, slot, stack);
     }
 

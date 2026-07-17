@@ -29,7 +29,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.*;
 
@@ -212,7 +212,7 @@ public final class RtsPlacedRecoveryService {
                 orderedLinked = RtsLinkedHandlerResolutionService.orderHandlersForInsert(
                         RtsLinkedStorageResolver.resolveLinkedHandlers(player, session));
             }
-            List<IItemHandler> handlers = recoveryHandlersExcluding(orderedLinked, job.targetPos());
+            List<RtsItemStorage> handlers = recoveryHandlersExcluding(orderedLinked, job.targetPos());
             hasLinkedRecoveryTarget |= !handlers.isEmpty();
             boolean claimBlocked = false;
             while (!job.claims().isEmpty()
@@ -388,12 +388,13 @@ public final class RtsPlacedRecoveryService {
      * linked-storage position matches the recovery target position (avoids
      * re-storing into the same block that was just broken).
      */
-    private static List<IItemHandler> recoveryHandlersExcluding(List<LinkedHandler> orderedLinked, BlockPos targetPos) {
+    private static List<RtsItemStorage> recoveryHandlersExcluding(
+            List<LinkedHandler> orderedLinked, BlockPos targetPos) {
         if (orderedLinked == null || orderedLinked.isEmpty()) return List.of();
-        List<IItemHandler> handlers = new ArrayList<>(orderedLinked.size());
+        List<RtsItemStorage> handlers = new ArrayList<>(orderedLinked.size());
         for (LinkedHandler lh : orderedLinked) {
             if (lh == null || lh.pos() == null || lh.pos().equals(targetPos)) continue;
-            IItemHandler h = lh.handler();
+            RtsItemStorage h = lh.handler();
             if (h != null) handlers.add(h);
         }
         return handlers;

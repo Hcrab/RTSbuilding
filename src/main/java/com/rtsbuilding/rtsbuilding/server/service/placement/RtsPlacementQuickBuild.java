@@ -22,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -150,7 +150,7 @@ public final class RtsPlacementQuickBuild {
         ItemStack placementStack = plan.templateStack();
         ItemStack extracted = ItemStack.EMPTY;
         boolean refundExtractedOnFailure = false;
-        List<IItemHandler> insertHandlers = List.of();
+        List<RtsItemStorage> insertHandlers = List.of();
         // 完全改为使用储存空间的方块进行放置
         {
             List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
@@ -159,7 +159,7 @@ public final class RtsPlacementQuickBuild {
             if (activeLinked.isEmpty() && !includePlayerMainInventory && !creativeSource) {
                 return false;
             }
-            List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+            List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
             insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
             extracted = creativeSource
                     ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())

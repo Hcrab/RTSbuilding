@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.platform.neoforge.storage.NeoForgeItemStorageAdapter;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.core.BlockPos;
@@ -25,7 +26,7 @@ public final class RtsEndpointLeaseCache {
     public static final RtsEndpointLeaseCache INSTANCE = new RtsEndpointLeaseCache((playerId, handler) -> {
         // 端点租约拥有 AE 网络处理器；Tick 聚合缓存只借用它。销毁前必须先卸载借用方，
         // 否则下一次缓存刷新会继续访问已经被 release() 清空的 storageService。
-        RtsStorageTickService.INSTANCE.detachHandler(playerId, handler);
+        RtsStorageTickService.INSTANCE.detachHandler(playerId, NeoForgeItemStorageAdapter.wrap(handler));
         RtsAe2Compat.releaseNetworkHandler(handler);
     });
 

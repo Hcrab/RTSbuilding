@@ -13,7 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -135,19 +135,20 @@ public final class RtsToolLeaseManager {
     }
 
     /**
-     * 在链接的 {@link IItemHandler} 中搜索匹配的工具并提取一个物品。
+     * 在链接的 {@link RtsItemStorage} 中搜索匹配的工具并提取一个物品。
      * 如果提取产生不匹配的物品，则重新插入。
      */
-    private static RtsToolLease borrowMiningToolFromLinkedHandler(IItemHandler handler, ItemStack prototype) {
+    private static RtsToolLease borrowMiningToolFromLinkedHandler(
+            RtsItemStorage handler, ItemStack prototype) {
         if (handler == null || prototype == null || prototype.isEmpty()) {
             return RtsToolLease.empty();
         }
-        for (int slot = 0; slot < handler.getSlots(); slot++) {
-            ItemStack stack = handler.getStackInSlot(slot);
+        for (int slot = 0; slot < handler.slotCount(); slot++) {
+            ItemStack stack = handler.stackInSlot(slot);
             if (stack.isEmpty() || !matchesMiningToolPrototype(stack, prototype)) {
                 continue;
             }
-            ItemStack borrowed = handler.extractItem(slot, 1, false);
+            ItemStack borrowed = handler.extract(slot, 1, false);
             if (!borrowed.isEmpty() && matchesMiningToolPrototype(borrowed, prototype)) {
                 return RtsToolLease.linkedSlot(handler, slot, borrowed);
             }
@@ -197,7 +198,7 @@ public final class RtsToolLeaseManager {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemStorage> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         RtsTransferInserter.storeToLinkedWithFallback(handlers, player, remain);
     }
 

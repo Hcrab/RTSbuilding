@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.view.RtsLinkedHandlerViews;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -19,9 +19,9 @@ import java.util.List;
  *
  * <p><b>处理器级插入：</b>
  * <ul>
- *   <li>{@link #insertToHandler(IItemHandler, ItemStack)} —
+ *   <li>{@link #insertToHandler(RtsItemStorage, ItemStack)} —
  *       使用 {@link RtsLinkedHandlerViews#insertItemAnywhere} 将物品插入任意可用槽位</li>
- *   <li>{@link #insertToHandlerPreferExisting(IItemHandler, ItemStack)} —
+ *   <li>{@link #insertToHandlerPreferExisting(RtsItemStorage, ItemStack)} —
  *       先尝试任意槽位，再优先合并到已有同类型堆叠，最后放入空槽</li>
  * </ul>
  *
@@ -43,7 +43,7 @@ import java.util.List;
  * <p><b>退款/移动辅助：</b>
  * <ul>
  *   <li>{@link #refundToLinked(List, ServerPlayer, ItemStack)} — 退款到链接存储（带回退）</li>
- *   <li>{@link #refundItem(IItemHandler, ServerPlayer, ItemStack)} — 退款到单个处理器</li>
+ *   <li>{@link #refundItem(RtsItemStorage, ServerPlayer, ItemStack)} — 退款到单个处理器</li>
  *   <li>{@link #moveToPlayerInventoryOnly(ServerPlayer, ItemStack)} — 仅移动到玩家背包</li>
  *   <li>{@link #moveLinkedStackIntoOpenMenu(ServerPlayer, ItemStack)} —
  *       将物品移入当前打开的菜单槽位（两遍：先填充现有堆叠，再放空槽）</li>
@@ -68,11 +68,11 @@ public final class RtsTransferInserter {
 
     // ---- handler-level insert ---------------------------------------------------
 
-    public static ItemStack insertToHandler(IItemHandler handler, ItemStack stack) {
+    public static ItemStack insertToHandler(RtsItemStorage handler, ItemStack stack) {
         return RtsLinkedHandlerViews.insertItemAnywhere(handler, stack, false);
     }
 
-    public static ItemStack insertToHandlerPreferExisting(IItemHandler handler, ItemStack stack) {
+    public static ItemStack insertToHandlerPreferExisting(RtsItemStorage handler, ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return ItemStack.EMPTY;
         }
@@ -81,27 +81,27 @@ public final class RtsTransferInserter {
             return anySlotRemain;
         }
         ItemStack remain = stack.copy();
-        for (int slot = 0; slot < handler.getSlots() && !remain.isEmpty(); slot++) {
-            ItemStack slotStack = handler.getStackInSlot(slot);
+        for (int slot = 0; slot < handler.slotCount() && !remain.isEmpty(); slot++) {
+            ItemStack slotStack = handler.stackInSlot(slot);
             if (slotStack.isEmpty() || !ItemStack.isSameItemSameComponents(slotStack, remain)) {
                 continue;
             }
-            remain = handler.insertItem(slot, remain, false);
+            remain = handler.insert(slot, remain, false);
         }
-        for (int slot = 0; slot < handler.getSlots() && !remain.isEmpty(); slot++) {
-            if (!handler.getStackInSlot(slot).isEmpty()) {
+        for (int slot = 0; slot < handler.slotCount() && !remain.isEmpty(); slot++) {
+            if (!handler.stackInSlot(slot).isEmpty()) {
                 continue;
             }
-            remain = handler.insertItem(slot, remain, false);
+            remain = handler.insert(slot, remain, false);
         }
         return remain;
     }
 
     // ---- multi-handler store ----------------------------------------------------
 
-    public static ItemStack storeToLinkedOnly(List<IItemHandler> handlers, ItemStack stack) {
+    public static ItemStack storeToLinkedOnly(List<RtsItemStorage> handlers, ItemStack stack) {
         ItemStack remain = stack.copy();
-        for (IItemHandler handler : handlers) {
+        for (RtsItemStorage handler : handlers) {
             if (remain.isEmpty()) {
                 break;
             }
@@ -110,9 +110,10 @@ public final class RtsTransferInserter {
         return remain;
     }
 
-    public static ItemStack storeToLinkedOnlyPreferExisting(List<IItemHandler> handlers, ItemStack stack) {
+    public static ItemStack storeToLinkedOnlyPreferExisting(
+            List<RtsItemStorage> handlers, ItemStack stack) {
         ItemStack remain = stack.copy();
-        for (IItemHandler handler : handlers) {
+        for (RtsItemStorage handler : handlers) {
             if (remain.isEmpty()) {
                 break;
             }
@@ -124,9 +125,9 @@ public final class RtsTransferInserter {
     // ---- with fallback ----------------------------------------------------------
 
     public static OverflowOutcome storeToLinkedWithFallback(
-            List<IItemHandler> handlers, ServerPlayer player, ItemStack stack) {
+            List<RtsItemStorage> handlers, ServerPlayer player, ItemStack stack) {
         ItemStack remain = stack.copy();
-        for (IItemHandler handler : handlers) {
+        for (RtsItemStorage handler : handlers) {
             if (remain.isEmpty()) {
                 break;
             }
@@ -151,9 +152,9 @@ public final class RtsTransferInserter {
     }
 
     public static OverflowOutcome storeToLinkedWithFallbackPreferExisting(
-            List<IItemHandler> handlers, ServerPlayer player, ItemStack stack) {
+            List<RtsItemStorage> handlers, ServerPlayer player, ItemStack stack) {
         ItemStack remain = stack.copy();
-        for (IItemHandler handler : handlers) {
+        for (RtsItemStorage handler : handlers) {
             if (remain.isEmpty()) {
                 break;
             }
@@ -179,11 +180,12 @@ public final class RtsTransferInserter {
 
     // ---- refund / move helpers --------------------------------------------------
 
-    public static void refundToLinked(List<IItemHandler> handlers, ServerPlayer player, ItemStack stack) {
+    public static void refundToLinked(
+            List<RtsItemStorage> handlers, ServerPlayer player, ItemStack stack) {
         storeToLinkedWithFallback(handlers, player, stack);
     }
 
-    public static void refundItem(IItemHandler handler, ServerPlayer player, ItemStack stack) {
+    public static void refundItem(RtsItemStorage handler, ServerPlayer player, ItemStack stack) {
         ItemStack remain = insertToHandler(handler, stack);
         if (!remain.isEmpty()) {
             player.drop(remain, false);

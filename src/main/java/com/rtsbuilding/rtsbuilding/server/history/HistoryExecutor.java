@@ -16,7 +16,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -188,7 +188,7 @@ public final class HistoryExecutor {
                     RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
                     if (session != null) {
                         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-                        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+                        List<RtsItemStorage> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
                         if (!handlers.isEmpty()) {
                             RtsTransferInserter.refundToLinked(handlers, player, stack);
                             refunded = true;

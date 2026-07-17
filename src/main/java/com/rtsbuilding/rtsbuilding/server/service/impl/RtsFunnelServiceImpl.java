@@ -19,7 +19,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +54,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(linked.size());
+        List<RtsItemStorage> handlers = new ArrayList<>(linked.size());
         for (LinkedHandler h : linked) {
             handlers.add(h.handler());
         }
@@ -112,7 +112,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         }
 
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(linked.size());
+        List<RtsItemStorage> handlers = new ArrayList<>(linked.size());
         for (LinkedHandler lh : linked) {
             handlers.add(lh.handler());
         }
@@ -137,7 +137,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────
 
-    private WorkResult flushBuffer(List<IItemHandler> handlers, ServerPlayer player,
+    private WorkResult flushBuffer(List<RtsItemStorage> handlers, ServerPlayer player,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
         if (session.funnel.funnelBuffer.isEmpty()) return new WorkResult(0, false);
         boolean changed = false;
@@ -168,7 +168,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         return new WorkResult(processed, changed);
     }
 
-    private WorkResult absorbDrops(ServerPlayer player, BlockPos target, List<IItemHandler> handlers,
+    private WorkResult absorbDrops(ServerPlayer player, BlockPos target, List<RtsItemStorage> handlers,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
         AABB box = new AABB(target).inflate(RtsServiceConstants.FUNNEL_RADIUS);
         int queryLimit = Math.min(maxUnits, RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK);

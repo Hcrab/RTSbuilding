@@ -15,7 +15,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.*;
 
@@ -180,17 +180,17 @@ public final class RtsCraftingSearch {
     }
 
     private static List<AvailableCraftItem> snapshotAvailableCraftItemsFromHandlers(
-            ServerPlayer player, List<IItemHandler> handlers, boolean includePlayerMainInventory) {
+            ServerPlayer player, List<RtsItemStorage> handlers, boolean includePlayerMainInventory) {
         List<AvailableCraftItem> entries = new ArrayList<>();
         if (handlers == null) {
             handlers = List.of();
         }
-        for (IItemHandler handler : handlers) {
+        for (RtsItemStorage handler : handlers) {
             if (handler == null) {
                 continue;
             }
-            for (int i = 0; i < handler.getSlots(); i++) {
-                ItemStack stack = handler.getStackInSlot(i);
+            for (int i = 0; i < handler.slotCount(); i++) {
+                ItemStack stack = handler.stackInSlot(i);
                 if (stack.isEmpty()) {
                     continue;
                 }

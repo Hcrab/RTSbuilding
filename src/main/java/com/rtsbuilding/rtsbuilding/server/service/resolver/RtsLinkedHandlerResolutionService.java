@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service.resolver;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
+import com.rtsbuilding.rtsbuilding.platform.neoforge.storage.NeoForgeItemStorageAdapter;
+import com.rtsbuilding.rtsbuilding.platform.neoforge.storage.NeoForgeFluidStorageAdapter;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
@@ -11,6 +13,8 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedFluidHandlerView;
 import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedItemHandlerView;
 import net.minecraft.core.BlockPos;
@@ -93,7 +97,8 @@ public final class RtsLinkedHandlerResolutionService {
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
                         ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.level(), pos));
                 boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
-                out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, allowStore), allowStore,
+                RtsItemStorage storage = NeoForgeItemStorageAdapter.wrap(handler);
+                out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(storage, allowStore), allowStore,
                         linkedPriority(session, ref)));
             }
         }
@@ -118,7 +123,8 @@ public final class RtsLinkedHandlerResolutionService {
             LinkedStorageRef bdRef = new LinkedStorageRef(
                     player.level().dimension(),
                     BlockPos.ZERO);
-            out.add(new LinkedHandler(bdRef, session.bdCache.name, session.bdCache.handler, true, 0));
+            out.add(new LinkedHandler(bdRef, session.bdCache.name,
+                    NeoForgeItemStorageAdapter.wrap(session.bdCache.handler), true, 0));
         }
 
         return out;
@@ -141,9 +147,9 @@ public final class RtsLinkedHandlerResolutionService {
             RtsStorageTickService.INSTANCE.unregisterPlayer(player);
             return;
         }
-        List<IItemHandler> rawHandlers = new ArrayList<>(handlers.size());
+        List<RtsItemStorage> rawHandlers = new ArrayList<>(handlers.size());
         for (LinkedHandler lh : handlers) {
-            IItemHandler h = lh.handler();
+            RtsItemStorage h = lh.handler();
             if (h instanceof LinkedItemHandlerView view) {
                 rawHandlers.add(view.getRawHandler());
             } else {
@@ -182,10 +188,11 @@ public final class RtsLinkedHandlerResolutionService {
                 if (handler == null) {
                     continue;
                 }
+                RtsFluidStorage storage = NeoForgeFluidStorageAdapter.wrap(handler);
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
                         ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.level(), pos));
                 boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
-                out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, allowStore), allowStore,
+                out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(storage, allowStore), allowStore,
                         linkedPriority(session, ref)));
             }
         }
@@ -207,7 +214,12 @@ public final class RtsLinkedHandlerResolutionService {
             LinkedStorageRef bdRef = new LinkedStorageRef(
                     player.level().dimension(),
                     BlockPos.ZERO);
-            out.add(new LinkedFluidHandler(bdRef, bdName, session.bdCache.fluidHandler, true, 0));
+            out.add(new LinkedFluidHandler(
+                    bdRef,
+                    bdName,
+                    NeoForgeFluidStorageAdapter.wrap(session.bdCache.fluidHandler),
+                    true,
+                    0));
         }
 
         return out;
@@ -225,11 +237,11 @@ public final class RtsLinkedHandlerResolutionService {
         return orderedHandlers(handlers, Comparator.comparingInt(LinkedHandler::priority));
     }
 
-    public static List<IItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
+    public static List<RtsItemStorage> itemHandlersForInsert(List<LinkedHandler> handlers) {
         return toItemHandlers(orderHandlersForInsert(handlers));
     }
 
-    public static List<IItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
+    public static List<RtsItemStorage> itemHandlersForExtract(List<LinkedHandler> handlers) {
         return toItemHandlers(orderHandlersForExtract(handlers));
     }
 
@@ -276,11 +288,11 @@ public final class RtsLinkedHandlerResolutionService {
         return ordered;
     }
 
-    private static List<IItemHandler> toItemHandlers(List<LinkedHandler> handlers) {
+    private static List<RtsItemStorage> toItemHandlers(List<LinkedHandler> handlers) {
         if (handlers == null || handlers.isEmpty()) {
             return List.of();
         }
-        List<IItemHandler> out = new ArrayList<>(handlers.size());
+        List<RtsItemStorage> out = new ArrayList<>(handlers.size());
         for (LinkedHandler linked : handlers) {
             out.add(linked.handler());
         }

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 
 import java.util.List;
 
@@ -134,7 +134,7 @@ public interface CraftingService {
      * @param fillAll               是否填充所有材料槽（不保留空缺）
      * @param includePlayerFallback 是否在链接存储不足时从玩家背包补充
      */
-    void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers,
+    void refillCraftGridFromBlueprint(CraftingMenu menu, List<RtsItemStorage> handlers,
                                       ServerPlayer player, ItemStack[] blueprint,
                                       boolean fillAll, boolean includePlayerFallback);
 

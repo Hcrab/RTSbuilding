@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
-import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
-import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
-import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,7 +13,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -179,10 +176,7 @@ class RtsNetworkStorageOptimizationTest {
         RS
     }
 
-    private static final class FakeNetworkHandler implements IItemHandler,
-            ReportedCountItemHandler,
-            AnySlotInsertItemHandler,
-            RefreshableSnapshotHandler {
+    private static final class FakeNetworkHandler implements RtsItemStorage {
         private final NetworkKind kind;
         private final LinkedHashMap<Item, Long> stored = new LinkedHashMap<>();
         private List<Item> snapshot = List.of();
@@ -200,13 +194,13 @@ class RtsNetworkStorageOptimizationTest {
         static FakeNetworkHandler seeded(NetworkKind kind, Map<Item, Long> stacks) {
             FakeNetworkHandler handler = new FakeNetworkHandler(kind);
             handler.stored.putAll(stacks);
-            handler.ensureFreshSnapshot();
+            handler.refreshSnapshot();
             handler.refreshCalls = 0;
             return handler;
         }
 
         @Override
-        public void ensureFreshSnapshot() {
+        public void refreshSnapshot() {
             this.refreshCalls++;
             this.snapshot = this.stored.entrySet().stream()
                     .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
@@ -215,12 +209,12 @@ class RtsNetworkStorageOptimizationTest {
         }
 
         @Override
-        public int getSlots() {
+        public int slotCount() {
             return this.snapshot.size();
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
+        public ItemStack stackInSlot(int slot) {
             this.stackReads++;
             if (slot < 0 || slot >= this.snapshot.size()) {
                 return ItemStack.EMPTY;
@@ -229,7 +223,7 @@ class RtsNetworkStorageOptimizationTest {
         }
 
         @Override
-        public long getReportedCount(int slot) {
+        public long reportedCount(int slot) {
             if (slot < 0 || slot >= this.snapshot.size()) {
                 return 0L;
             }
@@ -237,20 +231,35 @@ class RtsNetworkStorageOptimizationTest {
         }
 
         @Override
-        public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
+        public boolean hasAggregatedCounts() {
+            return true;
+        }
+
+        @Override
+        public boolean supportsInsertAnywhere() {
+            return true;
+        }
+
+        @Override
+        public ItemStack insertAnywhere(ItemStack stack, boolean simulate) {
             this.insertAnywhereCalls++;
             if (stack == null || stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
             if (!simulate) {
                 this.stored.merge(stack.getItem(), (long) stack.getCount(), Long::sum);
-                ensureFreshSnapshot();
+                refreshSnapshot();
             }
             return ItemStack.EMPTY;
         }
 
         @Override
-        public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
+        public boolean supportsExtractAnywhere() {
+            return true;
+        }
+
+        @Override
+        public ItemStack extractAnywhere(Item targetItem, int amount, boolean simulate) {
             this.extractAnywhereCalls++;
             if (targetItem == null || amount <= 0) {
                 return ItemStack.EMPTY;
@@ -267,25 +276,25 @@ class RtsNetworkStorageOptimizationTest {
                 } else {
                     this.stored.put(targetItem, remaining);
                 }
-                ensureFreshSnapshot();
+                refreshSnapshot();
             }
             return new ItemStack(targetItem, extracted);
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        public ItemStack insert(int slot, ItemStack stack, boolean simulate) {
             this.perSlotInsertCalls++;
             return failPerSlot("insertItem");
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        public ItemStack extract(int slot, int amount, boolean simulate) {
             this.perSlotExtractCalls++;
             return failPerSlot("extractItem");
         }
 
         @Override
-        public int getSlotLimit(int slot) {
+        public int slotLimit(int slot) {
             return Integer.MAX_VALUE;
         }
 
