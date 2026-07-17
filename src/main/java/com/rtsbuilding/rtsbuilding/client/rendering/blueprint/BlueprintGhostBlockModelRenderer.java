@@ -1,10 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
@@ -48,8 +46,6 @@ public final class BlueprintGhostBlockModelRenderer {
             int[] outMaxX, int[] outMaxY, int[] outMaxZ) {
 
         boolean renderedBlockModels = false;
-        MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-
         for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
             BlockPos pos = block.pos();
 
@@ -68,13 +64,12 @@ public final class BlueprintGhostBlockModelRenderer {
                     && state != null
                     && !state.isAir()
                     && state.getRenderShape() == RenderShape.MODEL) {
-                renderedBlockModels |= GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                        state, pos, GHOST_ALPHA);
+                /*
+                 * 实际模型由 26.1 提取/提交桥渲染；此处只保留边界统计，
+                 * 线框与包围盒继续沿用当前稳定渲染阶段。
+                 */
+                renderedBlockModels = true;
             }
-        }
-
-        if (renderedBlockModels) {
-            blockBuffer.endBatch();
         }
 
         return renderedBlockModels;
