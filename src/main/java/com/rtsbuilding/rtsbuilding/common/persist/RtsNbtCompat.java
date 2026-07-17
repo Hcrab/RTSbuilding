@@ -1,7 +1,11 @@
 package com.rtsbuilding.rtsbuilding.common.persist;
 
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.ValueInput;
 
 import java.util.UUID;
 
@@ -34,5 +38,12 @@ public final class RtsNbtCompat {
 
     public static boolean hasUuid(CompoundTag tag, String key) {
         return tag != null && key != null && tag.read(key, UUIDUtil.CODEC).isPresent();
+    }
+
+    public static ValueInput asValueInput(CompoundTag tag, HolderLookup.Provider registries) {
+        return TagValueInput.create(
+                ProblemReporter.DISCARDING,
+                registries,
+                tag == null ? new CompoundTag() : tag);
     }
 }

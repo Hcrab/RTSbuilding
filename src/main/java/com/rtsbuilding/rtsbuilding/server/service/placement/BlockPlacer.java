@@ -64,7 +64,9 @@ public final class BlockPlacer {
         copy.putInt("y", pos.getY());
         copy.putInt("z", pos.getZ());
         try {
-            blockEntity.loadWithComponents(copy, level.registryAccess());
+            blockEntity.loadWithComponents(
+                    com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.asValueInput(
+                            copy, level.registryAccess()));
             blockEntity.setChanged();
             BlockState state = level.getBlockState(pos);
             level.sendBlockUpdated(pos, state, state, 3);

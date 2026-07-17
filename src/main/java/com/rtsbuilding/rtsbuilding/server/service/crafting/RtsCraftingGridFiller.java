@@ -169,7 +169,9 @@ public final class RtsCraftingGridFiller {
         if (key == null) {
             return;
         }
-        RecipeHolder<?> raw = player.level().getRecipeManager().byKey(key).orElse(null);
+        RecipeHolder<?> raw = player.level().recipeAccess().byKey(
+                net.minecraft.resources.ResourceKey.create(
+                        net.minecraft.core.registries.Registries.RECIPE, key)).orElse(null);
         if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
             return;
         }
@@ -300,7 +302,7 @@ public final class RtsCraftingGridFiller {
             boolean inserted = false;
             for (int i = 0; i < 9; i++) {
                 ItemStack blueprintStack = blueprint[i];
-                Ingredient ingredient = ingredients != null && i < ingredients.length ? ingredients[i] : Ingredient.EMPTY;
+                Ingredient ingredient = ingredients != null && i < ingredients.length ? ingredients[i] : null;
                 boolean hasBlueprint = blueprintStack != null && !blueprintStack.isEmpty();
                 boolean hasIngredient = ingredient != null && !ingredient.isEmpty();
                 if (!hasBlueprint && !hasIngredient) {

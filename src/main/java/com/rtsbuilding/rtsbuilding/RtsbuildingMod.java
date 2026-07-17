@@ -91,7 +91,7 @@ public class RtsbuildingMod {
         NeoForge.EVENT_BUS.register(this);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC, "rts_building/rtsbuilding-common.toml");
         modContainer.registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC, "rts_building/rtsbuilding-server.toml");
-        if (FMLEnvironment.dist == Dist.CLIENT) {
+        if (FMLEnvironment.getDist() == Dist.CLIENT) {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC, "rts_building/rtsbuilding-client.toml");
             com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
         }

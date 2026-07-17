@@ -206,12 +206,12 @@ public final class RtsRemoteMenuService {
         }
 
         @Override
-        public void startOpen(net.minecraft.world.entity.player.Player player) {
+        public void startOpen(net.minecraft.world.entity.ContainerUser player) {
             this.delegate.startOpen(player);
         }
 
         @Override
-        public void stopOpen(net.minecraft.world.entity.player.Player player) {
+        public void stopOpen(net.minecraft.world.entity.ContainerUser player) {
             this.delegate.stopOpen(player);
         }
 

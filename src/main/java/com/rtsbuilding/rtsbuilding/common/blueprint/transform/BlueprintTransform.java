@@ -169,16 +169,16 @@ public final class BlueprintTransform {
      */
     private static Direction rotateDirection(Direction direction, int xSteps, int zSteps) {
         int[] normal = new int[] {
-                direction.getNormal().getX(),
-                direction.getNormal().getY(),
-                direction.getNormal().getZ()
+                direction.getUnitVec3i().getX(),
+                direction.getUnitVec3i().getY(),
+                direction.getUnitVec3i().getZ()
         };
         normal = rotateX(normal[0], normal[1], normal[2], xSteps);
         normal = rotateZ(normal[0], normal[1], normal[2], zSteps);
         for (Direction candidate : Direction.values()) {
-            if (candidate.getNormal().getX() == normal[0]
-                    && candidate.getNormal().getY() == normal[1]
-                    && candidate.getNormal().getZ() == normal[2]) {
+            if (candidate.getUnitVec3i().getX() == normal[0]
+                    && candidate.getUnitVec3i().getY() == normal[1]
+                    && candidate.getUnitVec3i().getZ() == normal[2]) {
                 return candidate;
             }
         }

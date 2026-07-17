@@ -31,12 +31,14 @@ public final class RtsLinkedCapabilities {
         if (!player.level().hasChunkAt(pos)) {
             return null;
         }
-        IItemHandler direct = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        var directTransfer = player.level().getCapability(Capabilities.Item.BLOCK, pos, null);
+        IItemHandler direct = directTransfer == null ? null : IItemHandler.of(directTransfer);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            IItemHandler sided = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
+            var sidedTransfer = player.level().getCapability(Capabilities.Item.BLOCK, pos, direction);
+            IItemHandler sided = sidedTransfer == null ? null : IItemHandler.of(sidedTransfer);
             if (sided != null) {
                 return sided;
             }
@@ -67,12 +69,14 @@ public final class RtsLinkedCapabilities {
         if (!player.level().hasChunkAt(pos)) {
             return null;
         }
-        IFluidHandler direct = player.level().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+        var directTransfer = player.level().getCapability(Capabilities.Fluid.BLOCK, pos, null);
+        IFluidHandler direct = directTransfer == null ? null : IFluidHandler.of(directTransfer);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            IFluidHandler sided = player.level().getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
+            var sidedTransfer = player.level().getCapability(Capabilities.Fluid.BLOCK, pos, direction);
+            IFluidHandler sided = sidedTransfer == null ? null : IFluidHandler.of(sidedTransfer);
             if (sided != null) {
                 return sided;
             }

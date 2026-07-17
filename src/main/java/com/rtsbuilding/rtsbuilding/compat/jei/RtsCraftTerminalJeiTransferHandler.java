@@ -20,7 +20,7 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkBridge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,7 +74,7 @@ public final class RtsCraftTerminalJeiTransferHandler
             return null;
         }
 
-        PacketDistributor.sendToServer(new C2SRtsJeiTransferPayload(
+        RtsClientNetworkBridge.send(new C2SRtsJeiTransferPayload(
                 recipe.id().toString(),
                 buildIngredientPrototypes(recipe.value(), recipeSlots),
                 maxTransfer,

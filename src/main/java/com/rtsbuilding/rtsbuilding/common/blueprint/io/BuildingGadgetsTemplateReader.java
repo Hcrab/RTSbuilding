@@ -87,7 +87,7 @@ final class BuildingGadgetsTemplateReader {
             HolderGetter<Block> blockLookup) throws BlueprintParseException {
         CompoundTag tag;
         try {
-            tag = TagParser.parseTag(snbt);
+            tag = TagParser.parseCompoundFully(snbt);
         } catch (Exception ex) {
             throw new BlueprintParseException("读取 Building Gadgets 方块列表失败: " + fileName, ex);
         }
@@ -150,7 +150,7 @@ final class BuildingGadgetsTemplateReader {
             if (!(rawPos instanceof LongTag longTag)) {
                 continue;
             }
-            long encoded = longTag.getAsLong();
+            long encoded = longTag.longValue();
             int stateIndex = legacyStateId(encoded);
             if (stateIndex < 0 || stateIndex >= dataList.size()) {
                 continue;
@@ -334,7 +334,11 @@ final class BuildingGadgetsTemplateReader {
     /** 安全读取 JSON 整数（支持蛇形和驼峰命名） */
     private static int readInt(JsonObject root, String snakeKey, String camelKey) {
         JsonElement element = root.has(snakeKey) ? root.get(snakeKey) : root.get(camelKey);
-        return element == null ? 0 : element.getAsInt();
+        try {
+            return element == null ? 0 : element.getAsInt();
+        } catch (RuntimeException ignored) {
+            return 0;
+        }
     }
 
     /** 从文件名中提取干净的名称 */

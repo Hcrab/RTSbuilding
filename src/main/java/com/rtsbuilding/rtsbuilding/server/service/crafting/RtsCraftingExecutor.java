@@ -121,7 +121,9 @@ public final class RtsCraftingExecutor {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
-        RecipeHolder<?> raw = player.level().getRecipeManager().byKey(key).orElse(null);
+        RecipeHolder<?> raw = player.level().recipeAccess().byKey(
+                net.minecraft.resources.ResourceKey.create(
+                        net.minecraft.core.registries.Registries.RECIPE, key)).orElse(null);
         if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
@@ -238,7 +240,7 @@ public final class RtsCraftingExecutor {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
-        ItemStack result = recipe.assemble(input, player.registryAccess());
+        ItemStack result = recipe.assemble(input);
         if (result.isEmpty()) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
@@ -454,10 +456,6 @@ public final class RtsCraftingExecutor {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.registryAccess());
-        if (!result.isEmpty()) {
-            return result.copy();
-        }
         Ingredient[] mapped = RtsCraftingUtils.mapCraftingIngredients(recipe);
         java.util.List<ItemStack> previewStacks = new ArrayList<>(9);
         for (Ingredient ingredient : mapped) {
@@ -465,13 +463,13 @@ public final class RtsCraftingExecutor {
                 previewStacks.add(ItemStack.EMPTY);
                 continue;
             }
-            ItemStack[] options = ingredient.getItems();
+            ItemStack[] options = RtsCraftingUtils.ingredientOptions(ingredient);
             if (options.length <= 0 || options[0].isEmpty()) {
                 return ItemStack.EMPTY;
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        return recipe.assemble(CraftingInput.of(3, 3, previewStacks), player.registryAccess()).copy();
+        return recipe.assemble(CraftingInput.of(3, 3, previewStacks)).copy();
     }
 
     // ---- craft grid refill from blueprint ----------------------------------------

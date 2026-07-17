@@ -44,7 +44,7 @@ public final class RtsGuiCompatSetupCommand {
         dispatcher.register(Commands.literal(COMMAND_NAME)
                 .then(Commands.argument("caseId", StringArgumentType.word())
                         .executes(context -> setupCase(context.getSource(),
-                                StringArgumentType.getStringOr(context, "caseId", "")))));
+                                StringArgumentType.getString(context, "caseId")))));
     }
 
     private static int setupCase(CommandSourceStack source, String caseId) {

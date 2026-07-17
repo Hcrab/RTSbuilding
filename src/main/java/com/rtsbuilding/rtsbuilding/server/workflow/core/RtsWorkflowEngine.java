@@ -241,12 +241,12 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             if (replaced != null) {
                 fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
                 RtsbuildingMod.LOGGER.info("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
-                        player.getGameProfile().getName(), replaced.id(), replaced.type());
+                        player.getGameProfile().name(), replaced.id(), replaced.type());
             }
         }
         RtsWorkflowEntry entry = slots.addEntry(priority);
         if (entry == null) {
-            String name = player.getGameProfile().getName();
+            String name = player.getGameProfile().name();
             RtsbuildingMod.LOGGER.warn("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
             player.sendSystemMessage(
@@ -266,7 +266,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
 
         RtsbuildingMod.LOGGER.info("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
-                player.getGameProfile().getName(), entry.id(), type, totalBlocks);
+                player.getGameProfile().name(), entry.id(), type, totalBlocks);
         return Optional.of(token);
     }
 
@@ -524,7 +524,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (entry == null || !entry.isOccupied()) return;
 
         RtsbuildingMod.LOGGER.info("[Workflow] {} 删除工作流 #{}: {}",
-                player.getGameProfile().getName(), entry.id(), entry.type());
+                player.getGameProfile().name(), entry.id(), entry.type());
 
         fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entryId, entry);
         slots.removeEntryById(entryId);

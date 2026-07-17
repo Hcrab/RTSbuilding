@@ -74,7 +74,7 @@ public final class MiningLoadoutState {
         CompoundTag loadout = loadoutTag(player);
         if (loadout == null || !loadout.contains(fingerprintKey(role))) return false;
 
-        String expected = loadout.getString(fingerprintKey(role));
+        String expected = loadout.getStringOr(fingerprintKey(role), "");
         String current = stackFingerprint(player.getInventory().getItem(slotOpt.getAsInt()));
         return expected.equals(current);
     }

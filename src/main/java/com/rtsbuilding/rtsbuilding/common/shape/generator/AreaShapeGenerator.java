@@ -52,7 +52,7 @@ public abstract class AreaShapeGenerator {
      * @return true 如果位置在建筑高度内且玩家可与之交互
      */
     private static boolean validatePositionBase(Level level, BlockPos pos, Player player) {
-        if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
+        if (pos.getY() < level.getMinY() || pos.getY() > level.getMaxY()) {
             return false;
         }
         return level.mayInteract(player, pos);

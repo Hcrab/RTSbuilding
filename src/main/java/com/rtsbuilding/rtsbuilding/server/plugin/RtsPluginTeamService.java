@@ -128,7 +128,7 @@ final class RtsPluginTeamService {
     private static List<StoredPlugin> wrapPersonalPlugins(ServerPlayer player, List<RtsInstalledPlugin> plugins) {
         List<StoredPlugin> installed = new ArrayList<>(plugins.size());
         UUID ownerId = player.getUUID();
-        String ownerName = player.getGameProfile().getName();
+        String ownerName = player.getGameProfile().name();
         for (RtsInstalledPlugin plugin : plugins) {
             installed.add(new StoredPlugin(plugin, ownerId, ownerName));
         }
@@ -144,7 +144,7 @@ final class RtsPluginTeamService {
         boolean changed = false;
         for (RtsInstalledPlugin plugin : personal) {
             if (canAddWithoutTeamConflict(shared, plugin)) {
-                shared.add(new StoredPlugin(plugin, player.getUUID(), player.getGameProfile().getName()));
+                shared.add(new StoredPlugin(plugin, player.getUUID(), player.getGameProfile().name()));
                 changed = true;
             } else {
                 remainingPersonal.add(plugin);

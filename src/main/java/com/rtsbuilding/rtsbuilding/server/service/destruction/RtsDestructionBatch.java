@@ -97,7 +97,7 @@ public final class RtsDestructionBatch {
                 .submitDestructionJob(player, job)) return false;
 
         RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} submitted {} destroy targets to TaskStore",
-                player.getGameProfile().getName(), targets.size());
+                player.getGameProfile().name(), targets.size());
         return true;
     }
 
@@ -271,7 +271,7 @@ public final class RtsDestructionBatch {
         session.mining.miningSelectedToolRequested = false;
         session.mining.workflowEntryId = -1;
         RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} detached destroy tool returned",
-                player.getGameProfile().getName());
+                player.getGameProfile().name());
     }
 
     private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,

@@ -73,7 +73,11 @@ public final class RtsCraftingSearch {
 
         List<AvailableCraftItem> availableStacks = snapshotAvailableCraftItems(player, session, activeLinked);
         Map<String, List<CraftableCandidate>> byResultItem = new LinkedHashMap<>();
-        for (RecipeHolder<CraftingRecipe> holder : player.level().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
+        for (RecipeHolder<?> loadedHolder : player.level().recipeAccess().getRecipes()) {
+            if (!(loadedHolder.value() instanceof CraftingRecipe recipe)) {
+                continue;
+            }
+            RecipeHolder<CraftingRecipe> holder = new RecipeHolder<>(loadedHolder.id(), recipe);
             if (!supportsWorkbenchCraftPanelRecipe(holder.value())) {
                 continue;
             }
@@ -243,7 +247,7 @@ public final class RtsCraftingSearch {
         if (recipe == null) {
             return false;
         }
-        List<Ingredient> ingredients = recipe.getIngredients();
+        List<Ingredient> ingredients = recipe.placementInfo().ingredients();
         if (ingredients == null || ingredients.isEmpty()) {
             return false;
         }
@@ -252,7 +256,8 @@ public final class RtsCraftingSearch {
                 return false;
             }
         } else if (recipe instanceof ShapelessRecipe shapeless) {
-            if (shapeless.getIngredients().isEmpty() || shapeless.getIngredients().size() > 9) {
+            if (shapeless.placementInfo().ingredients().isEmpty()
+                    || shapeless.placementInfo().ingredients().size() > 9) {
                 return false;
             }
         } else {
@@ -274,10 +279,6 @@ public final class RtsCraftingSearch {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.registryAccess());
-        if (!result.isEmpty()) {
-            return result.copy();
-        }
         Ingredient[] mapped = RtsCraftingUtils.mapCraftingIngredients(recipe);
         List<ItemStack> previewStacks = new ArrayList<>(9);
         for (Ingredient ingredient : mapped) {
@@ -285,13 +286,13 @@ public final class RtsCraftingSearch {
                 previewStacks.add(ItemStack.EMPTY);
                 continue;
             }
-            ItemStack[] options = ingredient.getItems();
+            ItemStack[] options = RtsCraftingUtils.ingredientOptions(ingredient);
             if (options.length <= 0 || options[0].isEmpty()) {
                 return ItemStack.EMPTY;
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        ItemStack assembled = recipe.assemble(CraftingInput.of(3, 3, previewStacks), player.registryAccess());
+        ItemStack assembled = recipe.assemble(CraftingInput.of(3, 3, previewStacks));
         return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
     }
 
@@ -320,7 +321,7 @@ public final class RtsCraftingSearch {
                 continue;
             }
             if (!rawId.contains(token) && !label.contains(token)
-                    && !(pinyinSearchEnabled && RtsPinyinSearch.contains(resultLabel))) {
+                    && !(pinyinSearchEnabled && RtsPinyinSearch.contains(resultLabel, token))) {
                 return false;
             }
         }

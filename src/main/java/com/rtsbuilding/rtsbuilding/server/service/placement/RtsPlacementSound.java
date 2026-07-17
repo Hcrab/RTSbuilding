@@ -126,7 +126,7 @@ public final class RtsPlacementSound {
         RtsClientboundPackets.sendToPlayer(
                 player,
                 new S2CRtsBlockActionSoundPayload(
-                        sound.getLocation().toString(),
+                        sound.location().toString(),
                         volume,
                         pitch,
                         breakAction));

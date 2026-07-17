@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.common.entity;
 
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 import java.util.UUID;
 
@@ -22,11 +25,11 @@ public class RtsCameraEntity extends Entity {
     }
 
     @Override
-    protected void readAdditionalSaveData(CompoundTag compoundTag) {
+    protected void readAdditionalSaveData(ValueInput input) {
     }
 
     @Override
-    protected void addAdditionalSaveData(CompoundTag compoundTag) {
+    protected void addAdditionalSaveData(ValueOutput output) {
     }
 
     public UUID getOwnerUuid() {
@@ -44,6 +47,11 @@ public class RtsCameraEntity extends Entity {
 
     @Override
     public boolean isPushable() {
+        return false;
+    }
+
+    @Override
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
         return false;
     }
 

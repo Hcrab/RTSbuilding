@@ -92,7 +92,7 @@ final class RtsLegacySkillTreeMigration {
                     added,
                     personalNodes,
                     player.getUUID(),
-                    player.getGameProfile().getName());
+                    player.getGameProfile().name());
             currentRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
             SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, currentRoot);
             if (!oldPersistentRoot.isEmpty()) {

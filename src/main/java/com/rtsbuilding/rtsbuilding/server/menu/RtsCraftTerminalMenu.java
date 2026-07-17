@@ -6,7 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
@@ -61,7 +61,7 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
      * 4. 取走物品后，记录合成产出并尝试从关联存储中补满材料。
      */
     @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+    public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
         ItemStack[] blueprint = null;
         CraftingRecipe recipe = null;
         if (slotId == 0 && player instanceof ServerPlayer) {
@@ -109,7 +109,7 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         for (int i = 0; i < 9; i++) {
             stacks.add(this.getSlot(1 + i).getItem().copy());
         }
-        return level.getRecipeManager()
+        return level.recipeAccess()
                 .getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, stacks), level)
                 .map(RecipeHolder::value)
                 .orElse(null);

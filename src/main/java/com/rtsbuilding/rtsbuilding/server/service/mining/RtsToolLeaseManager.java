@@ -220,7 +220,7 @@ public final class RtsToolLeaseManager {
         RtsbuildingMod.LOGGER.warn(
                 "RTS borrowed mining tool from {} became empty after block break; restoring original stack as safety fallback for {}.",
                 lease.describeSource(),
-                player == null ? "unknown player" : player.getGameProfile().getName());
+                player == null ? "unknown player" : player.getGameProfile().name());
         return original.copy();
     }
 

@@ -41,11 +41,8 @@ final class RtsCraftingUtils {
      */
     static Ingredient[] mapCraftingIngredients(CraftingRecipe recipe) {
         Ingredient[] mapped = new Ingredient[9];
-        for (int i = 0; i < mapped.length; i++) {
-            mapped[i] = Ingredient.EMPTY;
-        }
-        List<Ingredient> ingredients = recipe.getIngredients();
         if (recipe instanceof ShapedRecipe shaped) {
+            List<java.util.Optional<Ingredient>> ingredients = shaped.getIngredients();
             int width = Math.max(1, Math.min(3, shaped.getWidth()));
             int height = Math.max(1, Math.min(3, shaped.getHeight()));
             for (int y = 0; y < height; y++) {
@@ -54,16 +51,30 @@ final class RtsCraftingUtils {
                     if (src < 0 || src >= ingredients.size()) {
                         continue;
                     }
-                    mapped[y * 3 + x] = ingredients.get(src);
+                    mapped[y * 3 + x] = ingredients.get(src).orElse(null);
                 }
             }
         } else {
+            List<Ingredient> ingredients = recipe.placementInfo().ingredients();
             int count = Math.min(9, ingredients.size());
             for (int i = 0; i < count; i++) {
                 mapped[i] = ingredients.get(i);
             }
         }
         return mapped;
+    }
+
+    /**
+     * 把 26.1 的物品 Holder 流转换为旧合成面板需要的候选堆栈。
+     * 此方法只负责生成预览候选，不携带配方运行期间才产生的数据组件。
+     */
+    static ItemStack[] ingredientOptions(Ingredient ingredient) {
+        if (ingredient == null || ingredient.isEmpty()) {
+            return new ItemStack[0];
+        }
+        return ingredient.items()
+                .map(ItemStack::new)
+                .toArray(ItemStack[]::new);
     }
 
     /**
@@ -136,7 +147,7 @@ final class RtsCraftingUtils {
      * 返回材料中第一个非空物品的显示名称。
      */
     static String resolveIngredientLabel(Ingredient ingredient) {
-        for (ItemStack option : ingredient.getItems()) {
+        for (ItemStack option : ingredientOptions(ingredient)) {
             if (!option.isEmpty()) {
                 return option.getHoverName().getString();
             }

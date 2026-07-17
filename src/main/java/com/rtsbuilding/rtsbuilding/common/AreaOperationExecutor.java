@@ -117,7 +117,7 @@ public final class AreaOperationExecutor {
         List<BlockPos> valid = new ArrayList<>();
         for (BlockPos pos : targets) {
             if (pos == null) continue;
-            if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) continue;
+            if (pos.getY() < level.getMinY() || pos.getY() > level.getMaxY()) continue;
             if (!level.mayInteract(player, pos)) continue;
             if (!state.canSurvive(level, pos)) continue;
             if (!level.getBlockState(pos).canBeReplaced()) continue;

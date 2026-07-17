@@ -204,7 +204,7 @@ public final class RtsUltimineProcessor {
         }
 
         RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] areaDestroy: {} valid targets out of {} positions for {}",
-                targets.size(), positions.size(), player.getGameProfile().getName());
+                targets.size(), positions.size(), player.getGameProfile().name());
         int workflowEntryId = session.mining.workflowEntryId;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .submitMiningTargets(player, workflowEntryId, targets,
@@ -275,7 +275,7 @@ public final class RtsUltimineProcessor {
                 player, session,
                 new RtsMiningStateMachine.MiningJob(workflowEntryId, targets, targets.size()));
         RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
-                targets.size(), player.getGameProfile().getName());
+                targets.size(), player.getGameProfile().name());
         return submitted ? targets.size() : 0;
     }
 
@@ -585,7 +585,7 @@ public final class RtsUltimineProcessor {
             int maxUnits, long deadlineNanos) {
         if (session.mining.ultimineTargets.isEmpty()) {
             RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] processUltimineTargets: no remaining targets, finishing batch for {}",
-                    player.getGameProfile().getName());
+                    player.getGameProfile().name());
             finishUltimineBatch(player, session);
             return RtsMiningStateMachine.MiningAdvance.ended(0, 0, 0);
         }
@@ -697,7 +697,7 @@ public final class RtsUltimineProcessor {
     static void finishUltimineBatch(ServerPlayer player, RtsStorageSession session) {
         RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] finishUltimineBatch: {} broken / {} processed / {} total for {}",
                 session.mining.ultimineBrokenTargets, session.mining.ultimineProcessedTargets,
-                session.mining.ultimineTotalTargets, player.getGameProfile().getName());
+                session.mining.ultimineTotalTargets, player.getGameProfile().name());
         // Copy history records before clearing the session list
         List<HistoryBlockRecord> records = new ArrayList<>(session.mining.ultimineProcessedPositions);
         session.mining.ultimineProcessedPositions.clear();

@@ -513,7 +513,7 @@ public final class RtsTaskEngine {
         if (!runtime.isStarted()) return;
         var coordinator = runtime.coordinator();
         var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
-                "chunk", level.dimension().identifier() + ":" + chunkPos.x + ":" + chunkPos.z);
+                "chunk", level.dimension().identifier() + ":" + chunkPos.x() + ":" + chunkPos.z());
         for (var snapshot : coordinator.query().waitingFor(key)) {
             coordinator.replace(snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,

@@ -26,9 +26,11 @@ public final class RtsProgressionNetworkHandlers {
 
     public static void handleSetSurvivalProgression(C2SRtsSetSurvivalProgressionPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer && serverPlayer.hasPermissions(2)) {
+            if (context.player() instanceof ServerPlayer serverPlayer
+                    && serverPlayer.permissions().hasPermission(
+                            net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)) {
                 Config.setSurvivalProgressionEnabled(payload.enabled());
-                serverPlayer.server.getPlayerList().getPlayers().forEach(player -> {
+                serverPlayer.level().getServer().getPlayerList().getPlayers().forEach(player -> {
                     RtsPluginService.syncToPlayer(player);
                     RtsProgressionManager.syncToPlayer(player);
                 });

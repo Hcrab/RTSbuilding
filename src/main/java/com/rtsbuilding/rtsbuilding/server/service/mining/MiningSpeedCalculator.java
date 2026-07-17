@@ -82,11 +82,11 @@ public final class MiningSpeedCalculator {
                 f += (float) (efficiency * efficiency + 1);
             }
         }
-        if (player.hasEffect(MobEffects.DIG_SPEED)) {
-            f *= 1.0F + (float) (player.getEffect(MobEffects.DIG_SPEED).getAmplifier() + 1) * 0.2F;
+        if (player.hasEffect(MobEffects.HASTE)) {
+            f *= 1.0F + (float) (player.getEffect(MobEffects.HASTE).getAmplifier() + 1) * 0.2F;
         }
-        if (player.hasEffect(MobEffects.DIG_SLOWDOWN)) {
-            f *= 1.0F - (float) (player.getEffect(MobEffects.DIG_SLOWDOWN).getAmplifier() + 1) * 0.2F;
+        if (player.hasEffect(MobEffects.MINING_FATIGUE)) {
+            f *= 1.0F - (float) (player.getEffect(MobEffects.MINING_FATIGUE).getAmplifier() + 1) * 0.2F;
         }
         return f;
     }

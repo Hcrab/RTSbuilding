@@ -126,11 +126,8 @@ public final class InteractionHelper {
      * 对实体执行交互操作：先调 player.interactOn，再试 entity.interactAt，最后 fallback 到 useItem。
      */
     public static InteractionResult interactEntityWithMainHand(ServerPlayer player, ServerLevel level, Entity entity, Vec3 hit) {
-        InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND);
-        if (!result.consumesAction()) {
-            Vec3 localHit = hit.subtract(entity.position());
-            result = entity.interactAt(player, localHit, InteractionHand.MAIN_HAND);
-        }
+        Vec3 localHit = hit.subtract(entity.position());
+        InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND, localHit);
         if (!result.consumesAction()) {
             result = player.gameMode.useItem(player, level, player.getMainHandItem(), InteractionHand.MAIN_HAND);
         }
@@ -160,7 +157,7 @@ public final class InteractionHelper {
             return new Vec3(at.x, at.y + 0.2D, at.z);
         }
         if (blockHit != null) {
-            Vec3 n = Vec3.atLowerCornerOf(blockHit.getDirection().getNormal());
+            Vec3 n = Vec3.atLowerCornerOf(blockHit.getDirection().getUnitVec3i());
             Vec3 at = blockHit.getLocation().subtract(n.scale(2.2D));
             return new Vec3(at.x, at.y + 1.1D, at.z);
         }

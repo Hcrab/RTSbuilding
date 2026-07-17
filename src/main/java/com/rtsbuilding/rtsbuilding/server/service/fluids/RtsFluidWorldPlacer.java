@@ -79,7 +79,8 @@ public final class RtsFluidWorldPlacer {
     }
 
     private static void addFluidHandlerCandidate(ServerLevel level, BlockPos pos, Direction side, List<IFluidHandler> out) {
-        IFluidHandler handler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, side);
+        var transfer = level.getCapability(Capabilities.Fluid.BLOCK, pos, side);
+        IFluidHandler handler = transfer == null ? null : IFluidHandler.of(transfer);
         if (handler != null && !out.contains(handler)) {
             out.add(handler);
         }

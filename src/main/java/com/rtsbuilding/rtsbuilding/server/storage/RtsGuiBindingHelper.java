@@ -208,7 +208,7 @@ final class RtsGuiBindingHelper {
         if (state.isAir()) {
             return "";
         }
-        ItemStack cloneStack = state.getBlock().getCloneItemStack(level, pos, state);
+        ItemStack cloneStack = state.getCloneItemStack(level, pos, true);
         Item item = cloneStack.isEmpty() ? state.getBlock().asItem() : cloneStack.getItem();
         if (item == null || item == Items.AIR) {
             return RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, label);
@@ -225,7 +225,7 @@ final class RtsGuiBindingHelper {
     // ======================================================================
 
     static boolean refreshMissingGuiBindingIcons(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || player.server == null) {
+        if (player == null || session == null || player.level().getServer() == null) {
             return false;
         }
 
@@ -239,7 +239,7 @@ final class RtsGuiBindingHelper {
                 continue;
             }
 
-            ServerLevel bindingLevel = player.server.getLevel(binding.dimension());
+            ServerLevel bindingLevel = player.level().getServer().getLevel(binding.dimension());
             if (bindingLevel == null || !bindingLevel.hasChunkAt(binding.pos())) {
                 continue;
             }

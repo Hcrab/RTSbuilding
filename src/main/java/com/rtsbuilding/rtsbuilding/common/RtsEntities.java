@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.neoforged.bus.api.IEventBus;
@@ -36,7 +37,9 @@ public final class RtsEntities {
                             .updateInterval(1)
                             .noSave()
                             .noSummon()
-                            .build(Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "rts_camera").toString()));
+                            .build(ResourceKey.create(
+                                    Registries.ENTITY_TYPE,
+                                    Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "rts_camera"))));
 
     // ============================================================
     //  工厂方法
@@ -64,7 +67,9 @@ public final class RtsEntities {
                 .sized(width, height)
                 .clientTrackingRange(trackingRange)
                 .updateInterval(updateInterval)
-                .build(Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, id).toString()));
+                .build(ResourceKey.create(
+                        Registries.ENTITY_TYPE,
+                        Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, id))));
     }
 
     /**

@@ -12,6 +12,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
 /**
  * 方块放置/破坏追踪事件处理器。<br>
@@ -83,7 +84,7 @@ public final class RtsBlockTrackingEvents {
      * @param event 方块破坏事件
      */
     @SubscribeEvent
-    public static void onBreak(BlockEvent.BreakEvent event) {
+    public static void onBreak(BreakBlockEvent event) {
         if (!(event.getPlayer() instanceof ServerPlayer)) {
             return;
         }

@@ -112,7 +112,7 @@ public final class RtsLinkedStorageResolver {
             return false;
         }
         // ── Bedrock-layer boundary: reject positions below the world floor ──
-        if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
+        if (pos.getY() < level.getMinY() || pos.getY() > level.getMaxY()) {
             return false;
         }
         if (!level.mayInteract(player, pos)) {

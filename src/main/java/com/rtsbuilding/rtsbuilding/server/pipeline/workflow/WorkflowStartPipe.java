@@ -56,7 +56,7 @@ public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority
 
         if (token == null) {
             RtsbuildingMod.LOGGER.warn("[WorkflowStartPipe] Workflow queue full for {}, type={}",
-                    ctx.player().getGameProfile().getName(), type);
+                    ctx.player().getGameProfile().name(), type);
             return PipelineResult.failure("Workflow queue full (" + RtsWorkflowSlotManager.MAX_SLOTS + "/" + RtsWorkflowSlotManager.MAX_SLOTS + ")");
         }
 

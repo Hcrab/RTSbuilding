@@ -224,7 +224,7 @@ public final class RtsPluginService {
         installed.add(new RtsPluginTeamService.StoredPlugin(
                 new RtsInstalledPlugin(definition.id(), installedStack, player.level().getGameTime()),
                 player.getUUID(),
-                player.getGameProfile().getName()));
+                player.getGameProfile().name()));
         RtsPluginTeamService.saveInstalledPlugins(player, installed);
         syncRelatedPlayers(player);
     }

@@ -30,16 +30,17 @@ public final class RtsDeveloperScenarioCommand {
                                 .then(Commands.argument("runId", StringArgumentType.word())
                                         .executes(context -> checkpoint(
                                                 context.getSource().getPlayerOrException(),
-                                                StringArgumentType.getStringOr(context, "action", ""),
-                                                StringArgumentType.getStringOr(context, "task", ""),
-                                                StringArgumentType.getStringOr(context, "runId", "")))))));
+                                                StringArgumentType.getString(context, "action"),
+                                                StringArgumentType.getString(context, "task"),
+                                                StringArgumentType.getString(context, "runId")))))));
     }
 
     private static int checkpoint(ServerPlayer player, String action, String task, String runId) {
         String safeAction = trim(action, 16);
         String safeTask = trim(task, 48);
         String safeRunId = trim(runId, 64);
-        if (!player.hasPermissions(2)) {
+        if (!player.permissions().hasPermission(
+                net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)) {
             player.sendSystemMessage(Component.translatable(
                     "message.rtsbuilding.developer.server_metrics_requires_op"));
             return 0;

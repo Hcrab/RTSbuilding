@@ -76,7 +76,7 @@ public final class RtsPageSharedHelpers {
             return true;
         }
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
-        return normalizedLabel.contains(query) || (pinyinSearchEnabled && RtsPinyinSearch.contains(label));
+        return normalizedLabel.contains(query) || (pinyinSearchEnabled && RtsPinyinSearch.contains(label, query));
     }
 
     public static Set<String> sanitizeLocalizedSearchMatches(List<String> localizedSearchMatches) {

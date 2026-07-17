@@ -278,7 +278,7 @@ public final class BlueprintWriters {
             return "";
         }
         try {
-            ItemStack cloneStack = state.getBlock().getCloneItemStack(level, pos, state);
+            ItemStack cloneStack = state.getCloneItemStack(level, pos, true);
             if (!cloneStack.isEmpty()) {
                 Identifier id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
                 if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {

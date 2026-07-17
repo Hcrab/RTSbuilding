@@ -132,7 +132,7 @@ public final class RtsMiningStateMachine {
         if (entryId >= 0) {
             var tokenOpt = RtsWorkflowEngine.getInstance().from(player, entryId);
             if (tokenOpt.isEmpty()) {
-                RtsbuildingMod.LOGGER.warn("[RtsMiningStateMachine] tickActiveMining: workflow token not found for entryId={}, stopping for {}", entryId, player.getGameProfile().getName());
+                RtsbuildingMod.LOGGER.warn("[RtsMiningStateMachine] tickActiveMining: workflow token not found for entryId={}, stopping for {}", entryId, player.getGameProfile().name());
                 // 工作流已被关闭（删除），停止挖掘操作
                 cancelMiningTask(player, session, entryId);
                 return MiningAdvance.ended(0, 0, 0);
@@ -539,7 +539,7 @@ public final class RtsMiningStateMachine {
      */
     public static void stopActiveMining(ServerPlayer player, RtsStorageSession session, boolean preserveEntry) {
         RtsbuildingMod.LOGGER.info("[RtsMiningStateMachine] stopActiveMining: player={}, miningPos={}, ultimineTargets={}, preserveEntry={}",
-                player.getGameProfile().getName(),
+                player.getGameProfile().name(),
                 session.mining.miningPos,
                 session.mining.ultimineTargets.size(),
                 preserveEntry);
@@ -814,7 +814,7 @@ public final class RtsMiningStateMachine {
             ctx.setData(PipelineContext.KEY_WORKFLOW_ENTRY_ID, wfEntryId);
         }
 
-        RtsbuildingMod.LOGGER.info("[RtsMiningStateMachine] finalizeMiningOperation: entryId={}, records={} for {}", wfEntryId, records.size(), player.getGameProfile().getName());
+        RtsbuildingMod.LOGGER.info("[RtsMiningStateMachine] finalizeMiningOperation: entryId={}, records={} for {}", wfEntryId, records.size(), player.getGameProfile().name());
 
         // Borrowed tool lease — only return if this is the LAST job
         if (session.mining.miningToolLease != null

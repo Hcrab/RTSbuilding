@@ -28,7 +28,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * never loaded on dedicated server runtimes.
  */
 public final class ClientPayloadDispatcher {
-    private static final boolean IS_CLIENT = FMLEnvironment.dist == Dist.CLIENT;
+    private static final boolean IS_CLIENT = FMLEnvironment.getDist() == Dist.CLIENT;
 
     private ClientPayloadDispatcher() {
     }

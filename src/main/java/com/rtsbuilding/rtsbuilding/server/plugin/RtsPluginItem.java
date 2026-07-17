@@ -7,16 +7,18 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.loading.FMLEnvironment;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Real inventory item used to install one RTS plugin.
@@ -33,42 +35,41 @@ public class RtsPluginItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
-        ItemStack stack = player.getItemInHand(usedHand);
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+    public InteractionResult use(Level level, Player player, InteractionHand usedHand) {
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             if (RtsPluginService.installHeldPlugin(serverPlayer, usedHand)) {
-                return InteractionResultHolder.sidedSuccess(serverPlayer.getItemInHand(usedHand), false);
+                return InteractionResult.SUCCESS_SERVER;
             }
         }
-        return InteractionResultHolder.pass(stack);
+        return InteractionResult.PASS;
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents,
-            TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
+            Consumer<Component> tooltipComponents, TooltipFlag tooltipFlag) {
         Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (itemId != null && RtsbuildingMod.MODID.equals(itemId.getNamespace())) {
             String pluginPath = itemId.getPath();
-            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin." + pluginPath)
+            tooltipComponents.accept(Component.translatable("tooltip.rtsbuilding.plugin." + pluginPath)
                     .withStyle(ChatFormatting.GRAY));
             appendDependencyTooltip(pluginPath, tooltipComponents);
         }
     }
 
-    private static void appendDependencyTooltip(String pluginPath, List<Component> tooltipComponents) {
+    private static void appendDependencyTooltip(String pluginPath, Consumer<Component> tooltipComponents) {
         List<String> dependencies = dependenciesFor(pluginPath);
         if (dependencies.isEmpty()) {
             return;
         }
         if (!isControlDown()) {
-            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.hold_ctrl")
+            tooltipComponents.accept(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.hold_ctrl")
                     .withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.title")
+        tooltipComponents.accept(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.title")
                 .withStyle(ChatFormatting.DARK_GRAY));
         for (String dependency : dependencies) {
-            tooltipComponents.add(Component.translatable(
+            tooltipComponents.accept(Component.translatable(
                             "tooltip.rtsbuilding.plugin.dependencies.requires",
                             styledPluginName(dependency))
                     .withStyle(ChatFormatting.GRAY));
@@ -97,7 +98,7 @@ public class RtsPluginItem extends Item {
     }
 
     private static boolean isControlDown() {
-        return FMLEnvironment.dist == Dist.CLIENT && ClientKeyState.isControlDown();
+        return FMLEnvironment.getDist() == Dist.CLIENT && ClientKeyState.isControlDown();
     }
 
     private static final class ClientKeyState {
@@ -105,7 +106,7 @@ public class RtsPluginItem extends Item {
         }
 
         private static boolean isControlDown() {
-            return net.minecraft.client.gui.screens.Screen.hasControlDown();
+            return com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isControlDown();
         }
     }
 }

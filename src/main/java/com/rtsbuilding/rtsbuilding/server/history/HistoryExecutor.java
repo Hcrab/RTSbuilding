@@ -103,7 +103,9 @@ public final class HistoryExecutor {
                 if (beData != null) {
                     BlockEntity blockEntity = level.getBlockEntity(pos);
                     if (blockEntity != null) {
-                        blockEntity.loadWithComponents(beData, level.registryAccess());
+                        blockEntity.loadWithComponents(
+                                com.rtsbuilding.rtsbuilding.common.persist.RtsNbtCompat.asValueInput(
+                                        beData, level.registryAccess()));
                         blockEntity.setChanged();
                     }
                 }
