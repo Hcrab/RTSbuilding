@@ -36,7 +36,8 @@ public final class TopBarTypes {
         SHAPE_ROTATE,
         GUIDE,
         DEVELOPER,
-        QUEST_DETECT
+        QUEST_DETECT,
+        OPERATION_MODE
     }
 
     /**

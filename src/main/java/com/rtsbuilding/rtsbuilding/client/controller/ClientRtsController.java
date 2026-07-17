@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.service.BuildPlacementService;
 import com.rtsbuilding.rtsbuilding.client.service.CameraOrbitService;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
@@ -30,11 +31,11 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -42,10 +43,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
@@ -60,6 +61,12 @@ public final class ClientRtsController {
     private static final long QUEST_DETECT_RESULT_VISIBLE_MS = 3500L;
 
     private boolean enabled;
+    private boolean operationMode;
+    private double opOffsetX;
+    private double opOffsetY;
+    private double opOffsetZ;
+    private float opCameraYaw;
+    private float opCameraPitch;
 
     private double anchorX;
     private double anchorY;
@@ -122,6 +129,40 @@ public final class ClientRtsController {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public boolean isOperationMode() {
+        return operationMode;
+    }
+
+    public void setOperationMode(boolean operationMode) {
+        this.operationMode = operationMode;
+    }
+
+    public void toggleOperationMode() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+        if (!this.operationMode) {
+            // 进入操作模式：记录当前相机相对玩家的偏移和朝向
+            Vec3 camPos = new Vec3(this.cameraOrbitService.getLocalX(),
+                    this.cameraOrbitService.getLocalY(),
+                    this.cameraOrbitService.getLocalZ());
+            Vec3 playerPos = minecraft.player.position();
+            this.opOffsetX = camPos.x - playerPos.x;
+            this.opOffsetY = camPos.y - playerPos.y;
+            this.opOffsetZ = camPos.z - playerPos.z;
+            this.opCameraYaw = this.cameraOrbitService.getLocalYawDeg();
+            this.opCameraPitch = this.cameraOrbitService.getLocalPitchDeg();
+            // 清除相机积累输入防止切换到操作模式时产生残留移动
+            this.cameraOrbitService.resetInputAccumulation();
+        }
+        this.operationMode = !this.operationMode;
+        RtsClientPacketGateway.sendSetOperationMode(
+                this.operationMode,
+                this.opOffsetX, this.opOffsetY, this.opOffsetZ,
+                this.opCameraYaw, this.opCameraPitch);
     }
 
     public boolean canUseStorageOverlay() {
@@ -959,6 +1000,8 @@ public final class ClientRtsController {
             this.closeRangeAllowed = payload.closeRangeAllowed();
 
             if (freshEnable) {
+                this.operationMode = false;
+                this.cameraOrbitService.resetInputAccumulation();
                 this.cameraOrbitService.capturePreviousView(minecraft);
                 // Clear stale player input to prevent WASD presses from before entering RTS mode from affecting movement
                 if (minecraft.player instanceof LocalPlayer localPlayer) {
@@ -1000,6 +1043,7 @@ public final class ClientRtsController {
         }
 
         this.enabled = false;
+        this.operationMode = false;
         this.cameraOrbitService.resetServerCameraEntityId();
         this.cameraOrbitService.setLocalStateReady(false);
         this.homeSelectionMode = false;
@@ -1090,7 +1134,7 @@ public final class ClientRtsController {
         }
 
         if (this.pendingCraftTerminalOpen
-                && minecraft.player.containerMenu instanceof CraftingMenu pendingMenu
+                && minecraft.player.containerMenu instanceof RtsCraftTerminalMenu pendingMenu
                 && minecraft.player.containerMenu.containerId != 0
                 && !(minecraft.screen instanceof RtsCraftTerminalScreen)) {
             Component pendingTitle = minecraft.screen != null ? minecraft.screen.getTitle() : Component.literal("RTS Craft Terminal");
@@ -1099,15 +1143,7 @@ public final class ClientRtsController {
             this.pendingCraftTerminalOpenTicks = 0;
         }
 
-        if (minecraft.screen instanceof CraftingScreen craftingScreen
-                && minecraft.player != null
-                && craftingScreen.getMenu() instanceof CraftingMenu craftingMenu
-                && !(minecraft.screen instanceof RtsCraftTerminalScreen)
-                && shouldUseRtsCraftTerminalScreen(craftingScreen)) {
-            minecraft.setScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.player.getInventory(), craftingScreen.getTitle()));
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
-        } else if (this.pendingCraftTerminalOpen) {
+        if (this.pendingCraftTerminalOpen) {
             if (this.pendingCraftTerminalOpenTicks > 0) {
                 this.pendingCraftTerminalOpenTicks--;
             } else {
@@ -1147,8 +1183,9 @@ public final class ClientRtsController {
         }
 
         this.cameraOrbitService.tick(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius);
-        boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
-                && builderScreen.isStorageViewVisible();
+        boolean storageViewVisible = (minecraft.screen instanceof BuilderScreen builderScreen
+                && builderScreen.isStorageViewVisible())
+                || minecraft.screen instanceof RtsCraftTerminalScreen;
         this.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
 
         // Don't override player.input in RTS mode so the player entity can
@@ -1161,33 +1198,98 @@ public final class ClientRtsController {
         // isControlledCamera() is overridden by LocalPlayerMixin to return true,
         // so Minecraft's native sync mechanism handles position/rotation packets automatically.
         if (minecraft.player instanceof LocalPlayer localPlayer) {
-            localPlayer.input.jumping = false;
-            localPlayer.input.shiftKeyDown = false;
-            localPlayer.input.forwardImpulse = 0.0F;
-            localPlayer.input.leftImpulse = 0.0F;
-
-            // RTS flight vertical control: when player is flying in RTS mode,
-            // Ctrl+Space = ascend, Shift = descend (direct GLFW key state queries)
-            if (localPlayer.getAbilities().flying) {
+            if (this.operationMode) {
+                // ---- 操作模式：玩家控制 ----
                 long window = minecraft.getWindow().getWindow();
-                boolean ctrlHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
-                        || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
-                boolean spaceHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
-                boolean shiftHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                boolean w = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_W) == GLFW.GLFW_PRESS;
+                boolean s = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_S) == GLFW.GLFW_PRESS;
+                boolean a = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_A) == GLFW.GLFW_PRESS;
+                boolean d = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_D) == GLFW.GLFW_PRESS;
+                boolean space = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+                boolean shift = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
                         || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
 
-                if (ctrlHeld && spaceHeld) {
-                    double upSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
-                    localPlayer.setDeltaMovement(
-                            localPlayer.getDeltaMovement().x,
-                            upSpeed,
-                            localPlayer.getDeltaMovement().z);
-                } else if (ctrlHeld && shiftHeld) {
-                    double downSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
-                    localPlayer.setDeltaMovement(
-                            localPlayer.getDeltaMovement().x,
-                            -downSpeed,
-                            localPlayer.getDeltaMovement().z);
+                localPlayer.input.jumping = space;
+                localPlayer.input.shiftKeyDown = shift;
+
+                // 玩家追踪鼠标射线命中的方块坐标
+                // 必须先于 input 计算执行，确保 setYRot 更新后的玩家朝向
+                // 被后续 forwardImpulse/leftImpulse 计算使用
+                Vec3 camPos = new Vec3(this.cameraOrbitService.getLocalX(),
+                        this.cameraOrbitService.getLocalY(),
+                        this.cameraOrbitService.getLocalZ());
+                Vec3 rayDir = this.cameraOrbitService.computeMouseRayDirection(minecraft);
+                BlockHitResult hit = RaycastHelper.raycastBlockFromCursor(minecraft, camPos,
+                        camPos.add(rayDir.scale(128.0D)), false);
+                if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
+                    Vec3 hitPos = hit.getLocation();
+                    double dx = hitPos.x - localPlayer.getX();
+                    double dy = hitPos.y - localPlayer.getEyeY();
+                    double dz = hitPos.z - localPlayer.getZ();
+                    double distSq = dx * dx + dy * dy + dz * dz;
+                    if (distSq > 0.01D) {
+                        float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+                        float targetPitch = (float) Math.toDegrees(-Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+                        localPlayer.setYRot(targetYaw);
+                        localPlayer.setXRot(Mth.clamp(targetPitch, -90.0F, 90.0F));
+                        localPlayer.setYHeadRot(targetYaw);
+                        localPlayer.setYBodyRot(targetYaw);
+                    }
+                }
+
+                // WASD 相对相机朝向移动（类似第三/二人称）
+                // 此时 localPlayer.getYRot() 已更新为鼠标目标朝向
+                float rawForward = (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F);
+                float rawStrafe = (d ? 1.0F : 0.0F) - (a ? 1.0F : 0.0F);
+
+                double camYawRad = Math.toRadians(this.cameraOrbitService.getLocalYawDeg());
+                double playerYawRad = Math.toRadians(localPlayer.getYRot());
+                double sinC = Math.sin(camYawRad), cosC = Math.cos(camYawRad);
+                double sinP = Math.sin(playerYawRad), cosP = Math.cos(playerYawRad);
+
+                // 世界空间移动方向
+                double worldDx = rawForward * -sinC - rawStrafe * cosC;
+                double worldDz = rawForward * cosC - rawStrafe * sinC;
+
+                // 投射到玩家局部空间
+                localPlayer.input.forwardImpulse = (float) (worldDx * -sinP + worldDz * cosP);
+                localPlayer.input.leftImpulse = (float) (worldDx * cosP + worldDz * sinP);
+
+                // 相机跟随玩家位置 + 固定偏移
+                double opCamX = localPlayer.getX() + this.opOffsetX;
+                double opCamY = localPlayer.getY() + this.opOffsetY;
+                double opCamZ = localPlayer.getZ() + this.opOffsetZ;
+                this.cameraOrbitService.setLocalPose(opCamX, opCamY, opCamZ,
+                        this.opCameraYaw, this.opCameraPitch);
+            } else {
+                // ---- 正常 RTS 模式：原逻辑 ----
+                localPlayer.input.jumping = false;
+                localPlayer.input.shiftKeyDown = false;
+                localPlayer.input.forwardImpulse = 0.0F;
+                localPlayer.input.leftImpulse = 0.0F;
+
+                // RTS flight vertical control
+                if (localPlayer.getAbilities().flying) {
+                    long window = minecraft.getWindow().getWindow();
+                    boolean ctrlHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                            || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+                    boolean spaceHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+                    boolean shiftHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                            || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
+
+                    if (ctrlHeld && spaceHeld) {
+                        double upSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
+                        localPlayer.setDeltaMovement(
+                                localPlayer.getDeltaMovement().x,
+                                upSpeed,
+                                localPlayer.getDeltaMovement().z);
+                    } else if (ctrlHeld && shiftHeld) {
+                        double downSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
+                        localPlayer.setDeltaMovement(
+                                localPlayer.getDeltaMovement().x,
+                                -downSpeed,
+                                localPlayer.getDeltaMovement().z);
+                    }
                 }
             }
         }
@@ -1202,6 +1304,7 @@ public final class ClientRtsController {
         }
 
         this.suppressBuilderScreenRestoreUntilRtsRestart = true;
+        this.operationMode = false;
         this.homeSelectionMode = false;
         this.pendingCraftTerminalOpen = false;
         this.pendingCraftTerminalOpenTicks = 0;
@@ -1235,6 +1338,9 @@ public final class ClientRtsController {
     }
 
     public void queueScroll(double scrollY) {
+        if (this.operationMode) {
+            return;
+        }
         this.cameraOrbitService.queueScroll(scrollY);
     }
 
@@ -1345,6 +1451,7 @@ public final class ClientRtsController {
 
     public void openCraftTerminal() {
         this.storageStateManager.setStorageSearch("");
+        this.storageStateManager.updateStoragePageSize(10000);
         this.pendingCraftTerminalOpen = true;
         this.pendingCraftTerminalOpenTicks = 120;
         beginRemoteMenuOpenGrace();
@@ -1388,14 +1495,6 @@ public final class ClientRtsController {
 
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
-    }
-
-    private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
-        if (this.pendingCraftTerminalOpen) {
-            return true;
-        }
-        return craftingScreen.getTitle() != null
-                && "RTS Craft Terminal".equals(craftingScreen.getTitle().getString());
     }
 
     public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) {

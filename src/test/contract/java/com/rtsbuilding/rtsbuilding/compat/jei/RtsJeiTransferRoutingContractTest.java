@@ -10,22 +10,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsJeiTransferRoutingContractTest {
     @Test
-    void vanillaCraftingMenusDelegateBackToJeiTransferChecks() throws IOException {
+    void rtsCraftTerminalHandlerDirectlySendsRtsPacket() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
         String body = methodBody(source,
-                "public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,");
+                "public IRecipeTransferError transferRecipe(RtsCraftTerminalMenu container, RecipeHolder<CraftingRecipe> recipe,");
 
-        int rtsScreenGuard = body.indexOf("if (!isRtsCraftTerminalScreen(container))");
-        int delegateCall = body.indexOf("this.vanillaDelegate.transferRecipe", rtsScreenGuard);
-        int customPacket = body.indexOf("new C2SRtsJeiTransferPayload", delegateCall);
+        int customPacket = body.indexOf("new C2SRtsJeiTransferPayload");
 
-        assertTrue(rtsScreenGuard >= 0,
-                "普通工作台不能被 RTS handler 直接宣称可转入，必须先区分 RTS 终端屏幕。");
-        assertTrue(delegateCall > rtsScreenGuard,
-                "非 RTS 终端应委托 JEI 原生 transfer handler，这样缺材料时加号会正确禁用。");
-        assertTrue(customPacket > delegateCall,
-                "RTS 自己的转入包只能在确认当前屏幕是 RTS 合成终端后发送。");
+        assertTrue(customPacket >= 0,
+                "RTS 合成终端 handler 应直接发送 RTS 专用合成包，不应再有委托原版 JEI 的逻辑。");
+        assertTrue(body.indexOf("vanillaDelegate") < 0,
+                "工作台劫持已移除，vanillaDelegate 不应存在。");
+        assertTrue(body.indexOf("requireScreenCheck") < 0,
+                "工作台劫持已移除，requireScreenCheck 逻辑不应存在。");
+        assertTrue(body.indexOf("isRtsCraftTerminalScreen") < 0,
+                "工作台劫持已移除，屏幕检查逻辑不应存在。");
     }
 
     @Test

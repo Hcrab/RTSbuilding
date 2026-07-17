@@ -335,7 +335,8 @@ public final class RtsClientUiStateStore {
 
         /** 快速建造面板状态（含 building 和 mining 子状态）。
          * <p>quickBuildOpen / quickBuildMode 为面板公共状态，
-         * building 存放 BUILD 模式独立字段，mining 存放 DESTROY 模式独立字段。 */
+         * building 存放 BUILD 模式独立字段，mining 存放 DESTROY 模式独立字段，
+         * smartPlace 存放 SMART_PLACE 模式独立字段。 */
         public static final class QuickBuildState {
             public boolean quickBuildOpen = true;
             public String quickBuildMode = "BUILD";
@@ -344,6 +345,10 @@ public final class RtsClientUiStateStore {
             public BuildingState building = new BuildingState();
             /** 范围破坏模式独立状态 */
             public MiningState mining = new MiningState();
+            /** 智能放置模式独立状态 */
+            public SmartPlaceState smartPlace = new SmartPlaceState();
+            /** 高级破坏模式独立状态 */
+            public AdvancedDestroyState advancedDestroy = new AdvancedDestroyState();
 
             // ===== v1→v2 迁移过渡字段（仅用于读取旧格式文件） =====
             /** @deprecated v1 格式，已迁移至 building.buildShape */
@@ -386,6 +391,46 @@ public final class RtsClientUiStateStore {
             public boolean cylinderVertical = false;
             public boolean advancedRangeDestroyBall = false;
             public boolean advancedRangeDestroyBox = false;
+        }
+
+        /** 智能放置模式独立状态。 */
+        public static final class SmartPlaceState {
+            public String smartPlaceMode = "HOLE_FILL";
+            public int fillCount = 512;
+            public int detectionDiameter = 16;
+        }
+
+        /** 高级破坏模式独立状态。 */
+        public static final class AdvancedDestroyState {
+            public String subMode = "RECTANGLE";
+            // 矩形
+            public int rectPlusX = 1;
+            public int rectMinusX = 1;
+            public int rectPlusY = 1;
+            public int rectMinusY = 1;
+            public int rectPlusZ = 1;
+            public int rectMinusZ = 1;
+            public String rectFillMode = "FILL";
+            // 矩形区块模式
+            public String rectMode = "SIZE";
+            public int chunkRectPlusY = 0;
+            public int chunkRectMinusY = 0;
+            // 过滤
+            public String filtersJson = "[]";
+            public boolean filterInverse = false;
+            // 圆柱
+            public int cylinderRadius = 2;
+            public int cylinderPlusH = 2;
+            public int cylinderMinusH = 2;
+            public String cylinderFillMode = "FILL";
+            // 楼梯
+            public int stairsCount = 64;
+            public int stairsRotation = 0;
+            public boolean stairsSymmetric = false;
+            // 伐木
+            public int lumberLimit = 64;
+            public boolean lumberStrongMan = false;
+            public boolean lumberAllowPlayerBlocks = false;
         }
 
         /** 相机 / 视觉状态。 */
@@ -501,6 +546,36 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.mining.cylinderVertical = this.quickBuild.mining.cylinderVertical;
             clean.quickBuild.mining.advancedRangeDestroyBall = this.quickBuild.mining.advancedRangeDestroyBall;
             clean.quickBuild.mining.advancedRangeDestroyBox = this.quickBuild.mining.advancedRangeDestroyBox;
+            // quickBuild — smartPlace
+            clean.quickBuild.smartPlace.smartPlaceMode = sanitizeEnum(this.quickBuild.smartPlace.smartPlaceMode, "HOLE_FILL");
+            clean.quickBuild.smartPlace.fillCount = Math.max(1, Math.min(1024, this.quickBuild.smartPlace.fillCount));
+            clean.quickBuild.smartPlace.detectionDiameter = Math.max(1, Math.min(32, this.quickBuild.smartPlace.detectionDiameter));
+            // quickBuild — advancedDestroy
+            clean.quickBuild.advancedDestroy.subMode = sanitizeEnum(this.quickBuild.advancedDestroy.subMode, "RECTANGLE");
+            clean.quickBuild.advancedDestroy.rectPlusX = clampInt(this.quickBuild.advancedDestroy.rectPlusX, 0, 16);
+            clean.quickBuild.advancedDestroy.rectMinusX = clampInt(this.quickBuild.advancedDestroy.rectMinusX, 0, 16);
+            clean.quickBuild.advancedDestroy.rectPlusY = clampInt(this.quickBuild.advancedDestroy.rectPlusY, 0, 16);
+            clean.quickBuild.advancedDestroy.rectMinusY = clampInt(this.quickBuild.advancedDestroy.rectMinusY, 0, 16);
+            clean.quickBuild.advancedDestroy.rectPlusZ = clampInt(this.quickBuild.advancedDestroy.rectPlusZ, 0, 16);
+            clean.quickBuild.advancedDestroy.rectMinusZ = clampInt(this.quickBuild.advancedDestroy.rectMinusZ, 0, 16);
+            clean.quickBuild.advancedDestroy.rectFillMode = sanitizeEnum(this.quickBuild.advancedDestroy.rectFillMode, "FILL");
+            clean.quickBuild.advancedDestroy.cylinderRadius = clampInt(this.quickBuild.advancedDestroy.cylinderRadius, 1, 16);
+            clean.quickBuild.advancedDestroy.cylinderPlusH = clampInt(this.quickBuild.advancedDestroy.cylinderPlusH, 1, 16);
+            clean.quickBuild.advancedDestroy.cylinderMinusH = clampInt(this.quickBuild.advancedDestroy.cylinderMinusH, 1, 16);
+            clean.quickBuild.advancedDestroy.cylinderFillMode = sanitizeEnum(this.quickBuild.advancedDestroy.cylinderFillMode, "FILL");
+            clean.quickBuild.advancedDestroy.stairsCount = clampInt(this.quickBuild.advancedDestroy.stairsCount, 1, 256);
+            clean.quickBuild.advancedDestroy.stairsRotation = Math.floorMod(this.quickBuild.advancedDestroy.stairsRotation, 360)
+                    / 90 * 90 % 360;
+            clean.quickBuild.advancedDestroy.stairsSymmetric = this.quickBuild.advancedDestroy.stairsSymmetric;
+            clean.quickBuild.advancedDestroy.lumberLimit = clampInt(this.quickBuild.advancedDestroy.lumberLimit, 1, 1024);
+            clean.quickBuild.advancedDestroy.lumberStrongMan = this.quickBuild.advancedDestroy.lumberStrongMan;
+            clean.quickBuild.advancedDestroy.lumberAllowPlayerBlocks = this.quickBuild.advancedDestroy.lumberAllowPlayerBlocks;
+            clean.quickBuild.advancedDestroy.rectMode = sanitizeEnum(this.quickBuild.advancedDestroy.rectMode, "SIZE");
+            clean.quickBuild.advancedDestroy.chunkRectPlusY = Math.max(0, this.quickBuild.advancedDestroy.chunkRectPlusY);
+            clean.quickBuild.advancedDestroy.chunkRectMinusY = Math.max(0, this.quickBuild.advancedDestroy.chunkRectMinusY);
+            clean.quickBuild.advancedDestroy.filtersJson = this.quickBuild.advancedDestroy.filtersJson != null
+                    ? this.quickBuild.advancedDestroy.filtersJson : "[]";
+            clean.quickBuild.advancedDestroy.filterInverse = this.quickBuild.advancedDestroy.filterInverse;
             // camera
             clean.camera.rtsGuiScale = sanitizeScale(this.camera.rtsGuiScale);
             clean.camera.inputSensitivityIndex = Math.max(0, Math.min(32, this.camera.inputSensitivityIndex));
@@ -613,6 +688,10 @@ public final class RtsClientUiStateStore {
                 return safeFallback;
             }
             return Math.max(0, Math.min(5, value));
+        }
+
+        private static int clampInt(int value, int min, int max) {
+            return Math.max(min, Math.min(max, value));
         }
 
         private static List<String> sanitizeKeys(List<String> values) {

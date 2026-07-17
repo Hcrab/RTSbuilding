@@ -116,6 +116,17 @@ public final class RtsPlaceHandlers {
         });
     }
 
+    public static void handlePlaceFluidBatch(C2SRtsPlaceFluidBatchPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().fluid().enqueuePlaceFluidBatch(
+                        serverPlayer,
+                        payload.positions(),
+                        payload.fluidId());
+            }
+        });
+    }
+
     public static void handleStoreFluid(C2SRtsStoreFluidPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {

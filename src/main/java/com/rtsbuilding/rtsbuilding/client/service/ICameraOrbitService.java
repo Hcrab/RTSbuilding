@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.service;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Interface for camera orbit, pan, dolly, rotation sensitivity, smoothing,
@@ -147,6 +148,18 @@ public interface ICameraOrbitService {
      */
     void syncVisualCameraFrame(Minecraft minecraft, double anchorX, double anchorY, double anchorZ,
                                double maxRadius, boolean rtsEnabled);
+
+    // ======================== Operation mode ========================
+
+    /**
+     * 由操作模式直接设置相机局部姿态（位置 + 朝向），跳过输入处理。
+     */
+    void setLocalPose(double x, double y, double z, float yaw, float pitch);
+
+    /**
+     * 基于当前局部相机朝向和鼠标屏幕坐标计算射线方向。
+     */
+    Vec3 computeMouseRayDirection(Minecraft minecraft);
 
     // ======================== Bounds ========================
 

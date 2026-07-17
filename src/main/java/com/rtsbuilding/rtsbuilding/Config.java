@@ -114,6 +114,18 @@ public class Config {
             .translation("rtsbuilding.configuration.areaMineMaxDepth")
             .defineInRange("mining.areaMineMaxDepth", 36, 1, 256);
 
+    // ---- Smart Place server limits ----
+
+    public static final ModConfigSpec.IntValue SMART_PLACE_MAX_FILL_COUNT = SERVER_BUILDER
+            .comment("Maximum fill block count allowed for one RTS smart place operation.")
+            .translation("rtsbuilding.configuration.smartPlaceMaxFillCount")
+            .defineInRange("placement.smartPlaceMaxFillCount", 1024, 1, 8192);
+
+    public static final ModConfigSpec.IntValue SMART_PLACE_MAX_DIAMETER = SERVER_BUILDER
+            .comment("Maximum detection diameter allowed for RTS smart place hole detection.")
+            .translation("rtsbuilding.configuration.smartPlaceMaxDiameter")
+            .defineInRange("placement.smartPlaceMaxDiameter", 32, 1, 64);
+
     public static final ModConfigSpec.IntValue AE2_NETWORK_REFRESH_THROTTLE = SERVER_BUILDER
             .comment("Number of storage cache refresh cycles between expensive AE2 network snapshots.")
             .translation("rtsbuilding.configuration.ae2NetworkRefreshThrottle")

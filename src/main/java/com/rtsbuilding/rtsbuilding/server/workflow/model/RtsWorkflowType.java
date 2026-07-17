@@ -33,6 +33,9 @@ public enum RtsWorkflowType {
     /** 蓝图文件远程放置构建。 */
     BLUEPRINT_BUILD,
 
+    /** 智能放置——批量流体填充（湖泊填充）。 */
+    SMART_PLACE_FLUID,
+
     /**
      * 独立的停止挖掘操作（之后不会启动新的挖掘）。
      *

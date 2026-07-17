@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
@@ -67,7 +68,7 @@ public final class RtsTransferPlayerIntegration {
     private RtsTransferPlayerIntegration() {
     }
 
-    public static void returnCarriedToLinked(ServerPlayer player, RtsStorageSession session, String itemId, int amount) {
+    public static void returnCarriedToLinked(ServerPlayer player, RtsStorageSession session, String itemId, int amount, ItemStack clientCarried) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -87,20 +88,38 @@ public final class RtsTransferPlayerIntegration {
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
             return;
         }
-        ItemStack carried = player.containerMenu.getCarried();
-        if (carried.isEmpty()) {
-            return;
+        // Use the client-provided ItemStack for deposit; fall back to server-side carried if missing
+        ItemStack toStore;
+        if (clientCarried != null && !clientCarried.isEmpty()) {
+            ResourceLocation clientId = BuiltInRegistries.ITEM.getKey(clientCarried.getItem());
+            if (clientId != null && itemId.equals(clientId.toString())) {
+                int storeCount = Math.min(amount, clientCarried.getCount());
+                if (storeCount <= 0) return;
+                toStore = clientCarried.copyWithCount(storeCount);
+            } else {
+                return;
+            }
+        } else {
+            // Legacy fallback: read from server-side carried
+            ItemStack carried = player.containerMenu.getCarried();
+            if (carried.isEmpty()) return;
+            ResourceLocation carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+            if (carriedId == null || !itemId.equals(carriedId.toString())) return;
+            int returned = Math.min(amount, carried.getCount());
+            if (returned <= 0) return;
+            toStore = carried.split(returned);
+            player.containerMenu.setCarried(carried);
         }
-        ResourceLocation carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
-        if (carriedId == null || !itemId.equals(carriedId.toString())) {
-            return;
+        // Also clear server-side carried if it matches the deposited item
+        ItemStack serverCarried = player.containerMenu.getCarried();
+        if (!serverCarried.isEmpty()) {
+            ResourceLocation scId = BuiltInRegistries.ITEM.getKey(serverCarried.getItem());
+            if (scId != null && itemId.equals(scId.toString())) {
+                int match = Math.min(toStore.getCount(), serverCarried.getCount());
+                serverCarried.shrink(match);
+                player.containerMenu.setCarried(serverCarried);
+            }
         }
-        int returned = Math.min(amount, carried.getCount());
-        if (returned <= 0) {
-            return;
-        }
-        ItemStack toStore = carried.split(returned);
-        player.containerMenu.setCarried(carried);
         OverflowOutcome overflow = RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toStore);
         if (overflow.hasOverflow()) {
             RtsTransferInserter.sendStorageOverflowHint(player, "Import", overflow);
@@ -184,7 +203,8 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         OverflowOutcome overflow = OverflowOutcome.EMPTY;
-        if (menu instanceof CraftingMenu craftingMenu && menuSlot == 0) {
+        if ((menu instanceof CraftingMenu || menu instanceof RtsCraftTerminalMenu) && menuSlot == 0) {
+            AbstractContainerMenu craftingMenu = menu;
             ItemStack[] craftBlueprint = ServiceRegistry.getInstance().crafting().snapshotCraftGridBlueprint(craftingMenu);
             ItemStack resultSnapshot = slot.getItem().copy();
             if (resultSnapshot.isEmpty()) {
@@ -235,7 +255,7 @@ public final class RtsTransferPlayerIntegration {
             if (moved.isEmpty()) {
                 return;
             }
-            if (menu instanceof CraftingMenu && menuSlot == 0) {
+            if ((menu instanceof CraftingMenu || menu instanceof RtsCraftTerminalMenu) && menuSlot == 0) {
                 ResourceLocation craftedId = BuiltInRegistries.ITEM.getKey(moved.getItem());
                 if (craftedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
@@ -393,6 +413,78 @@ public final class RtsTransferPlayerIntegration {
                     true);
         } else if (inventoryFull) {
             player.displayClientMessage(Component.literal("Inventory is full."), true);
+        }
+    }
+
+    // ── Bulk storage operations (Space+Click shortcuts) ─────────────────
+
+    public static void bulkStorageOperation(ServerPlayer player, RtsStorageSession session,
+                                             byte action, String itemId, int amount) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) return;
+        if (session == null) return;
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) return;
+
+        if (action == 0 && itemId != null && !itemId.isBlank() && amount > 0) {
+            massPickupToInventory(player, session, itemId, amount);
+        } else if (action == 1) {
+            depositPlayerSlots(player, session, 9, 36); // inventory (not hotbar)
+        } else if (action == 2) {
+            depositPlayerSlots(player, session, 0, 9);  // hotbar
+        }
+    }
+
+    private static void massPickupToInventory(ServerPlayer player, RtsStorageSession session,
+                                               String itemId, int amount) {
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(linked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+
+        int remaining = amount;
+        boolean anyMoved = false;
+        for (IItemHandler handler : handlers) {
+            if (remaining <= 0) break;
+            for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
+                ItemStack inSlot = handler.getStackInSlot(slot);
+                if (inSlot.isEmpty()) continue;
+                ResourceLocation key = BuiltInRegistries.ITEM.getKey(inSlot.getItem());
+                if (key == null || !key.toString().equals(itemId)) continue;
+
+                int canTake = Math.min(remaining, inSlot.getCount());
+                ItemStack extracted = handler.extractItem(slot, canTake, false);
+                if (extracted.isEmpty()) continue;
+
+                remaining -= extracted.getCount();
+                ItemStack leftover = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
+                if (!leftover.isEmpty()) {
+                    RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, leftover);
+                    remaining += leftover.getCount();
+                }
+                anyMoved = true;
+            }
+        }
+        if (anyMoved) {
+            player.containerMenu.broadcastChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+        }
+    }
+
+    private static void depositPlayerSlots(ServerPlayer player, RtsStorageSession session,
+                                            int start, int end) {
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+        boolean anyMoved = false;
+        for (int i = start; i < end; i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (stack.isEmpty()) continue;
+            ItemStack copy = stack.copy();
+            player.getInventory().setItem(i, ItemStack.EMPTY);
+            RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, copy);
+            anyMoved = true;
+        }
+        if (anyMoved) {
+            player.containerMenu.broadcastChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
         }
     }
 }

@@ -30,8 +30,9 @@ public interface TransferService {
      * @param player  目标玩家
      * @param itemId  要存入的物品 ID
      * @param amount  要存入的数量
+     * @param carried 客户端发送的完整物品栈（避免依赖服务端 carried 同步）
      */
-    void returnCarriedToLinked(ServerPlayer player, String itemId, int amount);
+    void returnCarriedToLinked(ServerPlayer player, String itemId, int amount, ItemStack carried);
 
     /**
      * 从链接存储中提取物品并将其丢弃到世界中的指定位置。
@@ -78,4 +79,16 @@ public interface TransferService {
      * @param player 目标玩家
      */
     void fillPlayerInventoryFromLinked(ServerPlayer player);
+
+    /**
+     * Bulk storage operation triggered by Space+Click shortcuts.
+     *
+     * @param player  target player
+     * @param action  0=mass pickup from storage to inventory,
+     *                1=deposit all inventory (not hotbar) to storage,
+     *                2=deposit all hotbar to storage
+     * @param itemId  item registry name (for action 0)
+     * @param amount  amount to pick up (for action 0)
+     */
+    void bulkStorageOperation(ServerPlayer player, byte action, String itemId, int amount);
 }

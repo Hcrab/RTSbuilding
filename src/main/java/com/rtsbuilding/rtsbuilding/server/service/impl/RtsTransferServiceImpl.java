@@ -59,8 +59,8 @@ public final class RtsTransferServiceImpl implements TransferService {
     }
 
     @Override
-    public void returnCarriedToLinked(ServerPlayer player, String itemId, int amount) {
-        RtsTransferPlayerIntegration.returnCarriedToLinked(player, registry.session().getIfPresent(player), itemId, amount);
+    public void returnCarriedToLinked(ServerPlayer player, String itemId, int amount, ItemStack carried) {
+        RtsTransferPlayerIntegration.returnCarriedToLinked(player, registry.session().getIfPresent(player), itemId, amount, carried);
     }
 
     @Override
@@ -87,5 +87,10 @@ public final class RtsTransferServiceImpl implements TransferService {
     @Override
     public void fillPlayerInventoryFromLinked(ServerPlayer player) {
         RtsTransferPlayerIntegration.fillPlayerInventoryFromLinked(player, registry.session().getIfPresent(player));
+    }
+
+    @Override
+    public void bulkStorageOperation(ServerPlayer player, byte action, String itemId, int amount) {
+        RtsTransferPlayerIntegration.bulkStorageOperation(player, registry.session().getIfPresent(player), action, itemId, amount);
     }
 }

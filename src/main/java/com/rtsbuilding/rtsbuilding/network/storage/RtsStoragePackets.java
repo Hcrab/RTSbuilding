@@ -102,6 +102,11 @@ public final class RtsStoragePackets {
                 RtsTransferHandlers::handleImportMenuSlot);
 
         registrar.playToServer(
+                C2SRtsBulkStorageOpPayload.TYPE,
+                C2SRtsBulkStorageOpPayload.STREAM_CODEC,
+                RtsTransferHandlers::handleBulkStorageOp);
+
+        registrar.playToServer(
                 C2SRtsCloseRemoteMenuPayload.TYPE,
                 C2SRtsCloseRemoteMenuPayload.STREAM_CODEC,
                 RtsBindingHandlers::handleCloseRemoteMenu);

@@ -14,7 +14,7 @@ public final class RtsTransferAPIImpl implements RtsTransferAPI {
 
     @Override
     public void returnCarriedToLinked(ServerPlayer player, String itemId, int amount) {
-        REGISTRY.transfer().returnCarriedToLinked(player, itemId, amount);
+        REGISTRY.transfer().returnCarriedToLinked(player, itemId, amount, null);
     }
 
     @Override

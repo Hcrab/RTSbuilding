@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -115,13 +116,25 @@ public interface CraftingService {
                           boolean maxTransfer, boolean clearGridFirst);
 
     /**
+     * 通用 JEI 配方转移——不绑定特定配方类型，按 (原型, 数量) 对从存储取料填入合成格。
+     * 同物品堆叠（单格≤64），超过9格的溢出物品放入玩家背包，再放不下则忽略。
+     *
+     * @param player         目标玩家
+     * @param prototypes     物品原型列表（每种唯一物品一个）
+     * @param quantities     每种物品的需求数量
+     * @param clearGridFirst 是否在填充前清空合成格
+     */
+    void applyUniversalJeiTransfer(ServerPlayer player, List<ItemStack> prototypes,
+                                   List<Integer> quantities, boolean clearGridFirst);
+
+    /**
      * 快照当前合成格的配方蓝图（材料栈数组）。
      * 用于在自动合成前或合成后记录/恢复合成格状态。
      *
      * @param menu 合成菜单
      * @return 表示当前合成格中材料的物品栈数组
      */
-    ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu);
+    ItemStack[] snapshotCraftGridBlueprint(AbstractContainerMenu menu);
 
     /**
      * 从蓝图数组填充合成格的配方材料。
@@ -134,7 +147,7 @@ public interface CraftingService {
      * @param fillAll               是否填充所有材料槽（不保留空缺）
      * @param includePlayerFallback 是否在链接存储不足时从玩家背包补充
      */
-    void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers,
+    void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> handlers,
                                       ServerPlayer player, ItemStack[] blueprint,
                                       boolean fillAll, boolean includePlayerFallback);
 
@@ -147,7 +160,7 @@ public interface CraftingService {
      * @param blueprint    配方蓝图（材料栈数组）
      * @param recipe       当前合成配方
      */
-    void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu,
+    void refillCraftGridFromLinked(ServerPlayer player, AbstractContainerMenu craftingMenu,
                                    ItemStack[] blueprint, net.minecraft.world.item.crafting.CraftingRecipe recipe);
 
     /**
@@ -158,4 +171,14 @@ public interface CraftingService {
      * @param crafted 已合成的产物物品栈
      */
     void recordCraftedOutput(ServerPlayer player, ItemStack crafted);
+
+    /**
+     * 清空合成网格中的物品。
+     * 当 {@code toPlayerInventory} 为 true 时，物品转入玩家背包；
+     * 否则归还到关联存储。
+     *
+     * @param player            目标玩家
+     * @param toPlayerInventory 是否转入玩家背包
+     */
+    void clearCraftingGrid(ServerPlayer player, boolean toPlayerInventory);
 }

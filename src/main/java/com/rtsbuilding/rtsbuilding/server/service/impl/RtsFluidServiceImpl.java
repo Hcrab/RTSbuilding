@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -12,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.service.fluids.SmartPlaceFluidBatch;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -112,5 +114,16 @@ public final class RtsFluidServiceImpl implements FluidService {
         return level.mayInteract(player, below)
                 && RtsCameraManager.isWithinActionRange(player, pos)
                 && RtsProgressionManager.canAccessHomeRadius(player, pos);
+    }
+
+    @Override
+    public void enqueuePlaceFluidBatch(ServerPlayer player, List<BlockPos> positions, String fluidId) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.FLUID_HANDLING)) return;
+        // 验证客户端发送的位置列表大小，拒绝超限请求
+        if (positions.size() > Config.SMART_PLACE_MAX_FILL_COUNT.get()) return;
+        RtsStorageSession session = registry.session().getIfPresent(player);
+        if (session == null) return;
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        SmartPlaceFluidBatch.enqueuePlaceFluidBatch(player, session, positions, fluidId);
     }
 }

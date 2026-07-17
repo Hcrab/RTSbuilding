@@ -20,7 +20,7 @@ final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCra
 
     @Override
     public List<Rect2i> getGuiExtraAreas(RtsCraftTerminalScreen screen) {
-        return List.of(screen.getLinkedPanelArea());
+        return List.of(screen.getTerminalArea());
     }
 
     @Override
@@ -28,7 +28,7 @@ final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCra
             RtsCraftTerminalScreen screen,
             double mouseX,
             double mouseY) {
-        StorageEntry entry = screen.getLinkedEntryAt(mouseX, mouseY);
+        StorageEntry entry = screen.getStorageEntryAt(mouseX, mouseY);
         if (entry == null) {
             return Optional.empty();
         }
@@ -37,7 +37,7 @@ final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCra
             return Optional.empty();
         }
 
-        Rect2i area = screen.getLinkedSlotAreaAt(mouseX, mouseY);
+        Rect2i area = screen.getStorageSlotAreaAt(mouseX, mouseY);
         if (area == null) {
             return Optional.empty();
         }
@@ -47,4 +47,3 @@ final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCra
                 .map(clickable -> (IClickableIngredient<?>) clickable);
     }
 }
-

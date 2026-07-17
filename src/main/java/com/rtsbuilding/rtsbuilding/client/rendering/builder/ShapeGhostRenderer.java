@@ -3,7 +3,10 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.rendering.smartplace.SmartPlacePreviewRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.SmartPlaceHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
@@ -142,6 +145,20 @@ public final class ShapeGhostRenderer {
             DestructiveGhostRenderer.render(
                     preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F, selectionAabb);
             return;
+        }
+
+        // ── Smart place preview ──
+        if (minecraft.screen instanceof BuilderScreen screen
+                && screen.isQuickBuildOpen()
+                && screen.getQuickBuildPanel().isSmartPlaceActive()) {
+            SmartPlaceHandler handler = screen.getQuickBuildPanel().getSmartPlaceHandler();
+            if (handler != null && handler.hasValidResult()) {
+                SmartPlacePreviewRenderer.render(
+                        poseStack, lineBuffer, fillBuffer,
+                        handler.getPreviewPositions(),
+                        handler.getBoundingBox());
+                return;
+            }
         }
 
         // ── Build mode (placement ghost) ──

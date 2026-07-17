@@ -29,4 +29,7 @@ public final class SessionFlags {
      * 当不存在真实流体处理器时，用于显示虚拟流体槽位。
      */
     public final Map<String, Long> internalFluidMb = new HashMap<>();
+
+    /** 待处理的智能放置批量流体作业（非持久化，仅会话生命周期内存活）。 */
+    public transient Object pendingFluidBatch;
 }

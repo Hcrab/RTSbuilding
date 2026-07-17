@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.service;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
@@ -10,6 +11,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -38,6 +40,7 @@ public final class CameraOrbitService {
     private static final int INPUT_SENS_DEFAULT_INDEX = 2;
     private static final float ROT_EMA_ALPHA = 0.28F;
     private static final float ROT_EMA_DECAY = 0.78F;
+    private static final float MOUSE_DELTA_SMOOTH_ALPHA = 0.35F;
     private static final double MIN_CAMERA_HEIGHT_OFFSET = -35.0D;
     private static final double MAX_CAMERA_HEIGHT_OFFSET = 110.0D;
     private static final float MIN_CAMERA_PITCH = -90.0F;
@@ -67,12 +70,19 @@ public final class CameraOrbitService {
     private float pendingRawRotateX;
     private float pendingRawRotateY;
 
+    // 鼠标原始位移 EMA 预过滤（帧级，过滤高频抖动）
+    private float emaMouseDeltaX;
+    private float emaMouseDeltaY;
+
     // =========================================================================
     //  Fields — EMA smoothing
     // =========================================================================
 
     private float emaRotateX;
     private float emaRotateY;
+    private float emaForward;
+    private float emaStrafe;
+    private float emaVertical;
     private int cameraMoveHeartbeatTicks;
     private int cameraRestoreCooldownTicks;
     private long lastSmoothCameraFrameNanos;
@@ -99,6 +109,11 @@ public final class CameraOrbitService {
     private double localX;
     private double localY;
     private double localZ;
+    private double prevLocalX;
+    private double prevLocalY;
+    private double prevLocalZ;
+    private float prevLocalYawDeg;
+    private float prevLocalPitchDeg;
     private double localHeightOffset;
     private float localYawDeg;
     private float localPitchDeg;
@@ -145,6 +160,13 @@ public final class CameraOrbitService {
         this.pendingRawRotateY = 0.0F;
         this.emaRotateX = 0.0F;
         this.emaRotateY = 0.0F;
+        this.emaForward = 0.0F;
+        this.emaStrafe = 0.0F;
+        this.emaVertical = 0.0F;
+        this.emaMouseDeltaX = 0.0F;
+        this.emaMouseDeltaY = 0.0F;
+        this.prevLocalYawDeg = yawDeg;
+        this.prevLocalPitchDeg = pitchDeg;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
         this.lastSmoothCameraFrameNanos = 0L;
@@ -166,6 +188,13 @@ public final class CameraOrbitService {
         this.pendingRawRotateY = 0.0F;
         this.emaRotateX = 0.0F;
         this.emaRotateY = 0.0F;
+        this.emaForward = 0.0F;
+        this.emaStrafe = 0.0F;
+        this.emaVertical = 0.0F;
+        this.emaMouseDeltaX = 0.0F;
+        this.emaMouseDeltaY = 0.0F;
+        this.prevLocalYawDeg = 0.0F;
+        this.prevLocalPitchDeg = 0.0F;
     }
 
     /** Called by the controller when disabling on death. */
@@ -195,6 +224,54 @@ public final class CameraOrbitService {
     }
 
     /**
+     * 由操作模式直接设置相机局部姿态（位置 + 朝向），跳过输入处理。
+     */
+    public void setLocalPose(double x, double y, double z, float yaw, float pitch) {
+        // 保存旧位置/朝向，供 snapLocalMirrorCameraPose 设为实体 xo/yo/zo/xRotO/yRotO，
+        // 使实体系统通过 getEyePosition(partialTick) 自动做帧间插值，消除 20 TPS 卡顿。
+        this.prevLocalX = this.localX;
+        this.prevLocalY = this.localY;
+        this.prevLocalZ = this.localZ;
+        this.prevLocalYawDeg = this.localYawDeg;
+        this.prevLocalPitchDeg = this.localPitchDeg;
+        this.localX = x;
+        this.localY = y;
+        this.localZ = z;
+        this.localYawDeg = yaw;
+        this.localPitchDeg = pitch;
+        this.localStateReady = true;
+    }
+
+    /**
+     * 基于当前局部相机朝向和鼠标屏幕坐标计算射线方向，
+     * 供操作模式中玩家旋转追踪鼠标目标使用。
+     */
+    public Vec3 computeMouseRayDirection(Minecraft minecraft) {
+        double mouseX = minecraft.mouseHandler.xpos();
+        double mouseY = minecraft.mouseHandler.ypos();
+        double width = Math.max(1.0D, minecraft.getWindow().getScreenWidth());
+        double height = Math.max(1.0D, minecraft.getWindow().getScreenHeight());
+        double nx = (mouseX / width) * 2.0D - 1.0D;
+        double ny = 1.0D - (mouseY / height) * 2.0D;
+
+        double yaw = Math.toRadians(this.localYawDeg);
+        double pitch = Math.toRadians(this.localPitchDeg);
+
+        Vec3 forward = new Vec3(
+                -Math.sin(yaw) * Math.cos(pitch),
+                -Math.sin(pitch),
+                Math.cos(yaw) * Math.cos(pitch)).normalize();
+        Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
+        Vec3 up = forward.cross(right).normalize();
+
+        double fovY = Math.toRadians(minecraft.options.fov().get());
+        double tanY = Math.tan(fovY * 0.5D);
+        double tanX = tanY * (width / height);
+
+        return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
+    }
+
+    /**
      * Clears the pending cursor position so that on the next enable the
      * previous captured state is empty.
      */
@@ -215,6 +292,11 @@ public final class CameraOrbitService {
         this.pendingRawRotateY = 0.0F;
         this.emaRotateX = 0.0F;
         this.emaRotateY = 0.0F;
+        this.emaForward = 0.0F;
+        this.emaStrafe = 0.0F;
+        this.emaVertical = 0.0F;
+        this.emaMouseDeltaX = 0.0F;
+        this.emaMouseDeltaY = 0.0F;
         this.cameraMoveHeartbeatTicks = 0;
         this.cameraRestoreCooldownTicks = 0;
         this.lastSmoothCameraFrameNanos = 0L;
@@ -512,8 +594,12 @@ public final class CameraOrbitService {
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
-        this.pendingRawRotateX += (float) dragX;
-        this.pendingRawRotateY += (float) dragY;
+        // 鼠标位移 EMA 预过滤 — 帧级平滑高频抖动，再送入 per-tick EMA 管线
+        this.emaMouseDeltaX += ((float) dragX - this.emaMouseDeltaX) * MOUSE_DELTA_SMOOTH_ALPHA;
+        this.emaMouseDeltaY += ((float) dragY - this.emaMouseDeltaY) * MOUSE_DELTA_SMOOTH_ALPHA;
+
+        this.pendingRawRotateX += this.emaMouseDeltaX;
+        this.pendingRawRotateY += this.emaMouseDeltaY;
         if (this.smoothCamera) {
             applyImmediateRotation((float) dragX, (float) dragY);
         }
@@ -579,11 +665,52 @@ public final class CameraOrbitService {
         this.anchorZ = anchorZ;
         this.maxRadius = maxRadius;
 
+        // 操作模式：跳过所有相机输入处理，仅维持心跳
+        if (ClientRtsController.get().isOperationMode()) {
+            resetInputAccumulation();
+            if (++this.cameraMoveHeartbeatTicks >= CAMERA_IDLE_HEARTBEAT_TICKS) {
+                RtsClientPacketGateway.sendCameraMove(0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+                this.cameraMoveHeartbeatTicks = 0;
+            }
+            snapLocalMirrorCameraPose();
+            return;
+        }
+
+        // 每 tick 始终保存当前值为 prev，确保帧间插值基准正确。
+        // 无输入时 prev == current → 画面静止；有输入时 applyLocalPrediction
+        // 内部会再次保存并更新 current → prev != current → 平滑插值。
+        this.prevLocalX = this.localX;
+        this.prevLocalY = this.localY;
+        this.prevLocalZ = this.localZ;
+        this.prevLocalYawDeg = this.localYawDeg;
+        this.prevLocalPitchDeg = this.localPitchDeg;
+
         CameraInput cameraInput = readCameraInput(minecraft);
         float keyboardScale = getKeyboardMoveSensitivityScale();
-        float forward = cameraInput.forward * keyboardScale;
-        float strafe = cameraInput.strafe * keyboardScale;
-        float vertical = cameraInput.vertical * keyboardScale;
+
+        // 原始 WASD 值（0/±1），用于服务端网络消息
+        float rawForward = cameraInput.forward;
+        float rawStrafe = cameraInput.strafe;
+        float rawVertical = cameraInput.vertical;
+
+        // WASD EMA 平滑 — 消除按键 0/1 阶跃，产生渐进加减速，仅用于本地预测
+        this.emaForward += (cameraInput.forward - this.emaForward) * ROT_EMA_ALPHA;
+        this.emaStrafe += (cameraInput.strafe - this.emaStrafe) * ROT_EMA_ALPHA;
+        this.emaVertical += (cameraInput.vertical - this.emaVertical) * ROT_EMA_ALPHA;
+
+        if (Math.abs(cameraInput.forward) < CAMERA_INPUT_EPSILON) {
+            this.emaForward *= ROT_EMA_DECAY;
+        }
+        if (Math.abs(cameraInput.strafe) < CAMERA_INPUT_EPSILON) {
+            this.emaStrafe *= ROT_EMA_DECAY;
+        }
+        if (Math.abs(cameraInput.vertical) < CAMERA_INPUT_EPSILON) {
+            this.emaVertical *= ROT_EMA_DECAY;
+        }
+
+        float forward = this.emaForward * keyboardScale;
+        float strafe = this.emaStrafe * keyboardScale;
+        float vertical = this.emaVertical * keyboardScale;
         boolean fast = cameraInput.fast;
 
         float safeRawX = Mth.clamp(this.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
@@ -630,8 +757,8 @@ public final class CameraOrbitService {
 
         if (hasCameraInput || ++this.cameraMoveHeartbeatTicks >= CAMERA_IDLE_HEARTBEAT_TICKS) {
             RtsClientPacketGateway.sendCameraMove(
-                    forward, strafe,
-                    hasCameraInput ? vertical : 0.0F,
+                    rawForward, rawStrafe,
+                    hasCameraInput ? rawVertical : 0.0F,
                     hasCameraInput ? this.pendingPanX : 0.0F,
                     hasCameraInput ? this.pendingPanY : 0.0F,
                     hasCameraInput ? rotateXForTick : 0.0F,
@@ -693,6 +820,11 @@ public final class CameraOrbitService {
     }
 
     private void applySmoothFrameMovement(Minecraft minecraft) {
+        // 操作模式：相机完全由玩家位置 + 固定偏移驱动，禁止平滑帧读取 WASD 推动相机
+        if (ClientRtsController.get().isOperationMode()) {
+            this.lastSmoothCameraFrameNanos = 0L;
+            return;
+        }
         long now = System.nanoTime();
         if (this.lastSmoothCameraFrameNanos == 0L) {
             this.lastSmoothCameraFrameNanos = now;
@@ -716,16 +848,30 @@ public final class CameraOrbitService {
         }
 
         applyLocalPrediction(
-                input.forward * getKeyboardMoveSensitivityScale() * tickDelta,
-                input.strafe * getKeyboardMoveSensitivityScale() * tickDelta,
-                input.vertical * getKeyboardMoveSensitivityScale() * tickDelta,
+                this.emaForward * getKeyboardMoveSensitivityScale() * tickDelta,
+                this.emaStrafe * getKeyboardMoveSensitivityScale() * tickDelta,
+                this.emaVertical * getKeyboardMoveSensitivityScale() * tickDelta,
                 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0, input.fast);
     }
 
     private void snapLocalMirrorCameraPose() {
-        if (this.localMirrorCamera != null) {
-            this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
+        if (this.localMirrorCamera == null) {
+            return;
         }
+        // 保留 xo/yo/zo = 上一 tick 位置/朝向，让 Minecraft 渲染管线做帧间插值，
+        // 实现全帧率平滑跟随。不调用 snapTo()——它会设置 xo = x 杀死插值。
+        float oldYRot = this.localMirrorCamera.getYRot();
+        float oldXRot = this.localMirrorCamera.getXRot();
+        this.localMirrorCamera.xo = this.prevLocalX;
+        this.localMirrorCamera.yo = this.prevLocalY;
+        this.localMirrorCamera.zo = this.prevLocalZ;
+        this.localMirrorCamera.yRotO = oldYRot;
+        this.localMirrorCamera.xRotO = oldXRot;
+        this.localMirrorCamera.setPos(this.localX, this.localY, this.localZ);
+        this.localMirrorCamera.setYRot(this.localYawDeg);
+        this.localMirrorCamera.setXRot(this.localPitchDeg);
+        this.localMirrorCamera.setYHeadRot(this.localYawDeg);
+        this.localMirrorCamera.setYBodyRot(this.localYawDeg);
     }
 
     private void ensureLocalMirrorCamera(Minecraft minecraft) {
@@ -747,6 +893,13 @@ public final class CameraOrbitService {
     private void applyLocalPrediction(float forward, float strafe, float vertical,
                                        float panX, float panY, float rotateX, float rotateY,
                                        float scroll, int rotateSteps, boolean fast) {
+        // 保存上一 tick 的位置/朝向，供 snapLocalMirrorCameraPose 设置帧间插值用
+        this.prevLocalX = this.localX;
+        this.prevLocalY = this.localY;
+        this.prevLocalZ = this.localZ;
+        this.prevLocalYawDeg = this.localYawDeg;
+        this.prevLocalPitchDeg = this.localPitchDeg;
+
         this.localYawDeg += rotateX * ROTATE_GAIN_X;
         if (rotateSteps != 0) {
             this.localYawDeg = snapQuarter(this.localYawDeg + (90.0F * rotateSteps));
@@ -754,9 +907,10 @@ public final class CameraOrbitService {
         this.localPitchDeg = Mth.clamp(this.localPitchDeg + (rotateY * ROTATE_GAIN_Y), MIN_CAMERA_PITCH, MAX_CAMERA_PITCH);
 
         double speed = fast ? 0.80D : 0.45D;
-        double yawRad = Math.toRadians(this.localYawDeg);
-        double sin = Math.sin(yawRad);
-        double cos = Math.cos(yawRad);
+        // 使用新旧朝向的中间值计算位移方向，避免帧间插值在弧线路径上切角导致抖动
+        double midYawRad = Math.toRadians((this.prevLocalYawDeg + this.localYawDeg) * 0.5);
+        double sin = Math.sin(midYawRad);
+        double cos = Math.cos(midYawRad);
 
         double targetX = this.localX;
         double targetY = this.localY;
@@ -770,10 +924,10 @@ public final class CameraOrbitService {
         double moveRight = panX * dragScale;
         double moveForward = -panY * dragScale;
 
-        double rightX = Math.cos(yawRad);
-        double rightZ = Math.sin(yawRad);
-        double fwdX = -Math.sin(yawRad);
-        double fwdZ = Math.cos(yawRad);
+        double rightX = Math.cos(midYawRad);
+        double rightZ = Math.sin(midYawRad);
+        double fwdX = -Math.sin(midYawRad);
+        double fwdZ = Math.cos(midYawRad);
 
         dx += rightX * moveRight + fwdX * moveForward;
         dz += rightZ * moveRight + fwdZ * moveForward;
@@ -784,9 +938,9 @@ public final class CameraOrbitService {
 
         if (scroll != 0.0F) {
             double pitchRad = Math.toRadians(this.localPitchDeg);
-            double lookX = -Math.sin(yawRad) * Math.cos(pitchRad);
+            double lookX = -Math.sin(midYawRad) * Math.cos(pitchRad);
             double lookY = -Math.sin(pitchRad);
-            double lookZ = Math.cos(yawRad) * Math.cos(pitchRad);
+            double lookZ = Math.cos(midYawRad) * Math.cos(pitchRad);
 
             double dolly = scroll * DOLLY_PER_SCROLL;
             targetX += lookX * dolly;

@@ -21,9 +21,14 @@ public final class RtsJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
+        var transferHelper = registration.getTransferHelper();
+        // C键RTS终端 — 原版3×3合成配方（保留精确9格布局）
         registration.addRecipeTransferHandler(
-                new RtsCraftTerminalJeiTransferHandler(registration.getTransferHelper()),
+                new RtsCraftTerminalJeiTransferHandler(transferHelper),
                 RecipeTypes.CRAFTING);
+        // C键RTS终端 — 通用fallback（粉碎轮等非合成配方，堆叠模式）
+        registration.addUniversalRecipeTransferHandler(
+                new RtsCraftTerminalJeiUniversalTransferHandler(transferHelper));
     }
 
     @Override

@@ -25,6 +25,11 @@ public final class RtsCameraPackets {
                 C2SRtsCameraMovePayload.STREAM_CODEC,
                 RtsCameraNetworkHandlers::handleMove);
 
+        registrar.playToServer(
+                C2SRtsSetOperationModePayload.TYPE,
+                C2SRtsSetOperationModePayload.STREAM_CODEC,
+                RtsCameraNetworkHandlers::handleSetOperationMode);
+
         registrar.playToClient(
                 S2CRtsCameraStatePayload.TYPE,
                 S2CRtsCameraStatePayload.STREAM_CODEC,

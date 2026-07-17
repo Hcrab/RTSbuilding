@@ -75,6 +75,8 @@ public final class ScreenShapeController {
 
     /** 当前活跃的是否为范围破坏模式（用于填充/连线/旋转的同步追踪） */
     private boolean destroyModeActive = false;
+    /** 当前是否处于智能放置模式 */
+    private boolean smartPlaceActive = false;
     private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
     private long confirmedRangeDestroyPreviewUntilMs;
     private ShapeDataRecords.GhostPreview confirmedChainDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
@@ -316,6 +318,33 @@ public final class ScreenShapeController {
         this.lineConnected = this.buildLineConnected;
         this.shapeRotateDegrees = this.buildRotateDegrees;
         this.destroyModeActive = false;
+    }
+
+    /**
+     * 切换到智能放置模式：保存当前活跃状态到对应的独立字段，
+     * 设置 smartPlace 标记。
+     */
+    public void switchToSmartPlace() {
+        if (this.destroyModeActive) {
+            this.destroyShapeFillMode = this.shapeFillMode;
+            this.destroyLineConnected = this.lineConnected;
+            this.destroyRotateDegrees = this.shapeRotateDegrees;
+        } else {
+            this.buildShapeFillMode = this.shapeFillMode;
+            this.buildLineConnected = this.lineConnected;
+            this.buildRotateDegrees = this.shapeRotateDegrees;
+        }
+        this.destroyModeActive = false;
+        this.smartPlaceActive = true;
+        clearShapeBuildSession();
+    }
+
+    /**
+     * 从智能放置模式切换回 BUILD/DESTROY（具体由调用方决定目标模式，
+     * 调用方会随后调用 switchToBuild() 或 switchToDestroy()）。</p>
+     */
+    public void exitSmartPlace() {
+        this.smartPlaceActive = false;
     }
 
     /**
@@ -1061,6 +1090,28 @@ public final class ScreenShapeController {
     // ===== Ghost preview =====
 
     public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
+        // 智能放置模式预览
+        if (this.smartPlaceActive && this.screen != null && this.screen.isQuickBuildOpen()) {
+            var handler = this.screen.getQuickBuildPanel().getSmartPlaceHandler();
+            if (handler != null && handler.hasValidResult()) {
+                List<BlockPos> positions = handler.getPreviewPositions();
+                return new ShapeDataRecords.GhostPreview(positions, true, false, List.of(), false, false);
+            }
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+
+        // 高级破坏模式预览 — 仅渲染包围盒线框，不绘制每方块Cell以减轻卡顿
+        if (this.screen != null && this.screen.isQuickBuildAdvancedDestroyActive()) {
+            var handler = this.screen.getQuickBuildPanel().getAdvDestroyHandler();
+            if (handler != null) {
+                List<BlockPos> positions = handler.getPreviewPositions();
+                if (!positions.isEmpty()) {
+                    return new ShapeDataRecords.GhostPreview(List.of(), true, true, positions, false);
+                }
+            }
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+
         if (this.screen.isQuickBuildRangeDestroyMode()) {
             if (this.screen.isQuickBuildRangeDestroyChainMode()) {
                 ShapeDataRecords.GhostPreview confirmed = confirmedChainDestroyPreviewOrEmpty();

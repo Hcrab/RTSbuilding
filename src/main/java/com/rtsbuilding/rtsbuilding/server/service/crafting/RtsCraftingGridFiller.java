@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -53,13 +54,13 @@ public final class RtsCraftingGridFiller {
      */
     public static void refillCraftGridFromLinked(
             ServerPlayer player, RtsStorageSession session,
-            CraftingMenu craftingMenu, ItemStack[] blueprint) {
+            AbstractContainerMenu craftingMenu, ItemStack[] blueprint) {
         refillCraftGridFromLinked(player, session, craftingMenu, blueprint, null);
     }
 
     public static void refillCraftGridFromLinked(
             ServerPlayer player, RtsStorageSession session,
-            CraftingMenu craftingMenu, ItemStack[] blueprint, CraftingRecipe recipe) {
+            AbstractContainerMenu craftingMenu, ItemStack[] blueprint, CraftingRecipe recipe) {
         if (session == null || craftingMenu == null || blueprint == null || blueprint.length != 9) {
             return;
         }
@@ -92,7 +93,7 @@ public final class RtsCraftingGridFiller {
         if (player == null || blueprintIds == null || blueprintIds.size() != 9) {
             return;
         }
-        if (!(player.containerMenu instanceof CraftingMenu craftingMenu)) {
+        if (!(player.containerMenu instanceof AbstractContainerMenu craftingMenu)) {
             return;
         }
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
@@ -129,7 +130,7 @@ public final class RtsCraftingGridFiller {
         if (player == null || blueprintStacks == null || blueprintStacks.size() != 9) {
             return;
         }
-        if (!(player.containerMenu instanceof CraftingMenu craftingMenu)) {
+        if (!(player.containerMenu instanceof AbstractContainerMenu craftingMenu)) {
             return;
         }
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
@@ -158,7 +159,7 @@ public final class RtsCraftingGridFiller {
             return;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (!(player.containerMenu instanceof CraftingMenu craftingMenu)) {
+        if (!(player.containerMenu instanceof AbstractContainerMenu craftingMenu)) {
             return;
         }
         if (recipeId == null || recipeId.isBlank()) {
@@ -275,19 +276,205 @@ public final class RtsCraftingGridFiller {
         }
     }
 
+    /**
+     * Clear the crafting grid — either return items to linked storage or move to player inventory.
+     */
+    public static void clearCraftingGrid(ServerPlayer player, RtsStorageSession session,
+                                          boolean toPlayerInventory) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
+            return;
+        }
+        if (session == null) {
+            return;
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!(player.containerMenu instanceof AbstractContainerMenu craftingMenu)) {
+            return;
+        }
+
+        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+
+        boolean changed = false;
+        for (int i = 0; i < 9; i++) {
+            var gridSlot = craftingMenu.getSlot(1 + i);
+            ItemStack stack = gridSlot.getItem();
+            if (stack.isEmpty()) {
+                continue;
+            }
+            gridSlot.set(ItemStack.EMPTY);
+            gridSlot.setChanged();
+            changed = true;
+
+            if (toPlayerInventory) {
+                player.getInventory().placeItemBackInInventory(stack);
+            } else {
+                RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, stack);
+            }
+        }
+
+        if (changed) {
+            RtsCraftingUtils.refreshCraftingResult(craftingMenu);
+            craftingMenu.broadcastChanges();
+            ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
+        }
+    }
+
+    public static void applyUniversalJeiTransfer(
+            ServerPlayer player, RtsStorageSession session,
+            List<ItemStack> prototypes, List<Integer> quantities,
+            boolean clearGridFirst) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
+            return;
+        }
+        if (session == null || prototypes == null || quantities == null) {
+            return;
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!(player.containerMenu instanceof AbstractContainerMenu craftingMenu)) {
+            return;
+        }
+
+        int size = Math.min(prototypes.size(), quantities.size());
+        if (size == 0) {
+            return;
+        }
+
+        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+
+        // 阶段1: 清空合成格
+        List<ItemStack> cleared = new ArrayList<>(9);
+        if (clearGridFirst) {
+            for (int i = 0; i < 9; i++) {
+                Slot grid = craftingMenu.getSlot(1 + i);
+                ItemStack existing = grid.getItem();
+                if (existing.isEmpty()) {
+                    cleared.add(ItemStack.EMPTY);
+                } else {
+                    cleared.add(existing.copy());
+                    grid.set(ItemStack.EMPTY);
+                    grid.setChanged();
+                }
+            }
+        } else {
+            for (int i = 0; i < 9; i++) {
+                cleared.add(ItemStack.EMPTY);
+            }
+        }
+
+        // 阶段2: 按原型列表从存储取料 → 填入合成格（前9种物品，同物品堆叠≤64）
+        boolean anyInserted = false;
+        int gridIndex = 0;
+        for (int itemIdx = 0; itemIdx < size; itemIdx++) {
+            ItemStack prototype = prototypes.get(itemIdx);
+            int needed = Math.max(1, quantities.get(itemIdx));
+            if (prototype == null || prototype.isEmpty() || needed <= 0) {
+                continue;
+            }
+
+            while (needed > 0 && gridIndex < 9) {
+                Slot targetSlot = craftingMenu.getSlot(1 + gridIndex);
+                ItemStack existing = targetSlot.getItem();
+
+                if (existing.isEmpty()) {
+                    int batch = Math.min(needed, prototype.getMaxStackSize());
+                    ItemStack extracted = extractPrototypeFromLinked(extractHandlers, player, prototype, batch);
+                    if (extracted.isEmpty()) break;
+                    targetSlot.set(extracted);
+                    targetSlot.setChanged();
+                    needed -= extracted.getCount();
+                    anyInserted = true;
+                    gridIndex++;
+                    continue;
+                }
+
+                if (ItemStack.isSameItemSameComponents(existing, prototype)
+                        && existing.getCount() < existing.getMaxStackSize()) {
+                    int canAdd = existing.getMaxStackSize() - existing.getCount();
+                    int batch = Math.min(needed, canAdd);
+                    ItemStack extracted = extractPrototypeFromLinked(extractHandlers, player, prototype, batch);
+                    if (extracted.isEmpty()) { gridIndex++; continue; }
+                    existing.grow(extracted.getCount());
+                    targetSlot.setChanged();
+                    needed -= extracted.getCount();
+                    anyInserted = true;
+                    if (existing.getCount() >= existing.getMaxStackSize()) gridIndex++;
+                    continue;
+                }
+
+                gridIndex++;
+            }
+
+            // 阶段3: 溢出物品放入玩家背包
+            while (needed > 0) {
+                int batch = Math.min(needed, prototype.getMaxStackSize());
+                ItemStack extracted = extractPrototypeFromLinked(extractHandlers, player, prototype, batch);
+                if (extracted.isEmpty()) break;
+                needed -= extracted.getCount();
+                anyInserted = true;
+                RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
+            }
+        }
+
+        // 被清空的原物品放回存储
+        for (ItemStack stack : cleared) {
+            if (stack.isEmpty()) continue;
+            RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, stack);
+        }
+
+        RtsCraftingUtils.refreshCraftingResult(craftingMenu);
+        craftingMenu.broadcastChanges();
+        ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
+        if (anyInserted) {
+            QuestService.runQuestDetect(player, session, false);
+        }
+    }
+
     // ---- low-level grid refill loop ----------------------------------------------
+
+    /**
+     * 从关联存储中提取指定原型物品，优先匹配精确原型，回退到物品类型匹配。
+     */
+    private static ItemStack extractPrototypeFromLinked(
+            List<IItemHandler> handlers, ServerPlayer player,
+            ItemStack prototype, int count) {
+        if (prototype == null || prototype.isEmpty() || count <= 0) {
+            return ItemStack.EMPTY;
+        }
+        // 优先提取精确匹配的（同 NBT/组件）
+        ItemStack exact = RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, prototype);
+        if (!exact.isEmpty()) {
+            ItemStack result = exact.copy();
+            // 继续提取剩余数量
+            int remaining = count - exact.getCount();
+            while (remaining > 0) {
+                ItemStack more = RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, prototype);
+                if (more.isEmpty()) break;
+                result.grow(more.getCount());
+                remaining -= more.getCount();
+            }
+            return result;
+        }
+        // 回退到物品类型匹配（忽略组件差异）
+        return RtsTransferExtractor.extractMatchingFromLinked(
+                handlers, prototype.getItem(), count);
+    }
+
+    // ---- low-level grid refill loop (existing) ------------------------------------
 
     /**
      * 执行从链接存储/玩家回退的低级网格填充循环。
      */
     public static void refillCraftGridFromBlueprint(
-            CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         refillCraftGridFromBlueprint(menu, handlers, player, blueprint, null, fillAll, includePlayerFallback);
     }
 
     public static void refillCraftGridFromBlueprint(
-            CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, Ingredient[] ingredients,
             boolean fillAll, boolean includePlayerFallback) {
         if (blueprint == null || blueprint.length != 9) {

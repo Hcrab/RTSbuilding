@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsMenuTypes;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
@@ -11,9 +14,10 @@ import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
-import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -21,42 +25,41 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * JEI recipe transfer handler for the RTS crafting terminal (C-key).
+ * Transfers 3×3 crafting recipes into the RTS terminal's crafting grid,
+ * pulling materials from linked storage.
+ */
 public final class RtsCraftTerminalJeiTransferHandler
-        implements IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> {
+        implements IRecipeTransferHandler<RtsCraftTerminalMenu, RecipeHolder<CraftingRecipe>> {
     private static final int CRAFT_GRID_SLOT_START = 1;
     private static final int CRAFT_GRID_SLOT_COUNT = 9;
     private static final int INVENTORY_SLOT_START = 10;
     private static final int INVENTORY_SLOT_COUNT = 36;
 
-    private final IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> vanillaDelegate;
+    private final IRecipeTransferHandlerHelper transferHelper;
 
-    public RtsCraftTerminalJeiTransferHandler(IRecipeTransferHandlerHelper transferHelper) {
+    public RtsCraftTerminalJeiTransferHandler(
+            IRecipeTransferHandlerHelper transferHelper) {
         Objects.requireNonNull(transferHelper, "transferHelper");
-        this.vanillaDelegate = transferHelper.createUnregisteredRecipeTransferHandler(
-                transferHelper.createBasicRecipeTransferInfo(
-                        CraftingMenu.class,
-                        MenuType.CRAFTING,
-                        RecipeTypes.CRAFTING,
-                        CRAFT_GRID_SLOT_START,
-                        CRAFT_GRID_SLOT_COUNT,
-                        INVENTORY_SLOT_START,
-                        INVENTORY_SLOT_COUNT));
+        this.transferHelper = transferHelper;
     }
 
     @Override
-    public Class<? extends CraftingMenu> getContainerClass() {
-        return CraftingMenu.class;
+    public Class<RtsCraftTerminalMenu> getContainerClass() {
+        return RtsCraftTerminalMenu.class;
     }
 
     @Override
-    public Optional<MenuType<CraftingMenu>> getMenuType() {
-        return Optional.of(MenuType.CRAFTING);
+    public Optional<MenuType<RtsCraftTerminalMenu>> getMenuType() {
+        return Optional.of(RtsMenuTypes.RTS_CRAFT_TERMINAL.get());
     }
 
     @Override
@@ -65,13 +68,10 @@ public final class RtsCraftTerminalJeiTransferHandler
     }
 
     @Override
-    public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,
+    public IRecipeTransferError transferRecipe(RtsCraftTerminalMenu container, RecipeHolder<CraftingRecipe> recipe,
             IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
-        if (!isRtsCraftTerminalScreen(container)) {
-            return this.vanillaDelegate.transferRecipe(container, recipe, recipeSlots, player, maxTransfer, doTransfer);
-        }
         if (!doTransfer) {
-            return null;
+            return checkMaterialAvailability(recipeSlots);
         }
 
         PacketDistributor.sendToServer(new C2SRtsJeiTransferPayload(
@@ -82,11 +82,59 @@ public final class RtsCraftTerminalJeiTransferHandler
         return null;
     }
 
-    private static boolean isRtsCraftTerminalScreen(CraftingMenu container) {
-        Minecraft minecraft = Minecraft.getInstance();
-        return minecraft != null
-                && minecraft.screen instanceof RtsCraftTerminalScreen screen
-                && screen.getMenu() == container;
+    @Nullable
+    private IRecipeTransferError checkMaterialAvailability(IRecipeSlotsView recipeSlots) {
+        List<IRecipeSlotView> inputViews = recipeSlots.getSlotViews().stream()
+                .filter(view -> view.getRole() == RecipeIngredientRole.INPUT
+                        || view.getRole() == RecipeIngredientRole.CATALYST)
+                .toList();
+        if (inputViews.isEmpty()) {
+            return null;
+        }
+
+        List<StorageEntry> storageEntries = ClientRtsController.get().getStorageEntries();
+        if (storageEntries.isEmpty()) {
+            return null;
+        }
+
+        long[] remaining = new long[storageEntries.size()];
+        for (int i = 0; i < storageEntries.size(); i++) {
+            remaining[i] = storageEntries.get(i).count();
+        }
+
+        List<IRecipeSlotView> missingSlots = new ArrayList<>();
+
+        for (IRecipeSlotView view : inputViews) {
+            if (view.isEmpty()) {
+                continue;
+            }
+            List<ItemStack> possibleItems = view.getIngredients(VanillaTypes.ITEM_STACK).toList();
+            boolean found = false;
+            for (ItemStack needed : possibleItems) {
+                if (needed.isEmpty()) continue;
+                for (int i = 0; i < storageEntries.size(); i++) {
+                    if (remaining[i] <= 0) continue;
+                    StorageEntry entry = storageEntries.get(i);
+                    ResourceLocation neededId = BuiltInRegistries.ITEM.getKey(needed.getItem());
+                    if (neededId != null && neededId.toString().equals(entry.itemId())) {
+                        remaining[i]--;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+            if (!found) {
+                missingSlots.add(view);
+            }
+        }
+
+        if (missingSlots.isEmpty()) {
+            return null;
+        }
+
+        Component message = Component.translatable("jei.tooltip.error.recipe.transfer.missing");
+        return transferHelper.createUserErrorForMissingSlots(message, missingSlots);
     }
 
     private static List<ItemStack> buildIngredientPrototypes(CraftingRecipe recipe, IRecipeSlotsView recipeSlots) {

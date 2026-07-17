@@ -524,7 +524,7 @@ public final class RtsTaskEngine {
         return switch (type) {
             case MINE_SINGLE, ULTIMINE, AREA_MINE, AREA_DESTROY,
                     PLACE_SINGLE, PLACE_BATCH, QUICK_BUILD -> true;
-            case BLUEPRINT_BUILD, STOP_MINING -> false;
+            case BLUEPRINT_BUILD, STOP_MINING, SMART_PLACE_FLUID -> false;
         };
     }
 

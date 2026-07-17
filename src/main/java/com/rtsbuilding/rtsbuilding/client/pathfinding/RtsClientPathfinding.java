@@ -80,6 +80,10 @@ public final class RtsClientPathfinding {
      * Sends a packet to the server for server-side tracking/cleanup.
      */
     public static void goTo(BlockPos target) {
+        // 操作模式：玩家手动控制移动，禁用自动寻路
+        if (ClientRtsController.get().isOperationMode()) {
+            return;
+        }
         RtsClientPathfinding.target = target.immutable();
         targetYOffset = 0;
         setHighlightedTarget(RtsClientPathfinding.target);
@@ -100,6 +104,10 @@ public final class RtsClientPathfinding {
      * @param yOffset vertical offset above the block (pass 1 to land on surface)
      */
     public static void goToAbove(BlockPos target, int yOffset) {
+        // 操作模式：玩家手动控制移动，禁用自动寻路
+        if (ClientRtsController.get().isOperationMode()) {
+            return;
+        }
         RtsClientPathfinding.target = target.immutable();
         targetYOffset = Math.max(1, yOffset);
         setHighlightedTarget(RtsClientPathfinding.target);
@@ -165,7 +173,7 @@ public final class RtsClientPathfinding {
 
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (player == null || !ClientRtsController.get().isEnabled()) {
+        if (player == null || !ClientRtsController.get().isEnabled() || ClientRtsController.get().isOperationMode()) {
             cancel();
             return;
         }
