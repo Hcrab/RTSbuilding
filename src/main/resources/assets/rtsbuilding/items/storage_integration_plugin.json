@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "rtsbuilding:item/storage_integration_plugin"
+  }
+}

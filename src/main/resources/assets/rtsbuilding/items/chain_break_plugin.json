@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "rtsbuilding:item/chain_break_plugin"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "rtsbuilding:item/rts_control_core"
+  }
+}

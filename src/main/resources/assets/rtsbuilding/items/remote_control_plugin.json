@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "rtsbuilding:item/remote_control_plugin"
+  }
+}
