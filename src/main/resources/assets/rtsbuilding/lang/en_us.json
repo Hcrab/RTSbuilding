@@ -484,6 +484,7 @@
   "screen.rtsbuilding.blueprints.search": "Search blueprints",
   "screen.rtsbuilding.blueprints.build_preview": "Build",
   "screen.rtsbuilding.blueprints.clear_preview": "Clear",
+  "screen.rtsbuilding.blueprints.cancel_preview": "Cancel Preview",
   "screen.rtsbuilding.blueprints.y_rotate": "Y Rot",
   "screen.rtsbuilding.blueprints.x_rotate": "X Rot",
   "screen.rtsbuilding.blueprints.z_rotate": "Z Rot",

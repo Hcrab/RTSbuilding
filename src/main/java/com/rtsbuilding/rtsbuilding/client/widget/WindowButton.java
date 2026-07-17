@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.input.InputWithModifiers;
@@ -40,6 +41,21 @@ public class WindowButton extends AbstractButton {
     private static final int BUTTON_HOVER = 0xDD2A3442;
     private static final int BORDER_LIGHT = 0xFF647B92;
     private static final int BORDER_DARK = 0xFF0D1117;
+    private static final int PRIMARY_BACKGROUND = 0xCC244E35;
+    private static final int PRIMARY_HOVER = 0xDD326A49;
+    private static final int PRIMARY_BORDER = 0xFF7FCEA0;
+    private static final int SELECTED_BACKGROUND = 0xDD244A67;
+    private static final int SELECTED_HOVER = 0xDD315F82;
+    private static final int SELECTED_BORDER = 0xFF83BDE8;
+    private static final int PENDING_BACKGROUND = 0xDD5A4720;
+    private static final int PENDING_BORDER = 0xFFE0B65F;
+    private static final int FAILED_BACKGROUND = 0xDD5A2529;
+    private static final int FAILED_BORDER = 0xFFE47A82;
+    private static final int DESTRUCTIVE_BACKGROUND = 0xCC40252A;
+    private static final int DESTRUCTIVE_HOVER = 0xDD583139;
+    private static final int DESTRUCTIVE_BORDER = 0xFFD58A91;
+
+    private RtsControlState controlState = RtsControlState.enabled(RtsControlRole.COMMAND);
 
     /**
      * When set, all WindowButton instances suppress hover/focus effects.
@@ -104,6 +120,21 @@ public class WindowButton extends AbstractButton {
 
     public void onPress() {
         this.onPress.onPress(this);
+    }
+
+    public WindowButton applyControlState(RtsControlState state) {
+        this.controlState = state == null
+                ? RtsControlState.enabled(RtsControlRole.COMMAND)
+                : state;
+        this.active = this.controlState.enabled() && !this.controlState.pending();
+        this.setTooltip(this.controlState.disabledReason() == null
+                ? null
+                : Tooltip.create(this.controlState.disabledReason()));
+        return this;
+    }
+
+    public RtsControlState controlState() {
+        return this.controlState;
     }
 
     @Override
@@ -179,11 +210,49 @@ public class WindowButton extends AbstractButton {
      * Renders the button with solid colours (RTS dark style).
      */
     private void renderWithSolidColor(GuiGraphicsExtractor guiGraphics) {
-        // Determine background colour (covered windows forced to non-hover colour)
-        int backgroundColor = (!globalSkipHover && this.isHoveredOrFocused()) ? BUTTON_HOVER : BUTTON_BACKGROUND;
+        boolean hovered = !globalSkipHover && this.isHoveredOrFocused();
+        int backgroundColor = resolveBackgroundColor(hovered);
+        int borderLight = resolveBorderLightColor();
         RtsClientUiUtil.drawPanelFrame(guiGraphics,
                 this.getX(), this.getY(), this.width, this.height,
-                backgroundColor, BORDER_LIGHT, BORDER_DARK);
+                backgroundColor, borderLight, BORDER_DARK);
+    }
+
+    private int resolveBackgroundColor(boolean hovered) {
+        if (!this.active && !this.controlState.pending()) {
+            return BUTTON_BACKGROUND;
+        }
+        if (this.controlState.failed()) {
+            return FAILED_BACKGROUND;
+        }
+        if (this.controlState.pending()) {
+            return PENDING_BACKGROUND;
+        }
+        if (this.controlState.selected()) {
+            return hovered ? SELECTED_HOVER : SELECTED_BACKGROUND;
+        }
+        return switch (this.controlState.role()) {
+            case PRIMARY_ACTION -> hovered ? PRIMARY_HOVER : PRIMARY_BACKGROUND;
+            case DESTRUCTIVE -> hovered ? DESTRUCTIVE_HOVER : DESTRUCTIVE_BACKGROUND;
+            case COMMAND, MODE, TOGGLE -> hovered ? BUTTON_HOVER : BUTTON_BACKGROUND;
+        };
+    }
+
+    private int resolveBorderLightColor() {
+        if (this.controlState.failed()) {
+            return FAILED_BORDER;
+        }
+        if (this.controlState.pending()) {
+            return PENDING_BORDER;
+        }
+        if (this.controlState.selected()) {
+            return SELECTED_BORDER;
+        }
+        return switch (this.controlState.role()) {
+            case PRIMARY_ACTION -> PRIMARY_BORDER;
+            case DESTRUCTIVE -> DESTRUCTIVE_BORDER;
+            case COMMAND, MODE, TOGGLE -> BORDER_LIGHT;
+        };
     }
 
     @Override

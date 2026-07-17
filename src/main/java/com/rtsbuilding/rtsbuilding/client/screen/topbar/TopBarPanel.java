@@ -210,30 +210,49 @@ public final class TopBarPanel {
                 quickBuild, questDetect, rangeCulling, developer);
 
         // ---- Mode buttons (left group) ----
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.INTERACT, positions.x(TopBarTypes.TopBarButtonId.INTERACT), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.INTERACT));
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, positions.x(TopBarTypes.TopBarButtonId.LINK), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, positions.x(TopBarTypes.TopBarButtonId.FUNNEL), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, positions.x(TopBarTypes.TopBarButtonId.ROTATE), TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
+        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.INTERACT,
+                positions.x(TopBarTypes.TopBarButtonId.INTERACT), TOP_MODE_BUTTON_W,
+                topActionForMode() == TopAction.INTERACT));
+        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.LINK,
+                positions.x(TopBarTypes.TopBarButtonId.LINK), TOP_MODE_BUTTON_W,
+                topActionForMode() == TopAction.LINK));
+        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.FUNNEL,
+                positions.x(TopBarTypes.TopBarButtonId.FUNNEL), TOP_MODE_BUTTON_W,
+                topActionForMode() == TopAction.FUNNEL));
+        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.ROTATE,
+                positions.x(TopBarTypes.TopBarButtonId.ROTATE), TOP_MODE_BUTTON_W,
+                topActionForMode() == TopAction.ROTATE));
 
         // ---- Action buttons (center group) ----
         if (quickBuild) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, positions.x(TopBarTypes.TopBarButtonId.QUICK_BUILD), TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
+            layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.QUICK_BUILD,
+                    positions.x(TopBarTypes.TopBarButtonId.QUICK_BUILD), TOP_ICON_BUTTON_W,
+                    screen.isQuickBuildOpen()));
         }
         if (questDetect) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUEST_DETECT, positions.x(TopBarTypes.TopBarButtonId.QUEST_DETECT), TOP_ICON_BUTTON_W, "", true, this.controller.isQuestDetectPopupVisible()));
+            layouts.add(TopBarTypes.TopBarButtonLayout.command(TopBarTypes.TopBarButtonId.QUEST_DETECT,
+                    positions.x(TopBarTypes.TopBarButtonId.QUEST_DETECT), TOP_ICON_BUTTON_W));
         }
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.CHUNK_VIEW, positions.x(TopBarTypes.TopBarButtonId.CHUNK_VIEW), TOP_ICON_BUTTON_W, "", true, this.controller.isChunkCurtainVisible()));
+        layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.CHUNK_VIEW,
+                positions.x(TopBarTypes.TopBarButtonId.CHUNK_VIEW), TOP_ICON_BUTTON_W,
+                this.controller.isChunkCurtainVisible()));
         if (rangeCulling) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, positions.x(TopBarTypes.TopBarButtonId.RANGE_CULLING), TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
+            layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.RANGE_CULLING,
+                    positions.x(TopBarTypes.TopBarButtonId.RANGE_CULLING), TOP_ICON_BUTTON_W,
+                    screen.isRangeCullingManagementActive()));
         }
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GUIDE, positions.x(TopBarTypes.TopBarButtonId.GUIDE), TOP_ICON_BUTTON_W, "", true, screen.isGuideOpen()));
+        layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.GUIDE,
+                positions.x(TopBarTypes.TopBarButtonId.GUIDE), TOP_ICON_BUTTON_W, screen.isGuideOpen()));
         if (developer) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(
-                    TopBarTypes.TopBarButtonId.DEVELOPER, positions.x(TopBarTypes.TopBarButtonId.DEVELOPER), TOP_ICON_BUTTON_W, "", true, false));
+            layouts.add(TopBarTypes.TopBarButtonLayout.command(
+                    TopBarTypes.TopBarButtonId.DEVELOPER,
+                    positions.x(TopBarTypes.TopBarButtonId.DEVELOPER),
+                    TOP_ICON_BUTTON_W));
         }
 
         // ---- Right-aligned buttons ----
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GEAR, positions.x(TopBarTypes.TopBarButtonId.GEAR), TOP_ICON_BUTTON_W, "", true, screen.isGearMenuOpen()));
+        layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.GEAR,
+                positions.x(TopBarTypes.TopBarButtonId.GEAR), TOP_ICON_BUTTON_W, screen.isGearMenuOpen()));
         return layouts;
     }
 

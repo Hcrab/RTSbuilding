@@ -7,6 +7,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
+import com.rtsbuilding.rtsbuilding.client.widget.RtsControlRole;
+import com.rtsbuilding.rtsbuilding.client.widget.RtsControlState;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
@@ -121,6 +123,15 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         int statusY = footerY - STATUS_H - FOOTER_GAP;
         boolean complete = BlueprintPanel.isCaptureSelectionComplete();
         boolean saving = BlueprintPanel.isCaptureSaving();
+        BlueprintFooterView footer = BlueprintFooterView.capture(complete, saving);
+        this.saveCaptureButton.applyControlState(
+                RtsControlState.enabled(RtsControlRole.PRIMARY_ACTION)
+                        .withEnabled(footer.primaryEnabled(),
+                                Component.translatable("screen.rtsbuilding.blueprints.capture_window_hint"))
+                        .withPending(footer.primaryPending()));
+        this.cancelButton.applyControlState(
+                RtsControlState.enabled(RtsControlRole.COMMAND)
+                        .withEnabled(footer.secondaryEnabled(), null));
 
         drawSectionTitle(g, Component.translatable("screen.rtsbuilding.blueprints.capture_tool_title"), x, y);
         drawLabel(g, Component.translatable("screen.rtsbuilding.blueprints.capture_window_hint"),
@@ -143,12 +154,12 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
         if (complete) {
             renderFooterButtons(g, mouseX, mouseY, partialTick, x, footerY, w,
-                    new FooterButton(this.saveCaptureButton, true, true),
-                    new FooterButton(this.cancelButton, !saving, false));
+                    new FooterButton(this.saveCaptureButton, footer.primaryEnabled(), true),
+                    new FooterButton(this.cancelButton, footer.secondaryEnabled(), false));
         } else {
             renderFooterButtons(g, mouseX, mouseY, partialTick, x, footerY, w,
-                    new FooterButton(this.saveCaptureButton, false, true),
-                    new FooterButton(this.cancelButton, !saving, false));
+                    new FooterButton(this.saveCaptureButton, footer.primaryEnabled(), true),
+                    new FooterButton(this.cancelButton, footer.secondaryEnabled(), false));
         }
     }
 
@@ -160,6 +171,12 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         int actionY = placementActionY();
         int statusY = actionY - STATUS_H - FOOTER_GAP;
         boolean pinned = BlueprintPanel.hasPinnedPreview();
+        BlueprintFooterView footer = BlueprintFooterView.placement(pinned);
+        this.buildButton.applyControlState(
+                RtsControlState.enabled(RtsControlRole.PRIMARY_ACTION)
+                        .withEnabled(footer.primaryEnabled(),
+                                Component.translatable("screen.rtsbuilding.blueprints.placement_window_hint")));
+        this.clearButton.applyControlState(RtsControlState.enabled(RtsControlRole.DESTRUCTIVE));
 
         int selectorH = 56;
         drawSectionFrame(g, x, y, w, selectorH);
@@ -186,8 +203,8 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                     0xFFFFE66D);
         }
         renderStackedActionButtons(g, mouseX, mouseY, partialTick, x, actionY, w,
-                new FooterButton(this.buildButton, pinned, true),
-                new FooterButton(this.clearButton, true, false));
+                new FooterButton(this.buildButton, footer.primaryEnabled(), true),
+                new FooterButton(this.clearButton, footer.secondaryEnabled(), false));
     }
 
     private void renderBlueprintSelector(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick, int x, int y, int w) {
@@ -376,34 +393,15 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         button.setX(x);
         button.setY(y);
         button.setWidth(width);
-        button.active = active;
+        button.applyControlState(button.controlState().withEnabled(active,
+                active ? null : button.controlState().disabledReason()));
         button.render(g, mouseX, mouseY, partialTick);
     }
 
     private void renderPrimaryButtonAt(GuiGraphicsExtractor g, WindowButton button, int x, int y, int width, boolean active,
             int mouseX, int mouseY, float partialTick) {
-        button.setX(x);
-        button.setY(y);
-        button.setWidth(width);
-        button.active = active;
-        if (!active) {
-            button.render(g, mouseX, mouseY, partialTick);
-            return;
-        }
-        g.fill(x, y, x + width, y + BUTTON_H, 0xCC244E35);
-        drawButtonHighlight(g, x, y, width, BUTTON_H, 0xFF7FCEA0);
-        String label = RtsClientUiUtil.trimToWidth(this.screen.font(), button.getMessage().getString(),
-                Math.max(8, width - 10));
-        int textX = x + (width - this.screen.font().width(label)) / 2;
-        int textY = y + (BUTTON_H - this.screen.font().lineHeight) / 2;
-        g .text(this.screen.font(), label, textX, textY, 0xFFEAF2FF, false);
-    }
-
-    private void drawButtonHighlight(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
-        g.fill(x - 1, y - 1, x + w + 1, y, color);
-        g.fill(x - 1, y + h, x + w + 1, y + h + 1, color);
-        g.fill(x - 1, y - 1, x, y + h + 1, color);
-        g.fill(x + w, y - 1, x + w + 1, y + h + 1, color);
+        button.applyControlState(button.controlState().withRole(RtsControlRole.PRIMARY_ACTION));
+        renderButtonAt(g, button, x, y, width, active, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -768,7 +766,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 button -> BlueprintPanel.openMaterialDialog());
         this.buildButton = actionButton("screen.rtsbuilding.blueprints.build_preview", 140,
                 button -> BlueprintPanel.confirmPinnedPreview());
-        this.clearButton = actionButton("screen.rtsbuilding.blueprints.capture_cancel", 140,
+        this.clearButton = actionButton("screen.rtsbuilding.blueprints.cancel_preview", 140,
                 button -> BlueprintPanel.clearSelectedBlueprint());
         this.sizePlusButtons = axisButtons(true, true);
         this.sizeMinusButtons = axisButtons(false, true);

@@ -484,6 +484,7 @@
   "screen.rtsbuilding.blueprints.search": "搜尋藍圖",
   "screen.rtsbuilding.blueprints.build_preview": "建造",
   "screen.rtsbuilding.blueprints.clear_preview": "清除",
+  "screen.rtsbuilding.blueprints.cancel_preview": "取消預覽",
   "screen.rtsbuilding.blueprints.y_rotate": "Y 旋轉",
   "screen.rtsbuilding.blueprints.x_rotate": "X 旋轉",
   "screen.rtsbuilding.blueprints.z_rotate": "Z 旋轉",

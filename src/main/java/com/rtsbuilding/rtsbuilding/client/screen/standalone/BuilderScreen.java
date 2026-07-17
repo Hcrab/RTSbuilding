@@ -456,6 +456,7 @@ public final class BuilderScreen extends Screen {
      */
     @Override
     public void onClose() {
+        this.floatingWindowLayer.cancelPointerCapture();
         this.shapeController.clearShapeBuildSession();
         this.cullingManager.closeManagementMode();
         this.controller.clearAreaMineSession();
@@ -479,6 +480,7 @@ public final class BuilderScreen extends Screen {
     @Override
     public void removed() {
         super.removed();
+        this.floatingWindowLayer.cancelPointerCapture();
         this.cameraInput.resetCameraVerticalHeld();
         this.overlayRenderer.updateNativeCursorVisibility(false);
         RtsCullingClientState.clearActiveManager(this.cullingManager);
@@ -767,6 +769,9 @@ public final class BuilderScreen extends Screen {
             }
         }
         endFixedRtsScaleInput(frame);
+        if (this.floatingWindowLayer.hasPointerCapture(button)) {
+            return handleFloatingWindowRelease(mouseX, mouseY, button);
+        }
         if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
             this.cameraInput.stopActiveMining();
             return true;

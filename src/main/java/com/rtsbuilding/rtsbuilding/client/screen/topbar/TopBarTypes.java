@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+import com.rtsbuilding.rtsbuilding.client.widget.RtsControlRole;
+import com.rtsbuilding.rtsbuilding.client.widget.RtsControlState;
 
 /**
  * Container for top-bar data types.
@@ -51,7 +53,7 @@ public final class TopBarTypes {
      * @param width    button width in pixels
      * @param label    display label (empty for icon-only buttons)
      * @param iconOnly true if this button draws an icon instead of a text label
-     * @param active   true if the button should appear highlighted (toggled on)
+     * @param state    unified semantic and visual state
      */
     public record TopBarButtonLayout(
             TopBarButtonId id,
@@ -59,7 +61,33 @@ public final class TopBarTypes {
             int width,
             String label,
             boolean iconOnly,
-            boolean active) {}
+            RtsControlState state) {
+
+        public static TopBarButtonLayout mode(TopBarButtonId id, int x, int width, boolean selected) {
+            return new TopBarButtonLayout(
+                    id, x, width, "", true,
+                    RtsControlState.enabled(RtsControlRole.MODE).withSelected(selected));
+        }
+
+        public static TopBarButtonLayout toggle(TopBarButtonId id, int x, int width, boolean selected) {
+            return new TopBarButtonLayout(
+                    id, x, width, "", true,
+                    RtsControlState.enabled(RtsControlRole.TOGGLE).withSelected(selected));
+        }
+
+        public static TopBarButtonLayout command(TopBarButtonId id, int x, int width) {
+            return new TopBarButtonLayout(
+                    id, x, width, "", true,
+                    RtsControlState.enabled(RtsControlRole.COMMAND));
+        }
+
+        /**
+         * 兼容仍以 active 命名的贴图和指南读取路径；其真实语义统一为 selected。
+         */
+        public boolean active() {
+            return state.selected();
+        }
+    }
 
     private TopBarTypes() {}
 }
