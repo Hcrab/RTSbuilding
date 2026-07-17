@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.140'
+    id 'net.neoforged.moddev' version '2.0.141'
     id 'idea'
 }
 
@@ -25,15 +25,10 @@ base {
     archivesName = providers.gradleProperty('mod_archive_name').getOrElse(mod_id)
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
     version = project.neo_version
-
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
-    }
 
     runs {
         client {
@@ -49,7 +44,7 @@ neoForge {
 
         clientCompat {
             client()
-            gameDirectory = project.file('run-compat-automation/neoforge-1.21.1-client')
+            gameDirectory = project.file('run-compat-automation/neoforge-26.1.2-client')
             def compatServer = providers.environmentVariable('RTSBUILDING_GUI_COMPAT_SERVER')
                     .orElse('localhost:25566')
                     .get()
@@ -59,7 +54,7 @@ neoForge {
 
         serverCompat {
             server()
-            gameDirectory = project.file('run-compat-automation/neoforge-1.21.1-server')
+            gameDirectory = project.file('run-compat-automation/neoforge-26.1.2-server')
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
@@ -80,7 +75,7 @@ neoForge {
         }
 
         data {
-            data()
+            clientData()
             programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
         }
 
@@ -134,10 +129,8 @@ sourceSets {
 apply from: 'gradle/rts-test-reporting.gradle'
 
 dependencies {
-    compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
-    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
-    compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
+    // 26.1 的可选兼容模组尚未全部发布稳定 API。先隔离这些依赖，
+    // 避免第三方仓库阻塞基础客户端、专用服务端和 Vanilla 储存迁移。
 
     // 鈹€鈹€ Test dependencies 鈹€鈹€
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
@@ -254,7 +247,6 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
-            loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,

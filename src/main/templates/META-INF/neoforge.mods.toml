@@ -1,6 +1,4 @@
-modLoader="javafml"
 logoFile="logo.png"
-loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
 [[mods]]
