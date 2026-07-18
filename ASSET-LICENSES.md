@@ -14,6 +14,17 @@ Rights Reserved. The complete, unmodified official mod package may still be
 redistributed through Minecraft modpacks, launchers, server packs, mod hosting
 platforms, and archival mirrors as described in `LICENSE-ASSETS`.
 
+## Community-contributed RTS Building assets
+
+The interface artwork added or revised in
+[PR #133](https://github.com/Hcrab/RTSbuilding/pull/133), including the
+`new_2nd_icons`, revised top-bar states, and `ui/terminal.png`, was created and
+contributed by Re_Construction (`ReConstruction-127`).
+
+Copyright (C) 2026 Re_Construction. These files are distributed as part of
+official RTS Building packages under the normal mod-distribution permissions
+in `LICENSE-ASSETS`. Copyright and attribution remain with the contributor.
+
 ## LGPL-covered project files
 
 Unless another notice applies, source code and non-media project files remain
