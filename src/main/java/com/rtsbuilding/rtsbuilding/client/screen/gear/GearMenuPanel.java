@@ -222,6 +222,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.show_workflow_panel.hint",
                     RtsClientUiStateStore.isShowWorkflowPanelEnabled());
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint");
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.jade_panel_track_mouse",
+                    "screen.rtsbuilding.settings.jade_panel_track_mouse.hint",
+                    RtsClientUiStateStore.isJadePanelTrackMouseEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint");
         }
         rowY += SECTION_GAP;
 
@@ -557,6 +562,16 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 return;
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint");
+            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.jade_panel_track_mouse.hint")) {
+                return;
+            }
+            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint"))) {
+                screen.toggleJadePanelTrackMouse();
+                return;
+            }
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint");
         }
         rowY += SECTION_GAP;
 
@@ -897,7 +912,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_storage_ready_popup.hint")
-                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint"));
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint")
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint"));
         height += SECTION_GAP;
         height += sectionHeight(this.helpersExpanded,
                 SIMPLE_TOGGLE_ROW_H

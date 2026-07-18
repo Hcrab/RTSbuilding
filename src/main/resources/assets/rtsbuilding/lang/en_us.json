@@ -181,6 +181,8 @@
   "screen.rtsbuilding.settings.show_storage_ready_popup.hint": "Show the brief ready popup after a storage scan finishes.",
   "screen.rtsbuilding.settings.show_workflow_panel": "Workflow panel",
   "screen.rtsbuilding.settings.show_workflow_panel.hint": "Show the technical background job progress panel.",
+  "screen.rtsbuilding.settings.jade_panel_track_mouse": "Jade panel tracks mouse",
+  "screen.rtsbuilding.settings.jade_panel_track_mouse.hint": "When enabled, the Jade info panel follows the mouse cursor, displayed to the right; switches to the left if there is not enough room.",
   "screen.rtsbuilding.settings.pan_drag_x_invert": "Invert horizontal pan drag",
   "screen.rtsbuilding.settings.pan_drag_x_invert.hint": "Flip left/right movement while dragging the pan key.",
   "screen.rtsbuilding.settings.pan_drag_y_invert": "Invert vertical pan drag",

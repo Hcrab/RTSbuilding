@@ -297,6 +297,8 @@ public final class BuilderScreen extends Screen {
     }
     /** 切换工作流面板显示。 */
     public void toggleShowWorkflowPanelEnabled() { this.uiStateManager.toggleShowWorkflowPanelEnabled(); }
+    /** 切换 Jade 面板追踪鼠标。 */
+    public void toggleJadePanelTrackMouse() { this.uiStateManager.toggleJadePanelTrackMouse(); }
     /** 切换安静刷新。 */
     public void toggleStorageRefreshQuietEnabled() { this.uiStateManager.toggleStorageRefreshQuietEnabled(); }
     /** 切换自动刷新。 */

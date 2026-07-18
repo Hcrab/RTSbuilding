@@ -19,6 +19,7 @@ repositories {
     maven { url = 'https://maven.ithundxr.dev/snapshots' }
     maven { url = 'https://api.modrinth.com/maven' }
     maven { url = 'https://jitpack.io' }
+    maven { url = 'https://maven.izzel.io/releases' }
 }
 
 base {
@@ -138,6 +139,9 @@ dependencies {
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
     compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
+
+    // Jade HUD 兼容（弱依赖）
+    compileOnly "maven.modrinth:jade:${jade_version}"
 
     // 鈹€鈹€ Test dependencies 鈹€鈹€
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"

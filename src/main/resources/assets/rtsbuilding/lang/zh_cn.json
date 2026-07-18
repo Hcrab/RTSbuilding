@@ -181,6 +181,8 @@
   "screen.rtsbuilding.settings.show_storage_ready_popup.hint": "存储扫描完成后短暂显示就绪弹窗。",
   "screen.rtsbuilding.settings.show_workflow_panel": "工作流面板",
   "screen.rtsbuilding.settings.show_workflow_panel.hint": "显示后台任务进度面板，偏技术细节。",
+  "screen.rtsbuilding.settings.jade_panel_track_mouse": "Jade 面板追踪鼠标",
+  "screen.rtsbuilding.settings.jade_panel_track_mouse.hint": "开启后 Jade 信息面板会跟随鼠标位置移动，显示在鼠标右侧；右侧空间不足时自动切到左侧。",
   "screen.rtsbuilding.settings.pan_drag_x_invert": "水平拖屏反向",
   "screen.rtsbuilding.settings.pan_drag_x_invert.hint": "切换左右拖动时镜头平移方向。",
   "screen.rtsbuilding.settings.pan_drag_y_invert": "垂直拖屏反向",

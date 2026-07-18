@@ -221,6 +221,17 @@ public final class RtsClientUiStateStore {
         CACHE.markDirty();
     }
 
+    /** Jade 面板是否追踪鼠标位置。 */
+    public static synchronized boolean isJadePanelTrackMouseEnabled() {
+        return CACHE.get().overlay.jadePanelTrackMouse;
+    }
+
+    /** 设置 Jade 面板追踪鼠标状态（仅标记脏）。 */
+    public static synchronized void setJadePanelTrackMouseEnabled(boolean enabled) {
+        CACHE.get().overlay.jadePanelTrackMouse = enabled;
+        CACHE.markDirty();
+    }
+
     public static synchronized boolean isStorageRefreshQuietEnabled() {
         return CACHE.get().storage.storageRefreshQuietEnabled;
     }
@@ -453,6 +464,7 @@ public final class RtsClientUiStateStore {
             public boolean overlayShiftImportEnabled = false;
             public boolean chunkCurtainVisible = false;
             public boolean playerStatusOverlayEnabled = true;
+            public boolean jadePanelTrackMouse = false;
         }
 
         /** 存储面板状态。 */
