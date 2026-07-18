@@ -127,9 +127,11 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
-                                             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
-        RtsStorageCrafting.refillCraftGridFromBlueprint(menu, handlers, player, blueprint, fillAll, includePlayerFallback);
+    public void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> extractHandlers,
+                                             List<IItemHandler> insertHandlers,
+                                             ServerPlayer player, ItemStack[] blueprint,
+                                             boolean fillAll, boolean includePlayerFallback) {
+        RtsStorageCrafting.refillCraftGridFromBlueprint(menu, extractHandlers, insertHandlers, player, blueprint, fillAll, includePlayerFallback);
     }
 
     @Override

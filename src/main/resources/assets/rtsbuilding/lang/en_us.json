@@ -957,5 +957,12 @@
   "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS work units per player slice",
   "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS server time budget per tick",
   "screen.rtsbuilding.clear_to_storage": "Clear to Storage",
-  "screen.rtsbuilding.clear_to_player": "Clear to Player"
+  "screen.rtsbuilding.clear_to_player": "Clear to Player",
+  "screen.rtsbuilding.craft_terminal.title": "RTS Craft Terminal",
+  "screen.rtsbuilding.craft_terminal.search_mode.standard": "Standard",
+  "screen.rtsbuilding.craft_terminal.search_mode.auto": "Auto-Search",
+  "screen.rtsbuilding.craft_terminal.search_mode.jei_auto": "JEI Auto-Search",
+  "screen.rtsbuilding.craft_terminal.search_pin": "Pin Search",
+  "screen.rtsbuilding.craft_terminal.search_pin.on": "Pinned",
+  "screen.rtsbuilding.craft_terminal.search_pin.off": "Unpinned"
 }

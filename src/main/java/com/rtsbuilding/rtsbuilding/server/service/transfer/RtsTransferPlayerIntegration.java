@@ -217,7 +217,7 @@ public final class RtsTransferPlayerIntegration {
                 ItemStack currentResult = resultSlot.getItem();
                 if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
                     ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                            craftingMenu, extractHandlers, player, craftBlueprint, false, true);
+                            craftingMenu, extractHandlers, insertHandlers, player, craftBlueprint, false, true);
                     currentResult = resultSlot.getItem();
                     if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
                         break;
@@ -242,13 +242,13 @@ public final class RtsTransferPlayerIntegration {
                         insertHandlers, player, gained));
                 craftedAny = true;
                 ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                        craftingMenu, extractHandlers, player, craftBlueprint, false, true);
+                        craftingMenu, extractHandlers, insertHandlers, player, craftBlueprint, false, true);
             }
             if (!craftedAny) {
                 return;
             }
             ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                    craftingMenu, extractHandlers, player, craftBlueprint, true, true);
+                    craftingMenu, extractHandlers, insertHandlers, player, craftBlueprint, true, true);
         } else {
             ItemStack inSlot = slot.getItem();
             ItemStack moved = slot.safeTake(inSlot.getCount(), inSlot.getCount(), player);

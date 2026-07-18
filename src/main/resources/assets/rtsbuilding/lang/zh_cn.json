@@ -957,5 +957,12 @@
   "rtsbuilding.configuration.taskEngineMaxUnitsPerSlice": "RTS 每玩家调度片工作量",
   "rtsbuilding.configuration.taskEngineMaxNanosPerTick": "RTS 每 Tick 服务端时间预算",
   "screen.rtsbuilding.clear_to_storage": "清空到存储",
-  "screen.rtsbuilding.clear_to_player": "清空到背包"
+  "screen.rtsbuilding.clear_to_player": "清空到背包",
+  "screen.rtsbuilding.craft_terminal.title": "RTS 合成终端",
+  "screen.rtsbuilding.craft_terminal.search_mode.standard": "标准",
+  "screen.rtsbuilding.craft_terminal.search_mode.auto": "自动搜索",
+  "screen.rtsbuilding.craft_terminal.search_mode.jei_auto": "JEI自动搜索",
+  "screen.rtsbuilding.craft_terminal.search_pin": "保留搜索",
+  "screen.rtsbuilding.craft_terminal.search_pin.on": "已固定",
+  "screen.rtsbuilding.craft_terminal.search_pin.off": "未固定"
 }

@@ -54,6 +54,17 @@ import java.util.List;
 
 public final class ClientRtsController {
     private static final ClientRtsController INSTANCE = new ClientRtsController();
+
+    /** 合成终端搜索模式 */
+    public enum CraftTerminalSearchMode {
+        STANDARD,
+        AUTO_SEARCH,
+        JEI_AUTO_SEARCH;
+
+        public CraftTerminalSearchMode next() {
+            return values()[(this.ordinal() + 1) % values().length];
+        }
+    }
     private static final int RTS_MINE_RENDER_ID = 0x525453;
     private static final int REMOTE_MENU_OPEN_GRACE_TICKS = 80;
     private static final int SCREENLESS_REMOTE_MENU_RECOVERY_TICKS = 10;
@@ -119,6 +130,13 @@ public final class ClientRtsController {
     private int pendingRemoteMenuOpenTicks;
     private int screenlessRemoteMenuTicks;
     private AbstractContainerMenu relaxedRemoteMenu;
+
+    /** 合成终端可见存储行数（3~6） */
+    private int craftTerminalRows = 6;
+    /** 合成终端搜索模式 */
+    private CraftTerminalSearchMode craftTerminalSearchMode = CraftTerminalSearchMode.STANDARD;
+    /** 合成终端搜索是否固定 */
+    private boolean craftTerminalSearchPinned;
 
     private ClientRtsController() {
     }
@@ -1419,6 +1437,30 @@ public final class ClientRtsController {
 
     public void toggleSortDirection() {
         this.storageStateManager.toggleSortDirection();
+    }
+
+    public int getCraftTerminalRows() {
+        return this.craftTerminalRows;
+    }
+
+    public void setCraftTerminalRows(int rows) {
+        this.craftTerminalRows = Math.max(3, Math.min(6, rows));
+    }
+
+    public CraftTerminalSearchMode getCraftTerminalSearchMode() {
+        return this.craftTerminalSearchMode;
+    }
+
+    public void setCraftTerminalSearchMode(CraftTerminalSearchMode mode) {
+        this.craftTerminalSearchMode = mode;
+    }
+
+    public boolean isCraftTerminalSearchPinned() {
+        return this.craftTerminalSearchPinned;
+    }
+
+    public void setCraftTerminalSearchPinned(boolean pinned) {
+        this.craftTerminalSearchPinned = pinned;
     }
 
     public void prevPage() {

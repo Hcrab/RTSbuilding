@@ -91,7 +91,7 @@ public final class RtsCraftingExecutor {
                                 consumer.accept(player.serverLevel(), player.blockPosition());
                             }
                         }),
-                Component.literal("RTS Craft Terminal")));
+                Component.translatable("screen.rtsbuilding.craft_terminal.title")));
         RtsRemoteMenuService.relaxOpenedMenuValidation(player.containerMenu);
         ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
     }

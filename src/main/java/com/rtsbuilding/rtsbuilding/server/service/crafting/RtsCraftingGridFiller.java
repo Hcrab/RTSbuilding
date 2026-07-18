@@ -14,9 +14,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -72,9 +72,10 @@ public final class RtsCraftingGridFiller {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        Ingredient[] ingredients = recipe == null ? null : RtsCraftingUtils.mapCraftingIngredients(recipe);
-        refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        refillCraftGridFromBlueprint(craftingMenu, extractHandlers, insertHandlers, player,
+                blueprint, recipe, false, true);
         craftingMenu.broadcastChanges();
         ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
     }
@@ -443,11 +444,9 @@ public final class RtsCraftingGridFiller {
         if (prototype == null || prototype.isEmpty() || count <= 0) {
             return ItemStack.EMPTY;
         }
-        // 优先提取精确匹配的（同 NBT/组件）
         ItemStack exact = RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, prototype);
         if (!exact.isEmpty()) {
             ItemStack result = exact.copy();
-            // 继续提取剩余数量
             int remaining = count - exact.getCount();
             while (remaining > 0) {
                 ItemStack more = RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, prototype);
@@ -457,68 +456,62 @@ public final class RtsCraftingGridFiller {
             }
             return result;
         }
-        // 回退到物品类型匹配（忽略组件差异）
         return RtsTransferExtractor.extractMatchingFromLinked(
                 handlers, prototype.getItem(), count);
     }
 
-    // ---- low-level grid refill loop (existing) ------------------------------------
+    // ---- low-level grid refill (blueprint-only, AE2 style) -----------------------
 
     /**
-     * 执行从链接存储/玩家回退的低级网格填充循环。
+     * 以蓝图（玩家放置物品）为模板从存储补料。不依赖配方 Ingredient，避免无序配方位置错位。
      */
     public static void refillCraftGridFromBlueprint(
-            AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            AbstractContainerMenu menu, List<IItemHandler> extractHandlers,
+            List<IItemHandler> insertHandlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
-        refillCraftGridFromBlueprint(menu, handlers, player, blueprint, null, fillAll, includePlayerFallback);
+        refillCraftGridFromBlueprint(menu, extractHandlers, insertHandlers, player,
+                blueprint, null, fillAll, includePlayerFallback);
     }
 
+    /**
+     * 以蓝图为模板补料，可选配方用于 fuzzy 变体匹配和剩余物品清理。
+     */
     public static void refillCraftGridFromBlueprint(
-            AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
-            ItemStack[] blueprint, Ingredient[] ingredients,
+            AbstractContainerMenu menu, List<IItemHandler> extractHandlers,
+            List<IItemHandler> insertHandlers, ServerPlayer player,
+            ItemStack[] blueprint, CraftingRecipe recipe,
             boolean fillAll, boolean includePlayerFallback) {
         if (blueprint == null || blueprint.length != 9) {
             return;
         }
+
+        // P2-A: 将配方剩余物品（空桶等）移出合成格，优先放入背包，其次存入存储
+        evictRemainingItems(menu, blueprint, player, insertHandlers);
+
         int maxPasses = fillAll ? 64 : 1;
         boolean changed = false;
         for (int pass = 0; pass < maxPasses; pass++) {
             boolean inserted = false;
             for (int i = 0; i < 9; i++) {
-                ItemStack blueprintStack = blueprint[i];
-                Ingredient ingredient = ingredients != null && i < ingredients.length ? ingredients[i] : Ingredient.EMPTY;
-                boolean hasBlueprint = blueprintStack != null && !blueprintStack.isEmpty();
-                boolean hasIngredient = ingredient != null && !ingredient.isEmpty();
-                if (!hasBlueprint && !hasIngredient) {
+                ItemStack template = blueprint[i];
+                if (template == null || template.isEmpty()) {
                     continue;
                 }
                 Slot grid = menu.getSlot(1 + i);
                 ItemStack current = grid.getItem();
+
                 if (!current.isEmpty()) {
-                    if (hasIngredient ? !ingredient.test(current) : !ItemStack.isSameItemSameComponents(current, blueprintStack)) {
-                        continue;
-                    }
-                    if (current.getCount() >= current.getMaxStackSize()) {
-                        continue;
-                    }
-                    ItemStack extracted = includePlayerFallback
-                            ? RtsTransferExtractor.extractOneMatchingPrototypeCombined(handlers, player, current)
-                            : RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, current);
-                    if (extracted.isEmpty() || !ItemStack.isSameItemSameComponents(current, extracted)) {
-                        if (!extracted.isEmpty()) {
-                            RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(handlers, player, extracted);
-                        }
-                        continue;
-                    }
-                    current.grow(1);
-                    grid.setChanged();
-                    inserted = true;
-                    changed = true;
+                    // AE2 风格：槽中仍有物品时不补充，等消耗完后再补
                     continue;
                 }
 
-                ItemStack extracted = extractCraftGridRefillStack(
-                        handlers, player, ingredient, blueprintStack, includePlayerFallback);
+                // 空槽：精确提取 → fuzzy 回退
+                ItemStack extracted = includePlayerFallback
+                        ? RtsTransferExtractor.extractOneMatchingPrototypeCombined(extractHandlers, player, template)
+                        : RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(extractHandlers, template);
+                if (extracted.isEmpty() && recipe != null) {
+                    extracted = extractFuzzyVariant(extractHandlers, player, template, blueprint, recipe, i);
+                }
                 if (extracted.isEmpty()) {
                     continue;
                 }
@@ -540,24 +533,91 @@ public final class RtsCraftingGridFiller {
         }
     }
 
-    private static ItemStack extractCraftGridRefillStack(
-            List<IItemHandler> handlers, ServerPlayer player,
-            Ingredient ingredient, ItemStack preferred, boolean includePlayerFallback) {
-        boolean hasIngredient = ingredient != null && !ingredient.isEmpty();
-        if (hasIngredient) {
-            ItemStack extracted = includePlayerFallback
-                    ? RtsCraftingExecutor.extractOneMatchingIngredientCombined(handlers, player, ingredient, preferred)
-                    : RtsCraftingExecutor.extractOneMatchingIngredient(handlers, ingredient, preferred);
-            if (!extracted.isEmpty()) {
-                return extracted;
+    // ---- helpers ----------------------------------------------------------------
+
+    /**
+     * 将配方剩余物品（空桶等）从合成格移出。检测标准：槽中物品与蓝图表不匹配。
+     */
+    private static void evictRemainingItems(AbstractContainerMenu menu, ItemStack[] blueprint,
+                                             ServerPlayer player, List<IItemHandler> insertHandlers) {
+        for (int i = 0; i < 9; i++) {
+            Slot grid = menu.getSlot(1 + i);
+            ItemStack current = grid.getItem();
+            ItemStack template = blueprint[i];
+            if (current.isEmpty() || template.isEmpty()) continue;
+            if (ItemStack.isSameItemSameComponents(current, template)) continue;
+            // 剩余物品：移出
+            ItemStack toMove = current.copy();
+            grid.set(ItemStack.EMPTY);
+            grid.setChanged();
+            if (!player.getInventory().add(toMove)) {
+                RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toMove);
             }
         }
-        if (preferred == null || preferred.isEmpty()) {
-            return ItemStack.EMPTY;
+    }
+
+    /**
+     * P1 fuzzy 变体匹配：精确原型提取失败时，分两阶段寻找替代品。
+     * 阶段1：同 Item 类型但不同组件（附魔物品、损坏工具等）— 仅对可损坏/有组件的物品触发。
+     * 阶段2：全存储扫描（tag 原料 #minecraft:logs 等跨 Item 类型的变体）— 用配方重新验证。
+     */
+    private static ItemStack extractFuzzyVariant(
+            List<IItemHandler> handlers, ServerPlayer player,
+            ItemStack template, ItemStack[] blueprint, CraftingRecipe recipe, int slotIndex) {
+        if (player == null || recipe == null || template.isEmpty()) return ItemStack.EMPTY;
+
+        ItemStack expectedResult = recipe.getResultItem(player.registryAccess());
+        if (expectedResult.isEmpty()) return ItemStack.EMPTY;
+
+        // 构建测试输入
+        List<ItemStack> testInput = new ArrayList<>(9);
+        for (int j = 0; j < 9; j++) {
+            testInput.add(blueprint[j].isEmpty() ? ItemStack.EMPTY : blueprint[j].copyWithCount(1));
         }
-        return includePlayerFallback
-                ? RtsTransferExtractor.extractOneMatchingPrototypeCombined(handlers, player, preferred)
-                : RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, preferred);
+
+        boolean trySameItemOnly = template.isDamageableItem() || !template.getComponentsPatch().isEmpty();
+
+        // 阶段1：同 Item 类型的组件变体（仅当模板有组件或可损坏时）
+        if (trySameItemOnly) {
+            ItemStack result = scanStorageForVariant(handlers, player, template, testInput, slotIndex,
+                    recipe, expectedResult, blueprint, true);
+            if (!result.isEmpty()) return result;
+        }
+
+        // 阶段2：全存储扫描，不限 Item 类型（tag 原料变体如 #minecraft:logs）
+        return scanStorageForVariant(handlers, player, template, testInput, slotIndex,
+                recipe, expectedResult, blueprint, false);
+    }
+
+    /** 遍历存储，用配方验证寻找匹配的替代品 */
+    private static ItemStack scanStorageForVariant(
+            List<IItemHandler> handlers, ServerPlayer player,
+            ItemStack template, List<ItemStack> testInput, int slotIndex,
+            CraftingRecipe recipe, ItemStack expectedResult, ItemStack[] blueprint,
+            boolean sameItemOnly) {
+        for (IItemHandler handler : handlers) {
+            for (int s = 0; s < handler.getSlots(); s++) {
+                ItemStack candidate = handler.getStackInSlot(s);
+                if (candidate.isEmpty()) continue;
+                if (sameItemOnly && candidate.getItem() != template.getItem()) continue;
+                if (ItemStack.isSameItemSameComponents(candidate, template)) continue;
+
+                testInput.set(slotIndex, candidate.copyWithCount(1));
+                CraftingInput ci = CraftingInput.of(3, 3, testInput);
+                if (recipe.matches(ci, player.serverLevel())) {
+                    ItemStack assembled = recipe.assemble(ci, player.registryAccess());
+                    if (ItemStack.isSameItemSameComponents(assembled, expectedResult)) {
+                        ItemStack extracted = handler.extractItem(s, 1, false);
+                        if (!extracted.isEmpty()) {
+                            return extracted;
+                        }
+                    }
+                }
+                testInput.set(slotIndex, blueprint[slotIndex].isEmpty()
+                        ? ItemStack.EMPTY : blueprint[slotIndex].copyWithCount(1));
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     // ---- JEI helper --------------------------------------------------------------

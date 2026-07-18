@@ -147,7 +147,8 @@ public interface CraftingService {
      * @param fillAll               是否填充所有材料槽（不保留空缺）
      * @param includePlayerFallback 是否在链接存储不足时从玩家背包补充
      */
-    void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> handlers,
+    void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> extractHandlers,
+                                      List<IItemHandler> insertHandlers,
                                       ServerPlayer player, ItemStack[] blueprint,
                                       boolean fillAll, boolean includePlayerFallback);
 

@@ -6,7 +6,6 @@ import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingSearch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -63,12 +62,12 @@ public final class RtsStorageCrafting {
 
     public static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session,
             AbstractContainerMenu craftingMenu, ItemStack[] blueprint) {
-        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, (CraftingMenu) craftingMenu, blueprint);
+        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
     }
 
     public static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session,
             AbstractContainerMenu craftingMenu, ItemStack[] blueprint, CraftingRecipe recipe) {
-        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, (CraftingMenu) craftingMenu, blueprint, recipe);
+        RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, craftingMenu, blueprint, recipe);
     }
 
     public static void refillCurrentCraftGridFromBlueprintIds(
@@ -111,9 +110,10 @@ public final class RtsStorageCrafting {
     }
 
     public static void refillCraftGridFromBlueprint(
-            AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
-            ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
+            AbstractContainerMenu menu, List<IItemHandler> extractHandlers,
+            List<IItemHandler> insertHandlers,
+            ServerPlayer player, ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsCraftingGridFiller.refillCraftGridFromBlueprint(
-                menu, handlers, player, blueprint, fillAll, includePlayerFallback);
+                menu, extractHandlers, insertHandlers, player, blueprint, fillAll, includePlayerFallback);
     }
 }

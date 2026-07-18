@@ -957,5 +957,12 @@
   "screen.rtsbuilding.quick_build.smart_place_scanned": "已发现 %s 个可填充方块（上限 %s）",
   "screen.rtsbuilding.workflow.type.smart_place_fluid": "智能放置·流體填充",
   "screen.rtsbuilding.clear_to_storage": "清空到儲存",
-  "screen.rtsbuilding.clear_to_player": "清空到背包"
+  "screen.rtsbuilding.clear_to_player": "清空到背包",
+  "screen.rtsbuilding.craft_terminal.title": "RTS 合成終端",
+  "screen.rtsbuilding.craft_terminal.search_mode.standard": "標準",
+  "screen.rtsbuilding.craft_terminal.search_mode.auto": "自動搜索",
+  "screen.rtsbuilding.craft_terminal.search_mode.jei_auto": "JEI自動搜索",
+  "screen.rtsbuilding.craft_terminal.search_pin": "保留搜索",
+  "screen.rtsbuilding.craft_terminal.search_pin.on": "已固定",
+  "screen.rtsbuilding.craft_terminal.search_pin.off": "未固定"
 }

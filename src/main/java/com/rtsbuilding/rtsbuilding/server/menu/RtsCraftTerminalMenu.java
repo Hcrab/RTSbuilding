@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.menu;
 
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingGridFiller;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -104,7 +106,7 @@ public final class RtsCraftTerminalMenu extends AbstractContainerMenu {
     }
 
     /**
-     * 处理玩家点击合成槽的逻辑：快照蓝图 → 父类点击 → 补料。
+     * 处理玩家点击合成槽的逻辑：快照蓝图 → 父类点击 → 检测消耗 → 补料。
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
@@ -118,12 +120,31 @@ public final class RtsCraftTerminalMenu extends AbstractContainerMenu {
         super.clicked(slotId, button, clickType, player);
 
         if (slotId == RESULT_SLOT && player instanceof ServerPlayer serverPlayer && blueprint != null) {
+            // 手持物品点结果槽时 super.clicked() 不做任何事，网格未消耗则跳过补料
+            if (!wasGridConsumed(blueprint)) {
+                return;
+            }
             ItemStack carried = serverPlayer.containerMenu.getCarried();
             if (!carried.isEmpty()) {
                 ServiceRegistry.getInstance().crafting().recordCraftedOutput(serverPlayer, carried.copy());
             }
-            ServiceRegistry.getInstance().crafting().refillCraftGridFromLinked(serverPlayer, this, blueprint, recipe);
+            RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(serverPlayer);
+            RtsCraftingGridFiller.refillCraftGridFromLinked(serverPlayer, session, this, blueprint, recipe);
         }
+    }
+
+    /** 比较当前合成网格与补料前快照，判断是否实际消耗了物品 */
+    private boolean wasGridConsumed(ItemStack[] before) {
+        for (int i = 0; i < 9; i++) {
+            ItemStack now = this.getSlot(1 + i).getItem();
+            ItemStack prev = before[i];
+            if (prev.isEmpty() != now.isEmpty()) return true;
+            if (!prev.isEmpty()) {
+                if (!ItemStack.isSameItemSameComponents(prev, now)) return true;
+                if (prev.getCount() != now.getCount()) return true;
+            }
+        }
+        return false;
     }
 
     /**

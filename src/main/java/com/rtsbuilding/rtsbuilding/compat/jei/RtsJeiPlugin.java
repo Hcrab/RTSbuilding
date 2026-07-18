@@ -14,9 +14,21 @@ public final class RtsJeiPlugin implements IModPlugin {
     private static final ResourceLocation UID =
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "jei_plugin");
 
+    /** JEI 运行时引用，供合成终端搜索模式同步使用 */
+    private static mezz.jei.api.runtime.IJeiRuntime jeiRuntime;
+
+    public static mezz.jei.api.runtime.IJeiRuntime getJeiRuntime() {
+        return jeiRuntime;
+    }
+
     @Override
     public ResourceLocation getPluginUid() {
         return UID;
+    }
+
+    @Override
+    public void onRuntimeAvailable(mezz.jei.api.runtime.IJeiRuntime jeiRuntime) {
+        RtsJeiPlugin.jeiRuntime = jeiRuntime;
     }
 
     @Override
