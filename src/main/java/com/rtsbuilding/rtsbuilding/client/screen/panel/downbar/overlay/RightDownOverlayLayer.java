@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
@@ -16,6 +17,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -40,7 +42,7 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     /** 格子之间的间距 */
     private static final int SLOT_GAP = 0;
     /** 内边距（距 overlay 左/上边缘） */
-    private static final int PAD_LEFT = 4;
+    private static final int PAD_LEFT = 58;  // 原来是4，加上3个网格的距离（3 * (SLOT_SIZE + SLOT_GAP) = 3 * (18 + 0) = 54）
     private static final int PAD_TOP = 2;
     /** 网格起始绘制高度额外下移量，增加与嵌层顶部的视觉呼吸空间 */
     private static final int GRID_TOP_OFFSET = 20;
@@ -81,6 +83,29 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     private static final SpriteRegion SLOT_SELECTED = new SpriteRegion(
             SLOTS_TEX_INFO, 0, SLOTS_SELECTED_V_OFFSET, SLOTS_TEX_W / 2, SLOTS_STATE_H);
 
+    // ======================== 选中物品提示贴图（prompt_slots.png）=======================
+
+    /** prompt_slots.png：32×32，水平双主题，垂直 0-16=背景，16-32=悬浮覆盖层 */
+    private static final ResourceLocation PROMPT_SLOTS_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/down/prompt_slots.png");
+    private static final int PROMPT_SLOTS_TEX_W = 32;
+    private static final int PROMPT_SLOTS_TEX_H = 32;
+    private static final int PROMPT_SLOTS_STATE_H = 16;
+    /** 悬浮覆盖层垂直偏移（y=16-32） */
+    private static final int PROMPT_SLOTS_HOVER_V_OFFSET = 16;
+    private static final TextureInfo PROMPT_SLOTS_TEX_INFO = new TextureInfo(
+            PROMPT_SLOTS_TEXTURE, PROMPT_SLOTS_TEX_W, PROMPT_SLOTS_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    /** 背景精灵（v=0~16） */
+    private static final SpriteRegion PROMPT_SLOT_BG = new SpriteRegion(
+            PROMPT_SLOTS_TEX_INFO, 0, 0, PROMPT_SLOTS_TEX_W / 2, PROMPT_SLOTS_STATE_H);
+    /** 悬浮覆盖层精灵（v=16~32）——半透明覆盖层，盖在图标之上指示悬浮状态 */
+    private static final SpriteRegion PROMPT_SLOT_HOVER = new SpriteRegion(
+            PROMPT_SLOTS_TEX_INFO, 0, PROMPT_SLOTS_HOVER_V_OFFSET, PROMPT_SLOTS_TEX_W / 2, PROMPT_SLOTS_STATE_H);
+
+
+
     // ======================== 网格外围装饰贴图（slots_overlay.png）=======================
 
     /** slots_overlay.png：32×16，水平双主题，每个半区 16×16，九宫格边框 2px */
@@ -117,16 +142,34 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     /** 当前选中的格子索引（-1=无选中），鼠标点击切换 */
     private int selectedSlotIndex = -1;
 
+    /** 当前选中的物品栈（用于在网格上方显示） */
+    private ItemStack currentSelectedItem = ItemStack.EMPTY;
+
     /** 当前帧合并后的显示条目列表（物品+流体） */
     private final List<SlotEntry> slotEntries = new ArrayList<>();
     /** 当前帧的列数 */
     private int cols;
     /** 当前帧的行数 */
     private int rows;
-    /** 当前帧每行可用的实际宽度（用于计算列数） */
-    private int usableW;
     /** 当前帧悬浮的格子索引，用于外部渲染 tooltip */
     private int tooltipSlotIndex = -1;
+
+    // ======================== 平滑滚动动画相关 ========================
+
+    /** 动画持续时间（以刻为单位）*/
+    private static final float ANIMATION_DURATION = 10.0f;
+    
+    /** 目标滚动位置（用于动画） */
+    private double targetScroll = 0;
+    
+    /** 当前滚动位置（用于动画） */
+    private double animatedScroll = 0;
+    
+    /** 动画开始时间 */
+    private long animationStartTime = 0L;
+    
+    /** 是否正在执行滚动动画 */
+    private boolean isScrollingAnimated = false;
 
     /**
      * 获取当前悬浮格子的物品堆，供 BuilderScreen 在缩放通道外渲染 tooltip。
@@ -134,6 +177,10 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
      * @return 悬浮物品的 ItemStack，无悬浮时返回空栈
      */
     public ItemStack getHoveredSlotStack() {
+        if (tooltipSlotIndex == -2) {
+            // 返回当前选中的物品（当鼠标悬停在其上方时）
+            return currentSelectedItem;
+        }
         if (tooltipSlotIndex < 0 || tooltipSlotIndex >= slotEntries.size()) return ItemStack.EMPTY;
         return slotEntries.get(tooltipSlotIndex).stack();
     }
@@ -143,13 +190,16 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     /**
      * 网格中每个槽位的数据封装。
      */
-    private record SlotEntry(ItemStack stack, long count, boolean isFluid) {
+    private record SlotEntry(ItemStack stack, long count, boolean isFluid, Object originalEntry) {
     }
 
     // ======================== 核心渲染入口 ========================
 
     @Override
     protected void renderContent(GuiGraphics g) {
+        // ---- 更新滚动动画状态 ----
+        updateScrollAnimation();
+        
         // ---- 获取数据源 ----
         StorageModule sm = RtsClientKernel.get().module(StorageModule.class);
         if (sm == null) return;
@@ -166,9 +216,54 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
 
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
 
-        // ---- 布局计算 ----
+        // ---- 获取 Minecraft 实例 ----
         Minecraft mc = Minecraft.getInstance();
-        usableW = w - PAD_LEFT - SCROLLBAR_W - RIGHT_MARGIN;
+        
+        // ---- 检测鼠标是否悬停在当前选中物品上（优先检测）----
+        int mouseX = (int) getLastMouseX();
+        int mouseY = (int) getLastMouseY();
+        boolean isHoveringOverCurrentSelection = false;
+        if (!currentSelectedItem.isEmpty()) {
+            int itemDisplayX = x + PAD_LEFT;
+            int itemDisplayY = y + 3; // 在顶部显示，留出一些边距
+            int itemDisplaySize = 18; // 显示区域大小，与网格槽位对齐
+            
+            // 检测鼠标是否悬停在当前选中物品上
+            if (mouseX >= itemDisplayX && mouseX < itemDisplayX + itemDisplaySize &&
+                mouseY >= itemDisplayY && mouseY < itemDisplayY + itemDisplaySize) {
+                isHoveringOverCurrentSelection = true;
+                this.tooltipSlotIndex = -2; // 使用特殊值表示当前选中物品的悬停
+            }
+            
+            // 绘制当前选中的物品（在网格上方）
+            // 绘制选中物品背景框
+            SpriteRenderer.drawSprite(g, PROMPT_SLOT_BG.withTheme(), itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize);
+            
+            // 绘制选中物品图标
+            RenderSystem.disableDepthTest();
+            var pose = g.pose();
+            pose.pushPose();
+            pose.translate(itemDisplayX + 1, itemDisplayY + 1, 0); // 物品图标 Z=0，居中显示
+            g.renderItem(currentSelectedItem, 0, 0);
+            g.flush(); // 立即提交物品渲染，确保层级正确
+            pose.popPose();
+            
+            // 如果鼠标悬停在当前选中物品上，绘制悬浮覆盖层
+            if (isHoveringOverCurrentSelection) {
+                // 使用变换矩阵将覆盖层绘制在更高的层级上，高于物品图标（Z=0）和网格覆盖层（Z=300）
+                var overlayPose = g.pose();
+                overlayPose.pushPose();
+                overlayPose.translate(itemDisplayX, itemDisplayY, 400); // 提升Z轴层级到400，确保覆盖在物品图标之上
+                // 绘制覆盖层，使用相对坐标
+                SpriteRenderer.drawSprite(g, PROMPT_SLOT_HOVER.withTheme(), 0, 0, itemDisplaySize, itemDisplaySize);
+                g.flush(); // 立即提交覆盖层渲染
+                overlayPose.popPose();
+            }
+        }
+
+        // ---- 布局计算 ----
+        /* 当前帧每行可用的实际宽度（用于计算列数） */
+        int usableW = w - PAD_LEFT - SCROLLBAR_W - RIGHT_MARGIN;
         cols = Math.max(1, (usableW + SLOT_GAP) / (SLOT_SIZE + SLOT_GAP));
         // 固定网格行数：基于面板内网格实际可视高度决定，+2 行作为滚动缓冲
         rows = Math.max(1, (h - PAD_TOP - GRID_TOP_OFFSET) / (SLOT_SIZE + SLOT_GAP) + 2);
@@ -187,10 +282,15 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         int gridW = cols * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
         int frameH = rows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
         int bottomY = originY + gridVisibleH;
-        int mouseX = getLastMouseX();
-        int mouseY = getLastMouseY();
-        int hoveredSlot = findHoveredSlot(mouseX, mouseY, originX, originY, scroll);
-        this.tooltipSlotIndex = hoveredSlot;
+        int localMouseX = getLastMouseX();
+        int localMouseY = getLastMouseY();
+        int hoveredSlot = isHoveringOverCurrentSelection ? -1 : findHoveredSlot(localMouseX, localMouseY, originX, originY, scroll);
+        if (!isHoveringOverCurrentSelection) {
+            this.tooltipSlotIndex = hoveredSlot;
+        }
+
+        // ---- 绘制网格外围装饰框（固定位置，不随滚动偏移）----
+        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme(), originX, originY, gridW, frameH);
 
         // ---- 启用 GPU Scissor 精确裁剪网格区域，替代 CPU 跳过逻辑 ----
         g.flush();
@@ -202,9 +302,7 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         }
 
         // ---- 第一遍：批量绘制整个网格区域（rows × cols）的所有格子背景，与 AE2 行为一致 ----
-        // 先绘制网格外围装饰框（固定位置，不随滚动偏移）
-        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme(), originX, originY, gridW, frameH);
-        // 再逐个绘制格子背景
+        // 仅绘制格子背景
         int totalCells = rows * cols;
         for (int i = 0; i < totalCells; i++) {
             int col = i % cols;
@@ -275,7 +373,8 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
             pose.pushPose();
             pose.translate(slotX, slotY, 300); // 覆盖层 Z=300，最高层级
             boolean isSelected = (i == selectedSlotIndex);
-            if (isSelected) {
+            // 检查选中的索引是否仍然有效，防止越界
+            if (i == selectedSlotIndex && selectedSlotIndex < slotEntries.size()) {
                 SpriteRenderer.drawSprite(g, SLOT_SELECTED.withTheme(), 0, 0, SLOT_SIZE, SLOT_SIZE);
                 g.flush(); // 立即提交选中状态渲染
             } else if (hovered) {
@@ -285,9 +384,17 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
             pose.popPose();
         }
 
+        // 如果选中的索引超出了当前条目数，则重置选择状态
+        if (selectedSlotIndex >= slotEntries.size() && !slotEntries.isEmpty()) {
+            selectedSlotIndex = -1;
+        }
+
         // ---- 恢复为嵌层 Scissor 边界（弹出网格 Scissor，让 DownOverlayLayer 的嵌层 Scissor 自然恢复）----
         g.flush();
         g.disableScissor();
+
+        // ---- 重新绘制网格外围装饰框（位于网格内容上方，确保装饰框在最顶层）----
+        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme(), originX, originY, gridW, frameH);
 
         // ---- 滚动条 ----
         renderScrollbar(g, x, y, h);
@@ -298,19 +405,18 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     /**
      * 将 StorageEntry 和 FluidEntry 合并为统一的 SlotEntry 列表。
      */
-    @SuppressWarnings("unchecked")
     private void buildSlotEntries(List<?> items, List<?> fluids) {
         slotEntries.clear();
         for (Object obj : items) {
             if (obj instanceof StorageEntry se) {
                 if (se.stack() == null || se.stack().isEmpty()) continue;
-                slotEntries.add(new SlotEntry(se.stack(), se.count(), false));
+                slotEntries.add(new SlotEntry(se.stack(), se.count(), false, obj));
             }
         }
         for (Object obj : fluids) {
             if (obj instanceof FluidEntry fe) {
                 if (fe.preview() == null || fe.preview().isEmpty()) continue;
-                slotEntries.add(new SlotEntry(fe.preview(), fe.amount(), true));
+                slotEntries.add(new SlotEntry(fe.preview(), fe.amount(), true, obj));
             }
         }
     }
@@ -374,9 +480,16 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         if (relX < 0 || relY < 0) return -1;
         int col = relX / (SLOT_SIZE + SLOT_GAP);
         int row = relY / (SLOT_SIZE + SLOT_GAP);
-        if (col < 0 || col >= cols || row < 0 || row >= rows) return -1;
+        if (col >= cols || row >= rows) return -1;
         int idx = row * cols + col;
         if (idx >= slotEntries.size()) return -1;
+        
+        // 添加网格可视区域边界检查，防止被裁剪的区域响应悬停
+        int bottomY = originY + (getHeight() - PAD_TOP * 2 - GRID_TOP_OFFSET);
+        if (my < originY || my >= bottomY) {
+            return -1;
+        }
+        
         return idx;
     }
 
@@ -395,6 +508,22 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         int originY = y + PAD_TOP + GRID_TOP_OFFSET;
         int gridVisibleH = h - PAD_TOP * 2 - GRID_TOP_OFFSET;
         int barX = x + getWidth() - SCROLLBAR_W - RIGHT_MARGIN;
+        
+        // 检查是否点击了当前选中的物品显示区域（prompt_slots.png），如果是则执行定位
+        if (!currentSelectedItem.isEmpty()) {
+            int itemDisplayX = x + PAD_LEFT;
+            int itemDisplayY = y + 3; // 在顶部显示，留出一些边距
+            int itemDisplaySize = 18; // 显示区域大小，与网格槽位对齐
+
+            // 检查鼠标是否点击了当前选中物品的显示区域
+            if (mouseX >= itemDisplayX && mouseX < itemDisplayX + itemDisplaySize &&
+                mouseY >= itemDisplayY && mouseY < itemDisplayY + itemDisplaySize) {
+                // 点击了当前选中物品显示区域，执行定位操作
+                scrollToSelectedItem();
+                return true;
+            }
+        }
+        
         if (scrollBar.handleClick(mouseX, mouseY, barX,
                 originY + 6, gridVisibleH - 12)) {
             return true;
@@ -409,22 +538,62 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         int relX = (int) mouseX - originX;
         int relY = (int) mouseY - originY + scrollBar.getScroll();
         if (relX < 0 || relY < 0) {
-            selectedSlotIndex = -1;
             return false;
         }
         int col = relX / (SLOT_SIZE + SLOT_GAP);
         int row = relY / (SLOT_SIZE + SLOT_GAP);
-        if (col < 0 || col >= cols || row < 0) {
-            selectedSlotIndex = -1;
+        if (col >= cols) {
             return false;
         }
         int idx = row * cols + col;
         if (idx >= slotEntries.size()) {
-            selectedSlotIndex = -1;
+            return false;
+        }
+        
+        // 添加网格可视区域边界检查，防止被裁剪的区域响应点击
+        int bottomY = originY + gridVisibleH;
+        if (mouseY < originY || mouseY >= bottomY) {
             return false;
         }
         // 点击同一格子取消选中，否则切换选中
-        selectedSlotIndex = (selectedSlotIndex == idx) ? -1 : idx;
+        if (selectedSlotIndex == idx) {
+            selectedSlotIndex = -1;
+            // 取消选中时清空当前选中的物品
+            currentSelectedItem = ItemStack.EMPTY;
+        } else {
+            selectedSlotIndex = idx;
+            // 设置当前选中的物品
+            SlotEntry clickedEntry = slotEntries.get(idx);
+            currentSelectedItem = clickedEntry.stack().copy();
+        }
+        
+        // 执行物品选择
+        SlotEntry entry = slotEntries.get(idx);
+        if (!entry.isFluid()) {
+            // 选择物品
+            String itemId = BuiltInRegistries.ITEM.getKey(entry.stack().getItem()).toString();
+            String label = entry.stack().getHoverName().getString();
+            
+            // 获取 BuildingModule 并设置选中物品
+            BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
+            if (buildingModule != null) {
+                buildingModule.selectItem(itemId, label, entry.stack());
+            }
+        } else {
+            // 选择流体
+            // 从原始条目中获取流体ID
+            if (entry.originalEntry() instanceof FluidEntry originalFluidEntry) {
+                String fluidId = originalFluidEntry.fluidId();
+                String label = entry.stack().getHoverName().getString();
+                
+                // 获取 BuildingModule 并设置选中流体
+                BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
+                if (buildingModule != null) {
+                    buildingModule.selectFluid(fluidId, label, entry.stack());
+                }
+            }
+        }
+        
         return true;
     }
 
@@ -447,5 +616,87 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
             return scrollBar.handleDrag(mouseY, originY, gridVisibleH);
         }
         return false;
+    }
+
+    /**
+     * 定位到选中物品在网格中的位置
+     */
+    private void scrollToSelectedItem() {
+        if (currentSelectedItem.isEmpty() || slotEntries.isEmpty()) {
+            return;
+        }
+        
+        // 在条目列表中查找当前选中的物品
+        int targetIndex = -1;
+        for (int i = 0; i < slotEntries.size(); i++) {
+            SlotEntry entry = slotEntries.get(i);
+            if (ItemStack.isSameItemSameComponents(entry.stack(), currentSelectedItem)) {
+                targetIndex = i;
+                break;
+            }
+        }
+        
+        if (targetIndex == -1) {
+            return; // 没有找到对应的物品
+        }
+        
+        // 计算目标行号
+        int targetRow = targetIndex / cols;
+        
+        // 计算目标行在屏幕上的位置
+        int targetY = targetRow * (SLOT_SIZE + SLOT_GAP);
+        
+        // 计算滚动条的目标滚动位置，使目标行居中显示
+        int gridVisibleH = getHeight() - PAD_TOP * 2 - GRID_TOP_OFFSET;
+        int rowsVisible = gridVisibleH / (SLOT_SIZE + SLOT_GAP);
+        int centeredScroll = targetY - (rowsVisible / 2) * (SLOT_SIZE + SLOT_GAP);
+        
+        // 限制滚动范围
+        centeredScroll = Math.max(0, centeredScroll);
+        centeredScroll = Math.min(scrollBar.getMaxScroll(), centeredScroll);
+        
+        // 启动平滑滚动动画
+        startSmoothScrollAnimation(centeredScroll);
+    }
+    
+    /**
+     * 开始平滑滚动动画
+     * 
+     * @param targetScrollPos 目标滚动位置
+     */
+    private void startSmoothScrollAnimation(double targetScrollPos) {
+        this.targetScroll = targetScrollPos;
+        this.animatedScroll = scrollBar.getScroll();
+        this.animationStartTime = System.currentTimeMillis();
+        this.isScrollingAnimated = true;
+    }
+    
+    /**
+     * 更新滚动动画状态
+     */
+    private void updateScrollAnimation() {
+        if (!isScrollingAnimated) {
+            return;
+        }
+        
+        long currentTime = System.currentTimeMillis();
+        float elapsed = (currentTime - animationStartTime) / 1000.0f * 20.0f; // 转换为刻数
+        
+        if (elapsed >= ANIMATION_DURATION) {
+            // 动画完成，设置最终位置
+            scrollBar.setScroll((int) targetScroll);
+            animatedScroll = targetScroll;
+            isScrollingAnimated = false;
+            return;
+        }
+        
+        // 使用缓动函数（ease-out）计算当前位置
+        float progress = elapsed / ANIMATION_DURATION;
+        float easeOut = 1.0f - (float) Math.pow(1.0f - progress, 2); // 二次缓出
+        
+        animatedScroll = animatedScroll + (targetScroll - animatedScroll) * easeOut;
+        
+        // 设置滚动条位置
+        scrollBar.setScroll((int) animatedScroll);
     }
 }
