@@ -339,16 +339,16 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int bg = hover ? 0xCC2C3948 : 0xCC202A35;
         RtsClientUiUtil.drawPanelFrame(g, x + 8, y, w - 16, SECTION_HEADER_H,
                 bg, 0xFF596D82, 0xFF0B1016);
-        g .text(screen.font(), expanded ? "v" : ">", x + 16, y + 7, 0xEAF4FF, false);
-        g .text(screen.font(), trimToWidth(text(titleKey), w - 58), x + 31, y + 7, 0xF4F7FF, false);
+        g .text(screen.font(), expanded ? "v" : ">", x + 16, y + 7, 0xFFEAF4FF, false);
+        g .text(screen.font(), trimToWidth(text(titleKey), w - 58), x + 31, y + 7, 0xFFF4F7FF, false);
         return y + SECTION_HEADER_H;
     }
 
     private void drawSensitivityRow(GuiGraphicsExtractor g, int rowY, int x, int w, SensitivityControl control) {
         g .text(screen.font(), Component.translatable(control.labelKey),
-                x + 16, rowY + 5, 0xC8D3DF, false);
+                x + 16, rowY + 5, 0xFFC8D3DF, false);
         g .text(screen.font(), sensitivityLabel(control),
-                x + w - 60, rowY + 5, 0xEAF4FF, false);
+                x + w - 60, rowY + 5, 0xFFEAF4FF, false);
 
         int trackX = x + 16;
         int trackY = rowY + 24;
@@ -366,11 +366,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int valueX = minusX + 26;
         int plusX = valueX + 60;
         g .text(screen.font(), Component.translatable("screen.rtsbuilding.settings.ui_scale"),
-                x + 16, rowY + 8, 0xC8D3DF, false);
+                x + 16, rowY + 8, 0xFFC8D3DF, false);
         drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 6, 22, 22, "-", false);
         RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 6, 56, 22, 0xCC1A232E, 0xFF566B80, 0xFF0D1218);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), rtsGuiScaleLabel(),
-                valueX + 28, rowY + 13, 0xEAF4FF);
+                valueX + 28, rowY + 13, 0xFFEAF4FF);
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 6, 22, 22, "+", false);
     }
 
@@ -380,23 +380,23 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int plusX = valueX + 60;
         g .text(screen.font(), trimToWidth(
                         text("screen.rtsbuilding.settings.block_sounds_per_tick"), w - 156),
-                x + 16, rowY + 3, 0xC8D3DF, false);
+                x + 16, rowY + 3, 0xFFC8D3DF, false);
         g .text(screen.font(), trimToWidth(
                         text("screen.rtsbuilding.settings.block_sounds_per_tick.hint"), w - 156),
-                x + 16, rowY + 18, 0x9FB0C2, false);
+                x + 16, rowY + 18, 0xFF9FB0C2, false);
         drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 8, 22, 22, "-", false);
         RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 8, 56, 22,
                 0xCC1A232E, 0xFF566B80, 0xFF0D1218);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 Integer.toString(RtsClientUiStateStore.getRtsBlockSoundsPerTick()),
-                valueX + 28, rowY + 15, 0xEAF4FF);
+                valueX + 28, rowY + 15, 0xFFEAF4FF);
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 8, 22, 22, "+", false);
     }
 
     private void drawSimpleToggleRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int w, int rowY,
             String labelKey, boolean active) {
         g .text(screen.font(), trimToWidth(text(labelKey), w - 126),
-                x + 16, rowY + 9, 0xC8D3DF, false);
+                x + 16, rowY + 9, 0xFFC8D3DF, false);
         drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
                 text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
@@ -408,17 +408,17 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int hintX = hintTextX(x, expandable);
         int hintW = hintTextMaxWidth(x, w, expandable);
         String label = trimToWidth(text(labelKey), w - 116);
-        g .text(screen.font(), label, x + 16, rowY + 2, 0xC8D3DF, false);
+        g .text(screen.font(), label, x + 16, rowY + 2, 0xFFC8D3DF, false);
         if (expandable) {
             drawHintExpandButton(g, mouseX, mouseY, x, rowY, expanded);
         }
         if (expanded) {
             List<FormattedCharSequence> lines = wrappedHintLines(x, w, hintKey);
             for (int i = 0; i < lines.size(); i++) {
-                g .text(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H, 0x9FB0C2, false);
+                g .text(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H, 0xFF9FB0C2, false);
             }
         } else {
-            g .text(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13, 0x9FB0C2, false);
+            g .text(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13, 0xFF9FB0C2, false);
         }
         drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
                 text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
@@ -955,7 +955,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
         int switchX = active ? x + w - 26 : x + 6;
         g.fill(switchX, y + 4, switchX + 18, y + h - 4, active ? 0xFF72F07A : 0xFF788696);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label, x + w / 2, y + 7, 0xF7FBFF);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label, x + w / 2, y + 7, 0xFFF7FBFF);
     }
 
     private int hintToggleRowHeight(int x, int w, String hintKey) {
@@ -995,7 +995,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         RtsClientUiUtil.drawPanelFrame(g, buttonX, buttonY,
                 HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE, bg, 0xFF6A8299, 0xFF0E1116);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), expanded ? "v" : ">",
-                buttonX + HINT_EXPAND_BUTTON_SIZE / 2, buttonY + 2, 0xDDEBFA);
+                buttonX + HINT_EXPAND_BUTTON_SIZE / 2, buttonY + 2, 0xFFDDEBFA);
     }
 
     private void drawGearMenuRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h,
@@ -1004,7 +1004,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int bg = active ? 0xCC2D7C4B : (hover ? 0xCC334054 : 0xCC26303D);
         RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, 0xFF6A8299, 0xFF0E1116);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), trimToWidth(label, w - 10),
-                x + w / 2, y + 7, 0xF2F6FB);
+                x + w / 2, y + 7, 0xFFF2F6FB);
     }
 
     private final List<PersistableProperty> properties = List.of(

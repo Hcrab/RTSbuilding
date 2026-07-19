@@ -95,6 +95,24 @@ public final class PendingGhostRenderer {
         }
     }
 
+    static void collectModelAnimations(List<PlacementAnimationRenderer.ModelAnimation> out) {
+        long now = System.currentTimeMillis();
+        pruneExpired(now);
+        for (PendingGhostEntry ghost : GHOSTS.values()) {
+            if (!isWithinBounds(ghost.pos)
+                    || ghost.blockState == null
+                    || ghost.blockState.isAir()
+                    || ghost.blockState.getRenderShape() != RenderShape.MODEL) {
+                continue;
+            }
+            out.add(new PlacementAnimationRenderer.ModelAnimation(
+                    ghost.blockState,
+                    ghost.pos,
+                    GHOST_ALPHA,
+                    computeGrowScale(now - ghost.addedAtMs)));
+        }
+    }
+
     // ===== Internal rendering =====
 
     private static void renderPendingGhosts(Minecraft minecraft, PoseStack poseStack, VertexConsumer fillBuffer) {

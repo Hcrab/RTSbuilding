@@ -102,7 +102,6 @@ sourceSets.main {
         exclude 'com/rtsbuilding/rtsbuilding/gametest/**'
         // 这些类直接依赖已经删除的即时世界绘制管线。26.1 的首次启动先不
         // 提交复杂虚影；状态和网络仍保留，随后由 render-state 桥重新接入。
-        exclude 'com/rtsbuilding/rtsbuilding/client/rendering/RtsVisualOverlayRenderer.java'
         exclude 'com/rtsbuilding/rtsbuilding/client/rendering/builder/EntityGhostRenderer.java'
         exclude 'com/rtsbuilding/rtsbuilding/client/rendering/util/GhostAlphaBufferSource.java'
         exclude 'com/rtsbuilding/rtsbuilding/mixin/BlockRenderDispatcherMixin.java'

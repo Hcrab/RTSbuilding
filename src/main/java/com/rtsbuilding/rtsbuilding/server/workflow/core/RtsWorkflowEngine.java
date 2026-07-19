@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
 import net.minecraft.nbt.CompoundTag;
@@ -236,6 +237,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.empty();
         }
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
+        repairWorkflowIdHighWater(player, slots);
         if (slots.isFull()) {
             RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
             if (replaced != null) {
@@ -660,6 +662,25 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         return playerSlots
                 .computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
                 .computeIfAbsent(dimension, k -> new RtsWorkflowSlotManager());
+    }
+
+    /**
+     * 兼容曾经只保存“非空工作流队列”的旧存档。
+     *
+     * <p>耐久任务仍可能绑定旧 workflow ID；在创建新条目前先从任务仓库抬高编号，
+     * 既不删除可恢复任务，也不会要求玩家重建世界。</p>
+     */
+    private void repairWorkflowIdHighWater(ServerPlayer player, RtsWorkflowSlotManager slots) {
+        if (!TaskPersistenceRuntime.INSTANCE.isStarted()) return;
+        String dimensionId = player.level().dimension().identifier().toString();
+        int minimumNextId = TaskPersistenceRuntime.INSTANCE.coordinator().query()
+                .ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> dimensionId.equals(snapshot.dimensionId()))
+                .mapToInt(snapshot -> snapshot.workflowEntryId())
+                .filter(workflowEntryId -> workflowEntryId >= 0)
+                .max()
+                .orElse(-1) + 1;
+        slots.ensureNextIdAtLeast(minimumNextId);
     }
 
     /**

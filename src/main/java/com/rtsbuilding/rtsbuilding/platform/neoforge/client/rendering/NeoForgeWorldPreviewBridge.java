@@ -5,9 +5,11 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.rendering.state.RtsWorldPreviewExtractor;
 import com.rtsbuilding.rtsbuilding.client.rendering.state.RtsWorldPreviewSnapshot;
+import com.rtsbuilding.rtsbuilding.client.rendering.state.RtsRecordedGeometry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
@@ -33,6 +35,8 @@ import java.util.List;
  */
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class NeoForgeWorldPreviewBridge {
+    private static final Identifier BOUNDARY_TEXTURE =
+            Identifier.fromNamespaceAndPath("minecraft", "textures/misc/forcefield.png");
     private static final ContextKey<RtsWorldPreviewSnapshot> PREVIEW_STATE =
             new ContextKey<>(Identifier.fromNamespaceAndPath(
                     RtsbuildingMod.MODID, "world_preview_snapshot"));
@@ -44,19 +48,24 @@ public final class NeoForgeWorldPreviewBridge {
     public static void onExtractLevelRenderState(ExtractLevelRenderStateEvent event) {
         event.getRenderState().setRenderData(
                 PREVIEW_STATE,
-                RtsWorldPreviewExtractor.capture(Minecraft.getInstance()));
+                RtsWorldPreviewExtractor.capture(
+                        Minecraft.getInstance(),
+                        event.getCamera().position()));
     }
 
     @SubscribeEvent
     public static void onSubmitCustomGeometry(SubmitCustomGeometryEvent event) {
         RtsWorldPreviewSnapshot snapshot =
                 event.getLevelRenderState().getRenderData(PREVIEW_STATE);
-        if (snapshot == null || snapshot.modelGhosts().isEmpty()) {
+        if (snapshot == null) {
             return;
         }
         Vec3 camera = event.getLevelRenderState().cameraRenderState.pos;
         for (RtsWorldPreviewSnapshot.ModelGhost ghost : snapshot.modelGhosts()) {
             submitGhost(event, camera, ghost);
+        }
+        for (RtsRecordedGeometry.Batch batch : snapshot.geometryBatches()) {
+            submitGeometryBatch(event, camera, batch);
         }
     }
 
@@ -83,11 +92,55 @@ public final class NeoForgeWorldPreviewBridge {
                 ghost.pos().getX() - camera.x,
                 ghost.pos().getY() - camera.y,
                 ghost.pos().getZ() - camera.z);
+        if (ghost.scale() != 1.0F) {
+            event.getPoseStack().translate(0.5D, 0.5D, 0.5D);
+            event.getPoseStack().scale(ghost.scale(), ghost.scale(), ghost.scale());
+            event.getPoseStack().translate(-0.5D, -0.5D, -0.5D);
+        }
         event.getSubmitNodeCollector().submitCustomGeometry(
                 event.getPoseStack(),
                 RenderTypes.translucentMovingBlock(),
                 (pose, consumer) -> renderParts(ghost, frozenParts, alpha, pose, consumer));
         event.getPoseStack().popPose();
+    }
+
+    private static void submitGeometryBatch(
+            SubmitCustomGeometryEvent event,
+            Vec3 camera,
+            RtsRecordedGeometry.Batch batch) {
+        if (batch.vertices().isEmpty()) {
+            return;
+        }
+        event.getPoseStack().pushPose();
+        event.getPoseStack().translate(-camera.x, -camera.y, -camera.z);
+        boolean requireLineWidth = requiresLineWidth(batch.layer());
+        event.getSubmitNodeCollector().submitCustomGeometry(
+                event.getPoseStack(),
+                renderTypeFor(batch.layer()),
+                (pose, consumer) -> {
+                    for (RtsRecordedGeometry.Vertex vertex : batch.vertices()) {
+                        vertex.replay(pose, consumer, requireLineWidth);
+                    }
+                });
+        event.getPoseStack().popPose();
+    }
+
+    private static boolean requiresLineWidth(RtsRecordedGeometry.Layer layer) {
+        return switch (layer) {
+            case LINES, CHUNK_XRAY_LINES, CULLING_HANDLE_NO_DEPTH_LINES -> true;
+            default -> false;
+        };
+    }
+
+    private static RenderType renderTypeFor(RtsRecordedGeometry.Layer layer) {
+        return switch (layer) {
+            case BOUNDARY -> RenderTypes.entityTranslucent(BOUNDARY_TEXTURE);
+            case LINES, CHUNK_XRAY_LINES, CULLING_HANDLE_NO_DEPTH_LINES ->
+                    RenderTypes.linesTranslucent();
+            case BRACKET_QUADS, TARGET_NO_DEPTH_QUADS -> RenderTypes.debugQuads();
+            case FILLED_BOX, CHUNK_XRAY_FILL, CULLING_HANDLE_NO_DEPTH_FILL ->
+                    RenderTypes.debugFilledBox();
+        };
     }
 
     private static void renderParts(

@@ -633,11 +633,9 @@ public final class RtsTaskEngine {
         PlacementTaskPayload payload = new PlacementTaskPayload(
                 player.getUUID(), player.level().dimension(), job.workflowEntryId(),
                 RtsPlacementBatch.snapshotDetachedState(job, player.registryAccess()));
-        var submission = job.workflowEntryId() >= 0
-                ? com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
-                        player.getUUID(), "placement",
-                        player.level().dimension().identifier() + ":" + job.workflowEntryId())
-                : com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
+        // workflowEntryId 是 UI 投影编号，不是一次玩家操作的持久身份。旧实现把它
+        // 当 submission 使用，重启后编号复用会撞上终态回执并拒绝所有生存建造。
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
                 .fromSubmission(player.getUUID(), submission);
         long gameTime = player.level().getGameTime();
@@ -664,9 +662,7 @@ public final class RtsTaskEngine {
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 player.getUUID(), player.level().dimension(), job.workflowEntryId(),
                 RtsDestructionBatch.snapshotDetachedState(job));
-        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
-                player.getUUID(), "destruction",
-                player.level().dimension().identifier() + ":" + job.workflowEntryId());
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
                 .fromSubmission(player.getUUID(), submission);
         long gameTime = player.level().getGameTime();
@@ -718,9 +714,7 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState state) {
         MiningTaskPayload payload = new MiningTaskPayload(
                 player.getUUID(), player.level().dimension(), state.workflowEntryId(), state);
-        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.fromLegacy(
-                player.getUUID(), "mining",
-                player.level().dimension().identifier() + ":" + state.workflowEntryId());
+        var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
                 .fromSubmission(player.getUUID(), submission);
         long gameTime = player.level().getGameTime();

@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -96,6 +97,31 @@ public final class PlacementAnimationRenderer {
         if (destroyWireframe) {
             DestroyGhostRenderer.renderWireframes(poseStack, lineBuffer);
         }
+    }
+
+    /**
+     * 在 26.1 的提取阶段冻结需要走方块模型渲染层的动画。
+     * 线框和纯色盒仍由统一几何提取器记录，两条链路不会直接刷新共享 buffer。
+     */
+    public static List<ModelAnimation> captureModelAnimations() {
+        List<ModelAnimation> animations = new ArrayList<>();
+        if (Config.isPlacementBlockGhostPreviewEnabled()) {
+            PendingGhostRenderer.collectModelAnimations(animations);
+        }
+        if (Config.isPlaceBlockGhostAnimationEnabled()) {
+            ConfirmedPlacementRenderer.collectModelAnimations(animations);
+        }
+        if (Config.isDestroyBlockGhostAnimationEnabled()) {
+            DestroyGhostRenderer.collectModelAnimations(animations);
+        }
+        return List.copyOf(animations);
+    }
+
+    public record ModelAnimation(
+            BlockState state,
+            BlockPos pos,
+            float alpha,
+            float scale) {
     }
 
     private static boolean shouldRenderPlaceAnimationLayers() {

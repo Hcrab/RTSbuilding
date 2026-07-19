@@ -2539,20 +2539,25 @@ public final class BuilderScreen extends Screen {
     public void closeInteractionWheel() {
     }
     /**
-     * Enables a scissor region for clipping, adjusting coordinates for the
-     * active RTS GUI render scale if a fixed-scale pass is in progress.
+     * Enables a scissor region for clipping in the current RTS logical coordinate space.
+     *
+     * <p>26.1 的 {@link GuiGraphicsExtractor#enableScissor(int, int, int, int)}
+     * 会自行使用当前 pose 把矩形变换到实际屏幕坐标。这里不能再乘一次 RTS 缩放，
+     * 否则浮动窗口的正文裁剪区会被二次缩放，最终把所有正文控件裁掉。
      */
     public void enableRtsScissor(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2) {
-        double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
-        if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
-            g.enableScissor(
-                    (int) Math.floor(x1 * scale),
-                    (int) Math.floor(y1 * scale),
-                    (int) Math.ceil(x2 * scale),
-                    (int) Math.ceil(y2 * scale));
-            return;
-        }
         g.enableScissor(x1, y1, x2, y2);
+    }
+
+    /**
+     * 把固定 RTS 缩放下的虚拟 GUI 坐标换回 Minecraft tooltip 使用的原生 GUI 坐标。
+     *
+     * <p>普通绘制元素会继承当前 pose，但 26.1 的延迟 tooltip 定位不会读取该 pose；
+     * 因此 tooltip 锚点必须在提交时显式还原一次。</p>
+     */
+    public int toNativeGuiCoordinate(double rtsCoordinate) {
+        double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
+        return (int) Math.round(rtsCoordinate * scale);
     }
 
     /** Truncates the given text to fit within the specified pixel width. */
@@ -2565,14 +2570,14 @@ public final class BuilderScreen extends Screen {
     }
 
     private void renderLeftDockedTooltip(GuiGraphicsExtractor g, ItemStack stack) {
-        int x = leftTooltipAnchorX();
-        int y = leftTooltipAnchorY();
+        int x = toNativeGuiCoordinate(leftTooltipAnchorX());
+        int y = toNativeGuiCoordinate(leftTooltipAnchorY());
         g .setTooltipForNextFrame(this.font, stack, x, y);
     }
 
     private void renderLeftDockedTooltip(GuiGraphicsExtractor g, Component text) {
-        int x = leftTooltipAnchorX();
-        int y = leftTooltipAnchorY();
+        int x = toNativeGuiCoordinate(leftTooltipAnchorX());
+        int y = toNativeGuiCoordinate(leftTooltipAnchorY());
         g .setTooltipForNextFrame(this.font, text, x, y);
     }
 

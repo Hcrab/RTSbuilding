@@ -16,6 +16,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.*;
+import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
+import org.joml.Vector3f;
 
 public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     private static final double BLUEPRINT_AIR_FALLBACK_DISTANCE = 24.0D;
@@ -158,20 +161,37 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         double height = Math.max(1.0D, mc.getWindow().getScreenHeight());
         double nx = (mouseX / width) * 2.0D - 1.0D;
         double ny = 1.0D - (mouseY / height) * 2.0D;
-        float yawDeg = mc.gameRenderer.getMainCamera().yRot();
-        float pitchDeg = mc.gameRenderer.getMainCamera().xRot();
-        double yaw = Math.toRadians(yawDeg);
-        double pitch = Math.toRadians(pitchDeg);
-        Vec3 forward = new Vec3(
-                -Math.sin(yaw) * Math.cos(pitch),
-                -Math.sin(pitch),
-                Math.cos(yaw) * Math.cos(pitch)).normalize();
-        Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
-        Vec3 up = forward.cross(right).normalize();
-        double fovY = Math.toRadians(mc.options.fov().get());
-        double tanY = Math.tan(fovY * 0.5D);
-        double tanX = tanY * (width / height);
-        return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
+        /*
+         * 26.1 的相机会把动态 FOV、宽高比和相机旋转统一写入最终投影矩阵。
+         * 直接反解该矩阵，避免手算射线时把左右方向弄反，也避免缩放、疾跑 FOV
+         * 或其他相机效果令方块高亮、连锁挖掘和形状预览指向不同位置。
+         */
+        Matrix4f viewProjection = mc.gameRenderer.getMainCamera()
+                .getViewRotationProjectionMatrix(new Matrix4f());
+        Vec3 ray = unprojectRayDirection(viewProjection, nx, ny);
+        if (ray != null) {
+            return ray;
+        }
+        return new Vec3(mc.gameRenderer.getMainCamera().forwardVector()).normalize();
+    }
+
+    /**
+     * 把标准化屏幕坐标反投影成相机空间中的世界射线。
+     *
+     * <p>该方法只负责坐标变换，不查询世界或方块；独立出来是为了让 26.1
+     * 投影变化可以用纯数学测试覆盖。</p>
+     */
+    static Vec3 unprojectRayDirection(Matrix4fc viewProjection, double nx, double ny) {
+        if (viewProjection == null || !Double.isFinite(nx) || !Double.isFinite(ny)) {
+            return null;
+        }
+        Vector3f point = new Vector3f((float) nx, (float) ny, 0.0F);
+        new Matrix4f(viewProjection).invert().transformProject(point);
+        if (!Float.isFinite(point.x) || !Float.isFinite(point.y) || !Float.isFinite(point.z)
+                || point.lengthSquared() < 1.0E-8F) {
+            return null;
+        }
+        return new Vec3(point).normalize();
     }
 
     public Vec3 currentRayOrigin() {

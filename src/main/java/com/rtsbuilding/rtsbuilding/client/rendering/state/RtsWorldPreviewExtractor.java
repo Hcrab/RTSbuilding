@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.state;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.rendering.RtsVisualOverlayRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostBoundsFilter;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
@@ -20,6 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,7 +39,7 @@ public final class RtsWorldPreviewExtractor {
     private RtsWorldPreviewExtractor() {
     }
 
-    public static RtsWorldPreviewSnapshot capture(Minecraft minecraft) {
+    public static RtsWorldPreviewSnapshot capture(Minecraft minecraft, Vec3 cameraPosition) {
         if (minecraft == null || minecraft.level == null
                 || !(minecraft.screen instanceof BuilderScreen screen)) {
             return RtsWorldPreviewSnapshot.EMPTY;
@@ -45,7 +48,12 @@ public final class RtsWorldPreviewExtractor {
         List<RtsWorldPreviewSnapshot.ModelGhost> ghosts = new ArrayList<>();
         collectSingleBlockBuildPreview(minecraft, screen, ghosts);
         collectBlueprintPreview(minecraft, screen, ghosts);
-        return ghosts.isEmpty() ? RtsWorldPreviewSnapshot.EMPTY : new RtsWorldPreviewSnapshot(ghosts);
+        collectPlacementAnimations(minecraft, ghosts);
+        List<RtsRecordedGeometry.Batch> geometry =
+                RtsVisualOverlayRenderer.capture(minecraft, cameraPosition);
+        return ghosts.isEmpty() && geometry.isEmpty()
+                ? RtsWorldPreviewSnapshot.EMPTY
+                : new RtsWorldPreviewSnapshot(ghosts, geometry);
     }
 
     private static void collectSingleBlockBuildPreview(
@@ -96,6 +104,41 @@ public final class RtsWorldPreviewExtractor {
                 state,
                 pos,
                 alpha,
+                1.0F,
+                LevelRenderer.getLightCoords(minecraft.level, pos),
+                extractTintColors(minecraft, state, pos)));
+    }
+
+    private static void collectPlacementAnimations(
+            Minecraft minecraft,
+            List<RtsWorldPreviewSnapshot.ModelGhost> out) {
+        for (PlacementAnimationRenderer.ModelAnimation animation
+                : PlacementAnimationRenderer.captureModelAnimations()) {
+            addModelGhost(
+                    minecraft,
+                    out,
+                    animation.state(),
+                    animation.pos(),
+                    animation.alpha(),
+                    animation.scale());
+        }
+    }
+
+    private static void addModelGhost(
+            Minecraft minecraft,
+            List<RtsWorldPreviewSnapshot.ModelGhost> out,
+            BlockState state,
+            BlockPos pos,
+            float alpha,
+            float scale) {
+        if (state == null || state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
+            return;
+        }
+        out.add(new RtsWorldPreviewSnapshot.ModelGhost(
+                state,
+                pos,
+                alpha,
+                scale,
                 LevelRenderer.getLightCoords(minecraft.level, pos),
                 extractTintColors(minecraft, state, pos)));
     }

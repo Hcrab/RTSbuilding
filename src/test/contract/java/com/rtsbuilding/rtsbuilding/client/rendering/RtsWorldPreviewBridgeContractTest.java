@@ -39,6 +39,26 @@ class RtsWorldPreviewBridgeContractTest {
     }
 
     @Test
+    void allWorldOverlaysUseTheExtractSubmitBridgeInsteadOfLegacyImmediateDraw() throws IOException {
+        String build = Files.readString(Path.of("build.gradle"));
+        String overlay = read("client/rendering/RtsVisualOverlayRenderer.java");
+        String geometry = read("client/rendering/state/RtsRecordedGeometry.java");
+        String bridge = read(
+                "platform/neoforge/client/rendering/NeoForgeWorldPreviewBridge.java");
+
+        assertFalse(build.contains(
+                "exclude 'com/rtsbuilding/rtsbuilding/client/rendering/RtsVisualOverlayRenderer.java'"));
+        assertFalse(overlay.contains("RenderLevelStageEvent"));
+        assertFalse(overlay.contains("RenderSystem"));
+        assertFalse(overlay.contains(".draw("));
+        assertTrue(overlay.contains("RtsRecordedGeometry.Recorder"));
+        assertFalse(geometry.contains("net.neoforged"));
+        assertTrue(bridge.contains("snapshot.geometryBatches()"));
+        assertTrue(bridge.contains("requiresLineWidth(batch.layer())"));
+        assertTrue(geometry.contains("lineWidthUsed ? lineWidth : 1.0F"));
+    }
+
+    @Test
     void oldGhostModelEntrypointsNeverFlushSharedBuffers() throws IOException {
         String build = read("client/rendering/builder/BuildGhostModelRenderer.java");
         String blueprint = read(

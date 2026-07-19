@@ -63,6 +63,31 @@ class RtsWorkflowSlotManagerProtectionTest {
         assertFalse(loaded.removeStaleEntries(-1L).contains(entry.id()));
     }
 
+    @Test
+    void emptyManagerKeepsIdHighWaterAcrossNbtRoundTrip() {
+        RtsWorkflowSlotManager slots = new RtsWorkflowSlotManager();
+        RtsWorkflowEntry old = slots.addEntry(RtsWorkflowPriority.NORMAL);
+        assertNotNull(old);
+        assertTrue(slots.removeEntryById(old.id()));
+
+        RtsWorkflowSlotManager loaded = RtsWorkflowSlotManager.loadFromNbt(slots.saveToNbt());
+        RtsWorkflowEntry next = loaded.addEntry(RtsWorkflowPriority.NORMAL);
+
+        assertNotNull(next);
+        assertEquals(old.id() + 1, next.id());
+    }
+
+    @Test
+    void durableTaskHighWaterSkipsLegacyIds() {
+        RtsWorkflowSlotManager slots = new RtsWorkflowSlotManager();
+
+        slots.ensureNextIdAtLeast(18);
+        RtsWorkflowEntry next = slots.addEntry(RtsWorkflowPriority.NORMAL);
+
+        assertNotNull(next);
+        assertEquals(18, next.id());
+    }
+
     private static RtsWorkflowEntry addOccupiedEntry(RtsWorkflowSlotManager slots) {
         RtsWorkflowEntry entry = slots.addEntry(RtsWorkflowPriority.NORMAL);
         assertNotNull(entry);

@@ -52,6 +52,23 @@ public final class RtsWorkflowSlotManager {
 
     private int nextId;
 
+    /**
+     * 将下一条工作流 ID 的水位抬高到至少 {@code minimumNextId}。
+     *
+     * <p>耐久任务可能比可见工作流条目活得更久。旧存档曾在条目清空后丢失
+     * {@code nextId}，服务端重启时需要用耐久任务的最高 ID 修复水位，避免新条目
+     * 重新占用仍被任务绑定的编号。</p>
+     */
+    public void ensureNextIdAtLeast(int minimumNextId) {
+        if (minimumNextId <= 0) return;
+        rwLock.writeLock().lock();
+        try {
+            nextId = Math.max(nextId, minimumNextId);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────
     //  容量
     // ──────────────────────────────────────────────────────────────────

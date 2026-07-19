@@ -103,12 +103,12 @@ public final class BottomPanel {
             g.fill(refreshX, refreshY, refreshX + 1, refreshY + 12, 0xFF92F7A0);
             g.fill(refreshX + 11, refreshY, refreshX + 12, refreshY + 12, 0xFF92F7A0);
         }
-        g .centeredText(screen.font(), "R", refreshX + 6, refreshY + 2, refreshDirty ? 0xFFFFFFFF : 0xEAF4FF);
+        g .centeredText(screen.font(), "R", refreshX + 6, refreshY + 2, refreshDirty ? 0xFFFFFFFF : 0xFFEAF4FF);
         int guideX = bottomGuideButtonX(layout);
         int guideY = bottomGuideButtonY(layout);
         boolean guideHover = inside(mouseX, mouseY, guideX, guideY, 12, 12);
         g.fill(guideX, guideY, guideX + 12, guideY + 12, guideHover ? 0xCC41576F : 0xAA2B3542);
-        g .centeredText(screen.font(), "i", guideX + 6, guideY + 2, 0xEAF4FF);
+        g .centeredText(screen.font(), "i", guideX + 6, guideY + 2, 0xFFEAF4FF);
         drawPluginManagementButton(g, layout, mouseX, mouseY);
 
         if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
@@ -122,7 +122,7 @@ public final class BottomPanel {
 
         drawSortButton(g, sortX, sortY, "S");
         drawSortButton(g, sortX, sortY + SORT_BUTTON_SIZE + 4, this.controller.isStorageSortAscending() ? "A" : "D");
-        g .text(screen.font(), sortLabel(this.controller.getStorageSort()), sortX + SORT_BUTTON_SIZE + 4, sortY + 6, 0xFFFFFF);
+        g .text(screen.font(), sortLabel(this.controller.getStorageSort()), sortX + SORT_BUTTON_SIZE + 4, sortY + 6, 0xFFFFFFFF);
         drawSortButton(g, sortX + SORT_BUTTON_SIZE + 26, sortY, "+");
         drawSortButton(g, sortX + SORT_BUTTON_SIZE + 26, sortY + SORT_BUTTON_SIZE + 4, "-");
         drawCraftDock(g, mouseX, mouseY, sortX, sortY + (SORT_BUTTON_SIZE + 4) * 2);
@@ -196,7 +196,7 @@ public final class BottomPanel {
     private void renderBottomPanelTabs(GuiGraphicsExtractor g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
         int labelX = layout.panelX() + 8;
         int labelY = layout.panelY() + 5;
-        g .text(screen.font(), "RTS", labelX, labelY, 0xF2F6FB);
+        g .text(screen.font(), "RTS", labelX, labelY, 0xFFF2F6FB);
         for (BottomPanelLayoutTypes.BottomPanelTab tab : visibleBottomPanelTabs()) {
             drawBottomPanelTab(g, layout, tab, bottomPanelTabLabel(tab), mouseX, mouseY);
         }
@@ -411,7 +411,7 @@ public final class BottomPanel {
 
             if (pageButton) {
                 g.fill(cx + 1, cy + 1, cx + HOTBAR_SLOT - 1, cy + HOTBAR_SLOT - 1, 0xAA2C3A26);
-                g .centeredText(screen.font(), "+", cx + HOTBAR_SLOT / 2, cy + 5, 0xE9F7DA);
+                g .centeredText(screen.font(), "+", cx + HOTBAR_SLOT / 2, cy + 5, 0xFFE9F7DA);
             } else if (pinIndex < totalPins) {
                 var preview = this.controller.getQuickSlotPreview(pinIndex);
                 if (!preview.isEmpty()) {
@@ -448,7 +448,7 @@ public final class BottomPanel {
 
     private void drawSortButton(GuiGraphicsExtractor g, int x, int y, String label) {
         g.fill(x, y, x + SORT_BUTTON_SIZE, y + SORT_BUTTON_SIZE, 0xAA29323D);
-        g .centeredText(screen.font(), label, x + SORT_BUTTON_SIZE / 2, y + 4, 0xFFFFFF);
+        g .centeredText(screen.font(), label, x + SORT_BUTTON_SIZE / 2, y + 4, 0xFFFFFFFF);
     }
 
     private void drawPager(GuiGraphicsExtractor g, int x, int y, BottomPanelLayoutTypes.BottomPanelLayout layout) {
@@ -460,10 +460,10 @@ public final class BottomPanel {
             page = this.creativePage;
         }
         g.fill(x, y, x + 16, y + 14, 0xAA2A2A2A);
-        g .text(screen.font(), "<", x + 5, y + 3, 0xFFFFFF);
+        g .text(screen.font(), "<", x + 5, y + 3, 0xFFFFFFFF);
         g.fill(x + 58, y, x + 74, y + 14, 0xAA2A2A2A);
-        g .text(screen.font(), ">", x + 63, y + 3, 0xFFFFFF);
-        g .text(screen.font(), (page + 1) + "/" + totalPages, x + 19, y + 3, 0xFFFFFF);
+        g .text(screen.font(), ">", x + 63, y + 3, 0xFFFFFFFF);
+        g .text(screen.font(), (page + 1) + "/" + totalPages, x + 19, y + 3, 0xFFFFFFFF);
     }
 
     private int computeSearchFieldWidth(int searchAreaWidth) {
@@ -485,7 +485,7 @@ public final class BottomPanel {
         g.verticalLine(x, y, y + SEARCH_CLEAR_SIZE, 0xFF637283);
         g.verticalLine(x + SEARCH_CLEAR_SIZE, y, y + SEARCH_CLEAR_SIZE, 0xFF101318);
         var sb = screen.getSearchBox();
-        int textColor = sb != null && !sb.getValue().isEmpty() ? 0xFFFFFF : 0x99A6B5;
+        int textColor = sb != null && !sb.getValue().isEmpty() ? 0xFFFFFFFF : 0xFF99A6B5;
         g .centeredText(screen.font(), "x", x + SEARCH_CLEAR_SIZE / 2, y + 3, textColor);
     }
 
@@ -493,7 +493,7 @@ public final class BottomPanel {
 
     private void drawCategoryPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int width, int height) {
         g.fill(x, y, x + width, y + height, 0x8820222A);
-        g .centeredText(screen.font(), Component.translatable("screen.rtsbuilding.storage.category"), x + width / 2, y + 2, 0xFFFFFF);
+        g .centeredText(screen.font(), Component.translatable("screen.rtsbuilding.storage.category"), x + width / 2, y + 2, 0xFFFFFFFF);
 
         int upX0 = x + width - 24;
         int upX1 = x + width - 13;
@@ -503,8 +503,8 @@ public final class BottomPanel {
         int arrowY1 = y + 11;
         g.fill(upX0, arrowY0, upX1, arrowY1, 0xAA2A2A2A);
         g.fill(downX0, arrowY0, downX1, arrowY1, 0xAA2A2A2A);
-        g .centeredText(screen.font(), "^", upX0 + 5, y + 2, 0xFFFFFF);
-        g .centeredText(screen.font(), "v", downX0 + 5, y + 2, 0xFFFFFF);
+        g .centeredText(screen.font(), "^", upX0 + 5, y + 2, 0xFFFFFFFF);
+        g .centeredText(screen.font(), "v", downX0 + 5, y + 2, 0xFFFFFFFF);
 
         int listY = y + 13;
         int listH = height - 15;
@@ -523,7 +523,7 @@ public final class BottomPanel {
             boolean selected = category.token().equals(activeCategoryToken());
             int bg = selected ? 0xFF335E4C : 0x66343A47;
             g.fill(x + 2, rowY, x + width - 2, rowY + CATEGORY_ROW_H - 2, bg);
-            int textColor = selected ? 0xFFFFFF : 0xE0E0E0;
+            int textColor = selected ? 0xFFFFFFFF : 0xFFE0E0E0;
             int labelX = x + 6 + (category.depth() * 10);
             int labelRight = x + width - 6;
 
@@ -531,7 +531,7 @@ public final class BottomPanel {
                 int toggleX = x + width - 12;
                 int toggleY = rowY + 1;
                 g.fill(toggleX, toggleY, toggleX + 9, toggleY + CATEGORY_ROW_H - 3, 0xAA2A313B);
-                g .centeredText(screen.font(), category.expanded() ? "-" : "+", toggleX + 4, rowY + 3, 0xFFFFFF);
+                g .centeredText(screen.font(), category.expanded() ? "-" : "+", toggleX + 4, rowY + 3, 0xFFFFFFFF);
                 labelRight = toggleX - 3;
             }
 
@@ -756,7 +756,7 @@ public final class BottomPanel {
         syncCraftSearchValueFromController();
 
         RtsClientUiUtil.drawPanelFrame(g, x, y, width, height, 0xAA141922, 0xFF637993, 0xFF0D1218);
-        g .text(screen.font(), "Craft", x + 5, y + 4, 0xEAF2FF);
+        g .text(screen.font(), "Craft", x + 5, y + 4, 0xFFEAF2FF);
 
         int searchX = x + 4;
         int searchY = y + 15;
@@ -784,14 +784,14 @@ public final class BottomPanel {
                 "OK",
                 applyX + CRAFT_PANEL_APPLY_W / 2,
                 toggleY + 2,
-                craftSearchDirty ? 0xFFFFFF : 0xFFB8C7D6);
+                craftSearchDirty ? 0xFFFFFFFF : 0xFFB8C7D6);
 
         RtsClientUiUtil.drawPanelFrame(g, toggleX, toggleY, CRAFT_PANEL_TOGGLE_W, CRAFT_PANEL_SEARCH_H, toggleBg, 0xFF667D95, 0xFF111821);
         g .centeredText(screen.font(),
                 this.controller.isCraftablesShowUnavailable() ? "ALL" : "MAKE",
                 toggleX + CRAFT_PANEL_TOGGLE_W / 2,
                 toggleY + 2,
-                0xFFFFFF);
+                0xFFFFFFFF);
 
         int gridY = searchY + CRAFT_PANEL_SEARCH_H + 6;
         int clampedRows = Math.max(1, (height - (gridY - y) - 6) / CRAFT_PANEL_PITCH);
@@ -868,7 +868,7 @@ public final class BottomPanel {
         boolean craftHovered = inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE);
         int craftFill = craftHovered ? 0xCC385465 : 0xAA24303A;
         RtsClientUiUtil.drawPanelFrame(g, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE, craftFill, 0xFF6E8799, 0xFF111821);
-        g .centeredText(screen.font(), "C", dock.cX() + CRAFT_DOCK_C_SIZE / 2, dock.cY() + 5, 0xFFFFFF);
+        g .centeredText(screen.font(), "C", dock.cX() + CRAFT_DOCK_C_SIZE / 2, dock.cY() + 5, 0xFFFFFFFF);
 
         for (int slot = 0; slot < this.controller.getGuiBindingCount(); slot++) {
             int slotX = dock.slotX(slot);
@@ -887,7 +887,7 @@ public final class BottomPanel {
                 g .item(preview, slotX + 1, slotY + 1);
             } else {
                 String text = (!bound || pending) ? "+" : Integer.toString(slot + 1);
-                g .centeredText(screen.font(), text, slotX + CRAFT_DOCK_SLOT_SIZE / 2, slotY + 2, 0xFFFFFF);
+                g .centeredText(screen.font(), text, slotX + CRAFT_DOCK_SLOT_SIZE / 2, slotY + 2, 0xFFFFFFFF);
             }
         }
     }

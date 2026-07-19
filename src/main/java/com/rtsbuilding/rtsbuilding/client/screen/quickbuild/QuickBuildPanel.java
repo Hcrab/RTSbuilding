@@ -524,7 +524,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             WindowButton btn = shapeButtons[i];
             if (mouseX >= btn.getX() && mouseX < btn.getX() + btn.getWidth()
                     && mouseY >= btn.getY() && mouseY < btn.getY() + btn.getHeight()) {
-                g .setTooltipForNextFrame(screen.font(), Component.translatable(currentShapeTooltipKey(i)), mouseX, mouseY);
+                g .setTooltipForNextFrame(screen.font(), Component.translatable(currentShapeTooltipKey(i)),
+                        screen.toNativeGuiCoordinate(mouseX), screen.toNativeGuiCoordinate(mouseY));
                 break;
             }
         }
@@ -585,7 +586,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
         // --- 形状模式 ---
         g .text(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.shape"),
-                x + 10, shapeTitleY, 0xD8E3EE, false);
+                x + 10, shapeTitleY, 0xFFD8E3EE, false);
 
         // --- 形状按钮 ---
         for (int i = 0; i < shapeButtons.length; i++) {
@@ -608,7 +609,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         // --- 填充模式 ---
         int rightX = x + RIGHT_COL_X;
         g .text(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.fill"),
-                rightX, shapeTitleY, 0xD8E3EE, false);
+                rightX, shapeTitleY, 0xFFD8E3EE, false);
 
         if (isRangeDestroyChainMode()) {
             ensureChainLimitSlider();
@@ -706,7 +707,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                                     ? "screen.rtsbuilding.quick_build.destroy_advanced_box_hint"
                                     : "screen.rtsbuilding.quick_build.destroy_hint";
                     int nextY = renderBottomInfoText(g, Component.translatable(hintKey, confirmKeyLabel(true)),
-                            x + 8, textY, this.windowWidth - 16, 0xFFB8B8);
+                            x + 8, textY, this.windowWidth - 16, 0xFFFFB8B8);
                     renderDimensionInfo(g, x + 8, nextY + 3, this.windowWidth - 16);
                 }
                 return;
@@ -714,7 +715,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
             String costText = "x " + screen.currentShapeCostText();
             int textWidth = screen.font().width(costText);
-            g .text(screen.font(), costText, x + 8, textY, 0xB8FFB8, false);
+            g .text(screen.font(), costText, x + 8, textY, 0xFFB8FFB8, false);
 
             // 渲染所选方块的物品图标，同时记录右侧边界
             ItemStack preview = resolveShapeBuildItem();
@@ -739,7 +740,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                         if (missing > 0) {
                             String missText = screen.text("screen.rtsbuilding.quick_build.missing_blocks", missing);
                             int missTextX = rightEdge + 8;
-                            g .text(screen.font(), missText, missTextX, textY, 0xFFB8B8, false);
+                            g .text(screen.font(), missText, missTextX, textY, 0xFFFFB8B8, false);
 
                             if (!preview.isEmpty()) {
                                 int missIconX = missTextX + screen.font().width(missText) + 4;

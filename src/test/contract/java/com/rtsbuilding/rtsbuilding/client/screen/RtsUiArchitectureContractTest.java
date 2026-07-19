@@ -66,6 +66,23 @@ class RtsUiArchitectureContractTest {
                 "不得恢复会令顶栏纹理透明的旧式无 pipeline blit");
     }
 
+    @Test
+    void floatingWindowScissorUsesPoseTransformExactlyOnce() throws IOException {
+        String screen = read("screen/standalone/BuilderScreen.java");
+        String window = read("screen/panel/RtsWindowPanel.java");
+
+        int methodStart = screen.indexOf("public void enableRtsScissor(");
+        int methodEnd = screen.indexOf("\n    }", methodStart);
+        String method = screen.substring(methodStart, methodEnd);
+
+        assertTrue(method.contains("g.enableScissor(x1, y1, x2, y2);"),
+                "26.1 会通过当前 pose 变换 scissor，RTS 只能提交逻辑坐标");
+        assertFalse(method.contains("* scale"),
+                "RTS 不得在 enableScissor 前再次乘缩放，否则浮动窗口正文会被全部裁掉");
+        assertTrue(window.contains("return 0xFFF2F7FF;"),
+                "26.1 窗口标题文字必须使用带非零 alpha 的完整 ARGB 颜色");
+    }
+
     private static String read(String relative) throws IOException {
         return Files.readString(CLIENT_ROOT.resolve(relative));
     }

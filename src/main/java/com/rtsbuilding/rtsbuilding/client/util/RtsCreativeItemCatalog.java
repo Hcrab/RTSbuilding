@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
@@ -70,11 +71,12 @@ public final class RtsCreativeItemCatalog {
         this.entriesVersion++;
 
         CreativeModeTab.ItemDisplayParameters parameters = resolveItemDisplayParameters();
+        rebuildVanillaCreativeTabs(parameters);
         Map<String, Set<String>> modToTabs = new LinkedHashMap<>();
         Map<String, String> tabLabels = new LinkedHashMap<>();
         Map<String, String> modLabels = new LinkedHashMap<>();
         Set<String> seenItems = new HashSet<>();
-        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
+        for (CreativeModeTab tab : CreativeModeTabs.allTabs()) {
             if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY || !tab.shouldDisplay()) {
                 continue;
             }
@@ -86,7 +88,6 @@ public final class RtsCreativeItemCatalog {
             String tabKey = tabId.toString();
             String token = encodeTabCategory(namespace, tabKey);
             String label = safeTabLabel(tab, tabId);
-            buildContentsIfPossible(tab, parameters);
             Collection<ItemStack> displayItems = safeDisplayItems(tab);
             if (displayItems.isEmpty()) {
                 continue;
@@ -119,7 +120,8 @@ public final class RtsCreativeItemCatalog {
         }
         String dimension = String.valueOf(mc.level.dimension().identifier());
         boolean operatorTabs = mc.player != null && mc.player.canUseGameMasterBlocks();
-        return dimension + "|op=" + operatorTabs;
+        boolean creative = mc.player != null && mc.player.isCreative();
+        return dimension + "|op=" + operatorTabs + "|creative=" + creative;
     }
 
     private static CreativeModeTab.ItemDisplayParameters resolveItemDisplayParameters() {
@@ -131,12 +133,17 @@ public final class RtsCreativeItemCatalog {
         return new CreativeModeTab.ItemDisplayParameters(mc.level.enabledFeatures(), operatorTabs, mc.level.registryAccess());
     }
 
-    private static void buildContentsIfPossible(CreativeModeTab tab, CreativeModeTab.ItemDisplayParameters parameters) {
+    private static void rebuildVanillaCreativeTabs(CreativeModeTab.ItemDisplayParameters parameters) {
         if (parameters == null) {
             return;
         }
         try {
-            tab.buildContents(parameters);
+            // 26.1 由 CreativeModeTabs 统一重建所有分类；这条入口同时保持搜索页和
+            // NeoForge 扩展内容一致，不能再逐个 tab 私自 buildContents。
+            CreativeModeTabs.tryRebuildTabContents(
+                    parameters.enabledFeatures(),
+                    parameters.hasPermissions(),
+                    parameters.holders());
         } catch (RuntimeException | LinkageError ignored) {
             // Bad modded creative tabs should disappear from the RTS picker instead of crashing the screen.
         }

@@ -11,7 +11,7 @@ class RtsWorldPreviewSnapshotTest {
     @Test
     void snapshotDefensivelyCopiesTheExtractedList() {
         var source = new ArrayList<RtsWorldPreviewSnapshot.ModelGhost>();
-        RtsWorldPreviewSnapshot snapshot = new RtsWorldPreviewSnapshot(source);
+        RtsWorldPreviewSnapshot snapshot = new RtsWorldPreviewSnapshot(source, java.util.List.of());
         source.clear();
 
         assertTrue(snapshot.modelGhosts().isEmpty());

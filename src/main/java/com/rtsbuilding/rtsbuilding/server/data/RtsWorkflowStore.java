@@ -71,7 +71,7 @@ public final class RtsWorkflowStore {
             for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimEntry : dimSlots.entrySet()) {
                 ResourceKey<Level> dimension = dimEntry.getKey();
                 RtsWorkflowSlotManager slots = dimEntry.getValue();
-                if (slots == null || slots.occupiedCount() == 0) continue;
+                if (slots == null) continue;
 
                 CompoundTag slotsTag = slots.saveToNbt();
                 if (slotsTag != null && !slotsTag.isEmpty()) {
@@ -133,9 +133,9 @@ public final class RtsWorkflowStore {
             CompoundTag slotsTag = dimensions.getCompoundOrEmpty(dimKey);
             if (slotsTag != null && !slotsTag.isEmpty()) {
                 RtsWorkflowSlotManager slots = RtsWorkflowSlotManager.loadFromNbt(slotsTag);
-                if (slots.occupiedCount() > 0) {
-                    result.put(dimension, slots);
-                }
+                // 即使当前没有可见条目，也必须保留 next_id 水位。耐久任务和终态
+                // 回执可能仍引用旧 ID，丢掉水位会令重启后的新工作流与它们相撞。
+                result.put(dimension, slots);
             }
         }
         return result;

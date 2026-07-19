@@ -536,7 +536,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int getTitleTextColor() {
-        return 0xF2F7FF;
+        return 0xFFF2F7FF;
     }
 
     protected boolean canShowWindow() {

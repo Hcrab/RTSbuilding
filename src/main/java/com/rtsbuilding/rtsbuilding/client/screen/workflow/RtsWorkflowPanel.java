@@ -97,8 +97,9 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
         RtsWorkflowStatus hovered = workflowAtProtectionButton(mouseX, mouseY);
         if (hovered == null) return;
         g .setTooltipForNextFrame(this.screen.font(), Component.translatable(hovered.protectedWorkflow()
-                ? "screen.rtsbuilding.workflow.allow_replace"
-                : "screen.rtsbuilding.workflow.keep"), mouseX, mouseY);
+                        ? "screen.rtsbuilding.workflow.allow_replace"
+                        : "screen.rtsbuilding.workflow.keep"),
+                this.screen.toNativeGuiCoordinate(mouseX), this.screen.toNativeGuiCoordinate(mouseY));
     }
 
     // ======================================================================

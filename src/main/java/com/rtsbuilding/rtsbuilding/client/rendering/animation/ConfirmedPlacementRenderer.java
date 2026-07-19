@@ -86,6 +86,31 @@ final class ConfirmedPlacementRenderer {
         }
     }
 
+    static void collectModelAnimations(java.util.List<PlacementAnimationRenderer.ModelAnimation> out) {
+        if (PLACEMENTS.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Iterator<Map.Entry<Long, PlacementEntry>> iterator = PLACEMENTS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            PlacementEntry entry = iterator.next().getValue();
+            long elapsed = now - entry.addedAtMs;
+            if (elapsed > PLACE_DURATION_MS) {
+                iterator.remove();
+                continue;
+            }
+            if (!isWithinBounds(entry.pos)
+                    || entry.state.getRenderShape() != RenderShape.MODEL) {
+                continue;
+            }
+            out.add(new PlacementAnimationRenderer.ModelAnimation(
+                    entry.state,
+                    entry.pos,
+                    MODEL_ALPHA,
+                    computeGrowScale(elapsed)));
+        }
+    }
+
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
         com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(

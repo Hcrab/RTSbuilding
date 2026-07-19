@@ -90,6 +90,31 @@ public final class DestroyGhostRenderer {
         }
     }
 
+    static void collectModelAnimations(java.util.List<PlacementAnimationRenderer.ModelAnimation> out) {
+        if (GHOSTS.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Iterator<Map.Entry<Long, DestroyGhostEntry>> iterator = GHOSTS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            DestroyGhostEntry ghost = iterator.next().getValue();
+            long elapsed = now - ghost.addedAtMs;
+            if (elapsed > DESTROY_DURATION_MS) {
+                iterator.remove();
+                continue;
+            }
+            if (!isWithinBounds(ghost.pos)
+                    || ghost.state.getRenderShape() != RenderShape.MODEL) {
+                continue;
+            }
+            out.add(new PlacementAnimationRenderer.ModelAnimation(
+                    ghost.state,
+                    ghost.pos,
+                    MODEL_ALPHA,
+                    computeShrinkScale(elapsed)));
+        }
+    }
+
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
         com.rtsbuilding.rtsbuilding.client.rendering.util.RtsLegacyShapeRenderer.addChainedFilledBoxVertices(
