@@ -65,6 +65,7 @@ public final class RtsbuildingMod {
                     .build("rts_camera"));
 
     public RtsbuildingMod(final FMLJavaModLoadingContext context) {
+        FMLJavaModLoadingContext context = FMLJavaModLoadingContext.get();
         IEventBus modEventBus = context.getModEventBus();
         modEventBus.addListener(this::commonSetup);
 
