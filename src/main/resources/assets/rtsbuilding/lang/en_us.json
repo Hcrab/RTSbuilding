@@ -70,5 +70,16 @@
 
   "screen.rtsbuilding.mode.interactive": "Interactive Mode",
   "screen.rtsbuilding.mode.build": "Build Mode",
-  "screen.rtsbuilding.mode.blueprint": "Blueprint Mode"
+  "screen.rtsbuilding.mode.blueprint": "Blueprint Mode",
+
+  "tooltip.rtsbuilding.rightdown.current_selected_item": "Current Selected Item",
+  "tooltip.rtsbuilding.rightdown.current_selected_item.desc": "Click to locate in grid",
+  "tooltip.rtsbuilding.rightdown.sort_button": "Sort Button",
+  "tooltip.rtsbuilding.rightdown.sort_button.desc": "Click to cycle sort type (Name/Count/Mod)",
+  "tooltip.rtsbuilding.rightdown.order_button": "Sort Order",
+  "tooltip.rtsbuilding.rightdown.order_button.desc": "Click to toggle sort order (Ascending/Descending)",
+  "tooltip.rtsbuilding.rightdown.type_filter_button": "Type Filter",
+  "tooltip.rtsbuilding.rightdown.type_filter_button.desc": "Click to toggle item/fluid display (Both/Items Only/Fluids Only/None)",
+  "tooltip.rtsbuilding.rightdown.type_filter_item": "Items",
+  "tooltip.rtsbuilding.rightdown.type_filter_fluid": "Fluids"
 }

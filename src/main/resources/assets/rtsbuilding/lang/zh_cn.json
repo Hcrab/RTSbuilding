@@ -70,5 +70,16 @@
 
   "screen.rtsbuilding.mode.interactive": "交互模式",
   "screen.rtsbuilding.mode.build": "建造模式",
-  "screen.rtsbuilding.mode.blueprint": "蓝图模式"
+  "screen.rtsbuilding.mode.blueprint": "蓝图模式",
+
+  "tooltip.rtsbuilding.rightdown.current_selected_item": "当前选中物品",
+  "tooltip.rtsbuilding.rightdown.current_selected_item.desc": "点击可在网格中定位",
+  "tooltip.rtsbuilding.rightdown.sort_button": "排序按钮",
+  "tooltip.rtsbuilding.rightdown.sort_button.desc": "点击循环切换排序类型（名称/数量/模组）",
+  "tooltip.rtsbuilding.rightdown.order_button": "排序顺序",
+  "tooltip.rtsbuilding.rightdown.order_button.desc": "点击切换排序顺序（升序/降序）",
+  "tooltip.rtsbuilding.rightdown.type_filter_button": "类型过滤",
+  "tooltip.rtsbuilding.rightdown.type_filter_button.desc": "点击切换物品/流体显示（全部/仅物品/仅流体/无）",
+  "tooltip.rtsbuilding.rightdown.type_filter_item": "物品",
+  "tooltip.rtsbuilding.rightdown.type_filter_fluid": "流体"
 }
