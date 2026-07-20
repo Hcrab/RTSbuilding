@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
 import com.rtsbuilding.rtsbuilding.client.record.AreaMineBounds;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.Config;
@@ -357,7 +358,8 @@ public final class MiningOperationService {
         if (selectedItemId == null || selectedItemId.isBlank() || selectedItemPreview == null || selectedItemPreview.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        if (selectedItemPreview.getItem() instanceof BlockItem) {
+        if (selectedItemPreview.getItem() instanceof BlockItem
+                || RtsClientPluginCatalog.isPluginItem(selectedItemPreview)) {
             return ItemStack.EMPTY;
         }
         ItemStack prototype = selectedItemPreview.copy();

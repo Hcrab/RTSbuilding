@@ -63,8 +63,8 @@ class BuiltInRtsPluginCatalogTest {
     void harvestTierPluginsMapToTheFourPlayerFacingLimits() {
         Map<ResourceLocation, RtsPluginDefinition> byId = definitionsById();
 
-        assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_WOOD,
-                RangeMiningHarvestTier.WOOD);
+        assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_STONE,
+                RangeMiningHarvestTier.STONE);
         assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_IRON,
                 RangeMiningHarvestTier.IRON);
         assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_DIAMOND,

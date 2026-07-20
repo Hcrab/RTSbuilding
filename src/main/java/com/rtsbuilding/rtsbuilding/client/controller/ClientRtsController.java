@@ -1197,7 +1197,6 @@ public final class ClientRtsController {
             }
         }
 
-        this.cameraOrbitService.syncVisualCameraFrame(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius, this.enabled);
     }
 
     private boolean handleDeathScreenHandoff(Minecraft minecraft) {

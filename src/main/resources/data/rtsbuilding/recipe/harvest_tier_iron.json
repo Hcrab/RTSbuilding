@@ -3,7 +3,7 @@
   "category": "tools",
   "key": {
     "I": {"tag": "c:ingots/iron"},
-    "P": {"item": "rtsbuilding:harvest_tier_wood"},
+    "P": {"item": "rtsbuilding:harvest_tier_stone"},
     "R": {"tag": "c:dusts/redstone"}
   },
   "pattern": [

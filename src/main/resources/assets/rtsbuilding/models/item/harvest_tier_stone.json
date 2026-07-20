@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "rtsbuilding:item/harvest_tier_wood"
+    "layer0": "rtsbuilding:item/harvest_tier_stone"
   }
 }

@@ -26,6 +26,8 @@ class PilotPatchContractTest {
         assertFalse(camera.contains("Component.literal(\"RTS camera is not unlocked.\")"));
         assertTrue(zhCn.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(zhCn.contains("\"item.rtsbuilding.rts_control_core\""));
+        assertTrue(zhCn.contains("当前版本为 1.1.6-pilot"));
+        assertTrue(zhCn.contains("请退回 1.1.5-patch4"));
         assertTrue(Files.isRegularFile(Path.of(".github/workflows/publish-mod-release.yml")));
     }
 }

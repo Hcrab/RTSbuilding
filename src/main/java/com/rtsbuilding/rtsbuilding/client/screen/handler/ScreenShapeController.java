@@ -41,6 +41,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.SHAPE_MAX_DIMENSION;
@@ -1210,6 +1211,21 @@ public final class ScreenShapeController {
         return preview == ShapeDataRecords.GhostPreview.EMPTY ? List.of() : List.of(preview);
     }
 
+    /**
+     * 移除服务端明确因采掘等级不足而拒绝的范围破坏坐标。
+     *
+     * <p>客户端点击时只能生成候选预览，最终可挖集合仍以服务端为准。收到回执后
+     * 只裁掉被拒绝的方块，继续保留同一批次中真正会被挖掘的目标和进度高亮。
+     */
+    public void removeConfirmedRangeDestroyPreviewBlocks(List<BlockPos> skippedPositions) {
+        this.confirmedRangeDestroyPreview = pruneConfirmedDestroyPreview(
+                this.confirmedRangeDestroyPreview,
+                skippedPositions);
+        if (this.confirmedRangeDestroyPreview == ShapeDataRecords.GhostPreview.EMPTY) {
+            this.confirmedRangeDestroyPreviewUntilMs = 0L;
+        }
+    }
+
     /** Returns whether a confirmed destructive work area is currently active. */
     public boolean hasConfirmedDestroyWorkArea() {
         return confirmedRangeDestroyPreviewOrEmpty() != ShapeDataRecords.GhostPreview.EMPTY
@@ -1806,6 +1822,53 @@ public final class ScreenShapeController {
             }
         }
         return copy;
+    }
+
+    static ShapeDataRecords.GhostPreview pruneConfirmedDestroyPreview(
+            ShapeDataRecords.GhostPreview preview,
+            List<BlockPos> skippedPositions) {
+        if (preview == null
+                || preview == ShapeDataRecords.GhostPreview.EMPTY
+                || preview.blocks() == null
+                || preview.blocks().isEmpty()
+                || skippedPositions == null
+                || skippedPositions.isEmpty()) {
+            return preview == null ? ShapeDataRecords.GhostPreview.EMPTY : preview;
+        }
+        Set<Long> skippedKeys = new HashSet<>();
+        for (BlockPos pos : skippedPositions) {
+            if (pos != null) {
+                skippedKeys.add(pos.asLong());
+            }
+        }
+        if (skippedKeys.isEmpty()) {
+            return preview;
+        }
+        List<BlockPos> remainingBlocks = preview.blocks().stream()
+                .filter(Objects::nonNull)
+                .filter(pos -> !skippedKeys.contains(pos.asLong()))
+                .map(BlockPos::immutable)
+                .toList();
+        if (remainingBlocks.size() == preview.blocks().size()) {
+            return preview;
+        }
+        if (remainingBlocks.isEmpty()) {
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+        List<BlockPos> remainingEmptyBlocks = preview.emptyBlocks() == null
+                ? List.of()
+                : preview.emptyBlocks().stream()
+                        .filter(Objects::nonNull)
+                        .filter(pos -> !skippedKeys.contains(pos.asLong()))
+                        .map(BlockPos::immutable)
+                        .toList();
+        return new ShapeDataRecords.GhostPreview(
+                remainingBlocks,
+                preview.readyConfirm(),
+                preview.destructive(),
+                remainingEmptyBlocks,
+                preview.chainDestroyPreview(),
+                preview.confirmedWorkArea());
     }
 
     private List<BlockPos> filterToBounds(List<BlockPos> blocks) {

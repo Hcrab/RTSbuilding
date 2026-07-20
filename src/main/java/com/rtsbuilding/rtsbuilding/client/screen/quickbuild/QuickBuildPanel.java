@@ -1110,8 +1110,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return QuickBuildUnlockPolicy.canUseAnyDestroyShape(
                 this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
-                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN),
-                hasHarvestTierPlugin());
+                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
     }
 
     private boolean canUseDestroyShape(AreaMineShape shape) {
@@ -1119,7 +1118,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
                 hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN),
-                hasHarvestTierPlugin(),
                 shape);
     }
 
@@ -1131,8 +1129,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         AreaMineShape fallback = QuickBuildUnlockPolicy.firstAvailableDestroyShape(
                 this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
-                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN),
-                hasHarvestTierPlugin());
+                hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
         if (fallback == null) {
             return current;
         }
@@ -1149,13 +1146,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private boolean hasPlugin(ResourceLocation pluginId) {
         return pluginId != null && this.controller.hasInstalledPlugin(pluginId.toString());
-    }
-
-    private boolean hasHarvestTierPlugin() {
-        return hasPlugin(BuiltInRtsPluginCatalog.HARVEST_TIER_WOOD)
-                || hasPlugin(BuiltInRtsPluginCatalog.HARVEST_TIER_IRON)
-                || hasPlugin(BuiltInRtsPluginCatalog.HARVEST_TIER_DIAMOND)
-                || hasPlugin(BuiltInRtsPluginCatalog.HARVEST_TIER_UNLIMITED);
     }
 
     private void applyActiveShapeToController() {

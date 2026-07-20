@@ -79,6 +79,18 @@ public final class RtsClientNetworkHandlers {
         context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
     }
 
+    public static void handleHarvestTierSkipped(
+            S2CRtsHarvestTierSkippedPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.screen instanceof BuilderScreen builderScreen) {
+                builderScreen.getShapeController()
+                        .removeConfirmedRangeDestroyPreviewBlocks(payload.positions());
+            }
+        });
+    }
+
     public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             PlacementAnimationRenderer.confirmPlacement(payload.pos(), payload.state());

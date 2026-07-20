@@ -19,6 +19,20 @@ on:
         required: true
         default: true
         type: boolean
+      publish_modrinth:
+        description: Publish to Modrinth
+        required: true
+        default: true
+        type: boolean
+      publish_curseforge:
+        description: Publish to CurseForge
+        required: true
+        default: true
+        type: boolean
+      changelog:
+        description: Optional release notes for a manual publish
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -61,13 +75,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        run: gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
+          MANUAL_CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG" ]]; then
+            printf '%s\n' "$MANUAL_CHANGELOG" > release-notes.md
+          else
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
+          fi
 
-      - name: Publish NeoForge 1.21.1
+      - name: Publish NeoForge 1.21.1 to Modrinth
+        if: github.event_name == 'release' || inputs.publish_modrinth
         uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
         with:
           modrinth-id: 5PkY7RJI
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: build/libs/rtsbuilding-neoforge-1.21.1-${{ github.event.release.tag_name || inputs.tag }}.jar
+          name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for NeoForge 1.21.1
+          version: ${{ github.event.release.tag_name || inputs.tag }}
+          version-type: beta
+          changelog-file: release-notes.md
+          loaders: neoforge
+          game-versions: 1.21.1
+          game-version-filter: none
+          environment: client | server
+          java: 21
+          retry-attempts: 3
+          retry-delay: 10000
+
+      - name: Publish NeoForge 1.21.1 to CurseForge
+        if: github.event_name == 'release' || inputs.publish_curseforge
+        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
+        with:
           curseforge-id: 1553142
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: build/libs/rtsbuilding-neoforge-1.21.1-${{ github.event.release.tag_name || inputs.tag }}.jar
@@ -116,13 +154,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        run: gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
+          MANUAL_CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG" ]]; then
+            printf '%s\n' "$MANUAL_CHANGELOG" > release-notes.md
+          else
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
+          fi
 
-      - name: Publish Forge 1.20.1
+      - name: Publish Forge 1.20.1 to Modrinth
+        if: github.event_name == 'release' || inputs.publish_modrinth
         uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
         with:
           modrinth-id: 5PkY7RJI
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: build/libs/rtsbuilding-forge-1.20.1-${{ github.event.release.tag_name || inputs.tag }}.jar
+          name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for Forge 1.20.1
+          version: ${{ github.event.release.tag_name || inputs.tag }}
+          version-type: beta
+          changelog-file: release-notes.md
+          loaders: forge
+          game-versions: 1.20.1
+          game-version-filter: none
+          environment: client | server
+          java: 21
+          retry-attempts: 3
+          retry-delay: 10000
+
+      - name: Publish Forge 1.20.1 to CurseForge
+        if: github.event_name == 'release' || inputs.publish_curseforge
+        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
+        with:
           curseforge-id: 1553142
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: build/libs/rtsbuilding-forge-1.20.1-${{ github.event.release.tag_name || inputs.tag }}.jar

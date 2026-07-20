@@ -484,7 +484,7 @@ public final class RtsUltimineProcessor {
                         : limitExplicitAreaDestroyBox(sortedPositions);
         int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
-        boolean harvestTierBlocked = false;
+        List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
         for (BlockPos raw : sortedPositions) {
             if (raw == null || unique.size() >= maxExplicitTargets) {
@@ -512,14 +512,16 @@ public final class RtsUltimineProcessor {
             }
             if (!RtsMiningValidator.canRangeMineWithTool(
                     state, actualTool, creative, maxRequiredLevel)) {
-                harvestTierBlocked |= RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
-                        state, actualTool, creative, maxRequiredLevel);
+                if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
+                        state, actualTool, creative, maxRequiredLevel)) {
+                    harvestTierBlockedPositions.add(pos);
+                }
                 continue;
             }
             unique.add(pos);
         }
-        if (harvestTierBlocked) {
-            notifyRangeMiningHarvestTierLimit(player);
+        if (!harvestTierBlockedPositions.isEmpty()) {
+            notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
         }
         return new ArrayDeque<>(unique);
     }
@@ -531,27 +533,32 @@ public final class RtsUltimineProcessor {
             boolean creative,
             int maxRequiredLevel) {
         Deque<BlockPos> targets = new ArrayDeque<>();
-        boolean harvestTierBlocked = false;
+        List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
         for (BlockPos pos : candidatePositions) {
             BlockState state = player.serverLevel().getBlockState(pos);
             if (RtsMiningValidator.canRangeMineWithTool(state, actualTool, creative, maxRequiredLevel)) {
                 targets.addLast(pos);
                 continue;
             }
-            harvestTierBlocked |= RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
-                    state, actualTool, creative, maxRequiredLevel);
+            if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
+                    state, actualTool, creative, maxRequiredLevel)) {
+                harvestTierBlockedPositions.add(pos.immutable());
+            }
         }
-        if (harvestTierBlocked) {
-            notifyRangeMiningHarvestTierLimit(player);
+        if (!harvestTierBlockedPositions.isEmpty()) {
+            notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
         }
         return targets;
     }
 
-    private static void notifyRangeMiningHarvestTierLimit(ServerPlayer player) {
+    private static void notifyRangeMiningHarvestTierLimit(
+            ServerPlayer player,
+            List<BlockPos> skippedPositions) {
         player.displayClientMessage(
                 net.minecraft.network.chat.Component.translatable(
                         "message.rtsbuilding.plugin.harvest_tier_limited"),
                 true);
+        RtsMiningNetworkHelper.sendHarvestTierSkipped(player, skippedPositions);
     }
 
     static boolean explicitAreaDestroyFitsSoftEnvelopeForCaps(

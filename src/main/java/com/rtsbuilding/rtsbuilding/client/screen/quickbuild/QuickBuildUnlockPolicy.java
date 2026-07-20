@@ -14,25 +14,25 @@ final class QuickBuildUnlockPolicy {
     }
 
     static boolean canUseDestroyShape(boolean progressionEnabled, boolean chainInstalled,
-            boolean areaInstalled, boolean harvestTierInstalled, AreaMineShape shape) {
+            boolean areaInstalled, AreaMineShape shape) {
         if (!progressionEnabled) {
             return true;
         }
         return shape == AreaMineShape.CHAIN
                 ? chainInstalled
-                : areaInstalled && harvestTierInstalled;
+                : areaInstalled;
     }
 
     static boolean canUseAnyDestroyShape(boolean progressionEnabled, boolean chainInstalled,
-            boolean areaInstalled, boolean harvestTierInstalled) {
-        return !progressionEnabled || chainInstalled || (areaInstalled && harvestTierInstalled);
+            boolean areaInstalled) {
+        return !progressionEnabled || chainInstalled || areaInstalled;
     }
 
     static AreaMineShape firstAvailableDestroyShape(boolean progressionEnabled, boolean chainInstalled,
-            boolean areaInstalled, boolean harvestTierInstalled) {
+            boolean areaInstalled) {
         if (!progressionEnabled || chainInstalled) {
             return AreaMineShape.CHAIN;
         }
-        return areaInstalled && harvestTierInstalled ? AreaMineShape.BLOCK : null;
+        return areaInstalled ? AreaMineShape.BLOCK : null;
     }
 }

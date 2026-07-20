@@ -7,7 +7,7 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
  * 正常参与比较，但设置界面不单独暴露一档。</p>
  */
 public enum RangeMiningHarvestTier {
-    WOOD(0),
+    STONE(1),
     IRON(2),
     DIAMOND(3),
     UNLIMITED(Integer.MAX_VALUE);

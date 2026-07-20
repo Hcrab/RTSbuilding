@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
-import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import net.minecraft.network.chat.Component;
@@ -31,12 +30,6 @@ public record ProgressionGatePipe(RtsFeature feature) implements PipelinePipe<Pi
             ctx.player().displayClientMessage(
                     Component.translatable("message.rtsbuilding.plugin_required", pluginName), true);
             return PipelineResult.failure("Feature not unlocked: " + feature.name());
-        }
-        if ((feature == RtsFeature.AREA_MINE || feature == RtsFeature.AREA_DESTROY)
-                && RtsPluginService.rangeMiningHarvestTier(ctx.player()) == null) {
-            ctx.player().displayClientMessage(
-                    Component.translatable("message.rtsbuilding.plugin.harvest_tier_required"), true);
-            return PipelineResult.failure("Range mining harvest tier plugin not installed");
         }
         return PipelineResult.success();
     }

@@ -107,12 +107,12 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         }
 
         // ── 5. 生存模式设置 ───────────────────────────────────────
-        if (mctx.hasToolLease()) {
-            session.mining.miningToolLease = mctx.getToolLease();
-        }
-        if (mctx.isSelectedToolRequested()) {
-            session.mining.miningSelectedToolRequested = true;
-        }
+        session.mining.miningToolLease = mctx.hasToolLease()
+                ? mctx.getToolLease()
+                : RtsToolLease.empty();
+        // 这是本次请求的快照，不能只在 true 时写入；否则一次指定工具请求
+        // 会污染后续空手请求，使所有挖掘速度永久变成 0。
+        session.mining.miningSelectedToolRequested = mctx.isSelectedToolRequested();
         session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
 
         int workflowEntryId = mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1;

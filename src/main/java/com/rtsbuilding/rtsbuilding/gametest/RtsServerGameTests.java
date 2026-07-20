@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.gametest;
 import com.mojang.authlib.GameProfile;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.api.RtsAPI;
+import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
@@ -12,10 +13,16 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.data.DataCluster;
+import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
+import com.rtsbuilding.rtsbuilding.server.data.RtsAtomicNbtStore;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
+import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -23,6 +30,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
@@ -58,6 +66,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
@@ -145,6 +155,80 @@ public final class RtsServerGameTests {
             Items.NETHER_WART);
 
     private RtsServerGameTests() {
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
+    public static void installedPluginIsDurableBeforeAutomaticSaveTick(GameTestHelper helper) {
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        player.getInventory().setItem(0, new ItemStack(RtsItems.HARVEST_TIER_STONE.get()));
+
+        helper.assertTrue(RtsPluginService.installFromInventorySlot(player, 0),
+                "Stone harvest-tier plugin should install from the player inventory");
+        helper.assertTrue(player.getInventory().getItem(0).isEmpty(),
+                "Installed plugin item should be removed from the inventory");
+
+        // 不等待 200 tick 自动刷盘：立即建立一个全新的 DataCluster，从真实文件重新读取。
+        DataCluster reloaded = new DataCluster(new RtsAtomicNbtStore(
+                helper.getLevel().getServer(),
+                "rtsbuilding/players/" + player.getUUID(),
+                "session.dat"));
+        CompoundTag pluginRoot = reloaded.get(PlayerComponents.PLUGINS);
+        ListTag installed = pluginRoot.getList("installed", Tag.TAG_COMPOUND);
+        boolean persisted = false;
+        for (int index = 0; index < installed.size(); index++) {
+            if (BuiltInRtsPluginCatalog.HARVEST_TIER_STONE.toString()
+                    .equals(installed.getCompound(index).getString("plugin_id"))) {
+                persisted = true;
+                break;
+            }
+        }
+        helper.assertTrue(persisted,
+                "Installed plugin must already exist on disk before the scheduled 10-second flush");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
+    public static void remoteControlReinstallRestoresMiningFeaturesWithoutBecomingTool(GameTestHelper helper) {
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        player.getInventory().setItem(0, new ItemStack(RtsItems.RTS_CONTROL_CORE.get()));
+        player.getInventory().setItem(1, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
+        player.getInventory().setItem(2, new ItemStack(RtsItems.CHAIN_BREAK_PLUGIN.get()));
+        player.getInventory().setItem(3, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
+
+        for (int slot = 0; slot < 4; slot++) {
+            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                    "Initial plugin set should install");
+        }
+        helper.assertTrue(RtsPluginService.uninstall(
+                        player, BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN),
+                "Remote-control plugin should uninstall");
+
+        int returnedSlot = -1;
+        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.is(RtsItems.REMOTE_CONTROL_PLUGIN.get())) {
+                returnedSlot = slot;
+                break;
+            }
+        }
+        helper.assertTrue(returnedSlot >= 0, "Uninstall should return the plugin item");
+        helper.assertTrue(RtsPluginService.installFromInventorySlot(player, returnedSlot),
+                "Returned remote-control plugin should reinstall");
+
+        helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
+                "Remote break should be unlocked immediately after reinstall");
+        helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.AREA_DESTROY),
+                "Area destroy should stay unlocked after dependency reinstall");
+        helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.ULTIMINE),
+                "Chain break should stay unlocked after dependency reinstall");
+        helper.assertTrue(!RtsMiningValidator.isSelectedMiningToolRequested(
+                        BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN.toString(),
+                        new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get())),
+                "RTS plugin items must never be interpreted as selected mining tools");
+
+        stopPlayers(player);
+        helper.succeed();
     }
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)

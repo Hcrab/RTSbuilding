@@ -11,38 +11,39 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QuickBuildUnlockPolicyTest {
     @Test
     void survivalDisabledKeepsEveryDestroyShapeAvailable() {
-        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(false, false, false, false, AreaMineShape.CHAIN));
-        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(false, false, false, false, AreaMineShape.BOX));
+        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(false, false, false, AreaMineShape.CHAIN));
+        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(false, false, false, AreaMineShape.BOX));
     }
 
     @Test
     void chainPluginOnlyUnlocksChainMining() {
-        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(true, true, false, false, AreaMineShape.CHAIN));
-        assertFalse(QuickBuildUnlockPolicy.canUseDestroyShape(true, true, false, false, AreaMineShape.BLOCK));
+        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(true, true, false, AreaMineShape.CHAIN));
+        assertFalse(QuickBuildUnlockPolicy.canUseDestroyShape(true, true, false, AreaMineShape.BLOCK));
         assertEquals(AreaMineShape.CHAIN,
-                QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, true, false, false));
+                QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, true, false));
     }
 
     @Test
     void areaAndHarvestPluginsUnlockNonChainShapesAndReplaceStaleChainDefault() {
-        assertFalse(QuickBuildUnlockPolicy.canUseDestroyShape(true, false, true, true, AreaMineShape.CHAIN));
-        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(true, false, true, true, AreaMineShape.BLOCK));
-        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(true, false, true, true, AreaMineShape.BOX));
+        assertFalse(QuickBuildUnlockPolicy.canUseDestroyShape(true, false, true, AreaMineShape.CHAIN));
+        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(true, false, true, AreaMineShape.BLOCK));
+        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(true, false, true, AreaMineShape.BOX));
         assertEquals(AreaMineShape.BLOCK,
-                QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, false, true, true));
+                QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, false, true));
     }
 
     @Test
-    void areaPluginWithoutHarvestTierKeepsNonChainShapesLocked() {
-        assertFalse(QuickBuildUnlockPolicy.canUseDestroyShape(
-                true, false, true, false, AreaMineShape.BLOCK));
-        assertFalse(QuickBuildUnlockPolicy.canUseAnyDestroyShape(true, false, true, false));
-        assertNull(QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, false, true, false));
+    void areaPluginWithoutHarvestTierUsesTheBaselineMiningLevel() {
+        assertTrue(QuickBuildUnlockPolicy.canUseDestroyShape(
+                true, false, true, AreaMineShape.BLOCK));
+        assertTrue(QuickBuildUnlockPolicy.canUseAnyDestroyShape(true, false, true));
+        assertEquals(AreaMineShape.BLOCK,
+                QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, false, true));
     }
 
     @Test
     void noDestroyPluginLeavesDestroyModeUnavailable() {
-        assertFalse(QuickBuildUnlockPolicy.canUseAnyDestroyShape(true, false, false, false));
-        assertNull(QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, false, false, false));
+        assertFalse(QuickBuildUnlockPolicy.canUseAnyDestroyShape(true, false, false));
+        assertNull(QuickBuildUnlockPolicy.firstAvailableDestroyShape(true, false, false));
     }
 }

@@ -30,7 +30,7 @@ public final class BuiltInRtsPluginCatalog {
     public static final ResourceLocation RANGE_EXTENSION_II = id("range_extension_ii");
     public static final ResourceLocation RANGE_EXTENSION_III = id("range_extension_iii");
     public static final ResourceLocation RANGE_EXTENSION_MAX = id("range_extension_max");
-    public static final ResourceLocation HARVEST_TIER_WOOD = id("harvest_tier_wood");
+    public static final ResourceLocation HARVEST_TIER_STONE = id("harvest_tier_stone");
     public static final ResourceLocation HARVEST_TIER_IRON = id("harvest_tier_iron");
     public static final ResourceLocation HARVEST_TIER_DIAMOND = id("harvest_tier_diamond");
     public static final ResourceLocation HARVEST_TIER_UNLIMITED = id("harvest_tier_unlimited");
@@ -64,7 +64,7 @@ public final class BuiltInRtsPluginCatalog {
                 definition(RANGE_EXTENSION_II, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 32, false),
                 definition(RANGE_EXTENSION_III, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 48, false),
                 definition(RANGE_EXTENSION_MAX, RtsPluginFamily.RANGE_EXTENSION, Set.of(), Integer.MAX_VALUE, false),
-                harvestTierDefinition(HARVEST_TIER_WOOD, RangeMiningHarvestTier.WOOD),
+                harvestTierDefinition(HARVEST_TIER_STONE, RangeMiningHarvestTier.STONE),
                 harvestTierDefinition(HARVEST_TIER_IRON, RangeMiningHarvestTier.IRON),
                 harvestTierDefinition(HARVEST_TIER_DIAMOND, RangeMiningHarvestTier.DIAMOND),
                 harvestTierDefinition(HARVEST_TIER_UNLIMITED, RangeMiningHarvestTier.UNLIMITED)

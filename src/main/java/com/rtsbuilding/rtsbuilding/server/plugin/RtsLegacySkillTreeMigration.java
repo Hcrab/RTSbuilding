@@ -137,20 +137,20 @@ final class RtsLegacySkillTreeMigration {
             return false;
         }
 
-        RtsPluginDefinition woodTier = RtsPluginRegistry.byId(BuiltInRtsPluginCatalog.HARVEST_TIER_WOOD);
-        if (woodTier == null) {
+        RtsPluginDefinition stoneTier = RtsPluginRegistry.byId(BuiltInRtsPluginCatalog.HARVEST_TIER_STONE);
+        if (stoneTier == null) {
             return false;
         }
         RtsInstalledPlugin plugin = new RtsInstalledPlugin(
-                woodTier.id(),
-                pluginStack(woodTier),
+                stoneTier.id(),
+                pluginStack(stoneTier),
                 player.level().getGameTime());
         if (!RtsPluginTeamService.canAddWithoutTeamConflict(installed, plugin)) {
             return false;
         }
         installed.add(new RtsPluginTeamService.StoredPlugin(
                 plugin, areaPlugin.ownerId(), areaPlugin.ownerName()));
-        added.add(woodTier);
+        added.add(stoneTier);
         return true;
     }
 

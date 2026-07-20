@@ -154,7 +154,8 @@ public final class RtsMiningValidator {
         }
         RangeMiningHarvestTier pluginTier = RtsPluginService.rangeMiningHarvestTier(player);
         if (pluginTier == null) {
-            return -1;
+            // 没有等级插件时保留原版 0 级：泥土、沙子等无采掘等级要求的方块仍可范围挖掘。
+            return 0;
         }
         RangeMiningHarvestTier serverTier;
         try {
@@ -167,16 +168,20 @@ public final class RtsMiningValidator {
 
     public static boolean canRangeMineWithTool(
             BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
-        if (!canHarvestWithTool(state, tool, creative)) {
-            return false;
-        }
-        if (creative) {
-            return true;
-        }
-        if (maxRequiredLevel < 0) {
-            return false;
-        }
-        return RtsMiningRules.requiredLevel(state) <= maxRequiredLevel;
+        return canRangeMineRequiredLevel(
+                canHarvestWithTool(state, tool, creative),
+                creative,
+                RtsMiningRules.requiredLevel(state),
+                maxRequiredLevel);
+    }
+
+    /**
+     * 纯数值的范围采掘等级判定，供服务端规则与无需启动 Minecraft 注册表的单元测试共用。
+     */
+    static boolean canRangeMineRequiredLevel(
+            boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
+        return canHarvestWithTool
+                && (creative || requiredLevel <= maxRequiredLevel);
     }
 
     /**
@@ -187,10 +192,18 @@ public final class RtsMiningValidator {
      */
     public static boolean isBlockedByRangeMiningHarvestTier(
             BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+        return isBlockedByRangeMiningHarvestTier(
+                canHarvestWithTool(state, tool, false),
+                creative,
+                RtsMiningRules.requiredLevel(state),
+                maxRequiredLevel);
+    }
+
+    static boolean isBlockedByRangeMiningHarvestTier(
+            boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
         return !creative
-                && maxRequiredLevel >= 0
-                && canHarvestWithTool(state, tool, false)
-                && RtsMiningRules.requiredLevel(state) > maxRequiredLevel;
+                && canHarvestWithTool
+                && requiredLevel > maxRequiredLevel;
     }
 
     public static ItemStack resolveMiningTool(
@@ -334,7 +347,8 @@ public final class RtsMiningValidator {
                 && !toolItemId.isBlank()
                 && toolPrototype != null
                 && !toolPrototype.isEmpty()
-                && !(toolPrototype.getItem() instanceof BlockItem);
+                && !(toolPrototype.getItem() instanceof BlockItem)
+                && !RtsPluginService.isPluginItem(toolPrototype);
     }
 
     // =========================================================================

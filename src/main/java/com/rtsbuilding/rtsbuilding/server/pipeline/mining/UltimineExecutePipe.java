@@ -115,18 +115,20 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         }
 
         // ── 从上游 ToolBorrowPipe 将工具租约存储到会话 ─────
-        if (mctx.hasToolLease()) {
-            session.mining.miningToolLease = mctx.getToolLease();
-        }
-        if (mctx.isSelectedToolRequested()) {
-            session.mining.miningSelectedToolRequested = true;
-        }
-
         byte toolSlot = (byte) RtsMiningValidator.clampHotbarSlot(mctx.getToolSlot());
         boolean toolProtectionEnabled = mctx.isToolProtectionEnabled();
 
         // 在 workflow-entry-ID 追踪之前解析队列模式
         boolean queueMode = Boolean.TRUE.equals(mctx.getData(StopPreviousPipe.KEY_QUEUE_MODE));
+
+        // 非队列请求拥有当前会话的工具状态，必须用本次快照同时覆盖 true/false。
+        // 队列请求沿用正在执行任务的工具，不能覆盖活动租约。
+        if (!queueMode) {
+            session.mining.miningToolLease = mctx.hasToolLease()
+                    ? mctx.getToolLease()
+                    : RtsToolLease.empty();
+            session.mining.miningSelectedToolRequested = mctx.isSelectedToolRequested();
+        }
 
         RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] Executing {} for player={}, queueMode={}, toolSlot={}",
                 type, mctx.player().getGameProfile().getName(), queueMode, toolSlot);
@@ -162,7 +164,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                     if (queuedCount > 0) {
                         markTaskSubmitted(mctx, false);
                     } else {
-                        completeWithoutTask(mctx, session);
+                        completeWithoutTask(mctx, session, queueMode);
                     }
                     return PipelineResult.success();
                 }
@@ -170,7 +172,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                 boolean started = RtsUltimineProcessor.startUltimine(mctx.player(), session, pos, face,
                         toolSlot, requestedLimit, mode, toolProtectionEnabled);
                 if (!started) {
-                    completeWithoutTask(mctx, session);
+                    completeWithoutTask(mctx, session, queueMode);
                     return PipelineResult.success();
                 }
                 break;
@@ -200,7 +202,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                     if (queuedCount > 0) {
                         markTaskSubmitted(mctx, false);
                     } else {
-                        completeWithoutTask(mctx, session);
+                        completeWithoutTask(mctx, session, queueMode);
                     }
                     return PipelineResult.success();
                 }
@@ -209,7 +211,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                         minX, maxX, minY, maxY, minZ, maxZ,
                         toolSlot, shapeType, fillType, toolProtectionEnabled);
                 if (!started) {
-                    completeWithoutTask(mctx, session);
+                    completeWithoutTask(mctx, session, queueMode);
                     return PipelineResult.success();
                 }
                 break;
@@ -238,7 +240,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                 if (enqueued) {
                     markTaskSubmitted(mctx, !queueMode);
                 } else {
-                    completeWithoutTask(mctx, session);
+                    completeWithoutTask(mctx, session, queueMode);
                 }
                 return PipelineResult.success();
             }
@@ -271,7 +273,10 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
     }
 
     /** 无有效目标或创造模式已同步完成时，立即关闭工作流并归还本次借到的工具。 */
-    private static void completeWithoutTask(MiningContext ctx, RtsStorageSession session) {
+    private static void completeWithoutTask(
+            MiningContext ctx,
+            RtsStorageSession session,
+            boolean queueMode) {
         if (ctx.hasWorkflowEntryId()) {
             RtsWorkflowEngine.getInstance().from(ctx.player(), ctx.getWorkflowEntryId())
                     .ifPresent(token -> token.complete());
@@ -279,15 +284,17 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                 session.mining.workflowEntryId = -1;
             }
         }
-        if (!ctx.hasToolLease()) {
+        if (queueMode) {
             return;
         }
-        RtsToolLease lease = ctx.getToolLease();
-        if (lease != null && !lease.isEmpty()) {
-            RtsToolLeaseManager.returnMiningTool(ctx.player(), session, lease);
+        if (ctx.hasToolLease()) {
+            RtsToolLease lease = ctx.getToolLease();
+            if (lease != null && !lease.isEmpty()) {
+                RtsToolLeaseManager.returnMiningTool(ctx.player(), session, lease);
+            }
+            ctx.setData(ToolBorrowPipe.KEY_TOOL_LEASE_RETURNED, true);
         }
         session.mining.miningToolLease = RtsToolLease.empty();
         session.mining.miningSelectedToolRequested = false;
-        ctx.setData(ToolBorrowPipe.KEY_TOOL_LEASE_RETURNED, true);
     }
 }

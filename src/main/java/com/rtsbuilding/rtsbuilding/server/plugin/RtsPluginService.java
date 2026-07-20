@@ -107,6 +107,7 @@ public final class RtsPluginService {
         }
         player.getInventory().setChanged();
         boolean replaced = addInstalled(player, result.definition(), installedStack);
+        syncInventory(player);
         success(player, replaced
                 ? "message.rtsbuilding.plugin.replaced"
                 : "message.rtsbuilding.plugin.installed");
@@ -128,6 +129,7 @@ public final class RtsPluginService {
         }
         player.getInventory().setChanged();
         boolean replaced = addInstalled(player, result.definition(), installedStack);
+        syncInventory(player);
         success(player, replaced
                 ? "message.rtsbuilding.plugin.replaced"
                 : "message.rtsbuilding.plugin.installed");
@@ -152,9 +154,10 @@ public final class RtsPluginService {
                 return fail(player, "message.rtsbuilding.plugin.inventory_full");
             }
             installed.remove(i);
-            RtsPluginTeamService.saveInstalledPlugins(player, installed);
             player.getInventory().setChanged();
+            RtsPluginTeamService.saveInstalledPlugins(player, installed);
             syncRelatedPlayers(player);
+            syncInventory(player);
             success(player, "message.rtsbuilding.plugin.uninstalled");
             return true;
         }
@@ -319,6 +322,17 @@ public final class RtsPluginService {
             player.displayClientMessage(Component.translatable(key), true);
         }
         return false;
+    }
+
+    /**
+     * 插件装卸会直接改玩家背包；立即同步槽位，避免客户端继续把已安装插件
+     * 当作快捷栏里的挖掘工具发送给服务端。
+     */
+    private static void syncInventory(ServerPlayer player) {
+        player.inventoryMenu.broadcastChanges();
+        if (player.containerMenu != player.inventoryMenu) {
+            player.containerMenu.broadcastChanges();
+        }
     }
 
     private static void success(ServerPlayer player, String key) {

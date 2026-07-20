@@ -29,7 +29,7 @@ public final class RtsClientPluginCatalog {
             id("range_extension_ii"),
             id("range_extension_iii"),
             id("range_extension_max"),
-            id("harvest_tier_wood"),
+            id("harvest_tier_stone"),
             id("harvest_tier_iron"),
             id("harvest_tier_diamond"),
             id("harvest_tier_unlimited"));

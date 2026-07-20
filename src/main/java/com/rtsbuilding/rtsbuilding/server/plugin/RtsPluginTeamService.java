@@ -64,24 +64,24 @@ final class RtsPluginTeamService {
                 }
             }
             RtsPluginPersistence.save(player, personal);
-            return;
-        }
-
-        List<RtsSharedProgressionData.SharedPlugin> sharedPlugins = new ArrayList<>();
-        if (installed != null) {
-            for (StoredPlugin stored : installed) {
-                if (stored == null) {
-                    continue;
+        } else {
+            List<RtsSharedProgressionData.SharedPlugin> sharedPlugins = new ArrayList<>();
+            if (installed != null) {
+                for (StoredPlugin stored : installed) {
+                    if (stored == null) {
+                        continue;
+                    }
+                    sharedPlugins.add(new RtsSharedProgressionData.SharedPlugin(
+                            stored.plugin().pluginId(),
+                            stored.plugin().stack(),
+                            stored.plugin().installedGameTime(),
+                            stored.ownerId(),
+                            stored.ownerName()));
                 }
-                sharedPlugins.add(new RtsSharedProgressionData.SharedPlugin(
-                        stored.plugin().pluginId(),
-                        stored.plugin().stack(),
-                        stored.plugin().installedGameTime(),
-                        stored.ownerId(),
-                        stored.ownerName()));
             }
+            RtsProgressionManager.sharedProgressionData(player).setPlugins(sharedKey, sharedPlugins);
         }
-        RtsProgressionManager.sharedProgressionData(player).setPlugins(sharedKey, sharedPlugins);
+        RtsPluginDurability.checkpoint(player);
     }
 
     static List<ServerPlayer> relatedPlayers(ServerPlayer player) {
@@ -153,6 +153,7 @@ final class RtsPluginTeamService {
         if (changed) {
             saveInstalledPlugins(player, shared);
             RtsPluginPersistence.save(player, remainingPersonal);
+            RtsPluginDurability.checkpoint(player);
         }
     }
 

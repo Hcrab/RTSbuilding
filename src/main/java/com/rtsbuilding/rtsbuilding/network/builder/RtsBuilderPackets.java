@@ -112,6 +112,11 @@ public final class RtsBuilderPackets {
                 S2CRtsUltimineProgressPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
 
+        registrar.playToClient(
+                S2CRtsHarvestTierSkippedPayload.TYPE,
+                S2CRtsHarvestTierSkippedPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
         // ===== Undo =====
 
         registrar.playToServer(

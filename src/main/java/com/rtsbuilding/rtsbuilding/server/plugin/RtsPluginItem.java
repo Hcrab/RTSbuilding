@@ -80,7 +80,7 @@ public class RtsPluginItem extends Item {
         return switch (pluginPath) {
             case "chain_break_plugin", "area_destroy_plugin", "blueprint_plugin" -> List.of(REMOTE_CONTROL_PLUGIN);
             case "craft_terminal_plugin" -> List.of(STORAGE_INTEGRATION_PLUGIN);
-            case "harvest_tier_wood", "harvest_tier_iron",
+            case "harvest_tier_stone", "harvest_tier_iron",
                     "harvest_tier_diamond", "harvest_tier_unlimited" -> List.of(AREA_DESTROY_PLUGIN);
             default -> List.of();
         };

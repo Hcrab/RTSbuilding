@@ -37,8 +37,6 @@ public final class CameraOrbitService {
     private static final double FAST_VERTICAL_SPEED = 0.55D;
     private static final float[] INPUT_SENS_PRESETS = new float[]{0.50F, 0.75F, 1.00F, 1.25F, 1.50F, 2.00F};
     private static final int INPUT_SENS_DEFAULT_INDEX = 2;
-    private static final float ROT_EMA_ALPHA = 0.28F;
-    private static final float ROT_EMA_DECAY = 0.78F;
     private static final float SMOOTH_TICK_SECONDS = 0.05F;
     private static final float MOVE_ACCELERATION_SECONDS = 0.055F;
     private static final float MOVE_DECELERATION_SECONDS = 0.050F;
@@ -77,17 +75,13 @@ public final class CameraOrbitService {
     private float pendingNetworkScroll;
     private float smoothScrollRemaining;
     private int pendingRotateSteps;
-    private float pendingRawRotateX;
-    private float pendingRawRotateY;
     private float pendingSmoothRotateX;
     private float pendingSmoothRotateY;
 
     // =========================================================================
-    //  Fields — EMA smoothing
+    //  Fields — movement smoothing
     // =========================================================================
 
-    private float emaRotateX;
-    private float emaRotateY;
     private float smoothForward;
     private float smoothStrafe;
     private float smoothVertical;
@@ -170,12 +164,8 @@ public final class CameraOrbitService {
         this.pendingNetworkScroll = 0.0F;
         this.smoothScrollRemaining = 0.0F;
         this.pendingRotateSteps = 0;
-        this.pendingRawRotateX = 0.0F;
-        this.pendingRawRotateY = 0.0F;
         this.pendingSmoothRotateX = 0.0F;
         this.pendingSmoothRotateY = 0.0F;
-        this.emaRotateX = 0.0F;
-        this.emaRotateY = 0.0F;
         this.smoothForward = 0.0F;
         this.smoothStrafe = 0.0F;
         this.smoothVertical = 0.0F;
@@ -199,12 +189,8 @@ public final class CameraOrbitService {
         this.pendingNetworkScroll = 0.0F;
         this.smoothScrollRemaining = 0.0F;
         this.pendingRotateSteps = 0;
-        this.pendingRawRotateX = 0.0F;
-        this.pendingRawRotateY = 0.0F;
         this.pendingSmoothRotateX = 0.0F;
         this.pendingSmoothRotateY = 0.0F;
-        this.emaRotateX = 0.0F;
-        this.emaRotateY = 0.0F;
         this.smoothForward = 0.0F;
         this.smoothStrafe = 0.0F;
         this.smoothVertical = 0.0F;
@@ -264,12 +250,8 @@ public final class CameraOrbitService {
         this.pendingNetworkScroll = 0.0F;
         this.smoothScrollRemaining = 0.0F;
         this.pendingRotateSteps = 0;
-        this.pendingRawRotateX = 0.0F;
-        this.pendingRawRotateY = 0.0F;
         this.pendingSmoothRotateX = 0.0F;
         this.pendingSmoothRotateY = 0.0F;
-        this.emaRotateX = 0.0F;
-        this.emaRotateY = 0.0F;
         this.smoothForward = 0.0F;
         this.smoothStrafe = 0.0F;
         this.smoothVertical = 0.0F;
@@ -584,12 +566,8 @@ public final class CameraOrbitService {
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
-        if (this.smoothCamera) {
-            applyImmediateRotation((float) dragX, (float) dragY);
-        } else {
-            this.pendingRawRotateX += (float) dragX;
-            this.pendingRawRotateY += (float) dragY;
-        }
+        // 鼠标旋转不再经过速度 EMA：每个输入事件立刻更新目标朝向，松手即停。
+        applyImmediateRotation((float) dragX, (float) dragY);
     }
 
     public void queueScroll(double scrollY) {
@@ -690,45 +668,16 @@ public final class CameraOrbitService {
         float vertical = this.smoothVertical * keyboardScale;
         boolean fast = cameraInput.fast;
 
-        float safeRawX = Mth.clamp(this.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float safeRawY = Mth.clamp(this.pendingRawRotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-
-        float rotateSensitivityScale = getRotateViewSensitivityScale();
-        float rotateXForTick;
-        float rotateYForTick;
-        if (this.smoothCamera) {
-            // 平滑模式的本地旋转已经按原始拖动即时预测；网络也发送同一批原始输入，
-            // 服务端允许同 tick 汇总后的有界值，避免高频鼠标事件撞到 20 的旧上限后
-            // 出现“本 tick 停住、下一 tick 再动”的卡顿。
-            this.emaRotateX = 0.0F;
-            this.emaRotateY = 0.0F;
-            rotateXForTick = this.pendingSmoothRotateX;
-            rotateYForTick = this.pendingSmoothRotateY;
-        } else {
-            this.emaRotateX += (safeRawX - this.emaRotateX) * ROT_EMA_ALPHA;
-            this.emaRotateY += (safeRawY - this.emaRotateY) * ROT_EMA_ALPHA;
-            if (Math.abs(safeRawX) < 0.0001F) {
-                this.emaRotateX *= ROT_EMA_DECAY;
-            }
-            if (Math.abs(safeRawY) < 0.0001F) {
-                this.emaRotateY *= ROT_EMA_DECAY;
-            }
-            rotateXForTick = Mth.clamp(
-                    this.emaRotateX * this.rotateSensitivity * rotateSensitivityScale,
-                    -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-            rotateYForTick = Mth.clamp(
-                    this.emaRotateY * this.rotateSensitivity * rotateSensitivityScale,
-                    -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        }
+        // 本地目标已在鼠标事件到达时更新；tick 只把同一批有界输入同步给服务端。
+        float rotateXForTick = this.pendingSmoothRotateX;
+        float rotateYForTick = this.pendingSmoothRotateY;
         float localScrollForTick = this.smoothCamera ? 0.0F : this.pendingScroll;
         float scrollForTick = this.pendingScroll + this.pendingNetworkScroll;
         if (Math.abs(rotateXForTick) < CAMERA_INPUT_EPSILON) {
             rotateXForTick = 0.0F;
-            this.emaRotateX = 0.0F;
         }
         if (Math.abs(rotateYForTick) < CAMERA_INPUT_EPSILON) {
             rotateYForTick = 0.0F;
-            this.emaRotateY = 0.0F;
         }
         if (Math.abs(scrollForTick) < CAMERA_INPUT_EPSILON) {
             scrollForTick = 0.0F;
@@ -743,7 +692,7 @@ public final class CameraOrbitService {
             this.applyLocalPrediction(
                     forward, strafe, vertical,
                     this.pendingPanX, this.pendingPanY,
-                    rotateXForTick, rotateYForTick,
+                    0.0F, 0.0F,
                     localScrollForTick, this.pendingRotateSteps, fast);
         }
 
@@ -766,8 +715,6 @@ public final class CameraOrbitService {
         this.pendingScroll = 0.0F;
         this.pendingNetworkScroll = 0.0F;
         this.pendingRotateSteps = 0;
-        this.pendingRawRotateX = 0.0F;
-        this.pendingRawRotateY = 0.0F;
         this.pendingSmoothRotateX = 0.0F;
         this.pendingSmoothRotateY = 0.0F;
     }
@@ -778,7 +725,7 @@ public final class CameraOrbitService {
 
     /**
      * Ensures the local mirror camera exists and syncs the visual camera frame.
-     * Called from {@code tick()} and {@code applyServerCameraState}.
+     * 由逐帧事件以及服务端初始姿态同步调用；普通客户端 tick 不再推进视觉时间基。
      */
     public void syncVisualCameraFrame(Minecraft minecraft, double anchorX, double anchorY, double anchorZ,
                                        double maxRadius, boolean rtsEnabled) {
