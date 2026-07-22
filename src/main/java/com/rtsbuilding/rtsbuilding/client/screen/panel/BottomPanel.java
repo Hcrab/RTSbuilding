@@ -13,12 +13,20 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsPluginManagementScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiCategory;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiEntry;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiReducer;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiToolSlot;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTransition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -40,8 +48,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 public final class BottomPanel {
 
     // ── State ──
-    private BuilderScreen screen;
-    private ClientRtsController controller;
+    BuilderScreen screen;
+    ClientRtsController controller;
 
     public BottomPanelLayoutTypes.BottomPanelTab bottomPanelTab = BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
     public int pinPage = 0;
@@ -62,9 +70,9 @@ public final class BottomPanel {
 
     public String craftSearchDraft;
     public int lastCraftablesStorageRevision = -1;
-    private String creativeCategory = "all";
-    private String creativeSearch = "";
-    private int creativePage = 0;
+    String creativeCategory = "all";
+    String creativeSearch = "";
+    int creativePage = 0;
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
@@ -75,7 +83,8 @@ public final class BottomPanel {
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
-        BottomPanelLayoutTypes.BottomPanelTab activeTab = activeBottomPanelTab();
+        BottomBarUiState core = BottomBarUiAdapter.snapshot(this, layout);
+        BottomBarUiTab activeTab = core.activeTab;
         int bottomH = layout.panelH();
         int bottomY = layout.panelY();
         int sortX = layout.sortX();
@@ -85,14 +94,13 @@ public final class BottomPanel {
                 0xD014151A, 0xFF64788E, 0xFF0D1015);
         g.fill(layout.panelX() + 1, layout.panelY() + 1, layout.panelX() + layout.panelW() - 1, layout.panelY() + BOTTOM_PANEL_HEADER_H,
                 0xCC1C242F);
-        renderBottomPanelTabs(g, layout, mouseX, mouseY);
+        renderBottomPanelTabs(g, layout, core, mouseX, mouseY);
         int refreshX = bottomRefreshButtonX(layout);
         int refreshY = bottomGuideButtonY(layout);
         boolean refreshHover = inside(mouseX, mouseY, refreshX, refreshY, 12, 12);
-        boolean refreshDirty = activeTab == BottomPanelLayoutTypes.BottomPanelTab.STORAGE
-                && !this.controller.isStorageScanRunning()
-                && this.controller.shouldHighlightStorageRefresh();
-        int refreshBg = this.controller.isStorageScanRunning()
+        boolean refreshDirty = activeTab == BottomBarUiTab.STORAGE
+                && !core.storageScanning && core.refreshHighlighted;
+        int refreshBg = core.storageScanning
                 ? 0xCC3F627E
                 : refreshDirty ? (refreshHover ? 0xDD2FAF49 : 0xCC248C3A)
                 : refreshHover ? 0xCC41576F : 0xAA2B3542;
@@ -111,7 +119,7 @@ public final class BottomPanel {
         g.drawCenteredString(screen.font(), "i", guideX + 6, guideY + 2, 0xEAF4FF);
         drawPluginManagementButton(g, layout, mouseX, mouseY);
 
-        if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
+        if (activeTab == BottomBarUiTab.BLUEPRINTS) {
             int contentX = layout.panelX() + BOTTOM_PANEL_PADDING;
             int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
             int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
@@ -122,7 +130,7 @@ public final class BottomPanel {
 
         drawSortButton(g, sortX, sortY, "S");
         drawSortButton(g, sortX, sortY + SORT_BUTTON_SIZE + 4, this.controller.isStorageSortAscending() ? "A" : "D");
-        g.drawString(screen.font(), sortLabel(this.controller.getStorageSort()), sortX + SORT_BUTTON_SIZE + 4, sortY + 6, 0xFFFFFF);
+        g.drawString(screen.font(), core.sortLabel, sortX + SORT_BUTTON_SIZE + 4, sortY + 6, 0xFFFFFF);
         drawSortButton(g, sortX + SORT_BUTTON_SIZE + 26, sortY, "+");
         drawSortButton(g, sortX + SORT_BUTTON_SIZE + 26, sortY + SORT_BUTTON_SIZE + 4, "-");
         drawCraftDock(g, mouseX, mouseY, sortX, sortY + (SORT_BUTTON_SIZE + 4) * 2);
@@ -130,7 +138,7 @@ public final class BottomPanel {
         int categoryX = layout.categoryX();
         int categoryY = layout.categoryY();
         int categoryH = layout.categoryH();
-        drawCategoryPanel(g, mouseX, mouseY, categoryX, categoryY, CATEGORY_W, categoryH);
+        drawCategoryPanel(g, core, mouseX, mouseY, categoryX, categoryY, CATEGORY_W, categoryH);
 
         int storageX = layout.storageX();
         int storageY = layout.storageY();
@@ -154,36 +162,36 @@ public final class BottomPanel {
         }
 
         int pagerX = layout.pagerX();
-        drawPager(g, pagerX, storageY, layout);
+        drawPager(g, pagerX, storageY, core);
 
-        renderToolArea(g, mouseX, mouseY, storageX, layout.toolY(), mainStorageW);
+        renderToolArea(g, core, mouseX, mouseY, storageX, layout.toolY(), mainStorageW);
 
         int gridY = layout.gridY();
         int gridH = layout.gridH();
         int craftPanelY = layout.craftPanelY();
         int craftPanelH = layout.craftPanelH();
-        if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
+        if (activeTab == BottomBarUiTab.CREATIVE) {
             int creativeGridW = creativeGridWidth(mainStorageW);
             int recentGridX = storageX + creativeGridW + STORAGE_RECENT_GAP;
             int recentGridW = Math.max(SLOT, mainStorageW - creativeGridW - STORAGE_RECENT_GAP);
-            drawCreativeGrid(g, mouseX, mouseY, storageX, gridY, creativeGridW, gridH);
-            drawRecentGrid(g, mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
+            drawCreativeGrid(g, core, mouseX, mouseY, storageX, gridY, creativeGridW, gridH);
+            drawRecentGrid(g, core, mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
             return;
         }
         int fluidW = getFluidStripWidth(mainStorageW);
         int itemGridX = storageX;
         int itemGridW = mainStorageW;
         if (fluidW > 0) {
-            drawFluidGrid(g, mouseX, mouseY, storageX, gridY, fluidW, gridH);
+            drawFluidGrid(g, core, mouseX, mouseY, storageX, gridY, fluidW, gridH);
             itemGridX = storageX + fluidW + 4;
             itemGridW = Math.max(SLOT, mainStorageW - fluidW - 4);
         }
         int storageGridW = Math.max(SLOT, (itemGridW - STORAGE_RECENT_GAP) / 2);
         int recentGridX = itemGridX + storageGridW + STORAGE_RECENT_GAP;
         int recentGridW = Math.max(SLOT, itemGridW - storageGridW - STORAGE_RECENT_GAP);
-        drawStorageGrid(g, mouseX, mouseY, itemGridX, gridY, storageGridW, gridH);
-        drawRecentGrid(g, mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
-        renderCraftablesPanel(g, mouseX, mouseY, craftPanelX, craftPanelY, CRAFT_PANEL_W, craftPanelH, partialTick);
+        drawStorageGrid(g, core, mouseX, mouseY, itemGridX, gridY, storageGridW, gridH);
+        drawRecentGrid(g, core, mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
+        renderCraftablesPanel(g, core, mouseX, mouseY, craftPanelX, craftPanelY, CRAFT_PANEL_W, craftPanelH, partialTick);
     }
 
     public void renderCraftFeedback(GuiGraphics g) {
@@ -192,14 +200,15 @@ public final class BottomPanel {
 
     // ── Tab rendering ──
 
-    private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout, int mouseX, int mouseY) {
+    private void renderBottomPanelTabs(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout,
+            BottomBarUiState core, int mouseX, int mouseY) {
         int labelX = layout.panelX() + 8;
         int labelY = layout.panelY() + 5;
         g.drawString(screen.font(), "RTS", labelX, labelY, 0xF2F6FB);
         for (BottomPanelLayoutTypes.BottomPanelTab tab : visibleBottomPanelTabs()) {
             drawBottomPanelTab(g, layout, tab, bottomPanelTabLabel(tab), mouseX, mouseY);
         }
-        drawSelectedPlacementStatus(g, layout);
+        drawSelectedPlacementStatus(g, layout, core);
     }
 
     private void drawBottomPanelTab(
@@ -232,14 +241,15 @@ public final class BottomPanel {
         return x;
     }
 
-    private void drawSelectedPlacementStatus(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout) {
+    private void drawSelectedPlacementStatus(GuiGraphics g, BottomPanelLayoutTypes.BottomPanelLayout layout,
+            BottomBarUiState core) {
         int x = selectedPlacementStatusX(layout);
         int w = selectedPlacementStatusW(layout);
         if (x < 0 || w <= 0) {
             return;
         }
         int y = layout.panelY() + 6;
-        g.drawString(screen.font(), screen.trimToWidth(selectedPlacementStatusText(), w), x, y, 0xFFD8E2EE);
+        g.drawString(screen.font(), screen.trimToWidth(core.selectedStatus, w), x, y, 0xFFD8E2EE);
     }
 
     private int selectedPlacementStatusX(BottomPanelLayoutTypes.BottomPanelLayout layout) {
@@ -262,7 +272,7 @@ public final class BottomPanel {
         return Mth.clamp(desired, Math.min(96, max), max);
     }
 
-    private String selectedPlacementStatusText() {
+    String selectedPlacementStatusText() {
         if (this.controller.hasSelectedFluid()) {
             return screen.text("screen.rtsbuilding.status.selected_fluid", this.controller.getSelectedFluidLabel());
         }
@@ -299,7 +309,7 @@ public final class BottomPanel {
                 : List.of(BottomPanelLayoutTypes.BottomPanelTab.STORAGE);
     }
 
-    private BottomPanelLayoutTypes.BottomPanelTab activeBottomPanelTab() {
+    BottomPanelLayoutTypes.BottomPanelTab activeBottomPanelTab() {
         if (this.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE && !isCreativePlayer()) {
             return BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
         }
@@ -314,11 +324,11 @@ public final class BottomPanel {
         return activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
     }
 
-    private boolean hasBlueprintAccess() {
+    boolean hasBlueprintAccess() {
         return Config.areBlueprintsEnabled();
     }
 
-    private boolean isCreativePlayer() {
+    boolean isCreativePlayer() {
         Minecraft mc = Minecraft.getInstance();
         return mc != null && mc.player != null && mc.player.isCreative();
     }
@@ -335,26 +345,23 @@ public final class BottomPanel {
 
     // ── Toolbar ── hotbar / pinned slots ──
 
-    private void renderToolArea(GuiGraphics g, int mouseX, int mouseY, int storageX, int rowY, int storageW) {
+    private void renderToolArea(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int storageX, int rowY, int storageW) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
             return;
         }
 
         int hotbarX = storageX;
         int hotbarW = getHotbarSlotsWidth();
-        int selectedToolSlot = getSelectedToolSlot();
-        int selected = (this.controller.hasSelectedItem()
-                || this.controller.hasSelectedFluid()
-                || this.controller.isEmptyHandSelected()
-                || selectedToolSlot >= TOOL_HOTBAR_ITEM_SLOTS) ? -1 : selectedToolSlot;
-
         for (int i = 0; i <= EMPTY_HAND_BUTTON_INDEX; i++) {
             int cx = hotbarX + i * HOTBAR_PITCH;
             int cy = rowY;
             boolean emptyHandButton = i == EMPTY_HAND_BUTTON_INDEX;
+            BottomBarUiToolSlot slot = findToolSlot(core, emptyHandButton
+                    ? BottomBarUiToolSlot.Kind.EMPTY_HAND : BottomBarUiToolSlot.Kind.HOTBAR, i);
             int bg = emptyHandButton
-                    ? (this.controller.isEmptyHandSelected() ? 0xCC9B604B : 0xB06F5146)
-                    : (i == selected ? 0xCC3A6E57 : 0xAA1B1E25);
+                    ? (slot != null && slot.selected ? 0xCC9B604B : 0xB06F5146)
+                    : (slot != null && slot.selected ? 0xCC3A6E57 : 0xAA1B1E25);
             g.fill(cx, cy, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, bg);
             g.hLine(cx, cx + HOTBAR_SLOT, cy, emptyHandButton ? 0xFFFFD0B0 : 0xFF5E6874);
             g.hLine(cx, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, 0xFF0C0D10);
@@ -386,7 +393,7 @@ public final class BottomPanel {
             return;
         }
 
-        int totalPins = this.controller.getQuickSlotCount();
+        int totalPins = countToolSlots(core, BottomBarUiToolSlot.Kind.PINNED);
         boolean usePager = shouldUsePinPager(pinVisibleCells, totalPins);
         int slotsPerPage = computePinSlotsPerPage(pinVisibleCells, totalPins);
         int pageCount = Math.max(1, (int) Math.ceil(totalPins / (double) slotsPerPage));
@@ -398,9 +405,8 @@ public final class BottomPanel {
             int cy = rowY;
             boolean pageButton = usePager && cell == pinVisibleCells - 1;
             int pinIndex = pinStartIndex + cell;
-            boolean filled = !pageButton
-                    && pinIndex < totalPins
-                    && !this.controller.getQuickSlotItemId(pinIndex).isBlank();
+            BottomBarUiToolSlot pin = findToolSlot(core, BottomBarUiToolSlot.Kind.PINNED, pinIndex);
+            boolean filled = !pageButton && pin != null && !pin.itemId.isBlank();
             int bg = filled ? 0xAA253043 : 0xAA1A1A1A;
             g.fill(cx, cy, cx + HOTBAR_SLOT, cy + HOTBAR_SLOT, bg);
             g.hLine(cx, cx + HOTBAR_SLOT, cy, 0xFF67758A);
@@ -415,10 +421,10 @@ public final class BottomPanel {
                 var preview = this.controller.getQuickSlotPreview(pinIndex);
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, cx + 1, cy + 1);
-                    if (this.controller.getQuickSlotItemId(pinIndex).equals(this.controller.getSelectedItemId())) {
+                    if (pin != null && pin.selected) {
                         g.fill(cx + 1, cy + 1, cx + HOTBAR_SLOT - 1, cy + HOTBAR_SLOT - 1, 0x3340FF80);
                     }
-                    long count = resolvePinnedItemCount(this.controller.getQuickSlotItemId(pinIndex));
+                    long count = pin == null ? 0L : pin.amount;
                     drawSlotCountOverlay(g, cx, cy, HOTBAR_SLOT, RtsClientUiUtil.compactCount(count),
                             count > 0 ? 0xFFF7E6A8 : 0xFFB4B9C3);
                 } else {
@@ -450,14 +456,9 @@ public final class BottomPanel {
         g.drawCenteredString(screen.font(), label, x + SORT_BUTTON_SIZE / 2, y + 4, 0xFFFFFF);
     }
 
-    private void drawPager(GuiGraphics g, int x, int y, BottomPanelLayoutTypes.BottomPanelLayout layout) {
-        int page = this.controller.getStoragePage();
-        int totalPages = this.controller.getStorageTotalPages();
-        if (activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
-            totalPages = creativePageCount(creativeGridWidth(layout.mainStorageW()), layout.gridH());
-            this.creativePage = Mth.clamp(this.creativePage, 0, totalPages - 1);
-            page = this.creativePage;
-        }
+    private void drawPager(GuiGraphics g, int x, int y, BottomBarUiState core) {
+        int page = core.page;
+        int totalPages = core.pageCount;
         g.fill(x, y, x + 16, y + 14, 0xAA2A2A2A);
         g.drawString(screen.font(), "<", x + 5, y + 3, 0xFFFFFF);
         g.fill(x + 58, y, x + 74, y + 14, 0xAA2A2A2A);
@@ -490,7 +491,8 @@ public final class BottomPanel {
 
     // ── Category panel ──
 
-    private void drawCategoryPanel(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawCategoryPanel(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int x, int y, int width, int height) {
         g.fill(x, y, x + width, y + height, 0x8820222A);
         g.drawCenteredString(screen.font(), Component.translatable("screen.rtsbuilding.storage.category"), x + width / 2, y + 2, 0xFFFFFF);
 
@@ -508,35 +510,35 @@ public final class BottomPanel {
         int listY = y + 13;
         int listH = height - 15;
         int visible = Math.max(1, listH / CATEGORY_ROW_H);
-        List<CategoryTypes.CategoryRow> rows = buildCategoryRows();
+        List<BottomBarUiCategory> rows = core.categories;
         int maxScroll = Math.max(0, rows.size() - visible);
-        this.categoryScroll = Mth.clamp(this.categoryScroll, 0, maxScroll);
+        this.categoryScroll = Mth.clamp(core.categoryScroll, 0, maxScroll);
 
         for (int row = 0; row < visible; row++) {
             int index = this.categoryScroll + row;
             if (index >= rows.size()) {
                 break;
             }
-            CategoryTypes.CategoryRow category = rows.get(index);
+            BottomBarUiCategory category = rows.get(index);
             int rowY = listY + row * CATEGORY_ROW_H;
-            boolean selected = category.token().equals(activeCategoryToken());
+            boolean selected = category.selected;
             int bg = selected ? 0xFF335E4C : 0x66343A47;
             g.fill(x + 2, rowY, x + width - 2, rowY + CATEGORY_ROW_H - 2, bg);
             int textColor = selected ? 0xFFFFFF : 0xE0E0E0;
-            int labelX = x + 6 + (category.depth() * 10);
+            int labelX = x + 6 + (category.depth * 10);
             int labelRight = x + width - 6;
 
-            if (category.expandable()) {
+            if (category.expandable) {
                 int toggleX = x + width - 12;
                 int toggleY = rowY + 1;
                 g.fill(toggleX, toggleY, toggleX + 9, toggleY + CATEGORY_ROW_H - 3, 0xAA2A313B);
-                g.drawCenteredString(screen.font(), category.expanded() ? "-" : "+", toggleX + 4, rowY + 3, 0xFFFFFF);
+                g.drawCenteredString(screen.font(), category.expanded ? "-" : "+", toggleX + 4, rowY + 3, 0xFFFFFF);
                 labelRight = toggleX - 3;
             }
 
             int availableWidth = Math.max(8, labelRight - labelX);
             int maxLabelWidth = Math.max(8, (int) Math.floor(availableWidth / CATEGORY_TEXT_SCALE));
-            String label = screen.trimToWidth(category.label(), maxLabelWidth);
+            String label = screen.trimToWidth(category.label, maxLabelWidth);
             int scaledTextWidth = (int) Math.ceil(screen.font().width(label) * CATEGORY_TEXT_SCALE);
             int centeredX = labelX + Math.max(0, (availableWidth - scaledTextWidth) / 2);
             int textAreaHeight = CATEGORY_ROW_H - 2;
@@ -559,12 +561,14 @@ public final class BottomPanel {
 
     // ── Storage grid ──
 
-    private void drawStorageGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawStorageGrid(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
         this.controller.updateStoragePageSize(maxSlots);
-        List<StorageEntry> entries = this.controller.getStorageEntries();
+        List<BottomBarUiEntry> entries = core.storageEntries;
+        List<StorageEntry> sourceEntries = this.controller.getStorageEntries();
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -577,14 +581,15 @@ public final class BottomPanel {
             g.vLine(cx + box, cy, cy + box, 0xFF1B1B1B);
 
             if (i < entries.size()) {
-                var entry = entries.get(i);
-                boolean selected = !this.controller.getSelectedItemPreview().isEmpty()
-                        && net.minecraft.world.item.ItemStack.isSameItemSameComponents(entry.stack(), this.controller.getSelectedItemPreview());
+                BottomBarUiEntry entry = entries.get(i);
+                boolean selected = entry.selected;
                 if (selected) {
                     g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3326C56D);
                 }
-                g.renderItem(entry.stack(), cx + 2, cy + 2);
-                drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
+                if (entry.sourceIndex < sourceEntries.size()) {
+                    g.renderItem(sourceEntries.get(entry.sourceIndex).stack(), cx + 2, cy + 2);
+                }
+                drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactCount(entry.amount), 0xFFF7E6A8);
 
                 if (mouseX >= cx && mouseX <= cx + box && mouseY >= cy && mouseY <= cy + box) {
                     this.hoveredEntry = i;
@@ -617,14 +622,14 @@ public final class BottomPanel {
      * only changes the RTS placement preview; it does not request storage extraction
      * and does not mutate the player's inventory.
      */
-    private void drawCreativeGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawCreativeGrid(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
-        List<RtsCreativeItemCatalog.CreativeEntry> entries = creativeEntriesForCurrentFilter();
-        int pageCount = Math.max(1, (int) Math.ceil(entries.size() / (double) maxSlots));
-        this.creativePage = Mth.clamp(this.creativePage, 0, pageCount - 1);
-        int start = this.creativePage * maxSlots;
+        List<BottomBarUiEntry> entries = core.creativeEntries;
+        List<RtsCreativeItemCatalog.CreativeEntry> sourceEntries = creativeEntriesForCurrentFilter();
+        int start = 0;
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -640,15 +645,16 @@ public final class BottomPanel {
             if (index >= entries.size()) {
                 continue;
             }
-            RtsCreativeItemCatalog.CreativeEntry entry = entries.get(index);
-            boolean selected = !this.controller.getSelectedItemPreview().isEmpty()
-                    && net.minecraft.world.item.ItemStack.isSameItemSameComponents(entry.stack(), this.controller.getSelectedItemPreview());
+            BottomBarUiEntry entry = entries.get(index);
+            boolean selected = entry.selected;
             if (selected) {
                 g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3326C56D);
             }
-            g.renderItem(entry.stack(), cx + 2, cy + 2);
+            if (entry.sourceIndex < sourceEntries.size()) {
+                g.renderItem(sourceEntries.get(entry.sourceIndex).stack(), cx + 2, cy + 2);
+            }
             if (inside(mouseX, mouseY, cx, cy, box, box)) {
-                this.hoveredCreativeEntry = index;
+                this.hoveredCreativeEntry = entry.sourceIndex;
                 g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, selected ? 0x3340FF80 : 0x22FFFFFF);
             }
         }
@@ -663,11 +669,13 @@ public final class BottomPanel {
         }
     }
 
-    private void drawRecentGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawRecentGrid(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = Math.max(1, width / SLOT);
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
-        List<RecentEntry> entries = this.controller.getRecentEntries();
+        List<BottomBarUiEntry> entries = core.recentEntries;
+        List<RecentEntry> sourceEntries = this.controller.getRecentEntries();
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -683,13 +691,16 @@ public final class BottomPanel {
                 continue;
             }
 
-            RecentEntry entry = entries.get(i);
-            if (!entry.preview().isEmpty()) {
-                g.renderItem(entry.preview(), cx + 2, cy + 2);
+            BottomBarUiEntry entry = entries.get(i);
+            if (entry.sourceIndex < sourceEntries.size()
+                    && !sourceEntries.get(entry.sourceIndex).preview().isEmpty()) {
+                g.renderItem(sourceEntries.get(entry.sourceIndex).preview(), cx + 2, cy + 2);
             }
             drawSlotCountOverlay(g, cx, cy, box,
-                    formatRecentAmount(entry),
-                    entry.fluid() ? 0xFFBEE6FF : 0xFFE8F4C0);
+                    entry.kind == BottomBarUiEntry.Kind.RECENT_FLUID
+                            ? RtsClientUiUtil.compactFluidAmount(entry.amount)
+                            : RtsClientUiUtil.compactCount(entry.amount),
+                    entry.kind == BottomBarUiEntry.Kind.RECENT_FLUID ? 0xFFBEE6FF : 0xFFE8F4C0);
 
             if (mouseX >= cx && mouseX <= cx + box && mouseY >= cy && mouseY <= cy + box) {
                 g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x22FFFFFF);
@@ -712,12 +723,14 @@ public final class BottomPanel {
 
     // ── Fluid grid ──
 
-    private void drawFluidGrid(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height) {
+    private void drawFluidGrid(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int x, int y, int width, int height) {
         int cols = 2;
         int rows = Math.max(1, height / SLOT);
         int maxSlots = cols * rows;
         int box = SLOT - 2;
-        List<FluidEntry> entries = this.controller.getFluidEntries();
+        List<BottomBarUiEntry> entries = core.fluidEntries;
+        List<FluidEntry> sourceEntries = this.controller.getFluidEntries();
 
         for (int i = 0; i < maxSlots; i++) {
             int cx = x + (i % cols) * SLOT;
@@ -729,15 +742,16 @@ public final class BottomPanel {
             g.vLine(cx + box, cy, cy + box, 0xFF23140A);
 
             if (i < entries.size()) {
-                var entry = entries.get(i);
-                boolean selected = entry.fluidId().equals(this.controller.getSelectedFluidId());
+                BottomBarUiEntry entry = entries.get(i);
+                boolean selected = entry.selected;
                 if (selected) {
                     g.fill(cx + 1, cy + 1, cx + box - 1, cy + box - 1, 0x3367D8FF);
                 }
-                if (!entry.preview().isEmpty()) {
-                    g.renderItem(entry.preview(), cx + 2, cy + 2);
+                if (entry.sourceIndex < sourceEntries.size()
+                        && !sourceEntries.get(entry.sourceIndex).preview().isEmpty()) {
+                    g.renderItem(sourceEntries.get(entry.sourceIndex).preview(), cx + 2, cy + 2);
                 }
-                drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactFluidAmount(entry.amount()), 0xFFFCCB8A);
+                drawSlotCountOverlay(g, cx, cy, box, RtsClientUiUtil.compactFluidAmount(entry.amount), 0xFFFCCB8A);
 
                 if (mouseX >= cx && mouseX <= cx + box && mouseY >= cy && mouseY <= cy + box) {
                     this.hoveredFluidEntry = i;
@@ -751,7 +765,8 @@ public final class BottomPanel {
 
     // ── Crafting panel ──
 
-    private void renderCraftablesPanel(GuiGraphics g, int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
+    private void renderCraftablesPanel(GuiGraphics g, BottomBarUiState core,
+            int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
         syncCraftSearchValueFromController();
 
         RtsClientUiUtil.drawPanelFrame(g, x, y, width, height, 0xAA141922, 0xFF637993, 0xFF0D1218);
@@ -763,9 +778,9 @@ public final class BottomPanel {
         int applyX = searchX + searchW + 4;
         int toggleX = applyX + CRAFT_PANEL_APPLY_W + 4;
         int toggleY = searchY;
-        boolean craftSearchDirty = hasPendingCraftSearchDraft();
+        boolean craftSearchDirty = core.craftSearchDirty();
         int applyBg = craftSearchDirty ? 0xAA4C6E39 : 0xAA24303A;
-        int toggleBg = this.controller.isCraftablesShowUnavailable() ? 0xAA5A3D2A : 0xAA2C5A41;
+        int toggleBg = core.craftShowUnavailable ? 0xAA5A3D2A : 0xAA2C5A41;
 
         RtsClientUiUtil.drawPanelFrame(g, searchX, searchY, searchW, CRAFT_PANEL_SEARCH_H, 0xAA1E2731, 0xFF5E738A, 0xFF111921);
         if (screen.getCraftSearchBox() != null) {
@@ -786,14 +801,15 @@ public final class BottomPanel {
 
         RtsClientUiUtil.drawPanelFrame(g, toggleX, toggleY, CRAFT_PANEL_TOGGLE_W, CRAFT_PANEL_SEARCH_H, toggleBg, 0xFF667D95, 0xFF111821);
         g.drawCenteredString(screen.font(),
-                this.controller.isCraftablesShowUnavailable() ? "ALL" : "MAKE",
+                core.craftShowUnavailable ? "ALL" : "MAKE",
                 toggleX + CRAFT_PANEL_TOGGLE_W / 2,
                 toggleY + 2,
                 0xFFFFFF);
 
         int gridY = searchY + CRAFT_PANEL_SEARCH_H + 6;
         int clampedRows = Math.max(1, (height - (gridY - y) - 6) / CRAFT_PANEL_PITCH);
-        List<CraftableEntry> entries = this.controller.getCraftableEntries();
+        List<BottomBarUiEntry> entries = core.craftableEntries;
+        List<CraftableEntry> sourceEntries = this.controller.getCraftableEntries();
         int totalRows = Math.max(1, (int) Math.ceil(entries.size() / (double) CRAFT_PANEL_COLS));
         int maxScroll = Math.max(0, totalRows - clampedRows);
         this.craftScroll = Mth.clamp(this.craftScroll, 0, maxScroll);
@@ -806,20 +822,22 @@ public final class BottomPanel {
                 int slotY = gridY + row * CRAFT_PANEL_PITCH;
                 int fill = 0xAA1A212B;
                 if (index < entries.size()) {
-                    CraftableEntry entry = entries.get(index);
-                    fill = entry.craftable() ? 0xAA214131 : 0xAA3F2323;
+                    BottomBarUiEntry entry = entries.get(index);
+                    fill = entry.available ? 0xAA214131 : 0xAA3F2323;
                 }
                 RtsClientUiUtil.drawPanelFrame(g, slotX, slotY, CRAFT_PANEL_SLOT, CRAFT_PANEL_SLOT, fill, 0xFF596D84, 0xFF11171E);
                 if (index >= entries.size()) {
                     continue;
                 }
 
-                CraftableEntry entry = entries.get(index);
-                g.renderItem(entry.stack(), slotX + 1, slotY + 1);
-                if (entry.resultCount() > 1) {
-                    drawSlotCountOverlay(g, slotX, slotY, CRAFT_PANEL_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
+                BottomBarUiEntry entry = entries.get(index);
+                if (entry.sourceIndex < sourceEntries.size()) {
+                    g.renderItem(sourceEntries.get(entry.sourceIndex).stack(), slotX + 1, slotY + 1);
                 }
-                if (!entry.craftable()) {
+                if (entry.amount > 1) {
+                    drawSlotCountOverlay(g, slotX, slotY, CRAFT_PANEL_SLOT, RtsClientUiUtil.compactCount(entry.amount), 0xFFE8F4FF);
+                }
+                if (!entry.available) {
                     g.fill(slotX + 1, slotY + 1, slotX + CRAFT_PANEL_SLOT - 1, slotY + CRAFT_PANEL_SLOT - 1, 0x44220000);
                 }
                 if (mouseX >= slotX && mouseX <= slotX + CRAFT_PANEL_SLOT && mouseY >= slotY && mouseY <= slotY + CRAFT_PANEL_SLOT) {
@@ -901,7 +919,7 @@ public final class BottomPanel {
 
         BottomPanelLayoutTypes.BottomPanelTab clickedTab = resolveBottomPanelTabClick(layout, mouseX, mouseY);
         if (clickedTab != null) {
-            this.bottomPanelTab = clickedTab;
+            dispatchCore(BottomBarUiAction.tab(toCoreTab(clickedTab)));
             syncSearchBoxForActiveTab();
             screen.blurSearchFocus();
             return true;
@@ -909,21 +927,17 @@ public final class BottomPanel {
         if (inside(mouseX, mouseY, bottomRefreshButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
             if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
                 BlueprintPanel.reload();
-            } else if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
-                RtsCreativeItemCatalog.get().forceRefresh();
-                this.creativePage = 0;
             } else {
-                this.controller.refreshStoragePage();
+                dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.REFRESH));
             }
             return true;
         }
         if (inside(mouseX, mouseY, bottomGuideButtonX(layout), bottomGuideButtonY(layout), 12, 12)) {
-            screen.openBottomGuide(bottomGuideButtonX(layout) + 6, bottomGuideButtonY(layout));
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.OPEN_GUIDE));
             return true;
         }
         if (isInsidePluginManagementButton(layout, mouseX, mouseY)) {
-            this.controller.requestPluginState();
-            Minecraft.getInstance().setScreen(new RtsPluginManagementScreen(this.screen));
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.OPEN_PLUGINS));
             return true;
         }
         if (layout.isInsideHeader(mouseX, mouseY)) {
@@ -934,7 +948,8 @@ public final class BottomPanel {
             int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
             int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
             int contentH = Math.max(24, layout.panelH() - BOTTOM_PANEL_HEADER_H - 8);
-            return BlueprintPanel.mouseClicked(mouseX, mouseY, contentX, contentY, contentW, contentH);
+            return BlueprintPanel.mouseClicked(mouseX, mouseY, contentX, contentY,
+                    contentW, contentH, this.controller);
         }
 
         int sortX = layout.sortX();
@@ -968,11 +983,11 @@ public final class BottomPanel {
         screen.blurSearchFocus();
 
         if (inside(mouseX, mouseY, sortX, sortY, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-            this.controller.cycleSort();
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.CYCLE_SORT));
             return true;
         }
         if (inside(mouseX, mouseY, sortX, sortY + SORT_BUTTON_SIZE + 4, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-            this.controller.toggleSortDirection();
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.TOGGLE_SORT_DIRECTION));
             return true;
         }
         int heightBtnX = sortX + SORT_BUTTON_SIZE + 26;
@@ -1002,26 +1017,10 @@ public final class BottomPanel {
 
         CategoryTypes.CategoryClick categoryClick = resolveClickedCategoryAction(mouseX, mouseY);
         if (categoryClick != null) {
-            if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
-                if (categoryClick.toggleExpandOnly()) {
-                    toggleCategoryExpansion(categoryClick.modNamespace());
-                    return true;
-                }
-                this.creativeCategory = categoryClick.categoryToken();
-                this.creativePage = 0;
-                if (categoryClick.modNamespace() != null && !categoryClick.modNamespace().isBlank()) {
-                    this.expandedCategoryMods.add(categoryClick.modNamespace());
-                }
-                return true;
-            }
-            if (categoryClick.toggleExpandOnly()) {
-                toggleCategoryExpansion(categoryClick.modNamespace());
-                return true;
-            }
-            this.controller.setStorageCategory(categoryClick.categoryToken());
-            if (categoryClick.modNamespace() != null && !categoryClick.modNamespace().isBlank()) {
-                this.expandedCategoryMods.add(categoryClick.modNamespace());
-            }
+            int categoryIndex = resolveCategoryIndex(categoryClick);
+            dispatchCore(BottomBarUiAction.index(categoryClick.toggleExpandOnly()
+                    ? BottomBarUiAction.Type.TOGGLE_CATEGORY
+                    : BottomBarUiAction.Type.SELECT_CATEGORY, categoryIndex));
             return true;
         }
 
@@ -1030,19 +1029,11 @@ public final class BottomPanel {
         }
 
         if (inside(mouseX, mouseY, pagerX, layout.storageY(), 16, 14)) {
-            if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
-                this.creativePage = Mth.clamp(this.creativePage - 1, 0, creativePageCount(creativeGridWidth(mainStorageW), gridH) - 1);
-            } else {
-                this.controller.prevPage();
-            }
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.PREVIOUS_PAGE));
             return true;
         }
         if (inside(mouseX, mouseY, pagerX + 58, layout.storageY(), 16, 14)) {
-            if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
-                this.creativePage = Mth.clamp(this.creativePage + 1, 0, creativePageCount(creativeGridWidth(mainStorageW), gridH) - 1);
-            } else {
-                this.controller.nextPage();
-            }
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.NEXT_PAGE));
             return true;
         }
 
@@ -1054,13 +1045,13 @@ public final class BottomPanel {
             if (creativeIndex >= 0) {
                 RtsCreativeItemCatalog.CreativeEntry entry = getCreativeEntryForTooltip(creativeIndex);
                 if (entry != null) {
-                    this.controller.selectItemForPlacement(entry.itemId(), entry.label(), entry.stack());
+                    dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_CREATIVE, creativeIndex));
                 }
                 return true;
             }
             int recentIndex = resolveClickedRecentEntry(mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
             if (recentIndex >= 0) {
-                this.controller.selectRecentEntry(recentIndex);
+                dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_RECENT, recentIndex));
                 return true;
             }
             return true;
@@ -1070,7 +1061,7 @@ public final class BottomPanel {
         if (fluidW > 0) {
             int fluidIndex = resolveClickedFluid(mouseX, mouseY, storageX, gridY, fluidW, gridH);
             if (fluidIndex >= 0) {
-                this.controller.selectFluidEntry(fluidIndex);
+                dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_FLUID, fluidIndex));
                 return true;
             }
         }
@@ -1082,12 +1073,12 @@ public final class BottomPanel {
         int recentGridW = Math.max(SLOT, itemGridW - storageGridW - STORAGE_RECENT_GAP);
         int entryIndex = resolveClickedEntry(mouseX, mouseY, itemGridX, gridY, storageGridW, gridH);
         if (entryIndex >= 0) {
-            this.controller.selectStorageEntry(entryIndex);
+            dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_STORAGE, entryIndex));
             return true;
         }
         int recentIndex = resolveClickedRecentEntry(mouseX, mouseY, recentGridX, gridY, recentGridW, gridH);
         if (recentIndex >= 0) {
-            this.controller.selectRecentEntry(recentIndex);
+            dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_RECENT, recentIndex));
             return true;
         }
         return true;
@@ -1152,19 +1143,17 @@ public final class BottomPanel {
             int contentY = layout.panelY() + BOTTOM_PANEL_HEADER_H + 4;
             int contentW = Math.max(80, layout.panelW() - BOTTOM_PANEL_PADDING * 2);
             int contentH = Math.max(24, layout.panelH() - BOTTOM_PANEL_HEADER_H - 8);
-            BlueprintPanel.mouseScrolled(mouseX, mouseY, scrollY, contentX, contentY, contentW, contentH);
+            BlueprintPanel.mouseScrolled(mouseX, mouseY, scrollY, contentX, contentY,
+                    contentW, contentH, this.controller);
             return true;
         }
         if (activeTab == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
             if (isInsideCategoryList(mouseX, mouseY)) {
-                shiftCategoryScroll(scrollY > 0.0D ? -1 : 1);
+                scrollCategoriesThroughCore(scrollY > 0.0D ? -1 : 1);
                 return true;
             }
-            int delta = scrollY > 0.0D ? -1 : 1;
-            this.creativePage = Mth.clamp(
-                    this.creativePage + delta,
-                    0,
-                    creativePageCount(creativeGridWidth(layout.mainStorageW()), layout.gridH()) - 1);
+            dispatchCore(BottomBarUiAction.simple(scrollY > 0.0D
+                    ? BottomBarUiAction.Type.PREVIOUS_PAGE : BottomBarUiAction.Type.NEXT_PAGE));
             return true;
         }
         if (inside(mouseX, mouseY, layout.craftPanelX(), layout.craftPanelY(), CRAFT_PANEL_W, layout.craftPanelH())) {
@@ -1172,21 +1161,21 @@ public final class BottomPanel {
             int totalRows = Math.max(1, (int) Math.ceil(this.controller.getCraftableEntries().size() / (double) CRAFT_PANEL_COLS));
             int maxScroll = Math.max(0, totalRows - visibleRows);
             int delta = scrollY > 0.0D ? -1 : 1;
-            this.craftScroll = Mth.clamp(this.craftScroll + delta, 0, maxScroll);
+            dispatchCore(BottomBarUiAction.delta(BottomBarUiAction.Type.SCROLL_CRAFT, delta, maxScroll));
             if (delta > 0 && this.craftScroll >= maxScroll && this.controller.hasMoreCraftables()) {
                 this.controller.requestMoreCraftables();
             }
             return true;
         }
         if (isInsideCategoryList(mouseX, mouseY)) {
-            shiftCategoryScroll(scrollY > 0.0D ? -1 : 1);
+            scrollCategoriesThroughCore(scrollY > 0.0D ? -1 : 1);
             return true;
         }
         if (isInsideStorageBrowseScrollArea(mouseX, mouseY, layout)) {
             if (scrollY > 0.0D) {
-                this.controller.prevPage();
+                dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.PREVIOUS_PAGE));
             } else if (scrollY < 0.0D) {
-                this.controller.nextPage();
+                dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.NEXT_PAGE));
             }
         }
         return true;
@@ -1201,13 +1190,49 @@ public final class BottomPanel {
         return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
     }
 
+    /**
+     * 统一让生产输入先经过 Core reducer，再由平台适配器执行网络、背包或窗口副作用。
+     * BottomPanel 仍是编排 owner，但不再各自发明分页/搜索/分类状态转移。
+     */
+    private BottomBarUiTransition dispatchCore(BottomBarUiAction action) {
+        BottomBarUiState state = BottomBarUiAdapter.snapshot(this, resolveBottomPanelLayout());
+        BottomBarUiTransition transition = BottomBarUiReducer.apply(state, action);
+        BottomBarUiAdapter.apply(this, transition);
+        return transition;
+    }
+
+    /** 分类滚动共享 Core 的边界钳制，滚轮与上下箭头因此完全同义。 */
+    private void scrollCategoriesThroughCore(int delta) {
+        BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
+        int visible = Math.max(1, (layout.categoryH() - 15) / CATEGORY_ROW_H);
+        int maximum = Math.max(0, buildCategoryRows().size() - visible);
+        dispatchCore(BottomBarUiAction.delta(BottomBarUiAction.Type.SCROLL_CATEGORY,
+                delta, maximum));
+    }
+
+    /** 把旧命中结果还原为 Core 分类目录中的稳定行索引。 */
+    private int resolveCategoryIndex(CategoryTypes.CategoryClick click) {
+        List<CategoryTypes.CategoryRow> rows = buildCategoryRows();
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).token().equals(click.categoryToken())) return i;
+        }
+        return -1;
+    }
+
+    private static BottomBarUiTab toCoreTab(BottomPanelLayoutTypes.BottomPanelTab tab) {
+        return switch (tab) {
+            case CREATIVE -> BottomBarUiTab.CREATIVE;
+            case BLUEPRINTS -> BottomBarUiTab.BLUEPRINTS;
+            case STORAGE -> BottomBarUiTab.STORAGE;
+        };
+    }
+
     // ── Internal click handling ──
 
     private boolean handleCraftDockClick(double mouseX, double mouseY, int button, int x, int y) {
         PanelLayouts.CraftDockLayout dock = resolveCraftDockLayout(x, y);
         if (inside(mouseX, mouseY, dock.cX(), dock.cY(), CRAFT_DOCK_C_SIZE, CRAFT_DOCK_C_SIZE)) {
-            screen.persistUiState();
-            this.controller.openCraftTerminal();
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.OPEN_CRAFT_TERMINAL));
             return true;
         }
 
@@ -1219,28 +1244,16 @@ public final class BottomPanel {
             }
 
             if (button == 0) {
-                int pendingSlot = screen.getPendingGuiBindSlot();
-                if (pendingSlot == slot) {
-                    screen.clearPendingGuiBind();
-                } else if (this.controller.hasGuiBinding(slot)) {
-                    screen.clearPendingGuiBind();
-                    this.controller.openGuiBinding(slot);
-                } else {
-                    screen.setPendingGuiBindSlot(slot);
-                }
+                dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_GUI_BINDING, slot));
                 return true;
             }
 
             if (button == 1) {
                 if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
-                    if (screen.getPendingGuiBindSlot() == slot) {
-                        screen.clearPendingGuiBind();
-                    }
-                    this.controller.clearGuiBinding(slot);
+                    dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.CLEAR_GUI_BINDING, slot));
                     return true;
                 }
-                int pendingSlot = screen.getPendingGuiBindSlot();
-                screen.setPendingGuiBindSlot(pendingSlot == slot ? -1 : slot);
+                dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.TOGGLE_GUI_BINDING_PENDING, slot));
                 return true;
             }
 
@@ -1260,12 +1273,18 @@ public final class BottomPanel {
             return false;
         }
         sb.setValue("");
-        handleStorageSearchChanged("");
+        dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.CLEAR_SEARCH));
         screen.blurSearchFocus();
         return true;
     }
 
     public void handleStorageSearchChanged(String value) {
+        dispatchCore(BottomBarUiAction.value(BottomBarUiAction.Type.SET_SEARCH,
+                value == null ? "" : value));
+    }
+
+    /** 仅供生产适配器执行 Core 已裁定的搜索副作用，避免监听器递归。 */
+    void applyStorageSearchValue(String value) {
         String next = value == null ? "" : value;
         if (activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
             this.creativeSearch = next;
@@ -1304,18 +1323,17 @@ public final class BottomPanel {
                 int slotX = hotbarX + index * HOTBAR_PITCH;
                 if (mouseX <= slotX + HOTBAR_SLOT) {
                     if (index == EMPTY_HAND_BUTTON_INDEX) {
-                        this.controller.selectEmptyHand();
+                        dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.SELECT_EMPTY_HAND));
                         return true;
                     }
                     var stack = Minecraft.getInstance().player.getInventory().getItem(index);
                     if (net.minecraft.client.gui.screens.Screen.hasShiftDown()
                             && RtsClientUiStateStore.isOverlayShiftImportEnabled()
                             && !stack.isEmpty()) {
-                        this.controller.storeHotbarSlotToLinked(index);
+                        dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.IMPORT_HOTBAR, index));
                         return true;
                     }
-                    setSelectedToolSlot(index);
-                    this.controller.clearPlacementSelectionPreserveMode();
+                    dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_TOOL, index));
                     return true;
                 }
             }
@@ -1343,7 +1361,7 @@ public final class BottomPanel {
         this.pinPage = Mth.clamp(this.pinPage, 0, pageCount - 1);
 
         if (usePager && cell == pinVisibleCells - 1) {
-            this.pinPage = (this.pinPage + 1) % pageCount;
+            dispatchCore(BottomBarUiAction.delta(BottomBarUiAction.Type.CYCLE_PIN_PAGE, 1, pageCount));
             return true;
         }
 
@@ -1353,10 +1371,10 @@ public final class BottomPanel {
         }
 
         if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
-            this.controller.clearQuickSlot(pinIndex);
+            dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.CLEAR_PIN, pinIndex));
             return true;
         }
-        this.controller.selectQuickSlot(pinIndex);
+        dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.SELECT_PIN, pinIndex));
         return true;
     }
 
@@ -1376,10 +1394,10 @@ public final class BottomPanel {
                 int slotX = hotbarX + index * HOTBAR_PITCH;
                 if (mouseX <= slotX + HOTBAR_SLOT) {
                     if (index == EMPTY_HAND_BUTTON_INDEX) {
-                        this.controller.selectEmptyHand();
+                        dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.SELECT_EMPTY_HAND));
                         return true;
                     }
-                    this.controller.storeFluidFromToolSlot(index);
+                    dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.STORE_FLUID_TOOL, index));
                     return true;
                 }
             }
@@ -1408,7 +1426,7 @@ public final class BottomPanel {
         this.pinPage = Mth.clamp(this.pinPage, 0, pageCount - 1);
 
         if (usePager && cell == pinVisibleCells - 1) {
-            this.pinPage = (this.pinPage + 1) % pageCount;
+            dispatchCore(BottomBarUiAction.delta(BottomBarUiAction.Type.CYCLE_PIN_PAGE, 1, pageCount));
             return true;
         }
 
@@ -1417,10 +1435,7 @@ public final class BottomPanel {
             return true;
         }
 
-        String itemId = this.controller.getQuickSlotItemId(pinIndex);
-        if (itemId != null && !itemId.isBlank()) {
-            this.controller.storeFluidFromPinnedItem(itemId);
-        }
+        dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.STORE_FLUID_PIN, pinIndex));
         return true;
     }
 
@@ -1450,7 +1465,7 @@ public final class BottomPanel {
             return true;
         }
         if (inside(mouseX, mouseY, toggleX, searchY, CRAFT_PANEL_TOGGLE_W, CRAFT_PANEL_SEARCH_H)) {
-            this.controller.toggleCraftablesShowUnavailable();
+            dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.TOGGLE_CRAFT_UNAVAILABLE));
             return true;
         }
         return true;
@@ -1463,8 +1478,8 @@ public final class BottomPanel {
         if (csb != null && !next.equals(csb.getValue())) {
             csb.setValue(next);
         }
-        this.craftScroll = 0;
-        this.controller.setCraftablesSearch(next);
+        dispatchCore(BottomBarUiAction.value(BottomBarUiAction.Type.SET_CRAFT_SEARCH, next));
+        dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.APPLY_CRAFT_SEARCH));
     }
 
     private boolean handleCraftablesPanelRightClick(double mouseX, double mouseY, int x, int y, int width, int height) {
@@ -1476,7 +1491,7 @@ public final class BottomPanel {
         if (!entry.craftable()) {
             return true;
         }
-        openCraftQuantityDialog(entry);
+        dispatchCore(BottomBarUiAction.index(BottomBarUiAction.Type.OPEN_CRAFT_QUANTITY, entryIndex));
         return true;
     }
 
@@ -1511,49 +1526,21 @@ public final class BottomPanel {
     // ── Layout & resolution ──
 
     public BottomPanelLayoutTypes.BottomPanelLayout resolveBottomPanelLayout() {
-        int dynamicMaxH = Math.max(MIN_BOTTOM_H, Math.min(MAX_BOTTOM_H, screen.height - TOP_H - 16));
-        int minH = Math.min(dynamicMaxH, Math.max(MIN_BOTTOM_H, minimumBottomHeightForGridRows(MIN_STORAGE_GRID_ROWS)));
-        int maxH = Math.max(minH, dynamicMaxH);
-
-        this.panelHeight = Mth.clamp(this.panelHeight, minH, maxH);
-
-        int panelX = 0;
-        int panelY = screen.height - this.panelHeight;
-        int panelW = screen.width;
-        int panelH = this.panelHeight;
-        int contentX = BOTTOM_PANEL_PADDING;
-        int contentY = panelY + BOTTOM_PANEL_HEADER_H + 4;
-        int sortX = contentX;
-        int sortY = contentY + 2;
-        int categoryX = sortX + 58;
-        int categoryY = contentY;
-        int categoryH = Math.max(24, panelY + panelH - BOTTOM_PANEL_PADDING - categoryY);
-        int storageX = categoryX + CATEGORY_W + 10;
-        int storageY = contentY;
-        int storageW = Math.max(120, panelW - BOTTOM_PANEL_PADDING - storageX);
-        int craftPanelX = storageX + Math.max(120, storageW - CRAFT_PANEL_W);
-        int mainStorageW = Math.max(120, craftPanelX - storageX - CRAFT_PANEL_GAP);
-        int searchW = Math.max(72, mainStorageW - 82);
-        int pagerX = Math.min(storageX + searchW + 4, craftPanelX - 80);
-        searchW = Math.max(56, pagerX - storageX - 4);
-        int toolY = storageY + 17;
-        int gridY = toolY + TOOL_AREA_H + 4;
-        int gridH = Math.max(SLOT, panelY + panelH - BOTTOM_PANEL_PADDING - gridY);
-        int storageRows = Math.max(1, gridH / SLOT);
-        int craftPanelY = storageY;
-        int craftPanelH = Math.max(CRAFT_PANEL_SEARCH_H + CRAFT_PANEL_SLOT + 27, panelY + panelH - BOTTOM_PANEL_PADDING - craftPanelY);
+        RtsMainlineLayout.BottomPanel layout = RtsMainlineLayout.bottomPanel(
+                screen.width, screen.height, this.panelHeight);
+        this.panelHeight = layout.panelH;
 
         return new BottomPanelLayoutTypes.BottomPanelLayout(
-                panelX, panelY, panelW, panelH,
-                sortX, sortY,
-                categoryX, categoryY, categoryH,
-                storageX, storageY, storageW,
-                craftPanelX, mainStorageW, searchW, pagerX,
-                toolY, gridY, gridH, storageRows,
-                craftPanelY, craftPanelH);
+                layout.panelX, layout.panelY, layout.panelW, layout.panelH,
+                layout.sortX, layout.sortY,
+                layout.categoryX, layout.categoryY, layout.categoryH,
+                layout.storageX, layout.storageY, layout.storageW,
+                layout.craftPanelX, layout.mainStorageW, layout.searchW, layout.pagerX,
+                layout.toolY, layout.gridY, layout.gridH, layout.storageRows,
+                layout.craftPanelY, layout.craftPanelH);
     }
 
-    private int panelHeight = DEFAULT_BOTTOM_H;
+    int panelHeight = DEFAULT_BOTTOM_H;
 
     public int getBottomY() {
         return resolveBottomPanelLayout().panelY();
@@ -1579,9 +1566,7 @@ public final class BottomPanel {
     }
 
     private void shiftCategoryScroll(int delta) {
-        int visible = Math.max(1, (getBottomHeight() - 15) / CATEGORY_ROW_H);
-        int maxScroll = Math.max(0, buildCategoryRows().size() - visible);
-        this.categoryScroll = Mth.clamp(this.categoryScroll + delta, 0, maxScroll);
+        scrollCategoriesThroughCore(delta);
     }
 
     private int getBottomHeight() {
@@ -1647,7 +1632,7 @@ public final class BottomPanel {
                         pluginManagementButtonW(), 12);
     }
 
-    private boolean hasPluginManagementButtonSpace(BottomPanelLayoutTypes.BottomPanelLayout layout) {
+    boolean hasPluginManagementButtonSpace(BottomPanelLayoutTypes.BottomPanelLayout layout) {
         return pluginManagementButtonX(layout) > selectedPlacementStatusX(layout) + 72;
     }
 
@@ -1661,7 +1646,7 @@ public final class BottomPanel {
 
     // ── Category building ──
 
-    private List<CategoryTypes.CategoryRow> buildCategoryRows() {
+    List<CategoryTypes.CategoryRow> buildCategoryRows() {
         if (activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
             List<CategoryTypes.CategoryRow> rows = new ArrayList<>();
             String selected = normalizeCategoryToken(this.creativeCategory);
@@ -1771,7 +1756,7 @@ public final class BottomPanel {
                 : this.controller.getStorageCategory();
     }
 
-    private List<RtsCreativeItemCatalog.CreativeEntry> creativeEntriesForCurrentFilter() {
+    List<RtsCreativeItemCatalog.CreativeEntry> creativeEntriesForCurrentFilter() {
         return RtsCreativeItemCatalog.get().entries(this.creativeCategory, this.creativeSearch);
     }
 
@@ -1791,7 +1776,7 @@ public final class BottomPanel {
         return index >= 0 && index < entries.size() ? entries.get(index) : null;
     }
 
-    private void toggleCategoryExpansion(String modNamespace) {
+    void toggleCategoryExpansion(String modNamespace) {
         if (modNamespace == null || modNamespace.isBlank()) {
             return;
         }
@@ -1991,7 +1976,7 @@ public final class BottomPanel {
         return Mth.clamp(Minecraft.getInstance().player.getInventory().selected, 0, 8);
     }
 
-    private void setSelectedToolSlot(int slot) {
+    void setSelectedToolSlot(int slot) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
             return;
         }
@@ -2035,6 +2020,25 @@ public final class BottomPanel {
             return Math.max(1, visibleCells - 1);
         }
         return visibleCells;
+    }
+
+    /**
+     * 从 Core 工具槽快照中定位生产槽。这里只做稳定索引查找，不读取背包，
+     * 因而渲染高亮与离屏回放看到的是同一份选择状态。
+     */
+    private static BottomBarUiToolSlot findToolSlot(BottomBarUiState state,
+            BottomBarUiToolSlot.Kind kind, int sourceIndex) {
+        for (BottomBarUiToolSlot slot : state.toolSlots) {
+            if (slot.kind == kind && slot.sourceIndex == sourceIndex) return slot;
+        }
+        return null;
+    }
+
+    /** 返回 Core 快照中某类工具槽数量，避免渲染层另查控制器。 */
+    private static int countToolSlots(BottomBarUiState state, BottomBarUiToolSlot.Kind kind) {
+        int count = 0;
+        for (BottomBarUiToolSlot slot : state.toolSlots) if (slot.kind == kind) count++;
+        return count;
     }
 
     // ── Sort label ──

@@ -4,6 +4,11 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiEntry;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
@@ -42,10 +47,10 @@ import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.*;
 
 public final class BlueprintPanel {
-    private static final int ROW_H = 24;
-    private static final int BUTTON_H = 14;
-    private static final int SEARCH_H = 14;
-    private static final int DETAIL_BUTTON_H = 14;
+    private static final int ROW_H = BlueprintLibraryLayout.ROW_H;
+    private static final int BUTTON_H = BlueprintLibraryLayout.BUTTON_H;
+    private static final int SEARCH_H = BlueprintLibraryLayout.SEARCH_H;
+    private static final int DETAIL_BUTTON_H = BlueprintLibraryLayout.DETAIL_BUTTON_H;
     private static final List<BlueprintEntry> ENTRIES = new ArrayList<>();
     private static boolean loaded = false;
     private static int selectedIndex = -1;
@@ -79,9 +84,12 @@ public final class BlueprintPanel {
         }
         tickCaptureSaveJob();
         ensureLoaded();
+        BlueprintLibraryLayout.Geometry geometry = BlueprintLibraryLayout.geometry(x, y, w, h);
+        BlueprintLibraryUiState library = BlueprintLibraryUiAdapter.snapshotForViewport(
+                controller, geometry.listW, geometry.listH);
 
         int buttonY = y;
-        TopBarLayout top = topBarLayout(font, x, w, CAPTURE.isActive());
+        TopBarLayout top = topBarLayout(font, x, w, library.captureLocked);
         drawButton(g, font, top.folderX(), buttonY, top.folderW(), BUTTON_H, text("screen.rtsbuilding.blueprints.open_folder_short"),
                 inside(mouseX, mouseY, top.folderX(), buttonY, top.folderW(), BUTTON_H));
         drawButton(g, font, top.importX(), buttonY, top.importW(), BUTTON_H, text("screen.rtsbuilding.blueprints.import_file_short"),
@@ -90,108 +98,110 @@ public final class BlueprintPanel {
                 text("screen.rtsbuilding.blueprints.sync_create_short"),
                 inside(mouseX, mouseY, top.syncCreateX(), buttonY, top.syncCreateW(), BUTTON_H));
         drawButton(g, font, top.captureX(), buttonY, top.captureW(), BUTTON_H,
-                text(CAPTURE.isActive() ? "screen.rtsbuilding.blueprints.capture_active_short" : "screen.rtsbuilding.blueprints.capture_short"),
+                text(library.captureLocked ? "screen.rtsbuilding.blueprints.capture_active_short" : "screen.rtsbuilding.blueprints.capture_short"),
                 inside(mouseX, mouseY, top.captureX(), buttonY, top.captureW(), BUTTON_H));
 
-        drawFrame(g, top.searchX(), buttonY, top.searchW(), SEARCH_H, searchFocused ? 0xCC09111B : 0xAA111820, 0xFF6B8095, 0xFF0C1118);
-        String searchLabel = search.isBlank() && !searchFocused
+        drawFrame(g, top.searchX(), buttonY, top.searchW(), SEARCH_H, library.searchFocused ? 0xCC09111B : 0xAA111820, 0xFF6B8095, 0xFF0C1118);
+        String searchLabel = library.query.isBlank() && !library.searchFocused
                 ? text("screen.rtsbuilding.blueprints.search")
-                : search + (searchFocused && (Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
+                : library.query + (library.searchFocused && (Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
         g.drawString(font, trim(font, searchLabel, top.searchW() - 8), top.searchX() + 4, buttonY + 3,
-                search.isBlank() && !searchFocused ? 0x8898A8B8 : 0xFFEAF2FF, false);
+                library.query.isBlank() && !library.searchFocused ? 0x8898A8B8 : 0xFFEAF2FF, false);
 
-        int listY = y + 19;
-        int statusY = y + h - 13;
-        int listH = Math.max(24, statusY - listY - 4);
-        if (CAPTURE.isActive()) {
-            renderCaptureLockedBottom(g, font, x, listY, w, listH);
+        if (library.captureLocked) {
+            renderCaptureLockedBottom(g, font, x, geometry.listY, w, geometry.listH);
             return;
         }
-        int detailsW = Math.min(210, Math.max(148, w / 4));
-        int listW = Math.max(120, w - detailsW - 8);
-        renderList(g, font, controller, x, listY, listW, listH, mouseX, mouseY);
-        renderDetails(g, font, controller, x + listW + 8, listY, detailsW, listH, mouseX, mouseY);
-        g.drawString(font, trim(font, statusText.getString(), w - 8), x + 2, statusY, statusColor, false);
+        renderList(g, font, library, x, geometry.listY, geometry.listW, geometry.listH, mouseX, mouseY);
+        renderDetails(g, font, library, x + geometry.listW + 8, geometry.listY,
+                geometry.detailsW, geometry.listH, mouseX, mouseY);
+        g.drawString(font, trim(font, library.status, w - 8), x + 2,
+                geometry.statusY, library.statusColor, false);
     }
 
-    public static boolean mouseClicked(double mouseX, double mouseY, int x, int y, int w, int h) {
+    public static boolean mouseClicked(double mouseX, double mouseY, int x, int y, int w, int h,
+                                       ClientRtsController controller) {
         if (!Config.areBlueprintsEnabled()) {
             searchFocused = false;
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.disabled", "");
             return true;
         }
-        ensureLoaded();
-        TopBarLayout top = topBarLayout(Minecraft.getInstance().font, x, w, CAPTURE.isActive());
+        BlueprintLibraryUiState library = BlueprintLibraryUiAdapter.snapshot(controller);
+        TopBarLayout top = topBarLayout(Minecraft.getInstance().font, x, w, library.captureLocked);
         if (inside(mouseX, mouseY, top.folderX(), y, top.folderW(), BUTTON_H)) {
-            openBlueprintFolder();
-            return true;
+            return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
+                    BlueprintLibraryUiAction.Type.OPEN_FOLDER), controller);
         }
         if (inside(mouseX, mouseY, top.importX(), y, top.importW(), BUTTON_H)) {
-            importBlueprintFile();
-            return true;
+            return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
+                    BlueprintLibraryUiAction.Type.IMPORT_FILE), controller);
         }
         if (inside(mouseX, mouseY, top.syncCreateX(), y, top.syncCreateW(), BUTTON_H)) {
-            syncOtherModBlueprints();
-            return true;
+            return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
+                    BlueprintLibraryUiAction.Type.SYNC_CREATE), controller);
         }
         if (inside(mouseX, mouseY, top.captureX(), y, top.captureW(), BUTTON_H)) {
-            toggleCaptureMode();
-            return true;
+            return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
+                    BlueprintLibraryUiAction.Type.TOGGLE_CAPTURE), controller);
         }
-        if (CAPTURE.isActive()) {
-            searchFocused = false;
+        if (library.captureLocked) {
+            BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
+                    BlueprintLibraryUiAction.Type.BLUR_SEARCH), controller);
             setStatus(S2CBlueprintStatusPayload.INFO,
-                    !CAPTURE.isSaving()
+                    !library.captureSaving
                             ? "screen.rtsbuilding.blueprints.status.capture_locked"
                             : "screen.rtsbuilding.blueprints.status.save_busy",
                     "");
             return true;
         }
 
-        searchFocused = inside(mouseX, mouseY, top.searchX(), y, top.searchW(), SEARCH_H);
-        if (searchFocused) {
+        boolean focusSearch = inside(mouseX, mouseY, top.searchX(), y, top.searchW(), SEARCH_H);
+        BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(focusSearch
+                ? BlueprintLibraryUiAction.Type.FOCUS_SEARCH
+                : BlueprintLibraryUiAction.Type.BLUR_SEARCH), controller);
+        if (focusSearch) {
             return true;
         }
 
-        int listY = y + 19;
-        int statusY = y + h - 13;
-        int listH = Math.max(24, statusY - listY - 4);
-        int detailsW = Math.min(210, Math.max(148, w / 4));
-        int listW = Math.max(120, w - detailsW - 8);
-        if (inside(mouseX, mouseY, x, listY, listW, listH)) {
-            List<BlueprintEntry> filtered = filteredEntries();
-            int columns = listColumns(listW);
-            int visibleRows = Math.max(1, listH / ROW_H);
-            scroll = Mth.clamp(scroll, 0, maxListScroll(filtered.size(), columns, visibleRows));
-            int row = ((int) mouseY - listY) / ROW_H;
-            int cellW = listCellWidth(listW, columns);
+        BlueprintLibraryLayout.Geometry geometry = BlueprintLibraryLayout.geometry(x, y, w, h);
+        if (inside(mouseX, mouseY, x, geometry.listY, geometry.listW, geometry.listH)) {
+            List<BlueprintLibraryUiEntry> filtered = library.filteredEntries();
+            int columns = listColumns(geometry.listW);
+            int visibleRows = Math.max(1, geometry.listH / ROW_H);
+            int visibleScroll = Mth.clamp(library.scrollRows, 0,
+                    maxListScroll(filtered.size(), columns, visibleRows));
+            int row = ((int) mouseY - geometry.listY) / ROW_H;
+            int cellW = listCellWidth(geometry.listW, columns);
             int col = Math.min(columns - 1, Math.max(0, ((int) mouseX - x - 1) / Math.max(1, cellW + LIST_COLUMN_GAP)));
-            int index = (scroll + row) * columns + col;
+            int index = (visibleScroll + row) * columns + col;
             if (index >= 0 && index < filtered.size()) {
-                BlueprintEntry entry = filtered.get(index);
+                BlueprintLibraryUiEntry entry = filtered.get(index);
                 Font font = Minecraft.getInstance().font;
                 int cellX = x + 1 + col * (cellW + LIST_COLUMN_GAP);
-                RowActionLayout actions = rowActionLayout(font, cellX, listY + row * ROW_H, cellW);
-                if (entry.error().isBlank()
+                RowActionLayout actions = rowActionLayout(font, cellX, geometry.listY + row * ROW_H, cellW);
+                if (entry.valid()
                         && inside(mouseX, mouseY, actions.saveX(), actions.buttonY(), actions.saveW(), DETAIL_BUTTON_H)) {
-                    saveEntryAs(entry);
-                    return true;
+                    return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
+                            BlueprintLibraryUiAction.Type.SAVE_AS_ENTRY, entry.fileName), controller);
                 }
-                if (entry.error().isBlank()
+                if (entry.valid()
                         && inside(mouseX, mouseY, actions.renameX(), actions.buttonY(), actions.renameW(), DETAIL_BUTTON_H)) {
-                    openRenameDialog(entry);
-                    return true;
+                    return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
+                            BlueprintLibraryUiAction.Type.RENAME_ENTRY, entry.fileName), controller);
                 }
                 if (inside(mouseX, mouseY, actions.deleteX(), actions.buttonY(), actions.deleteW(), DETAIL_BUTTON_H)) {
-                    deleteEntry(entry);
-                    return true;
+                    return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
+                            BlueprintLibraryUiAction.Type.DELETE_ENTRY, entry.fileName), controller);
                 }
-                selectEntry(entry);
+                BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
+                        BlueprintLibraryUiAction.Type.SELECT_ENTRY, entry.fileName), controller);
             }
             return true;
         }
-        if (inside(mouseX, mouseY, x + listW + 8, listY, detailsW, listH)) {
-            return handleDetailsClick(mouseX, mouseY, x + listW + 8, listY, detailsW, listH);
+        if (inside(mouseX, mouseY, geometry.detailsX, geometry.listY,
+                geometry.detailsW, geometry.listH)) {
+            return handleDetailsClick(mouseX, mouseY, geometry.detailsX,
+                    geometry.listY, geometry.detailsW, geometry.listH);
         }
         return false;
     }
@@ -210,6 +220,20 @@ public final class BlueprintPanel {
 
     static String nameDialogValue() {
         return nameDialogValue;
+    }
+
+    static boolean nameDialogReplaceOnType() {
+        return nameDialogReplaceOnType;
+    }
+
+    /** 由 Core 动作提交命名框完整草稿，统一执行生产长度和非法字符约束。 */
+    static void setNameDialogValueFromUi(String value) {
+        if (!isNameDialogOpen()) {
+            return;
+        }
+        String safe = value == null ? "" : value;
+        nameDialogValue = safe.substring(0, Math.min(80, safe.length()));
+        nameDialogReplaceOnType = false;
     }
 
     static BlueprintEntry nameDialogEntry() {
@@ -510,19 +534,13 @@ public final class BlueprintPanel {
         int nudgeW = 34;
         int gap = 4;
         if (inside(mouseX, mouseY, xPos, barY + 5, rotateW, DETAIL_BUTTON_H)) {
-            yRotationSteps = BlueprintTransform.normalizeSteps(yRotationSteps + 1);
-            rememberCurrentRotationAsDefault();
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
-            return true;
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.ROTATE_Y, 0, 1, 0), controller);
         }
         xPos += rotateW + gap;
         if (inside(mouseX, mouseY, xPos, barY + 5, resetW, DETAIL_BUTTON_H)) {
-            yRotationSteps = 0;
-            xRotationSteps = 0;
-            zRotationSteps = 0;
-            rememberCurrentRotationAsDefault();
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
-            return true;
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.RESET_ROTATION), controller);
         }
         xPos += resetW + gap + 4;
         int[][] deltas = {
@@ -561,24 +579,23 @@ public final class BlueprintPanel {
         return inside(mouseX, mouseY, barX, barY, barW, barH);
     }
 
-    public static boolean mouseScrolled(double mouseX, double mouseY, double scrollY, int x, int y, int w, int h) {
+    public static boolean mouseScrolled(double mouseX, double mouseY, double scrollY,
+                                        int x, int y, int w, int h, ClientRtsController controller) {
         if (!Config.areBlueprintsEnabled()) {
             return false;
         }
-        int listY = y + 19;
-        int statusY = y + h - 13;
-        int listH = Math.max(24, statusY - listY - 4);
-        int detailsW = Math.min(210, Math.max(148, w / 4));
-        int listW = Math.max(120, w - detailsW - 8);
-        if (!inside(mouseX, mouseY, x, listY, listW, listH)) {
+        BlueprintLibraryLayout.Geometry geometry = BlueprintLibraryLayout.geometry(x, y, w, h);
+        if (!inside(mouseX, mouseY, x, geometry.listY, geometry.listW, geometry.listH)) {
             return false;
         }
-        List<BlueprintEntry> filtered = filteredEntries();
-        int columns = listColumns(listW);
-        int visibleRows = Math.max(1, listH / ROW_H);
+        BlueprintLibraryUiState library = BlueprintLibraryUiAdapter.snapshot(controller);
+        List<BlueprintLibraryUiEntry> filtered = library.filteredEntries();
+        int columns = listColumns(geometry.listW);
+        int visibleRows = Math.max(1, geometry.listH / ROW_H);
         int maxScroll = maxListScroll(filtered.size(), columns, visibleRows);
-        scroll = Mth.clamp(scroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
-        return true;
+        int next = Mth.clamp(library.scrollRows + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
+        return BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.amount(
+                BlueprintLibraryUiAction.Type.SCROLL_ROWS, next - library.scrollRows), controller);
     }
 
     public static boolean keyPressed(int keyCode, int scanCode, ClientRtsController controller) {
@@ -586,6 +603,7 @@ public final class BlueprintPanel {
             searchFocused = false;
             return false;
         }
+        BlueprintLibraryUiState library = BlueprintLibraryUiAdapter.snapshot(controller);
         boolean cancelKey = ClientKeyMappings.BLUEPRINT_CANCEL.matches(keyCode, scanCode);
         if (CAPTURE.isActive()) {
             searchFocused = false;
@@ -611,7 +629,7 @@ public final class BlueprintPanel {
             }
             return true;
         }
-        if (!searchFocused && hasSelectedBlueprint() && isBlueprintRotateKey(keyCode, scanCode)) {
+        if (!library.searchFocused && hasSelectedBlueprint() && isBlueprintRotateKey(keyCode, scanCode)) {
             return rotateSelectedBlueprintY(isShiftDown() ? -1 : 1);
         }
         if (hasPinnedPreview()) {
@@ -620,25 +638,27 @@ public final class BlueprintPanel {
                 return nudgePinnedAnchor(delta.dx(), delta.dy(), delta.dz(), controller);
             }
         }
-        if (!searchFocused && cancelKey) {
+        if (!library.searchFocused && cancelKey) {
             if (hasSelectedBlueprint() || hasPinnedPreview()) {
                 clearSelectedBlueprint();
                 return true;
             }
             return false;
         }
-        if (!searchFocused) {
+        if (!library.searchFocused) {
             return false;
         }
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
-            if (!search.isEmpty()) {
-                search = search.substring(0, search.length() - 1);
-                scroll = 0;
+            if (!library.query.isEmpty()) {
+                BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
+                        BlueprintLibraryUiAction.Type.SET_QUERY,
+                        library.query.substring(0, library.query.length() - 1)), controller);
             }
             return true;
         }
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER) {
-            searchFocused = false;
+            BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
+                    BlueprintLibraryUiAction.Type.BLUR_SEARCH), controller);
             return true;
         }
         return false;
@@ -653,16 +673,18 @@ public final class BlueprintPanel {
                 || ClientKeyMappings.MODE_ROTATE.matches(keyCode, scanCode);
     }
 
-    public static boolean charTyped(char codePoint) {
+    public static boolean charTyped(char codePoint, ClientRtsController controller) {
         if (!Config.areBlueprintsEnabled()) {
             return false;
         }
-        if (!searchFocused || Character.isISOControl(codePoint)) {
+        BlueprintLibraryUiState library = BlueprintLibraryUiAdapter.snapshot(controller);
+        if (!library.searchFocused || Character.isISOControl(codePoint)) {
             return false;
         }
-        if (search.length() < 96) {
-            search += codePoint;
-            scroll = 0;
+        if (library.query.length() < 96) {
+            BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
+                    BlueprintLibraryUiAction.Type.SET_QUERY,
+                    library.query + codePoint), controller);
         }
         return true;
     }
@@ -753,6 +775,95 @@ public final class BlueprintPanel {
         return shortPos(CAPTURE.displayPointA());
     }
 
+    static int selectedBlueprintIndex() {
+        return selectedIndex;
+    }
+
+    static int blueprintEntryCount() {
+        ensureLoaded();
+        return ENTRIES.size();
+    }
+
+    static List<BlueprintEntry> libraryEntries() {
+        ensureLoaded();
+        return List.copyOf(ENTRIES);
+    }
+
+    static BlueprintEntry librarySelectedEntry() {
+        return selectedEntry();
+    }
+
+    static String libraryQuery() {
+        return search;
+    }
+
+    static boolean librarySearchFocused() {
+        return searchFocused;
+    }
+
+    static int libraryScrollRows() {
+        return scroll;
+    }
+
+    static void applyLibraryViewState(String query, boolean focused, int scrollRows) {
+        search = query == null ? "" : query.substring(0, Math.min(96, query.length()));
+        searchFocused = focused;
+        scroll = Math.max(0, scrollRows);
+    }
+
+    static void openBlueprintFolderFromUi() {
+        openBlueprintFolder();
+    }
+
+    static void importBlueprintFileFromUi() {
+        importBlueprintFile();
+    }
+
+    static void syncCreateBlueprintsFromUi() {
+        syncOtherModBlueprints();
+    }
+
+    static void toggleCaptureModeFromUi() {
+        toggleCaptureMode();
+    }
+
+    static boolean selectLibraryEntry(String fileName) {
+        BlueprintEntry entry = entryByFileName(fileName);
+        if (entry == null) return false;
+        selectEntry(entry);
+        return true;
+    }
+
+    static boolean saveLibraryEntryAs(String fileName) {
+        BlueprintEntry entry = entryByFileName(fileName);
+        if (entry == null || !entry.error().isBlank()) return false;
+        saveEntryAs(entry);
+        return true;
+    }
+
+    static boolean renameLibraryEntry(String fileName) {
+        BlueprintEntry entry = entryByFileName(fileName);
+        if (entry == null || !entry.error().isBlank()) return false;
+        openRenameDialog(entry);
+        return true;
+    }
+
+    static boolean deleteLibraryEntry(String fileName) {
+        BlueprintEntry entry = entryByFileName(fileName);
+        if (entry == null) return false;
+        deleteEntry(entry);
+        return true;
+    }
+
+    private static BlueprintEntry entryByFileName(String fileName) {
+        if (fileName == null) return null;
+        ensureLoaded();
+        for (BlueprintEntry entry : ENTRIES) {
+            if (entry.fileName().equals(fileName)) return entry;
+        }
+        return null;
+    }
+
     static String capturePointBText() {
         return shortPos(CAPTURE.displayPointB());
     }
@@ -829,6 +940,15 @@ public final class BlueprintPanel {
     }
 
     public static boolean acceptCapturePoint(BlockPos pos) {
+        if (pos == null) {
+            return false;
+        }
+        return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                BlueprintUiAction.Type.ACCEPT_CAPTURE_POINT, pos.getX(), pos.getY(), pos.getZ()), null);
+    }
+
+    /** 仅供生产适配器执行 Core 已批准的捕获点命令，避免公开入口绕过状态动作。 */
+    static boolean acceptCapturePointDirect(BlockPos pos) {
         return Config.areBlueprintsEnabled() && CAPTURE.acceptPoint(pos, BlueprintPanel::setStatus);
     }
 
@@ -1144,6 +1264,28 @@ public final class BlueprintPanel {
         return true;
     }
 
+    static boolean rotateSelectedBlueprintX(int step) {
+        if (!hasSelectedBlueprint()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
+            return true;
+        }
+        xRotationSteps = BlueprintTransform.normalizeSteps(xRotationSteps + step);
+        rememberCurrentRotationAsDefault();
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
+        return true;
+    }
+
+    static boolean rotateSelectedBlueprintZ(int step) {
+        if (!hasSelectedBlueprint()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
+            return true;
+        }
+        zRotationSteps = BlueprintTransform.normalizeSteps(zRotationSteps + step);
+        rememberCurrentRotationAsDefault();
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.rotated", "");
+        return true;
+    }
+
     static void resetSelectedBlueprintRotation() {
         if (!hasSelectedBlueprint()) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
@@ -1300,16 +1442,17 @@ public final class BlueprintPanel {
         g.drawString(font, trim(font, detail.getString(), w - 12), x + 6, y + 22, 0xFF9EACB9, false);
     }
 
-    private static void renderList(GuiGraphics g, Font font, ClientRtsController controller,
+    private static void renderList(GuiGraphics g, Font font, BlueprintLibraryUiState library,
             int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(g, x, y, w, h, 0x8811161E, 0xFF415266, 0xFF0B0E13);
-        List<BlueprintEntry> filtered = filteredEntries();
+        List<BlueprintLibraryUiEntry> filtered = library.filteredEntries();
         int columns = listColumns(w);
         int visibleRows = Math.max(1, h / ROW_H);
         int cellW = listCellWidth(w, columns);
-        scroll = Mth.clamp(scroll, 0, maxListScroll(filtered.size(), columns, visibleRows));
+        int visibleScroll = Mth.clamp(library.scrollRows, 0,
+                maxListScroll(filtered.size(), columns, visibleRows));
         if (filtered.isEmpty()) {
-            Component empty = ENTRIES.isEmpty()
+            Component empty = library.entries.isEmpty()
                     ? Component.translatable("screen.rtsbuilding.blueprints.empty")
                     : Component.translatable("screen.rtsbuilding.blueprints.no_results");
             g.drawString(font, trim(font, empty.getString(), w - 12), x + 6, y + 8, 0xFF9EACB9, false);
@@ -1318,30 +1461,29 @@ public final class BlueprintPanel {
         for (int row = 0; row < visibleRows; row++) {
             int rowY = y + row * ROW_H;
             for (int col = 0; col < columns; col++) {
-                int index = (scroll + row) * columns + col;
+                int index = (visibleScroll + row) * columns + col;
                 if (index >= filtered.size()) {
                     break;
                 }
-                BlueprintEntry entry = filtered.get(index);
+                BlueprintLibraryUiEntry entry = filtered.get(index);
                 int cellX = x + 1 + col * (cellW + LIST_COLUMN_GAP);
                 int cellRight = Math.min(x + w - 1, cellX + cellW);
                 int actualW = Math.max(44, cellRight - cellX);
-                boolean selected = selectedIndex >= 0 && selectedIndex < ENTRIES.size() && ENTRIES.get(selectedIndex) == entry;
+                boolean selected = entry.fileName.equals(library.selectedFileName);
                 boolean hover = inside(mouseX, mouseY, cellX, rowY, actualW, ROW_H);
-                BuildStats stats = buildStats(entry, controller);
-                boolean enough = stats.percent() >= 100;
+                boolean enough = entry.buildPercent >= 100;
                 int bg = selected ? 0xCC2E654B : hover ? 0xAA2B3542 : enough ? 0x77253832 : 0x7731363E;
-                if (!entry.error().isBlank()) {
+                if (!entry.error.isBlank()) {
                     bg = selected ? 0xCC694238 : 0x77503A36;
                 }
                 RowActionLayout actions = rowActionLayout(font, cellX, rowY, actualW);
                 boolean showActions = hover || selected;
                 int rightTextX = showActions ? actions.saveX() - 4 : cellX + actualW - 38;
                 g.fill(cellX, rowY + 1, cellX + actualW, rowY + ROW_H - 1, bg);
-                g.drawString(font, trim(font, entry.name(), Math.max(32, rightTextX - cellX - 8)), cellX + 5, rowY + 4,
-                        entry.error().isBlank() ? 0xFFEAF2FF : 0xFFFFB0A0, false);
+                g.drawString(font, trim(font, entry.name, Math.max(32, rightTextX - cellX - 8)), cellX + 5, rowY + 4,
+                        entry.error.isBlank() ? 0xFFEAF2FF : 0xFFFFB0A0, false);
                 if (showActions) {
-                    if (entry.error().isBlank()) {
+                    if (entry.error.isBlank()) {
                         drawButton(g, font, actions.saveX(), actions.buttonY(), actions.saveW(), DETAIL_BUTTON_H,
                                 text("screen.rtsbuilding.blueprints.save_as_short"),
                                 inside(mouseX, mouseY, actions.saveX(), actions.buttonY(), actions.saveW(), DETAIL_BUTTON_H));
@@ -1353,16 +1495,16 @@ public final class BlueprintPanel {
                             text("screen.rtsbuilding.blueprints.delete"),
                             inside(mouseX, mouseY, actions.deleteX(), actions.buttonY(), actions.deleteW(), DETAIL_BUTTON_H));
                 } else {
-                    g.drawString(font, stats.percent() + "%", cellX + actualW - 36, rowY + 4,
+                    g.drawString(font, entry.buildPercent + "%", cellX + actualW - 36, rowY + 4,
                             enough ? 0xFF9BE6A5 : 0xFF9CA6B2, false);
                 }
-                g.drawString(font, trim(font, entry.sizeText(), Math.max(24, actualW - 70)), cellX + 5, rowY + 14,
+                g.drawString(font, trim(font, entry.size, Math.max(24, actualW - 70)), cellX + 5, rowY + 14,
                         0xFF8FA2B7, false);
                 int barX = cellX + 64;
                 int barY = rowY + ROW_H - 5;
                 int barW = Math.max(12, cellX + actualW - barX - 4);
                 g.fill(barX, barY, barX + barW, barY + 2, 0xAA0C1118);
-                int fillW = Mth.clamp(stats.percent(), 0, 100) * barW / 100;
+                int fillW = entry.buildPercent * barW / 100;
                 g.fill(barX, barY, barX + fillW, barY + 2, enough ? 0xFF62D77A : 0xFFE4B04D);
             }
         }
@@ -1379,34 +1521,38 @@ public final class BlueprintPanel {
                 textX, textY, 0xFFFFC06C, false);
     }
 
-    private static void renderDetails(GuiGraphics g, Font font, ClientRtsController controller,
+    private static void renderDetails(GuiGraphics g, Font font, BlueprintLibraryUiState library,
             int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(g, x, y, w, h, 0x8811161E, 0xFF415266, 0xFF0B0E13);
-        BlueprintEntry entry = selectedEntry();
+        BlueprintLibraryUiEntry entry = library.selectedEntry();
         if (entry == null) {
             g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.select_hint"), w - 12), x + 6, y + 8,
                     0xFF9EACB9, false);
             return;
         }
-        g.drawString(font, trim(font, entry.name(), w - 12), x + 6, y + 6, 0xFFEAF2FF, false);
-        g.drawString(font, entry.format().extension().toUpperCase(Locale.ROOT) + "  " + entry.sizeText(), x + 6, y + 18,
+        g.drawString(font, trim(font, entry.name, w - 12), x + 6, y + 6, 0xFFEAF2FF, false);
+        g.drawString(font, entry.format + "  " + entry.size, x + 6, y + 18,
                 0xFF9EACB9, false);
-        BuildStats stats = buildStats(entry, controller);
-        boolean enough = stats.percent() >= 100;
-        String materialLine = materialSummary(entry, controller, stats);
-        g.drawString(font, trim(font, materialLine, w - 12), x + 6, y + 31, enough ? 0xFF8EEA9B : 0xFFFFC06C, false);
+        if (!entry.valid()) {
+            g.drawString(font, trim(font, entry.error, w - 12), x + 6,
+                    Math.min(y + 31, y + h - font.lineHeight - 4), 0xFFFFA0A0, false);
+            return;
+        }
+        boolean enough = entry.buildPercent >= 100;
+        g.drawString(font, trim(font, entry.materialSummary, w - 12), x + 6, y + 31,
+                enough ? 0xFF8EEA9B : 0xFFFFC06C, false);
 
         int progressX = x + 6;
         int progressY = y + 44;
         int progressW = Math.max(36, w - 12);
         g.fill(progressX, progressY, progressX + progressW, progressY + 4, 0xAA0C1118);
-        g.fill(progressX, progressY, progressX + Mth.clamp(stats.percent(), 0, 100) * progressW / 100, progressY + 4,
+        g.fill(progressX, progressY, progressX + entry.buildPercent * progressW / 100, progressY + 4,
                 enough ? 0xFF62D77A : 0xFFE4B04D);
 
         int contentY = y + 56;
-        renderPreviewItems(g, entry, x + 6, contentY, y + h - 4);
-        if (!entry.error().isBlank()) {
-            g.drawString(font, trim(font, entry.error(), w - 12), x + 6, y + h - 16, 0xFFFFA0A0, false);
+        BlueprintEntry productionEntry = entryByFileName(entry.fileName);
+        if (productionEntry != null) {
+            renderPreviewItems(g, productionEntry, x + 6, contentY, y + h - 4);
         }
     }
 

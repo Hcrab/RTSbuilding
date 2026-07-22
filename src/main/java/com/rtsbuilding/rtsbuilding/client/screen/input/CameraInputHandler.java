@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
@@ -435,11 +436,9 @@ public final class CameraInputHandler {
                 if (preview.isEmpty()) {
                     preview = List.of(hit.getBlockPos().immutable());
                 }
-                screen.getShapeController().rememberConfirmedChainDestroyPreview(preview);
-                // 记录连锁破坏操作到撤回栈（等待服务端确认）
-                screen.getShapeController().recordPendingBreakForUndo(preview, hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
-                        screen.getSelectedToolSlot(), screen.getUltimineLimit(), (byte) 0);
+                if (!UltimineUiAdapter.confirmPreview(screen, hit, preview)) {
+                    return false;
+                }
             } else {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(

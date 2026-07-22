@@ -163,6 +163,8 @@ dependencies {
     testImplementation 'org.xerial:sqlite-jdbc:3.46.0.0'
 }
 
+apply from: 'gradle/rts-ui.gradle'
+
 // ======================================================================
 // Test task
 // ======================================================================

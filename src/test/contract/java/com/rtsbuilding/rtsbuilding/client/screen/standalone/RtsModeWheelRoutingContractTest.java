@@ -15,15 +15,19 @@ class RtsModeWheelRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String topBar = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
+        String topBarAdapter = source(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java");
 
         String selection = methodBody(screen, "private void selectModeFromWheel(BuilderMode mode)");
         assertTrue(selection.contains("this.controller.setMode(mode)"),
                 "轮盘必须提交到统一 BuilderMode，不能维护独立显示状态");
-        assertTrue(topBar.contains("topActionForMode() == TopAction.INTERACT"));
-        assertTrue(topBar.contains("topActionForMode() == TopAction.LINK"));
-        assertTrue(topBar.contains("topActionForMode() == TopAction.FUNNEL"));
-        assertTrue(topBar.contains("topActionForMode() == TopAction.ROTATE"));
-        assertTrue(topBar.contains("switch (this.controller.getMode())"),
+        assertTrue(topBar.contains("TopBarUiAdapter.snapshot(screen, controller)"));
+        assertTrue(topBarAdapter.contains("mode(controller.getMode())"));
+        assertTrue(topBarAdapter.contains("case INTERACT -> TopBarUiState.Mode.INTERACT"));
+        assertTrue(topBarAdapter.contains("case LINK_STORAGE -> TopBarUiState.Mode.LINK_STORAGE"));
+        assertTrue(topBarAdapter.contains("case FUNNEL -> TopBarUiState.Mode.FUNNEL"));
+        assertTrue(topBarAdapter.contains("case ROTATE -> TopBarUiState.Mode.ROTATE"));
+        assertTrue(topBarAdapter.contains("controller.getMode()"),
                 "顶部栏选中样式必须直接读取统一 BuilderMode");
     }
 

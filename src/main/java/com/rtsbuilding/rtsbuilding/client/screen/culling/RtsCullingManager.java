@@ -44,6 +44,7 @@ public final class RtsCullingManager {
     private BlockPos secondCorner;
     private int previewHeight = DEFAULT_HEIGHT;
     private Phase phase = Phase.IDLE;
+    private Runnable stateChangeListener = () -> { };
 
     public boolean isManagementMode() {
         return managementMode;
@@ -55,6 +56,15 @@ public final class RtsCullingManager {
 
     public List<RtsCullingBox> boxes() {
         return List.copyOf(boxes);
+    }
+
+    public List<BlockPos> revealedBlocks() {
+        return List.copyOf(revealedBlocks);
+    }
+
+    /** 设置正式剔除状态变化后的持久化回调；草稿移动不会触发保存。 */
+    public void setStateChangeListener(Runnable listener) {
+        this.stateChangeListener = listener == null ? () -> { } : listener;
     }
 
     public Optional<RtsCullingBox> selectedBox() {
@@ -280,6 +290,7 @@ public final class RtsCullingManager {
         this.selectedId = box.id();
         cancelDraft();
         markBoxDirty(box);
+        notifyStateChanged();
         return true;
     }
 
@@ -295,6 +306,7 @@ public final class RtsCullingManager {
         handleInteraction.clear();
         boxAnimator.clearIfBox(deleting);
         removed.ifPresent(this::markBoxDirty);
+        notifyStateChanged();
         return true;
     }
 
@@ -312,6 +324,7 @@ public final class RtsCullingManager {
             boxes.set(i, resized);
             markBoxDirty(box);
             markBoxDirty(resized);
+            notifyStateChanged();
             return;
         }
     }
@@ -330,6 +343,7 @@ public final class RtsCullingManager {
             boxes.set(i, resized);
             markBoxDirty(box);
             markBoxDirty(resized);
+            notifyStateChanged();
             return true;
         }
         return false;
@@ -352,6 +366,7 @@ public final class RtsCullingManager {
             boxes.set(i, moved);
             markBoxDirty(box);
             markBoxDirty(moved);
+            notifyStateChanged();
             return true;
         }
         return false;
@@ -398,6 +413,7 @@ public final class RtsCullingManager {
         }
         if (revealedBlocks.add(immutable)) {
             markBlockDirty(immutable);
+            notifyStateChanged();
         }
     }
 
@@ -405,6 +421,49 @@ public final class RtsCullingManager {
         markAllBoxesDirty();
         markBoxDirty(activePreviewBox());
         revealedBlocks.forEach(this::markBlockDirty);
+    }
+
+    /**
+     * 离开当前世界时彻底丢弃只属于该世界的剔除编辑状态。
+     *
+     * <p>范围剔除盒使用世界坐标，不能跨服务器、存档或维度复用。这里不请求旧世界重建网格，
+     * 因为调用时客户端正在卸载旧世界；新世界会用空状态正常编译区块。</p>
+     */
+    public void clearWorldState() {
+        this.managementMode = false;
+        this.boxes.clear();
+        this.revealedBlocks.clear();
+        this.nextId = 1;
+        this.selectedId = -1;
+        this.hoveredId = -1;
+        this.handleInteraction.clear();
+        this.boxAnimator.clear();
+        cancelDraft();
+    }
+
+    /** 用当前存档、当前维度从服务端恢复的快照替换内存状态。 */
+    public void replaceWorldState(List<RtsCullingBox> restoredBoxes, List<BlockPos> restoredRevealedBlocks) {
+        clearWorldState();
+        if (restoredBoxes != null) {
+            for (RtsCullingBox box : restoredBoxes) {
+                if (box == null) {
+                    continue;
+                }
+                RtsCullingBox normalized = new RtsCullingBox(nextId++, box.min(), box.max());
+                this.boxes.add(normalized);
+            }
+        }
+        if (restoredRevealedBlocks != null) {
+            restoredRevealedBlocks.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .map(BlockPos::immutable)
+                    .forEach(this.revealedBlocks::add);
+        }
+        refreshWorldCullRendering();
+    }
+
+    private void notifyStateChanged() {
+        stateChangeListener.run();
     }
 
     private double distanceAfterCulledBlockIn(List<RtsCullingBox> candidates, Vec3 origin, Vec3 direction,

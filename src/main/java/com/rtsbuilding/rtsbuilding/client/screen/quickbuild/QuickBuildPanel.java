@@ -4,16 +4,21 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowSlider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -22,7 +27,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -36,24 +40,24 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 public final class QuickBuildPanel extends RtsWindowPanel {
 
     /** 右侧列（填充/旋转）相对于窗口左边缘的偏移 */
-    private static final int RIGHT_COL_X = 88;
+    private static final int RIGHT_COL_X = QuickBuildWindowLayout.RIGHT_COL_X;
 
     /** 形状按钮行间距 */
-    private static final int SHAPE_ROW_PITCH = QUICK_BUILD_SHAPE_SLOT + 6;
-    private static final int MODE_TOGGLE_H = 18;
-    private static final int MODE_TOGGLE_GAP = 4;
-    private static final int MODE_ROW_TOP = 5;
-    private static final int SECTION_TOP = 31;
+    private static final int SHAPE_ROW_PITCH = QuickBuildWindowLayout.SHAPE_ROW_PITCH;
+    private static final int MODE_TOGGLE_H = QuickBuildWindowLayout.MODE_H;
+    private static final int MODE_TOGGLE_GAP = QuickBuildWindowLayout.MODE_GAP;
+    private static final int MODE_ROW_TOP = QuickBuildWindowLayout.MODE_TOP;
+    private static final int SECTION_TOP = QuickBuildWindowLayout.SECTION_TOP;
     /** 连锁破坏滑条 */
 
     // ======================== 面板尺寸 ========================
-    private static final int QUICK_BUILD_PANEL_W = 178;
-    private static final int QUICK_BUILD_PANEL_H = 222;
-    private static final int QUICK_BUILD_DESTROY_PANEL_H = QUICK_BUILD_PANEL_H + SHAPE_ROW_PITCH;
-    private static final int QUICK_BUILD_PANEL_MIN_H = 222;
+    private static final int QUICK_BUILD_PANEL_W = QuickBuildWindowLayout.WINDOW_W;
+    private static final int QUICK_BUILD_PANEL_H = QuickBuildWindowLayout.BUILD_BASE_H;
+    private static final int QUICK_BUILD_DESTROY_PANEL_H = QuickBuildWindowLayout.DESTROY_BASE_H;
+    private static final int QUICK_BUILD_PANEL_MIN_H = QuickBuildWindowLayout.BUILD_BASE_H;
 
     /** 底部提示文字区域额外高度 */
-    private static final int BOTTOM_INFO_H = 72;
+    private static final int BOTTOM_INFO_H = QuickBuildWindowLayout.BOTTOM_INFO_H;
     private static final int BOTTOM_TEXT_MAX_LINES = 3;
 
     /** 选择指示器贴图 */
@@ -270,9 +274,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private void createShapeButtons() {
+        QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         shapeButtons = new WindowButton[currentShapeCount()];
         for (int i = 0; i < shapeButtons.length; i++) {
-            shapeButtons[i] = createShapeButton(i);
+            shapeButtons[i] = createShapeButton(core, i);
         }
     }
 
@@ -280,9 +285,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * 创建指定索引的形状按钮，使用 WindowButton 内置纹理渲染。
      * 选中状态：始终显示下半（active）贴图；未选中：上半（inactive），悬停时切换至下半。
      */
-    private WindowButton createShapeButton(int index) {
+    private WindowButton createShapeButton(QuickBuildUiState core, int index) {
+        QuickBuildUiShapeOption option = core.shapes.get(index);
         ResourceLocation texture = currentShapeTexture(index);
-        boolean selected = isCurrentShapeSelected(index);
+        boolean selected = option.selected;
         int normalV = selected ? SHAPE_STATE_H : 0;
         WindowButton button = new WindowButton(0, 0,
                 QUICK_BUILD_SHAPE_SLOT, QUICK_BUILD_SHAPE_SLOT,
@@ -292,10 +298,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 SHAPE_SHEET_W, SHAPE_STATE_H,
                 SHAPE_STATE_H, SHAPE_STATE_H,
                 SHAPE_SHEET_W, SHAPE_SHEET_H,
-                btn -> selectShape(index));
-        if (isDestroyModeActive()) {
-            button.active = canUseDestroyShape(DESTROY_SHAPES[index]);
-        }
+                btn -> dispatchCore(QuickBuildUiAction.shape(option.shape)));
+        button.active = option.enabled;
         return button;
     }
 
@@ -304,7 +308,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         createShapeButtons();
     }
 
-    private void rebuildFillModeButtons() {
+    void rebuildFillModeButtons() {
         if (isRangeDestroyChainMode()) {
             this.lastFillShape = controller.getBuildShape();
             this.lastAreaMineShape = this.rangeDestroyShape;
@@ -314,66 +318,19 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
         this.lastFillShape = controller.getBuildShape();
         this.lastAreaMineShape = this.rangeDestroyShape;
-        List<ShapeFillMode> modes =
-                ShapeGeometryUtil.availableFillModes(controller.getBuildShape());
-        fillModeButtons = new WindowButton[modes.size()];
-        for (int i = 0; i < modes.size(); i++) {
-            int idx = i;
-            fillModeButtons[i] = new WindowButton(0, 0, 84, 20,
-                    Component.literal(screen.fillModeLabel(modes.get(i))), btn -> {
-                // 直接读写模式对应的独立字段，避免经过 syncActiveToModeFields 中转
-                if (isDestroyModeActive()) {
-                    screen.getShapeController().setDestroyShapeFillMode(modes.get(idx));
-                } else {
-                    screen.getShapeController().setBuildShapeFillMode(modes.get(idx));
-                }
-                screen.persistUiState();
-            });
+        QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
+        List<WindowButton> rightButtons = new java.util.ArrayList<>();
+        this.connectToggle = null;
+        for (QuickBuildUiControl control : core.controls) {
+            WindowButton button = new WindowButton(0, 0,
+                    QuickBuildWindowLayout.CONTROL_W, QuickBuildWindowLayout.CONTROL_H,
+                    Component.literal(control.label),
+                    btn -> dispatchCore(QuickBuildUiAction.control(control.id)));
+            button.active = control.enabled;
+            if (control.id == QuickBuildUiControl.Id.CONNECT) this.connectToggle = button;
+            else rightButtons.add(button);
         }
-        // 连接模式按钮（LINE/WALL 形状时显示）
-        if (controller.getBuildShape() == BuildShape.LINE || controller.getBuildShape() == BuildShape.WALL) {
-            this.connectToggle = new WindowButton(0, 0, 84, 20,
-                    Component.literal(screen.text("screen.rtsbuilding.quick_build.connect")), btn -> {
-                // 直接读写模式对应的独立字段，避免经过 syncActiveToModeFields 中转
-                if (isDestroyModeActive()) {
-                    boolean next = !screen.getShapeController().isDestroyLineConnected();
-                    screen.getShapeController().setDestroyLineConnected(next);
-                } else {
-                    boolean next = !screen.getShapeController().isBuildLineConnected();
-                    screen.getShapeController().setBuildLineConnected(next);
-                }
-                screen.persistUiState();
-            });
-        } else {
-            this.connectToggle = null;
-        }
-        BuildShape orientedShape = activeAdvancedShape();
-        if (supportsVerticalToggle(orientedShape)) {
-            WindowButton[] next = Arrays.copyOf(fillModeButtons, fillModeButtons.length + 1);
-            int verticalIndex = fillModeButtons.length;
-            next[verticalIndex] = new WindowButton(0, 0, 84, 20,
-                    Component.translatable("screen.rtsbuilding.quick_build.vertical"), btn -> {
-                BuildShape shape = activeAdvancedShape();
-                setRoundShapeVertical(shape, !isRoundShapeVertical(shape));
-                screen.clearShapeBuildSession();
-                screen.persistUiState();
-                rebuildFillModeButtons();
-            });
-            fillModeButtons = next;
-        }
-        BuildShape advancedShape = activeAdvancedShape();
-        if (supportsAdvancedShape(advancedShape)) {
-            WindowButton[] next = Arrays.copyOf(fillModeButtons, fillModeButtons.length + 1);
-            int advancedIndex = fillModeButtons.length;
-            next[advancedIndex] = new WindowButton(0, 0, 84, 20,
-                    Component.translatable("screen.rtsbuilding.quick_build.advanced_box"), btn -> {
-                BuildShape shape = activeAdvancedShape();
-                setAdvancedShape(shape, !isAdvancedShape(shape));
-                screen.clearShapeBuildSession();
-                screen.persistUiState();
-            });
-            fillModeButtons = next;
-        }
+        fillModeButtons = rightButtons.toArray(new WindowButton[0]);
     }
 
     private int currentShapeCount() {
@@ -386,23 +343,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private String currentShapeTooltipKey(int index) {
         return isDestroyModeActive() ? DESTROY_SHAPE_TOOLTIP_KEYS[index] : BUILD_SHAPE_TOOLTIP_KEYS[index];
-    }
-
-    private boolean isCurrentShapeSelected(int index) {
-        return isDestroyModeActive()
-                ? effectiveRangeDestroyShape() == DESTROY_SHAPES[index]
-                : this.buildModeShape == BUILD_SHAPES[index];
-    }
-
-    private void selectShape(int index) {
-        if (isDestroyModeActive()) {
-            AreaMineShape shape = DESTROY_SHAPES[index];
-            if (canUseDestroyShape(shape)) {
-                setRangeDestroyShape(shape);
-            }
-            return;
-        }
-        setBuildModeShape(BUILD_SHAPES[index]);
     }
 
     public BuildShape getBuildModeShape() {
@@ -490,12 +430,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int sliderW = Math.max(50, windowWidth - RIGHT_COL_X - 40);
         this.chainLimitSlider = new WindowSlider(0, 0, sliderW, 18,
                 ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT, this.chainDestroyLimit);
-        this.chainLimitSlider.onChange(value -> {
-            this.chainDestroyLimit = value;
-            if (screen != null) {
-                screen.persistUiState();
-            }
-        });
+        this.chainLimitSlider.onChange(value -> dispatchCore(QuickBuildUiAction.limit(value)));
     }
 
     private static int sanitizeChainLimit(int value) {
@@ -509,7 +444,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      */
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.windowHeight = currentBasePanelHeight() + BOTTOM_INFO_H;
+        this.windowHeight = QuickBuildWindowLayout.windowHeight(isDestroyModeActive());
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -530,23 +465,20 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderModeToggles(GuiGraphics g, int mouseX, int mouseY) {
-        int bodyY = contentY();
-        int totalW = this.windowWidth - 16;
-        int buttonW = (totalW - MODE_TOGGLE_GAP) / 2;
-        int buildX = this.windowX + 8;
-        int destroyX = buildX + buttonW + MODE_TOGGLE_GAP;
-        int y = bodyY + MODE_ROW_TOP;
-        renderModeToggle(g, buildX, y, buttonW, QuickBuildMode.BUILD,
+    private void renderModeToggles(GuiGraphics g, QuickBuildUiState core, int mouseX, int mouseY) {
+        QuickBuildWindowLayout.Geometry layout = QuickBuildWindowLayout.geometry(
+                this.windowX, this.windowY, core.mode == QuickBuildUiMode.DESTROY);
+        renderModeToggle(g, core, layout.buildModeX, layout.modeY, layout.modeW, QuickBuildUiMode.BUILD,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_build"), mouseX, mouseY);
-        renderModeToggle(g, destroyX, y, buttonW, QuickBuildMode.DESTROY,
+        renderModeToggle(g, core, layout.destroyModeX, layout.modeY, layout.modeW, QuickBuildUiMode.DESTROY,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"), mouseX, mouseY);
     }
 
-    private void renderModeToggle(GuiGraphics g, int x, int y, int w, QuickBuildMode mode,
+    private void renderModeToggle(GuiGraphics g, QuickBuildUiState core,
+            int x, int y, int w, QuickBuildUiMode mode,
             Component label, int mouseX, int mouseY) {
-        boolean enabled = mode != QuickBuildMode.DESTROY || canUseRangeDestroy();
-        boolean active = this.quickBuildMode == mode && enabled;
+        boolean enabled = mode != QuickBuildUiMode.DESTROY || core.destroyEnabled;
+        boolean active = core.mode == mode && enabled;
         boolean hovered = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + MODE_TOGGLE_H;
         int border = !enabled ? 0xFF3A4652 : (active ? 0xFF5FE36C : (hovered ? 0xFF7B91A6 : 0xFF647B92));
         int bg = !enabled ? 0xFF111720 : (active ? 0xFF29583E : (hovered ? 0xFF223040 : 0xFF141C26));
@@ -558,15 +490,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         g.drawString(screen.font(), label, labelX, labelY, color, false);
     }
 
-    private void renderProgressStrip(GuiGraphics g, int x, int dividerY) {
+    private void renderProgressStrip(GuiGraphics g, QuickBuildUiState core, int x, int dividerY) {
         int barX = x + 8;
         int barY = dividerY + 4;
         int barW = this.windowWidth - 16;
         int barH = 4;
         g.fill(barX, barY, barX + barW, barY + barH, 0xFF0B1118);
-        RtsWorkflowStatus workflow = this.controller.findActiveDestroyWorkflow();
-        int processed = workflow != null ? workflow.completedBlocks() : -1;
-        int total = workflow != null ? workflow.totalBlocks() : 0;
+        int processed = core.progressCompleted;
+        int total = core.progressTotal;
         if (processed >= 0 && total > 0) {
             int filled = Math.min(barW, Math.round(barW * (processed / (float) total)));
             g.fill(barX, barY, barX + filled, barY + barH, 0xFFFF8EAD);
@@ -577,11 +508,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         int x = this.windowX;
         int y = this.windowY;
         int bodyY = contentY();
-        renderModeToggles(g, mouseX, mouseY);
-        int shapeTitleY = bodyY + SECTION_TOP;
+        QuickBuildWindowLayout.Geometry sharedLayout = QuickBuildWindowLayout.geometry(
+                x, y, core.mode == QuickBuildUiMode.DESTROY);
+        renderModeToggles(g, core, mouseX, mouseY);
+        int shapeTitleY = sharedLayout.sectionTitleY;
 
         // --- 形状模式 ---
         g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.shape"),
@@ -589,15 +523,15 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
         // --- 形状按钮 ---
         for (int i = 0; i < shapeButtons.length; i++) {
-            int col = i % 2;
-            int row = i / 2;
-            int slotX = x + 8 + (col * (QUICK_BUILD_SHAPE_SLOT + QUICK_BUILD_SHAPE_GAP));
-            int slotY = bodyY + SECTION_TOP + 15 + (row * SHAPE_ROW_PITCH);
+            int slotX = sharedLayout.shapeX(i);
+            int slotY = sharedLayout.shapeY(i);
             shapeButtons[i].setX(slotX);
             shapeButtons[i].setY(slotY);
-            shapeButtons[i].active = !isDestroyModeActive() || canUseDestroyShape(DESTROY_SHAPES[i]);
-            if (isDestroyModeActive() && DESTROY_SHAPES[i] == AreaMineShape.CHAIN
-                    && isRangeDestroyChainMode()) {
+            QuickBuildUiShapeOption option = core.shapes.get(i);
+            shapeButtons[i].active = option.enabled;
+            if (core.mode == QuickBuildUiMode.DESTROY
+                    && option.shape == com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape.CHAIN
+                    && core.chainMode()) {
                 g.fill(slotX, slotY, slotX + QUICK_BUILD_SHAPE_SLOT, slotY + QUICK_BUILD_SHAPE_SLOT, 0xFF78B28C);
                 g.fill(slotX + 2, slotY + 2, slotX + QUICK_BUILD_SHAPE_SLOT - 2,
                         slotY + QUICK_BUILD_SHAPE_SLOT - 2, 0xFF163222);
@@ -606,11 +540,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         }
 
         // --- 填充模式 ---
-        int rightX = x + RIGHT_COL_X;
+        int rightX = sharedLayout.rightX;
         g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.fill"),
                 rightX, shapeTitleY, 0xD8E3EE, false);
 
-        if (isRangeDestroyChainMode()) {
+        if (core.chainMode()) {
             ensureChainLimitSlider();
             int labelY = bodyY + SECTION_TOP + 17;
             g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.quick_build.chain_limit_label"),
@@ -621,33 +555,20 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             this.chainLimitSlider.setY(labelY + 14);
             this.chainLimitSlider.render(g, mouseX, mouseY, partialTick);
             // 显示当前值
-            String valueStr = Integer.toString(this.chainDestroyLimit);
+            String valueStr = Integer.toString(core.chainLimit);
             g.drawString(screen.font(), valueStr, rightX + sliderW + 6, labelY + 16, 0xFFEAF4FF, false);
         } else if (fillModeButtons == null || controller.getBuildShape() != lastFillShape
                 || (isDestroyModeActive() && this.rangeDestroyShape != this.lastAreaMineShape)) {
             rebuildFillModeButtons();
         }
-        List<ShapeFillMode> modes =
-                ShapeGeometryUtil.availableFillModes(controller.getBuildShape());
+        List<QuickBuildUiControl> visibleControls = coreControlsWithoutConnect(core);
         for (int i = 0; fillModeButtons != null && i < fillModeButtons.length; i++) {
-            int rowY = bodyY + SECTION_TOP + 15 + (i * 38); // 垂直居中对齐对应行的形状按钮
+            int rowY = sharedLayout.controlY(i);
             fillModeButtons[i].setX(rightX);
             fillModeButtons[i].setY(rowY);
             fillModeButtons[i].render(g, mouseX, mouseY, partialTick);
 
-            BuildShape advancedShape = activeAdvancedShape();
-            int verticalIndex = verticalButtonIndex(modes);
-            int advancedIndex = advancedButtonIndex(modes);
-            boolean verticalButton = i == verticalIndex;
-            boolean advancedButton = supportsAdvancedShape(advancedShape)
-                    && i == advancedIndex;
-            boolean selected = verticalButton
-                    ? isRoundShapeVertical(advancedShape)
-                    : advancedButton
-                    ? isAdvancedShape(advancedShape)
-                    : i < modes.size() && (isDestroyModeActive()
-                            ? screen.getShapeController().getDestroyShapeFillMode()
-                            : screen.getShapeController().getBuildShapeFillMode()) == modes.get(i);
+            boolean selected = i < visibleControls.size() && visibleControls.get(i).selected;
             boolean hovered = fillModeButtons[i].isHoveredOrFocused();
             int vOffset = selected ? MODE_BUTTON_STATE_H * 2 : (hovered ? MODE_BUTTON_STATE_H : 0);
             RtsTextureRenderer.drawTextureHighPrecision(
@@ -661,15 +582,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
         // --- 连接模式按钮（LINE/WALL 形状时在填充模式下方显示） ---
         if (this.connectToggle != null) {
-            int connectRowY = bodyY + SECTION_TOP + 15
-                    + ((fillModeButtons == null ? modes.size() : fillModeButtons.length) * 38);
+            int connectRowY = sharedLayout.controlY(
+                    fillModeButtons == null ? visibleControls.size() : fillModeButtons.length);
             this.connectToggle.setX(rightX);
             this.connectToggle.setY(connectRowY);
             this.connectToggle.render(g, mouseX, mouseY, partialTick);
 
-            boolean connected = isDestroyModeActive()
-                    ? screen.getShapeController().isDestroyLineConnected()
-                    : screen.getShapeController().isBuildLineConnected();
+            QuickBuildUiControl connect = core.control(QuickBuildUiControl.Id.CONNECT);
+            boolean connected = connect != null && connect.selected;
             boolean hovered = this.connectToggle.isHoveredOrFocused();
             int vOffset = connected ? MODE_BUTTON_STATE_H * 2 : (hovered ? MODE_BUTTON_STATE_H : 0);
             RtsTextureRenderer.drawTextureHighPrecision(
@@ -684,35 +604,29 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         // --- 底部提示文字（仅在选中物品时显示，使用面板扩展区域） ---
         {
             // 分界线
-            int dividerY = y + currentBasePanelHeight();
+            int dividerY = sharedLayout.dividerY;
             g.fill(x + 6, dividerY - 1, x + windowWidth - 6, dividerY, 0xFF647B92);
-            renderProgressStrip(g, x, dividerY);
+            renderProgressStrip(g, core, x, dividerY);
 
             // 扩展区域中心线
             int textY = dividerY + 12;
             int itemY = textY - 4;
 
-            if (effectiveMode() == QuickBuildMode.DESTROY) {
-                RtsWorkflowStatus workflow = this.controller.findActiveDestroyWorkflow();
-                if (workflow != null) {
-                    String fullText = workflow.progressText() + "    "
-                            + screen.text("screen.rtsbuilding.quick_build.destroy_remaining", workflow.remainingBlocks());
+            if (core.mode == QuickBuildUiMode.DESTROY) {
+                if (core.progressCompleted >= 0 && core.progressTotal > 0) {
+                    String fullText = core.progressText + "    "
+                            + screen.text("screen.rtsbuilding.quick_build.destroy_remaining", core.remainingBlocks);
                     g.drawString(screen.font(), fullText, x + 8, textY, 0xFFB8FFB8, false);
-                    renderDimensionInfo(g, x + 8, textY + screen.font().lineHeight + 4, this.windowWidth - 16);
+                    renderDimensionInfo(g, core, x + 8, textY + screen.font().lineHeight + 4, this.windowWidth - 16);
                 } else {
-                    String hintKey = isRangeDestroyChainMode()
-                            ? "screen.rtsbuilding.quick_build.chain_hint"
-                            : isAdvancedShapeMode()
-                                    ? "screen.rtsbuilding.quick_build.destroy_advanced_box_hint"
-                                    : "screen.rtsbuilding.quick_build.destroy_hint";
-                    int nextY = renderBottomInfoText(g, Component.translatable(hintKey, confirmKeyLabel(true)),
+                    int nextY = renderBottomInfoText(g, Component.translatable(core.hintKey, core.confirmKeyLabel),
                             x + 8, textY, this.windowWidth - 16, 0xFFB8B8);
-                    renderDimensionInfo(g, x + 8, nextY + 3, this.windowWidth - 16);
+                    renderDimensionInfo(g, core, x + 8, nextY + 3, this.windowWidth - 16);
                 }
                 return;
             }
 
-            String costText = "x " + screen.currentShapeCostText();
+            String costText = "x " + core.costText;
             int textWidth = screen.font().width(costText);
             g.drawString(screen.font(), costText, x + 8, textY, 0xB8FFB8, false);
 
@@ -730,24 +644,19 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             // 仓库库存检查：缺少数量，紧靠右侧（创造模式下跳过）
             boolean isCreative = screen.getMinecraft().player != null && screen.getMinecraft().player.isCreative();
             if (!isCreative) {
-                String selectedId = controller.getSelectedItemId();
+                String selectedId = core.selectedItemId;
                 if (!selectedId.isBlank()) {
-                    try {
-                        long needed = Long.parseLong(screen.currentShapeCostText());
-                        long available = controller.getStorageTotalCount(selectedId);
-                        long missing = needed - available;
-                        if (missing > 0) {
-                            String missText = screen.text("screen.rtsbuilding.quick_build.missing_blocks", missing);
-                            int missTextX = rightEdge + 8;
-                            g.drawString(screen.font(), missText, missTextX, textY, 0xFFB8B8, false);
+                    long missing = core.missingBlocks;
+                    if (missing > 0) {
+                        String missText = screen.text("screen.rtsbuilding.quick_build.missing_blocks", missing);
+                        int missTextX = rightEdge + 8;
+                        g.drawString(screen.font(), missText, missTextX, textY, 0xFFB8B8, false);
 
-                            if (!preview.isEmpty()) {
-                                int missIconX = missTextX + screen.font().width(missText) + 4;
-                                g.renderItem(preview, missIconX, itemY);
-                                g.flush();
-                            }
+                        if (!preview.isEmpty()) {
+                            int missIconX = missTextX + screen.font().width(missText) + 4;
+                            g.renderItem(preview, missIconX, itemY);
+                            g.flush();
                         }
-                    } catch (NumberFormatException ignored) {
                     }
                 }
             }
@@ -757,7 +666,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     textY + screen.font().lineHeight + 3,
                     this.windowWidth - 16,
                     0xFFD8E8FF);
-            renderDimensionInfo(g, x + 8, nextY + 3, this.windowWidth - 16);
+            renderDimensionInfo(g, core, x + 8, nextY + 3, this.windowWidth - 16);
         }
     }
 
@@ -770,18 +679,27 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return y + lineCount * screen.font().lineHeight;
     }
 
-    private void renderDimensionInfo(GuiGraphics g, int x, int y, int maxWidth) {
+    private void renderDimensionInfo(GuiGraphics g, QuickBuildUiState core, int x, int y, int maxWidth) {
         Component text = Component.translatable(
                 "screen.rtsbuilding.quick_build.dimensions",
-                screen.currentShapeSizeText());
+                core.dimensions);
         String trimmed = screen.font().plainSubstrByWidth(text.getString(), Math.max(1, maxWidth));
         g.drawString(screen.font(), trimmed, x, y, 0xFFC9D8E8, false);
     }
 
-    private String confirmKeyLabel(boolean destroyMode) {
+    String confirmKeyLabel(boolean destroyMode) {
         return (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE)
                 .getTranslatedKeyMessage()
                 .getString();
+    }
+
+    /** 返回右栏非连接控件，顺序与生产按钮数组及共享 Core 完全一致。 */
+    private static List<QuickBuildUiControl> coreControlsWithoutConnect(QuickBuildUiState state) {
+        List<QuickBuildUiControl> result = new java.util.ArrayList<>();
+        for (QuickBuildUiControl control : state.controls) {
+            if (control.id != QuickBuildUiControl.Id.CONNECT) result.add(control);
+        }
+        return result;
     }
 
     // ======================== 输入处理 ========================
@@ -836,24 +754,25 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private boolean handleModeToggleClick(double mouseX, double mouseY) {
-        int bodyY = contentY();
-        int totalW = this.windowWidth - 16;
-        int buttonW = (totalW - MODE_TOGGLE_GAP) / 2;
-        int buildX = this.windowX + 8;
-        int destroyX = buildX + buttonW + MODE_TOGGLE_GAP;
-        int y = bodyY + MODE_ROW_TOP;
+        QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
+        QuickBuildWindowLayout.Geometry layout = QuickBuildWindowLayout.geometry(
+                this.windowX, this.windowY, core.mode == QuickBuildUiMode.DESTROY);
+        int buttonW = layout.modeW;
+        int buildX = layout.buildModeX;
+        int destroyX = layout.destroyModeX;
+        int y = layout.modeY;
         if (mouseY < y || mouseY >= y + MODE_TOGGLE_H) {
             return false;
         }
         if (mouseX >= buildX && mouseX < buildX + buttonW) {
-            setMode(QuickBuildMode.BUILD);
+            dispatchCore(QuickBuildUiAction.mode(QuickBuildUiMode.BUILD));
             return true;
         }
         if (mouseX >= destroyX && mouseX < destroyX + buttonW) {
             if (!canUseRangeDestroy()) {
                 return true;
             }
-            setMode(QuickBuildMode.DESTROY);
+            dispatchCore(QuickBuildUiAction.mode(QuickBuildUiMode.DESTROY));
             return true;
         }
         return false;
@@ -916,6 +835,27 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return this.quickBuildMode;
     }
 
+    /**
+     * 所有生产按钮先经过纯 reducer，再由 1.21.1 adapter 执行副作用。
+     * 这样离屏输入回放与真实窗口不会再维护两套模式/形状切换规则。
+     */
+    private QuickBuildUiTransition dispatchCore(QuickBuildUiAction action) {
+        QuickBuildUiTransition transition = QuickBuildUiReducer.apply(
+                QuickBuildUiAdapter.snapshot(this), action);
+        QuickBuildUiAdapter.apply(this, transition);
+        return transition;
+    }
+
+    /** 仅供同包生产 adapter 读取真实 Screen 副作用入口。 */
+    BuilderScreen uiScreen() {
+        return this.screen;
+    }
+
+    /** 仅供同包生产 adapter 读取真实控制器快照。 */
+    ClientRtsController uiController() {
+        return this.controller;
+    }
+
     public void setMode(QuickBuildMode mode) {
         QuickBuildMode next = mode == null ? QuickBuildMode.BUILD : mode;
         if (next == QuickBuildMode.DESTROY && !canUseRangeDestroy()) {
@@ -971,33 +911,22 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return supportsAdvancedShape(shape) && isAdvancedShape(shape);
     }
 
-    private BuildShape activeAdvancedShape() {
+    BuildShape activeAdvancedShape() {
         return isDestroyModeActive() ? toBuildShape(effectiveRangeDestroyShape()) : this.buildModeShape;
     }
 
-    private static boolean supportsAdvancedShape(BuildShape shape) {
+    static boolean supportsAdvancedShape(BuildShape shape) {
         return switch (shape == null ? BuildShape.BLOCK : shape) {
             case SQUARE, WALL, CIRCLE, CYLINDER, BALL, BOX -> true;
             case BLOCK, LINE -> false;
         };
     }
 
-    private static boolean supportsVerticalToggle(BuildShape shape) {
+    static boolean supportsVerticalToggle(BuildShape shape) {
         return shape == BuildShape.CIRCLE || shape == BuildShape.CYLINDER;
     }
 
-    private int verticalButtonIndex(List<ShapeFillMode> modes) {
-        return supportsVerticalToggle(activeAdvancedShape()) ? modes.size() : -1;
-    }
-
-    private int advancedButtonIndex(List<ShapeFillMode> modes) {
-        if (!supportsAdvancedShape(activeAdvancedShape())) {
-            return -1;
-        }
-        return modes.size() + (supportsVerticalToggle(activeAdvancedShape()) ? 1 : 0);
-    }
-
-    private boolean isAdvancedShape(BuildShape shape) {
+    boolean isAdvancedShape(BuildShape shape) {
         return switch (shape == null ? BuildShape.BLOCK : shape) {
             case SQUARE -> this.advancedRangeDestroySquare;
             case WALL -> this.advancedRangeDestroyWall;
@@ -1009,7 +938,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         };
     }
 
-    private void setAdvancedShape(BuildShape shape, boolean value) {
+    void setAdvancedShape(BuildShape shape, boolean value) {
         switch (shape == null ? BuildShape.BLOCK : shape) {
             case SQUARE -> this.advancedRangeDestroySquare = value;
             case WALL -> this.advancedRangeDestroyWall = value;
@@ -1029,7 +958,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         };
     }
 
-    private void setRoundShapeVertical(BuildShape shape, boolean value) {
+    void setRoundShapeVertical(BuildShape shape, boolean value) {
         switch (shape == null ? BuildShape.BLOCK : shape) {
             case CIRCLE -> this.circleVertical = value;
             case CYLINDER -> this.cylinderVertical = value;
@@ -1093,27 +1022,28 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * 仅在玩家选中了可放置的方块物品时扩展面板并显示。
      */
     private int currentBasePanelHeight() {
-        return isDestroyModeActive() ? QUICK_BUILD_DESTROY_PANEL_H : QUICK_BUILD_PANEL_H;
+        return isDestroyModeActive() ? QuickBuildWindowLayout.DESTROY_BASE_H
+                : QuickBuildWindowLayout.BUILD_BASE_H;
     }
 
-    private QuickBuildMode effectiveMode() {
+    QuickBuildMode effectiveMode() {
         return this.quickBuildMode == QuickBuildMode.DESTROY && !canUseRangeDestroy()
                 ? QuickBuildMode.BUILD
                 : this.quickBuildMode;
     }
 
-    private boolean isDestroyModeActive() {
+    boolean isDestroyModeActive() {
         return effectiveMode() == QuickBuildMode.DESTROY;
     }
 
-    private boolean canUseRangeDestroy() {
+    boolean canUseRangeDestroy() {
         return QuickBuildUnlockPolicy.canUseAnyDestroyShape(
                 this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),
                 hasPlugin(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN));
     }
 
-    private boolean canUseDestroyShape(AreaMineShape shape) {
+    boolean canUseDestroyShape(AreaMineShape shape) {
         return QuickBuildUnlockPolicy.canUseDestroyShape(
                 this.controller.isProgressionEnabled(),
                 hasPlugin(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN),

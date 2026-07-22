@@ -8,8 +8,11 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintInt3;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
@@ -30,27 +33,27 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 public final class BlueprintWindowPanel extends RtsWindowPanel {
     private static final int LEGACY_DEFAULT_W = 300;
     private static final int LEGACY_DEFAULT_H = 286;
-    private static final int PLACEMENT_PANEL_W = 248;
-    private static final int PLACEMENT_PANEL_H = 312;
-    private static final int CAPTURE_PANEL_W = 324;
-    private static final int CAPTURE_PANEL_H = 160;
+    private static final int PLACEMENT_PANEL_W = BlueprintWindowLayout.PLACEMENT_W;
+    private static final int PLACEMENT_PANEL_H = BlueprintWindowLayout.PLACEMENT_H;
+    private static final int CAPTURE_PANEL_W = BlueprintWindowLayout.CAPTURE_W;
+    private static final int CAPTURE_PANEL_H = BlueprintWindowLayout.CAPTURE_H;
     private static final int PLACEMENT_MIN_W = PLACEMENT_PANEL_W;
     private static final int PLACEMENT_MIN_H = PLACEMENT_PANEL_H;
     private static final int CAPTURE_MIN_W = CAPTURE_PANEL_W;
     private static final int CAPTURE_MIN_H = CAPTURE_PANEL_H;
-    private static final int PAD = 12;
-    private static final int GAP = 8;
-    private static final int CONTROL_GAP = 4;
-    private static final int SECTION_PAD = 8;
-    private static final int BUTTON_H = 20;
-    private static final int SMALL_BUTTON_W = 18;
+    private static final int PAD = BlueprintWindowLayout.PAD;
+    private static final int GAP = BlueprintWindowLayout.GAP;
+    private static final int CONTROL_GAP = BlueprintWindowLayout.CONTROL_GAP;
+    private static final int SECTION_PAD = BlueprintWindowLayout.SECTION_PAD;
+    private static final int BUTTON_H = BlueprintWindowLayout.BUTTON_H;
+    private static final int SMALL_BUTTON_W = BlueprintWindowLayout.SMALL_BUTTON_W;
     private static final int TEXTBOX_H = BUTTON_H;
     private static final int AXIS_LABEL_W = 10;
     private static final int AXIS_ROW_GAP = 6;
     private static final int CAPTURE_AXIS_INPUT_W = 36;
-    private static final int POSITION_AXIS_INPUT_W = 64;
-    private static final int DETAILS_BUTTON_W = 58;
-    private static final int STATUS_H = 34;
+    private static final int POSITION_AXIS_INPUT_W = BlueprintWindowLayout.POSITION_INPUT_W;
+    private static final int DETAILS_BUTTON_W = BlueprintWindowLayout.DETAILS_BUTTON_W;
+    private static final int STATUS_H = BlueprintWindowLayout.STATUS_H;
     private static final int FOOTER_GAP = 8;
 
     private WindowTextBox sizeXInput;
@@ -105,22 +108,25 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (BlueprintPanel.isCaptureModeActive()) {
-            renderCaptureContent(g, mouseX, mouseY, partialTick);
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
+        if (state.isCapture()) {
+            renderCaptureContent(g, mouseX, mouseY, partialTick, state);
         } else {
-            renderPlacementContent(g, mouseX, mouseY, partialTick);
+            renderPlacementContent(g, mouseX, mouseY, partialTick, state);
         }
     }
 
-    private void renderCaptureContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private void renderCaptureContent(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+                                      BlueprintUiState state) {
         syncCaptureInputs();
         int x = contentX() + PAD;
         int y = contentY() + 8;
         int w = contentWidth() - PAD * 2;
         int footerY = footerY();
         int statusY = footerY - STATUS_H - FOOTER_GAP;
-        boolean complete = BlueprintPanel.isCaptureSelectionComplete();
-        boolean saving = BlueprintPanel.isCaptureSaving();
+        boolean complete = state.mode == BlueprintUiState.Mode.CAPTURE_READY
+                || state.mode == BlueprintUiState.Mode.CAPTURE_SAVING;
+        boolean saving = state.mode == BlueprintUiState.Mode.CAPTURE_SAVING;
 
         drawSectionTitle(g, Component.translatable("screen.rtsbuilding.blueprints.capture_tool_title"), x, y);
         drawLabel(g, Component.translatable("screen.rtsbuilding.blueprints.capture_window_hint"),
@@ -129,16 +135,17 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 x, y + 26, 0xFF9FB3C8, w);
         if (complete) {
             drawLabel(g, Component.translatable("screen.rtsbuilding.blueprints.capture_size",
-                    BlueprintPanel.captureSizeText()), x, y + 42, 0xFFB7CDE2, w);
+                    state.captureSize.x + "x" + state.captureSize.y + "x" + state.captureSize.z),
+                    x, y + 42, 0xFFB7CDE2, w);
         }
 
         Component status = saving
-                ? Component.literal(BlueprintPanel.captureSaveProgressLine())
+                ? Component.literal(state.status)
                 : complete
                         ? Component.translatable("screen.rtsbuilding.blueprints.capture_blocks",
-                                Long.toString(BlueprintPanel.countCaptureBlocks()))
-                        : BlueprintPanel.statusText();
-        int statusColor = saving || complete ? 0xFFB7CDE2 : BlueprintPanel.statusColor();
+                                Long.toString(state.captureBlockCount))
+                        : Component.literal(state.status);
+        int statusColor = saving || complete ? 0xFFB7CDE2 : state.statusColor;
         renderStatusLine(g, x, statusY, w, status, statusColor);
 
         if (complete) {
@@ -152,18 +159,20 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         }
     }
 
-    private void renderPlacementContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private void renderPlacementContent(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+                                        BlueprintUiState state) {
         syncPlacementInputs();
         int x = contentX() + PAD;
         int y = contentY() + 8;
         int w = contentWidth() - PAD * 2;
         int actionY = placementActionY();
         int statusY = actionY - STATUS_H - FOOTER_GAP;
-        boolean pinned = BlueprintPanel.hasPinnedPreview();
+        boolean pinned = state.isPinned();
 
         int selectorH = 56;
         drawSectionFrame(g, x, y, w, selectorH);
-        renderBlueprintSelector(g, mouseX, mouseY, partialTick, x + SECTION_PAD, y + 8, w - SECTION_PAD * 2);
+        renderBlueprintSelector(g, mouseX, mouseY, partialTick,
+                x + SECTION_PAD, y + 8, w - SECTION_PAD * 2, state);
         y += selectorH + GAP;
 
         int positionH = 106;
@@ -190,7 +199,8 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 new FooterButton(this.clearButton, true, false));
     }
 
-    private void renderBlueprintSelector(GuiGraphics g, int mouseX, int mouseY, float partialTick, int x, int y, int w) {
+    private void renderBlueprintSelector(GuiGraphics g, int mouseX, int mouseY, float partialTick,
+                                         int x, int y, int w, BlueprintUiState state) {
         int buttonW = SMALL_BUTTON_W;
         int nameX = x + buttonW + GAP;
         int nameW = Math.max(56, w - buttonW * 2 - GAP * 2);
@@ -200,11 +210,11 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         nameX = nameGroupX + buttonW + CONTROL_GAP;
         renderButtonAt(g, this.previousButton, nameGroupX, y, buttonW, true, mouseX, mouseY, partialTick);
         renderButtonAt(g, this.nextButton, nameX + nameW + CONTROL_GAP, y, buttonW, true, mouseX, mouseY, partialTick);
-        String name = RtsClientUiUtil.trimToWidth(this.screen.font(), BlueprintPanel.selectedBlueprintName(), nameW);
+        String name = RtsClientUiUtil.trimToWidth(this.screen.font(), state.blueprintName, nameW);
         int nameDrawX = nameX + Math.max(0, (nameW - this.screen.font().width(name)) / 2);
         g.drawString(this.screen.font(), name, nameDrawX, y + 7, 0xFFEAF2FF, false);
 
-        String rawSize = BlueprintPanel.selectedBlueprintSizeText();
+        String rawSize = state.blueprintSize;
         int sizeW = Math.min(74, Math.max(42, this.screen.font().width(rawSize) + 6));
         int detailGroupW = sizeW + CONTROL_GAP + DETAILS_BUTTON_W;
         int sizeBoxX = x + Math.max(0, (w - detailGroupW) / 2);
@@ -408,7 +418,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (BlueprintPanel.isCaptureModeActive()
+        if (BlueprintUiStateAdapter.snapshot().isCapture()
                 && (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT || button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)) {
             return false;
         }
@@ -417,7 +427,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (BlueprintPanel.isCaptureModeActive()
+        if (BlueprintUiStateAdapter.snapshot().isCapture()
                 && (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT || button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)) {
             return false;
         }
@@ -429,7 +439,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return;
         }
-        if (BlueprintPanel.isCaptureModeActive()) {
+        if (BlueprintUiStateAdapter.snapshot().isCapture()) {
             handleCaptureClick(mouseX, mouseY, button);
         } else {
             handlePlacementClick(mouseX, mouseY, button);
@@ -492,7 +502,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
             }
             return focused.keyPressed(keyCode, scanCode, modifiers);
         }
-        if (BlueprintPanel.isCaptureModeActive()) {
+        if (BlueprintUiStateAdapter.snapshot().isCapture()) {
             return handleCaptureKey(keyCode);
         }
         return handlePlacementKey(keyCode, scanCode);
@@ -506,7 +516,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (BlueprintPanel.isCaptureModeActive()) {
+        if (BlueprintUiStateAdapter.snapshot().isCapture()) {
             return isOpen() && isInsideWindow(mouseX, mouseY);
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -515,22 +525,25 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     @Override
     protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
         int step = scrollY > 0.0D ? 1 : -1;
-        if (BlueprintPanel.hasPinnedPreview()) {
+        if (BlueprintUiStateAdapter.snapshot().isPinned()) {
             if (isMouseOver(this.posXInput, mouseX, mouseY)) {
                 commitPinnedPositionDraft();
-                BlueprintPanel.nudgePinnedAnchor(step, 0, 0, this.controller);
+                BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                        BlueprintUiAction.Type.NUDGE_ANCHOR, step, 0, 0), this.controller);
                 syncPinnedPositionInputs(true);
                 return true;
             }
             if (isMouseOver(this.posYInput, mouseX, mouseY)) {
                 commitPinnedPositionDraft();
-                BlueprintPanel.nudgePinnedAnchor(0, step, 0, this.controller);
+                BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                        BlueprintUiAction.Type.NUDGE_ANCHOR, 0, step, 0), this.controller);
                 syncPinnedPositionInputs(true);
                 return true;
             }
             if (isMouseOver(this.posZInput, mouseX, mouseY)) {
                 commitPinnedPositionDraft();
-                BlueprintPanel.nudgePinnedAnchor(0, 0, step, this.controller);
+                BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                        BlueprintUiAction.Type.NUDGE_ANCHOR, 0, 0, step), this.controller);
                 syncPinnedPositionInputs(true);
                 return true;
             }
@@ -541,40 +554,47 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     private boolean handleCaptureKey(int keyCode) {
         int step = isAltDown() ? 4 : 1;
         if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
-            BlueprintPanel.moveCaptureSelection(0, step, 0);
-            return true;
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.MOVE_CAPTURE, 0, step, 0), this.controller);
         }
         if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
-            BlueprintPanel.moveCaptureSelection(0, -step, 0);
-            return true;
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.MOVE_CAPTURE, 0, -step, 0), this.controller);
         }
         return false;
     }
 
     private boolean handlePlacementKey(int keyCode, int scanCode) {
         if (BlueprintPanel.isBlueprintRotateKey(keyCode, scanCode)) {
-            return BlueprintPanel.rotateSelectedBlueprintY(isShiftDown() ? -1 : 1);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.ROTATE_Y, 0, isShiftDown() ? -1 : 1, 0), this.controller);
         }
-        if (!BlueprintPanel.hasPinnedPreview()) {
+        if (!BlueprintUiStateAdapter.snapshot().isPinned()) {
             return false;
         }
         if (keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_KP_4) {
-            return BlueprintPanel.nudgePinnedAnchorRelative(-1, 0, 0, this.controller);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.NUDGE_ANCHOR_RELATIVE, -1, 0, 0), this.controller);
         }
         if (keyCode == GLFW.GLFW_KEY_RIGHT || keyCode == GLFW.GLFW_KEY_KP_6) {
-            return BlueprintPanel.nudgePinnedAnchorRelative(1, 0, 0, this.controller);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.NUDGE_ANCHOR_RELATIVE, 1, 0, 0), this.controller);
         }
         if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_KP_8) {
-            return BlueprintPanel.nudgePinnedAnchorRelative(0, 1, 0, this.controller);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.NUDGE_ANCHOR_RELATIVE, 0, 1, 0), this.controller);
         }
         if (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_KP_2) {
-            return BlueprintPanel.nudgePinnedAnchorRelative(0, -1, 0, this.controller);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.NUDGE_ANCHOR_RELATIVE, 0, -1, 0), this.controller);
         }
         if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
-            return BlueprintPanel.nudgePinnedAnchor(0, 1, 0, this.controller);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.NUDGE_ANCHOR, 0, 1, 0), this.controller);
         }
         if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
-            return BlueprintPanel.nudgePinnedAnchor(0, -1, 0, this.controller);
+            return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.NUDGE_ANCHOR, 0, -1, 0), this.controller);
         }
         return false;
     }
@@ -588,22 +608,25 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     private void commitCaptureSizeDraft() {
-        int x = parsePositive(this.sizeXInput.getValue(), BlueprintPanel.captureSizeX());
-        int y = parseNonNegative(this.sizeYInput.getValue(), BlueprintPanel.captureSizeY());
-        int z = parsePositive(this.sizeZInput.getValue(), BlueprintPanel.captureSizeZ());
-        BlueprintPanel.setCaptureSize(x, y, z);
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
+        int x = parsePositive(this.sizeXInput.getValue(), state.captureSize.x);
+        int y = parsePositive(this.sizeYInput.getValue(), state.captureSize.y);
+        int z = parsePositive(this.sizeZInput.getValue(), state.captureSize.z);
+        BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                BlueprintUiAction.Type.SET_CAPTURE_SIZE, x, y, z), this.controller);
         syncCaptureSizeInputs(true);
     }
 
     private void commitPinnedPositionDraft() {
-        BlockPos anchor = BlueprintPanel.getPinnedAnchor();
+        BlueprintInt3 anchor = BlueprintUiStateAdapter.snapshot().anchor;
         if (anchor == null) {
             return;
         }
-        int x = parseAnyInt(this.posXInput.getValue(), anchor.getX());
-        int y = parseAnyInt(this.posYInput.getValue(), anchor.getY());
-        int z = parseAnyInt(this.posZInput.getValue(), anchor.getZ());
-        BlueprintPanel.setPinnedAnchor(new BlockPos(x, y, z), this.controller);
+        int x = parseAnyInt(this.posXInput.getValue(), anchor.x);
+        int y = parseAnyInt(this.posYInput.getValue(), anchor.y);
+        int z = parseAnyInt(this.posZInput.getValue(), anchor.z);
+        BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                BlueprintUiAction.Type.SET_ANCHOR, x, y, z), this.controller);
         syncPinnedPositionInputs(true);
     }
 
@@ -645,7 +668,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     protected Component getTitle() {
-        return Component.translatable(BlueprintPanel.isCaptureModeActive()
+        return Component.translatable(BlueprintUiStateAdapter.snapshot().isCapture()
                 ? "screen.rtsbuilding.blueprints.window_title_capture"
                 : "screen.rtsbuilding.blueprints.window_title_placement");
     }
@@ -662,12 +685,12 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     protected int getMinWindowWidth() {
-        return BlueprintPanel.isCaptureModeActive() ? CAPTURE_MIN_W : PLACEMENT_MIN_W;
+        return BlueprintUiStateAdapter.snapshot().isCapture() ? CAPTURE_MIN_W : PLACEMENT_MIN_W;
     }
 
     @Override
     protected int getMinWindowHeight() {
-        return BlueprintPanel.isCaptureModeActive() ? CAPTURE_MIN_H : PLACEMENT_MIN_H;
+        return BlueprintUiStateAdapter.snapshot().isCapture() ? CAPTURE_MIN_H : PLACEMENT_MIN_H;
     }
 
     @Override
@@ -677,11 +700,11 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     private int preferredWindowWidth() {
-        return BlueprintPanel.isCaptureModeActive() ? CAPTURE_PANEL_W : PLACEMENT_PANEL_W;
+        return BlueprintUiStateAdapter.snapshot().isCapture() ? CAPTURE_PANEL_W : PLACEMENT_PANEL_W;
     }
 
     private int preferredWindowHeight() {
-        return BlueprintPanel.isCaptureModeActive() ? CAPTURE_PANEL_H : PLACEMENT_PANEL_H;
+        return BlueprintUiStateAdapter.snapshot().isCapture() ? CAPTURE_PANEL_H : PLACEMENT_PANEL_H;
     }
 
     private void fitWindowToBlueprintMode() {
@@ -707,17 +730,20 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     @Override
     protected void onClose() {
-        if (BlueprintPanel.isCaptureModeActive()) {
-            BlueprintPanel.cancelCaptureMode();
-        } else if (BlueprintPanel.hasSelectedBlueprint()) {
-            BlueprintPanel.clearSelectedBlueprint();
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
+        if (state.isCapture()) {
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CANCEL_CAPTURE), this.controller);
+        } else if (state.mode != BlueprintUiState.Mode.HIDDEN) {
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CLEAR), this.controller);
         }
         clearFocus();
     }
 
     private boolean shouldRepresentBlueprintState() {
         return Config.areBlueprintsEnabled()
-                && (BlueprintPanel.isCaptureModeActive() || BlueprintPanel.hasSelectedBlueprint());
+                && BlueprintUiStateAdapter.snapshot().mode != BlueprintUiState.Mode.HIDDEN;
     }
 
     private void createTextBoxes() {
@@ -748,25 +774,29 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     private void createButtons() {
         this.saveCaptureButton = actionButton("screen.rtsbuilding.blueprints.save_area", 108,
-                button -> BlueprintPanel.saveCapturedArea());
+                button -> BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                        BlueprintUiAction.Type.SAVE_CAPTURE), this.controller));
         this.cancelButton = actionButton("screen.rtsbuilding.blueprints.capture_cancel", 108,
                 button -> {
-                    if (BlueprintPanel.isCaptureModeActive()) {
-                        BlueprintPanel.cancelCaptureMode();
-                    } else {
-                        BlueprintPanel.clearSelectedBlueprint();
-                    }
+                    BlueprintUiAction.Type type = BlueprintUiStateAdapter.snapshot().isCapture()
+                            ? BlueprintUiAction.Type.CANCEL_CAPTURE : BlueprintUiAction.Type.CLEAR;
+                    BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(type), this.controller);
                 });
         this.previousButton = new WindowButton(0, 0, SMALL_BUTTON_W, BUTTON_H, Component.literal("<"),
-                button -> BlueprintPanel.selectRelativeBlueprint(-1));
+                button -> BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                        BlueprintUiAction.Type.SELECT_PREVIOUS), this.controller));
         this.nextButton = new WindowButton(0, 0, SMALL_BUTTON_W, BUTTON_H, Component.literal(">"),
-                button -> BlueprintPanel.selectRelativeBlueprint(1));
+                button -> BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                        BlueprintUiAction.Type.SELECT_NEXT), this.controller));
         this.detailsButton = actionButton("screen.rtsbuilding.blueprints.details", DETAILS_BUTTON_W,
-                button -> BlueprintPanel.openMaterialDialog());
+                button -> BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                        BlueprintUiAction.Type.OPEN_MATERIALS), this.controller));
         this.buildButton = actionButton("screen.rtsbuilding.blueprints.build_preview", 140,
-                button -> BlueprintPanel.confirmPinnedPreview());
+                button -> BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                        BlueprintUiAction.Type.BUILD), this.controller));
         this.clearButton = actionButton("screen.rtsbuilding.blueprints.capture_cancel", 140,
-                button -> BlueprintPanel.clearSelectedBlueprint());
+                button -> BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                        BlueprintUiAction.Type.CLEAR), this.controller));
         this.sizePlusButtons = axisButtons(true, true);
         this.sizeMinusButtons = axisButtons(false, true);
         this.posPlusButtons = axisButtons(true, false);
@@ -786,15 +816,17 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                     button -> {
                         int delta = plus ? 1 : -1;
                         if (sizeButtons) {
-                            if (axis == 0) BlueprintPanel.adjustCaptureSize(delta, 0, 0);
-                            if (axis == 1) BlueprintPanel.adjustCaptureSize(0, delta, 0);
-                            if (axis == 2) BlueprintPanel.adjustCaptureSize(0, 0, delta);
+                            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                                    BlueprintUiAction.Type.RESIZE_CAPTURE,
+                                    axis == 0 ? delta : 0, axis == 1 ? delta : 0,
+                                    axis == 2 ? delta : 0), this.controller);
                             syncCaptureSizeInputs(true);
                         } else {
                             commitPinnedPositionDraft();
-                            if (axis == 0) BlueprintPanel.nudgePinnedAnchor(delta, 0, 0, this.controller);
-                            if (axis == 1) BlueprintPanel.nudgePinnedAnchor(0, delta, 0, this.controller);
-                            if (axis == 2) BlueprintPanel.nudgePinnedAnchor(0, 0, delta, this.controller);
+                            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                                    BlueprintUiAction.Type.NUDGE_ANCHOR,
+                                    axis == 0 ? delta : 0, axis == 1 ? delta : 0,
+                                    axis == 2 ? delta : 0), this.controller);
                             syncPinnedPositionInputs(true);
                         }
                     });
@@ -807,15 +839,17 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     private void syncCaptureSizeInputs(boolean force) {
-        if (!BlueprintPanel.isCaptureSelectionComplete()) {
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
+        if (state.mode != BlueprintUiState.Mode.CAPTURE_READY
+                && state.mode != BlueprintUiState.Mode.CAPTURE_SAVING) {
             if (force || !this.sizeXInput.isFocused()) this.sizeXInput.setValue("");
             if (force || !this.sizeYInput.isFocused()) this.sizeYInput.setValue("");
             if (force || !this.sizeZInput.isFocused()) this.sizeZInput.setValue("");
             return;
         }
-        if (force || !this.sizeXInput.isFocused()) this.sizeXInput.setValue(Integer.toString(BlueprintPanel.captureSizeX()));
-        if (force || !this.sizeYInput.isFocused()) this.sizeYInput.setValue(Integer.toString(BlueprintPanel.captureSizeY()));
-        if (force || !this.sizeZInput.isFocused()) this.sizeZInput.setValue(Integer.toString(BlueprintPanel.captureSizeZ()));
+        if (force || !this.sizeXInput.isFocused()) this.sizeXInput.setValue(Integer.toString(state.captureSize.x));
+        if (force || !this.sizeYInput.isFocused()) this.sizeYInput.setValue(Integer.toString(state.captureSize.y));
+        if (force || !this.sizeZInput.isFocused()) this.sizeZInput.setValue(Integer.toString(state.captureSize.z));
     }
 
     private void syncPlacementInputs() {
@@ -823,16 +857,16 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     private void syncPinnedPositionInputs(boolean force) {
-        BlockPos anchor = BlueprintPanel.getPinnedAnchor();
+        BlueprintInt3 anchor = BlueprintUiStateAdapter.snapshot().anchor;
         if (anchor == null) {
             if (force || !this.posXInput.isFocused()) this.posXInput.setValue("");
             if (force || !this.posYInput.isFocused()) this.posYInput.setValue("");
             if (force || !this.posZInput.isFocused()) this.posZInput.setValue("");
             return;
         }
-        if (force || !this.posXInput.isFocused()) this.posXInput.setValue(Integer.toString(anchor.getX()));
-        if (force || !this.posYInput.isFocused()) this.posYInput.setValue(Integer.toString(anchor.getY()));
-        if (force || !this.posZInput.isFocused()) this.posZInput.setValue(Integer.toString(anchor.getZ()));
+        if (force || !this.posXInput.isFocused()) this.posXInput.setValue(Integer.toString(anchor.x));
+        if (force || !this.posYInput.isFocused()) this.posYInput.setValue(Integer.toString(anchor.y));
+        if (force || !this.posZInput.isFocused()) this.posZInput.setValue(Integer.toString(anchor.z));
     }
 
     private int footerY() {

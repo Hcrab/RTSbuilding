@@ -1,47 +1,40 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import net.minecraft.client.gui.Font;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.buttonWidth;
+import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
 
 /**
  * Computes the stable geometry for the blueprint bottom panel controls.
  */
 final class BlueprintPanelLayout {
-    static final int LIST_COLUMN_GAP = 4;
+    static final int LIST_COLUMN_GAP = BlueprintLibraryLayout.LIST_COLUMN_GAP;
 
     private BlueprintPanelLayout() {
     }
 
     static int listColumns(int width) {
-        return width >= 320 ? 2 : 1;
+        return BlueprintLibraryLayout.listColumns(width);
     }
 
     static int listCellWidth(int width, int columns) {
-        return Math.max(80, (width - 2 - (columns - 1) * LIST_COLUMN_GAP) / columns);
+        return BlueprintLibraryLayout.listCellWidth(width, columns);
     }
 
     static int maxListScroll(int entryCount, int columns, int visibleRows) {
-        int rows = Math.max(0, (entryCount + Math.max(1, columns) - 1) / Math.max(1, columns));
-        return Math.max(0, rows - visibleRows);
+        return BlueprintLibraryLayout.maxListScroll(entryCount, columns, visibleRows);
     }
 
     static RowActionLayout rowActionLayout(Font font, int cellX, int rowY, int cellWidth) {
-        int gap = 3;
-        int saveWidth = buttonWidth(font, "screen.rtsbuilding.blueprints.save_as_short", 38, 46);
-        int renameWidth = buttonWidth(font, "screen.rtsbuilding.blueprints.rename", 38, 48);
-        int deleteWidth = buttonWidth(font, "screen.rtsbuilding.blueprints.delete", 34, 42);
-        int totalWidth = saveWidth + renameWidth + deleteWidth + gap * 2;
-        int x = cellX + Math.max(4, cellWidth - totalWidth - 4);
-        int buttonY = rowY + 5;
+        BlueprintLibraryLayout.RowActions shared = BlueprintLibraryLayout.rowActions(
+                cellX, rowY, cellWidth,
+                font.width(text("screen.rtsbuilding.blueprints.save_as_short")),
+                font.width(text("screen.rtsbuilding.blueprints.rename")),
+                font.width(text("screen.rtsbuilding.blueprints.delete")));
         return new RowActionLayout(
-                x,
-                saveWidth,
-                x + saveWidth + gap,
-                renameWidth,
-                x + saveWidth + gap + renameWidth + gap,
-                deleteWidth,
-                buttonY);
+                shared.saveX, shared.saveW, shared.renameX, shared.renameW,
+                shared.deleteX, shared.deleteW, shared.buttonY);
     }
 
     static NameDialogLayout nameDialogLayout(int screenWidth, int screenHeight, boolean captureDialog) {
@@ -73,43 +66,18 @@ final class BlueprintPanelLayout {
     }
 
     static TopBarLayout topBarLayout(Font font, int x, int width, boolean captureActive) {
-        int gap = 4;
-        int folderWidth = buttonWidth(font, "screen.rtsbuilding.blueprints.open_folder_short", 64, 96);
-        int importWidth = buttonWidth(font, "screen.rtsbuilding.blueprints.import_file_short", 44, 72);
-        int syncCreateWidth = buttonWidth(font, "screen.rtsbuilding.blueprints.sync_create_short", 58, 94);
-        int captureWidth = buttonWidth(font,
-                captureActive
-                        ? "screen.rtsbuilding.blueprints.capture_active_short"
-                        : "screen.rtsbuilding.blueprints.capture_short",
-                74,
-                112);
-        int actionWidth = folderWidth + importWidth + syncCreateWidth + captureWidth + gap * 3;
-        int searchX = x + actionWidth + 8;
-        int searchWidth = Math.max(60, x + width - searchX);
-        if (searchWidth < 80) {
-            folderWidth = 56;
-            importWidth = 44;
-            syncCreateWidth = 58;
-            captureWidth = 70;
-            actionWidth = folderWidth + importWidth + syncCreateWidth + captureWidth + gap * 3;
-            searchX = x + actionWidth + 6;
-            searchWidth = Math.max(50, x + width - searchX);
-        }
-        int folderX = x;
-        int importX = folderX + folderWidth + gap;
-        int syncCreateX = importX + importWidth + gap;
-        int captureX = syncCreateX + syncCreateWidth + gap;
+        String captureKey = captureActive
+                ? "screen.rtsbuilding.blueprints.capture_active_short"
+                : "screen.rtsbuilding.blueprints.capture_short";
+        BlueprintLibraryLayout.TopBar shared = BlueprintLibraryLayout.topBar(x, width, captureActive,
+                font.width(text("screen.rtsbuilding.blueprints.open_folder_short")),
+                font.width(text("screen.rtsbuilding.blueprints.import_file_short")),
+                font.width(text("screen.rtsbuilding.blueprints.sync_create_short")),
+                font.width(text(captureKey)));
         return new TopBarLayout(
-                folderX,
-                folderWidth,
-                importX,
-                importWidth,
-                syncCreateX,
-                syncCreateWidth,
-                captureX,
-                captureWidth,
-                searchX,
-                searchWidth);
+                shared.folderX, shared.folderW, shared.importX, shared.importW,
+                shared.syncX, shared.syncW, shared.captureX, shared.captureW,
+                shared.searchX, shared.searchW);
     }
 
     record NameDialogLayout(

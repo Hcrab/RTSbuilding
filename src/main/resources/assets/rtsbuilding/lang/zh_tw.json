@@ -627,6 +627,8 @@
   "screen.rtsbuilding.storage_links.header": "已繫結方塊",
   "screen.rtsbuilding.storage_links.empty": "目前沒有繫結儲存",
   "screen.rtsbuilding.storage_links.empty_detail": "使用儲存繫結，然後左鍵點選儲存方塊。",
+  "screen.rtsbuilding.storage_links.loading": "正在讀取繫結儲存……",
+  "screen.rtsbuilding.storage_links.failed": "無法讀取繫結儲存，請重新開啟此視窗再試一次。",
   "screen.rtsbuilding.storage_links.priority": "優先級",
   "screen.rtsbuilding.storage_links.position_na": "N/A",
   "screen.rtsbuilding.storage_links.mode_both": "存取",

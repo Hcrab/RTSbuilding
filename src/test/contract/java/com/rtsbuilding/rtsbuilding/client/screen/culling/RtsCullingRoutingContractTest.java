@@ -105,11 +105,16 @@ class RtsCullingRoutingContractTest {
     void cullingPanelCloseButtonClosesManagementMode() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingPanel.java"));
+        String adapter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/CullingUiAdapter.java"));
         String constructor = methodBody(source, "public RtsCullingPanel");
         String closeBody = methodBody(source, "protected void onClose");
 
         assertTrue(constructor.contains("this.closable = true"));
-        assertTrue(closeBody.contains("manager.closeManagementMode()"));
+        assertTrue(closeBody.contains("CullingUiAction.Type.CLOSE"),
+                "关闭按钮必须提交共享 Core 的 CLOSE 动作");
+        assertTrue(adapter.contains("case CLOSE -> manager.closeManagementMode()"),
+                "生产适配器必须把共享 CLOSE 命令落到真实管理器");
     }
 
     @Test

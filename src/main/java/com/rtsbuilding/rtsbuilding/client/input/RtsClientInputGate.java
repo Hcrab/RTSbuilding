@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -105,9 +106,16 @@ public final class RtsClientInputGate {
     }
 
     @SubscribeEvent
+    public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        // 登录也主动清一次，覆盖崩服或异常断线时未完整收到退出事件的情况。
+        RtsCullingClientState.resetForWorldChange();
+    }
+
+    @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         overlayBootstrapRequested = false;
         activeOverlayScreen = null;
+        RtsCullingClientState.resetForWorldChange();
         // Clear stale workflow data so it does not linger in the UI
         // when the player joins a different world (save).
         ClientRtsController.get().clearWorkflowData();

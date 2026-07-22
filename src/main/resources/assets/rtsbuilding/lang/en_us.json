@@ -627,6 +627,8 @@
   "screen.rtsbuilding.storage_links.header": "Bound blocks",
   "screen.rtsbuilding.storage_links.empty": "No linked storage",
   "screen.rtsbuilding.storage_links.empty_detail": "Use Storage Link, then left-click a storage block.",
+  "screen.rtsbuilding.storage_links.loading": "Reading linked storage...",
+  "screen.rtsbuilding.storage_links.failed": "Could not read linked storage. Reopen this window to retry.",
   "screen.rtsbuilding.storage_links.priority": "Priority",
   "screen.rtsbuilding.storage_links.position_na": "N/A",
   "screen.rtsbuilding.storage_links.mode_both": "Insert + Extract",

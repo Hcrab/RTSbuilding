@@ -4,6 +4,7 @@ import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintCaptureGeometry.capturePreviewSummaryLine;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelLayout.nameDialogLayout;
@@ -87,6 +88,38 @@ final class BlueprintNameDialog {
         g.drawString(font, trim(font, displayValue, layout.inputW() - 8),
                 layout.inputX() + 4, layout.inputY() + 5, 0xFFEAF2FF, false);
 
+        drawButton(g, font, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H,
+                text("screen.rtsbuilding.blueprints.name_dialog_confirm"),
+                inside(mouseX, mouseY, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H));
+        drawButton(g, font, layout.cancelX(), layout.buttonY(), layout.cancelW(), BUTTON_H,
+                text("screen.rtsbuilding.blueprints.name_dialog_cancel"),
+                inside(mouseX, mouseY, layout.cancelX(), layout.buttonY(), layout.cancelW(), BUTTON_H));
+    }
+
+    /** 命名浮窗直接消费 Core 快照，避免生产窗与离屏窗各自拼装一套字段。 */
+    static void renderCoreContent(GuiGraphics g, Font font, int x, int y, int w, int h,
+            int mouseX, int mouseY, BlueprintUiState state) {
+        int textY = y + 10;
+        if (state.captureNameMode) {
+            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - 20),
+                    x + 10, textY, 0xFFCDEBFF, false);
+            textY += 12;
+            String size = state.captureSize.x + "x" + state.captureSize.y + "x" + state.captureSize.z;
+            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_summary",
+                            size, state.captureBlockCount), w - 20),
+                    x + 10, textY, 0xFFB8FFB8, false);
+        } else {
+            g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current",
+                            state.blueprintName), w - 20),
+                    x + 10, textY, 0xFF9EACB9, false);
+        }
+        NameContentLayout layout = contentLayout(x, y, w, h);
+        g.drawString(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(),
+                layout.inputY() - 11, 0xFFB7CDE2, false);
+        drawFrame(g, layout.inputX(), layout.inputY(), layout.inputW(), 18,
+                0xDD05070B, 0xFF8BA4B8, 0xFF0B0E13);
+        g.drawString(font, trim(font, state.nameDraft + "_", layout.inputW() - 8),
+                layout.inputX() + 4, layout.inputY() + 5, 0xFFEAF2FF, false);
         drawButton(g, font, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H,
                 text("screen.rtsbuilding.blueprints.name_dialog_confirm"),
                 inside(mouseX, mouseY, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H));

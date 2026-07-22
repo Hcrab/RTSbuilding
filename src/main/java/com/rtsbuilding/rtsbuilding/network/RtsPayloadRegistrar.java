@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
 import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
+import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingPackets;
 import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
 import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
@@ -36,6 +37,7 @@ public final class RtsPayloadRegistrar {
         RtsStoragePackets.register(registrar);
         RtsBuilderPackets.register(registrar);
         RtsCraftPackets.register(registrar);
+        RtsCullingPackets.register(registrar);
         RtsProgressionPackets.register(registrar);
         RtsPluginPackets.register(registrar);
         RtsFeedbackPackets.register(registrar);

@@ -627,6 +627,8 @@
   "screen.rtsbuilding.storage_links.header": "已綁定方塊",
   "screen.rtsbuilding.storage_links.empty": "目前沒有綁定存儲",
   "screen.rtsbuilding.storage_links.empty_detail": "使用存儲綁定，然後左鍵點擊存儲方塊。",
+  "screen.rtsbuilding.storage_links.loading": "正在讀取綁定存儲……",
+  "screen.rtsbuilding.storage_links.failed": "無法讀取綁定存儲，請重新打開此窗口再試。",
   "screen.rtsbuilding.storage_links.priority": "優先級",
   "screen.rtsbuilding.storage_links.position_na": "N/A",
   "screen.rtsbuilding.storage_links.mode_both": "存取",

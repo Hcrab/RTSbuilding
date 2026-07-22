@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -10,14 +12,14 @@ import java.util.Map;
  * 文本内容或点击行为。这样以后调整高缩放布局时不会在绘制、点击和弹窗锚点中漏改某个数字。</p>
  */
 public final class TopBarLayout {
-    public static final int LEFT_MARGIN = 8;
-    public static final int RIGHT_MARGIN = 8;
-    public static final int BUTTON_Y = 4;
-    public static final int MODE_ACTION_GROUP_GAP = 8;
-    public static final int STATUS_X = 8;
-    public static final int STATUS_RIGHT_MARGIN = 8;
-    public static final int STATUS_ROW_1_Y = 33;
-    public static final int STATUS_ROW_2_Y = 44;
+    public static final int LEFT_MARGIN = RtsMainlineLayout.TOP_LEFT_MARGIN;
+    public static final int RIGHT_MARGIN = RtsMainlineLayout.TOP_RIGHT_MARGIN;
+    public static final int BUTTON_Y = RtsMainlineLayout.TOP_BUTTON_Y;
+    public static final int MODE_ACTION_GROUP_GAP = RtsMainlineLayout.TOP_MODE_ACTION_GROUP_GAP;
+    public static final int STATUS_X = RtsMainlineLayout.TOP_STATUS_X;
+    public static final int STATUS_RIGHT_MARGIN = RtsMainlineLayout.TOP_STATUS_RIGHT_MARGIN;
+    public static final int STATUS_ROW_1_Y = RtsMainlineLayout.TOP_STATUS_ROW_1_Y;
+    public static final int STATUS_ROW_2_Y = RtsMainlineLayout.TOP_STATUS_ROW_2_Y;
 
     private TopBarLayout() {
     }
@@ -26,41 +28,51 @@ public final class TopBarLayout {
             boolean quickBuild, boolean questDetect, boolean rangeCulling, boolean developer) {
         EnumMap<TopBarTypes.TopBarButtonId, Integer> positions =
                 new EnumMap<>(TopBarTypes.TopBarButtonId.class);
-        int x = LEFT_MARGIN;
-        x = put(positions, TopBarTypes.TopBarButtonId.INTERACT, x, modeButtonWidth, gap);
-        x = put(positions, TopBarTypes.TopBarButtonId.LINK, x, modeButtonWidth, gap);
-        x = put(positions, TopBarTypes.TopBarButtonId.FUNNEL, x, modeButtonWidth, gap);
-        x = put(positions, TopBarTypes.TopBarButtonId.ROTATE, x, modeButtonWidth, gap);
-        x += MODE_ACTION_GROUP_GAP;
-        if (quickBuild) x = put(positions, TopBarTypes.TopBarButtonId.QUICK_BUILD, x, iconButtonWidth, gap);
-        if (questDetect) x = put(positions, TopBarTypes.TopBarButtonId.QUEST_DETECT, x, iconButtonWidth, gap);
-        x = put(positions, TopBarTypes.TopBarButtonId.CHUNK_VIEW, x, iconButtonWidth, gap);
-        if (rangeCulling) x = put(positions, TopBarTypes.TopBarButtonId.RANGE_CULLING, x, iconButtonWidth, gap);
-        x = put(positions, TopBarTypes.TopBarButtonId.GUIDE, x, iconButtonWidth, gap);
-        if (developer) x = put(positions, TopBarTypes.TopBarButtonId.DEVELOPER, x, iconButtonWidth, gap);
-        int gearX = Math.max(x + gap, screenWidth - iconButtonWidth - RIGHT_MARGIN);
-        positions.put(TopBarTypes.TopBarButtonId.GEAR, gearX);
+        if (modeButtonWidth != RtsMainlineLayout.TOP_MODE_BUTTON_W
+                || iconButtonWidth != RtsMainlineLayout.TOP_ICON_BUTTON_W
+                || gap != RtsMainlineLayout.TOP_BUTTON_GAP) {
+            throw new IllegalArgumentException("顶部栏生产尺寸必须来自 RtsMainlineLayout");
+        }
+        RtsMainlineLayout.TopButtons shared = RtsMainlineLayout.topButtons(
+                screenWidth, quickBuild, questDetect, rangeCulling, developer);
+        for (TopBarTypes.TopBarButtonId id : TopBarTypes.TopBarButtonId.values()) {
+            int index = layoutIndex(id);
+            if (index >= 0 && shared.isPresent(index)) {
+                positions.put(id, shared.x(index));
+            }
+        }
         return new Buttons(Map.copyOf(positions));
     }
 
     public static Status status(int screenWidth) {
-        return new Status(STATUS_X, Math.max(40, screenWidth - STATUS_X - STATUS_RIGHT_MARGIN),
-                STATUS_ROW_1_Y, STATUS_ROW_2_Y);
+        RtsMainlineLayout.TopStatus shared = RtsMainlineLayout.topStatus(screenWidth);
+        return new Status(shared.x, shared.width, shared.row1Y, shared.row2Y);
     }
 
     /**
      * 将模式提示贴到状态栏右侧；左侧状态没有留下完整提示所需空间时不显示。
      */
     public static int contextualHintX(Status status, int leftTextWidth, int hintWidth, int gap) {
-        int hintX = status.x() + status.width() - hintWidth;
-        int minimumHintX = status.x() + leftTextWidth + gap;
-        return hintX >= minimumHintX ? hintX : -1;
+        RtsMainlineLayout.TopStatus shared = RtsMainlineLayout.topStatus(
+                status.x() + status.width() + STATUS_RIGHT_MARGIN);
+        return RtsMainlineLayout.contextualHintX(shared, leftTextWidth, hintWidth, gap);
     }
 
-    private static int put(EnumMap<TopBarTypes.TopBarButtonId, Integer> positions,
-            TopBarTypes.TopBarButtonId id, int x, int width, int gap) {
-        positions.put(id, x);
-        return x + width + gap;
+    private static int layoutIndex(TopBarTypes.TopBarButtonId id) {
+        return switch (id) {
+            case INTERACT -> 0;
+            case LINK -> 1;
+            case FUNNEL -> 2;
+            case ROTATE -> 3;
+            case QUICK_BUILD -> 4;
+            case QUEST_DETECT -> 5;
+            case CHUNK_VIEW -> 6;
+            case RANGE_CULLING -> 7;
+            case GUIDE -> 8;
+            case DEVELOPER -> 9;
+            case GEAR -> 10;
+            default -> -1;
+        };
     }
 
     public record Buttons(Map<TopBarTypes.TopBarButtonId, Integer> xById) {

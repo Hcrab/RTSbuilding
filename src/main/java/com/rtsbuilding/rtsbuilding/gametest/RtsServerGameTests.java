@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.gametest;
 
 import com.mojang.authlib.GameProfile;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
@@ -188,47 +189,58 @@ public final class RtsServerGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80, batch = "survival_progression")
     public static void remoteControlReinstallRestoresMiningFeaturesWithoutBecomingTool(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
         ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
-        player.getInventory().setItem(0, new ItemStack(RtsItems.RTS_CONTROL_CORE.get()));
-        player.getInventory().setItem(1, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
-        player.getInventory().setItem(2, new ItemStack(RtsItems.CHAIN_BREAK_PLUGIN.get()));
-        player.getInventory().setItem(3, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
+        try {
+            player.getInventory().setItem(0, new ItemStack(RtsItems.RTS_CONTROL_CORE.get()));
+            player.getInventory().setItem(1, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
+            player.getInventory().setItem(2, new ItemStack(RtsItems.CHAIN_BREAK_PLUGIN.get()));
+            player.getInventory().setItem(3, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
 
-        for (int slot = 0; slot < 4; slot++) {
-            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
-                    "Initial plugin set should install");
-        }
-        helper.assertTrue(RtsPluginService.uninstall(
-                        player, BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN),
-                "Remote-control plugin should uninstall");
-
-        int returnedSlot = -1;
-        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (stack.is(RtsItems.REMOTE_CONTROL_PLUGIN.get())) {
-                returnedSlot = slot;
-                break;
+            for (int slot = 0; slot < 4; slot++) {
+                helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                        "Initial plugin set should install");
             }
+            Config.setSurvivalProgressionEnabled(true);
+            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_PLACE),
+                    "Remote placement should be unlocked while survival progression is enabled");
+            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
+                    "Remote break should be unlocked while survival progression is enabled");
+            helper.assertTrue(RtsPluginService.uninstall(
+                            player, BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN),
+                    "Remote-control plugin should uninstall");
+
+            int returnedSlot = -1;
+            for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
+                ItemStack stack = player.getInventory().getItem(slot);
+                if (stack.is(RtsItems.REMOTE_CONTROL_PLUGIN.get())) {
+                    returnedSlot = slot;
+                    break;
+                }
+            }
+            helper.assertTrue(returnedSlot >= 0, "Uninstall should return the plugin item");
+            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, returnedSlot),
+                    "Returned remote-control plugin should reinstall");
+
+            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
+                    "Remote break should be unlocked immediately after reinstall");
+            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.AREA_DESTROY),
+                    "Area destroy should stay unlocked after dependency reinstall");
+            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.ULTIMINE),
+                    "Chain break should stay unlocked after dependency reinstall");
+            helper.assertTrue(!RtsMiningValidator.isSelectedMiningToolRequested(
+                            BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN.toString(),
+                            new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get())),
+                    "RTS plugin items must never be interpreted as selected mining tools");
+
+            helper.succeed();
+        } finally {
+            // GameTest 使用独立配置目录；必须恢复为关闭，避免污染随后并行运行的普通测试批次。
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
         }
-        helper.assertTrue(returnedSlot >= 0, "Uninstall should return the plugin item");
-        helper.assertTrue(RtsPluginService.installFromInventorySlot(player, returnedSlot),
-                "Returned remote-control plugin should reinstall");
-
-        helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
-                "Remote break should be unlocked immediately after reinstall");
-        helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.AREA_DESTROY),
-                "Area destroy should stay unlocked after dependency reinstall");
-        helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.ULTIMINE),
-                "Chain break should stay unlocked after dependency reinstall");
-        helper.assertTrue(!RtsMiningValidator.isSelectedMiningToolRequested(
-                        BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN.toString(),
-                        new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get())),
-                "RTS plugin items must never be interpreted as selected mining tools");
-
-        stopPlayers(player);
-        helper.succeed();
     }
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
@@ -1285,6 +1297,10 @@ public final class RtsServerGameTests {
      */
     private static ServerPlayer startRegisteredRtsPlayer(
             GameTestHelper helper, GameType gameType, Vec3 relativePos, String name) {
+        // GameTest 配置目录会跨运行保留；普通测试必须从关闭生存门禁的确定状态开始。
+        if (Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean()) {
+            Config.setSurvivalProgressionEnabled(false);
+        }
         ensureCoreServices();
         GameProfile profile = new GameProfile(UUID.randomUUID(), name);
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);

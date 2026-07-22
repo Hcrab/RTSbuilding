@@ -14,13 +14,14 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
 import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.CullingUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.GuideTypes;
+import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
@@ -260,6 +261,9 @@ public final class BuilderScreen extends Screen {
         this.uiStateManager.registerWindowPanel("workflow", this.workflowPanel);
         this.uiStateManager.registerWindowPanel("resume_placement", this.resumePlacementPanel);
         this.uiStateManager.registerWindowPanel("blueprint_resume", this.blueprintResumePanel);
+        // QuickBuildPanel 初始化时会通过 UI Core 快照读取形状填充文案和尺寸状态。
+        // 形状控制器因此是面板初始化的前置依赖，必须先绑定 screen/controller。
+        this.shapeController.init(this, this.controller);
         this.storageLinkDetailHandler.init(this, this.controller);
         this.guidePanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
@@ -276,10 +280,10 @@ public final class BuilderScreen extends Screen {
         this.linkedStoragePanel.init(this, this.controller);
         this.topBarPanel.init(this, this.controller);
         this.bottomPanel.init(this, this.controller);
-        this.shapeController.init(this, this.controller);
         this.cursorPicker.init(this, this.controller, this.shapeController);
         this.cameraInput.init(this, this.controller);
         RtsCullingClientState.setActiveManager(this.cullingManager);
+        RtsCullingClientState.requestCurrentWorldState();
     }
     /** Returns the Minecraft font renderer for use by sub-panels and utilities. */
     public Font font() {
@@ -1369,7 +1373,7 @@ public final class BuilderScreen extends Screen {
         }
         if (this.cullingManager.isManagementMode()
                 && (this.cullingManager.activeHandleDirection() != null || isWorldArea(mouseX, mouseY))
-                && this.cullingManager.handleScroll(scrollY, isAltDown())) {
+                && CullingUiAdapter.handleScroll(this.cullingManager, scrollY, isAltDown())) {
             return true;
         }
         if (this.shapeController.advancedRangeDestroyActiveHandle() != null
@@ -1823,7 +1827,8 @@ public final class BuilderScreen extends Screen {
         if (this.floatingWindowLayer.charTyped(codePoint, modifiers)) {
             return true;
         }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.charTyped(codePoint)) {
+        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
+                && BlueprintPanel.charTyped(codePoint, this.controller)) {
             return true;
         }
         if (this.searchBox != null && this.searchBox.isFocused()) {
@@ -2140,6 +2145,11 @@ public final class BuilderScreen extends Screen {
         return this.floatingWindowLayer;
     }
 
+    /** 供窄平台 adapter 执行真实客户端副作用；Core 不得持有该控制器。 */
+    public ClientRtsController uiController() {
+        return this.controller;
+    }
+
     /** Returns true when quick-build is showing the range-destroy workflow. */
     public boolean isQuickBuildRangeDestroyMode() {
         return isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyMode();
@@ -2295,10 +2305,10 @@ public final class BuilderScreen extends Screen {
      * closes it; otherwise opens it at the given position.
      */
     public void toggleTopGuide(int x, int y) {
-        if (this.guidePanel.isOpen() && this.guidePanel.getContext() == GuideTypes.GuideContext.TOP) {
+        if (this.guidePanel.isOpen() && this.guidePanel.getContext() == GuideUiContext.TOP) {
             this.guidePanel.close();
         } else {
-            this.guidePanel.open(GuideTypes.GuideContext.TOP, x, y);
+            this.guidePanel.open(GuideUiContext.TOP, x, y);
         }
     }
     /** Returns whether the current player can open the range-culling editor. */
@@ -2323,7 +2333,7 @@ public final class BuilderScreen extends Screen {
     }
     /** Opens the bottom guide panel at the given position. */
     public void openBottomGuide(int x, int y) {
-        this.guidePanel.open(GuideTypes.GuideContext.BOTTOM, x, y);
+        this.guidePanel.open(GuideUiContext.BOTTOM, x, y);
     }
     /** Returns whether the guide panel is currently open. */
     public boolean isGuideOpen() {

@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
@@ -125,6 +126,17 @@ public final class ClientPayloadDispatcher {
             case S2CRtsQuestDetectStatusPayload p ->
                     RtsClientNetworkHandlers.handleQuestDetectStatus(p, ctx);
             default -> {}
+        }
+    }
+
+    // ======================================================================
+    //  Range-culling domain
+    // ======================================================================
+
+    public static void dispatchCulling(Object payload, IPayloadContext ctx) {
+        if (!IS_CLIENT) return;
+        if (payload instanceof S2CRtsCullingStatePayload p) {
+            RtsClientNetworkHandlers.handleCullingState(p, ctx);
         }
     }
 

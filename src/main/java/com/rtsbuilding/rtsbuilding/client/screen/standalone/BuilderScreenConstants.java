@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -14,29 +15,29 @@ public final class BuilderScreenConstants {
 
     // ======================== Top bar ========================
     /** Top bar height */
-    public static final int TOP_H = 52;
+    public static final int TOP_H = RtsMainlineLayout.TOP_H;
     /** Top bar button gap */
-    public static final int TOP_BUTTON_GAP = 5;
+    public static final int TOP_BUTTON_GAP = RtsMainlineLayout.TOP_BUTTON_GAP;
     /** Top bar button height */
-    public static final int TOP_BUTTON_H = 24;
+    public static final int TOP_BUTTON_H = RtsMainlineLayout.TOP_BUTTON_H;
     /** Top button minimum width */
     public static final int MIN_TOP_BUTTON_W = 28;
     /** Mode button width */
-    public static final int TOP_MODE_BUTTON_W = 32;
+    public static final int TOP_MODE_BUTTON_W = RtsMainlineLayout.TOP_MODE_BUTTON_W;
     /** Icon button width */
-    public static final int TOP_ICON_BUTTON_W = 32;
+    public static final int TOP_ICON_BUTTON_W = RtsMainlineLayout.TOP_ICON_BUTTON_W;
 
     // ======================== Bottom panel ========================
     /** Default bottom panel height */
-    public static final int DEFAULT_BOTTOM_H = 110;
+    public static final int DEFAULT_BOTTOM_H = RtsMainlineLayout.DEFAULT_BOTTOM_H;
     /** Bottom panel minimum height */
-    public static final int MIN_BOTTOM_H = 72;
+    public static final int MIN_BOTTOM_H = RtsMainlineLayout.MIN_BOTTOM_H;
     /** Bottom panel maximum height */
-    public static final int MAX_BOTTOM_H = 320;
+    public static final int MAX_BOTTOM_H = RtsMainlineLayout.MAX_BOTTOM_H;
     /** Bottom panel padding */
-    public static final int BOTTOM_PANEL_PADDING = 8;
+    public static final int BOTTOM_PANEL_PADDING = RtsMainlineLayout.BOTTOM_PANEL_PADDING;
     /** Bottom panel header height */
-    public static final int BOTTOM_PANEL_HEADER_H = 18;
+    public static final int BOTTOM_PANEL_HEADER_H = RtsMainlineLayout.BOTTOM_PANEL_HEADER_H;
     /** Minimum storage grid rows */
     public static final int MIN_STORAGE_GRID_ROWS = 2;
     /** Grid bottom padding */
@@ -44,17 +45,17 @@ public final class BuilderScreenConstants {
 
     // ======================== Slots / Grid ========================
     /** Storage grid single slot size */
-    public static final int SLOT = 22;
+    public static final int SLOT = RtsMainlineLayout.SLOT;
     /** Hotbar single slot size */
-    public static final int HOTBAR_SLOT = 18;
+    public static final int HOTBAR_SLOT = RtsMainlineLayout.HOTBAR_SLOT;
     /** Hotbar slot pitch */
-    public static final int HOTBAR_PITCH = 20;
+    public static final int HOTBAR_PITCH = RtsMainlineLayout.HOTBAR_PITCH;
     /** Tool hotbar item slots count */
     public static final int TOOL_HOTBAR_ITEM_SLOTS = 9;
     /** Empty hand button index (after vanilla 9-slot hotbar) */
     public static final int EMPTY_HAND_BUTTON_INDEX = TOOL_HOTBAR_ITEM_SLOTS;
     /** Tool area height */
-    public static final int TOOL_AREA_H = HOTBAR_SLOT;
+    public static final int TOOL_AREA_H = RtsMainlineLayout.TOOL_AREA_H;
 
     // ======================== Search / Sort ========================
     /** Search clear button size */
@@ -64,17 +65,17 @@ public final class BuilderScreenConstants {
 
     // ======================== Crafting panel ========================
     /** Crafting panel width */
-    public static final int CRAFT_PANEL_W = 126;
+    public static final int CRAFT_PANEL_W = RtsMainlineLayout.CRAFT_PANEL_W;
     /** Gap between crafting panel and storage grid */
-    public static final int CRAFT_PANEL_GAP = 6;
+    public static final int CRAFT_PANEL_GAP = RtsMainlineLayout.CRAFT_PANEL_GAP;
     /** Crafting panel columns */
     public static final int CRAFT_PANEL_COLS = 4;
     /** Crafting panel slot size */
-    public static final int CRAFT_PANEL_SLOT = 18;
+    public static final int CRAFT_PANEL_SLOT = RtsMainlineLayout.CRAFT_PANEL_SLOT;
     /** Crafting panel row pitch */
     public static final int CRAFT_PANEL_PITCH = 20;
     /** Crafting search box height */
-    public static final int CRAFT_PANEL_SEARCH_H = 12;
+    public static final int CRAFT_PANEL_SEARCH_H = RtsMainlineLayout.CRAFT_PANEL_SEARCH_H;
     /** Crafting apply button width */
     public static final int CRAFT_PANEL_APPLY_W = 18;
     /** Crafting toggle button width */
@@ -90,7 +91,7 @@ public final class BuilderScreenConstants {
 
     // ======================== Category panel ========================
     /** Category panel width */
-    public static final int CATEGORY_W = 124;
+    public static final int CATEGORY_W = RtsMainlineLayout.CATEGORY_W;
     /** Category row height */
     public static final int CATEGORY_ROW_H = 11;
     /** Category text scale */

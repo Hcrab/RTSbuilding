@@ -2,9 +2,13 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -103,6 +107,76 @@ final class BlueprintMaterialDialog {
         renderRows(g, font, lines, layout, mouseX, mouseY, clampedScroll, visible, columns);
         renderScrollbar(g, lines.size(), layout, clampedScroll, visible, columns);
         return clampedScroll;
+    }
+
+    /** 使用 Core 材料快照绘制生产窗口；Minecraft 侧只负责把正式物品 id 还原为图标。 */
+    static int renderCoreContent(GuiGraphics g, Font font, BlueprintMaterialUiState state,
+            int x, int y, int w, int h, int mouseX, int mouseY, int scroll) {
+        Layout layout = layoutFromBounds(x, y, w, h);
+        int visible = visibleRows(layout.listH());
+        int columns = columns(layout);
+        int clampedScroll = Mth.clamp(scroll, 0, maxScroll(state.rows.size(), visible, columns));
+        g.drawString(font, trim(font, state.blueprintName, layout.w() - 20),
+                layout.x() + 10, layout.y() + 8, 0xFFEAF2FF, false);
+        String summary = state.rows.isEmpty()
+                ? text("screen.rtsbuilding.blueprints.materials_all_ready")
+                : text("screen.rtsbuilding.blueprints.details_summary",
+                        state.percent, state.buildable, state.total, state.missingTypes,
+                        state.unsupportedTypes, state.missingBlockTypes);
+        int summaryColor = state.allReady() ? 0xFF8EEA9B : 0xFFFFC06C;
+        g.drawString(font, trim(font, summary, layout.w() - 20),
+                layout.x() + 10, layout.y() + 21, summaryColor, false);
+        drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(),
+                0x99101620, 0xFF415266, 0xFF0B0E13);
+        if (state.rows.isEmpty()) {
+            String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
+            g.drawString(font, trim(font, message, layout.listW() - 14),
+                    layout.listX() + 7, layout.listY() + 8, summaryColor, false);
+            return clampedScroll;
+        }
+        renderCoreRows(g, font, state.rows, layout, mouseX, mouseY, clampedScroll, visible, columns);
+        renderScrollbar(g, state.rows.size(), layout, clampedScroll, visible, columns);
+        return clampedScroll;
+    }
+
+    static int scrolledCore(int currentScroll, double scrollY, BlueprintMaterialUiState state, int w, int h) {
+        Layout layout = layoutFromBounds(0, 0, w, h);
+        int visible = visibleRows(layout.listH());
+        int maxScroll = maxScroll(state.rows.size(), visible, columns(layout));
+        return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
+    }
+
+    private static void renderCoreRows(GuiGraphics g, Font font, List<BlueprintMaterialUiState.Row> lines,
+            Layout layout, int mouseX, int mouseY, int scroll, int visible, int columns) {
+        int cellW = (layout.listW() - 8 - (columns - 1) * COLUMN_GAP) / columns;
+        for (int row = 0; row < visible; row++) {
+            for (int column = 0; column < columns; column++) {
+                int index = (scroll + row) * columns + column;
+                if (index >= lines.size()) return;
+                BlueprintMaterialUiState.Row line = lines.get(index);
+                int rowX = layout.listX() + 4 + column * (cellW + COLUMN_GAP);
+                int rowY = layout.listY() + 3 + row * ROW_H;
+                if (inside(mouseX, mouseY, rowX, rowY, cellW, ROW_H)) {
+                    g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H, 0x66324126);
+                }
+                ItemStack preview = ItemStack.EMPTY;
+                ResourceLocation id = ResourceLocation.tryParse(line.iconId);
+                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+                    preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+                }
+                if (!preview.isEmpty()) {
+                    g.renderItem(preview, rowX + 4, rowY + 2);
+                } else {
+                    g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18, 0xAA36506A);
+                    RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "?", rowX + 13, rowY + 6, 0xFFFFD080);
+                }
+                int detailW = Math.min(86, Math.max(54, cellW / 3));
+                int detailX = rowX + cellW - detailW - 4;
+                g.drawString(font, trim(font, line.label, Math.max(24, detailX - rowX - 28)),
+                        rowX + 26, rowY + 2, 0xFFEAF2FF, false);
+                g.drawString(font, trim(font, line.detail, detailW), detailX, rowY + 7, line.color, false);
+            }
+        }
     }
 
     static boolean shouldClose(double mouseX, double mouseY, int screenW, int screenH) {

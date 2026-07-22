@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -13,6 +14,7 @@ import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base class for movable RTS window panels.
@@ -24,6 +26,7 @@ import java.util.List;
  * container overlay and legacy input gate continue to work unchanged.
  */
 public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
+    private static final AtomicLong NEXT_Z_ORDER = new AtomicLong();
     private static final int DEFAULT_TITLE_BAR_H = 20;
     private static final int DEFAULT_MIN_W = 80;
     private static final int DEFAULT_MIN_H = 60;
@@ -52,7 +55,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     private int defaultWidth;
     private int defaultHeight;
     private boolean positionInitialized;
-    private long lastClickTime = System.nanoTime();
+    private long lastClickTime = NEXT_Z_ORDER.incrementAndGet();
     private boolean dragging;
     private double dragOffsetX;
     private double dragOffsetY;
@@ -238,7 +241,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     public void markBroughtToFront() {
-        this.lastClickTime = System.nanoTime();
+        // 单调序号比 nanoTime 更适合做 z-order：不会因时钟粒度产生并列窗口。
+        this.lastClickTime = NEXT_Z_ORDER.incrementAndGet();
     }
 
     public boolean hasInitializedBounds() {
@@ -512,15 +516,15 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int getBackgroundColor() {
-        return 0xFF161C24;
+        return RtsMainlineTheme.WINDOW_BACKGROUND.toArgb();
     }
 
     protected int getBorderLightColor() {
-        return 0xFF6C839A;
+        return RtsMainlineTheme.WINDOW_BORDER_LIGHT.toArgb();
     }
 
     protected int getBorderDarkColor() {
-        return 0xFF0D1117;
+        return RtsMainlineTheme.WINDOW_BORDER_DARK.toArgb();
     }
 
     protected int getHoverBorderLightColor() {
@@ -532,11 +536,11 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int getTitleBarColor() {
-        return 0xCC233345;
+        return RtsMainlineTheme.WINDOW_TITLE.toArgb();
     }
 
     protected int getTitleTextColor() {
-        return 0xF2F7FF;
+        return RtsMainlineTheme.WINDOW_TITLE_TEXT.toArgb();
     }
 
     protected boolean canShowWindow() {

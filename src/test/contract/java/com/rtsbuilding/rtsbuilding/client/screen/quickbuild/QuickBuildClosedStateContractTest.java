@@ -11,6 +11,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QuickBuildClosedStateContractTest {
     @Test
+    void builderBindsShapeControllerBeforeQuickBuildTakesItsInitialSnapshot() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String constructor = methodBody(source, "public BuilderScreen");
+
+        int shapeInit = constructor.indexOf("this.shapeController.init(this, this.controller)");
+        int quickBuildInit = constructor.indexOf("this.quickBuildPanel.init(this, this.controller)");
+        assertTrue(shapeInit >= 0 && quickBuildInit >= 0 && shapeInit < quickBuildInit,
+                "按 G 构造界面时，Quick Build 首次 Core 快照不得读取尚未绑定 screen 的形状控制器");
+    }
+
+    @Test
     void closingQuickBuildPanelRestoresSingleBlockCursor() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
@@ -46,6 +58,8 @@ class QuickBuildClosedStateContractTest {
         String canShowBody = methodBody(panelSource, "protected boolean canShowWindow");
         String topBarSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java"));
+        String topBarAdapterSource = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java"));
 
         assertTrue(canUseBody.contains("!this.controller.isProgressionEnabled()"),
                 "survival balance disabled should keep quick-build available");
@@ -53,9 +67,9 @@ class QuickBuildClosedStateContractTest {
                 "survival balance should gate quick-build on the remote placement plugin");
         assertTrue(canShowBody.contains("screen.canUseQuickBuild()"),
                 "a persisted quick-build window must not render while the feature is locked");
-        assertTrue(topBarSource.contains("boolean quickBuild = screen.canUseQuickBuild()")
-                        && topBarSource.contains("if (quickBuild)")
-                        && topBarSource.contains("TopBarTypes.TopBarButtonId.QUICK_BUILD"),
+        assertTrue(topBarSource.contains("TopBarUiAdapter.snapshot(screen, controller)")
+                        && topBarAdapterSource.contains("TopBarUiButtonId.QUICK_BUILD")
+                        && topBarAdapterSource.contains("screen.canUseQuickBuild()"),
                 "the top bar quick-build button should disappear while the feature is locked");
         assertFalse(topBarSource.contains("screen.rtsbuilding.status.shape"),
                 "the top status row should not duplicate quick-build shape state");
@@ -69,12 +83,18 @@ class QuickBuildClosedStateContractTest {
     void quickBuildPanelOwnsShapeDimensionReadout() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+        String adapter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
+        String layout = Files.readString(Path.of(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/QuickBuildWindowLayout.java"));
 
         assertTrue(source.contains("screen.rtsbuilding.quick_build.dimensions"),
                 "shape dimensions should live in the quick-build panel, not the top bar");
-        assertTrue(source.contains("screen.currentShapeSizeText()"),
+        assertTrue(source.contains("core.dimensions")
+                        && adapter.contains("panel.uiScreen().currentShapeSizeText()"),
                 "the panel should render the live width/height/depth readout");
-        assertTrue(source.contains("private static final int BOTTOM_INFO_H = 72"),
+        assertTrue(source.contains("BOTTOM_INFO_H = QuickBuildWindowLayout.BOTTOM_INFO_H")
+                        && layout.contains("public static final int BOTTOM_INFO_H = 72"),
                 "the bottom hint area should leave room for the extra dimension row");
     }
 

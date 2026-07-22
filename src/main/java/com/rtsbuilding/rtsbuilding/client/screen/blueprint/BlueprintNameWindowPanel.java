@@ -4,6 +4,9 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -19,8 +22,8 @@ import java.util.List;
  * it can stack with settings, guide, storage, and blueprint control windows.
  */
 public final class BlueprintNameWindowPanel extends RtsWindowPanel {
-    private static final int DEFAULT_W = 420;
-    private static final int DEFAULT_H = 146;
+    private static final int DEFAULT_W = BlueprintWindowLayout.NAME_W;
+    private static final int DEFAULT_H = BlueprintWindowLayout.NAME_H;
     private static final int MIN_W = 300;
     private static final int MIN_H = 122;
 
@@ -30,7 +33,7 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     }
 
     public void syncWithBlueprintState() {
-        if (BlueprintPanel.isNameDialogOpen()) {
+        if (BlueprintUiStateAdapter.snapshot().nameWindowOpen) {
             if (!isOpen()) {
                 setOpen(true);
                 markBroughtToFront();
@@ -42,47 +45,47 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (!BlueprintPanel.isNameDialogOpen()) {
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
+        if (!state.nameWindowOpen) {
             return;
         }
-        BlueprintNameDialog.renderContent(g, screen.font(), contentX(), contentY(), contentWidth(), contentHeight(),
-                mouseX, mouseY,
-                BlueprintPanel.isNameDialogCaptureMode(),
-                BlueprintPanel.nameDialogValue(),
-                BlueprintPanel.nameDialogEntry(),
-                BlueprintPanel.nameDialogCapturePointA(),
-                BlueprintPanel.nameDialogCapturePointB(),
-                BlueprintPanel.nameDialogCaptureBlockCount());
+        BlueprintNameDialog.renderCoreContent(g, screen.font(), contentX(), contentY(),
+                contentWidth(), contentHeight(), mouseX, mouseY, state);
     }
 
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !BlueprintPanel.isNameDialogOpen()) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !BlueprintUiStateAdapter.snapshot().nameWindowOpen) {
             return;
         }
         BlueprintNameDialog.ClickResult click = BlueprintNameDialog.clickContent(
                 mouseX, mouseY, contentX(), contentY(), contentWidth(), contentHeight());
         if (click == BlueprintNameDialog.ClickResult.CONFIRM) {
-            BlueprintPanel.confirmActiveNameDialog();
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CONFIRM_NAME), controller);
             setOpen(false);
         } else if (click == BlueprintNameDialog.ClickResult.CANCEL) {
-            BlueprintPanel.cancelActiveNameDialog();
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CANCEL_NAME), controller);
             setOpen(false);
         }
     }
 
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
-        if (!BlueprintPanel.isNameDialogOpen()) {
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
+        if (!state.nameWindowOpen) {
             return false;
         }
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            BlueprintPanel.confirmActiveNameDialog();
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CONFIRM_NAME), controller);
             setOpen(false);
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-            BlueprintPanel.keyPressedNameDialog(keyCode);
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.BACKSPACE_NAME), controller);
             return true;
         }
         return true;
@@ -90,19 +93,24 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
-        return BlueprintPanel.charTypedNameDialog(codePoint);
+        if (Character.isISOControl(codePoint)) {
+            return true;
+        }
+        return BlueprintUiStateAdapter.dispatch(BlueprintUiAction.text(
+                BlueprintUiAction.Type.APPEND_NAME_CHAR, Character.toString(codePoint)), controller);
     }
 
     @Override
     protected void onClose() {
-        if (BlueprintPanel.isNameDialogOpen()) {
-            BlueprintPanel.cancelActiveNameDialog();
+        if (BlueprintUiStateAdapter.snapshot().nameWindowOpen) {
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CANCEL_NAME), controller);
         }
     }
 
     @Override
     protected Component getTitle() {
-        return Component.translatable(BlueprintPanel.isNameDialogCaptureMode()
+        return Component.translatable(BlueprintUiStateAdapter.snapshot().captureNameMode
                 ? "screen.rtsbuilding.blueprints.name_dialog_capture_title"
                 : "screen.rtsbuilding.blueprints.name_dialog_rename_title");
     }

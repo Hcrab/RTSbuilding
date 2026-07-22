@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiFormats;
 
 public final class RtsClientUiUtil {
     private static final float SLOT_COUNT_SCALE = 0.65F;
@@ -44,49 +45,11 @@ public final class RtsClientUiUtil {
     }
 
     public static String compactCount(long value) {
-        long positive = Math.max(0L, value);
-        if (positive >= EFFECTIVELY_INFINITE_COUNT) {
-            return "INF";
-        }
-        if (positive < 1_000L) {
-            return Long.toString(positive);
-        }
-        if (positive < 10_000L) {
-            return String.format("%.2fK", positive / 1_000.0).replaceAll("\\.?0+K$", "K");
-        }
-        if (positive < 100_000L) {
-            return String.format("%.1fK", positive / 1_000.0).replaceAll("\\.?0+K$", "K");
-        }
-        if (positive < 1_000_000L) {
-            return (positive / 1_000L) + "K";
-        }
-        if (positive < 10_000_000L) {
-            return String.format("%.2fM", positive / 1_000_000.0).replaceAll("\\.?0+M$", "M");
-        }
-        if (positive < 100_000_000L) {
-            return String.format("%.1fM", positive / 1_000_000.0).replaceAll("\\.?0+M$", "M");
-        }
-        if (positive < 1_000_000_000L) {
-            return (positive / 1_000_000L) + "M";
-        }
-        if (positive < 10_000_000_000L) {
-            return String.format("%.2fB", positive / 1_000_000_000.0).replaceAll("\\.?0+B$", "B");
-        }
-        if (positive < 100_000_000_000L) {
-            return String.format("%.1fB", positive / 1_000_000_000.0).replaceAll("\\.?0+B$", "B");
-        }
-        return (positive / 1_000_000_000L) + "B";
+        return BottomBarUiFormats.compactCount(value);
     }
 
     public static String compactFluidAmount(long milliBuckets) {
-        long buckets = Math.max(0L, milliBuckets / 1000L);
-        if (buckets >= 1_000_000L) {
-            return String.format("%.1fM B", buckets / 1_000_000.0);
-        }
-        if (buckets >= 1_000L) {
-            return String.format("%.1fK B", buckets / 1_000.0);
-        }
-        return buckets + " B";
+        return BottomBarUiFormats.compactFluidAmount(milliBuckets);
     }
 
     public static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {

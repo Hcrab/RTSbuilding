@@ -627,6 +627,8 @@
   "screen.rtsbuilding.storage_links.header": "已绑定方块",
   "screen.rtsbuilding.storage_links.empty": "当前没有绑定储存",
   "screen.rtsbuilding.storage_links.empty_detail": "使用储存绑定，然后左键点击储存方块。",
+  "screen.rtsbuilding.storage_links.loading": "正在读取绑定储存……",
+  "screen.rtsbuilding.storage_links.failed": "无法读取绑定储存，请重新打开此窗口重试。",
   "screen.rtsbuilding.storage_links.priority": "优先级",
   "screen.rtsbuilding.storage_links.position_na": "N/A",
   "screen.rtsbuilding.storage_links.mode_both": "存取",

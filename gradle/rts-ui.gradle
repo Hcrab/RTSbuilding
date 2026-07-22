@@ -1,0 +1,316 @@
+// RTS UI Core / Kit / headless preview 的独立构建边界。
+// 此脚本不配置 Minecraft 运行任务，所有入口都只能编译、运行普通 JVM 测试或无头渲染。
+
+sourceSets {
+    uiCore {
+        java.srcDir 'src/uiCore/java'
+        resources.setSrcDirs([])
+    }
+    uiKit {
+        java.srcDir 'src/uiKit/java'
+        resources.setSrcDirs([])
+        compileClasspath += sourceSets.uiCore.output
+        runtimeClasspath += output + compileClasspath
+    }
+    uiPreview {
+        java.srcDir 'src/uiPreview/java'
+        resources.setSrcDirs([])
+        compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+        runtimeClasspath += output + compileClasspath
+    }
+    uiCoreTest {
+        java.srcDir 'src/uiCoreTest/java'
+        resources.setSrcDirs([])
+        compileClasspath += sourceSets.uiCore.output
+        runtimeClasspath += output + compileClasspath
+    }
+    uiKitTest {
+        java.srcDir 'src/uiKitTest/java'
+        resources.setSrcDirs([])
+        compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+        runtimeClasspath += output + compileClasspath
+    }
+    main {
+        compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+        runtimeClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+    }
+    // 普通仓库测试会编译直接/间接暴露 Core 类型的生产类；它必须看到与 main 相同的输出。
+    test {
+        compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+        runtimeClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+    }
+}
+
+// ModDev 的开发运行不会自动继承 main.runtimeClasspath 里的独立 source set。
+// 必须把 Core/Kit 明确登记为同一个 rtsbuilding 模组的源码根，否则发布 JAR 正常，
+// 但按 G 构造 BuilderScreen 时 ModLauncher 的 TRANSFORMER 类加载器看不到这些类。
+neoForge {
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.uiCore)
+            sourceSet(sourceSets.uiKit)
+        }
+    }
+}
+
+dependencies {
+    // 两个测试 source set 故意不继承主测试依赖，确保 classpath 没有 Minecraft。
+    uiCoreTestImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+    uiCoreTestRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
+    uiKitTestImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+    uiKitTestRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
+}
+
+['compileUiCoreJava', 'compileUiKitJava', 'compileUiCoreTestJava',
+ 'compileUiKitTestJava', 'compileUiPreviewJava'].each { taskName ->
+    tasks.named(taskName, JavaCompile).configure {
+        options.release = 8
+    }
+}
+
+tasks.named('compileJava').configure {
+    dependsOn tasks.named('compileUiCoreJava')
+    dependsOn tasks.named('compileUiKitJava')
+}
+
+def forbiddenPlatformMarkers = [
+        'net.minecraft',
+        'net.neoforged',
+        'net.minecraftforge',
+        'org.lwjgl',
+        'com.mojang.blaze3d',
+        'java.awt',
+        'javax.swing'
+]
+
+def registerIsolationCheck = { String taskName, String label, String sourcePath ->
+    tasks.register(taskName) {
+        group = 'verification'
+        description = "确认 ${label} 没有引用 Minecraft、加载器、LWJGL 或桌面 UI 类型。"
+        def sources = fileTree(sourcePath) { include '**/*.java' }
+        inputs.files(sources)
+        doLast {
+            sources.each { source ->
+                def text = source.getText('UTF-8')
+                forbiddenPlatformMarkers.each { marker ->
+                    if (text.contains(marker)) {
+                        throw new GradleException("${label} isolation violation in ${source}: ${marker}")
+                    }
+                }
+            }
+        }
+    }
+}
+
+registerIsolationCheck('verifyUiCoreIsolation', 'UI Core', 'src/uiCore/java')
+registerIsolationCheck('verifyUiKitIsolation', 'UI Kit', 'src/uiKit/java')
+
+tasks.register('uiCoreTest', Test) {
+    group = 'verification'
+    description = '运行不依赖 Minecraft 的 Java 8 UI Core 契约测试。'
+    dependsOn tasks.named('uiCoreTestClasses')
+    dependsOn tasks.named('verifyUiCoreIsolation')
+    testClassesDirs = sourceSets.uiCoreTest.output.classesDirs
+    classpath = sourceSets.uiCoreTest.runtimeClasspath
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'short'
+    }
+}
+
+tasks.register('uiKitTest', Test) {
+    group = 'verification'
+    description = '运行不依赖 Minecraft 的 Java 8 UI Kit 契约与性能红线测试。'
+    dependsOn tasks.named('uiKitTestClasses')
+    dependsOn tasks.named('verifyUiKitIsolation')
+    testClassesDirs = sourceSets.uiKitTest.output.classesDirs
+    classpath = sourceSets.uiKitTest.runtimeClasspath
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'short'
+    }
+}
+
+def uiPreviewOutput = layout.buildDirectory.dir('reports/ui-preview')
+def uiSnapshotBaselines = layout.projectDirectory.dir('src/uiPreviewSnapshots')
+
+tasks.register('runUiPreview', JavaExec) {
+    group = 'ui preview'
+    description = '以 headless 模式渲染 UI 预览；当前阶段不会打开桌面窗口。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewMain'
+    systemProperty 'java.awt.headless', 'true'
+    args uiPreviewOutput.get().asFile.absolutePath
+    outputs.dir uiPreviewOutput
+}
+
+tasks.register('renderUiSnapshots', JavaExec) {
+    group = 'ui preview'
+    description = '无头渲染 UI 场景 PNG。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewMain'
+    systemProperty 'java.awt.headless', 'true'
+    args uiPreviewOutput.get().asFile.absolutePath
+    outputs.dir uiPreviewOutput
+}
+
+tasks.register('compareUiReference', JavaExec) {
+    group = 'verification'
+    description = '将 1920x1080 简中主场景与真实 main 截图的 UI 区域并排并生成差异热图。'
+    dependsOn tasks.named('renderUiSnapshots')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiReferenceComparison'
+    systemProperty 'java.awt.headless', 'true'
+    doFirst {
+        def reference = providers.gradleProperty('uiReference').orNull
+        if (reference == null || reference.trim().isEmpty()) {
+            throw new GradleException('compareUiReference requires -PuiReference=<main screenshot>')
+        }
+        args reference
+        args uiPreviewOutput.get().file('01_zh_cn_1920x1080.png').asFile.absolutePath
+        args uiPreviewOutput.get().file('comparison').asFile.absolutePath
+    }
+}
+
+tasks.register('verifyUiSnapshots', JavaExec) {
+    group = 'verification'
+    description = '无头验证 UI 场景结构、输入、九宫格、性能预算、确定性和已批准基线。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewVerifier'
+    systemProperty 'java.awt.headless', 'true'
+    args uiPreviewOutput.get().asFile.absolutePath
+    args uiSnapshotBaselines.asFile.absolutePath
+    outputs.dir uiPreviewOutput
+}
+
+tasks.register('updateUiSnapshots', JavaExec) {
+    group = 'ui preview'
+    description = '经人工明确批准后更新 UI snapshot 基线；普通 check 不会调用。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiSnapshotUpdater'
+    systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.snapshots.approved',
+            providers.gradleProperty('approveUiSnapshots').getOrElse('false')
+    args uiSnapshotBaselines.asFile.absolutePath
+    outputs.dir uiSnapshotBaselines
+}
+
+tasks.register('verifyUiBaselineResources') {
+    group = 'verification'
+    description = '静态核对四语言键集合和首批 UI 产品母版资源。'
+    def languageDirectory = file('src/main/resources/assets/rtsbuilding/lang')
+    def languageFiles = ['en_us', 'zh_cn', 'zh_tw', 'zh_hk'].collect {
+        file("${languageDirectory}/${it}.json")
+    }
+    def requiredTextures = [
+            file('src/main/resources/assets/rtsbuilding/textures/gui/general/close_button.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/general/default_button.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/quickbuild/single_block.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/quickbuild/line_block.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/quickbuild/circle_block.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/quickbuild/ball_block.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal.png')
+    ]
+    def requiredPanels = [
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/RtsWindowPanel.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuPanel.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java')
+    ]
+    inputs.files(languageFiles + requiredTextures + requiredPanels)
+    doLast {
+        def parser = new groovy.json.JsonSlurper()
+        def keySets = languageFiles.collectEntries { language ->
+            def text = language.getText('UTF-8').replaceFirst('^\\uFEFF', '')
+            def parsed = parser.parseText(text)
+            [(language.name): parsed.keySet() as Set]
+        }
+        def baseline = keySets['en_us.json']
+        keySets.each { name, keys ->
+            def missing = baseline - keys
+            def extra = keys - baseline
+            if (!missing.isEmpty() || !extra.isEmpty()) {
+                throw new GradleException("UI language key drift in ${name}: missing=${missing}, extra=${extra}")
+            }
+        }
+        if (baseline.size() < 900) {
+            throw new GradleException("UI language baseline looks truncated: ${baseline.size()} keys")
+        }
+        (requiredTextures + requiredPanels).each { artifact ->
+            if (!artifact.isFile() || artifact.length() == 0L) {
+                throw new GradleException("Missing UI baseline artifact: ${artifact}")
+            }
+        }
+        println "Verified four-language UI baseline: ${baseline.size()} shared keys, " +
+                "${requiredTextures.size()} textures, ${requiredPanels.size()} panel entry points"
+    }
+}
+
+tasks.register('verifyUiJava8Bytecode') {
+    group = 'verification'
+    description = '确认 UI Core/Kit 所有 class 都是 Java 8 字节码（major 52）。'
+    dependsOn tasks.named('compileUiCoreJava')
+    dependsOn tasks.named('compileUiKitJava')
+    def classDirectories = files(sourceSets.uiCore.output.classesDirs, sourceSets.uiKit.output.classesDirs)
+    inputs.files(classDirectories)
+    doLast {
+        int checked = 0
+        classDirectories.files.each { directory ->
+            if (!directory.isDirectory()) return
+            fileTree(directory) { include '**/*.class' }.each { classFile ->
+                classFile.withDataInputStream { input ->
+                    if ((input.readInt() & 0xFFFFFFFFL) != 0xCAFEBABEL) {
+                        throw new GradleException("Invalid class file: ${classFile}")
+                    }
+                    input.readUnsignedShort()
+                    int major = input.readUnsignedShort()
+                    if (major != 52) {
+                        throw new GradleException("UI class is not Java 8 bytecode: ${classFile} major=${major}")
+                    }
+                }
+                checked++
+            }
+        }
+        if (checked == 0) throw new GradleException('No UI Core/Kit class files were checked')
+        println "Verified ${checked} UI Core/Kit classes as Java 8 bytecode"
+    }
+}
+
+tasks.register('verifyUiDevModSources') {
+    group = 'verification'
+    description = '确认 NeoForge 开发运行的 MOD_CLASSES 同时包含 main、UI Core 与 UI Kit。'
+    dependsOn tasks.named('compileUiCoreJava')
+    dependsOn tasks.named('compileUiKitJava')
+    doLast {
+        def registered = neoForge.mods.named(mod_id).get().modSourceSets.get()
+                .collect { it.name } as Set
+        ['main', 'uiCore', 'uiKit'].each { required ->
+            if (!registered.contains(required)) {
+                throw new GradleException(
+                        "NeoForge dev mod '${mod_id}' missing source set '${required}': ${registered}")
+            }
+        }
+        println "Verified NeoForge dev mod sources: ${registered.sort()}"
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('uiCoreTest')
+    dependsOn tasks.named('uiKitTest')
+    dependsOn tasks.named('verifyUiSnapshots')
+    dependsOn tasks.named('verifyUiBaselineResources')
+    dependsOn tasks.named('verifyUiJava8Bytecode')
+    dependsOn tasks.named('verifyUiDevModSources')
+}
+
+tasks.named('jar', Jar).configure {
+    from sourceSets.uiCore.output
+    from sourceSets.uiKit.output
+}
