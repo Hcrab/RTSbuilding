@@ -1,13 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
-import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
+import com.rtsbuilding.rtsbuilding.client.domain.state.LinkedStorageEntry;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -116,7 +117,7 @@ public final class LinkedStoragePass implements RenderPass {
                        float partialTick, int frameIndex) {
         if (mc.level == null || mc.getCameraEntity() == null) return;
 
-        RtsClientKernel kernel = RtsClientKernel.get();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         StorageModule sm = kernel.module(StorageModule.class);
         if (sm == null) return;
 

@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -27,12 +28,12 @@ public final class ClientInputBridge {
     private ClientInputBridge() {}
 
     private static RtsClientKernel kernel() {
-        return RtsClientKernel.get();
+        return CompositionRoot.get().kernel();
     }
 
     /** BuilderScreen 打开时跳过，由 BuilderScreen 自身委托给 InputPipeline。 */
     private static boolean shouldSkip() {
-        return Minecraft.getInstance().screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+        return Minecraft.getInstance().screen instanceof com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
     }
 
     @SubscribeEvent

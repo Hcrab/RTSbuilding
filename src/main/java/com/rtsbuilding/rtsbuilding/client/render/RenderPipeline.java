@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.render.RenderPass.BufferAllocator;
 import com.rtsbuilding.rtsbuilding.client.render.pass.*;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster.CursorRay;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;

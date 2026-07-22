@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.mixin;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

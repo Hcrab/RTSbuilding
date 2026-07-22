@@ -4,7 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -92,7 +92,7 @@ public final class BoxSelectionPass implements RenderPass {
 
     @Override
     public boolean shouldRender(Minecraft mc) {
-        return mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
+        return mc.screen instanceof com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen
             && isConfigSafe() && PerformanceConfig.shouldRenderBoxSelection();
     }
     

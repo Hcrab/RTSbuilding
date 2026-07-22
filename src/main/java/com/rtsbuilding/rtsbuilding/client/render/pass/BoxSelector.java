@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
 
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 

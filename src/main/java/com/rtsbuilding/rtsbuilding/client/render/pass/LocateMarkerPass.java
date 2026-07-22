@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import net.minecraft.client.Minecraft;
@@ -33,7 +34,7 @@ public final class LocateMarkerPass implements RenderPass {
                        float partialTick, int frameIndex) {
         if (mc.level == null || mc.getCameraEntity() == null) return;
 
-        StorageModule sm = RtsClientKernel.get().module(StorageModule.class);
+        StorageModule sm = CompositionRoot.get().module(StorageModule.class);
         if (sm == null) return;
 
         var trackedPositions = sm.getLocationDisplayPositions();

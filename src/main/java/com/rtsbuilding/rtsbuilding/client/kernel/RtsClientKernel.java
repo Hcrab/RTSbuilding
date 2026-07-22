@@ -2,26 +2,27 @@ package com.rtsbuilding.rtsbuilding.client.kernel;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.input.InputPipeline;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.module.remote.RemoteMenuModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPipeline;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rtsbuilding.rtsbuilding.client.domain.module.ModuleState;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * TLK (Thin Lifecycle Kernel)——客户端内核，约 80 行有效代码。
+ * TLK (Thin Lifecycle Kernel)——客户端内核，约 100 行有效代码。
  *
  * <h3>职责</h3>
  * <ul>
  *   <li>管理所有 {@link FeatureModule} 的生命周期（注册/激活/休眠/注销）</li>
  *   <li>提供统一 {@link EpochClock} 时间源</li>
- *   <li>驱动事件系统：{@link #dispatch(StateEvent)}</li>
+ *   <li>驱动事件系统：{@link #dispatch(StateEvent)} 并维护历史事件队列供延迟注册的模块重放</li>
  *   <li>统领渲染管线 {@link RenderPipeline} 与输入流水线 {@link InputPipeline}</li>
  * </ul>
  *
@@ -44,6 +45,15 @@ public final class RtsClientKernel {
     private double regionAnchorX, regionAnchorY, regionAnchorZ;
     private double regionMaxRadius;
     private boolean regionValid;
+
+    // ======================================================================
+    //  事件回溯（State Replay）
+    // ======================================================================
+    // 事件历史环形缓冲区——延迟注册的模块可通过 replayState() 回放历史事件，
+    // 防止错过模块注册前已分发的事件。
+    private static final int REPLAY_BUFFER_SIZE = 32;
+    private final StateEvent[] replayBuffer = new StateEvent[REPLAY_BUFFER_SIZE];
+    private int replayWriteIndex;
 
     private RtsClientKernel() {}
 
@@ -80,6 +90,18 @@ public final class RtsClientKernel {
         if (initialized) {
             module.init(this);
             moduleStates.put(id, ModuleState.ON);
+            // 为新注册的模块重放历史事件，确保不会错过注册前已分发的事件
+            replayStateTo(module);
+        }
+    }
+
+    /** 向指定模块重放历史事件（环形缓冲区中的所有已记录事件）。 */
+    private void replayStateTo(FeatureModule module) {
+        for (int i = 0; i < REPLAY_BUFFER_SIZE; i++) {
+            int idx = (replayWriteIndex - i - 1 + REPLAY_BUFFER_SIZE * 2) % REPLAY_BUFFER_SIZE;
+            StateEvent event = replayBuffer[idx];
+            if (event == null) continue;
+            module.onSessionEvent(event);
         }
     }
 
@@ -106,7 +128,18 @@ public final class RtsClientKernel {
     //  Tick
     // ======================================================================
 
-    /** 每客户端 tick 调用一次。由 {@link com.rtsbuilding.rtsbuilding.client.bootstrap.ClientTickHandler} 驱动。 */
+    /** 每 tick Pre 阶段调用（对应 ClientTickEvent.Pre，在 aiStep() 之前）。 */
+    public void tickPre() {
+        if (!initialized) return;
+        long now = clock.epochMs();
+        int tickIdx = clock.tickIndex();
+        for (FeatureModule module : modules.values()) {
+            if (moduleStates.getOrDefault(module.moduleId(), ModuleState.ON) == ModuleState.OFF) continue;
+            module.tickPre(now, tickIdx);
+        }
+    }
+
+    /** 每 tick Post 阶段调用（对应 ClientTickEvent.Post，在 aiStep() 之后）。 */
     public void tick() {
         if (!initialized) return;
         long now = clock.tick();
@@ -134,6 +167,9 @@ public final class RtsClientKernel {
     /** 向所有非 OFF 模块广播事件。由网络回调或内部逻辑触发。 */
     public void dispatch(StateEvent event) {
         if (!initialized) return;
+        // 记录到事件历史缓冲区（供延迟注册的模块重放）
+        replayBuffer[replayWriteIndex % REPLAY_BUFFER_SIZE] = event;
+        replayWriteIndex++;
         for (Map.Entry<String, FeatureModule> entry : modules.entrySet()) {
             if (moduleStates.getOrDefault(entry.getKey(), ModuleState.ON) == ModuleState.OFF) continue;
             entry.getValue().onSessionEvent(event);

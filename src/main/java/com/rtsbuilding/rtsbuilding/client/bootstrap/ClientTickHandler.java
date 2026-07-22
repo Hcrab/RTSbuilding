@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
-import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -22,11 +22,13 @@ public final class ClientTickHandler {
 
     @SubscribeEvent
     public static void onClientTickPre(ClientTickEvent.Pre event) {
-        RtsClientKernel kernel = RtsClientKernel.get();
+        CompositionRoot root = CompositionRoot.get();
+        if (root != null) root.tickPort().onTickPre();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         if (!kernel.isInitialized()) return;
 
-        RtsClientPathfinding.tickPre();
-
+        // Pre 阶段：先驱动自定义 tick 再处理原版输入管道
+        kernel.tickPre();
         kernel.inputPipeline().onTickPre();
 
         // 死亡检测：玩家刚死的瞬间分发 PlayerDied 事件
@@ -44,7 +46,9 @@ public final class ClientTickHandler {
 
     @SubscribeEvent
     public static void onClientTickPost(ClientTickEvent.Post event) {
-        RtsClientKernel kernel = RtsClientKernel.get();
+        CompositionRoot root = CompositionRoot.get();
+        if (root != null) root.tickPort().onTickPost();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         if (kernel.isInitialized()) {
             kernel.tick();
             kernel.inputPipeline().onTickPost();

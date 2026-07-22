@@ -3,16 +3,16 @@ package com.rtsbuilding.rtsbuilding.client.render.pass;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectionHighlight;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.AABB;
 
 import javax.annotation.Nullable;
 
 /**
- * 交互目标选择高亮渲染 pass——为 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.select.SelectPanel}
+ * 交互目标选择高亮渲染 pass——为 {@link com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectPanel}
  * 中悬停的实体或方块绘制角支架线框。
  *
  * <p>通过注入的 {@link SelectionHighlight} 获取当前悬停目标，
@@ -35,7 +35,7 @@ public final class EntitySelectHighlightPass implements RenderPass {
 
     @Override
     public boolean shouldRender(Minecraft mc) {
-        return mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+        return mc.screen instanceof com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
     }
 
     @Override

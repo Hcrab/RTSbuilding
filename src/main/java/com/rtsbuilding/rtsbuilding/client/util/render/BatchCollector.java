@@ -12,31 +12,12 @@ import java.util.List;
 /**
  * 渲染指令批处理器——收集精灵图/九宫格的绘制指令，按贴图分组后批量提交。
  *
- * <p><b>为什么需要批处理？</b></p>
- * <p>每次调用 {@code g.blit()} 前，OpenGL 需要执行贴图绑定、过滤参数设置、
- * Blend 状态检查等操作。当大量小尺寸的九宫格瓷砖逐一提交时，
- * 状态切换的开销远超实际绘制的开销。</p>
+ * <p><b>已废弃：</b>{@link SpriteRenderer} 已改用 VertexConsumer 批量提交，
+ * 底层 {@code BufferSource} 自动完成同纹理顶点合并。此类将在未来版本中移除。</p>
  *
- * <p><b>批处理策略：</b></p>
- * <ol>
- *   <li>收集所有绘制指令到缓冲区</li>
- *   <li>{@link #flush} 时按贴图分组，同贴图的指令连续提交</li>
- *   <li>每组只设置一次过滤参数和 Blend 状态</li>
- *   <li>排序保证渲染顺序正确（按 Z 值升序）</li>
- * </ol>
- *
- * <p><b>用法：</b></p>
- * <pre>{@code
- * BatchCollector batch = new BatchCollector();
- *
- * // 收集指令（自动去重状态设置）
- * batch.nineSlice(tex, u, v, w, h, border, dstX, dstY, dstW, dstH);
- * batch.sprite(tex, u, v, rw, rh, dstX, dstY, dstW, dstH);
- *
- * // 帧末尾统一提交
- * batch.flush(guiGraphics);
- * }</pre>
+ * @deprecated 不再需要。直接使用 {@link SpriteRenderer#drawNineSlice} / {@link SpriteRenderer#drawSprite} 即可。
  */
+@Deprecated
 public final class BatchCollector {
 
     // ======================== 绘制指令记录 ========================

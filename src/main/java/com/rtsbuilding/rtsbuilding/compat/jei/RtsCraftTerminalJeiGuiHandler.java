@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
-import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.domain.state.StorageEntry;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.runtime.IClickableIngredient;
 import mezz.jei.api.runtime.IIngredientManager;

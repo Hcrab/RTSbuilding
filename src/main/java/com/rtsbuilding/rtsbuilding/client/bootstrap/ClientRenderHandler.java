@@ -2,8 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -25,7 +26,12 @@ public final class ClientRenderHandler {
      */
     @SubscribeEvent
     public static void onRenderFramePre(RenderFrameEvent.Pre event) {
-        RtsClientKernel kernel = RtsClientKernel.get();
+        CompositionRoot root = CompositionRoot.get();
+        if (root != null) {
+            float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+            root.renderFramePort().onRenderFrame(partialTick);
+        }
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         if (!kernel.isInitialized()) return;
         CameraModule cam = kernel.module(CameraModule.class);
         if (cam != null) {
@@ -38,7 +44,7 @@ public final class ClientRenderHandler {
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
 
-        RtsClientKernel kernel = RtsClientKernel.get();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         if (!kernel.isInitialized()) return;
 
         // 允许渲染条件：摄像机开启 或 已收到区域锚点信息（边界独立于摄像机）

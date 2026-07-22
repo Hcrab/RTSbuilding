@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.mixin;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.container.ContainerScreenPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.container.ContainerScreenPanel;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;

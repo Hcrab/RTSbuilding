@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.input;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayLayoutHelper.JeiOverlayIngredient;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.neoforged.api.distmarker.Dist;
@@ -27,7 +28,7 @@ public final class RtsClientInputGate {
     private RtsClientInputGate() {}
 
     private static boolean isRtsEnabled() {
-        CameraModule cam = RtsClientKernel.get().module(CameraModule.class);
+        CameraModule cam = CompositionRoot.get().module(CameraModule.class);
         return cam != null && cam.getState().isEnabled();
     }
 

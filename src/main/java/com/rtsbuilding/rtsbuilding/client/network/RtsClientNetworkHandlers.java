@@ -1,13 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.network;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.module.mining.MiningModule;
-import com.rtsbuilding.rtsbuilding.client.module.plugin.PluginModule;
-import com.rtsbuilding.rtsbuilding.client.module.progression.ProgressionModule;
-import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
-import com.rtsbuilding.rtsbuilding.client.module.workflow.WorkflowModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining.MiningModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.plugin.PluginModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.progression.ProgressionModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
@@ -30,7 +31,7 @@ public final class RtsClientNetworkHandlers {
     private RtsClientNetworkHandlers() {}
 
     private static RtsClientKernel kernel() {
-        return RtsClientKernel.get();
+        return CompositionRoot.get().kernel();
     }
 
     // ======================================================================

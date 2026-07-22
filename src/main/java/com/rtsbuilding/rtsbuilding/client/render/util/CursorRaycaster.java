@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.render.util;
 
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.background.ScreenBackgroundPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.downbar.DownSidebarLayoutHelper;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.background.ScreenBackgroundPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.DownSidebarLayoutHelper;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;

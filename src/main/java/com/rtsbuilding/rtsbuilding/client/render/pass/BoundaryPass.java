@@ -1,4 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -37,7 +38,7 @@ public final class BoundaryPass implements RenderPass {
 
     /**
      * 屏障色调颜色（ABGR 格式，与 Minecraft setColor 一致），默认黄色 0xFFFFCC00。
-     * <p>由 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.gear.RenderingSection} 设置面板控制。
+     * <p>由 {@link com.rtsbuilding.rtsbuilding.client.presentation.panel.gear.RenderingSection} 设置面板控制。
      */
     public static int barrierColor = 0xFFFFCC00;
 
@@ -89,7 +90,7 @@ public final class BoundaryPass implements RenderPass {
     @Override
     public boolean shouldRender(Minecraft mc) {
         return mc.player != null 
-            && mc.screen instanceof com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
+            && mc.screen instanceof com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen
             && isConfigSafe() && PerformanceConfig.shouldRenderBoundaryWalls();
     }
     
@@ -106,7 +107,7 @@ public final class BoundaryPass implements RenderPass {
     @Override
     public void render(Minecraft mc, BufferAllocator alloc, PoseStack poseStack, float partialTick, int frameIndex) {
         if (mc.player == null) return;
-        RtsClientKernel kernel = RtsClientKernel.get();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         double r, cx, cy, cz;
         boolean useFallback;
         if (kernel.isRegionValid()) {
@@ -123,19 +124,20 @@ public final class BoundaryPass implements RenderPass {
             useFallback = true;
         }
         
-        // 计算与边界的距离
+        // 计算相机到最近边界墙的距离（而非到区域中心）
         var camera = mc.getCameraEntity();
         if (camera != null) {
-            double distance = Math.sqrt(
-                Math.pow(camera.getX() - cx, 2) +
-                Math.pow(camera.getY() - cy, 2) +
-                Math.pow(camera.getZ() - cz, 2)
+            double dx = Math.abs(camera.getX() - cx) - r;
+            double dz = Math.abs(camera.getZ() - cz) - r;
+            double distanceToBoundary = Math.sqrt(
+                Math.max(0, dx) * Math.max(0, dx) +
+                Math.max(0, dz) * Math.max(0, dz)
             );
             
-            // 渲染距离剔除
+            // 渲染距离剔除（基于到墙面的距离，区域内距离=0）
             try {
                 if (PerformanceConfig.shouldEnableRenderDistanceCulling() &&
-                    distance > PerformanceConfig.getMaxRenderDistance()) {
+                    distanceToBoundary > PerformanceConfig.getMaxRenderDistance()) {
                     return;
                 }
             } catch (IllegalStateException e) {

@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.render;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
@@ -16,7 +17,7 @@ import org.lwjgl.opengl.GL30;
 /**
  * 无人机视角画面捕获服务——在 {@link RenderLevelStageEvent.Stage#AFTER_LEVEL} 阶段
  * 将 Minecraft 主渲染目标（即 RTS 摄像机的世界渲染画面）拷贝到一张 OpenGL 纹理中，
- * 供 {@link com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen} 作为背景显示。
+ * 供 {@link com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen} 作为背景显示。
  *
  * <p>架构概览：</p>
  * <ol>
@@ -136,7 +137,7 @@ public final class ViewCaptureService {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) return;
 
         // 仅在 RTS 摄像机活跃时捕获
-        RtsClientKernel kernel = RtsClientKernel.get();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         if (!kernel.isInitialized()) return;
         CameraModule cam = kernel.module(CameraModule.class);
         if (cam == null || !cam.getState().isEnabled()) return;

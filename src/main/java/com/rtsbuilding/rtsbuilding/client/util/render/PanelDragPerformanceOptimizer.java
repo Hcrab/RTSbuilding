@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.util.render;
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsPanel;
 
 /**
  * 面板拖拽性能优化器——用于跟踪拖拽状态以优化渲染性能

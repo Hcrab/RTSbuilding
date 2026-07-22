@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.input.layer;
 
 import com.rtsbuilding.rtsbuilding.client.input.InputLayer;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 

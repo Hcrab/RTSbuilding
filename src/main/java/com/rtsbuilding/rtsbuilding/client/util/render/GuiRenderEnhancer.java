@@ -11,34 +11,41 @@ import org.lwjgl.opengl.GL11;
 /**
  * GUI渲染增强器 - 提供抗锯齿和高质量渲染功能
  * 
- * <p>此工具类提供了多种渲染增强功能，包括抗锯齿、平滑线条和高质量纹理过滤，
- * 以提升Minecraft GUI界面的视觉质量。</p>
+ * <p>此类已被弃用，其方法均为空操作（no-op）。</p>
+ * <p><b>弃用原因：</b></p>
+ * <ul>
+ *   <li>{@code GL_LINE_SMOOTH} 在现代 OpenGL 中已弃用，多数驱动下无实际效果</li>
+ *   <li>{@code endHighQualityRender()} 无条件调用 {@code GL11.glDisable(GL_BLEND)}，
+ *       会破坏其他 Mod 及 F3 调试界面等后续渲染的半透明效果</li>
+ *   <li>Minecraft 的 {@code RenderType} 系统已通过 {@code TransparencyStateShard}
+ *       正确管理混合状态，无需手动干预</li>
+ *   <li>需要控制 blend 时应使用 {@link BlendScope} RAII 守卫</li>
+ * </ul>
+ *
+ * @deprecated 此类所有方法均为空操作。需要 blend 控制时使用 {@link BlendScope}。
  */
+@Deprecated(since = "1.0", forRemoval = true)
 public class GuiRenderEnhancer {
     
-    // Minecraft本身控制抗锯齿设置，我们只在渲染时启用相应的OpenGL状态
-    private static boolean isAntialiasingSupported = true; // 假设支持，因为Minecraft运行环境一般都支持基础功能
+    private static final boolean isAntialiasingSupported = true;
     
     /**
-     * 开始高质量GUI渲染
-     * 
-     * <p>启用平滑线条和其他渲染增强功能</p>
+     * 空操作（no-op）。
+     *
+     * @deprecated 无实际效果。Minecraft 的 RenderType 系统自动管理 blend 状态。
      */
+    @Deprecated
     public static void beginHighQualityRender(GuiGraphics guiGraphics) {
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glEnable(GL11.GL_LINE_SMOOTH);
-        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
     }
     
     /**
-     * 结束高质量GUI渲染
-     * 
-     * <p>恢复到标准渲染设置</p>
+     * 空操作（no-op）。
+     *
+     * @deprecated 此方法原实现会无条件关闭 GL_BLEND，破坏后续半透明渲染。
+     *             现已改为空操作，不再影响全局 GL 状态。
      */
+    @Deprecated
     public static void endHighQualityRender(GuiGraphics guiGraphics) {
-        // 禁用高级渲染特性
-        GL11.glDisable(GL11.GL_LINE_SMOOTH);
-        GL11.glDisable(GL11.GL_BLEND);
     }
     
     /**

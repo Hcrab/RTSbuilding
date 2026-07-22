@@ -4,9 +4,10 @@ import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceTiler;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.render.GuiRenderEnhancer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -22,12 +23,9 @@ import net.minecraft.resources.ResourceLocation;
  *   <li>{@link #drawNineSliceFloatingPanel} — 浮窗/提示框背景（含悬浮高亮）</li>
  * </ul>
  *
- * <p>每帧渲染流程：</p>
- * <ol>
- *   <li>通过 {@link FilterState} 自动去重设置 OpenGL 过滤参数</li>
- *   <li>通过 {@link BlendScope} 确保 blend 状态正确配对</li>
- *   <li>通过 {@link NineSliceTiler} 计算九宫格拼贴坐标</li>
- * </ol>
+ * <p><b>性能优化：</b>九宫格渲染使用 VertexConsumer 批量提交所有瓷砖到单一 draw call，
+ * 替代逐 tile 调用 {@code g.blit()} 的旧方案。纹理过滤和混合状态由
+ * {@link GuiRenderTypes} 缓存的 {@link net.minecraft.client.renderer.RenderType} 管理。</p>
  */
 public final class SpriteRenderer {
 
@@ -82,7 +80,7 @@ public final class SpriteRenderer {
      * 计算精灵区域在当前主题下的水平偏移量（像素）。
      * 主题不会在单帧内变化，调用方只需在渲染开头计算一次即可复用。
      */
-    private static int getThemeOffset(SpriteRegion region) {
+    public static int getThemeOffset(SpriteRegion region) {
         return switch (region.texture().themeLayout()) {
             case HORIZONTAL_PAIR ->
                     ThemeManager.getInstance().isLightMode() ? region.texture().halfWidth() : 0;
@@ -93,56 +91,81 @@ public final class SpriteRenderer {
     /**
      * 计算九宫格在当前主题下的水平偏移量（像素）。
      */
-    private static int getNineSliceThemeOffset(NineSliceRegion spec) {
+    public static int getNineSliceThemeOffset(NineSliceRegion spec) {
         return getThemeOffset(spec.region());
     }
 
     // ======================== 单精灵图绘制 ========================
 
     /**
-     * 绘制精灵图——自动选择过滤策略，不应用主题偏移。
+     * 绘制精灵图——使用 VertexConsumer 批量提交，单次 draw call 完成。
      * <p>如需主题偏移，调用方需自行通过 {@link SpriteRegion#withTheme()} 预转换，
      * 或使用 {@link #drawStateSprite} 等集成方法。</p>
      */
     public static void drawSprite(GuiGraphics g, SpriteRegion region,
                                    int dstX, int dstY, int dstW, int dstH) {
-        FilterState.getInstance().apply(region.texture());
-        // 应用高质量纹理过滤
-        GuiRenderEnhancer.applyHighQualityTextureFiltering(region.texture().location());
-        try (BlendScope blend = BlendScope.normal()) {
-            g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
-                    region.u(), region.v(),
-                    region.regionWidth(), region.regionHeight(),
-                    region.texture().fullWidth(), region.texture().fullHeight());
-        }
-        // 重置纹理过滤
-        GuiRenderEnhancer.resetTextureFiltering();
+        if (dstW <= 0 || dstH <= 0) return;
+        var texture = region.texture().location();
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texture, texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+        float u0 = (float) region.u() / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+        buffer.addVertex(matrix, dstX, dstY + dstH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, 1f);
+        buffer.addVertex(matrix, dstX + dstW, dstY + dstH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, 1f);
+        buffer.addVertex(matrix, dstX + dstW, dstY, 0).setUv(u1, v0).setColor(1f, 1f, 1f, 1f);
+        buffer.addVertex(matrix, dstX, dstY, 0).setUv(u0, v0).setColor(1f, 1f, 1f, 1f);
     }
 
     /**
-     * 绘制精灵图（带显式主题偏移）——避免调用 {@link SpriteRegion#withTheme()} 创建中间对象。
+     * 绘制精灵图（带显式主题偏移）——使用 VertexConsumer 批量提交。
+     * <p>相比 {@link #drawSprite(GuiGraphics, SpriteRegion, int, int, int, int)},
+     * 此方法接受预计算的主题偏移，避免 {@link SpriteRegion#withTheme()} 的对象分配。</p>
      *
      * @param themeOffset 主题水平偏移量（像素），通过 {@link #getThemeOffset} 计算
      */
-    private static void drawSprite(GuiGraphics g, SpriteRegion region, int themeOffset,
-                                    int dstX, int dstY, int dstW, int dstH) {
+    public static void drawSprite(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                   int dstX, int dstY, int dstW, int dstH) {
+        if (dstW <= 0 || dstH <= 0) return;
+        var texture = region.texture().location();
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texture, texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+        float u0 = (float) (region.u() + themeOffset) / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + themeOffset + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+        buffer.addVertex(matrix, dstX, dstY + dstH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, 1f);
+        buffer.addVertex(matrix, dstX + dstW, dstY + dstH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, 1f);
+        buffer.addVertex(matrix, dstX + dstW, dstY, 0).setUv(u1, v0).setColor(1f, 1f, 1f, 1f);
+        buffer.addVertex(matrix, dstX, dstY, 0).setUv(u0, v0).setColor(1f, 1f, 1f, 1f);
+    }
+
+    /**
+     * 即时模式绘制精灵图——直接使用 {@code g.blit()} 渲染，不经过批处理。
+     * <p>仅用于 {@link #drawStateSprite} 的交叉淡入淡出路径（需要每 pass 独立提交以保证 blend 正确）。</p>
+     */
+    private static void drawSpriteImmediate(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                             int dstX, int dstY, int dstW, int dstH) {
         FilterState.getInstance().apply(region.texture());
-        // 应用高质量纹理过滤
-        GuiRenderEnhancer.applyHighQualityTextureFiltering(region.texture().location());
-        try (BlendScope blend = BlendScope.normal()) {
-            g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
-                    region.u() + themeOffset, region.v(),
-                    region.regionWidth(), region.regionHeight(),
-                    region.texture().fullWidth(), region.texture().fullHeight());
-        }
-        // 重置纹理过滤
-        GuiRenderEnhancer.resetTextureFiltering();
+        g.blit(region.texture().location(), dstX, dstY, dstW, dstH,
+                region.u() + themeOffset, region.v(),
+                region.regionWidth(), region.regionHeight(),
+                region.texture().fullWidth(), region.texture().fullHeight());
     }
 
     // ======================== 九宫格渲染 ========================
 
     /**
-     * 绘制九宫格精灵图——自动处理 blend 状态。
+     * 绘制九宫格精灵图——使用 VertexConsumer 批量提交。
      * <p>不自动应用主题偏移。如需主题适配，调用方需通过
      * {@link NineSliceRegion#withTheme()} 预先处理。</p>
      */
@@ -156,28 +179,13 @@ public final class SpriteRenderer {
      *
      * @param themeOffset 主题水平偏移量（像素），通过 {@link #getNineSliceThemeOffset} 计算
      */
-    private static void drawNineSlice(GuiGraphics g, NineSliceRegion spec, int themeOffset,
-                                       int dstX, int dstY, int dstW, int dstH) {
+    public static void drawNineSlice(GuiGraphics g, NineSliceRegion spec, int themeOffset,
+                                      int dstX, int dstY, int dstW, int dstH) {
         SpriteRegion r = spec.region();
-        TextureInfo texInfo = r.texture();
-        ResourceLocation texture = texInfo.location();
-        int texW = texInfo.fullWidth();
-        int texFileH = texInfo.fullHeight();
-        int u = r.u() + themeOffset;
-
-        FilterState.getInstance().apply(texInfo);
-        // 应用高质量纹理过滤
-        GuiRenderEnhancer.applyHighQualityTextureFiltering(texture);
-
-        try (BlendScope blend = BlendScope.normal()) {
-            NineSliceTiler.forEachTile(
-                    u, r.v(), r.regionWidth(), r.regionHeight(), spec.border(),
-                    dstX, dstY, dstW, dstH,
-                    (sx, sy, sw, sh, dx, dy, dw, dh) ->
-                            g.blit(texture, dx, dy, dw, dh, sx, sy, sw, sh, texW, texFileH));
-        }
-        // 重置纹理过滤
-        GuiRenderEnhancer.resetTextureFiltering();
+        drawNineSliceRaw(g, r.texture(),
+                r.u() + themeOffset, r.v(),
+                r.regionWidth(), r.regionHeight(), spec.border(),
+                dstX, dstY, dstW, dstH);
     }
 
     // ======================== 面板快捷方法 ========================
@@ -211,29 +219,163 @@ public final class SpriteRenderer {
     }
 
     /**
-     * 九宫格原始渲染——直接使用显式坐标，不创建任何中间对象。
-     * 供面板快捷方法和 {@link NineSliceGpuCache} 回退路径使用。
+     * 九宫格原始渲染——使用 VertexConsumer 批量提交所有瓷砖，单次 draw call 完成。
+     * <p>替代逐 tile 调用 {@code g.blit()} 的旧方案，消除 N 次 draw call 开销。</p>
      */
     private static void drawNineSliceRaw(GuiGraphics g, TextureInfo texInfo,
                                           int u, int v, int regionW, int regionH, int border,
                                           int dstX, int dstY, int dstW, int dstH) {
+        if (dstW <= 0 || dstH <= 0) return;
+
         ResourceLocation texture = texInfo.location();
         int texW = texInfo.fullWidth();
-        int texFileH = texInfo.fullHeight();
+        int texH = texInfo.fullHeight();
 
-        FilterState.getInstance().apply(texInfo);
-        // 应用高质量纹理过滤
-        GuiRenderEnhancer.applyHighQualityTextureFiltering(texture);
+        var renderType = GuiRenderTypes.fromTextureInfo(texture, texInfo.filterMode());
+        VertexConsumer buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
 
-        try (BlendScope blend = BlendScope.normal()) {
-            NineSliceTiler.forEachTile(
-                    u, v, regionW, regionH, border,
-                    dstX, dstY, dstW, dstH,
-                    (sx, sy, sw, sh, dx, dy, dw, dh) ->
-                            g.blit(texture, dx, dy, dw, dh, sx, sy, sw, sh, texW, texFileH));
+        NineSliceTiler.forEachTile(
+                u, v, regionW, regionH, border,
+                dstX, dstY, dstW, dstH,
+                (sx, sy, sw, sh, dx, dy, dw, dh) -> {
+                    float u0 = (float) sx / texW;
+                    float v0 = (float) sy / texH;
+                    float u1 = (float) (sx + sw) / texW;
+                    float v1 = (float) (sy + sh) / texH;
+                    buffer.addVertex(matrix, dx,     dy + dh, 0).setUv(u0, v1).setColor(1f, 1f, 1f, 1f);
+                    buffer.addVertex(matrix, dx + dw, dy + dh, 0).setUv(u1, v1).setColor(1f, 1f, 1f, 1f);
+                    buffer.addVertex(matrix, dx + dw, dy,      0).setUv(u1, v0).setColor(1f, 1f, 1f, 1f);
+                    buffer.addVertex(matrix, dx,     dy,      0).setUv(u0, v0).setColor(1f, 1f, 1f, 1f);
+                });
+    }
+
+    // ======================== 行平铺渲染（替代逐格绘制网格背景）=======================
+
+    /**
+     * 绘制平铺行——在水平方向重复精灵 cols 次，单次 batch 提交。
+     * 源精灵图在 dstW 宽度内重复绘制，每 tileW 像素重复一次 UV。
+     * 替代逐格调用 drawSprite，将 CPU 循环次数从 cols 减少到 1，
+     * 同时消除 per-cell 取模/除法开销。
+     */
+    public static void drawTiledRow(GuiGraphics g, SpriteRegion region,
+                                     int dstX, int dstY, int tileW, int tileH, int cols) {
+        if (cols <= 0 || tileW <= 0 || tileH <= 0) return;
+        var texture = region.texture().location();
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texture, texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+
+        float u0 = (float) region.u() / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+
+        for (int col = 0; col < cols; col++) {
+            int dx = dstX + col * tileW;
+            buffer.addVertex(matrix, dx,     dstY + tileH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, 1f);
+            buffer.addVertex(matrix, dx + tileW, dstY + tileH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, 1f);
+            buffer.addVertex(matrix, dx + tileW, dstY,       0).setUv(u1, v0).setColor(1f, 1f, 1f, 1f);
+            buffer.addVertex(matrix, dx,     dstY,       0).setUv(u0, v0).setColor(1f, 1f, 1f, 1f);
         }
-        // 重置纹理过滤
-        GuiRenderEnhancer.resetTextureFiltering();
+    }
+
+    // ======================== 行平铺渲染（带主题偏移）=======================
+
+    /**
+     * 绘制平铺行（带显式主题偏移）——避免调用 {@link SpriteRegion#withTheme()} 创建中间对象。
+     * 在水平方向重复精灵 cols 次，单次 batch 提交。
+     *
+     * @param themeOffset 主题水平偏移量（像素），通过 {@link #getThemeOffset} 计算
+     */
+    public static void drawTiledRow(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                     int dstX, int dstY, int tileW, int tileH, int cols) {
+        drawTiledRowRange(g, region, themeOffset, dstX, dstY, tileW, tileH, 0, cols - 1);
+    }
+
+    // ======================== 网格平铺渲染（单次 batch 提交全部）=======================
+
+    /**
+     * 批量绘制网格背景——单次调用完成整个网格的平铺渲染，将 {@code getBuffer} 调用从 N 行减少到 1 次。
+     * <p>使用 {@link GuiRenderTypes} 直接创建 {@link RenderType}，支持滚动偏移和裁剪边界检测。</p>
+     *
+     * @param region         源精灵区域（未应用主题偏移）
+     * @param themeOffset    主题水平偏移量，通过 {@link #getThemeOffset} 计算
+     * @param originX        网格左上角 X
+     * @param originY        网格左上角 Y
+     * @param tileW          每个格子的宽度
+     * @param tileH          每个格子的高度
+     * @param gap            格子间距
+     * @param cols           列数
+     * @param rows           行数
+     * @param scroll         滚动偏移量
+     * @param clipTop        裁剪区域上边界（含）
+     * @param clipBottom     裁剪区域下边界（不含）
+     */
+    public static void drawTiledGrid(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                      int originX, int originY,
+                                      int tileW, int tileH, int gap,
+                                      int cols, int rows,
+                                      int scroll, int clipTop, int clipBottom) {
+        if (cols <= 0 || rows <= 0 || tileW <= 0 || tileH <= 0) return;
+        var texture = region.texture().location();
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texture, texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+
+        float u0 = (float) (region.u() + themeOffset) / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + themeOffset + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+
+        int stride = tileH + gap;
+        for (int row = 0; row < rows; row++) {
+            int rowY = originY + row * stride - scroll;
+            if (rowY + tileH <= clipTop || rowY >= clipBottom) continue;
+            for (int col = 0; col < cols; col++) {
+                int dx = originX + col * (tileW + gap);
+                buffer.addVertex(matrix, dx,         rowY + tileH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, 1f);
+                buffer.addVertex(matrix, dx + tileW, rowY + tileH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, 1f);
+                buffer.addVertex(matrix, dx + tileW, rowY,         0).setUv(u1, v0).setColor(1f, 1f, 1f, 1f);
+                buffer.addVertex(matrix, dx,         rowY,         0).setUv(u0, v0).setColor(1f, 1f, 1f, 1f);
+            }
+        }
+    }
+
+    /**
+     * 绘制平铺列范围——在水平方向从 startCol 到 endCol 重复精灵 cols 次，单次 batch 提交。
+     * 供 {@link #drawTiledRow} 和 {@link #drawTiledGrid} 内部使用。
+     */
+    private static void drawTiledRowRange(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                           int dstX, int dstY, int tileW, int tileH,
+                                           int startCol, int endCol) {
+        if (startCol > endCol || tileW <= 0 || tileH <= 0) return;
+        var texture = region.texture().location();
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texture, texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+
+        float u0 = (float) (region.u() + themeOffset) / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + themeOffset + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+
+        for (int col = startCol; col <= endCol; col++) {
+            int dx = dstX + col * tileW;
+            buffer.addVertex(matrix, dx,         dstY + tileH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, 1f);
+            buffer.addVertex(matrix, dx + tileW, dstY + tileH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, 1f);
+            buffer.addVertex(matrix, dx + tileW, dstY,         0).setUv(u1, v0).setColor(1f, 1f, 1f, 1f);
+            buffer.addVertex(matrix, dx,         dstY,         0).setUv(u0, v0).setColor(1f, 1f, 1f, 1f);
+        }
     }
 
     // ======================== 三段式按钮状态渲染 ========================
@@ -254,8 +396,8 @@ public final class SpriteRenderer {
             drawSprite(g, selected, themeOffset, dstX, dstY, dstW, dstH);
             return;
         }
-        CrossFadeRenderer.render(hoverT,
-                () -> drawSprite(g, normal, themeOffset, dstX, dstY, dstW, dstH),
-                () -> drawSprite(g, hovered, themeOffset, dstX, dstY, dstW, dstH));
+        CrossFadeRenderer.render(g, hoverT,
+                () -> drawSpriteImmediate(g, normal, themeOffset, dstX, dstY, dstW, dstH),
+                () -> drawSpriteImmediate(g, hovered, themeOffset, dstX, dstY, dstW, dstH));
     }
 }

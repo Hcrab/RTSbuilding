@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.persist;
 
 
 
-import com.rtsbuilding.rtsbuilding.client.screen.panel.base.window.RtsPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsPanel;
 
 import java.util.Locale;
 import java.util.function.BiConsumer;

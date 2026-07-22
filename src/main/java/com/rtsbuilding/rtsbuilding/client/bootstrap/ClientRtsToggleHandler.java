@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -32,7 +33,7 @@ public final class ClientRtsToggleHandler {
             return;
         }
 
-        RtsClientKernel kernel = RtsClientKernel.get();
+        RtsClientKernel kernel = CompositionRoot.get().kernel();
         if (!kernel.isInitialized()) return;
 
         // 获取相机模块状态，判断 RTS 模式是否已激活

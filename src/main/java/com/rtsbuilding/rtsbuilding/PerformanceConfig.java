@@ -49,7 +49,7 @@ public class PerformanceConfig {
     public static final ModConfigSpec.DoubleValue MAX_RENDER_DISTANCE = BUILDER
             .comment("最大渲染距离（方块）。超过此距离的对象将不会被渲染。")
             .translation("rtsbuilding.performance.maxRenderDistance")
-            .defineInRange("maxRenderDistance", 64.0, 16.0, 256.0);
+            .defineInRange("maxRenderDistance", 200.0, 16.0, 512.0);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 

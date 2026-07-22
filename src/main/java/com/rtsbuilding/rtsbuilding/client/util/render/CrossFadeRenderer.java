@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * 交叉淡入淡出渲染器——在两种渲染状态之间以指定进度 t 进行过渡。
@@ -10,7 +11,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
  *
  * <p><b>用法：</b></p>
  * <pre>{@code
- * CrossFadeRenderer.render(0.5f,
+ * CrossFadeRenderer.render(g, 0.5f,
  *     () -> drawNormalState(),
  *     () -> drawHoveredState());
  * }</pre>
@@ -32,19 +33,24 @@ public final class CrossFadeRenderer {
      *   <li>t &ge; {@value #ALMOST_ONE} → 仅渲染 hovered</li>
      *   <li>{@value #ALMOST_ZERO} &lt; t &lt; {@value #ALMOST_ONE} → 交叉淡入淡出：先渲染 normal，再以 t 透明度叠加上 hovered</li>
      * </ul>
+     * <p>在每 pass 之后调用 {@code g.flush()} 以确保使用 batched VertexConsumer 时
+     * shader color 在正确的时机生效。</p>
      *
+     * @param g       GuiGraphics
      * @param t       交叉淡入淡出进度 [0, 1]，0=全部 normal，1=全部 hovered
      * @param normal  普通态渲染器
      * @param hovered 目标态渲染器
      */
-    public static void render(float t, Runnable normal, Runnable hovered) {
+    public static void render(GuiGraphics g, float t, Runnable normal, Runnable hovered) {
         if (t > ALMOST_ZERO && t < ALMOST_ONE) {
             try (BlendScope blend = BlendScope.crossFade()) {
                 normal.run();
+                g.flush();
                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, t);
                 try {
                     hovered.run();
                 } finally {
+                    g.flush();
                     RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                 }
             }

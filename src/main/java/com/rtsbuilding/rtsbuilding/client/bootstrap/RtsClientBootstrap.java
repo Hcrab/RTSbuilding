@@ -2,19 +2,19 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
-import com.rtsbuilding.rtsbuilding.client.event.GuiRenderHandler;
+
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.module.blueprint.BlueprintModule;
-import com.rtsbuilding.rtsbuilding.client.module.building.BuildingModule;
-import com.rtsbuilding.rtsbuilding.client.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.module.mining.MiningModule;
-import com.rtsbuilding.rtsbuilding.client.module.overlay.OverlayModule;
-import com.rtsbuilding.rtsbuilding.client.module.plugin.PluginModule;
-import com.rtsbuilding.rtsbuilding.client.module.progression.ProgressionModule;
-import com.rtsbuilding.rtsbuilding.client.module.remote.RemoteMenuModule;
-import com.rtsbuilding.rtsbuilding.client.module.storage.StorageModule;
-import com.rtsbuilding.rtsbuilding.client.module.workflow.WorkflowModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining.MiningModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.pathfinding.PathfindingModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.plugin.PluginModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.progression.ProgressionModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMenuModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.api.distmarker.Dist;
@@ -45,26 +45,42 @@ public final class RtsClientBootstrap {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            RtsClientKernel kernel = RtsClientKernel.get();
+            CompositionRoot.init();
+            RtsClientKernel kernel = CompositionRoot.get().kernel();
 
-            // 注册所有 Feature Module
-            kernel.register(new CameraModule());
-            kernel.register(new StorageModule());
-            kernel.register(new BuildingModule());
-            kernel.register(new MiningModule());
-            kernel.register(new BlueprintModule());
-            kernel.register(new WorkflowModule());
-            kernel.register(new PluginModule());
-            kernel.register(new ProgressionModule());
-            kernel.register(new OverlayModule());
-            kernel.register(new RemoteMenuModule());
+            // 创建模块实例，同时注册到新旧两系统
+            var reg = CompositionRoot.get().moduleManager();
+            var cameraModule = new CameraModule();
+            kernel.register(cameraModule);
+            reg.registerInstance("camera", cameraModule);
+            var storageModule = new StorageModule();
+            kernel.register(storageModule);
+            reg.registerInstance("storage", storageModule);
+            var buildingModule = new BuildingModule();
+            kernel.register(buildingModule);
+            reg.registerInstance("building", buildingModule);
+            var miningModule = new MiningModule();
+            kernel.register(miningModule);
+            reg.registerInstance("mining", miningModule);
+            var workflowModule = new WorkflowModule();
+            kernel.register(workflowModule);
+            reg.registerInstance("workflow", workflowModule);
+            var pluginModule = new PluginModule();
+            kernel.register(pluginModule);
+            reg.registerInstance("plugin", pluginModule);
+            var progressionModule = new ProgressionModule();
+            kernel.register(progressionModule);
+            reg.registerInstance("progression", progressionModule);
+            var remoteMenuModule = new RemoteMenuModule();
+            kernel.register(remoteMenuModule);
+            reg.registerInstance("remote_menu", remoteMenuModule);
+            var pathfindingModule = new PathfindingModule();
+            kernel.register(pathfindingModule);
+            reg.registerInstance("pathfinding", pathfindingModule);
 
             // 初始化内核（创建 InputPipeline、RenderPipeline）
             kernel.initialize();
             RtsbuildingMod.LOGGER.info("RTS client2 kernel initialized with all modules");
-            
-            // 注册GUI渲染事件处理器
-            NeoForge.EVENT_BUS.register(GuiRenderHandler.class);
         });
     }
 }
