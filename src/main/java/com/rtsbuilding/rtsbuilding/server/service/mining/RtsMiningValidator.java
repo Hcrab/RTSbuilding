@@ -180,8 +180,11 @@ public final class RtsMiningValidator {
      */
     static boolean canRangeMineRequiredLevel(
             boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
-        return canHarvestWithTool
-                && (creative || requiredLevel <= maxRequiredLevel);
+        // 0 级软块（泥土、雪、沙子等）不需要采掘等级插件；即使当前工具不是最优工具，也允许破坏。
+        // 1/2/3 级硬块才继续要求真实工具可采集，并受已安装采掘插件等级限制。
+        return creative
+                || requiredLevel <= 0
+                || (canHarvestWithTool && requiredLevel <= maxRequiredLevel);
     }
 
     /**

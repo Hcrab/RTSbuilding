@@ -71,6 +71,11 @@ public class Config {
             .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
             .define("useRangeDestroySkeleton", true);
 
+    public static final ModConfigSpec.BooleanValue SHOW_INVENTORY_RTS_BUTTON = CLIENT_BUILDER
+            .comment("Show the RTS plugin button on the vanilla inventory screen.")
+            .translation("rtsbuilding.configuration.showInventoryRtsButton")
+            .define("showInventoryRtsButton", true);
+
     // ---- Control options ----
 
     public static final ModConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = CLIENT_BUILDER
@@ -312,6 +317,15 @@ public class Config {
 
     public static void setRangeDestroySkeletonEnabled(boolean enabled) {
         USE_RANGE_DESTROY_SKELETON.set(enabled);
+        CLIENT_SPEC.save();
+    }
+
+    public static boolean isInventoryRtsButtonEnabled() {
+        return SHOW_INVENTORY_RTS_BUTTON.getAsBoolean();
+    }
+
+    public static void setInventoryRtsButtonEnabled(boolean enabled) {
+        SHOW_INVENTORY_RTS_BUTTON.set(enabled);
         CLIENT_SPEC.save();
     }
 

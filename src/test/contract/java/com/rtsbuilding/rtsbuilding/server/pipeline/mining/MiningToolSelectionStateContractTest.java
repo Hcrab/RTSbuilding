@@ -39,6 +39,7 @@ class MiningToolSelectionStateContractTest {
 
     private static String source(String name) throws IOException {
         return Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/mining", name));
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/mining", name))
+                .replace("\r\n", "\n");
     }
 }

@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -28,7 +29,6 @@ import java.util.List;
  * </ul>
  */
 public final class RtsMiningNetworkHelper {
-
     private RtsMiningNetworkHelper() {
     }
 
@@ -61,6 +61,17 @@ public final class RtsMiningNetworkHelper {
         RtsClientboundPackets.sendToPlayer(
                 player,
                 new S2CRtsHarvestTierSkippedPayload(List.copyOf(positions)));
+    }
+
+    /** 统一发送“RTS 采掘等级插件不足”的玩家反馈，并同步清理客户端预览中的被跳过方块。 */
+    public static void notifyHarvestTierLimit(ServerPlayer player, List<BlockPos> positions) {
+        if (player == null || positions == null || positions.isEmpty()) {
+            return;
+        }
+        player.displayClientMessage(
+                Component.translatable("message.rtsbuilding.plugin.harvest_tier_limited"),
+                true);
+        sendHarvestTierSkipped(player, positions);
     }
 
     /**

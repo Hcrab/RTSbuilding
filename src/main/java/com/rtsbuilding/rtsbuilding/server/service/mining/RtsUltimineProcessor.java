@@ -554,11 +554,7 @@ public final class RtsUltimineProcessor {
     private static void notifyRangeMiningHarvestTierLimit(
             ServerPlayer player,
             List<BlockPos> skippedPositions) {
-        player.displayClientMessage(
-                net.minecraft.network.chat.Component.translatable(
-                        "message.rtsbuilding.plugin.harvest_tier_limited"),
-                true);
-        RtsMiningNetworkHelper.sendHarvestTierSkipped(player, skippedPositions);
+        RtsMiningNetworkHelper.notifyHarvestTierLimit(player, skippedPositions);
     }
 
     static boolean explicitAreaDestroyFitsSoftEnvelopeForCaps(

@@ -24,6 +24,7 @@ public final class RtsModConfigScreen extends Screen {
     private boolean shareWithTeams = Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean();
     private boolean blueprintsEnabled = Config.ENABLE_BLUEPRINTS.getAsBoolean();
     private boolean developerMode = Config.isDeveloperModeEnabled();
+    private boolean inventoryRtsButtonEnabled = Config.isInventoryRtsButtonEnabled();
     private String draftMaxRadius = Integer.toString(Config.maxActionRadiusBlocks());
     private String draftMaxBlueprintBlocks = Integer.toString(Config.maxBlueprintBlocks());
     private String draftAreaMineMaxWidth = Integer.toString(Config.areaMineMaxWidth());
@@ -155,6 +156,16 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H + 6 + SECTION_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.inventoryRtsButtonEnabled
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.inventoryRtsButtonEnabled = !this.inventoryRtsButtonEnabled;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
+        y += OPTION_ROW_H + 6 + SECTION_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
             this.areaMineMaxWidthBox = addIntegerBox(controlX, y, controlW,
                     Component.translatable("config.rtsbuilding.area_mine_max_width"), this.draftAreaMineMaxWidth, 3);
         }
@@ -243,6 +254,7 @@ public final class RtsModConfigScreen extends Screen {
                     parseAreaMineMaxVolume(),
                     parseAreaDestroyMaxTargets(),
                     this.areaMineMaxHarvestTier);
+            Config.setInventoryRtsButtonEnabled(this.inventoryRtsButtonEnabled);
             Config.setDeveloperModeEnabled(this.developerMode);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
@@ -340,6 +352,12 @@ public final class RtsModConfigScreen extends Screen {
                 Component.translatable("config.rtsbuilding.max_blueprint_blocks.hint"));
         y += OPTION_ROW_H + 6;
 
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.compat"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("rtsbuilding.configuration.showInventoryRtsButton"),
+                Component.translatable("rtsbuilding.configuration.showInventoryRtsButton.tooltip"));
+        y += OPTION_ROW_H + 6;
+
         drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.area_mining"));
         y += SECTION_H;
         drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.area_mine_max_width"),
@@ -369,7 +387,7 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private int contentHeight() {
-        return SECTION_H * 4 + OPTION_ROW_H * 12 + 18;
+        return SECTION_H * 5 + OPTION_ROW_H * 13 + 24;
     }
 
     private int maxScroll() {

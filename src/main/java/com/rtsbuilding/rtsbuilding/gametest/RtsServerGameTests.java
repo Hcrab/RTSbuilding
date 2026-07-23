@@ -24,6 +24,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -241,6 +242,95 @@ public final class RtsServerGameTests {
             Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
         }
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80, batch = "survival_progression")
+    public static void areaDestroyStoneWithoutHarvestTierShowsWarning(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        BlockPos stoneRel = new BlockPos(4, 1, 4);
+        helper.setBlock(stoneRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        try {
+            player.getInventory().setItem(0, new ItemStack(RtsItems.RTS_CONTROL_CORE.get()));
+            player.getInventory().setItem(1, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
+            player.getInventory().setItem(2, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
+            for (int slot = 0; slot < 3; slot++) {
+                helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                        "Required non-harvest plugins should install");
+            }
+
+            ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+            player.getInventory().setItem(0, diamondPickaxe.copy());
+            player.getInventory().selected = 0;
+            Config.setSurvivalProgressionEnabled(true);
+            RtsProgressionManager.beginHomeSelection(player);
+            helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(stoneRel)),
+                    "GameTest player should be able to set RTS home near the target");
+
+            RtsAPI.get().mining().areaDestroy(
+                    player,
+                    asApiPositions(helper, List.of(stoneRel)),
+                    (byte) 0,
+                    BuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
+                    diamondPickaxe,
+                    false);
+
+            helper.assertBlockPresent(Blocks.STONE, stoneRel);
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Harvest-tier-blocked range destroy should not start a destruction task");
+            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+                    "Harvest-tier-blocked range destroy should not start a mining task");
+            helper.succeed();
+        } finally {
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        }
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 160, batch = "survival_progression")
+    public static void areaDestroySnowWithoutHarvestTierStillWorks(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        BlockPos snowBlockRel = new BlockPos(4, 1, 4);
+        BlockPos snowLayerSupportRel = new BlockPos(5, 1, 4);
+        BlockPos snowLayerRel = snowLayerSupportRel.above();
+        helper.setBlock(snowBlockRel, Blocks.SNOW_BLOCK);
+        helper.setBlock(snowLayerSupportRel, Blocks.DIRT);
+        helper.setBlock(snowLayerRel, Blocks.SNOW);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        player.getInventory().setItem(0, new ItemStack(RtsItems.RTS_CONTROL_CORE.get()));
+        player.getInventory().setItem(1, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
+        player.getInventory().setItem(2, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
+        for (int slot = 0; slot < 3; slot++) {
+            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                    "Required non-harvest plugins should install");
+        }
+
+        ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+        player.getInventory().setItem(0, diamondPickaxe.copy());
+        player.getInventory().selected = 0;
+        Config.setSurvivalProgressionEnabled(true);
+        RtsProgressionManager.beginHomeSelection(player);
+        helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(snowBlockRel)),
+                "GameTest player should be able to set RTS home near the snow targets");
+
+        RtsAPI.get().mining().areaDestroy(
+                player,
+                asApiPositions(helper, List.of(snowBlockRel, snowLayerRel)),
+                (byte) 0,
+                BuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
+                diamondPickaxe,
+                false);
+
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.AIR, snowBlockRel);
+            helper.assertBlockPresent(Blocks.AIR, snowLayerRel);
+            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+                    "Snow range destroy should finish without an active mining task");
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Snow range destroy should finish without an active destruction task");
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
     }
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)

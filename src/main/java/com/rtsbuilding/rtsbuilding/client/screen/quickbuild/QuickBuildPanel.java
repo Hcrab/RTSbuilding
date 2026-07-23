@@ -160,6 +160,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     private boolean advancedRangeDestroyCylinder;
     private boolean advancedRangeDestroyBall;
     private boolean advancedRangeDestroyBox;
+    private boolean lineVertical;
     private boolean circleVertical;
     private boolean cylinderVertical;
 
@@ -225,6 +226,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                     (state, v) -> state.quickBuild.mining.advancedRangeDestroyCylinder = v,
                     () -> this.advancedRangeDestroyCylinder,
                     v -> this.advancedRangeDestroyCylinder = v),
+            PersistableProperty.boolField(
+                    "line_vertical",
+                    state -> state.quickBuild.mining.lineVertical,
+                    (state, v) -> state.quickBuild.mining.lineVertical = v,
+                    () -> this.lineVertical,
+                    v -> this.lineVertical = v),
             PersistableProperty.boolField(
                     "round_shape_circle_vertical",
                     state -> state.quickBuild.mining.circleVertical,
@@ -923,7 +930,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     static boolean supportsVerticalToggle(BuildShape shape) {
-        return shape == BuildShape.CIRCLE || shape == BuildShape.CYLINDER;
+        return shape == BuildShape.LINE || shape == BuildShape.CIRCLE || shape == BuildShape.CYLINDER;
     }
 
     boolean isAdvancedShape(BuildShape shape) {
@@ -952,6 +959,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     public boolean isRoundShapeVertical(BuildShape shape) {
         return switch (shape == null ? BuildShape.BLOCK : shape) {
+            case LINE -> this.lineVertical;
             case CIRCLE -> this.circleVertical;
             case CYLINDER -> this.cylinderVertical;
             default -> false;
@@ -960,6 +968,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     void setRoundShapeVertical(BuildShape shape, boolean value) {
         switch (shape == null ? BuildShape.BLOCK : shape) {
+            case LINE -> this.lineVertical = value;
             case CIRCLE -> this.circleVertical = value;
             case CYLINDER -> this.cylinderVertical = value;
             default -> {}

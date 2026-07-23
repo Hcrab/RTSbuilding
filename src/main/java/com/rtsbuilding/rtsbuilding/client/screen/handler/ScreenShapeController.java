@@ -480,11 +480,17 @@ public final class ScreenShapeController {
     private void advanceLineSession(BlockHitResult hit, double mouseY) {
         ShapeBuildTypes.Session session = this.shapeBuildSession;
         if (session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) return;
-        BlockPos pointB = resolveShapePlanePoint(session, hit);
+        BlockPos pointB = isVerticalLine(session.shape())
+                ? resolveVerticalLinePoint(session, hit)
+                : resolveShapePlanePoint(session, hit);
         this.shapeBuildSession = new ShapeBuildTypes.Session(
                 session.shape(), session.planeFace(), session.placementFace(),
                 session.pointA(), pointB,
-                ShapeBuildTypes.Phase.READY_CONFIRM, 0, session.boxHeightMouseBaseY());
+                ShapeBuildTypes.Phase.READY_CONFIRM,
+                isVerticalLine(session.shape()) && pointB != null && session.pointA() != null
+                        ? pointB.getY() - session.pointA().getY()
+                        : 0,
+                session.boxHeightMouseBaseY());
     }
 
     /** SQUARE: second click determines opposite corner, then immediately ready to confirm. */
@@ -1288,15 +1294,19 @@ public final class ScreenShapeController {
     public boolean canAdjustCurrentShapeHeight() {
         return this.shapeBuildSession != null
                 && this.shapeBuildSession.shape() == this.controller.getBuildShape()
-                && canAdjustShapeHeight(this.shapeBuildSession.shape());
+                && canAdjustShapeHeight(this.shapeBuildSession.shape())
+                && (this.shapeBuildSession.shape() != BuildShape.LINE || isVerticalLine(BuildShape.LINE));
     }
 
     private static boolean canAdjustShapeHeight(BuildShape shape) {
-        return shape == BuildShape.WALL || shape == BuildShape.CYLINDER || shape == BuildShape.BOX;
+        return shape == BuildShape.LINE || shape == BuildShape.WALL || shape == BuildShape.CYLINDER || shape == BuildShape.BOX;
     }
 
     public boolean adjustShapeHeightNudge(int delta) {
         if (delta == 0 || this.shapeBuildSession == null || !canAdjustShapeHeight(this.shapeBuildSession.shape())) {
+            return false;
+        }
+        if (this.shapeBuildSession.shape() == BuildShape.LINE && !isVerticalLine(BuildShape.LINE)) {
             return false;
         }
         if ((this.shapeBuildSession.shape() == BuildShape.BOX
@@ -1306,12 +1316,16 @@ public final class ScreenShapeController {
             return false;
         }
         int nextOffset = ShapeGeometryUtil.clampShapeOffset(this.shapeBuildSession.boxHeightOffset() + delta);
+        BlockPos nextPointB = this.shapeBuildSession.pointB();
+        if (this.shapeBuildSession.shape() == BuildShape.LINE && this.shapeBuildSession.pointA() != null) {
+            nextPointB = this.shapeBuildSession.pointA().offset(0, nextOffset, 0);
+        }
         this.shapeBuildSession = new ShapeBuildTypes.Session(
                 this.shapeBuildSession.shape(),
                 this.shapeBuildSession.planeFace(),
                 this.shapeBuildSession.placementFace(),
                 this.shapeBuildSession.pointA(),
-                this.shapeBuildSession.pointB(),
+                nextPointB,
                 this.shapeBuildSession.phase(),
                 nextOffset,
                 this.shapeBuildSession.boxHeightMouseBaseY());
@@ -1540,9 +1554,18 @@ public final class ScreenShapeController {
             if (requireReady) {
                 return null;
             }
-            BlockPos pointB = resolveShapePlanePoint(session, cursorHit);
-            pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0, this.lineConnected);
+            boolean verticalLine = isVerticalLine(session.shape());
+            BlockPos pointB = verticalLine
+                    ? resolveVerticalLinePoint(session, cursorHit)
+                    : resolveShapePlanePoint(session, cursorHit);
+            if (!verticalLine) {
+                pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
+            }
+            return new ShapeBuildTypes.Input(
+                    session.shape(), session.planeFace(), session.placementFace(),
+                    pointA, pointB,
+                    verticalLine && pointB != null ? pointB.getY() - pointA.getY() : 0,
+                    this.lineConnected);
         }
         BlockPos pointB = session.pointB();
         if (pointB == null) {
@@ -1564,6 +1587,27 @@ public final class ScreenShapeController {
             return 0;
         }
         return session.boxHeightOffset();
+    }
+
+    private boolean isVerticalLine(BuildShape shape) {
+        return shape == BuildShape.LINE
+                && this.screen != null
+                && this.screen.isRoundShapeVertical(BuildShape.LINE);
+    }
+
+    private BlockPos resolveVerticalLinePoint(ShapeBuildTypes.Session session, BlockHitResult cursorHit) {
+        BlockPos pointA = session == null ? null : session.pointA();
+        if (pointA == null) {
+            return cursorHit != null ? cursorHit.getBlockPos() : null;
+        }
+        int offset = session.boxHeightOffset();
+        if (offset == 0 && cursorHit != null) {
+            offset = cursorHit.getBlockPos().getY() - pointA.getY();
+        }
+        if (offset == 0) {
+            offset = 1;
+        }
+        return pointA.offset(0, ShapeGeometryUtil.clampShapeOffset(offset), 0);
     }
 
     private BlockPos resolveShapePlanePoint(ShapeBuildTypes.Session session, BlockHitResult cursorHit) {

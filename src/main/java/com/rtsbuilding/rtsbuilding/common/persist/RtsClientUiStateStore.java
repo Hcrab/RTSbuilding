@@ -404,6 +404,7 @@ public final class RtsClientUiStateStore {
             public boolean advancedRangeDestroyWall = false;
             public boolean advancedRangeDestroyCircle = false;
             public boolean advancedRangeDestroyCylinder = false;
+            public boolean lineVertical = false;
             public boolean circleVertical = false;
             public boolean cylinderVertical = false;
             public boolean advancedRangeDestroyBall = false;
@@ -521,6 +522,7 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.mining.advancedRangeDestroyWall = this.quickBuild.mining.advancedRangeDestroyWall;
             clean.quickBuild.mining.advancedRangeDestroyCircle = this.quickBuild.mining.advancedRangeDestroyCircle;
             clean.quickBuild.mining.advancedRangeDestroyCylinder = this.quickBuild.mining.advancedRangeDestroyCylinder;
+            clean.quickBuild.mining.lineVertical = this.quickBuild.mining.lineVertical;
             clean.quickBuild.mining.circleVertical = this.quickBuild.mining.circleVertical;
             clean.quickBuild.mining.cylinderVertical = this.quickBuild.mining.cylinderVertical;
             clean.quickBuild.mining.advancedRangeDestroyBall = this.quickBuild.mining.advancedRangeDestroyBall;

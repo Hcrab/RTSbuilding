@@ -286,6 +286,9 @@ public final class RtsDestructionBatch {
         sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
 
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
+        List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
+        int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         for (BlockPos raw : sortedPositions) {
             if (raw == null || unique.size() >= C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
                 continue;
@@ -306,7 +309,18 @@ public final class RtsDestructionBatch {
                     player, state, pos, toolSlot, linkedTool, selectedToolRequested) <= 0.0F) {
                 continue;
             }
+            if (!RtsMiningValidator.canRangeMineWithTool(
+                    state, actualTool, creative, maxRequiredLevel)) {
+                if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
+                        state, actualTool, creative, maxRequiredLevel)) {
+                    harvestTierBlockedPositions.add(pos);
+                }
+                continue;
+            }
             unique.add(pos);
+        }
+        if (!harvestTierBlockedPositions.isEmpty()) {
+            RtsMiningNetworkHelper.notifyHarvestTierLimit(player, harvestTierBlockedPositions);
         }
         return new ArrayDeque<>(unique);
     }

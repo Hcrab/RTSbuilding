@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.WorkflowPipeline;
 import com.rtsbuilding.rtsbuilding.server.pipeline.sync.HistoryRecordPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
+import com.rtsbuilding.rtsbuilding.server.loadout.RtsMiningRules;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
@@ -717,7 +718,8 @@ public final class RtsMiningStateMachine {
             return new MiningBreakResult(false, ItemStack.EMPTY);
         }
         BlockState beforeState = player.serverLevel().getBlockState(pos);
-        if (!RtsMiningValidator.canHarvestWithTool(
+        if (RtsMiningRules.requiredLevel(beforeState) > 0
+                && !RtsMiningValidator.canHarvestWithTool(
                 beforeState, RtsMiningValidator.activeMiningTool(player, session), player.isCreative())) {
             return new MiningBreakResult(false, ItemStack.EMPTY);
         }
