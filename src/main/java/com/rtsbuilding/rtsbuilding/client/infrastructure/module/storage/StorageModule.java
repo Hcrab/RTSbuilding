@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage;
 
 import com.rtsbuilding.rtsbuilding.client.domain.state.LinkedStorageEntry;
+import com.rtsbuilding.rtsbuilding.client.domain.state.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
@@ -123,6 +124,7 @@ public final class StorageModule implements FeatureModule {
     public List<?> getEntries() { return state.getStorageEntries(); }
     public List<?> getFluidEntries() { return state.getFluidEntries(); }
     public List<?> getRecentEntries() { return state.getRecentEntries(); }
+    public List<RecentEntry> getRecentEntriesTyped() { return state.getRecentEntriesTyped(); }
     public List<?> getFunnelBufferEntries() { return state.getFunnelBufferEntries(); }
     public List<?> getCraftableEntries() { return state.getCraftableEntries(); }
 

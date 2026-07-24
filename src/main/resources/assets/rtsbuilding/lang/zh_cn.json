@@ -86,5 +86,9 @@
   "tooltip.rtsbuilding.rightdown.container_button": "容器绑定模式",
   "tooltip.rtsbuilding.rightdown.container_button.desc": "点击切换容器绑定模式（仅提取/双向）",
   "tooltip.rtsbuilding.rightdown.container_extract": "仅提取",
-  "tooltip.rtsbuilding.rightdown.container_bidirectional": "双向"
+  "tooltip.rtsbuilding.rightdown.container_bidirectional": "双向",
+
+  "tooltip.rtsbuilding.rightdown.search_placeholder": "搜索物品...",
+
+  "tooltip.rtsbuilding.rightdown.no_search_results": "未找到匹配物品"
 }

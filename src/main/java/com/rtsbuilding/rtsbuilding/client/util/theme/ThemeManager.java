@@ -71,6 +71,10 @@ public final class ThemeManager {
     
     private static final int DARK_HOVER_TEXT_COLOR = 0xFFE8E8E8;
 
+    private static final int LIGHT_DIVIDER_COLOR = 0xFF2B2B2B;
+    
+    private static final int DARK_DIVIDER_COLOR = 0xFFC3C2D0;
+
     
     public static int getTextColor() {
         return getInstance().isLightMode() ? LIGHT_TEXT_COLOR : DARK_TEXT_COLOR;
@@ -79,5 +83,9 @@ public final class ThemeManager {
     
     public static int getHoverTextColor() {
         return getInstance().isLightMode() ? LIGHT_HOVER_TEXT_COLOR : DARK_HOVER_TEXT_COLOR;
+    }
+
+    public static int getDividerColor() {
+        return getInstance().isLightMode() ? LIGHT_DIVIDER_COLOR : DARK_DIVIDER_COLOR;
     }
 }

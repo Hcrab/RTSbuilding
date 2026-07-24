@@ -201,15 +201,13 @@ public class ScrollBar {
             NineSliceRegion track = active ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
             SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, renderY, TRACK_THICKNESS, renderLen);
             
-            NineSliceRegion thumb = active ? SliderTextureConstants.THUMB_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.THUMB_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, thumb.withTheme(), barX - 1, thumbPos, THUMB_THICKNESS, thumbLen);
+            SpriteRenderer.drawNineSlice(g, SliderTextureConstants.THUMB_NINE_SLICE.withTheme(), barX - 1, thumbPos, THUMB_THICKNESS, thumbLen);
         } else {
             
             NineSliceRegion track = active ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
             SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, renderY, renderLen, TRACK_THICKNESS);
             
-            NineSliceRegion thumb = active ? SliderTextureConstants.THUMB_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.THUMB_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, thumb.withTheme(), thumbPos, renderY - 1, thumbLen, THUMB_THICKNESS);
+            SpriteRenderer.drawNineSlice(g, SliderTextureConstants.THUMB_NINE_SLICE.withTheme(), thumbPos, renderY - 1, thumbLen, THUMB_THICKNESS);
         }
     }
 

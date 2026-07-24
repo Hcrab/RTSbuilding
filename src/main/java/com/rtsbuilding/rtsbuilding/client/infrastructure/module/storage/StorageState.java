@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage;
 
 import com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.domain.state.LinkedStorageEntry;
+import com.rtsbuilding.rtsbuilding.client.domain.state.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
@@ -199,6 +200,31 @@ public final class StorageState {
                     payload.fluidCapacities().get(i),
                     id.getNamespace(), id.getPath(), preview));
         }
+
+        
+        int recentSize = Math.min(payload.recentIds().size(),
+                Math.min(payload.recentAmounts().size(), payload.recentKinds().size()));
+        recentSize = Math.min(recentSize, 16);
+        for (int i = 0; i < recentSize; i++) {
+            String recentId = payload.recentIds().get(i);
+            if (recentId == null || recentId.isBlank()) continue;
+            ResourceLocation rl = ResourceLocation.tryParse(recentId);
+            if (rl == null) continue;
+            ItemStack preview = ItemStack.EMPTY;
+            if (BuiltInRegistries.ITEM.containsKey(rl)) {
+                preview = new ItemStack(BuiltInRegistries.ITEM.get(rl), 1);
+            } else if (BuiltInRegistries.FLUID.containsKey(rl)) {
+                var fluid = BuiltInRegistries.FLUID.get(rl);
+                var fluidStack = new FluidStack(fluid, net.neoforged.neoforge.fluids.FluidType.BUCKET_VOLUME);
+                preview = net.neoforged.neoforge.fluids.FluidUtil.getFilledBucket(fluidStack);
+            }
+            this.recentEntries.add(new RecentEntry(
+                    recentId,
+                    payload.recentAmounts().get(i),
+                    i < payload.recentCapacities().size() ? payload.recentCapacities().get(i) : 0,
+                    payload.recentKinds().get(i),
+                    preview));
+        }
     }
 
     
@@ -311,6 +337,13 @@ public final class StorageState {
     public List<Object> getStorageEntries() { return storageEntries; }
     public List<Object> getFluidEntries() { return fluidEntries; }
     public List<Object> getRecentEntries() { return recentEntries; }
+    public List<RecentEntry> getRecentEntriesTyped() {
+        List<RecentEntry> result = new ArrayList<>();
+        for (Object obj : recentEntries) {
+            if (obj instanceof RecentEntry re) result.add(re);
+        }
+        return result;
+    }
     public List<Object> getFunnelBufferEntries() { return funnelBuffer; }
     public List<Object> getCraftableEntries() { return craftableEntries; }
     public List<String> getStorageCategories() { return storageCategories; }

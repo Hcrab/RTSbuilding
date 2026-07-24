@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.overlay;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry;
+import com.rtsbuilding.rtsbuilding.client.domain.state.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.domain.state.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
@@ -10,12 +11,14 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.Scro
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.DownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.render.GridSlotRenderer;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,7 +30,12 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import org.lwjgl.glfw.GLFW;
 
 import static com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.render.GridSlotRenderer.SLOT_SIZE;
 
@@ -65,15 +73,16 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
 
     
     private static final int SLOT_GAP = 0;
+    private static final int RECENT_MAIN_GAP = 9;
     
-    private static final int PAD_LEFT = 58;
+    private static final int PAD_LEFT = 92;
     private static final int PAD_TOP = 2;
     
     private static final int GRID_TOP_OFFSET = 20;
     
     private static final int SCROLLBAR_W = 7;
     
-    private static final int RIGHT_MARGIN = 4;
+    private static final int RIGHT_GAP = 18;
 
     
 
@@ -213,6 +222,8 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     
 
     private final ScrollBar scrollBar = new ScrollBar();
+    private final ScrollBar recentScrollBar = new ScrollBar();
+    private int recentScroll;
 
     
 
@@ -259,6 +270,35 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
 
     
 
+    private boolean searchFocused;
+    private final StringBuilder searchBuffer = new StringBuilder();
+    private int searchCursorPos;
+    private long searchCursorBlink;
+    private static final long CURSOR_BLINK_MS = 600;
+
+    private boolean recentSortAscending = true;
+    private boolean recentSearchFocused;
+    private final StringBuilder recentSearchBuffer = new StringBuilder();
+    private int recentSearchCursorPos;
+    private long recentSearchCursorBlink;
+
+    
+    private static final ResourceLocation SEARCH_BOX_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/base/base_ui/base_ui_4.png");
+    private static final int SEARCH_BOX_TEX_W = 32;
+    private static final int SEARCH_BOX_TEX_H = 32;
+    private static final int SEARCH_BOX_STATE_H = 16;
+    private static final int SEARCH_BOX_BORDER = 4;
+    private static final TextureInfo SEARCH_BOX_TEX_INFO = new TextureInfo(
+            SEARCH_BOX_TEXTURE, SEARCH_BOX_TEX_W, SEARCH_BOX_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
+    private static final NineSliceRegion SEARCH_BOX_NINE_SLICE = NineSliceRegion.fullTheme(
+            SEARCH_BOX_TEX_INFO, SEARCH_BOX_STATE_H, SEARCH_BOX_BORDER);
+
+    private static final int SEARCH_INPUT_H = 18;
+    private static final int SEARCH_INPUT_PAD = 4;
+    private static final int SEARCH_BTN_W = 18;
+
     private final TooltipController currentItemTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
     
     private final TooltipController sortButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
@@ -282,7 +322,17 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     
     private int rows;
     
+    private int mainGridOriginX;
+    private int mainGridCols;
+    private int cachedMainGridWidth;
+    private int recentGridOriginX;
+    private int recentGridW;
+    private int recentCols;
+    
     private int tooltipSlotIndex = -1;
+
+    private final Map<String, Integer> itemSelectCounts = new HashMap<>();
+    private final Map<String, ItemStack> itemSelectPreviews = new HashMap<>();
 
     
 
@@ -379,12 +429,14 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
 
         
         checkAndRebuildIfDirty(sm);
-        boolean hasStorage = !sm.getEntries().isEmpty() || !sm.getFluidEntries().isEmpty();
-        if (slotEntries.isEmpty() && !hasStorage) {
-            renderEmptyHint(g);
-            return;
+        boolean hasStorage = sm.isLinked();
+        if (slotEntries.isEmpty()) {
+            if (!hasStorage) {
+                renderEmptyHint(g);
+                return;
+            }
         }
-
+        
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
 
         
@@ -481,50 +533,178 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
                 0, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
         
-        int usableW = w - PAD_LEFT - SCROLLBAR_W - RIGHT_MARGIN;
-        cols = Math.max(1, (usableW + SLOT_GAP) / (SLOT_SIZE + SLOT_GAP));
+        int recentSortBtnX = recentGridOriginX;
+        int recentSortBtnY = y + PAD_TOP + 1;
+        boolean isHoveringRecentSort = mouseX >= recentSortBtnX && mouseX < recentSortBtnX + BUTTON_SIZE
+                && mouseY >= recentSortBtnY && mouseY < recentSortBtnY + BUTTON_SIZE;
+        SpriteRenderer.drawSprite(g, isHoveringRecentSort ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
+                slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE);
+        SpriteRenderer.drawSprite(g, recentSortAscending ? ORDER_ASC_ICON : ORDER_DESC_ICON,
+                slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE);
+
+        int recentSearchX = recentGridOriginX + BUTTON_SIZE + BUTTON_SPACING;
+        int recentSearchY = y + PAD_TOP + 1;
+        int recentSearchW = (x + 3 + recentCols * SLOT_SIZE) - recentSearchX;
+        if (recentSearchW > SEARCH_INPUT_H) {
+            NineSliceRegion normalSpec = SEARCH_BOX_NINE_SLICE.withTheme();
+            NineSliceRegion focusSpec = SEARCH_BOX_NINE_SLICE.withTheme().withVOffset(SEARCH_BOX_STATE_H);
+            CrossFadeRenderer.render(g, recentSearchFocused ? 1f : 0f,
+                    () -> SpriteRenderer.drawNineSlice(g, normalSpec, recentSearchX, recentSearchY, recentSearchW, SEARCH_INPUT_H),
+                    () -> SpriteRenderer.drawNineSlice(g, focusSpec, recentSearchX, recentSearchY, recentSearchW, SEARCH_INPUT_H));
+
+            Font searchFont = mc.font;
+            String searchText = recentSearchBuffer.toString();
+            int textColor = ThemeManager.getTextColor();
+            int textX = recentSearchX + SEARCH_INPUT_PAD;
+            int textY = recentSearchY + (SEARCH_INPUT_H - searchFont.lineHeight) / 2;
+            int contentAreaW = recentSearchW - SEARCH_INPUT_PAD * 2;
+
+            if (recentSearchFocused) {
+                String displayText = TextRenderer.trimToWidth(searchFont, searchText, contentAreaW);
+                g.drawString(searchFont, displayText, textX, textY, textColor, false);
+
+                if ((System.currentTimeMillis() / CURSOR_BLINK_MS) % 2 == 0) {
+                    int cursorX = textX + searchFont.width(displayText);
+                    g.fill(cursorX, textY, cursorX + 1, textY + searchFont.lineHeight, 0xFFFFFFFF);
+                }
+            } else {
+                String placeholder = searchText.isEmpty()
+                        ? Component.translatable("tooltip.rtsbuilding.rightdown.search_placeholder").getString()
+                        : searchText;
+                String displayText = TextRenderer.trimToWidth(searchFont, placeholder, contentAreaW);
+                int placeholderColor = searchText.isEmpty() ? (textColor & 0xFFFFFF) | 0x60000000 : textColor;
+                g.drawString(searchFont, displayText, textX, textY, placeholderColor, false);
+            }
+        }
+
+        
         rows = Math.max(1, (h - PAD_TOP - GRID_TOP_OFFSET) / (SLOT_SIZE + SLOT_GAP) + 2);
-        int itemRows = (slotEntries.size() + cols - 1) / cols;
+
+        
+        int mainCols = Math.max(1, (w - PAD_LEFT - RIGHT_GAP) / (SLOT_SIZE + SLOT_GAP));
+        int calcMainGridW = mainCols * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        cols = mainCols;
+        recentCols = 3;
+        recentGridOriginX = x + 3;
+        int mainOriginX = calculateGridOriginX(x);
+        int recentList = getRecentItems().size();
+        recentGridW = recentCols * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+
+        int searchX = containerBtnX + BUTTON_SIZE + BUTTON_SPACING;
+        int searchY = y + PAD_TOP + 1;
+        int searchW = (mainOriginX + calcMainGridW) - searchX;
+        if (searchW > SEARCH_INPUT_H) {
+            NineSliceRegion normalSpec = SEARCH_BOX_NINE_SLICE.withTheme();
+            NineSliceRegion focusSpec = SEARCH_BOX_NINE_SLICE.withTheme().withVOffset(SEARCH_BOX_STATE_H);
+            CrossFadeRenderer.render(g, searchFocused ? 1f : 0f,
+                    () -> SpriteRenderer.drawNineSlice(g, normalSpec, searchX, searchY, searchW, SEARCH_INPUT_H),
+                    () -> SpriteRenderer.drawNineSlice(g, focusSpec, searchX, searchY, searchW, SEARCH_INPUT_H));
+
+            Font searchFont = mc.font;
+            String searchText = searchBuffer.toString();
+            int textColor = ThemeManager.getTextColor();
+            int textX = searchX + SEARCH_INPUT_PAD;
+            int textY = searchY + (SEARCH_INPUT_H - searchFont.lineHeight) / 2;
+            int contentAreaW = searchW - SEARCH_INPUT_PAD * 2;
+
+            if (searchFocused) {
+                String displayText = TextRenderer.trimToWidth(searchFont, searchText, contentAreaW);
+                g.drawString(searchFont, displayText, textX, textY, textColor, false);
+
+                if ((System.currentTimeMillis() / CURSOR_BLINK_MS) % 2 == 0) {
+                    int cursorX = textX + searchFont.width(displayText);
+                    g.fill(cursorX, textY, cursorX + 1, textY + searchFont.lineHeight, 0xFFFFFFFF);
+                }
+            } else {
+                String placeholder = searchText.isEmpty()
+                        ? Component.translatable("tooltip.rtsbuilding.rightdown.search_placeholder").getString()
+                        : searchText;
+                String displayText = TextRenderer.trimToWidth(searchFont, placeholder, contentAreaW);
+                int placeholderColor = searchText.isEmpty() ? (textColor & 0xFFFFFF) | 0x60000000 : textColor;
+                g.drawString(searchFont, displayText, textX, textY, placeholderColor, false);
+            }
+        }
+
+        
+        mainGridOriginX = mainOriginX;
+        mainGridCols = mainCols;
+        cachedMainGridWidth = calcMainGridW;
+        int recentItemRows = (recentList + recentCols - 1) / recentCols;
+        int itemRows = (slotEntries.size() + mainCols - 1) / mainCols;
         int visibleH = h - PAD_TOP * 2;
         int gridVisibleH = visibleH - GRID_TOP_OFFSET;
-        int gridH = itemRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        int totalRows = Math.max(recentItemRows, itemRows);
+        int gridH = totalRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
 
         scrollBar.setContent(gridH, gridVisibleH + 6);
         int scroll = scrollBar.getScroll();
+        int recentContentH = recentItemRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        recentScrollBar.setContent(recentContentH, gridVisibleH + 6);
+        recentScroll = recentScrollBar.getScroll();
 
-        int originX = calculateGridOriginX(x);
         int originY = calculateGridOriginY(y);
-        int gridW = cols * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
         int frameH = rows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        int scissorBottomY = originY + frameH;
+
+        
         int localMouseX = getLastMouseX();
         int localMouseY = getLastMouseY();
-        int hoveredSlot = findHoveredSlot(localMouseX, localMouseY, originX, originY, scroll);
+        int hoveredSlot = findHoveredSlot(localMouseX, localMouseY, mainOriginX, originY, scroll);
         this.tooltipSlotIndex = hoveredSlot;
+        int hoveredRecent = findRecentHovered(localMouseX, localMouseY, recentGridOriginX, originY, recentScroll, recentList);
 
         
         g.flush();
         Screen screen = mc.screen;
-        int scissorBottomY = originY + frameH;
         if (screen instanceof BuilderScreen bs) {
-            bs.enableRtsScissor(g, originX, originY + 1, originX + gridW, scissorBottomY);
+            bs.enableRtsScissor(g, recentGridOriginX, originY + 1, mainOriginX + cachedMainGridWidth, scissorBottomY);
         } else {
-            g.enableScissor(originX, originY + 1, originX + gridW, scissorBottomY);
+            g.enableScissor(recentGridOriginX, originY + 1, mainOriginX + cachedMainGridWidth, scissorBottomY);
         }
 
         
-        
         SpriteRenderer.drawTiledGrid(g, GridSlotRenderer.SLOT_NORMAL, slotThemeOffset,
-                originX, originY, SLOT_SIZE, SLOT_SIZE, SLOT_GAP,
-                cols, Math.max(rows, itemRows), scroll, originY, scissorBottomY);
+                recentGridOriginX, originY, SLOT_SIZE, SLOT_SIZE, SLOT_GAP,
+                recentCols, Math.max(rows, recentItemRows), recentScroll, originY, scissorBottomY);
+
+        SpriteRenderer.drawTiledGrid(g, GridSlotRenderer.SLOT_NORMAL, slotThemeOffset,
+                mainOriginX, originY, SLOT_SIZE, SLOT_SIZE, SLOT_GAP,
+                mainCols, Math.max(rows, itemRows), scroll, originY, scissorBottomY);
 
         
         g.flush();
 
         
+        for (int i = 0; i < recentList; i++) {
+            int col = i % recentCols;
+            int row = i / recentCols;
+            int slotX = recentGridOriginX + col * (SLOT_SIZE + SLOT_GAP);
+            int slotY = originY + row * (SLOT_SIZE + SLOT_GAP) - recentScroll;
+            if (slotY + SLOT_SIZE < originY || slotY > scissorBottomY) continue;
+
+            RecentEntry re = getRecentItems().get(i);
+            boolean hovered = (i == hoveredRecent);
+
+            RenderSystem.disableDepthTest();
+
+            ItemStack stack = re.preview();
+            if (!stack.isEmpty()) {
+                GridSlotRenderer.drawIcon(g, stack, slotX, slotY);
+            }
+
+            if (re.amount() > 1) {
+                GridSlotRenderer.drawAmountText(g, mc.font, re.amount(), slotX, slotY, false);
+            }
+
+            boolean recentSelected = !currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, currentSelectedItem);
+            GridSlotRenderer.drawOverlay(g, slotX, slotY, hovered, recentSelected, slotThemeOffset);
+        }
+
+        
         for (int i = 0; i < slotEntries.size(); i++) {
-            int col = i % cols;
-            int row = i / cols;
-            int slotX = originX + col * (SLOT_SIZE + SLOT_GAP);
+            int col = i % mainCols;
+            int row = i / mainCols;
+            int slotX = mainOriginX + col * (SLOT_SIZE + SLOT_GAP);
             int slotY = originY + row * (SLOT_SIZE + SLOT_GAP) - scroll;
             if (slotY + SLOT_SIZE < originY || slotY > scissorBottomY) continue;
 
@@ -545,8 +725,8 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
                 GridSlotRenderer.drawAmountText(g, font, count, slotX, slotY, entry.isFluid());
             }
 
-            boolean isSelected = i == selectedSlotIndex && selectedSlotIndex < slotEntries.size();
-            GridSlotRenderer.drawOverlay(g, slotX, slotY, hovered, isSelected, slotThemeOffset);
+            boolean mainSelected = !currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, currentSelectedItem);
+            GridSlotRenderer.drawOverlay(g, slotX, slotY, hovered, mainSelected, slotThemeOffset);
         }
 
         
@@ -561,7 +741,23 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         g.disableScissor();
 
         
-        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE, overlayThemeOffset, originX, originY, gridW, frameH);
+        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE, overlayThemeOffset, recentGridOriginX, originY, recentGridW, frameH);
+        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE, overlayThemeOffset, mainOriginX, originY, cachedMainGridWidth, frameH);
+
+        
+        int dividerX = (recentGridOriginX + recentGridW + mainOriginX) / 2;
+        g.vLine(dividerX, y + 5, originY + gridVisibleH - 3, ThemeManager.getDividerColor());
+
+        
+        int recentBarX = recentGridOriginX + recentGridW + 3;
+        recentScrollBar.render(g, recentBarX, originY + 6, gridVisibleH - 12);
+
+        if (slotEntries.isEmpty() && searchBuffer.length() > 0) {
+            String hint = Component.translatable("tooltip.rtsbuilding.rightdown.no_search_results").getString();
+            int hintX = mainOriginX + cachedMainGridWidth / 2;
+            int hintY = originY + gridVisibleH / 2;
+            TextRenderer.drawCentered(g, mc.font, hint, hintX, hintY, HINT_COLOR);
+        }
 
         
         renderScrollbar(g, x, y, h);
@@ -595,6 +791,77 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     
     private int calculateGridOriginY(int baseY) {
         return baseY + PAD_TOP + GRID_TOP_OFFSET;
+    }
+
+    private int getCalcMainCols() {
+        return Math.max(1, (getWidth() - PAD_LEFT - RIGHT_GAP) / SLOT_SIZE);
+    }
+
+    private int getCalcMainGridWidth() {
+        return getCalcMainCols() * SLOT_SIZE;
+    }
+
+    private int getCalcRows() {
+        return Math.max(1, (getHeight() - PAD_TOP - GRID_TOP_OFFSET) / SLOT_SIZE + 2);
+    }
+
+    
+    private void recordItemSelection(String itemId, ItemStack stack) {
+        if (itemId == null || stack.isEmpty()) return;
+        itemSelectCounts.merge(itemId, 1, Integer::sum);
+        itemSelectPreviews.put(itemId, stack);
+    }
+
+    private List<RecentEntry> getRecentItems() {
+        StorageModule sm = CompositionRoot.get().module(StorageModule.class);
+        if (sm == null) return List.of();
+
+        List<RecentEntry> serverEntries = sm.getRecentEntriesTyped();
+
+        Map<String, RecentEntry> merged = new LinkedHashMap<>();
+        for (RecentEntry entry : serverEntries) {
+            merged.put(entry.id(), entry);
+        }
+        for (var entry : itemSelectCounts.entrySet()) {
+            String id = entry.getKey();
+            if (!merged.containsKey(id)) {
+                ItemStack preview = itemSelectPreviews.getOrDefault(id, ItemStack.EMPTY);
+                if (!preview.isEmpty()) {
+                    merged.put(id, new RecentEntry(id, 0, 0, (byte) 0, preview));
+                }
+            }
+        }
+
+        List<RecentEntry> result = new ArrayList<>(merged.values());
+        result.sort(Comparator.<RecentEntry, Integer>comparing(e -> itemSelectCounts.getOrDefault(e.id(), 0)).reversed());
+        if (!recentSortAscending) {
+            java.util.Collections.reverse(result);
+        }
+        if (recentSearchBuffer.length() > 0) {
+            String query = recentSearchBuffer.toString().toLowerCase();
+            result.removeIf(e -> {
+                String name = e.preview().getHoverName().getString().toLowerCase();
+                return !name.contains(query);
+            });
+        }
+        return result;
+    }
+
+    
+    private int findRecentHovered(int mx, int my, int originX, int originY, int scroll, int count) {
+        if (!contains(mx, my) || count <= 0) return -1;
+        int relX = mx - originX;
+        int relY = my - originY + scroll;
+        if (relX < 0 || relY < 0) return -1;
+        int localRows = getCalcRows();
+        int col = relX / (SLOT_SIZE + SLOT_GAP);
+        int row = relY / (SLOT_SIZE + SLOT_GAP);
+        if (col >= recentCols || row >= localRows) return -1;
+        int idx = row * recentCols + col;
+        if (idx >= count) return -1;
+        int bottomY = originY + localRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        if (my < originY || my >= bottomY) return -1;
+        return idx;
     }
 
     
@@ -689,9 +956,9 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
 
     
     private void renderScrollbar(GuiGraphics g, int x, int y, int h) {
+        int barX = mainGridOriginX + cachedMainGridWidth + 3;
         int originY = y + PAD_TOP + GRID_TOP_OFFSET;
         int gridVisibleH = h - PAD_TOP * 2 - GRID_TOP_OFFSET;
-        int barX = x + getWidth() - SCROLLBAR_W - RIGHT_MARGIN;
         scrollBar.render(g, barX, originY + 6, gridVisibleH - 12);
     }
 
@@ -703,15 +970,17 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         int relX = mx - originX;
         int relY = my - originY + scroll;
         if (relX < 0 || relY < 0) return -1;
+        int localCols = getCalcMainCols();
+        int localRows = getCalcRows();
         int col = relX / (SLOT_SIZE + SLOT_GAP);
         int row = relY / (SLOT_SIZE + SLOT_GAP);
-        if (col >= cols || row >= rows) return -1;
-        int idx = row * cols + col;
+        if (col >= localCols || row >= localRows) return -1;
+        int idx = row * localCols + col;
         if (idx >= slotEntries.size()) return -1;
         
         
         
-        int calculatedFrameHeight = rows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        int calculatedFrameHeight = localRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
         int bottomY = originY + calculatedFrameHeight;
         if (my < originY || my >= bottomY) {
             return -1;
@@ -731,6 +1000,12 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (!contains((int) mouseX, (int) mouseY)) return false;
+        int recentRight = getX() + 3 + recentCols * SLOT_SIZE;
+        int mainLeft = getX() + PAD_LEFT;
+        int dividerX = (recentRight + mainLeft) / 2;
+        if (mouseX < dividerX) {
+            return recentScrollBar.handleScroll(scrollY);
+        }
         return scrollBar.handleScroll(scrollY);
     }
 
@@ -761,7 +1036,9 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         }
         int originY = y + PAD_TOP + GRID_TOP_OFFSET;
         int gridVisibleH = h - PAD_TOP * 2 - GRID_TOP_OFFSET;
-        int barX = x + getWidth() - SCROLLBAR_W - RIGHT_MARGIN;
+        int localMainGridOriginX = x + PAD_LEFT;
+        int localMainGridWidth = getCalcMainGridWidth();
+        int barX = localMainGridOriginX + localMainGridWidth + 3;
         
         
         int itemDisplayX = x + PAD_LEFT;
@@ -824,6 +1101,53 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
             containerModePopup.positionFromButtonAbove(containerBtnX + BUTTON_SIZE / 2, containerBtnY, screenWidth);
             return true;
         }
+
+        
+        int recentSortBtnX = localMainGridOriginX + 3 - PAD_LEFT;
+        int recentSortBtnY = y + PAD_TOP + 1;
+        if (mouseX >= recentSortBtnX && mouseX < recentSortBtnX + BUTTON_SIZE
+                && mouseY >= recentSortBtnY && mouseY < recentSortBtnY + BUTTON_SIZE) {
+            recentSortAscending = !recentSortAscending;
+            return true;
+        }
+
+        int recentSearchX = recentSortBtnX + BUTTON_SIZE + BUTTON_SPACING;
+        int recentSearchY = y + PAD_TOP + 1;
+        int recentSearchW = (x + 3 + recentCols * SLOT_SIZE) - recentSearchX;
+        if (recentSearchW > SEARCH_INPUT_H) {
+            boolean clickedRecentSearch = mouseX >= recentSearchX && mouseX < recentSearchX + recentSearchW
+                    && mouseY >= recentSearchY && mouseY < recentSearchY + SEARCH_INPUT_H;
+            if (clickedRecentSearch) {
+                searchFocused = false;
+                recentSearchFocused = true;
+                recentSearchCursorBlink = System.currentTimeMillis();
+                return true;
+            } else if (recentSearchFocused) {
+                recentSearchFocused = false;
+            }
+        }
+
+        
+        int searchX = containerBtnX + BUTTON_SIZE + BUTTON_SPACING;
+        int searchY = y + PAD_TOP + 1;
+        int searchW = (localMainGridOriginX + localMainGridWidth) - searchX;
+        if (searchW > SEARCH_INPUT_H) {
+            boolean clickedSearch = mouseX >= searchX && mouseX < searchX + searchW
+                    && mouseY >= searchY && mouseY < searchY + SEARCH_INPUT_H;
+            if (clickedSearch) {
+                recentSearchFocused = false;
+                searchFocused = true;
+                searchCursorBlink = System.currentTimeMillis();
+                return true;
+            } else if (searchFocused) {
+                searchFocused = false;
+                
+                StorageModule sm = CompositionRoot.get().module(StorageModule.class);
+                if (sm != null) {
+                    sm.setSearch(searchBuffer.toString());
+                }
+            }
+        }
         
         
         if (typeFilterPopup.isOpen() && typeFilterPopup.contains((int) mouseX, (int) mouseY)) {
@@ -839,30 +1163,71 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
             return true;
         }
 
+        int localRecentGridOriginX = x + 3;
+        int localRecentGridW = recentCols * SLOT_SIZE;
+        int recentBarX = localRecentGridOriginX + localRecentGridW + 3;
+        if (recentScrollBar.handleClick(mouseX, mouseY, recentBarX,
+                originY + 6, gridVisibleH - 12)) {
+            return true;
+        }
+
         
         if (!contains((int) mouseX, (int) mouseY)) return false;
         int w = getWidth();
-        int originX = x + PAD_LEFT;
-        int usableW = w - PAD_LEFT - SCROLLBAR_W - RIGHT_MARGIN;
-        int cols = Math.max(1, (usableW + SLOT_GAP) / (SLOT_SIZE + SLOT_GAP));
-        int relX = (int) mouseX - originX;
+
+        
+        List<RecentEntry> recentItems = getRecentItems();
+        if (!recentItems.isEmpty()) {
+            int relRecentX = (int) mouseX - localRecentGridOriginX;
+            int relRecentY = (int) mouseY - originY;
+            if (relRecentX >= 0 && relRecentY >= 0) {
+                int recentCol = relRecentX / (SLOT_SIZE + SLOT_GAP);
+                int recentRow = relRecentY / (SLOT_SIZE + SLOT_GAP);
+                if (recentCol < recentCols && recentRow >= 0) {
+                    int recentIdx = recentRow * recentCols + recentCol;
+                    if (recentIdx < recentItems.size()) {
+                        RecentEntry clickedRecent = recentItems.get(recentIdx);
+                        if (!clickedRecent.preview().isEmpty()) {
+                            selectedSlotIndex = -1;
+                            currentSelectedItem = clickedRecent.preview().copy();
+                            
+                            String itemId = BuiltInRegistries.ITEM.getKey(clickedRecent.preview().getItem()).toString();
+                            if (itemId != null) {
+                                String label = clickedRecent.preview().getHoverName().getString();
+                                recordItemSelection(itemId, clickedRecent.preview());
+                                BuildingModule buildingModule = CompositionRoot.get().module(BuildingModule.class);
+                                if (buildingModule != null) {
+                                    buildingModule.selectItem(itemId, label, clickedRecent.preview());
+                                }
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
+
+        
+        int localMainGridCols = getCalcMainCols();
+        int localRows = getCalcRows();
+        int relX = (int) mouseX - localMainGridOriginX;
         int relY = (int) mouseY - originY + scrollBar.getScroll();
         if (relX < 0 || relY < 0) {
             return false;
         }
         int col = relX / (SLOT_SIZE + SLOT_GAP);
         int row = relY / (SLOT_SIZE + SLOT_GAP);
-        if (col >= cols) {
+        if (col >= localMainGridCols) {
             return false;
         }
-        int idx = row * cols + col;
+        int idx = row * localMainGridCols + col;
         if (idx >= slotEntries.size()) {
             return false;
         }
         
         
         
-        int calculatedFrameHeight = rows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+        int calculatedFrameHeight = localRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
         int bottomY = originY + calculatedFrameHeight;
         if (mouseY < originY || mouseY >= bottomY) {
             return false;
@@ -885,6 +1250,7 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
             
             String itemId = BuiltInRegistries.ITEM.getKey(entry.stack().getItem()).toString();
             String label = entry.stack().getHoverName().getString();
+            recordItemSelection(itemId, entry.stack());
             
             
             BuildingModule buildingModule = CompositionRoot.get().module(BuildingModule.class);
@@ -909,11 +1275,145 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         return true;
     }
 
+    private void applySearch() {
+        searchFocused = false;
+        StorageModule sm = CompositionRoot.get().module(StorageModule.class);
+        if (sm != null) {
+            sm.setSearch(searchBuffer.toString());
+        }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (recentSearchFocused) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                recentSearchFocused = false;
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                if (recentSearchCursorPos > 0 && recentSearchBuffer.length() > 0) {
+                    recentSearchBuffer.deleteCharAt(recentSearchCursorPos - 1);
+                    recentSearchCursorPos--;
+                    recentSearchCursorBlink = System.currentTimeMillis();
+                }
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_DELETE) {
+                if (recentSearchCursorPos < recentSearchBuffer.length()) {
+                    recentSearchBuffer.deleteCharAt(recentSearchCursorPos);
+                    recentSearchCursorBlink = System.currentTimeMillis();
+                }
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_LEFT) {
+                recentSearchCursorPos = Math.max(0, recentSearchCursorPos - 1);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+                recentSearchCursorPos = Math.min(recentSearchBuffer.length(), recentSearchCursorPos + 1);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_HOME) {
+                recentSearchCursorPos = 0;
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_END) {
+                recentSearchCursorPos = recentSearchBuffer.length();
+                return true;
+            }
+            if ((modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && keyCode == GLFW.GLFW_KEY_V) {
+                String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
+                if (clip != null && !clip.isEmpty()) {
+                    recentSearchBuffer.insert(recentSearchCursorPos, clip);
+                    recentSearchCursorPos += clip.length();
+                    recentSearchCursorBlink = System.currentTimeMillis();
+                }
+                return true;
+            }
+            return false;
+        }
+        if (!searchFocused) return false;
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            applySearch();
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            searchFocused = false;
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (searchCursorPos > 0 && searchBuffer.length() > 0) {
+                searchBuffer.deleteCharAt(searchCursorPos - 1);
+                searchCursorPos--;
+                searchCursorBlink = System.currentTimeMillis();
+            }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (searchCursorPos < searchBuffer.length()) {
+                searchBuffer.deleteCharAt(searchCursorPos);
+                searchCursorBlink = System.currentTimeMillis();
+            }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            searchCursorPos = Math.max(0, searchCursorPos - 1);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            searchCursorPos = Math.min(searchBuffer.length(), searchCursorPos + 1);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_HOME) {
+            searchCursorPos = 0;
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_END) {
+            searchCursorPos = searchBuffer.length();
+            return true;
+        }
+        if ((modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && keyCode == GLFW.GLFW_KEY_V) {
+            String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
+            if (clip != null && !clip.isEmpty()) {
+                searchBuffer.insert(searchCursorPos, clip);
+                searchCursorPos += clip.length();
+                searchCursorBlink = System.currentTimeMillis();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (recentSearchFocused) {
+            if (codePoint >= 32 && !Character.isISOControl(codePoint)) {
+                recentSearchBuffer.insert(recentSearchCursorPos, codePoint);
+                recentSearchCursorPos++;
+                recentSearchCursorBlink = System.currentTimeMillis();
+                return true;
+            }
+            return false;
+        }
+        if (!searchFocused) return false;
+        if (codePoint >= 32 && !Character.isISOControl(codePoint)) {
+            searchBuffer.insert(searchCursorPos, codePoint);
+            searchCursorPos++;
+            searchCursorBlink = System.currentTimeMillis();
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button != 0) return false;
         if (scrollBar.isDragging()) {
             scrollBar.endDrag();
+            return true;
+        }
+        if (recentScrollBar.isDragging()) {
+            recentScrollBar.endDrag();
             return true;
         }
         return false;
@@ -922,10 +1422,13 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (button != 0) return false;
+        int originY = getY() + PAD_TOP + GRID_TOP_OFFSET;
+        int gridVisibleH = getHeight() - PAD_TOP * 2 - GRID_TOP_OFFSET;
         if (scrollBar.isDragging()) {
-            int originY = getY() + PAD_TOP + GRID_TOP_OFFSET;
-            int gridVisibleH = getHeight() - PAD_TOP * 2 - GRID_TOP_OFFSET;
-            return scrollBar.handleDrag(mouseY, originY, gridVisibleH);
+            return scrollBar.handleDrag(mouseY, originY + 6, gridVisibleH - 12);
+        }
+        if (recentScrollBar.isDragging()) {
+            return recentScrollBar.handleDrag(mouseY, originY + 6, gridVisibleH - 12);
         }
         return false;
     }

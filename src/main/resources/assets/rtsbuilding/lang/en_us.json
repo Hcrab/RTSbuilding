@@ -86,5 +86,9 @@
   "tooltip.rtsbuilding.rightdown.container_button": "Container Bind Mode",
   "tooltip.rtsbuilding.rightdown.container_button.desc": "Click to switch container bind mode (Extract-only/Bidirectional)",
   "tooltip.rtsbuilding.rightdown.container_extract": "Extract-only",
-  "tooltip.rtsbuilding.rightdown.container_bidirectional": "Bidirectional"
+  "tooltip.rtsbuilding.rightdown.container_bidirectional": "Bidirectional",
+
+  "tooltip.rtsbuilding.rightdown.search_placeholder": "Search items...",
+
+  "tooltip.rtsbuilding.rightdown.no_search_results": "No matching items"
 }
