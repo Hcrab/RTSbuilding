@@ -374,6 +374,10 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
     private boolean isScrollingAnimated = false;
 
     
+    public ItemStack getCurrentSelectedItem() {
+        return currentSelectedItem;
+    }
+
     public ItemStack getHoveredSlotStack() {
         if (tooltipSlotIndex == -2) {
             

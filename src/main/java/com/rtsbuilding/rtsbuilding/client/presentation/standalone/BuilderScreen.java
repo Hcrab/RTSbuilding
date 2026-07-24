@@ -453,6 +453,20 @@ public class BuilderScreen extends Screen {
         cursorWrapHandler.applyWrapIfPending();
 
         
+        if (downSidebarPanel != null && !isMouseOverUI(mouseX, mouseY)) {
+            var selected = downSidebarPanel.getRightLayer().getCurrentSelectedItem();
+            if (!selected.isEmpty()) {
+                com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
+                var pose = guiGraphics.pose();
+                pose.pushPose();
+                pose.translate(mouseX - 12, mouseY - 12, 300);
+                guiGraphics.renderItem(selected, 0, 0);
+                guiGraphics.renderItemDecorations(Minecraft.getInstance().font, selected, 0, 0);
+                pose.popPose();
+                com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
+            }
+        }
+
         if (Minecraft.getInstance().gui.getDebugOverlay().showDebugScreen()) {
             Minecraft.getInstance().gui.getDebugOverlay().render(guiGraphics);
         }
