@@ -6,15 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.util.render.PanelDragPerformanceOptimi
 
 import java.util.List;
 
-/**
- * 面板拖拽逻辑处理器。
- *
- * <p>负责管理面板拖拽状态、位置更新以及对附近面板的吸附逻辑，
- * 确保拖拽时面板不会超出屏幕边界。
- *
- * <p>与 {@link RtsPanel} 双向协作：处理器读写面板的位置字段，
- * 面板的 {@code clampWindowToScreen()} 方法由处理器在每次拖拽移动后调用。
- */
+
 public final class PanelDragHandler {
 
     private static final int SNAP_THRESHOLD = 6;
@@ -42,19 +34,14 @@ public final class PanelDragHandler {
         PanelDragPerformanceOptimizer.setCurrentlyDraggingPanel(panel);
     }
 
-    /**
-     * 执行拖拽移动：更新位置、限制到屏幕。
-     * <p>吸附仅在拖拽结束时执行，避免拖拽过程中吸附与鼠标位置反复竞争造成抖动。
-     *
-     * @return true 如果面板位置发生变化
-     */
+    
     public boolean dragTo(double mouseX, double mouseY) {
         int beforeX = panel.getWindowX();
         int beforeY = panel.getWindowY();
         panel.setWindowX((int) Math.round(mouseX - this.dragOffsetX));
         panel.setWindowY((int) Math.round(mouseY - this.dragOffsetY));
-        // 移除这里的条件限制，确保在拖拽过程中也能适当限制屏幕边界
-        // 之前的设计是想在拖拽时不限制，但这可能导致面板移出屏幕
+        
+        
         panel.clampWindowToScreen();
         return beforeX != panel.getWindowX() || beforeY != panel.getWindowY();
     }
@@ -68,7 +55,7 @@ public final class PanelDragHandler {
         PanelDragPerformanceOptimizer.clearDraggingPanel();
     }
 
-    // ======================== 吸附逻辑 ========================
+    
 
     private void snapToNearbyPanel() {
         if (panel.getScreen() == null) return;

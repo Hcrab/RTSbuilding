@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -101,38 +102,32 @@ public final class RtsPageCore {
             List<Entry> exactEntries = new ArrayList<>();
             Map<String, Long> localNamespaceTotals = new HashMap<>();
 
-            // Fast path: build from slot cache
-            RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
-            boolean usedCache = false;
-            if (aggregate != null && !aggregate.isEmpty()) {
-                Map<ItemStack, Long> componentEntries = new HashMap<>();
-                aggregate.getAvailableItems(localCounts);
-                aggregate.getAvailableEntries(componentEntries);
-                if (!componentEntries.isEmpty()) {
-                    for (var entry : componentEntries.entrySet()) {
-                        ItemStack prototype = entry.getKey();
-                        long count = entry.getValue();
-                        ResourceLocation id = BuiltInRegistries.ITEM.getKey(prototype.getItem());
-                        if (id == null) continue;
-                        mergeExactEntry(exactEntries, prototype, count);
-                        mergeCount(localNamespaceTotals, id.getNamespace(), count);
-                    }
-                    usedCache = true;
+            // Build exact entries from handlers (with per-container mode info)
+            for (LinkedHandler linked : itemHandlers) {
+                IItemHandler handler = linked.handler();
+                byte handlerMode = linked.allowStore() ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
+                for (int i = 0; i < handler.getSlots(); i++) {
+                    ItemStack stack = handler.getStackInSlot(i);
+                    if (stack.isEmpty()) continue;
+                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                    if (id == null) continue;
+                    long reportedCount = getHandlerReportedCount(handler, i, stack);
+                    mergeCount(localCounts, id.toString(), reportedCount);
+                    mergeExactEntry(exactEntries, stack, reportedCount, handlerMode);
+                    mergeCount(localNamespaceTotals, id.getNamespace(), reportedCount);
                 }
             }
 
-            if (!usedCache) {
-                for (LinkedHandler linked : itemHandlers) {
-                    IItemHandler handler = linked.handler();
-                    for (int i = 0; i < handler.getSlots(); i++) {
-                        ItemStack stack = handler.getStackInSlot(i);
-                        if (stack.isEmpty()) continue;
-                        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-                        if (id == null) continue;
-                        long reportedCount = getHandlerReportedCount(handler, i, stack);
-                        mergeCount(localCounts, id.toString(), reportedCount);
-                        mergeExactEntry(exactEntries, stack, reportedCount);
-                        mergeCount(localNamespaceTotals, id.getNamespace(), reportedCount);
+            // Override counts from slot cache if available (cache has more accurate totals)
+            RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
+            if (aggregate != null && !aggregate.isEmpty()) {
+                localCounts.clear();
+                localNamespaceTotals.clear();
+                aggregate.getAvailableItems(localCounts);
+                for (var entry : localCounts.entrySet()) {
+                    ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
+                    if (id != null) {
+                        mergeCount(localNamespaceTotals, id.getNamespace(), entry.getValue());
                     }
                 }
             }
@@ -274,10 +269,12 @@ public final class RtsPageCore {
 
         List<ItemStack> itemStacks = new ArrayList<>();
         List<Long> itemCounts = new ArrayList<>();
+        List<Byte> itemModes = new ArrayList<>();
         for (int i = from; i < to; i++) {
             Entry e = sortedEntries.get(i);
             itemStacks.add(e.stack().copy());
             itemCounts.add(e.count());
+            itemModes.add(e.linkedMode());
         }
 
         List<String> totalItemIds = new ArrayList<>(counts.size());
@@ -330,7 +327,7 @@ public final class RtsPageCore {
                 (byte) session.browser.sort.ordinal(), session.browser.ascending,
                 session.sessionFlags.autoStoreMinedDrops, session.sessionFlags.useBdNetwork,
                 categories,
-                itemStacks, itemCounts,
+                itemStacks, itemCounts, itemModes,
                 totalItemIds, totalItemCounts,
                 fluidIds, fluidAmountList, fluidCapacityList,
                 recentIds, recentAmounts, recentCapacities, recentKinds,
@@ -400,11 +397,11 @@ public final class RtsPageCore {
             if (stack.isEmpty()) {
                 continue;
             }
-            mergeExactEntry(exactEntries, stack, stack.getCount());
+            mergeExactEntry(exactEntries, stack, stack.getCount(), (byte) 0);
         }
     }
 
-    static void mergeExactEntry(List<Entry> entries, ItemStack stack, long count) {
+    static void mergeExactEntry(List<Entry> entries, ItemStack stack, long count, byte linkedMode) {
         if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
             return;
         }
@@ -416,17 +413,17 @@ public final class RtsPageCore {
         prototype.setCount(1);
         for (int i = 0; i < entries.size(); i++) {
             Entry existing = entries.get(i);
-            if (!ItemStack.isSameItemSameComponents(existing.stack(), prototype)) {
+            if (existing.linkedMode() != linkedMode || !ItemStack.isSameItemSameComponents(existing.stack(), prototype)) {
                 continue;
             }
             entries.set(i, new Entry(
                     existing.stack(), existing.itemId(), existing.namespace(),
                     existing.path(), existing.label(),
-                    saturatedAdd(existing.count(), count)));
+                    saturatedAdd(existing.count(), count), existing.linkedMode()));
             return;
         }
         entries.add(new Entry(prototype, id.toString(), id.getNamespace(), id.getPath(),
-                prototype.getHoverName().getString(), count));
+                prototype.getHoverName().getString(), count, linkedMode));
     }
 
     // ---- internal fluid check -------------------------------------------------

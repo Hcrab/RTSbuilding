@@ -23,12 +23,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 
-/**
- * 网络包网关——向服务端发送数据包。
- *
- * <p>与旧版 {@code com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway}
- * 功能完全一致，所有 Feature Module 通过此类发包。</p>
- */
+
 public final class RtsClientPacketGateway {
 
     private RtsClientPacketGateway() {}
@@ -58,10 +53,7 @@ public final class RtsClientPacketGateway {
                 pos, allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
     }
 
-    /**
-     * 更新已有链接存储的模式（双向/仅提取）和优先级。
-     * 用于点击模式下对已绑定容器右键切换模式的循环操作。
-     */
+    
     public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
         PacketDistributor.sendToServer(new C2SRtsUpdateLinkedStoragePayload(
                 pos,
@@ -69,9 +61,7 @@ public final class RtsClientPacketGateway {
                 priority));
     }
 
-    /**
-     * 解绑指定方块的存储链接。
-     */
+    
     public static void sendUnlinkStorage(BlockPos pos) {
         PacketDistributor.sendToServer(new C2SRtsUnlinkStoragePayload(pos));
     }
@@ -187,17 +177,9 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsUndoPayload());
     }
 
-    // ======================== 实体交互 ========================
+    
 
-    /**
-     * 发送空手与实体或方块交互的数据包（打开 GUI、交易、骑乘等）。
-     *
-     * @param entityId   目标实体 ID（-1 = 方块目标）
-     * @param hitLocation 射线命中点
-     * @param blockHit   方块命中结果（实体交互传 null）
-     * @param rayOrigin   射线起点（相机位置）
-     * @param rayDir      射线方向
-     */
+    
     public static void sendInteractEntityEmptyHand(int entityId, Vec3 hitLocation,
                                                     @javax.annotation.Nullable BlockHitResult blockHit,
                                                     Vec3 rayOrigin, Vec3 rayDir) {
@@ -208,7 +190,7 @@ public final class RtsClientPacketGateway {
             face = (byte) blockHit.getDirection().get3DDataValue();
         } else {
             clickedPos = BlockPos.containing(hitLocation);
-            face = (byte) 1; // UP
+            face = (byte) 1; 
         }
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 entityId,
@@ -228,15 +210,7 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
-    /**
-     * 发送使用工具栏格物品与实体交互的数据包（如对羊使用剪刀）。
-     *
-     * @param entityId   目标实体 ID
-     * @param hitLocation 射线命中点
-     * @param toolSlot    工具栏格索引
-     * @param rayOrigin   射线起点（相机位置）
-     * @param rayDir      射线方向
-     */
+    
     public static void sendInteractEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 entityId,

@@ -11,28 +11,24 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * 筛选标签管理器——管理实体/方块筛选模式的切换、渲染和点击交互。
- *
- * <p>仅当 {@link SelectPanel} 的条目同时包含实体和方块时激活，显示"全部/实体/方块"三个标签。</p>
- */
+
 public final class SelectFilterTabs {
 
-    /** 筛选标签栏高度 */
+    
     public static final int TAB_BAR_H = 14;
 
-    // ======================== 按钮背景贴图 (base_ui_2.png) ========================
+    
 
-    /** base_ui_2.png：32×48，水平左暗右亮，垂直三态（0-16=正常，16-32=悬浮，32-48=选中） */
+    
     private static final ResourceLocation FILTER_BG_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
     private static final int FILTER_BG_TEX_W = 32;
     private static final int FILTER_BG_TEX_FILE_H = 48;
-    /** 单个状态高度（16px） */
+    
     private static final int FILTER_BG_STATE_H = 16;
-    /** 选中态垂直偏移（y=32-48） */
+    
     private static final int FILTER_BG_SELECTED_V_OFFSET = 32;
-    /** 九宫格边框宽度 */
+    
     private static final int FILTER_BG_BORDER = 2;
 
     private static final TextureInfo FILTER_BG_TEX_INFO = new TextureInfo(
@@ -42,9 +38,9 @@ public final class SelectFilterTabs {
     private static final NineSliceRegion FILTER_BG_NINE_SLICE = NineSliceRegion.fullTheme(
             FILTER_BG_TEX_INFO, FILTER_BG_STATE_H, FILTER_BG_BORDER);
 
-    // ======================== 筛选模式 ========================
+    
 
-    /** 筛选模式——仅当同时存在实体和方块条目时生效 */
+    
     public enum FilterMode {
         ALL("全部"),
         ENTITIES("实体"),
@@ -57,11 +53,11 @@ public final class SelectFilterTabs {
         }
     }
 
-    // ======================== 状态 ========================
+    
 
     private FilterMode filterMode = FilterMode.ALL;
 
-    /** 每个标签的悬浮动画状态 */
+    
     private final HoverStateManager[] hoverStates = initHoverStates();
 
     private static HoverStateManager[] initHoverStates() {
@@ -70,19 +66,19 @@ public final class SelectFilterTabs {
         return arr;
     }
 
-    // ======================== 状态查询 ========================
+    
 
-    /** 获取当前筛选模式 */
+    
     public FilterMode getMode() {
         return filterMode;
     }
 
-    /** 设置筛选模式 */
+    
     public void setMode(FilterMode mode) {
         this.filterMode = mode;
     }
 
-    /** 条目是否匹配当前筛选模式 */
+    
     public boolean matchesFilter(SelectableEntry entry) {
         return switch (filterMode) {
             case ALL -> true;
@@ -91,22 +87,19 @@ public final class SelectFilterTabs {
         };
     }
 
-    /** 是否同时包含实体和方块（需要显示筛选栏） */
+    
     public boolean hasMixedTypes(int entityCount, int blockCount) {
         return entityCount > 0 && blockCount > 0;
     }
 
-    /** 获取筛选栏占据的高度偏移量（无筛选时返回 0） */
+    
     public int getFilterOffset(int entityCount, int blockCount) {
         return hasMixedTypes(entityCount, blockCount) ? TAB_BAR_H : 0;
     }
 
-    // ======================== 渲染 ========================
+    
 
-    /**
-     * 渲染筛选标签栏——使用 base_ui_2.png 九宫格按钮背景，点击切换筛选模式。
-     * 仅当同时包含实体和方块条目时调用。
-     */
+    
     public void render(GuiGraphics g, int mouseX, int mouseY,
                         int cx, int cy, int cw,
                         int entityCount, int blockCount, int totalCount) {
@@ -130,10 +123,10 @@ public final class SelectFilterTabs {
                     && mouseY >= tabY && mouseY < tabY + TAB_BAR_H;
             boolean selected = filterMode == modes[i];
 
-            // 更新悬浮动画
+            
             float hoverT = hoverStates[i].update(hovered);
 
-            // 渲染按钮背景（final局部变量供lambda捕获）
+            
             final int fTabX = tabX;
             final int fTabW = tabW;
             if (selected) {
@@ -150,7 +143,7 @@ public final class SelectFilterTabs {
                                 fTabX, tabY, fTabW, TAB_BAR_H));
             }
 
-            // 渲染文字（选中或悬浮时用高亮色）
+            
             int color = selected || hovered ? activeColor : textColor;
             int textX = fTabX + (fTabW - labelW) / 2;
             int textY = tabY + (TAB_BAR_H - font.lineHeight) / 2;
@@ -160,13 +153,9 @@ public final class SelectFilterTabs {
         }
     }
 
-    // ======================== 点击处理 ========================
+    
 
-    /**
-     * 处理筛选标签点击。
-     *
-     * @return 是否消费了点击事件
-     */
+    
     public boolean handleClick(double mouseX, double mouseY,
                                 int cx, int cy,
                                 int entityCount, int blockCount, int totalCount) {
@@ -192,7 +181,7 @@ public final class SelectFilterTabs {
         return false;
     }
 
-    // ======================== 布局常量（与 SelectPanel 对齐）=======================
+    
 
     private static final int PAD_H = 6;
 }

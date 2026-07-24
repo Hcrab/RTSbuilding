@@ -1,14 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.network;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining.MiningModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.plugin.PluginModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.progression.ProgressionModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
+import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
@@ -23,9 +23,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 
-/**
- * 网络包处理器——服务端→客户端数据包分发到各 Feature Module。
- */
+
 public final class RtsClientNetworkHandlers {
 
     private RtsClientNetworkHandlers() {}
@@ -34,15 +32,15 @@ public final class RtsClientNetworkHandlers {
         return CompositionRoot.get().kernel();
     }
 
-    // ======================================================================
-    //  Camera
-    // ======================================================================
+    
+    
+    
 
     public static void handleCameraAnchor(S2CRtsCameraAnchorPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             CameraModule cm = kernel().module(CameraModule.class);
             if (cm != null) cm.applyServerCameraAnchor(payload);
-            // 同步更新内核区域信息（独立于摄像机模块）
+            
             kernel().updateRegion(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
         });
     }
@@ -51,16 +49,16 @@ public final class RtsClientNetworkHandlers {
         ctx.enqueueWork(() -> {
             CameraModule cm = kernel().module(CameraModule.class);
             if (cm != null) cm.applyServerCameraState(payload);
-            // 同步更新内核区域信息（独立于摄像机模块）
+            
             kernel().updateRegion(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
-            // 分发 RtsToggled 事件，触发 BuilderScreen 的打开/关闭
+            
             kernel().dispatch(new StateEvent.RtsToggled(payload.enabled()));
         });
     }
 
-    // ======================================================================
-    //  Storage
-    // ======================================================================
+    
+    
+    
 
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -90,9 +88,9 @@ public final class RtsClientNetworkHandlers {
         });
     }
 
-    // ======================================================================
-    //  Mining
-    // ======================================================================
+    
+    
+    
 
     public static void handleMineProgress(S2CRtsMineProgressPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -108,9 +106,9 @@ public final class RtsClientNetworkHandlers {
         });
     }
 
-    // ======================================================================
-    //  Workflow
-    // ======================================================================
+    
+    
+    
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -130,9 +128,9 @@ public final class RtsClientNetworkHandlers {
         });
     }
 
-    // ======================================================================
-    //  Progression & Plugin
-    // ======================================================================
+    
+    
+    
 
     public static void handleProgressionState(S2CRtsProgressionStatePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -148,56 +146,56 @@ public final class RtsClientNetworkHandlers {
         });
     }
 
-    // ======================================================================
-    //  Feedback
-    // ======================================================================
+    
+    
+    
 
     public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() ->
                 kernel().dispatch(new StateEvent.DamageTaken(payload.amount(), false, 0)));
     }
 
-    // ======================================================================
-    //  Others (pass-through to kernel events)
-    // ======================================================================
+    
+    
+    
 
     public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // TODO: 远程菜单兼容
+        
     }
 
     public static void handleQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // TODO: 任务检测逻辑
+        
     }
 
-    // ======================================================================
-    //  Animation & History (stubs — delegated to old renderers)
-    // ======================================================================
+    
+    
+    
 
     public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            // 放置动画由 GhostRingBuffer 处理
+            
             com.rtsbuilding.rtsbuilding.client.render.RingBufferHolder.INSTANCE.add(
                     payload.pos(), payload.state(), System.currentTimeMillis());
         });
     }
 
     public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // 破坏动画暂不处理
+        
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // 撤销历史暂不处理
+        
     }
 
     public static void handleResumePlacementScan(S2CRtsResumePlacementScanPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // 恢复放置暂不处理
+        
     }
 
     public static void handleBlueprintResumeScan(S2CRtsBlueprintResumeScanPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // 蓝图恢复暂不处理
+        
     }
 
     public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        // 蓝图状态暂不处理
+        
     }
 }

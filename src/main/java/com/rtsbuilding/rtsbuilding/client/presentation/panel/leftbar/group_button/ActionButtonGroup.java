@@ -15,57 +15,52 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * 操作按钮组——包含 bind_button（绑定/拖拽）、direction_rotationbutton（方向旋转）
- * 和 item_pickup_button（物品拾取）。
- *
- * <p>该组为第二组（group 1），位于选择组（{@link SelectButtonGroup}）下方。</p>
- */
+
 public final class ActionButtonGroup extends AbstractButtonGroup {
 
-    /** bind.png 贴图路径 */
+    
     private static final ResourceLocation BIND_BTN = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/left/button/bind.png");
-    /** direction_rotation.png 贴图路径 */
+    
     private static final ResourceLocation DIRECTION_ROTATE_BTN = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/left/button/direction_rotation.png");
-    /** item_pickup.png 贴图路径 */
+    
     private static final ResourceLocation ITEM_PICKUP_BTN = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/left/button/item_pickup.png");
 
-    // ======================== 位置背景贴图 ========================
+    
 
-    /** down_button.png —— 首位按钮背景 */
+    
     private static final ResourceLocation DOWN_BG = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/button/down_button.png");
-    /** middle_button.png —— 中间按钮背景 */
+    
     private static final ResourceLocation MIDDLE_BG = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/button/middle_button.png");
-    /** up_button.png —— 末位按钮背景 */
+    
     private static final ResourceLocation UP_BG = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/button/up_button.png");
 
-    /** only_button.png —— 单按钮独立背景 */
+    
     private static final ResourceLocation ONLY_BG = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/button/only_button.png");
 
-    /** 在非交互模式下是否隐藏容器绑定按钮（索引 0） */
+    
     private boolean showBindButton = true;
 
-    /** 交互模式下是否隐藏方块旋转按钮（索引 1） */
+    
     private boolean showRotateButton = true;
 
-    /** 蓝图模式下仅显示漏斗按钮（索引 2） */
+    
     private boolean blueprintMode = false;
 
-    // ======================== 单按钮背景缓存 ========================
+    
 
-    /** only_button 的 TextureInfo */
+    
     private final TextureInfo onlyTexInfo;
-    /** only_button 的三态精灵区域 [normal, hovered, selected] */
+    
     private final SpriteRegion[] onlyRegions;
 
-    // ----- 浮窗提示 -----
+    
     private final TooltipController bindBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
     private final TooltipController dirRotateBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
     private final TooltipController itemPickupBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
@@ -74,7 +69,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         super(Direction.VERTICAL, DEFAULT_BTN_SIZE, DEFAULT_INNER_GAP, true,
                 DOWN_BG, MIDDLE_BG, UP_BG,
                 BIND_BTN, DIRECTION_ROTATE_BTN, ITEM_PICKUP_BTN);
-        // 初始化单按钮背景缓存
+        
         this.onlyTexInfo = new TextureInfo(
                 ONLY_BG, AbstractButtonGroup.TEX_W, AbstractButtonGroup.TEX_H,
                 TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
@@ -85,10 +80,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         this.onlyRegions[2] = new SpriteRegion(onlyTexInfo, 0, AbstractButtonGroup.STATE_H * 2, AbstractButtonGroup.HALF_W, AbstractButtonGroup.STATE_H);
     }
 
-    /**
-     * 设置是否显示容器绑定按钮（索引 0）。
-     * 仅在交互模式（click_button 选中）下应显示，选择模式下隐藏。
-     */
+    
     public void setShowBindButton(boolean show) {
         this.showBindButton = show;
         if (!show) {
@@ -96,10 +88,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    /**
-     * 设置是否显示方块旋转按钮（索引 1）。
-     * 选择模式下显示，交互模式下隐藏。
-     */
+    
     public void setShowRotateButton(boolean show) {
         this.showRotateButton = show;
         if (!show) {
@@ -107,10 +96,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    /**
-     * 设置是否为蓝图模式。
-     * 蓝图模式下只显示漏斗（item_pickup）按钮，其他按钮隐藏。
-     */
+    
     public void setBlueprintMode(boolean blueprint) {
         this.blueprintMode = blueprint;
         if (blueprint) {
@@ -119,9 +105,9 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    // ======================== 渲染（支持按钮条件隐藏） ========================
+    
 
-    /** 可见按钮总数 */
+    
     private int visibleCount() {
         if (blueprintMode) return 1;
         return (showBindButton ? 1 : 0) + (showRotateButton ? 1 : 0) + 1;
@@ -155,9 +141,9 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    /** 按钮索引 i 是否在视觉上可见 */
+    
     private boolean isVisible(int i) {
-        // 蓝图模式：只显示漏斗按钮（索引 2）
+        
         if (blueprintMode) return i == 2;
         return switch (i) {
             case 0 -> showBindButton;
@@ -167,32 +153,30 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         };
     }
 
-    /** 根据视觉索引分配背景类型：首位→up，末位→down，中间→middle */
+    
     private int bgTypeForVisualIndex(int visIdx) {
         int total = visibleCount();
-        if (visIdx == 0) return 2; // 首位→up
-        if (visIdx == total - 1) return 0; // 末位→down
-        return 1; // 中间→middle
+        if (visIdx == 0) return 2; 
+        if (visIdx == total - 1) return 0; 
+        return 1; 
     }
 
-    /**
-     * 绘制单按钮独立背景——当组内仅一个按钮可见时使用 only_button 贴图。
-     */
+    
     private void renderOnlyBg(GuiGraphics g, int mouseX, int mouseY, int index, int bx, int by) {
         boolean hovering = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
         float hoverT = this.hoverStates[index].update(hovering);
 
         SpriteRenderer.drawStateSprite(g,
-                onlyRegions[0],     // normal
-                onlyRegions[1],     // hovered
-                onlyRegions[2],     // selected
+                onlyRegions[0],     
+                onlyRegions[1],     
+                onlyRegions[2],     
                 selected[index],
                 hoverT,
                 bx, by, buttonSize, buttonSize);
     }
 
-    // ======================== 点击（支持按钮条件隐藏） ========================
+    
 
     @Override
     public int mouseClicked(double mx, double my, int originX, int originY) {
@@ -210,30 +194,24 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         return -1;
     }
 
-    /**
-     * 切换绑定模式——模拟点击 bind_button（索引 0）。
-     */
+    
     public void toggleBindButton() {
         onButtonClick(0);
     }
 
-    /**
-     * 切换方向旋转模式——模拟点击 direction_rotationbutton（索引 1）。
-     */
+    
     public void toggleDirectionRotateButton() {
         onButtonClick(1);
     }
 
-    /**
-     * 切换物品拾取模式——模拟点击 item_pickup_button（索引 2）。
-     */
+    
     public void toggleItemPickupButton() {
         onButtonClick(2);
     }
 
     @Override
     protected void onButtonClick(int index) {
-        // 点击已选中的按钮 → 关闭；点击未选中的 → 选中
+        
         if (selected[index]) {
             selected[index] = false;
         } else {
@@ -242,12 +220,12 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    /** 刷新 tooltip 状态——由 LeftSidebarPanel.render() 每帧调用 */
+    
     public void tickTooltips(int mouseX, int mouseY, int originX, int originY) {
         int vis = 0;
         for (int i = 0; i < patternTextures.length; i++) {
             if (!isVisible(i)) {
-                // 隐藏的按钮强制关闭 tooltip
+                
                 getTooltip(i).update(false, false);
                 continue;
             }
@@ -259,7 +237,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    /** 获取按钮索引对应的 tooltip 控制器 */
+    
     private TooltipController getTooltip(int i) {
         return switch (i) {
             case 0 -> bindBtnTooltip;
@@ -269,7 +247,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         };
     }
 
-    /** 在覆盖层阶段渲染 tooltip，定位在按钮右侧 */
+    
     public void renderTooltipOverlay(GuiGraphics g, int originX, int originY,
                                      int screenW, int screenH) {
         int textColor = ThemeManager.getTextColor();
@@ -287,7 +265,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         }
     }
 
-    /** 渲染单个按钮的 tooltip */
+    
     private void renderSingleTooltip(GuiGraphics g, TooltipController tooltip, int index,
                                       int btnX, int btnY, int textColor, int shortcutColor,
                                       int screenW, int screenH) {
@@ -312,7 +290,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
                 text, textColor, shortcutColor, screenW, screenH);
     }
 
-    /** 在按钮右侧渲染浮窗 */
+    
     private static void renderTooltipRight(GuiGraphics g, TooltipController tooltip,
                                             int btnX, int btnY, int btnW, int btnH,
                                             String text, int color, int shortcutColor,
@@ -333,7 +311,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         int tipW = (int)(maxLineW * 0.75f) + padH * 2;
         int tipH = (int)(scaledLineH * lines.length + scaledLineGap * (lines.length - 1)) + padV * 2;
 
-        // 定位到按钮右侧
+        
         int tipX = btnX + btnW + 2;
         int tipY = btnY;
         tipX = Math.max(0, Math.min(tipX, screenW - tipW));

@@ -2,10 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
-
-import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining.MiningModule;
@@ -15,8 +12,9 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.progression.Prog
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
+import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -24,9 +22,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 
-/**
- * 客户端引导——初始化 TLK 内核并注册所有 Feature Module。
- */
+
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientBootstrap {
 
@@ -46,41 +42,20 @@ public final class RtsClientBootstrap {
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             CompositionRoot.init();
-            RtsClientKernel kernel = CompositionRoot.get().kernel();
+            RtsClientKernel kernel = RtsClientKernel.get();
 
-            // 创建模块实例，同时注册到新旧两系统
-            var reg = CompositionRoot.get().moduleManager();
-            var cameraModule = new CameraModule();
-            kernel.register(cameraModule);
-            reg.registerInstance("camera", cameraModule);
-            var storageModule = new StorageModule();
-            kernel.register(storageModule);
-            reg.registerInstance("storage", storageModule);
-            var buildingModule = new BuildingModule();
-            kernel.register(buildingModule);
-            reg.registerInstance("building", buildingModule);
-            var miningModule = new MiningModule();
-            kernel.register(miningModule);
-            reg.registerInstance("mining", miningModule);
-            var workflowModule = new WorkflowModule();
-            kernel.register(workflowModule);
-            reg.registerInstance("workflow", workflowModule);
-            var pluginModule = new PluginModule();
-            kernel.register(pluginModule);
-            reg.registerInstance("plugin", pluginModule);
-            var progressionModule = new ProgressionModule();
-            kernel.register(progressionModule);
-            reg.registerInstance("progression", progressionModule);
-            var remoteMenuModule = new RemoteMenuModule();
-            kernel.register(remoteMenuModule);
-            reg.registerInstance("remote_menu", remoteMenuModule);
-            var pathfindingModule = new PathfindingModule();
-            kernel.register(pathfindingModule);
-            reg.registerInstance("pathfinding", pathfindingModule);
+            kernel.register(new CameraModule());
+            kernel.register(new StorageModule());
+            kernel.register(new BuildingModule());
+            kernel.register(new MiningModule());
+            kernel.register(new WorkflowModule());
+            kernel.register(new PluginModule());
+            kernel.register(new ProgressionModule());
+            kernel.register(new RemoteMenuModule());
+            kernel.register(new PathfindingModule());
 
-            // 初始化内核（创建 InputPipeline、RenderPipeline）
             kernel.initialize();
-            RtsbuildingMod.LOGGER.info("RTS client2 kernel initialized with all modules");
+            RtsbuildingMod.LOGGER.info("RTS client kernel initialized with all modules");
         });
     }
 }

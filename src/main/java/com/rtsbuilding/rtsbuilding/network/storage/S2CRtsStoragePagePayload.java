@@ -32,6 +32,7 @@ public record S2CRtsStoragePagePayload(
         List<String> categories,
         List<ItemStack> itemStacks,
         List<Long> counts,
+        List<Byte> itemModes,
         List<String> totalItemIds,
         List<Long> totalItemCounts,
         List<String> fluidIds,
@@ -101,6 +102,7 @@ public record S2CRtsStoragePagePayload(
                 for (int i = 0; i < size; i++) {
                     ItemStack.STREAM_CODEC.encode(buf, payload.itemStacks().get(i));
                     buf.writeVarLong(payload.counts().get(i));
+                    buf.writeByte(i < payload.itemModes().size() ? payload.itemModes().get(i) : 0);
                 }
 
                 int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
@@ -201,9 +203,11 @@ public record S2CRtsStoragePagePayload(
                 int size = buf.readVarInt();
                 List<ItemStack> itemStacks = new ArrayList<>(size);
                 List<Long> counts = new ArrayList<>(size);
+                List<Byte> itemModes = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) {
                     itemStacks.add(ItemStack.STREAM_CODEC.decode(buf));
                     counts.add(buf.readVarLong());
+                    itemModes.add(buf.readByte());
                 }
                 int totalItemSize = buf.readVarInt();
                 List<String> totalItemIds = new ArrayList<>(totalItemSize);
@@ -281,6 +285,7 @@ public record S2CRtsStoragePagePayload(
                         categories,
                         itemStacks,
                         counts,
+                        itemModes,
                         totalItemIds,
                         totalItemCounts,
                         fluidIds,

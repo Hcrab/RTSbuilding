@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage;
 
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.domain.state.LinkedStorageEntry;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
@@ -21,34 +21,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 存储状态——纯数据容器。
- * 替代原 {@code com.rtsbuilding.rtsbuilding.client.controller.StorageStateManager}。
- *
- * <p>只负责数据存储与基本校验，所有业务逻辑在 {@link StorageModule} 中。</p>
- */
+
 public final class StorageState {
 
-    // ======================================================================
-    //  Storage page
-    // ======================================================================
+    
+    
+    
 
     private boolean storageCollapsed;
     private boolean storageLinked;
     private boolean bdNetworkEnabled = true;
     private String linkedStorageName = "No Storage";
     private final List<BlockPos> linkedPositions = new ArrayList<>();
-    /** 已链接的存储方块列表（用于渲染线框） */
+    
     private final List<LinkedStorageEntry> linkedStorageEntries = new ArrayList<>();
-    /** 已链接存储的显示名称列表（与 linkedStorageEntries 顺序一致） */
+    
     private final List<String> linkedDisplayNames = new ArrayList<>();
-    /** 已链接存储的图标物品 ID 列表（与 linkedStorageEntries 顺序一致） */
+    
     private final List<String> linkedIconItemIds = new ArrayList<>();
-    /** 已链接存储的优先级列表（与 linkedStorageEntries 顺序一致） */
+    
     private final List<Integer> linkedPriorities = new ArrayList<>();
     private int storagePage, storagePageSize = 100000, storageTotalPages = 1, storageTotalEntries;
     private int storageRevision;
-    /** 页面请求计数器——每次 requestStoragePage() 时递增，供 UI 层检测新的请求 */
+    
     private int pageRequestCount;
     private String storageSearch = "", storageCategory = "all";
     private int storageSort;
@@ -63,9 +58,9 @@ public final class StorageState {
     private boolean viewDirty;
     private long viewDirtySinceMs;
 
-    // ======================================================================
-    //  Craft
-    // ======================================================================
+    
+    
+    
 
     private String craftablesSearch = "";
     private boolean craftablesShowUnavailable;
@@ -73,16 +68,16 @@ public final class StorageState {
     private int craftablesRevision;
     private boolean craftablesHasMore;
 
-    // ======================================================================
-    //  Funnel
-    // ======================================================================
+    
+    
+    
 
     private boolean funnelEnabled;
     private final List<Object> funnelBuffer = new ArrayList<>();
 
-    // ======================================================================
-    //  Quick slots & GUI bindings
-    // ======================================================================
+    
+    
+    
 
     static final int QUICK_SLOT_COUNT = 27;
     static final int GUI_BINDING_COUNT = 8;
@@ -92,12 +87,12 @@ public final class StorageState {
     private final String[] guiBindingIds = new String[GUI_BINDING_COUNT];
     private final ItemStack[] guiBindingPreviews = new ItemStack[GUI_BINDING_COUNT];
 
-    // ======================================================================
-    //  Auto-refresh
-    // ======================================================================
+    
+    
+    
 
     private static final long AUTO_REFRESH_MS = 30_000L;
-    /** 扫描请求超时时间，超过此时间无响应则重置扫描状态，防止 scanRunning 永久卡死 */
+    
     private static final long SCAN_TIMEOUT_MS = 10_000L;
     private boolean autoRefreshEnabled;
 
@@ -114,9 +109,9 @@ public final class StorageState {
         storageCategories.add("all");
     }
 
-    // ======================================================================
-    //  Page management
-    // ======================================================================
+    
+    
+    
 
     void requestStoragePage(int page) {
         this.scanRunning = true;
@@ -143,13 +138,13 @@ public final class StorageState {
     }
 
     private void applyPayloadEntries(S2CRtsStoragePagePayload payload) {
-        // Simplified entry application — full implementation mirrors original StorageStateManager
+        
         this.storageEntries.clear();
         this.totalCounts.clear();
         this.fluidEntries.clear();
         this.recentEntries.clear();
 
-        // 处理链接存储数据
+        
         this.linkedPositions.clear();
         this.linkedStorageEntries.clear();
         this.linkedDisplayNames.clear();
@@ -181,12 +176,13 @@ public final class StorageState {
             preview.setCount(1);
             ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
             if (id == null) continue;
+            byte mode = i < payload.itemModes().size() ? payload.itemModes().get(i) : 0;
             this.storageEntries.add(new com.rtsbuilding.rtsbuilding.client.domain.state.StorageEntry(
                     preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath(),
-                    (byte) 0));
+                    mode));
         }
 
-        // 处理流体条目
+        
         int fluidSize = Math.min(payload.fluidIds().size(),
                 Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
         for (int i = 0; i < fluidSize; i++) {
@@ -205,9 +201,9 @@ public final class StorageState {
         }
     }
 
-    // ======================================================================
-    //  Craftables
-    // ======================================================================
+    
+    
+    
 
     void requestCraftables() {
         this.craftablesSearch = this.craftablesSearch.trim();
@@ -225,7 +221,7 @@ public final class StorageState {
     }
 
     void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
-        // Feedback is rendered as popup by the overlay module
+        
     }
 
     void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
@@ -237,12 +233,12 @@ public final class StorageState {
         this.viewDirty = true;
     }
 
-    // ======================================================================
-    //  Auto-refresh tick
-    // ======================================================================
+    
+    
+    
 
     void tickAutoRefresh(long now) {
-        // 扫描超时保护：请求卡住太久则重置，标记脏状态让自动刷新接手
+        
         if (this.scanRunning && now - this.scanStartedMs > SCAN_TIMEOUT_MS) {
             this.scanRunning = false;
             this.viewDirty = true;
@@ -257,9 +253,9 @@ public final class StorageState {
         requestStoragePage(this.storagePage);
     }
 
-    // ======================================================================
-    //  Session reset
-    // ======================================================================
+    
+    
+    
 
     void clearSessionState() {
         this.storageEntries.clear();
@@ -298,9 +294,9 @@ public final class StorageState {
         }
     }
 
-    // ======================================================================
-    //  Getters
-    // ======================================================================
+    
+    
+    
 
     public boolean isStorageLinked() { return storageLinked; }
     public boolean isFunnelEnabled() { return funnelEnabled; }
@@ -310,7 +306,7 @@ public final class StorageState {
         return storageLinked || !linkedPositions.isEmpty() || !storageEntries.isEmpty() || !fluidEntries.isEmpty();
     }
     public int getRevision() { return storageRevision; }
-    /** 获取页面请求计数器，供 UI 组件检测数据更新 */
+    
     public int getPageRequestCount() { return pageRequestCount; }
     public List<Object> getStorageEntries() { return storageEntries; }
     public List<Object> getFluidEntries() { return fluidEntries; }
@@ -318,13 +314,13 @@ public final class StorageState {
     public List<Object> getFunnelBufferEntries() { return funnelBuffer; }
     public List<Object> getCraftableEntries() { return craftableEntries; }
     public List<String> getStorageCategories() { return storageCategories; }
-    /** 获取已链接的存储方块列表（用于渲染角支架线框） */
+    
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return linkedStorageEntries; }
-    /** 获取已链接存储的显示名称列表 */
+    
     public List<String> getLinkedDisplayNames() { return linkedDisplayNames; }
-    /** 获取已链接存储的图标物品 ID 列表 */
+    
     public List<String> getLinkedIconItemIds() { return linkedIconItemIds; }
-    /** 获取已链接存储的优先级列表 */
+    
     public List<Integer> getLinkedPriorities() { return linkedPriorities; }
     public int getPage() { return storagePage; }
     public int getTotalPages() { return storageTotalPages; }
@@ -332,9 +328,9 @@ public final class StorageState {
     public String getCategory() { return storageCategory; }
     public boolean isSortAscending() { return storageSortAscending; }
 
-    // ======================================================================
-    //  Public setters (called from StorageModule)
-    // ======================================================================
+    
+    
+    
 
     public void setStorageSearch(String search) {
         this.storageSearch = search == null ? "" : search;

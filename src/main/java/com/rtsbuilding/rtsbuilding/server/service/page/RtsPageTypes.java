@@ -21,7 +21,7 @@ import java.util.Set;
  */
 // ---- 条目类型 -----------------------------------------------------------
 
-record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count) {
+record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count, byte linkedMode) {
 }
 
 record FluidEntry(String fluidId, String namespace, String path, long amount, long capacity) {

@@ -4,10 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import net.minecraft.core.BlockPos;
 
-/**
- * 升级进度模块——镜像服务端的生存模式升级状态。
- * 默认 IDLE，仅在启用生存升级时升为 WARM。
- */
+
 public final class ProgressionModule implements FeatureModule {
 
     private boolean enabled;

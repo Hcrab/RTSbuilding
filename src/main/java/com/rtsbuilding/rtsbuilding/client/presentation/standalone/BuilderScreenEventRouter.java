@@ -1,14 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.standalone;
 
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.dispatcher.EventDispatcher;
-import com.rtsbuilding.rtsbuilding.client.presentation.event.model.*;
+import com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult;
+import com.rtsbuilding.rtsbuilding.client.presentation.event.model.KeyPressEvent;
 import com.rtsbuilding.rtsbuilding.client.presentation.layout.PanelRegistry;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.gear.GearMenuPanel;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.*;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.BindModeMouseHandler;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.BuilderScreenMovementHandler;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.EntityInteractionHandler;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
 import net.minecraft.client.Minecraft;

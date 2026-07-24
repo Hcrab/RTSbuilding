@@ -1,10 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.gear;
 
-import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
-import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
-import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
-import com.rtsbuilding.rtsbuilding.client.render.pass.LinkedStoragePass;
-import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.SettingsSection;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.color.ColorGroup;
@@ -12,6 +7,11 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.color.ColorPickerPa
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.color.ColorSlot;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.color.ColorSource;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.*;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
+import com.rtsbuilding.rtsbuilding.client.render.pass.LinkedStoragePass;
+import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;

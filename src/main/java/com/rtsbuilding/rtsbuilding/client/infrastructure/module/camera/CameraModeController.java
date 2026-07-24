@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public final class CameraModeController {
 
@@ -18,9 +18,9 @@ public final class CameraModeController {
         this.playerOrbit = playerOrbit;
     }
 
-    // ======================================================================
-    //  Orbit mode — 相机绕着目标方块圆周旋转
-    // ======================================================================
+    
+    
+    
 
     public boolean enableOrbitMode() {
         Minecraft mc = Minecraft.getInstance();
@@ -74,9 +74,9 @@ public final class CameraModeController {
         state.orbitMode = true;
     }
 
-    // ======================================================================
-    //  Player orbit mode — 绕玩家实体环绕旋转
-    // ======================================================================
+    
+    
+    
 
     public boolean enablePlayerOrbitMode() {
         Minecraft mc = Minecraft.getInstance();

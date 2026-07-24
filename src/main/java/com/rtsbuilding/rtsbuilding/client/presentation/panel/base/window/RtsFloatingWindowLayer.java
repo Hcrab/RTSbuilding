@@ -8,26 +8,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * 以前后顺序路由可移动 RTS 窗口的输入和渲染。
- *
- * <p>该层负责窗口堆叠、z 顺序渲染和输入分发。它
- * 刻意不关心窗口内部做什么、代表什么游戏操作、
- * 或持久化 UI 状态如何保存。这使当前主屏幕行为保持不变，
- * 同时为未来的窗口提供统一的渲染和输入接入点。
- *
- * <p>窗口按 {@link RtsPanel#getLastClickTime} 升序渲染——
- * 最近点击的窗口显示在最上层。点击任何窗口会自动将其置顶。
- * 排序采用懒策略：仅当有点击发生时标记脏，渲染时才触发实际排序。
- */
+
 public final class RtsFloatingWindowLayer {
 
     private final List<RtsPanel> frontToBackWindows;
-    /** 是否需要重新排序（点击窗口时标记，渲染时消费） */
+    
     private boolean sortDirty;
 
-    /** 标记排序为脏，下次渲染时自动重新排序。
-     * 在程序化打开/关闭面板后调用，确保新面板处于正确 z 顺序。 */
+    
     public void markSortDirty() {
         this.sortDirty = true;
     }
@@ -40,17 +28,17 @@ public final class RtsFloatingWindowLayer {
         }
     }
 
-    /** 返回底层窗口列表，供 BuilderScreen 在 init() 中注册窗口。 */
+    
     public List<RtsPanel> frontToBackWindows() {
         return this.frontToBackWindows;
     }
 
-    // ======================== Z 顺序渲染 ========================
+    
 
     public void renderFloatingWindows(GuiGraphics g, int mouseX, int mouseY) {
         if (this.frontToBackWindows.isEmpty()) return;
 
-        // 仅在有点击发生后重新排序，避免每帧 O(n log n)
+        
         if (this.sortDirty) {
             this.frontToBackWindows.sort(Comparator.comparingLong(RtsPanel::getLastClickTime));
             this.sortDirty = false;
@@ -69,7 +57,7 @@ public final class RtsFloatingWindowLayer {
             RtsPanel window = this.frontToBackWindows.get(i);
             if (!window.isOpen()) continue;
 
-            // 每渲染一个面板前强制关闭深度测试，避免前一个面板残留的深度状态影响后一个
+            
             RenderSystem.disableDepthTest();
 
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
@@ -101,8 +89,8 @@ public final class RtsFloatingWindowLayer {
             if (cursor != RtsPanel.ResizeCursor.DEFAULT) {
                 return cursor;
             }
-            // 鼠标在某个上层面板的窗口内部（但不在缩放边缘上）→
-            // 下方所有面板的缩放边缘都被该面板遮挡，不应显示缩放光标
+            
+            
             if (window.isInsideWindow(mouseX, mouseY)) {
                 return RtsPanel.ResizeCursor.DEFAULT;
             }
@@ -121,10 +109,10 @@ public final class RtsFloatingWindowLayer {
         return false;
     }
 
-    // ======================== 输入路由 ========================
+    
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // 快照所有面板的时间戳，用于检测点击处理过程中是否有面板被程序化打开
+        
         long[] timestamps = new long[this.frontToBackWindows.size()];
         for (int j = 0; j < this.frontToBackWindows.size(); j++) {
             timestamps[j] = this.frontToBackWindows.get(j).getLastClickTime();
@@ -135,9 +123,9 @@ public final class RtsFloatingWindowLayer {
             if (!window.isOpen()) continue;
             int windowIdx = i;
             if (window.mouseClicked(mouseX, mouseY, button)) {
-                // 检查在被点击面板处理点击的过程中，是否有其他面板被程序化打开（时间戳被更新）。
-                // 例如设置面板（GearMenuPanel）点击调色盘按钮打开了调色盘面板（ColorPickerPanel），
-                // 此时调色盘面板的时间戳是更新的，我们不应当再把设置面板置顶。
+                
+                
+                
                 boolean otherPanelBroughtToFront = false;
                 for (int j = 0; j < this.frontToBackWindows.size(); j++) {
                     if (j != windowIdx && this.frontToBackWindows.get(j).getLastClickTime() > timestamps[j]) {
@@ -209,12 +197,12 @@ public final class RtsFloatingWindowLayer {
             RtsPanel window = this.frontToBackWindows.get(i);
             if (!window.isOpen()) continue;
 
-            // 子类优先级更高——先问子类要不要吃这个事件（如搜索框 ESC 清空）
+            
             if (window.handleWindowKeyPressed(keyCode, scanCode, modifiers)) {
                 return true;
             }
 
-            // ESC 关闭（setOpen(false) 内部会递归关闭所有子面板）
+            
             if (keyCode == GLFW.GLFW_KEY_ESCAPE && window.closable) {
                 window.setOpen(false);
                 return true;

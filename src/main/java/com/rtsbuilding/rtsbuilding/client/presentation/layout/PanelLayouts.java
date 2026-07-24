@@ -2,27 +2,10 @@ package com.rtsbuilding.rtsbuilding.client.presentation.layout;
 
 import static com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreenConstants.*;
 
-/**
- * Container for small specialised panel-layout records.
- * <p>
- * Groups together layout parameter records that belong to distinct UI
- * components (craft dock and quick-build panel) but share the same simple
- * pattern: a few integer fields plus lightweight hit-test or slot-position
- * methods.
- */
+
 public final class PanelLayouts {
 
-    /**
-     * Craft-dock layout (the grid of 8 surrounding slots).
-     * <p>
-     * Computes the X/Y position of each of the 8 input/output slots
-     * that ring the central 3×3 crafting grid. Slot numbering:
-     * <pre>
-     *   0   1   2
-     *   3   C   4
-     *   5   6   7
-     * </pre>
-     */
+    
     public record CraftDockLayout(int cX, int cY) {
 
         public int slotX(int slot) {
@@ -46,9 +29,7 @@ public final class PanelLayouts {
         }
     }
 
-    /**
-     * Quick-build panel layout.
-     */
+    
     public record QuickBuildPanelLayout(int x, int y, int w, int h) {
 
         public boolean contains(double mouseX, double mouseY) {

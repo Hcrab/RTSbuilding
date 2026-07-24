@@ -6,9 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 
-/**
- * 采矿模块——管理单方块挖掘、连锁挖掘（Ultimine）和区域挖掘。
- */
+
 public final class MiningModule implements FeatureModule {
 
     private final MiningState state = new MiningState();
@@ -27,9 +25,9 @@ public final class MiningModule implements FeatureModule {
         }
     }
 
-    // ======================================================================
-    //  Single-block mining
-    // ======================================================================
+    
+    
+    
 
     public void startMining(BlockPos pos, int face, int toolSlot, String selectedItemId, ItemStack selectedPreview,
                             boolean blockRecovery, boolean toolProtection) {
@@ -49,9 +47,9 @@ public final class MiningModule implements FeatureModule {
         state.renderStage = -1;
     }
 
-    // ======================================================================
-    //  Ultimine (chain mining)
-    // ======================================================================
+    
+    
+    
 
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode,
                               String selectedItemId, ItemStack selectedPreview, boolean toolProtection) {
@@ -61,9 +59,9 @@ public final class MiningModule implements FeatureModule {
         RtsClientPacketGateway.sendUltimineStart(pos, face, toolSlot, limit, mode, selectedItemId, selectedPreview, toolProtection);
     }
 
-    // ======================================================================
-    //  Network callbacks
-    // ======================================================================
+    
+    
+    
 
     public void applyMineProgress(BlockPos pos, int stage) {
         state.applyMineProgress(pos, stage);
@@ -74,9 +72,9 @@ public final class MiningModule implements FeatureModule {
         state.ultimineTotal = total;
     }
 
-    // ======================================================================
-    //  State accessors
-    // ======================================================================
+    
+    
+    
 
     public MiningState getState() { return this.state; }
     public BlockPos getActivePos() { return state.activePos; }

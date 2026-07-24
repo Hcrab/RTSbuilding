@@ -1,16 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow;
 
+import com.rtsbuilding.rtsbuilding.client.domain.state.WorkflowProgress;
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
-import com.rtsbuilding.rtsbuilding.client.domain.state.WorkflowProgress;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 
-/**
- * 工作流模块——镜像服务端的工作流进度。
- */
+
 public final class WorkflowModule implements FeatureModule {
 
     private WorkflowProgress progress = WorkflowProgress.empty();

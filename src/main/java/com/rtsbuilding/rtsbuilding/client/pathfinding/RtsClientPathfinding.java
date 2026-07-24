@@ -30,9 +30,9 @@ public final class RtsClientPathfinding {
 
     private RtsClientPathfinding() {}
 
-    // ======================================================================
-    //  Public static API — 向后兼容的静态委托
-    // ======================================================================
+    
+    
+    
 
     public static void goTo(BlockPos target) { INSTANCE.goToInternal(target); }
     public static void goToAbove(BlockPos target, int yOffset) { INSTANCE.goToAboveInternal(target, yOffset); }
@@ -41,9 +41,9 @@ public final class RtsClientPathfinding {
     @Nullable public static MoveTargetHighlight getMoveTargetHighlight() { return INSTANCE.getMoveTargetHighlightInternal(); }
     public static void tickPre() { INSTANCE.tickPreInternal(); }
 
-    // ======================================================================
-    //  实例方法
-    // ======================================================================
+    
+    
+    
 
     private void goToInternal(BlockPos target) {
         this.target = target.immutable();
@@ -106,9 +106,9 @@ public final class RtsClientPathfinding {
         }
     }
 
-    // ======================================================================
-    //  内部方法
-    // ======================================================================
+    
+    
+    
 
     private void stopMovement() {
         target = null;

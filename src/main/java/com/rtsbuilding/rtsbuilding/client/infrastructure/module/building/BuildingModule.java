@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.infrastructure.module.building;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
@@ -11,11 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
-/**
- * 建造模块——管理物品/流体选中、放置操作、形状模式。
- *
- * <p>替代原 {@code BuildPlacementService} + {@code ClientRtsController} 中建造相关逻辑。</p>
- */
+
 public final class BuildingModule implements FeatureModule {
 
     private final BuildingState state = new BuildingState();
@@ -36,9 +32,9 @@ public final class BuildingModule implements FeatureModule {
         }
     }
 
-    // ======================================================================
-    //  Selection
-    // ======================================================================
+    
+    
+    
 
     public void selectItem(String itemId, String label, ItemStack preview) {
         if (itemId == null || itemId.isBlank() || preview == null || preview.isEmpty()) return;
@@ -76,9 +72,9 @@ public final class BuildingModule implements FeatureModule {
         state.emptyHandSelected = true;
     }
 
-    // ======================================================================
-    //  Placement
-    // ======================================================================
+    
+    
+    
 
     public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 origin, Vec3 dir) {
         if (hit == null) return;
@@ -92,9 +88,9 @@ public final class BuildingModule implements FeatureModule {
         RtsClientPacketGateway.sendPlaceFluid(hit, forcePlace, state.selectedFluidId, origin, dir);
     }
 
-    // ======================================================================
-    //  Rotation
-    // ======================================================================
+    
+    
+    
 
     public void rotateClockwise() {
         state.placeRotateSteps = (state.placeRotateSteps + 1) & 3;
@@ -108,9 +104,9 @@ public final class BuildingModule implements FeatureModule {
         if (pos != null) RtsClientPacketGateway.sendRotateBlock(pos);
     }
 
-    // ======================================================================
-    //  State accessors
-    // ======================================================================
+    
+    
+    
 
     public BuildingState getState() { return this.state; }
     public boolean hasSelectedItem() { return !state.selectedItemId.isBlank(); }
@@ -129,9 +125,9 @@ public final class BuildingModule implements FeatureModule {
         kernel().dispatch(new StateEvent.BuilderModeChanged(mode));
     }
 
-    // ======================================================================
-    //  Convenience
-    // ======================================================================
+    
+    
+    
 
     private RtsClientKernel kernel() {
         return CompositionRoot.get().kernel();

@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.model.ResizeEdge;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.RtsButton;
 import org.lwjgl.glfw.GLFW;
 
 final class PanelInputHandler {

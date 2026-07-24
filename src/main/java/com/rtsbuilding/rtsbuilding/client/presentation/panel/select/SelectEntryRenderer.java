@@ -18,24 +18,19 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Quaternionf;
 
-/**
- * 条目渲染器——负责渲染 {@link SelectPanel} 中每个菜单项的可视内容。
- *
- * <p>职责单一：条目背景九宫格 + 实体模型/方块图标 + 文字标签。
- * 不持有可变状态，所有数据通过方法参数传入。</p>
- */
+
 public final class SelectEntryRenderer {
 
-    // ======================== 条目背景贴图 (base_ui_2.png) ========================
+    
 
-    /** base_ui_2.png：32×48，水平左暗右亮，垂直上正常下悬浮 */
+    
     private static final ResourceLocation SELECT_BG_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
     private static final int SELECT_BG_TEX_W = 32;
     private static final int SELECT_BG_TEX_FILE_H = 48;
-    /** 单个状态高度（0-16=正常态，16-32=悬浮态，无选中态） */
+    
     private static final int SELECT_BG_STATE_H = 16;
-    /** 九宫格边框宽度 */
+    
     private static final int SELECT_BG_BORDER = 4;
     private static final TextureInfo SELECT_BG_TEX_INFO = new TextureInfo(
             SELECT_BG_TEXTURE, SELECT_BG_TEX_W, SELECT_BG_TEX_FILE_H,
@@ -46,13 +41,9 @@ public final class SelectEntryRenderer {
 
     private SelectEntryRenderer() {}
 
-    // ======================== 条目背景渲染 ========================
+    
 
-    /**
-     * 渲染条目背景——使用 base_ui_2.png 九宫格贴图，正常态与悬浮态交叉淡入淡出。
-     *
-     * @param t 悬浮动画进度 [0, 1]
-     */
+    
     public static void renderEntryBg(GuiGraphics g, int x, int y, int w, int h, float t) {
         CrossFadeRenderer.render(g, t,
                 () -> SpriteRenderer.drawNineSlice(g,
@@ -63,19 +54,9 @@ public final class SelectEntryRenderer {
                         x, y, w, h));
     }
 
-    // ======================== 条目内容渲染（图标 + 文字）=======================
+    
 
-    /**
-     * 渲染条目内容——实体模型/方块图标 + 下方名称文字。
-     *
-     * @param entry        条目数据
-     * @param itemX        条目左上 X
-     * @param itemY        条目左上 Y
-     * @param entryW       条目宽度
-     * @param iconSize     图标渲染尺寸
-     * @param iconTextGap  图标与文字的间距
-     * @param isHovered    是否悬停
-     */
+    
     public static void renderEntryContent(GuiGraphics g, SelectableEntry entry,
                                            int itemX, int itemY, int entryW,
                                            int iconSize, int iconTextGap, boolean isHovered) {
@@ -95,7 +76,7 @@ public final class SelectEntryRenderer {
         TextRenderer.draw(g, entry.displayName(), textX, textY, textColor);
     }
 
-    // ======================== 实体图标渲染 ========================
+    
 
     private static void renderEntityIcon(GuiGraphics g, Entity entity, int centerX, int centerY, int iconSize) {
         if (entity == null) return;
@@ -131,10 +112,10 @@ public final class SelectEntryRenderer {
         pose.popPose();
         bufferSource.endBatch();
 
-        // ★ 清空深度缓冲：抹掉实体模型写入的深度值
-        RenderSystem.clear(256, false); // GL_DEPTH_BUFFER_BIT
+        
+        RenderSystem.clear(256, false); 
 
-        // 恢复 GUI 默认 GL 状态
+        
         RenderSystem.depthMask(false);
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
@@ -143,13 +124,13 @@ public final class SelectEntryRenderer {
         dispatcher.setRenderShadow(true);
     }
 
-    // ======================== 方块物品图标渲染 ========================
+    
 
     private static void renderBlockIcon(GuiGraphics g, BlockEntry be, int centerX, int centerY, int iconSize) {
         renderItemIcon(g, be.createStack(), centerX, centerY, iconSize);
     }
 
-    // ======================== 通用物品图标渲染 ========================
+    
 
     private static void renderItemIcon(GuiGraphics g, ItemStack stack, int centerX, int centerY, int iconSize) {
         if (stack == null || stack.isEmpty()) return;
@@ -163,7 +144,7 @@ public final class SelectEntryRenderer {
         RenderSystem.depthMask(true);
         g.renderItem(stack, -8, -8);
 
-        RenderSystem.clear(256, false); // GL_DEPTH_BUFFER_BIT
+        RenderSystem.clear(256, false); 
 
         RenderSystem.depthMask(false);
         RenderSystem.disableDepthTest();

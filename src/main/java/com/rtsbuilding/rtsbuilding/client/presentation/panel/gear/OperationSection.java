@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.gear;
 
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.SettingsSection;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ResetButton;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ScaleSliderComponent;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,9 +15,7 @@ import net.minecraft.util.Mth;
 
 import javax.annotation.Nullable;
 
-/**
- * 操作设置折叠分区——在设置面板中管理"操作设置"分区的渲染和交互。
- */
+
 public class OperationSection extends SettingsSection {
 
     private static final double SENS_MIN = 0.1;
@@ -25,15 +23,15 @@ public class OperationSection extends SettingsSection {
 
     private final ScaleSliderComponent slider = new ScaleSliderComponent();
     private final ThemeSwitchComponent orbitToggle = new ThemeSwitchComponent();
-    /** 灵敏度滑条轨道位置缓存 */
+    
     private final SliderTrack sensTrack = new SliderTrack();
 
-    /** 重置按钮——恢复灵敏度为默认值 */
+    
     private final ResetButton sensResetBtn = new ResetButton();
-    /** 重置按钮——恢复环绕模式为关闭 */
+    
     private final ResetButton orbitResetBtn = new ResetButton();
 
-    /** 缓存的翻译文本 */
+    
     private String cachedSensitivityLabel;
     private String cachedOrbitLabel;
 
@@ -63,7 +61,7 @@ public class OperationSection extends SettingsSection {
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int lineCount) {
         double sens = getSensitivity();
 
-        // 灵敏度标签 + 滑条（以中位线为界，左侧文字右侧滑条+重置）
+        
         String labelText = buildSensitivityLabel(sens);
         TextRenderer.draw(g, labelText, x + LEFT_PAD, textY(y, 0), getTextColor());
         int lineCenterY = textY(y, 0) + Minecraft.getInstance().font.lineHeight / 2;
@@ -74,18 +72,18 @@ public class OperationSection extends SettingsSection {
         sensTrack.trackW = Mth.clamp(trackMaxW, 20, trackMaxW);
         sensTrack.slider = slider;
         slider.render(g, mouseX, mouseY, sensTrack.trackX, sensTrack.trackY, sensTrack.trackW, SENS_MIN, SENS_MAX, sens);
-        // 灵敏度重置按钮
+        
         int sensResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
         int sensResetY = lineCenterY - ResetButton.BTN_SIZE / 2;
         sensResetBtn.render(g, mouseX, mouseY, sensResetX, sensResetY);
 
-        // 环绕模式开关（第二行，右侧带重置按钮）
+        
         renderLabel(g, getOrbitLabel(), x, y, 1);
         int textCenterY = textY(y, 1) + Minecraft.getInstance().font.lineHeight / 2;
         int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4 - ThemeSwitchComponent.SIZE;
         int toggleY = textCenterY - ThemeSwitchComponent.SIZE / 2;
         orbitToggle.render(g, mouseX, mouseY, toggleX, toggleY, cameraModule != null && cameraModule.isOrbitMode());
-        // 环绕模式重置按钮
+        
         int orbitResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
         int orbitResetY = textCenterY - ResetButton.BTN_SIZE / 2;
         orbitResetBtn.render(g, mouseX, mouseY, orbitResetX, orbitResetY);
@@ -103,12 +101,12 @@ public class OperationSection extends SettingsSection {
         return cachedOrbitLabel;
     }
 
-    // ======================== 点击 ========================
+    
 
     @Override
     protected boolean onContentLineClick(int lineIndex, double mouseX, double mouseY,
                                          int contentX, int contentY, int contentW) {
-        // 重置按钮优先检测
+        
         if (sensResetBtn.handleClick(mouseX, mouseY)) return true;
         if (orbitResetBtn.handleClick(mouseX, mouseY)) return true;
 
@@ -131,7 +129,7 @@ public class OperationSection extends SettingsSection {
         return false;
     }
 
-    // ======================== 滑条拖拽 / 滚轮 ========================
+    
 
     public boolean isSliderDragging() { return slider.isDragging(); }
 
@@ -151,7 +149,7 @@ public class OperationSection extends SettingsSection {
         return false;
     }
 
-    // ======================== 灵敏度 ========================
+    
 
     private double getSensitivity() {
         return cameraModule != null ? cameraModule.getInputSensitivity() : 1.0;

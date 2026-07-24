@@ -3,14 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.render;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
-/**
- * 幽灵方块环形缓冲区——固定 32 槽的 ring buffer，零 GC 分配。
- *
- * <p>替代原 {@code HashMap<Long, PendingGhostEntry>} 和每帧的
- * {@code HashMap<BlockState, ArrayList<BlockPos>>} 分组分配。</p>
- *
- * <p>O(1) 插入/遍历，自然淘汰最老条目。</p>
- */
+
 public final class GhostRingBuffer {
 
     public static final int CAPACITY = 32;
@@ -22,10 +15,10 @@ public final class GhostRingBuffer {
     private int head;
     private int count;
 
-    /** 添加一个幽灵方块条目。如果已满，覆盖最旧的。 */
+    
     public void add(BlockPos pos, BlockState state, long nowMs) {
         long key = pos.asLong();
-        // 检查是否已存在
+        
         for (int i = 0; i < count; i++) {
             int idx = (head - count + i) & (CAPACITY - 1);
             if (active[idx] && keys[idx] == key) {
@@ -42,7 +35,7 @@ public final class GhostRingBuffer {
         if (count < CAPACITY) count++;
     }
 
-    /** 遍历所有活跃条目。每帧调用，零分配。 */
+    
     public void forEach(SlotConsumer consumer) {
         int idx = (head - count) & (CAPACITY - 1);
         for (int i = 0; i < count; i++) {
@@ -53,7 +46,7 @@ public final class GhostRingBuffer {
         }
     }
 
-    /** 移除过期条目（超过 maxAgeMs 未更新）。 */
+    
     public void prune(long nowMs, long maxAgeMs) {
         for (int i = 0; i < CAPACITY; i++) {
             if (active[i] && (nowMs - addedAtMs[i]) > maxAgeMs) {
@@ -63,7 +56,7 @@ public final class GhostRingBuffer {
         }
     }
 
-    /** 清空所有条目。 */
+    
     public void clear() {
         for (int i = 0; i < CAPACITY; i++) active[i] = false;
         head = 0;

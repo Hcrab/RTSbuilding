@@ -7,10 +7,7 @@ import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 插件模块——客户端插件状态镜像。
- * 默认 IDLE，仅在插件管理界面打开时升为 WARM。
- */
+
 public final class PluginModule implements FeatureModule {
 
     private final List<PluginView> plugins = new ArrayList<>();

@@ -3,17 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.handle
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.model.ResizeEdge;
 
-/**
- * 面板缩放逻辑处理器。
- *
- * <p>负责管理面板缩放状态、边缘检测后的尺寸计算，
- * 以及对边锚定逻辑（左边缘缩放时右边缘不动，上边缘缩放时下边缘不动等），
- * 并确保面板不会超出屏幕边界。
- *
- * <p>与 {@link RtsPanel} 双向协作：处理器读写面板的窗口矩形字段，
- * 面板的 {@code clampWindowSize()} 和 {@code clampWindowToScreen()} 方法
- * 由处理器在每次缩放计算后调用。
- */
+
 public final class PanelResizeHandler {
 
     private boolean resizing;
@@ -64,12 +54,12 @@ public final class PanelResizeHandler {
             case BOTTOM_RIGHT -> { panel.setWindowWidth(this.resizeStartWidth + dx); panel.setWindowHeight(this.resizeStartHeight + dy); }
             case NONE -> {}
         }
-        // 仅限制最小尺寸，移除最大尺寸限制
+        
         panel.setWindowWidth(Math.max(panel.getMinWindowWidth(), panel.getWindowWidth()));
         panel.setWindowHeight(Math.max(panel.getMinWindowHeight(), panel.getWindowHeight()));
-        // 缩放过程中不执行位置限制，避免对边被意外推移
-        // 左/上边缘缩放时：clampWindowToScreen 将 windowX/windowY 回推后，
-        // 宽度/高度已偏离锚定的对边（右/下边缘），需要重新锚定
+        
+        
+        
         if (panel.getScreen() != null) {
             if (this.resizeEdge == ResizeEdge.LEFT
                     || this.resizeEdge == ResizeEdge.TOP_LEFT

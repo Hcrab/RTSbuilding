@@ -81,5 +81,10 @@
   "tooltip.rtsbuilding.rightdown.type_filter_button": "Type Filter",
   "tooltip.rtsbuilding.rightdown.type_filter_button.desc": "Click to toggle item/fluid display (Both/Items Only/Fluids Only/None)",
   "tooltip.rtsbuilding.rightdown.type_filter_item": "Items",
-  "tooltip.rtsbuilding.rightdown.type_filter_fluid": "Fluids"
+  "tooltip.rtsbuilding.rightdown.type_filter_fluid": "Fluids",
+
+  "tooltip.rtsbuilding.rightdown.container_button": "Container Bind Mode",
+  "tooltip.rtsbuilding.rightdown.container_button.desc": "Click to switch container bind mode (Extract-only/Bidirectional)",
+  "tooltip.rtsbuilding.rightdown.container_extract": "Extract-only",
+  "tooltip.rtsbuilding.rightdown.container_bidirectional": "Bidirectional"
 }

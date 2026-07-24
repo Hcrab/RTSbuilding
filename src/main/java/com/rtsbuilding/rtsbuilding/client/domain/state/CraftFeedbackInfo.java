@@ -4,10 +4,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
-/**
- * 合成反馈信息——不可变数据记录。
- * 替代原 {@code client.controller.ClientRtsController} 中的分散字段。
- */
+
 public record CraftFeedbackInfo(
         String itemId,
         int count,

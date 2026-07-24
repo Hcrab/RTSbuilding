@@ -15,29 +15,14 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
-/**
- * 客户端远程菜单兼容层。
- *
- * <p>负责在容器菜单打开时安装 RTS 远程菜单包装器，
- * 并通过反射放宽容器有效性校验，使远程菜单在 RTS 模式下正常工作。</p>
- *
- * <p>移植自 {@code client_old/compat/RtsClientRemoteMenuCompat}。</p>
- */
+
 public final class RtsClientRemoteMenuCompat {
     private static final String STORAGE_SCREEN_BASE_CLASS = "net.p3pp3rf1y.sophisticatedcore.client.gui.StorageScreenBase";
 
     private RtsClientRemoteMenuCompat() {
     }
 
-    /**
-     * 安装远程菜单包装器。
-     * <p>将玩家当前的 containerMenu 包装为远程兼容版本，
-     * 并更新屏幕中对菜单的内部引用。</p>
-     *
-     * @param minecraft Minecraft 实例
-     * @param menu      当前容器菜单
-     * @return 包装后的菜单（可能为原实例）
-     */
+    
     public static AbstractContainerMenu install(Minecraft minecraft, AbstractContainerMenu menu) {
         if (minecraft == null || minecraft.player == null || menu == null) {
             return menu;
@@ -60,13 +45,7 @@ public final class RtsClientRemoteMenuCompat {
         return wrapped;
     }
 
-    /**
-     * 放宽容器菜单的校验限制。
-     * <p>通过反射将菜单中的 {@link ContainerLevelAccess} 替换为宽松版本，
-     * 使得远程容器在 RTS 模式下仍然通过 {@code stillValid} 检查。</p>
-     *
-     * @param menu 需要放宽校验的容器菜单
-     */
+    
     public static void relaxValidation(AbstractContainerMenu menu) {
         if (menu == null) {
             return;
@@ -97,17 +76,14 @@ public final class RtsClientRemoteMenuCompat {
                         }
                     }
                 } catch (ReflectiveOperationException ignored) {
-                    // 某些运行时/终态字段无法通过反射修改
+                    
                 }
             }
             type = type.getSuperclass();
         }
     }
 
-    /**
-     * 重新映射容器屏幕中的菜单引用。
-     * <p>包装后的菜单实例发生变化时，需同步更新 Screen 中内部引用的菜单字段。</p>
-     */
+    
     private static void remapContainerScreenMenu(Screen screen, AbstractContainerMenu menu) {
         if (screen == null || menu == null) {
             return;
@@ -123,18 +99,14 @@ public final class RtsClientRemoteMenuCompat {
                     field.set(screen, menu);
                     return;
                 } catch (ReflectiveOperationException ignored) {
-                    // 某些运行时/终态字段无法通过反射修改
+                    
                 }
             }
             type = type.getSuperclass();
         }
     }
 
-    /**
-     * 检查屏幕与菜单组合是否安全。
-     * <p>Sophisticated* 模组的界面基类对菜单类型有严格约束，
-     * 此处仅在确认类型兼容时放行，否则返回 false 表示不安全。</p>
-     */
+    
     private static boolean isScreenMenuPairSafe(Screen screen, AbstractContainerMenu menu) {
         if (screen == null || menu == null) {
             return true;
@@ -153,17 +125,13 @@ public final class RtsClientRemoteMenuCompat {
         try {
             return Class.forName(className).isInstance(instance);
         } catch (ClassNotFoundException | LinkageError ignored) {
-            // 可选的模组客户端类可能在 dev/remapped 运行时解析失败，
-            // 此时放行：兼容性守卫不能关闭原版菜单
+            
+            
             return false;
         }
     }
 
-    /**
-     * 始终有效的容器委托——覆盖 {@link Container#stillValid} 始终返回 true。
-     * <p>远程容器在 RTS 模式下距离玩家很远，原版校验会失败。
-     * 此委托确保所有调用转发给原始容器，唯独 {@code stillValid} 强制返回 true。</p>
-     */
+    
     private static final class AlwaysValidContainer implements Container {
         private final Container delegate;
 
@@ -237,11 +205,7 @@ public final class RtsClientRemoteMenuCompat {
         }
     }
 
-    /**
-     * 宽松的 {@link ContainerLevelAccess} 委托。
-     * <p>对于返回布尔值的 {@code evaluate} 调用，强制返回 {@code true}，
-     * 使远程容器的距离校验通过。其他类型的结果透明转发。</p>
-     */
+    
     private static final class RelaxedContainerLevelAccess implements ContainerLevelAccess {
         private final ContainerLevelAccess delegate;
 

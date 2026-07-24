@@ -19,32 +19,25 @@ import org.lwjgl.glfw.GLFW;
 import javax.annotation.Nullable;
 import java.util.function.IntConsumer;
 
-/**
- * Hex/Dec 颜色值文本输入组件——提供输入框、模式切换按钮、键盘/剪贴板输入支持。
- *
- * <p>独立无状态外观组件，不依赖面板框架，调用方传入坐标和当前颜色值即可使用。
- * 内部管理编辑状态、输入缓冲区、光标位置、光标闪烁和悬浮动画。</p>
- *
- * <p>支持光标定位、方向键导航、插入/删除、剪贴板粘贴等现代文本输入行为。</p>
- */
+
 public class HexInputComponent {
 
-    // ======================== 布局常量 ========================
+    
 
-    /** 输入行高度 */
+    
     public static final int INPUT_H = 18;
-    /** 标签与输入框的间距 */
+    
     private static final int LABEL_GAP = 4;
-    /** 模式按钮文字水平内边距（左右各6px） */
+    
     public static final int MODE_BTN_HPAD = 6;
-    /** 输入框与模式按钮的间距 */
+    
     private static final int MODE_GAP = 4;
-    /** 光标闪烁周期（毫秒） */
+    
     private static final long CURSOR_BLINK_MS = 600;
-    /** 输入框左右内边距 */
+    
     private static final int INPUT_PAD = 4;
 
-    // ======================== 输入框贴图 ========================
+    
 
     private static final ResourceLocation INPUT_BOX_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/base_ui/base_ui_4.png");
@@ -58,7 +51,7 @@ public class HexInputComponent {
     private static final NineSliceRegion INPUT_BOX_NINE_SLICE = NineSliceRegion.fullTheme(
             INPUT_BOX_TEX_INFO, INPUT_BOX_STATE_H, INPUT_BOX_BORDER);
 
-    // ======================== 模式按钮贴图 ========================
+    
 
     private static final ResourceLocation MODE_BTN_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/base_ui/base_ui_3.png");
@@ -72,38 +65,38 @@ public class HexInputComponent {
     private static final NineSliceRegion MODE_BTN_NINE_SLICE = NineSliceRegion.fullTheme(
             MODE_BTN_TEX_INFO, MODE_BTN_STATE_H, MODE_BTN_BORDER);
 
-    // ======================== 实例状态 ========================
+    
 
-    /** 是否处于 Hex/Dec 手动输入模式 */
+    
     private boolean hexEditMode;
-    /** 输入缓冲区 */
+    
     private final StringBuilder hexEditBuffer = new StringBuilder();
-    /** 光标在缓冲区中的位置（0 = 文本最左端） */
+    
     private int cursorPos;
-    /** 进入编辑模式时的时间戳，用于光标闪烁 */
+    
     private long hexEditStartTime;
-    /** 颜色显示模式：true=16进制(#RRGGBB)，false=10进制(0-16777215) */
+    
     private boolean hexDisplayMode = true;
-    /** 模式切换按钮悬浮状态管理 */
+    
     private final HoverStateManager modeBtnHoverState = new HoverStateManager();
-    /** 是否首次输入（首次输入时清空预填内容） */
+    
     private boolean hexEditFirstInput;
-    /** 防重入标记——handleKeyPressed 已处理字符时设置，阻止 charTyped 重复 */
+    
     private boolean hexKeyAlreadyProcessed;
-    /** 文本水平滚动偏移（像素），使光标保持在可视区域 */
+    
     private int scrollOffset;
 
-    /** 输入框聚焦/失焦交叉淡入淡出动画（0=常态，1=聚焦态） */
+    
     private final FloatAnimation inputFocusAnim = FloatAnimation.builder()
             .from(0f).to(0f)
             .duration(100L)
             .easing(EasingFunctions.EASE_OUT_QUAD)
             .startFromCurrent(true)
             .build();
-    /** 上一帧是否处于编辑模式 */
+    
     private boolean prevHexEditMode;
 
-    // ======================== 回调 ========================
+    
 
     @Nullable
     private IntConsumer onColorParsed;
@@ -112,9 +105,9 @@ public class HexInputComponent {
         this.onColorParsed = callback;
     }
 
-    // ======================== 渲染 ========================
+    
 
-    /** 渲染整个输入行：标签 + 输入框背景 + 颜色文本 + 闪烁光标 + 模式切换按钮。 */
+    
     public void render(GuiGraphics g, int mouseX, int mouseY,
                        int previewX, int previewW, int inputY, int currentColor) {
         Font font = Minecraft.getInstance().font;
@@ -140,7 +133,7 @@ public class HexInputComponent {
         int inputW = previewW - labelW - LABEL_GAP - modeBtnW - MODE_GAP;
         int inputX = previewX + labelW + LABEL_GAP;
 
-        // 输入框聚焦/失焦交叉淡入淡出动画
+        
         inputFocusAnim.tick();
         if (hexEditMode != prevHexEditMode) {
             inputFocusAnim.start(hexEditMode ? 1f : 0f);
@@ -164,7 +157,7 @@ public class HexInputComponent {
             int drawOffset = scrollOffset;
             String fullText = inputText;
 
-            // 找到可见文本起始索引
+            
             int startIdx = 0;
             if (drawOffset < 0) {
                 int accumulated = 0;
@@ -175,7 +168,7 @@ public class HexInputComponent {
                 }
             }
 
-            // 找到可见文本结束索引
+            
             int endIdx = fullText.length();
             int visibleLimit = -drawOffset + contentAreaW;
             if (font.width(fullText) > visibleLimit) {
@@ -192,7 +185,7 @@ public class HexInputComponent {
                 g.drawString(font, visibleText, drawX, textY, inputTextColor, false);
             }
 
-            // 绘制光标（可见区域内）
+            
             String beforeCursor = fullText.substring(0, Math.min(cursorPos, fullText.length()));
             int cursorGlobalX = font.width(beforeCursor) + drawOffset;
             if ((System.currentTimeMillis() / CURSOR_BLINK_MS) % 2 == 0
@@ -206,7 +199,7 @@ public class HexInputComponent {
             g.drawString(font, displayText, textX, textY, inputTextColor, false);
         }
 
-        // 进制模式切换按钮
+        
         int btnX = previewX + previewW - modeBtnW;
         int btnY = inputY;
         boolean modeBtnHovered = mouseX >= btnX && mouseX < btnX + modeBtnW
@@ -224,7 +217,7 @@ public class HexInputComponent {
                 btnY + (INPUT_H - font.lineHeight) / 2, modeTextColor);
     }
 
-    /** 更新滚动偏移，使光标始终可见 */
+    
     private void updateScrollOffset(Font font, String text, int contentAreaW) {
         String beforeCursor = text.substring(0, Math.min(cursorPos, text.length()));
         int cursorVisualX = font.width(beforeCursor);
@@ -237,9 +230,9 @@ public class HexInputComponent {
         }
     }
 
-    // ======================== 点击检测 ========================
+    
 
-    /** 处理输入行区域的点击事件。 @return true 表示事件已消费 */
+    
     public boolean handleClick(double mouseX, double mouseY,
                                int hexInputY, int previewX, int previewW,
                                int currentColor) {
@@ -255,7 +248,7 @@ public class HexInputComponent {
         int inputW = previewW - labelW - LABEL_GAP - modeBtnW - MODE_GAP;
         int btnX = previewX + previewW - modeBtnW;
 
-        // 模式切换按钮
+        
         if (mouseX >= btnX && mouseX < btnX + modeBtnW
                 && mouseY >= hexInputY && mouseY < hexInputY + INPUT_H) {
             if (hexEditMode) applyHexInput();
@@ -263,7 +256,7 @@ public class HexInputComponent {
             return true;
         }
 
-        // 输入框
+        
         if (mouseX >= inputX && mouseX < inputX + inputW
                 && mouseY >= hexInputY && mouseY < hexInputY + INPUT_H) {
             if (!hexEditMode) {
@@ -289,7 +282,7 @@ public class HexInputComponent {
         return false;
     }
 
-    /** 根据点击 X 偏移计算光标位置 */
+    
     private static int cursorPosFromClickX(Font font, String text, int clickOffsetX) {
         if (clickOffsetX <= 0) return 0;
         int accumulated = 0;
@@ -301,12 +294,9 @@ public class HexInputComponent {
         return text.length();
     }
 
-    // ======================== 键盘事件 ========================
+    
 
-    /**
-     * 处理按键按下事件——仅处理功能键，字符键消费以阻止快捷键但交给 charTyped 输入。
-     * @return true 表示事件已消费
-     */
+    
     public boolean handleKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (!hexEditMode) return false;
 
@@ -335,25 +325,25 @@ public class HexInputComponent {
             }
             return true;
         }
-        // 方向键导航
+        
         if (keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT
                 || keyCode == GLFW.GLFW_KEY_HOME || keyCode == GLFW.GLFW_KEY_END) {
             handleCursorKey(keyCode, modifiers);
             return true;
         }
-        // Ctrl+V 粘贴
+        
         if ((modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && keyCode == GLFW.GLFW_KEY_V) {
             pasteFromClipboard();
             return true;
         }
-        // Ctrl+A 全选
+        
         if ((modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && keyCode == GLFW.GLFW_KEY_A) {
             cursorPos = hexEditBuffer.length();
             return true;
         }
-        // 在 keyPressed 中直接处理 hex 字符（0-9, A-F 和 '#'），
-        // 确保不受 charTyped 是否被调用的影响
-        // 特殊处理 '#'（Shift+3，大部分键盘布局）
+        
+        
+        
         if ((modifiers & GLFW.GLFW_MOD_SHIFT) != 0 && keyCode == GLFW.GLFW_KEY_3) {
             System.out.println("[HexInput] keyPressed: Shift+3 -> '#'");
             if (hexEditFirstInput) {
@@ -384,14 +374,14 @@ public class HexInputComponent {
             tryParseHexInput();
             return true;
         }
-        // Tab 阻隔
+        
         if (keyCode == GLFW.GLFW_KEY_TAB) {
             return true;
         }
         return false;
     }
 
-    /** 将 GLFW keyCode 转换为 hex 字符，Shift+A-F 产生大写，否则小写，Shift+数字和 G-Z 返回 \0。 */
+    
     private static char keyCodeToHexChar(int keyCode, int modifiers) {
         if (keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9) {
             if ((modifiers & GLFW.GLFW_MOD_SHIFT) != 0) return '\0';
@@ -405,7 +395,7 @@ public class HexInputComponent {
         return '\0';
     }
 
-    /** 处理光标导航键 */
+    
     private void handleCursorKey(int keyCode, int modifiers) {
         boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
         switch (keyCode) {
@@ -416,9 +406,7 @@ public class HexInputComponent {
         }
     }
 
-    /**
-     * 处理字符输入事件——所有字符（0-9, A-F, a-f, #）在此处按 GLFW 提供的正确大小写插入。
-     */
+    
     public boolean handleCharTyped(char codePoint, int modifiers) {
         if (!hexEditMode) return false;
         System.out.println("[HexInput] charTyped: codePoint='" + codePoint + "' (0x" + Integer.toHexString(codePoint) + ")");
@@ -451,7 +439,7 @@ public class HexInputComponent {
         return true;
     }
 
-    // ======================== 颜色管理 ========================
+    
 
     public boolean isHexDisplayMode() { return hexDisplayMode; }
     public boolean isEditMode() { return hexEditMode; }
@@ -459,7 +447,7 @@ public class HexInputComponent {
     public void cancelEdit() { cancelHexEdit(); }
     public void syncColor(int color) {}
 
-    // ======================== 内部方法 ========================
+    
 
     private void tryParseHexInput() {
         String text = hexEditBuffer.toString().trim();
@@ -519,9 +507,9 @@ public class HexInputComponent {
         tryParseHexInput();
     }
 
-    // ======================== 解析 ========================
+    
 
-    /** 解析颜色文本，支持 #RRGGBB、#RGB、0xRRGGBB、RRGGBB、rgb(r,g,b)、十进制 */
+    
     public static int parseColorText(String text) {
         if (text == null || text.isEmpty()) return -1;
         String trimmed = text.trim();
@@ -565,9 +553,9 @@ public class HexInputComponent {
         return -1;
     }
 
-    // ======================== 尺寸计算 ========================
+    
 
-    /** 计算输入行所需的最小内容宽度。 */
+    
     public int computeInputLineWidth() {
         Font font = Minecraft.getInstance().font;
         String label = Component.translatable("screen.rtsbuilding.color_picker.input_label").getString();

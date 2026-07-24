@@ -14,18 +14,18 @@ import net.minecraft.util.Mth;
 
 public final class CameraModule implements FeatureModule {
 
-    // ======================================================================
-    //  Init
-    // ======================================================================
+    
+    
+    
 
     @Override
     public void init(RtsClientKernel kernel) {
         kernel.inputPipeline().registerLayer(new CameraInputLayer(kernel));
     }
 
-    // ======================================================================
-    //  Sub-components
-    // ======================================================================
+    
+    
+    
 
     private final CameraState state = new CameraState();
     private final FreeCameraMode freeCamera = new FreeCameraMode();
@@ -35,9 +35,9 @@ public final class CameraModule implements FeatureModule {
     private final CameraViewManager viewManager = new CameraViewManager();
     private final CameraModeController modeController = new CameraModeController(state, poseComputer, playerOrbit);
 
-    // ======================================================================
-    //  Module lifecycle
-    // ======================================================================
+    
+    
+    
 
     @Override
     public String moduleId() {
@@ -55,9 +55,9 @@ public final class CameraModule implements FeatureModule {
         }
     }
 
-    // ======================================================================
-    //  Public API
-    // ======================================================================
+    
+    
+    
 
     public void disableCamera() {
         if (!state.enabled) return;
@@ -65,9 +65,9 @@ public final class CameraModule implements FeatureModule {
         RtsClientPacketGateway.sendToggleCamera(false);
     }
 
-    // ======================================================================
-    //  Mode switching (delegated to CameraModeController)
-    // ======================================================================
+    
+    
+    
 
     public boolean enableOrbitMode() { return modeController.enableOrbitMode(); }
     public boolean enableOrbitMode(BlockPos pos) { return modeController.enableOrbitMode(pos); }
@@ -81,9 +81,9 @@ public final class CameraModule implements FeatureModule {
     public boolean togglePlayerOrbitMode() { return modeController.togglePlayerOrbitMode(); }
     public boolean isPlayerOrbitMode() { return modeController.isPlayerOrbitMode(); }
 
-    // ======================================================================
-    //  Server state callbacks
-    // ======================================================================
+    
+    
+    
 
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) {
         Minecraft mc = mc();
@@ -104,9 +104,9 @@ public final class CameraModule implements FeatureModule {
         state.maxRadius = payload.maxRadius();
     }
 
-    // ======================================================================
-    //  Tick
-    // ======================================================================
+    
+    
+    
 
     @Override
     public void tick(long epochMs, int tickIndex) {
@@ -136,9 +136,9 @@ public final class CameraModule implements FeatureModule {
         entitySync.snapToState(state);
     }
 
-    // ======================================================================
-    //  Camera input queueing
-    // ======================================================================
+    
+    
+    
 
     public void queuePanDrag(double dx, double dy) {
         float panX = state.invertPanX ? (float) dx : -(float) dx;
@@ -174,9 +174,9 @@ public final class CameraModule implements FeatureModule {
         state.pendingRotateSteps += direction;
     }
 
-    // ======================================================================
-    //  Getters (for UI)
-    // ======================================================================
+    
+    
+    
 
     public CameraState getState() { return this.state; }
     public float getRotateSensitivity() { return this.state.rotateSensitivity; }
@@ -186,9 +186,9 @@ public final class CameraModule implements FeatureModule {
         state.inputSensitivity = Mth.clamp(val, 0.1F, 2.0F);
     }
 
-    // ======================================================================
-    //  Internal — camera lifecycle
-    // ======================================================================
+    
+    
+    
 
     private void enableCamera(Minecraft mc, S2CRtsCameraStatePayload payload) {
         boolean freshEnable = !state.enabled;

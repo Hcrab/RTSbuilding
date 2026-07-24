@@ -20,17 +20,10 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.function.Consumer;
 
-/**
- * 模式切换器——在顶部栏下栏左侧显示当前模式按钮，点击弹出模式选择列表。
- *
- * <p>三种模式（以弹出列表顺序排列）：交互模式（默认）、建造模式、蓝图模式。
- * 每种模式配有专属图标贴图，由 lang 集中管理显示名称。</p>
- *
- * <p>背景贴图 {@code base_ui_6.png} 规格：32×32，水平双主题，纵向正常(0~16)与悬浮(16~32)两状态。</p>
- */
+
 public final class ModeSwitcher {
 
-    // ======================== 模式枚举 ========================
+    
 
     public enum Mode {
         INTERACTIVE(0, "interactive"),
@@ -50,16 +43,16 @@ public final class ModeSwitcher {
         }
     }
 
-    // ======================== 背景贴图（base_ui_6.png）=======================
+    
 
-    /** 模式切换器背景（32×32，水平双主题，纵向 2 状态：0-16=正常，16-32=悬浮） */
+    
     private static final ResourceLocation MODE_BG_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/base_ui/base_ui_6.png");
     private static final int MODE_BG_TEX_W = 32;
     private static final int MODE_BG_TEX_H = 32;
-    /** 正常态源高度 = 16（v=0~16） */
+    
     private static final int MODE_BG_NORMAL_H = 16;
-    /** 九宫格边框宽度 */
+    
     private static final int MODE_BG_BORDER = 4;
 
     private static final TextureInfo MODE_BG_TEX_INFO = new TextureInfo(
@@ -70,7 +63,7 @@ public final class ModeSwitcher {
     private static final NineSliceRegion MODE_BG_NINE_SLICE = NineSliceRegion.fullTheme(
             MODE_BG_TEX_INFO, MODE_BG_NORMAL_H, MODE_BG_BORDER);
 
-    // ======================== 模式图标贴图 ========================
+    
 
     private static final ResourceLocation BLUEPRINT_MODE_TEX = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/top/blueprint_mode.png");
@@ -99,9 +92,9 @@ public final class ModeSwitcher {
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
             TextureInfo.FilterMode.PIXEL);
 
-    // ======================== 折叠箭头贴图 ========================
+    
 
-    /** 折叠箭头（复用 base/arrow.png） */
+    
     private static final ResourceLocation FOLD_ARROW_TEX = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/arrow.png");
     private static final int FOLD_ARROW_TEX_W = 1024;
@@ -114,59 +107,59 @@ public final class ModeSwitcher {
             TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
             TextureInfo.FilterMode.PIXEL);
 
-    // ======================== 绘制常量 ========================
+    
 
-    /** 模式切换器高度（匹配底部栏内容区高度） */
+    
     private static final int SWITCHER_HEIGHT = 14;
-    /** 模式图标绘制尺寸 */
+    
     private static final int ICON_SIZE = 12;
-    /** 图标与文字间距 */
+    
     private static final int ICON_TEXT_GAP = 3;
-    /** 折叠箭头尺寸 */
+    
     private static final int ARROW_SIZE = 8;
-    /** 文字与折叠箭头间距 */
+    
     private static final int TEXT_ARROW_GAP = 5;
-    /** 左右边缘 padding */
+    
     private static final int PAD_H = 5;
-    /** 左侧外边距（距屏幕左边缘） */
+    
     private static final int MARGIN_LEFT = 2;
 
-    // ======================== 弹窗常量 ========================
+    
 
-    /** 弹窗菜单项高度 */
+    
     private static final int POPUP_ITEM_HEIGHT = 22;
-    /** 弹窗内容左右 padding */
+    
     private static final int POPUP_PAD_H = 6;
-    /** 弹窗中图标绘制尺寸 */
+    
     private static final int POPUP_ICON_SIZE = 14;
-    /** 弹窗图标固定槽位宽度（取 POPUP_ICON_SIZE，确保所有项文字对齐） */
+    
     private static final int POPUP_ICON_SLOT_W = POPUP_ICON_SIZE;
-    /** 弹窗中主文字与快捷键文字间距 */
+    
     private static final int POPUP_SHORTCUT_GAP = 16;
 
-    /** 亮色主题下快捷键文字颜色 */
+    
     private static final int LIGHT_SHORTCUT_COLOR = 0xFF777777;
-    /** 暗色主题下快捷键文字颜色 */
+    
     private static final int DARK_SHORTCUT_COLOR = 0xFF888888;
 
-    // ======================== 实例状态 ========================
+    
 
-    /** 当前选中模式（默认交互模式） */
+    
     private Mode currentMode = Mode.INTERACTIVE;
 
-    /** 背景悬浮状态管理器 */
+    
     private final HoverStateManager hoverState = new HoverStateManager();
 
-    /** 模式变化回调（如触发持久化） */
+    
     private Consumer<Mode> onModeChange;
 
-    /** 弹出模式选择列表 */
+    
     private final ModePopup popup;
 
-    /** 固定宽度（取三种模式文字中最宽值，避免切换时背景跳变） */
+    
     private final int fixedWidth;
 
-    /** 箭头旋转动画器（弹出菜单打开/关闭时旋转 90°） */
+    
     private final FloatAnimation arrowAnim = AnimationFactory.newHoverAnim();
 
     public ModeSwitcher() {
@@ -174,7 +167,7 @@ public final class ModeSwitcher {
         this.fixedWidth = computeFixedWidth();
     }
 
-    /** 计算固定宽度：取三种模式中文字最宽者 */
+    
     private int computeFixedWidth() {
         var font = Minecraft.getInstance().font;
         int maxTextWidth = 0;
@@ -185,7 +178,7 @@ public final class ModeSwitcher {
         return PAD_H * 2 + ICON_SIZE + ICON_TEXT_GAP + maxTextWidth + TEXT_ARROW_GAP + ARROW_SIZE;
     }
 
-    // ======================== 模式查询/切换 ========================
+    
 
     public Mode getCurrentMode() {
         return currentMode;
@@ -198,49 +191,49 @@ public final class ModeSwitcher {
         }
     }
 
-    /** 设置模式变化回调 */
+    
     public void setOnModeChange(Consumer<Mode> callback) {
         this.onModeChange = callback;
     }
 
-    /** 循环切换到下一个模式（Tab 快捷键调用） */
+    
     public void cycleMode() {
         Mode[] modes = Mode.values();
         int next = (currentMode.index + 1) % modes.length;
         setMode(modes[next]);
     }
 
-    /** 弹出菜单是否打开 */
+    
     public boolean isPopupOpen() {
         return popup.isOpen();
     }
 
-    /** 检测鼠标是否在弹出菜单区域中 */
+    
     public boolean isMouseOverPopup(int mx, int my) {
         return popup.isOpen() && popup.contains(mx, my);
     }
 
-    // ======================== 布局计算 ========================
+    
 
-    /** 模式切换器左上角 X */
+    
     public int getX() {
         return MARGIN_LEFT;
     }
 
-    /** 模式切换器左上角 Y（底部栏内容区垂直居中） */
+    
     public int getY() {
         int bottomBarY = TopBarLayoutHelper.TOP_BAR_HEIGHT + TopBarLayoutHelper.SCREEN_BORDER;
         return bottomBarY + (TopBarLayoutHelper.BOTTOM_SRC_H - SWITCHER_HEIGHT) / 2;
     }
 
-    /** 模式切换器宽度（固定值，取三种模式中最宽文字，防止切换时背景跳变） */
+    
     public int getWidth() {
         return fixedWidth;
     }
 
-    // ======================== 模式图标获取 ========================
+    
 
-    /** 获取指定模式的图标精灵区域（未应用主题偏移） */
+    
     private SpriteRegion getModeIconRegion(Mode mode) {
         return switch (mode) {
             case INTERACTIVE -> new SpriteRegion(
@@ -255,11 +248,7 @@ public final class ModeSwitcher {
         };
     }
 
-    /**
-     * 按指定绘制高度等比例计算图标宽度。
-     * <p>三种模式源图宽高比不同（交互: 64×96=2:3，建造/蓝图: 64×64=1:1），
-     * 统一固定高度、宽度按源比例缩放可避免交互模式图标拉伸失真。</p>
-     */
+    
     private static int getIconDrawWidth(Mode mode, int drawH) {
         return switch (mode) {
             case INTERACTIVE -> drawH * INTERACTIVE_TEX_INFO.halfWidth() / INTERACTIVE_TEX_INFO.halfHeight();
@@ -268,21 +257,19 @@ public final class ModeSwitcher {
         };
     }
 
-    // ======================== 渲染 ========================
+    
 
-    /**
-     * 渲染模式切换器（含背景、图标、文字、箭头、弹出菜单）。
-     */
+    
     public void render(GuiGraphics g, int mouseX, int mouseY) {
         int x = getX();
         int y = getY();
         int w = getWidth();
 
-        // 悬浮检测
+        
         boolean hovering = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + SWITCHER_HEIGHT;
         hoverState.update(hovering);
 
-        // 渲染背景（九宫格，交叉淡入淡出正常态↔悬浮态）
+        
         NineSliceRegion bgNormal = MODE_BG_NINE_SLICE.withTheme();
         NineSliceRegion bgHover = MODE_BG_NINE_SLICE.withVOffset(MODE_BG_NORMAL_H).withTheme();
         hoverState.renderCrossFade(g,
@@ -292,7 +279,7 @@ public final class ModeSwitcher {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        // 渲染模式图标（固定槽位居中，垂直居中，确保文字起点一致）
+        
         int iconH = ICON_SIZE;
         int iconW = getIconDrawWidth(currentMode, iconH);
         int iconX = x + PAD_H + (ICON_SIZE - iconW) / 2;
@@ -300,13 +287,13 @@ public final class ModeSwitcher {
         SpriteRegion iconRegion = getModeIconRegion(currentMode).withTheme();
         SpriteRenderer.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
 
-        // 渲染模式文字（图标槽位右边固定偏移）
+        
         int textX = x + PAD_H + ICON_SIZE + ICON_TEXT_GAP;
         int textY = iconY + (iconH - Minecraft.getInstance().font.lineHeight) / 2 + 1;
         int textColor = ThemeManager.getTextColor();
         TextRenderer.draw(g, currentMode.getDisplayName(), textX, textY, textColor);
 
-        // 渲染折叠箭头（文字右边）
+        
         int arrowX = textX + Minecraft.getInstance().font.width(currentMode.getDisplayName()) + TEXT_ARROW_GAP;
         int arrowY = y + (SWITCHER_HEIGHT - ARROW_SIZE) / 2;
         renderArrow(g, arrowX, arrowY);
@@ -314,10 +301,7 @@ public final class ModeSwitcher {
         RenderSystem.disableBlend();
     }
 
-    /**
-     * 在面板渲染完成后单独渲染弹出菜单（避免被左边栏遮挡）。
-     * <p>由 {@code TopBarPanel.renderOverlays()} 在左侧面板渲染之后调用。</p>
-     */
+    
     public void renderPopup(GuiGraphics g, int mouseX, int mouseY) {
         if (popup.isOpen()) {
             popup.setPosition(getX(), getY() + SWITCHER_HEIGHT);
@@ -325,7 +309,7 @@ public final class ModeSwitcher {
         }
     }
 
-    /** 渲染折叠箭头（初始态顺时针旋转 90°，展开态在此基础上再旋 90°） */
+    
     private void renderArrow(GuiGraphics g, int x, int y) {
         this.arrowAnim.tick();
         SpriteRegion arrowRegion = new SpriteRegion(
@@ -340,19 +324,15 @@ public final class ModeSwitcher {
         g.pose().popPose();
     }
 
-    // ======================== 点击处理 ========================
+    
 
-    /**
-     * 鼠标点击处理。
-     *
-     * @return true 表示事件被消费
-     */
+    
     public boolean mouseClicked(int mx, int my) {
         int x = getX();
         int y = getY();
         int w = getWidth();
 
-        // 弹出菜单优先处理
+        
         if (popup.isOpen()) {
             if (popup.contains(mx, my)) {
                 return popup.handleClick(mx, my);
@@ -362,7 +342,7 @@ public final class ModeSwitcher {
             return true;
         }
 
-        // 点击模式切换器区域，切换弹出菜单
+        
         if (mx >= x && mx < x + w && my >= y && my < y + SWITCHER_HEIGHT) {
             popup.toggle();
             arrowAnim.start(1.0f);
@@ -372,12 +352,9 @@ public final class ModeSwitcher {
         return false;
     }
 
-    // ======================== 弹出模式选择列表 ========================
+    
 
-    /**
-     * 模式选择弹出列表——点击模式切换器后展开的下拉菜单。
-     * <p>列表项顺序：交互模式 → 建造模式 → 蓝图模式。</p>
-     */
+    
     private static final class ModePopup extends BasePopup {
 
         private final ModeSwitcher switcher;
@@ -385,7 +362,7 @@ public final class ModeSwitcher {
         ModePopup(ModeSwitcher switcher) {
             this.switcher = switcher;
             initAnims(Mode.values().length);
-            // 计算各菜单项的内容宽度（固定图标槽位 + 间距 + 文字 + 间距 + 快捷键）
+            
             var font = Minecraft.getInstance().font;
             Mode[] modes = Mode.values();
             int[] widths = new int[modes.length];
@@ -415,7 +392,7 @@ public final class ModeSwitcher {
         protected void renderItem(GuiGraphics g, int index, int itemY, float hoverT) {
             Mode mode = Mode.values()[index];
 
-            // 图标（固定槽位居中，确保文字起点一致）
+            
             int iconH = POPUP_ICON_SIZE;
             int iconW = switcher.getIconDrawWidth(mode, iconH);
             int iconX = x + getPadH() + (POPUP_ICON_SLOT_W - iconW) / 2;
@@ -423,7 +400,7 @@ public final class ModeSwitcher {
             SpriteRegion iconRegion = switcher.getModeIconRegion(mode).withTheme();
             SpriteRenderer.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
 
-            // 文字（从固定槽位右边偏移）
+            
             int textColor = hoverT > 0.5f
                     ? ThemeManager.getHoverTextColor()
                     : ThemeManager.getTextColor();
@@ -432,7 +409,7 @@ public final class ModeSwitcher {
             int textY = iconY + (iconH - Minecraft.getInstance().font.lineHeight) / 2 + 1;
             TextRenderer.draw(g, label, textX, textY, textColor);
 
-            // 快捷键（靠右边缘对齐，颜色更暗/弱，不受悬浮影响）
+            
             int shortcutColor = ThemeManager.getInstance().isLightMode() ? LIGHT_SHORTCUT_COLOR : DARK_SHORTCUT_COLOR;
             String shortcutLabel = RtsKeyMappings.CYCLE_MODE_KEY.getTranslatedKeyMessage().getString();
             int shortcutX = x + getPopupWidth() - getPadH() - Minecraft.getInstance().font.width(shortcutLabel);

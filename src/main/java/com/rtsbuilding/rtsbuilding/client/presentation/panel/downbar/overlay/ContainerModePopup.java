@@ -10,25 +10,25 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 
-public final class TypeFilterPopup extends BasePopup {
+public final class ContainerModePopup extends BasePopup {
 
     
 
-    public record TypeFilterItem(Component label, Runnable action) {}
+    public record ContainerModeItem(Component label, Runnable action) {}
 
-    private final TypeFilterItem[] items;
+    private final ContainerModeItem[] items;
     private final boolean[] states;
 
     
 
-    private boolean showItems;
-    private boolean showFluids;
+    private boolean showBidirectional;
+    private boolean showExtractOnly;
     
     
     
     @FunctionalInterface
     public interface OnFilterChangeListener {
-        void onFilterChanged(boolean showItems, boolean showFluids);
+        void onFilterChanged(boolean showBidirectional, boolean showExtractOnly);
     }
     
     private final OnFilterChangeListener listener;
@@ -43,19 +43,19 @@ public final class TypeFilterPopup extends BasePopup {
     private static final int MODE_BTN_STATE_H = 16;
     private static final int BTN_TEXT_GAP = 4;
 
-    public TypeFilterPopup(boolean showItems, boolean showFluids, OnFilterChangeListener listener) {
-        this.showItems = showItems;
-        this.showFluids = showFluids;
+    public ContainerModePopup(boolean showBidirectional, boolean showExtractOnly, OnFilterChangeListener listener) {
+        this.showBidirectional = showBidirectional;
+        this.showExtractOnly = showExtractOnly;
         this.listener = listener;
 
         
-        this.items = new TypeFilterItem[]{
-            new TypeFilterItem(Component.translatable("tooltip.rtsbuilding.rightdown.type_filter_item"), this::toggleItems),
-            new TypeFilterItem(Component.translatable("tooltip.rtsbuilding.rightdown.type_filter_fluid"), this::toggleFluids)
+        this.items = new ContainerModeItem[]{
+            new ContainerModeItem(Component.translatable("tooltip.rtsbuilding.rightdown.container_bidirectional"), this::toggleBidirectional),
+            new ContainerModeItem(Component.translatable("tooltip.rtsbuilding.rightdown.container_extract"), this::toggleExtractOnly)
         };
 
         
-        this.states = new boolean[]{showItems, showFluids};
+        this.states = new boolean[]{showBidirectional, showExtractOnly};
 
         
         var font = Minecraft.getInstance().font;
@@ -70,37 +70,37 @@ public final class TypeFilterPopup extends BasePopup {
 
     
 
-    public void setShowItems(boolean showItems) {
-        this.showItems = showItems;
-        this.states[0] = showItems;
+    public void setShowBidirectional(boolean show) {
+        this.showBidirectional = show;
+        this.states[0] = show;
     }
 
-    public void setShowFluids(boolean showFluids) {
-        this.showFluids = showFluids;
-        this.states[1] = showFluids;
+    public void setShowExtractOnly(boolean show) {
+        this.showExtractOnly = show;
+        this.states[1] = show;
     }
 
-    public boolean isShowItems() {
-        return showItems;
+    public boolean isShowBidirectional() {
+        return showBidirectional;
     }
 
-    public boolean isShowFluids() {
-        return showFluids;
+    public boolean isShowExtractOnly() {
+        return showExtractOnly;
     }
 
-    private void toggleItems() {
-        showItems = !showItems;
-        states[0] = showItems;
+    private void toggleBidirectional() {
+        showBidirectional = !showBidirectional;
+        states[0] = showBidirectional;
         if (listener != null) {
-            listener.onFilterChanged(showItems, showFluids);
+            listener.onFilterChanged(showBidirectional, showExtractOnly);
         }
     }
 
-    private void toggleFluids() {
-        showFluids = !showFluids;
-        states[1] = showFluids;
+    private void toggleExtractOnly() {
+        showExtractOnly = !showExtractOnly;
+        states[1] = showExtractOnly;
         if (listener != null) {
-            listener.onFilterChanged(showItems, showFluids);
+            listener.onFilterChanged(showBidirectional, showExtractOnly);
         }
     }
 

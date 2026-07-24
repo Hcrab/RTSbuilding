@@ -3,25 +3,23 @@ package com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
-/**
- * 采矿状态——纯数据容器。
- */
+
 public final class MiningState {
 
-    // Active mining block
+    
     public BlockPos activePos;
     public int activeFace = -1;
     public int activeToolSlot;
 
-    // Render progress
+    
     public BlockPos renderPos;
     public int renderStage = -1;
 
-    // Ultimine progress
+    
     public int ultimineProcessed = -1;
     public int ultimineTotal;
 
-    // Area mine state
+    
     public int areaMinePhase;
     public BlockPos areaMinePointA, areaMinePointB;
     public int areaMineHeightOffset;

@@ -9,44 +9,26 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * 窗口框架渲染器——负责渲染 RTS 面板的窗口框架（九宫格背景、标题栏、关闭按钮）。
- *
- * <p>将窗口外观渲染从 {@link RtsPanel} 中抽离，职责单一：
- * <ul>
- *   <li>面板九宫格背景（含悬浮态交叉淡入淡出）</li>
- *   <li>标题栏贴图 + 标题文字</li>
- *   <li>关闭按钮渲染</li>
- * </ul>
- *
- * <p>渲染所需的所有数据通过 {@link Context} 记录传入，不持有任何可变状态。
- * 通过 {@link #renderFrame} 静态方法调用。</p>
- */
+
 public final class WindowFrameRenderer {
 
-    /** 关闭按钮尺寸（宽高相同） */
+    
     private static final int CLOSE_BUTTON_SIZE = 14;
-    /** 关闭按钮精灵图单帧宽度 */
+    
     private static final int CLOSE_FRAME_W = 512;
-    /** 关闭按钮精灵图文件总宽度（双主题翻倍） */
+    
     private static final int CLOSE_SHEET_W = 1024;
-    /** 关闭按钮精灵图文件总高度 */
+    
     private static final int CLOSE_SHEET_H = 1024;
-    /** 关闭按钮各状态帧高度 */
+    
     private static final int CLOSE_STATE_H = 512;
-    /** 关闭按钮贴图 */
+    
     private static final ResourceLocation CLOSE_BUTTON_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/close_button.png");
 
     private WindowFrameRenderer() {}
 
-    /**
-     * 创建关闭按钮实例。
-     * <p>将关闭按钮的贴图参数封装在此，{@link RtsPanel} 只需提供关闭回调。</p>
-     *
-     * @param onClose 关闭回调（通常是 {@code () -> setOpen(false)}）
-     * @return 配置好的关闭按钮
-     */
+    
     public static RtsButton createCloseButton(Runnable onClose) {
         return new RtsButton(0, 0, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE,
                 Component.empty(), CLOSE_BUTTON_TEXTURE,
@@ -57,10 +39,7 @@ public final class WindowFrameRenderer {
                 btn -> onClose.run());
     }
 
-    /**
-     * 帧渲染上下文——一次渲染所需的所有数据。
-     * <p>由 {@link RtsPanel} 在每帧 {@code render()} 中构建。</p>
-     */
+    
     public record Context(
             int windowX,
             int windowY,
@@ -77,31 +56,17 @@ public final class WindowFrameRenderer {
             float hoverAnimProgress
     ) {}
 
-    // ======================== 入口 ========================
+    
 
-    /**
-     * 渲染完整的窗口框架（背景贴图 + 标题栏）。
-     *
-     * @param g      GuiGraphics
-     * @param mouseX 鼠标 X（用于关闭按钮悬浮检测）
-     * @param mouseY 鼠标 Y
-     * @param ctx    渲染上下文
-     */
+    
     public static void renderFrame(GuiGraphics g, int mouseX, int mouseY, Context ctx) {
         renderPanelBackground(g, ctx);
         renderTitleBar(g, mouseX, mouseY, ctx);
     }
 
-    // ======================== 面板背景 ========================
+    
 
-    /**
-     * 渲染面板九宫格背景，支持悬浮态交叉淡入淡出。
-     *
-     * <p><b>实现细节：</b></p>
-     * <p>交叉淡入淡出的 alpha 通过 {@link RenderSystem#setShaderColor} 实现。
-     * 由于 {@link SpriteRenderer#drawNineSlicePanel} 使用 batched VertexConsumer，
-     * 在每 pass 之后调用 {@code g.flush()} 确保 shader color 在正确的时机生效。</p>
-     */
+    
     private static void renderPanelBackground(GuiGraphics g, Context ctx) {
         float t = ctx.hoverAnimProgress();
         int wx = ctx.windowX();
@@ -121,12 +86,7 @@ public final class WindowFrameRenderer {
         }
     }
 
-    /**
-     * 渲染单层面板背景贴图（带色调）。
-     *
-     * @param alphaMultiplier alpha 倍增因子——用于交叉淡入淡出时控制叠加层的透明度
-     * @param hovered         true=悬浮态纹理偏移，false=正常态纹理偏移
-     */
+    
     private static void renderPanelLayer(GuiGraphics g, int wx, int wy, int ww, int wh,
                                           Context ctx, float alphaMultiplier, boolean hovered) {
         int tint = hovered ? ctx.panelHoverBgColor() : ctx.panelBgColor();
@@ -141,22 +101,20 @@ public final class WindowFrameRenderer {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    // ======================== 标题栏 ========================
+    
 
-    /**
-     * 渲染标题栏——贴图背景 + 标题文本 + 关闭按钮（可选）。
-     */
+    
     private static void renderTitleBar(GuiGraphics g, int mouseX, int mouseY, Context ctx) {
         int titleH = ctx.titleBarHeight();
         if (titleH <= 0) return;
 
-        // 标题栏背景贴图（带色调）
+        
         renderTitleBarBackground(g, ctx, titleH);
 
-        // 标题文本（自动截断以适应窗口宽度）
+        
         renderTitleText(g, ctx, titleH);
 
-        // 关闭按钮
+        
         if (ctx.closable() && ctx.closeButton() != null) {
             renderCloseButton(g, mouseX, mouseY, ctx);
         }
@@ -171,9 +129,9 @@ public final class WindowFrameRenderer {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(r, gr, b, a);
-        // +3/-6 偏移原因：base_ui_2.png 的九宫格边框为 4px（PANEL_BORDER=4），
-        // 拖拽面板背景渲染时在窗口区域内缩进 1px（左侧+3 = border-1，右侧同理），
-        // 使标题栏背景与面板背景的四角九宫格无缝拼接，避免边缘重叠
+        
+        
+        
         SpriteRenderer.drawNineSliceDragPanel(g, ctx.windowX() + 3, ctx.windowY() + 3,
                 ctx.windowWidth() - 6, titleH, false);
         g.flush();

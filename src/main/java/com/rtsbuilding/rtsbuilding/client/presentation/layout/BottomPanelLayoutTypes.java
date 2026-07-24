@@ -2,21 +2,10 @@ package com.rtsbuilding.rtsbuilding.client.presentation.layout;
 
 import static com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreenConstants.BOTTOM_PANEL_HEADER_H;
 
-/**
- * Container for bottom-panel layout data types.
- * <p>
- * Groups the panel layout parameters and the tab enum that together define
- * the bottom panel's geometry and mode selection.
- */
+
 public final class BottomPanelLayoutTypes {
 
-    /**
-     * Bottom-panel layout parameters (immutable).
-     * <p>
-     * Stores pre-computed coordinates and dimensions for every sub-region
-     * of the bottom panel: sort button, category panel, storage grid, craft
-     * panel, search box, pager, tool row, and grid-scroll area.
-     */
+    
     public record BottomPanelLayout(
             int panelX,
             int panelY,

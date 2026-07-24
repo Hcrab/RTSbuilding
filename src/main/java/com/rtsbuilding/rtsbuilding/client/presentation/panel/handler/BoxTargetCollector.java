@@ -29,36 +29,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 框选目标收集器——扫描框选区域内可交互的实体和方块。
- *
- * <p>封装了区域扫描、实体 GUI 能力检测、方块右键能力检测等逻辑，
- * 供 {@link EntityInteractionHandler} 在框选模式下使用。</p>
- */
+
 public final class BoxTargetCollector {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /**
-     * 缓存：Block 类 → use/useWithoutItem 方法是否被覆写。
-     * 某些模组（如 Mekanism）的方块不在 Block.getMenuProvider() 中暴露 GUI，
-     * 而是直接在 Block.use() 中打开。
-     */
+    
     private static final Map<Class<?>, Boolean> USE_OVERRIDE_CACHE = new ConcurrentHashMap<>();
 
-    /** 框选内可交互方块信息 */
+    
     public record BlockInfo(BlockPos blockPos, BlockHitResult blockHit, String displayName, Vec3 hitLocation) {}
 
-    // ======================== 实体收集 ========================
+    
 
-    /**
-     * 收集框选区域内所有有 GUI 交互能力的实体。
-     *
-     * @param level        当前世界
-     * @param sel          框选器（含选区边界）
-     * @param cameraEntity 当前相机实体（用于排除自身）
-     * @return 可交互实体列表
-     */
+    
     public List<Entity> collectEntities(Level level, BoxSelectorCache sel, Entity cameraEntity) {
         AABB selectionBox = sel.toAABB();
         if (selectionBox == null) return List.of();
@@ -76,15 +60,9 @@ public final class BoxTargetCollector {
         return result;
     }
 
-    // ======================== 方块收集 ========================
+    
 
-    /**
-     * 收集框选区域内所有有 GUI 交互的方块（实现了 {@link MenuProvider} 的方块实体）。
-     *
-     * @param level 当前世界
-     * @param sel   框选器
-     * @return GUI 方块信息列表
-     */
+    
     public List<BlockInfo> collectGuiBlocks(Level level, BoxSelectorCache sel) {
         BlockPos min = sel.minCorner();
         BlockPos max = sel.maxCorner();
@@ -111,14 +89,7 @@ public final class BoxTargetCollector {
         return result;
     }
 
-    /**
-     * 收集框选区域内无 GUI 但有右键交互的方块。
-     * <p>这类方块没有 GUI 界面（如拉杆、按钮等），框选时直接批量交互。</p>
-     *
-     * @param level 当前世界
-     * @param sel   框选器
-     * @return 非 GUI 交互方块信息列表
-     */
+    
     public List<BlockInfo> collectNonGuiBlocks(Level level, BoxSelectorCache sel) {
         BlockPos min = sel.minCorner();
         BlockPos max = sel.maxCorner();
@@ -147,9 +118,9 @@ public final class BoxTargetCollector {
         return result;
     }
 
-    // ======================== 实体能力检测 ========================
+    
 
-    /** 判断实体是否具有 GUI 交互能力（容器/交易/物品栏屏幕）。 */
+    
     private static boolean hasGuiInteraction(Entity entity) {
         if (entity instanceof AbstractVillager) {
             if (entity instanceof Villager villager) {
@@ -162,12 +133,9 @@ public final class BoxTargetCollector {
         return entity instanceof MenuProvider;
     }
 
-    // ======================== 方块能力检测 ========================
+    
 
-    /**
-     * 通过反射检测 Block 的 use()/useWithoutItem() 方法是否被覆写。
-     * 结果缓存在 {@link #USE_OVERRIDE_CACHE} 中。
-     */
+    
     public static boolean hasUseOverride(Block block) {
         Class<?> clazz = block.getClass();
         if (clazz == Block.class) return false;
@@ -188,7 +156,7 @@ public final class BoxTargetCollector {
         });
     }
 
-    /** 判断方块是否为 Mekanism 的绑定方块（Bounding Block）。 */
+    
     private static boolean isMekanismBoundingBlock(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if ("mekanism.common.block.BlockBounding".equals(state.getBlock().getClass().getName())) {
@@ -198,7 +166,7 @@ public final class BoxTargetCollector {
         return be != null && "mekanism.common.tile.TileEntityBoundingBlock".equals(be.getClass().getName());
     }
 
-    /** 判断方块是否是多方块结构中的"附属方块"。 */
+    
     private static boolean isNonPrimaryMultiBlockPart(BlockState state) {
         if (state.hasProperty(BlockStateProperties.BED_PART)
                 && state.getValue(BlockStateProperties.BED_PART) == BedPart.FOOT) {
@@ -226,9 +194,9 @@ public final class BoxTargetCollector {
         return false;
     }
 
-    // ======================== 辅助方法 ========================
+    
 
-    /** 解析方块位置的 MenuProvider（同时检查 BlockState 和 BlockEntity）。 */
+    
     private static MenuProvider resolveMenuProvider(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         MenuProvider provider = state.getMenuProvider(level, pos);
@@ -246,7 +214,7 @@ public final class BoxTargetCollector {
         return provider;
     }
 
-    /** 判断方块位置是否有 MenuProvider（含 BlockEntity 兜底检查）。 */
+    
     private static boolean hasMenuProvider(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.getMenuProvider(level, pos) != null) return true;
@@ -254,7 +222,7 @@ public final class BoxTargetCollector {
         return be instanceof MenuProvider;
     }
 
-    /** 简化框选器边界访问的缓存对象。 */
+    
     public record BoxSelectorCache(BlockPos minCorner, BlockPos maxCorner) {
         public AABB toAABB() {
             if (minCorner == null || maxCorner == null) return null;

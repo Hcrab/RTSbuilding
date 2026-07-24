@@ -1,11 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.application.service;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.container.ContainerScreenPanel;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.DownSidebarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.DownSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
@@ -19,8 +17,6 @@ public final class ScreenCoordinator {
 
     @Nullable
     private ContainerScreenPanel containerScreenPanel;
-
-    // ======================== 容器屏幕面板管理 ========================
 
     public void showContainerScreen(Screen screen, RtsFloatingWindowLayer floatingWindowLayer, BuilderScreen builderScreen) {
         if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> containerScreen)) return;
@@ -58,8 +54,6 @@ public final class ScreenCoordinator {
         }
     }
 
-    // ======================== 全局状态持久化 ========================
-
     public void restoreGlobalState() {
         RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
         ThemeManager.getInstance().setLightMode(state.lightMode);
@@ -78,8 +72,6 @@ public final class ScreenCoordinator {
         }
         RtsClientUiStateStore.cache().markDirty();
     }
-
-    // ======================== UI 命中检测 ========================
 
     public boolean isMouseOverUI(double mouseX, double mouseY,
                                  RtsFloatingWindowLayer floatingWindowLayer, TopBarPanel topBarPanel) {
@@ -105,7 +97,6 @@ public final class ScreenCoordinator {
             return true;
         }
         int rightW = 0;
-        if (false) { /* right side check is caller-provided */ }
         return false;
     }
 }
