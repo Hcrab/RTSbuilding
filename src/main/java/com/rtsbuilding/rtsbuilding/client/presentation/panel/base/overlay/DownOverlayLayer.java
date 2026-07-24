@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.resources.ResourceLocation;
 
 
-public abstract class DownOverlayLayer {
+public abstract class DownOverlayLayer implements OverlayContext {
 
     
 
@@ -84,7 +84,7 @@ public abstract class DownOverlayLayer {
     }
 
     
-    protected boolean isDividerDragging() {
+    public boolean isDividerDragging() {
         return this.dividerDragging;
     }
     

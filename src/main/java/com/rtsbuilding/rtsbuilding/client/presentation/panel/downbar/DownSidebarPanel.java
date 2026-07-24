@@ -72,6 +72,7 @@ public final class DownSidebarPanel implements RtsPanelApi {
     private final RightDownOverlayLayer rightLayer = new RightDownOverlayLayer();
 
     
+    public LeftDownOverlayLayer getLeftLayer() { return leftLayer; }
     public RightDownOverlayLayer getRightLayer() { return rightLayer; }
 
     
