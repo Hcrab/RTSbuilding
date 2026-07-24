@@ -45,8 +45,6 @@ final class CameraPoseComputer {
 
         state.orbitAngle += (rawX + panX) * state.rotateSensitivity * sensScale * ROTATE_GAIN_X * 0.01;
         state.orbitPitch += (rawY + panY) * state.rotateSensitivity * sensScale * ROTATE_GAIN_Y * 0.01;
-        state.orbitPitch = Mth.clamp(state.orbitPitch, -Math.PI * 0.45, Math.PI * 0.45);
-
         
         if (state.pendingScroll != 0.0F) {
             double scroll = state.pendingScroll * DOLLY_PER_SCROLL;
@@ -74,7 +72,7 @@ final class CameraPoseComputer {
         
         
         state.localYaw = Mth.wrapDegrees(180.0f - (float) Math.toDegrees(state.orbitAngle));
-        state.localPitch = (float) Math.toDegrees(state.orbitPitch);
+        state.localPitch = Mth.wrapDegrees((float) Math.toDegrees(state.orbitPitch));
 
         
         state.pendingRawRotateX = 0;

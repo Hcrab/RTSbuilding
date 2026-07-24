@@ -24,10 +24,6 @@ public final class RtsCameraManager {
     private static final double MIN_HEIGHT = -35.0D;
     // 相机高度上限（相对锚点）
     private static final double MAX_HEIGHT = 110.0D;
-    // 俯仰角最小值
-    private static final float MIN_PITCH = -90.0F;
-    // 俯仰角最大值
-    private static final float MAX_PITCH = 90.0F;
 
     // 旋转输入钳位值
     private static final float ROT_INPUT_CLAMP = 20.0F;
@@ -322,7 +318,7 @@ public final class RtsCameraManager {
             yaw = snapQuarter(yaw + (90.0F * rotateSteps));
         }
 
-        float pitch = Mth.clamp(session.pitchDeg() + (safeRotateY * ROTATE_GAIN_Y), MIN_PITCH, MAX_PITCH);
+        float pitch = Mth.wrapDegrees(session.pitchDeg() + (safeRotateY * ROTATE_GAIN_Y));
 
         double speed = fast ? 0.80D : 0.45D;
 

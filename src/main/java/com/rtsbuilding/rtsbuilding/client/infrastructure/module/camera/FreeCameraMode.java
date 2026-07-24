@@ -25,8 +25,6 @@ final class FreeCameraMode {
     private static final double DOLLY_DAMP_RAY_RANGE = 128.0D;
     private static final double MIN_HEIGHT_OFFSET = -35.0D;
     private static final double MAX_HEIGHT_OFFSET = 110.0D;
-    private static final float MIN_PITCH = -90.0F;
-    private static final float MAX_PITCH = 90.0F;
     
     private static final float ROT_EMA_ALPHA = 0.28F;
     private static final float ROT_EMA_DECAY = 0.78F;
@@ -71,7 +69,7 @@ final class FreeCameraMode {
         if (state.pendingRotateSteps != 0) {
             state.localYaw = snapQuarter(state.localYaw + 90.0F * state.pendingRotateSteps);
         }
-        state.localPitch = Mth.clamp(state.localPitch + rotateYForTick * ROTATE_GAIN_Y, MIN_PITCH, MAX_PITCH);
+        state.localPitch = Mth.wrapDegrees(state.localPitch + rotateYForTick * ROTATE_GAIN_Y);
 
         double sensNorm = state.rotateSensitivity / 5.0D;
         double speed = (input.fast ? 0.80D : 0.45D) * sensNorm;
