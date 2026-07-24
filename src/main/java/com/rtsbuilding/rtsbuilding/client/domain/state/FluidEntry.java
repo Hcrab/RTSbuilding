@@ -10,5 +10,17 @@ public record FluidEntry(
         long capacity,
         String namespace,
         String path,
-        ItemStack preview
-) {}
+        ItemStack preview,
+        byte mode
+) {
+    public static final byte MODE_BIDIRECTIONAL = 0;
+    public static final byte MODE_EXTRACT_ONLY = 1;
+
+    public boolean isBidirectional() {
+        return mode == MODE_BIDIRECTIONAL;
+    }
+
+    public boolean isExtractOnly() {
+        return mode == MODE_EXTRACT_ONLY;
+    }
+}

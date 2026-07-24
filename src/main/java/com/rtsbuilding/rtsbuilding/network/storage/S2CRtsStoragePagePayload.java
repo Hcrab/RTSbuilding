@@ -38,6 +38,7 @@ public record S2CRtsStoragePagePayload(
         List<String> fluidIds,
         List<Long> fluidAmounts,
         List<Long> fluidCapacities,
+        List<Byte> fluidModes,
         List<String> recentIds,
         List<Long> recentAmounts,
         List<Long> recentCapacities,
@@ -113,12 +114,14 @@ public record S2CRtsStoragePagePayload(
                 }
 
                 int fluidSize = Math.min(payload.fluidIds().size(),
-                        Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
+                        Math.min(payload.fluidAmounts().size(),
+                                Math.min(payload.fluidCapacities().size(), payload.fluidModes().size())));
                 buf.writeVarInt(fluidSize);
                 for (int i = 0; i < fluidSize; i++) {
                     buf.writeUtf(payload.fluidIds().get(i), 128);
                     buf.writeVarLong(payload.fluidAmounts().get(i));
                     buf.writeVarLong(payload.fluidCapacities().get(i));
+                    buf.writeByte(payload.fluidModes().get(i));
                 }
 
                 int recentSize = Math.min(
@@ -220,10 +223,12 @@ public record S2CRtsStoragePagePayload(
                 List<String> fluidIds = new ArrayList<>(fluidSize);
                 List<Long> fluidAmounts = new ArrayList<>(fluidSize);
                 List<Long> fluidCapacities = new ArrayList<>(fluidSize);
+                List<Byte> fluidModes = new ArrayList<>(fluidSize);
                 for (int i = 0; i < fluidSize; i++) {
                     fluidIds.add(buf.readUtf(128));
                     fluidAmounts.add(buf.readVarLong());
                     fluidCapacities.add(buf.readVarLong());
+                    fluidModes.add(buf.readByte());
                 }
                 int recentSize = buf.readVarInt();
                 List<String> recentIds = new ArrayList<>(recentSize);
@@ -291,6 +296,7 @@ public record S2CRtsStoragePagePayload(
                         fluidIds,
                         fluidAmounts,
                         fluidCapacities,
+                        fluidModes,
                         recentIds,
                         recentAmounts,
                         recentCapacities,

@@ -1,13 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.plugin;
 
+import com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
-import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.ContainerModePopup;
-import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridInputHandler;
-import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridRenderer;
-import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridState;
-import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.TypeFilterPopup;
+import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.*;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 public class ItemGrid {
@@ -54,7 +55,13 @@ public class ItemGrid {
             return state.currentSelectedItem;
         }
         if (state.tooltipSlotIndex < 0 || state.tooltipSlotIndex >= state.slotEntries.size()) return ItemStack.EMPTY;
-        return state.slotEntries.get(state.tooltipSlotIndex).stack();
+        SlotEntry entry = state.slotEntries.get(state.tooltipSlotIndex);
+        if (entry.isFluid() && entry.originalEntry() instanceof FluidEntry fe) {
+            ItemStack stack = entry.stack().copy();
+            stack.set(DataComponents.ITEM_NAME, Component.literal(fe.label()));
+            return stack;
+        }
+        return entry.stack();
     }
 
     public void renderContent(GuiGraphics g) {
@@ -87,6 +94,17 @@ public class ItemGrid {
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         return inputHandler.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    public void unfocusSearch() {
+        if (state.searchFocused) {
+            state.searchFocused = false;
+            StorageModule sm = CompositionRoot.get().module(StorageModule.class);
+            if (sm != null) {
+                sm.setSearch(state.searchBuffer.toString());
+            }
+        }
+        state.recentSearchFocused = false;
     }
 
     public boolean isMouseOverPopup(int mx, int my) {

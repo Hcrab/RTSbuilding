@@ -65,6 +65,11 @@ public final class BuilderScreenEventRouter {
             LeftSidebarPanel lb, BuilderScreenMovementHandler mh,
             BindModeMouseHandler bmh, EntityInteractionHandler eih) {
         d.onMouseClick(event -> {
+            screen.unfocusGridSearch();
+            return PASS;
+        }, EventDispatcher.P_FLOATING_WINDOW);
+
+        d.onMouseClick(event -> {
             if (fw.mouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
             if (eih.isSelectPanelOpen()) { eih.closeSelectPanel(); return CONSUMED; }
             return PASS;

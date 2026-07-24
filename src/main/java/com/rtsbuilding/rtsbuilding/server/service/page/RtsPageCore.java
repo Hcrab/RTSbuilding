@@ -139,25 +139,30 @@ public final class RtsPageCore {
             // Build fluid entries
             Map<String, Long> fluidAmounts = new HashMap<>();
             Map<String, Long> fluidCapacities = new HashMap<>();
+            Map<String, Long> fluidExtractAmounts = new HashMap<>();
+            Map<String, Long> fluidExtractCapacities = new HashMap<>();
             for (var entry : session.sessionFlags.internalFluidMb.entrySet()) {
                 if (entry.getValue() == null || entry.getValue() <= 0L) continue;
                 mergeCount(fluidAmounts, entry.getKey(), entry.getValue());
             }
             for (LinkedFluidHandler linked : fluidHandlers) {
                 IFluidHandler handler = linked.handler();
+                Map<String, Long> targetAmounts = linked.allowStore() ? fluidAmounts : fluidExtractAmounts;
+                Map<String, Long> targetCapacities = linked.allowStore() ? fluidCapacities : fluidExtractCapacities;
                 for (int tank = 0; tank < handler.getTanks(); tank++) {
                     FluidStack fluid = handler.getFluidInTank(tank);
                     if (fluid.isEmpty()) continue;
                     ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
                     if (id == null) continue;
                     String fluidId = id.toString();
-                    mergeCount(fluidAmounts, fluidId, fluid.getAmount());
-                    mergeCount(fluidCapacities, fluidId, Math.max(0, handler.getTankCapacity(tank)));
+                    mergeCount(targetAmounts, fluidId, fluid.getAmount());
+                    mergeCount(targetCapacities, fluidId, Math.max(0, handler.getTankCapacity(tank)));
                 }
             }
 
             // 从 AE2 等网络节点收集流体（仅收集一次，跳过已被常规 handler 计数的流体 ID）
             Set<String> fluidCountedByRegular = new HashSet<>(fluidAmounts.keySet());
+            fluidCountedByRegular.addAll(fluidExtractAmounts.keySet());
             boolean ae2FluidCollected = false;
             for (var ref : session.linkedStorageInfo.getAll()) {
                 if (ref == null || ref.pos() == null) continue;
@@ -171,11 +176,18 @@ public final class RtsPageCore {
             }
 
             long internalFluidCapacityMb = RtsStorageFluids.internalFluidCapacityMb(player);
-            for (String fluidId : fluidAmounts.keySet()) {
+            Set<String> allFluidIds = new HashSet<>(fluidAmounts.keySet());
+            allFluidIds.addAll(fluidExtractAmounts.keySet());
+            for (String fluidId : allFluidIds) {
                 mergeCount(fluidCapacities, fluidId, internalFluidCapacityMb);
+                mergeCount(fluidExtractCapacities, fluidId, internalFluidCapacityMb);
                 ResourceLocation rl = ResourceLocation.tryParse(fluidId);
                 if (rl != null) {
-                    mergeCount(localNamespaceTotals, rl.getNamespace(), fluidAmounts.getOrDefault(fluidId, 0L));
+                    long totalAmount = fluidAmounts.getOrDefault(fluidId, 0L)
+                            + fluidExtractAmounts.getOrDefault(fluidId, 0L);
+                    if (totalAmount > 0L) {
+                        mergeCount(localNamespaceTotals, rl.getNamespace(), totalAmount);
+                    }
                 }
             }
 
@@ -228,8 +240,9 @@ public final class RtsPageCore {
             }
 
             List<FluidEntry> fluidEntries = new ArrayList<>();
-            for (var e : fluidAmounts.entrySet()) {
-                String id = e.getKey();
+            Set<String> allFluidKeys = new HashSet<>(fluidAmounts.keySet());
+            allFluidKeys.addAll(fluidExtractAmounts.keySet());
+            for (String id : allFluidKeys) {
                 ResourceLocation rl = ResourceLocation.tryParse(id);
                 if (!RtsPageSharedHelpers.matchesSearchQuery(
                         rl, id, null, query, session.browser.pinyinSearchEnabled, session.browser.localizedSearchMatches)) {
@@ -239,9 +252,20 @@ public final class RtsPageCore {
                 if (selectedCategory.isCreativeTab() || !selectedCategory.matches(namespace, Set.of())) {
                     continue;
                 }
-                long amount = Math.max(0L, e.getValue());
-                long capacity = Math.max(amount, fluidCapacities.getOrDefault(id, internalFluidCapacityMb));
-                fluidEntries.add(new FluidEntry(id, namespace, rl == null ? id : rl.getPath(), amount, capacity));
+                long bidirAmount = fluidAmounts.getOrDefault(id, 0L);
+                long bidirCapacity = fluidCapacities.getOrDefault(id, internalFluidCapacityMb);
+                long extractAmount = fluidExtractAmounts.getOrDefault(id, 0L);
+                long extractCapacity = fluidExtractCapacities.getOrDefault(id, internalFluidCapacityMb);
+                if (bidirAmount > 0L) {
+                    fluidEntries.add(new FluidEntry(id, namespace, rl == null ? id : rl.getPath(),
+                            Math.max(0L, bidirAmount), Math.max(bidirAmount, bidirCapacity),
+                            C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL));
+                }
+                if (extractAmount > 0L) {
+                    fluidEntries.add(new FluidEntry(id, namespace, rl == null ? id : rl.getPath(),
+                            Math.max(0L, extractAmount), Math.max(extractAmount, extractCapacity),
+                            C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
+                }
             }
 
             entries.sort(RtsPageSharedHelpers.entryComparator(session.browser.sort, session.browser.ascending));
@@ -287,10 +311,12 @@ public final class RtsPageCore {
         List<String> fluidIds = new ArrayList<>(sortedFluidEntries.size());
         List<Long> fluidAmountList = new ArrayList<>(sortedFluidEntries.size());
         List<Long> fluidCapacityList = new ArrayList<>(sortedFluidEntries.size());
+        List<Byte> fluidModes = new ArrayList<>(sortedFluidEntries.size());
         for (FluidEntry entry : sortedFluidEntries) {
             fluidIds.add(entry.fluidId());
             fluidAmountList.add(entry.amount());
             fluidCapacityList.add(entry.capacity());
+            fluidModes.add(entry.linkedMode());
         }
 
         int qSlotCount = RtsStorageBindings.QUICK_SLOT_COUNT;
@@ -329,7 +355,7 @@ public final class RtsPageCore {
                 categories,
                 itemStacks, itemCounts, itemModes,
                 totalItemIds, totalItemCounts,
-                fluidIds, fluidAmountList, fluidCapacityList,
+                fluidIds, fluidAmountList, fluidCapacityList, fluidModes,
                 recentIds, recentAmounts, recentCapacities, recentKinds,
                 RtsStorageUiPayloads.buildQuickSlotPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),

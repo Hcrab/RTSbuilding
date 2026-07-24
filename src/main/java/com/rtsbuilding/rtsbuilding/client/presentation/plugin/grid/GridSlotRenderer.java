@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.render;
+package com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
@@ -7,8 +7,15 @@ import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidType;
 
 
 public final class GridSlotRenderer {
@@ -16,6 +23,7 @@ public final class GridSlotRenderer {
     
 
     
+
     public static final int SLOT_SIZE = 18;
     
     public static final int ICON_OFFSET = 1;
@@ -23,17 +31,17 @@ public final class GridSlotRenderer {
     
 
     
+
     public static final float AMOUNT_SCALE = 0.666f;
     
     public static final float INV_AMOUNT_SCALE = 1.0f / AMOUNT_SCALE;
     
     public static final int AMOUNT_COLOR = 0xFF_FFFFFF;
-    
-    public static final int FLUID_AMOUNT_COLOR = 0xFF_80C8FF;
 
     
 
     
+
     private static final ResourceLocation SLOTS_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/down/slots.png");
     private static final int SLOTS_TEX_W = 32;
@@ -60,6 +68,7 @@ public final class GridSlotRenderer {
     
 
     
+
     public static void drawIcon(GuiGraphics g, ItemStack stack, int slotX, int slotY) {
         if (stack == null || stack.isEmpty()) return;
 
@@ -80,6 +89,40 @@ public final class GridSlotRenderer {
     
 
     
+
+    public static void drawFluidIcon(GuiGraphics g, String fluidId, int slotX, int slotY) {
+        ResourceLocation id = ResourceLocation.tryParse(fluidId);
+        if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) return;
+
+        Fluid fluid = BuiltInRegistries.FLUID.get(id);
+        FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
+        IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(fluid);
+        ResourceLocation stillTex = ext.getStillTexture(fluidStack);
+        if (stillTex == null) return;
+
+        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(stillTex);
+
+        int iconX = slotX + ICON_OFFSET;
+        int iconY = slotY + ICON_OFFSET;
+
+        RenderSystem.disableDepthTest();
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(iconX, iconY, 0);
+
+        int color = ext.getTintColor(fluidStack);
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float grn = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        float a = ((color >> 24) & 0xFF) / 255f;
+        RenderSystem.setShaderColor(r, grn, b, a);
+        g.blit(0, 0, 0, 16, 16, sprite);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+
+        pose.popPose();
+        RenderSystem.enableDepthTest();
+    }
+
     public static void drawOverlay(GuiGraphics g, int slotX, int slotY,
                                    boolean hovered, boolean selected, int slotThemeOffset) {
         RenderSystem.disableDepthTest();
@@ -99,8 +142,9 @@ public final class GridSlotRenderer {
     
 
     
+
     public static void drawAmountText(GuiGraphics g, Font font, long count,
-                                       int slotX, int slotY, boolean isFluid) {
+                                       int slotX, int slotY) {
         if (count < 1) return;
 
         String text = formatAmount(count);
@@ -113,9 +157,8 @@ public final class GridSlotRenderer {
         g.pose().scale(AMOUNT_SCALE, AMOUNT_SCALE, 1.0f);
         g.pose().translate(tx, ty, 200);
 
-        int color = isFluid ? FLUID_AMOUNT_COLOR : AMOUNT_COLOR;
         g.drawString(font, text, 1, 1, 0xFF_000000, false);
-        g.drawString(font, text, 0, 0, color, false);
+        g.drawString(font, text, 0, 0, AMOUNT_COLOR, false);
 
         g.pose().popPose();
     }
@@ -123,6 +166,7 @@ public final class GridSlotRenderer {
     
 
     
+
     public static String formatAmount(long count) {
         if (count >= 1_000_000_000L) {
             double val = count / 100_000_000.0;

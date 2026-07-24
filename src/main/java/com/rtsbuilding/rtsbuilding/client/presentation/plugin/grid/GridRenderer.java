@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.render.GridSlotRenderer;
+import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridSlotRenderer;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
@@ -30,7 +30,7 @@ import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 
 import java.util.*;
 
-import static com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.render.GridSlotRenderer.SLOT_SIZE;
+import static com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridSlotRenderer.SLOT_SIZE;
 
 public final class GridRenderer {
 
@@ -208,7 +208,7 @@ public final class GridRenderer {
         checkAndRebuildIfDirty(sm);
         boolean hasStorage = sm.isLinked();
         if (state.slotEntries.isEmpty()) {
-            if (!hasStorage) {
+            if (!hasStorage && state.searchBuffer.length() == 0) {
                 renderEmptyHint(g);
                 return;
             }
@@ -455,7 +455,7 @@ public final class GridRenderer {
             }
 
             if (re.amount() > 1) {
-                GridSlotRenderer.drawAmountText(g, mc.font, re.amount(), slotX, slotY, false);
+                GridSlotRenderer.drawAmountText(g, mc.font, re.amount(), slotX, slotY);
             }
 
             boolean recentSelected = !state.currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, state.currentSelectedItem);
@@ -475,7 +475,11 @@ public final class GridRenderer {
             RenderSystem.disableDepthTest();
 
             ItemStack stack = entry.stack();
-            if (!stack.isEmpty()) {
+            if (entry.isFluid()) {
+                if (entry.originalEntry() instanceof com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry fe) {
+                    GridSlotRenderer.drawFluidIcon(g, fe.fluidId(), slotX, slotY);
+                }
+            } else if (!stack.isEmpty()) {
                 GridSlotRenderer.drawIcon(g, stack, slotX, slotY);
             }
 
@@ -483,7 +487,7 @@ public final class GridRenderer {
             if (count >= 1) {
                 Font font = IClientItemExtensions.of(stack).getFont(stack, IClientItemExtensions.FontContext.ITEM_COUNT);
                 if (font == null) font = mc.font;
-                GridSlotRenderer.drawAmountText(g, font, count, slotX, slotY, entry.isFluid());
+                GridSlotRenderer.drawAmountText(g, font, count, slotX, slotY);
             }
 
             boolean mainSelected = !state.currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, state.currentSelectedItem);
@@ -826,6 +830,11 @@ public final class GridRenderer {
             for (Object obj : fluids) {
                 if (obj instanceof FluidEntry fe) {
                     if (fe.preview() == null || fe.preview().isEmpty()) continue;
+
+                    boolean matchesBidirectional = fe.isBidirectional() && state.showBidirectional;
+                    boolean matchesExtractOnly = fe.isExtractOnly() && state.showExtractOnly;
+                    if (!matchesBidirectional && !matchesExtractOnly) continue;
+
                     String sortName = fe.label() != null ? fe.label().toLowerCase() : "";
                     String sortMod = fe.namespace() != null ? fe.namespace() : "";
                     state.slotEntries.add(new SlotEntry(fe.preview(), fe.amount(), true, obj, sortName, sortMod));

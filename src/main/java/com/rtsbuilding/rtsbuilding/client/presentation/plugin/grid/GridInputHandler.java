@@ -14,7 +14,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.render.GridSlotRenderer.SLOT_SIZE;
+import static com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridSlotRenderer.SLOT_SIZE;
 
 public final class GridInputHandler {
 
@@ -76,6 +76,33 @@ public final class GridInputHandler {
         int localMainGridOriginX = x + PAD_LEFT;
         int localMainGridWidth = getCalcMainGridWidth();
         int barX = localMainGridOriginX + localMainGridWidth + 3;
+
+        if (state.searchFocused) {
+            int searchX = containerBtnX + BUTTON_SIZE + BUTTON_SPACING;
+            int searchY = y + PAD_TOP + 1;
+            int searchW = (localMainGridOriginX + localMainGridWidth) - searchX;
+            boolean onSearch = searchW > SEARCH_INPUT_H
+                    && mouseX >= searchX && mouseX < searchX + searchW
+                    && mouseY >= searchY && mouseY < searchY + SEARCH_INPUT_H;
+            if (!onSearch) {
+                state.searchFocused = false;
+                StorageModule sm = CompositionRoot.get().module(StorageModule.class);
+                if (sm != null) {
+                    sm.setSearch(state.searchBuffer.toString());
+                }
+            }
+        }
+        if (state.recentSearchFocused) {
+            int recentSearchX = state.recentGridOriginX + BUTTON_SIZE + BUTTON_SPACING;
+            int recentSearchY = y + PAD_TOP + 1;
+            int recentSearchW = (x + 3 + state.recentCols * SLOT_SIZE) - recentSearchX;
+            boolean onRecentSearch = recentSearchW > SEARCH_INPUT_H
+                    && mouseX >= recentSearchX && mouseX < recentSearchX + recentSearchW
+                    && mouseY >= recentSearchY && mouseY < recentSearchY + SEARCH_INPUT_H;
+            if (!onRecentSearch) {
+                state.recentSearchFocused = false;
+            }
+        }
 
         int itemDisplayX = x + PAD_LEFT;
         int itemDisplayY = y + PAD_TOP + 1;
@@ -337,7 +364,7 @@ public final class GridInputHandler {
                 }
                 return true;
             }
-            return false;
+            return true;
         }
         if (!state.searchFocused) return false;
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
@@ -391,7 +418,7 @@ public final class GridInputHandler {
             }
             return true;
         }
-        return false;
+        return true;
     }
 
     public boolean charTyped(char codePoint, int modifiers) {

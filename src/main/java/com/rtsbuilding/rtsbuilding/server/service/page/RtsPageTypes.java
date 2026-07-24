@@ -24,7 +24,7 @@ import java.util.Set;
 record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count, byte linkedMode) {
 }
 
-record FluidEntry(String fluidId, String namespace, String path, long amount, long capacity) {
+record FluidEntry(String fluidId, String namespace, String path, long amount, long capacity, byte linkedMode) {
 }
 
 record LinkedRefPayload(

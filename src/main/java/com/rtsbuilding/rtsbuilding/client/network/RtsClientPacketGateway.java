@@ -70,12 +70,12 @@ public final class RtsClientPacketGateway {
                                                com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort sort,
                                                boolean ascending, int pageSize) {
         PacketDistributor.sendToServer(new C2SRtsRequestStoragePagePayload(
-                page, search, category, (byte) sort.ordinal(), ascending, pageSize, false, List.of()));
+                page, search, category, (byte) sort.ordinal(), ascending, pageSize, true, List.of()));
     }
 
     public static void sendRequestCraftables(String search, boolean showUnavailable, int offset, int limit) {
         PacketDistributor.sendToServer(new C2SRtsRequestCraftablesPayload(
-                search, showUnavailable, Math.max(0, offset), Math.max(1, limit), false, List.of()));
+                search, showUnavailable, Math.max(0, offset), Math.max(1, limit), true, List.of()));
     }
 
     public static void sendCraftRecipe(String recipeId, int count) {

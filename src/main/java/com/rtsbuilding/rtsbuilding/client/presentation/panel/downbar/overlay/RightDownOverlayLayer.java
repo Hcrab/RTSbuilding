@@ -53,6 +53,10 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         return itemGrid.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
+    public void unfocusSearch() {
+        itemGrid.unfocusSearch();
+    }
+
     public boolean isMouseOverPopup(int mx, int my) {
         return itemGrid.isMouseOverPopup(mx, my);
     }

@@ -20,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.*;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.rightbar.RightSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
@@ -224,6 +225,12 @@ public class BuilderScreen extends Screen {
     }
 
     
+    public void unfocusGridSearch() {
+        if (downSidebarPanel != null) {
+            downSidebarPanel.getRightLayer().unfocusSearch();
+        }
+    }
+
     public boolean isMouseOverRtsPanelApi(double mouseX, double mouseY) {
         
         if (floatingWindowLayer != null
@@ -235,13 +242,22 @@ public class BuilderScreen extends Screen {
             return true;
         }
         
-        int downH = getDownSidebarHeight();
-        if (downH > 0 && mouseY >= this.height - downH) {
+        if (mouseY < TopBarLayoutHelper.TOP_BAR_HEIGHT) {
+            return true;
+        }
+        
+        int leftW = getLeftSidebarWidth();
+        if (leftW > 0 && mouseX < leftW) {
             return true;
         }
         
         int rightW = getRightSidebarWidth();
         if (rightW > 0 && mouseX >= this.width - rightW) {
+            return true;
+        }
+        
+        int downH = getDownSidebarHeight();
+        if (downH > 0 && mouseY >= this.height - downH) {
             return true;
         }
         return false;
@@ -453,7 +469,7 @@ public class BuilderScreen extends Screen {
         cursorWrapHandler.applyWrapIfPending();
 
         
-        if (downSidebarPanel != null && !isMouseOverUI(mouseX, mouseY)) {
+        if (downSidebarPanel != null && !isMouseOverRtsPanelApi(mouseX, mouseY)) {
             var selected = downSidebarPanel.getRightLayer().getCurrentSelectedItem();
             if (!selected.isEmpty()) {
                 com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();

@@ -60,7 +60,7 @@ public final class RtsPagePayloadFactory {
                 session.sessionFlags.autoStoreMinedDrops, session.sessionFlags.useBdNetwork,
                 List.of(RtsPageSharedHelpers.CATEGORY_ALL),
                 List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 RtsStorageUiPayloads.buildQuickSlotPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, gbSlotCount),

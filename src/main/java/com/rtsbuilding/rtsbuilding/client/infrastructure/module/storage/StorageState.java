@@ -185,7 +185,8 @@ public final class StorageState {
 
         
         int fluidSize = Math.min(payload.fluidIds().size(),
-                Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
+                Math.min(payload.fluidAmounts().size(),
+                        Math.min(payload.fluidCapacities().size(), payload.fluidModes().size())));
         for (int i = 0; i < fluidSize; i++) {
             String fluidId = payload.fluidIds().get(i);
             ResourceLocation id = ResourceLocation.tryParse(fluidId);
@@ -194,11 +195,12 @@ public final class StorageState {
             FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
             String label = fluid.getFluidType().getDescription(fluidStack).getString();
+            byte mode = i < payload.fluidModes().size() ? payload.fluidModes().get(i) : 0;
             this.fluidEntries.add(new FluidEntry(
                     fluidId, label,
                     payload.fluidAmounts().get(i),
                     payload.fluidCapacities().get(i),
-                    id.getNamespace(), id.getPath(), preview));
+                    id.getNamespace(), id.getPath(), preview, mode));
         }
 
         
