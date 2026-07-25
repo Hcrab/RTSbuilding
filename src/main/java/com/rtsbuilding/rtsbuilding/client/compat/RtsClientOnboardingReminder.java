@@ -11,13 +11,12 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
-
-import java.util.Locale;
 
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
@@ -39,8 +38,12 @@ public final class RtsClientOnboardingReminder {
     }
 
     private static int dismissIntroReminder() {
-        RtsClientUiStateStore.dismissIntroReminder(currentReminderKey(Minecraft.getInstance()));
         Minecraft minecraft = Minecraft.getInstance();
+        String key = currentReminderKey(minecraft);
+        if (key.isBlank()) {
+            return 0;
+        }
+        RtsClientUiStateStore.dismissIntroReminder(key);
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
         }
@@ -67,6 +70,11 @@ public final class RtsClientOnboardingReminder {
         }
 
         String key = currentReminderKey(minecraft);
+        if (key.isBlank()) {
+            // 服务器/存档身份尚未稳定时稍后重试，避免把提醒错误地记到维度或全局键上。
+            ticksUntilReminder = SHOW_DELAY_TICKS;
+            return;
+        }
         shownThisConnection = true;
         if (RtsClientUiStateStore.isIntroReminderDismissed(key)) {
             return;
@@ -124,20 +132,15 @@ public final class RtsClientOnboardingReminder {
 
     private static String currentReminderKey(Minecraft minecraft) {
         if (minecraft == null) {
-            return "unknown";
+            return "";
+        }
+        if (minecraft.getSingleplayerServer() != null) {
+            return RtsIntroReminderScope.singleplayerKey(
+                    minecraft.getSingleplayerServer().getWorldPath(LevelResource.ROOT));
         }
         if (minecraft.getCurrentServer() != null && minecraft.getCurrentServer().ip != null) {
-            return "server:" + minecraft.getCurrentServer().ip.trim().toLowerCase(Locale.ROOT);
+            return RtsIntroReminderScope.serverKey(minecraft.getCurrentServer().ip);
         }
-        if (minecraft.getSingleplayerServer() != null && minecraft.getSingleplayerServer().getWorldData() != null) {
-            String name = minecraft.getSingleplayerServer().getWorldData().getLevelName();
-            if (name != null && !name.isBlank()) {
-                return "singleplayer:" + name.trim().toLowerCase(Locale.ROOT);
-            }
-        }
-        if (minecraft.level != null) {
-            return "level:" + minecraft.level.dimension().location().toString().toLowerCase(Locale.ROOT);
-        }
-        return "unknown";
+        return "";
     }
 }

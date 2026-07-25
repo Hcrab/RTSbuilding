@@ -203,10 +203,18 @@ public final class RtsClientUiStateStore {
         return CACHE.get().isIntroReminderDismissed(key);
     }
 
-    /** 将指定引导提醒标记为已关闭。 */
+    /**
+     * 将指定引导提醒标记为已关闭，并立即写入磁盘。
+     *
+     * <p>该操作来自聊天栏中的显式玩家选择，不能依赖 RTS 界面的后续 tick 才回写；
+     * 否则玩家不打开 RTS 界面便退出时，选择会丢失。</p>
+     */
     public static synchronized void dismissIntroReminder(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
         CACHE.get().addDismissedIntroReminderKey(key);
-        CACHE.markDirty();
+        CACHE.flush();
     }
 
     /** 容器覆盖层是否启用。 */
