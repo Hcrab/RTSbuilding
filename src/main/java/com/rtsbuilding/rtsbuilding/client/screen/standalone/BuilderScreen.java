@@ -2673,10 +2673,16 @@ public final class BuilderScreen extends Screen {
     }
 
 
-    /** Returns whether either search box is currently focused. */
+    /**
+     * 返回是否有会接收普通文字的输入框拥有键盘。
+     *
+     * <p>历史方法名为 search focused，现继续保留以免扩大改动；AI 问答框也必须纳入，
+     * 因为相机服务会直接轮询物理 WASD，单靠 keyPressed 返回值无法阻止移动。
+     */
     public boolean isSearchFocused() {
         return (this.searchBox != null && this.searchBox.isFocused())
-                || (this.craftSearchBox != null && this.craftSearchBox.isFocused());
+                || (this.craftSearchBox != null && this.craftSearchBox.isFocused())
+                || this.aiChatPanel.isInputFocused();
     }
     /** Returns the player's currently selected hotbar slot index (0-8). */
     public int getSelectedToolSlot() {

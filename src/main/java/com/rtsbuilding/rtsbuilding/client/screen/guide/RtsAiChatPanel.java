@@ -140,16 +140,26 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            submit();
+        if (this.input != null && this.input.isFocused()) {
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+                submit();
+            } else {
+                this.input.keyPressed(keyCode, scanCode, modifiers);
+            }
+            // 文本框拥有焦点时吞掉完整按键事件，防止 WASD、快捷键和镜头动作穿透。
             return true;
         }
-        return this.input != null && this.input.keyPressed(keyCode, scanCode, modifiers);
+        return false;
     }
 
     @Override
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
         return this.input != null && this.input.charTyped(codePoint, modifiers);
+    }
+
+    /** 文本框聚焦期间，BuilderScreen 与相机服务必须把键盘所有权交给本窗口。 */
+    public boolean isInputFocused() {
+        return isOpen() && this.input != null && this.input.isFocused();
     }
 
     @Override
