@@ -16,6 +16,7 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
@@ -173,11 +174,13 @@ public final class RtsServerGameTests {
                 itemId(Items.DIAMOND_PICKAXE),
                 diamondPickaxe,
                 false);
+        // 生存平衡是全服配置，而不同 GameTest 批次会并行推进。请求已经通过完整
+        // 插件/家园校验后立即恢复默认值，避免本测试的异步等待窗口污染储存与放置测试。
+        Config.setSurvivalProgressionEnabled(false);
 
         helper.succeedWhen(() -> {
             tickMiningPlayer(helper, player, 20);
             helper.assertBlockPresent(Blocks.AIR, stoneRel);
-            Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
         });
     }
@@ -207,13 +210,14 @@ public final class RtsServerGameTests {
                 itemId(Items.DIAMOND_PICKAXE),
                 diamondPickaxe,
                 false);
+        // 仅请求入口需要保持生存平衡开启；异步执行期间恢复全服默认，防止跨测试串扰。
+        Config.setSurvivalProgressionEnabled(false);
 
         helper.succeedWhen(() -> {
             tickMiningPlayer(helper, player, 20);
             helper.assertBlockPresent(Blocks.AIR, dirtRel);
             helper.assertBlockPresent(Blocks.AIR, sandRel);
             helper.assertBlockPresent(Blocks.AIR, snowRel);
-            Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
         });
     }
@@ -249,13 +253,14 @@ public final class RtsServerGameTests {
                 snowLayersRel.size(),
                 (byte) 0,
                 false);
+        // 连锁任务已经经过完整入口校验；不要让全服测试配置在 succeedWhen 期间悬挂。
+        Config.setSurvivalProgressionEnabled(false);
 
         helper.succeedWhen(() -> {
             tickMiningPlayer(helper, player, 40);
             for (BlockPos snowRel : snowLayersRel) {
                 helper.assertBlockPresent(Blocks.AIR, snowRel);
             }
-            Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
         });
     }
@@ -386,7 +391,7 @@ public final class RtsServerGameTests {
         for (BlockPos pos : supportRel) {
             helper.setBlock(pos, Blocks.DIRT);
         }
-        ServerPlayer player = startRtsPlayer(helper);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
         player.getInventory().setItem(0, new ItemStack(Items.STONE, supportRel.size()));
 
         enqueuePlacementThroughApi(helper, player, supportRel, "minecraft:stone", new ItemStack(Items.STONE));
@@ -404,7 +409,7 @@ public final class RtsServerGameTests {
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
     public static void fiveRtsPlayersKeepIndependentSessions(GameTestHelper helper) {
-        List<ServerPlayer> players = startRtsPlayers(helper, 5);
+        List<ServerPlayer> players = startRtsPlayers(helper, 5, GameType.CREATIVE);
 
         for (ServerPlayer player : players) {
             RtsStorageSession session = requireSession(helper, player);
@@ -420,7 +425,7 @@ public final class RtsServerGameTests {
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void fivePlayersPlaceBatchesWithoutCrossTalk(GameTestHelper helper) {
-        List<ServerPlayer> players = startRtsPlayers(helper, 5);
+        List<ServerPlayer> players = startRtsPlayers(helper, 5, GameType.CREATIVE);
         List<List<BlockPos>> supportGroupsRel = new ArrayList<>();
 
         for (int i = 0; i < players.size(); i++) {
@@ -452,7 +457,7 @@ public final class RtsServerGameTests {
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void fivePlayersAreaDestroyWithoutCrossTalk(GameTestHelper helper) {
-        List<ServerPlayer> players = startRtsPlayers(helper, 5);
+        List<ServerPlayer> players = startRtsPlayers(helper, 5, GameType.CREATIVE);
         List<List<BlockPos>> targetGroupsRel = new ArrayList<>();
 
         for (int i = 0; i < players.size(); i++) {
@@ -495,7 +500,7 @@ public final class RtsServerGameTests {
             helper.setBlock(targetRel, Blocks.DIRT);
         }
 
-        ServerPlayer player = startRtsPlayer(helper);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
         RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
                 RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
         RtsAPI.get().bindings().setAutoStoreMinedDrops(player, true);
@@ -563,7 +568,7 @@ public final class RtsServerGameTests {
         }
         Map<Item, Integer> expected = fillChestsWithJunk(helper, chestsRel, 48);
 
-        ServerPlayer player = startRtsPlayer(helper);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
         linkChests(helper, player, chestsRel);
         RtsStorageSession session = requireSession(helper, player);
 
@@ -614,7 +619,9 @@ public final class RtsServerGameTests {
                 0, itemId(Items.HONEYCOMB), 16, false, List.of());
         assertSingleSearchResult(helper, honeycomb, Items.HONEYCOMB,
                 "入库后的蜂巢脾应该立刻能被搜索页看到");
-        helper.assertTrue(totalCount(honeycomb, Items.HONEYCOMB) == 11L,
+        helper.assertTrue(chestsRel.stream()
+                        .mapToLong(chestRel -> countChestItem(helper, chestRel, Items.HONEYCOMB))
+                        .sum() == 11L,
                 "入库后的蜂巢脾数量应该等于实际存入数量");
 
         stopPlayers(player);
@@ -660,9 +667,16 @@ public final class RtsServerGameTests {
     }
 
     private static List<ServerPlayer> startRtsPlayers(GameTestHelper helper, int count) {
+        return startRtsPlayers(helper, count, GameType.SURVIVAL);
+    }
+
+    private static List<ServerPlayer> startRtsPlayers(GameTestHelper helper, int count, GameType gameType) {
         List<ServerPlayer> players = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            players.add(startRtsPlayer(helper, "rts-gametest-" + i, new Vec3(3.5D + i, 2.0D, 3.5D)));
+            ServerPlayer player = startRtsPlayer(
+                    helper, "rts-gametest-" + i, new Vec3(3.5D + i, 2.0D, 3.5D));
+            player.setGameMode(gameType);
+            players.add(player);
         }
         return players;
     }
@@ -679,14 +693,16 @@ public final class RtsServerGameTests {
 
     private static void enqueuePlacementThroughApi(GameTestHelper helper, ServerPlayer player,
             List<BlockPos> supportsRel, String itemId, ItemStack prototype) {
-        List<BlockPos> supportsAbs = supportsRel.stream()
+        // 快速建造 API 接收最终目标坐标；右键交互式放置才接收支撑方块坐标。
+        List<BlockPos> targetsAbs = supportsRel.stream()
+                .map(BlockPos::above)
                 .map(helper::absolutePos)
                 .toList();
         Vec3 rayOrigin = player.getEyePosition();
-        Vec3 firstHit = Vec3.atCenterOf(supportsAbs.get(0)).add(0.0D, 0.5D, 0.0D);
+        Vec3 firstHit = Vec3.atCenterOf(targetsAbs.get(0));
         Vec3 rayDir = firstHit.subtract(rayOrigin).normalize();
 
-        RtsAPI.get().placement().enqueueBatch(player, asApiPositions(supportsAbs), Direction.UP,
+        RtsAPI.get().placement().enqueueBatch(player, asApiPositions(targetsAbs), Direction.UP,
                 0.5D, 1.0D, 0.5D,
                 (byte) 0, false, false,
                 itemId, prototype,
@@ -716,6 +732,9 @@ public final class RtsServerGameTests {
         RtsStorageSession session = requireSession(helper, player);
         for (int i = 0; i < ticks; i++) {
             RtsMiningStateMachine.tickActiveMining(player, session);
+            // Forge GameTest 的 FakePlayer 不在真实在线玩家列表中，因此全服任务引擎
+            // 不会替它执行 BUFFER_DRAIN；这里补齐一次完整服务端挖掘 tick 的后半段。
+            RtsDropAbsorber.drainDropBuffer(player, session, 32, Long.MAX_VALUE);
         }
     }
 
