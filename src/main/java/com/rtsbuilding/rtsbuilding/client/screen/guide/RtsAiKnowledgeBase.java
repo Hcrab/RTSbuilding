@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiTopic;

@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.developer.RtsDeveloperTaskScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButton;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;

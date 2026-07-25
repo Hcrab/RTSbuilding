@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.funnel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.FunnelBufferEntry;
-import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiState;
 

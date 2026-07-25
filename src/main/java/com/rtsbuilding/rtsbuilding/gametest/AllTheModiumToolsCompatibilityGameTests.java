@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.gametest;
 
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.server.api.RtsAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;

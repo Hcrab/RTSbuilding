@@ -15,7 +15,7 @@ public interface RtsBindingsAPI {
      * 设置建造模???
      *
      * @param player 目标玩家
-     * @param mode   模式（com.rtsbuilding.rtsbuilding.common.BuilderMode??
+     * @param mode   模式（com.rtsbuilding.rtsbuilding.common.build.BuilderMode??
      */
     void setMode(ServerPlayer player, Object mode);
 
