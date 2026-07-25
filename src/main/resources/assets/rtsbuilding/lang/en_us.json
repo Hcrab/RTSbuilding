@@ -304,7 +304,7 @@
   "screen.rtsbuilding.culling.delete_hint": "Click arrow + scroll: resize XYZ",
   "screen.rtsbuilding.top_hint.guide": "Need help controlling?",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
-  "chat.rtsbuilding.intro.version_warning": "Current RTS Building version: 1.1.6-pilot. Usage guide: %s. If it proves unstable, return to 1.1.5-patch4.",
+  "chat.rtsbuilding.intro.version_warning": "Current RTS Building version: %s. Usage guide: %s.",
   "chat.rtsbuilding.intro.feedback": "Feedback links: Discord %s | GitHub %s | QQ group %s. If RTSBuilding helps you, a GitHub star would mean a lot.",
   "chat.rtsbuilding.intro.config_hint": "Small i buttons open tutorials for panels and overlays.",
   "chat.rtsbuilding.intro.dismiss": "[Don't remind me again]",
