@@ -200,6 +200,6 @@ public final class RtsPageService {
 
     private static int sessionPageSize(ServerPlayer player) {
         RtsStorageSession session = player == null ? null : RtsSessionService.getIfPresent(player);
-        return session == null ? RtsStoragePageBuilder.DEFAULT_PAGE_SIZE : session.browser.pageSize;
+        return session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
     }
 }

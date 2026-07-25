@@ -29,6 +29,31 @@ class RtsRemoteMenuCompatSmokeTest {
                 "从 linked storage 快速移动到本地 Sophisticated 菜单时必须改走玩家背包，避免向打开的背包菜单回灌。");
     }
 
+    @Test
+    void allSupportedMenusShareOneTrackerAndProbeGate() throws Exception {
+        String unified = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/compat/remote/RtsRemoteMenuCompat.java"));
+        String client = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/compat/RtsClientRemoteMenuCompat.java"));
+        String mixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/ModdedRemoteStillValidMixin.java"));
+        String mixinConfig = Files.readString(Path.of(
+                "src/main/resources/rtsbuilding.mixins.json"));
+
+        assertTrue(unified.contains("new RemoteMenuTracker(RtsRemoteMenuCompat::isSupportedRemoteMenu)")
+                        && unified.contains("isRemoteMenuPersistenceDisabledForProbe"),
+                "Forge 远程菜单必须与主线一样使用统一追踪器，并保留自动化失效探针");
+        assertTrue(mixin.contains("BlockIronFurnaceContainerBase")
+                        && mixin.contains("GeneratorMenu")
+                        && mixin.contains("StorageContainerMenuBase")
+                        && mixin.contains("RtsRemoteMenuCompat.shouldForceStillValid")
+                        && mixinConfig.contains("\"ModdedRemoteStillValidMixin\""),
+                "所有已支持第三方远程容器都必须接入统一且已注册的 stillValid Mixin");
+        assertTrue(client.contains("RtsRemoteMenuCompat.wrapRemoteMenu(menu)")
+                        && !client.contains("RtsSophisticatedStorageCompat.markClientRemoteMenu"),
+                "客户端菜单安装链只能写入一次统一追踪状态");
+    }
+
     private static FakeBackpackMenu allocateMenuWithoutMinecraftBootstrap() {
         try {
             Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");

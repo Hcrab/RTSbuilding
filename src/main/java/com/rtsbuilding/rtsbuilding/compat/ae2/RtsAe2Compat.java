@@ -30,12 +30,12 @@ import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import net.minecraftforge.items.IItemHandler;
 
 public final class RtsAe2Compat {
-    public interface ReportedCountItemHandler {
-        long getReportedCount(int slot);
+    public interface ReportedCountItemHandler
+            extends com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler {
     }
 
-    public interface AnySlotInsertItemHandler {
-        ItemStack insertItemAnywhere(ItemStack stack, boolean simulate);
+    public interface AnySlotInsertItemHandler
+            extends com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler {
     }
 
     private static final Ae2Reflection REFLECTION = Ae2Reflection.tryLoad();
@@ -64,9 +64,6 @@ public final class RtsAe2Compat {
     }
 
     public static long getReportedCount(IItemHandler handler, int slot, ItemStack fallbackStack) {
-        if (handler instanceof com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler reported) {
-            return Math.max(0L, reported.getReportedCount(slot));
-        }
         if (handler instanceof ReportedCountItemHandler reported) {
             return Math.max(0L, reported.getReportedCount(slot));
         }
@@ -300,8 +297,7 @@ public final class RtsAe2Compat {
     }
 
     private static final class Ae2NetworkItemHandler implements IItemHandler, ReportedCountItemHandler,
-            com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler, AnySlotInsertItemHandler,
-            com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler, RefreshableSnapshotHandler {
+            AnySlotInsertItemHandler, RefreshableSnapshotHandler {
         private final ServerPlayer player;
         private final Object storageService;
         private final Ae2Reflection reflection;

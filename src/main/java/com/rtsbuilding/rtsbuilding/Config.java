@@ -116,6 +116,21 @@ public final class Config {
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
 
+    public static final ForgeConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = BUILDER
+            .comment("Maximum player count retained by the storage page LRU cache.")
+            .translation("rtsbuilding.configuration.pageCacheMaxPlayers")
+            .defineInRange("storage.pageCacheMaxPlayers", 256, 1, 4096);
+
+    public static final ForgeConfigSpec.IntValue DEFAULT_STORAGE_PAGE_SIZE = BUILDER
+            .comment("Default number of item/fluid entries shown per RTS storage page.")
+            .translation("rtsbuilding.configuration.defaultStoragePageSize")
+            .defineInRange("storage.defaultStoragePageSize", 90, 1, 4096);
+
+    public static final ForgeConfigSpec.IntValue MAX_STORAGE_PAGE_SIZE = BUILDER
+            .comment("Maximum allowed item/fluid entries per RTS storage page request.")
+            .translation("rtsbuilding.configuration.maxStoragePageSize")
+            .defineInRange("storage.maxStoragePageSize", 180, 1, 8192);
+
     public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = BUILDER
             .comment("Hard global RTS work-unit limit across all players in one server tick.")
             .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
@@ -380,6 +395,18 @@ public final class Config {
 
     public static int refinedStorageNetworkRefreshThrottle() {
         return REFINED_STORAGE_NETWORK_REFRESH_THROTTLE.get();
+    }
+
+    public static int pageCacheMaxPlayers() {
+        return PAGE_CACHE_MAX_PLAYERS.get();
+    }
+
+    public static int defaultStoragePageSize() {
+        return Math.min(DEFAULT_STORAGE_PAGE_SIZE.get(), maxStoragePageSize());
+    }
+
+    public static int maxStoragePageSize() {
+        return MAX_STORAGE_PAGE_SIZE.get();
     }
 
     public static int taskEngineMaxUnitsPerTick() {

@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.server.service.page;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
-import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -36,35 +35,13 @@ public final class RtsPageCore {
     //  Page cache: avoids O(n log n) sort + filter rebuild on pure pagination
     // ======================================================================
 
-    /** Per-player page build cache, keyed by (params + data version). */
-    private static final java.util.Map<java.util.UUID, CachedPage> pageCache = new java.util.HashMap<>();
-
     /**
      * Removes a player's cached page data so the GC can reclaim memory
      * when they disable RTS or log out.
      */
     public static void clearCache(java.util.UUID playerUuid) {
-        if (playerUuid != null) {
-            pageCache.remove(playerUuid);
-        }
+        RtsPageCache.INSTANCE.remove(playerUuid);
     }
-
-    /** Key that determines cache validity. */
-    private record CachedPageKey(
-            String search, RtsStorageSort sort, String category, boolean ascending,
-            int pageSize, boolean pinyinSearchEnabled, boolean includePlayerInventory
-    ) {}
-
-    /** Cached result of the expensive sort + filter + categories build phase. */
-    private record CachedPage(
-            CachedPageKey key,
-            long dataVersion,
-            List<Entry> sortedEntries,
-            List<FluidEntry> sortedFluidEntries,
-            Map<String, Long> counts,
-            Map<String, Long> namespaceTotals,
-            List<String> categories
-    ) {}
 
     public static PageResult build(
             ServerPlayer player,
@@ -87,10 +64,10 @@ public final class RtsPageCore {
         }
 
         // ── Page cache check: avoid O(n log n) sort + filter rebuild on pure pagination ──
-        CachedPageKey cacheKey = new CachedPageKey(
+        RtsPageCache.CachedPageKey cacheKey = new RtsPageCache.CachedPageKey(
                 session.browser.search, session.browser.sort, session.browser.category, session.browser.ascending,
                 requestedPageSize, session.browser.pinyinSearchEnabled, includePlayerMainInventory);
-        CachedPage cached = pageCache.get(player.getUUID());
+        RtsPageCache.CachedPage cached = RtsPageCache.INSTANCE.get(player.getUUID());
 
         final Map<String, Long> counts;
         final Map<String, Long> namespaceTotals;
@@ -264,7 +241,7 @@ public final class RtsPageCore {
             totalEntries = entries.size();
 
             // Update page cache
-            pageCache.put(player.getUUID(), new CachedPage(
+            RtsPageCache.INSTANCE.put(player.getUUID(), new RtsPageCache.CachedPage(
                     cacheKey, session.transfer.pageDataVersion.get(),
                     sortedEntries, sortedFluidEntries,
                     counts, namespaceTotals, categories));

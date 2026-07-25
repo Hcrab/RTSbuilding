@@ -14,7 +14,7 @@
   ],
   "mixins": [
     "ChestMenuMixin",
-    "compat.sophisticatedstorage.StorageContainerMenuMixin"
+    "ModdedRemoteStillValidMixin"
   ],
   "injectors": {
     "defaultRequire": 0

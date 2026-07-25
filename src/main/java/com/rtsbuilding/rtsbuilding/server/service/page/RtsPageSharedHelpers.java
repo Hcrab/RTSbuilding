@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
@@ -16,8 +17,6 @@ import java.util.Set;
  */
 public final class RtsPageSharedHelpers {
 
-    public static final int DEFAULT_PAGE_SIZE = 90;
-    public static final int MAX_PAGE_SIZE = 180;
     static final int PLAYER_MAIN_INVENTORY_END_EXCLUSIVE = 36;
     static final String CATEGORY_ALL = "all";
     static final String CATEGORY_MOD_PREFIX = "mod|";
@@ -28,8 +27,16 @@ public final class RtsPageSharedHelpers {
 
     // ---- page size ---------------------------------------------------------------
 
+    public static int defaultPageSize() {
+        return Config.defaultStoragePageSize();
+    }
+
+    public static int maxPageSize() {
+        return Config.maxStoragePageSize();
+    }
+
     public static int sanitizePageSize(int pageSize) {
-        return Math.max(1, Math.min(MAX_PAGE_SIZE, pageSize));
+        return Math.max(1, Math.min(maxPageSize(), pageSize));
     }
 
     // ---- search ------------------------------------------------------------------

@@ -32,7 +32,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
-import com.rtsbuilding.rtsbuilding.compat.sophisticatedstorage.RtsSophisticatedStorageCompat;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
@@ -2961,7 +2960,6 @@ public final class ClientRtsController {
         this.pendingRemoteMenuOpenTicks = Math.max(this.pendingRemoteMenuOpenTicks, REMOTE_MENU_OPEN_GRACE_TICKS);
         this.screenlessRemoteMenuTicks = 0;
         RtsRemoteMenuCompat.beginClientRemoteMenuOpen();
-        RtsSophisticatedStorageCompat.beginClientRemoteMenuOpen();
     }
 
     private void handleRemoteMenuOpenFailure(Minecraft minecraft, Throwable throwable) {
@@ -2988,7 +2986,6 @@ public final class ClientRtsController {
     private void clearRemoteMenuValidationState() {
         this.relaxedRemoteMenu = null;
         RtsRemoteMenuCompat.clearClientRemoteMenu();
-        RtsSophisticatedStorageCompat.clearClientRemoteMenu();
     }
 
     private void clearSelectedItemOnly() {

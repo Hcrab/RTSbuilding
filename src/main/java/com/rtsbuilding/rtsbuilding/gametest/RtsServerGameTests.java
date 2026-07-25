@@ -632,7 +632,11 @@ public final class RtsServerGameTests {
         return startRtsPlayer(helper, "rts-gametest", new Vec3(3.5D, 2.0D, 3.5D));
     }
 
-    private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
+    /**
+     * 第三方真实工具兼容测试复用的生产级 RTS 会话夹具。
+     * 保持包可见，避免每个整合测试各自复制一套 FakePlayer/会话初始化逻辑。
+     */
+    static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
         ServerPlayer player = startRtsPlayer(helper);
         player.setGameMode(gameType);
         return player;
@@ -718,7 +722,7 @@ public final class RtsServerGameTests {
         return positions;
     }
 
-    private static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
+    static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
         return asApiPositions(relativePositions.stream()
                 .map(helper::absolutePos)
                 .toList());
@@ -728,7 +732,7 @@ public final class RtsServerGameTests {
         return new ArrayList<>(positions);
     }
 
-    private static void tickMiningPlayer(GameTestHelper helper, ServerPlayer player, int ticks) {
+    static void tickMiningPlayer(GameTestHelper helper, ServerPlayer player, int ticks) {
         RtsStorageSession session = requireSession(helper, player);
         for (int i = 0; i < ticks; i++) {
             RtsMiningStateMachine.tickActiveMining(player, session);
@@ -957,7 +961,7 @@ public final class RtsServerGameTests {
         }
     }
 
-    private static void stopPlayers(ServerPlayer player) {
+    static void stopPlayers(ServerPlayer player) {
         RtsCameraManager.stopIfActive(player);
     }
 

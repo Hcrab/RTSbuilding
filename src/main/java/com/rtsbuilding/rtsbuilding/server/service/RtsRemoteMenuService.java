@@ -40,7 +40,7 @@ public final class RtsRemoteMenuService {
     }
 
     public static void relaxOpenedMenuValidation(AbstractContainerMenu menu) {
-        if (menu == null) {
+        if (menu == null || RtsRemoteMenuCompat.isRemoteMenuPersistenceDisabledForProbe()) {
             return;
         }
         boolean preserveContainerIdentity = menu instanceof ChestMenu;

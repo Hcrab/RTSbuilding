@@ -224,7 +224,8 @@ minecraft {
             // 基础 GameTest 使用干净目录；兼容测试可通过环境变量把“启动目录”和“第三方 jar 仓库”分开。
             // 这样 ForgeGradle 只会加载 fg.deobf 后的 runtimeOnly 依赖，不会再从启动目录 mods 扫到原始发布 jar。
             workingDirectory gameTestRunDirectory
-            property 'forge.enabledGameTestNamespaces', mod_id
+            property 'forge.enabledGameTestNamespaces',
+                    providers.gradleProperty('rts_gametest_namespaces').getOrElse(mod_id)
         }
 
         data {
@@ -285,6 +286,19 @@ dependencies {
     compileOnly fg.deobf("mezz.jei:jei-${jei_minecraft_version}-forge-api:${jei_version}")
     // Jade 只提供编译期 API；玩家未安装 Jade 时兼容入口和伪 Mixin 都不会参与运行。
     compileOnly fg.deobf("curse.maven:jade-${jade_curseforge_project_id}:${jade_curseforge_file_id}")
+    if (providers.gradleProperty('rts_create_gametest_jar').isPresent()) {
+        // 可选 Create 回归环境；普通构建和发布包不携带第三方运行时。
+        runtimeOnly fg.deobf(files(providers.gradleProperty('rts_create_gametest_jar').get()))
+    }
+    if (providers.gradleProperty('rts_mekanism_gametest_jar').isPresent()) {
+        runtimeOnly fg.deobf(files(providers.gradleProperty('rts_mekanism_gametest_jar').get()))
+    }
+    if (providers.gradleProperty('rts_mekanism_tools_gametest_jar').isPresent()) {
+        runtimeOnly fg.deobf(files(providers.gradleProperty('rts_mekanism_tools_gametest_jar').get()))
+    }
+    if (providers.gradleProperty('rts_atm_gametest_jar').isPresent()) {
+        runtimeOnly fg.deobf(files(providers.gradleProperty('rts_atm_gametest_jar').get()))
+    }
     // 第三方测试模组只从当前 runDir 的 mods 目录进入开发环境；build/devRunMods 只是清理后的缓存。
     devRuntimeModJars.each { jarFile ->
         def moduleName = jarFile.name.substring(0, jarFile.name.length() - 4)

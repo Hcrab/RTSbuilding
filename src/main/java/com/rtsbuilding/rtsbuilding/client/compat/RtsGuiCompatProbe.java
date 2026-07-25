@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,35 +23,34 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterClientCommandsEvent;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 
-/**
- * 1.20.1 本地 GUI 兼容烟测探针。
- *
- * <p>它只在设置了 {@code rtsbuilding.guiCompatProbeReport} 系统属性或
- * {@code RTSBUILDING_GUI_COMPAT_PROBE_REPORT} 环境变量时启用。探针不改写 RTS
- * 交互逻辑，只记录客户端 screen / menu 的生命周期，并在主动运行时通过真实 RTS 空手右键链路触发目标方块。
- * 这样可以把“机器 GUI 一闪又关闭”这类现象转成可对比的 TSV 证据。</p>
- */
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class RtsGuiCompatProbe {
-    private static final int FLASH_CLOSE_TICK_LIMIT = 12;
     private static final int SCREENLESS_MENU_TICK_LIMIT = 8;
     private static final int AUTO_WORLD_READY_DELAY = 80;
-    private static final int AUTO_SETUP_DELAY = 100;
+    private static final int AUTO_SETUP_DELAY = 40;
     private static final int AUTO_EXIT_DELAY = 40;
-    private static final int AUTO_TIMEOUT_TICKS = 20 * 90;
+    private static final int AUTO_TIMEOUT_TICKS = 20 * 120;
+    private static final int REQUIRED_STABLE_TICKS = resolveInt("rtsbuilding.guiCompatStableTicks",
+            "RTSBUILDING_GUI_COMPAT_STABLE_TICKS", 40);
+    private static final int TARGET_SEARCH_RADIUS = resolveInt("rtsbuilding.guiCompatTargetSearchRadius",
+            "RTSBUILDING_GUI_COMPAT_TARGET_SEARCH_RADIUS", 32);
 
     private static final Path REPORT_PATH = resolveReportPath();
     private static final String CASE_ID = resolveConfig("rtsbuilding.guiCompatCaseId",
-            "RTSBUILDING_GUI_COMPAT_CASE_ID");
+            "RTSBUILDING_GUI_COMPAT_CASE_ID", "vanilla_chest");
     private static final String TARGET_BLOCK = resolveConfig("rtsbuilding.guiCompatTargetBlock",
-            "RTSBUILDING_GUI_COMPAT_TARGET_BLOCK");
+            "RTSBUILDING_GUI_COMPAT_TARGET_BLOCK", "minecraft:chest");
+    private static final String EXPECTED_MENU_REGEX = resolveConfig("rtsbuilding.guiCompatExpectedMenuRegex",
+            "RTSBUILDING_GUI_COMPAT_EXPECTED_MENU_REGEX", defaultExpectedMenuRegex(CASE_ID));
+    private static final String EXPECTED_SCREEN_REGEX = resolveConfig("rtsbuilding.guiCompatExpectedScreenRegex",
+            "RTSBUILDING_GUI_COMPAT_EXPECTED_SCREEN_REGEX", "");
     private static final String SETUP_COMMAND = stripLeadingSlash(resolveConfig("rtsbuilding.guiCompatSetupCommand",
-            "RTSBUILDING_GUI_COMPAT_SETUP_COMMAND"));
+            "RTSBUILDING_GUI_COMPAT_SETUP_COMMAND", "rtsbuilding_gui_compat_setup vanilla_chest"));
     private static final boolean AUTO_RUN = resolveBoolean("rtsbuilding.guiCompatAutoRun",
             "RTSBUILDING_GUI_COMPAT_AUTO_RUN");
     private static final boolean AUTO_EXIT = resolveBoolean("rtsbuilding.guiCompatAutoExit",
@@ -64,18 +62,20 @@ public final class RtsGuiCompatProbe {
     private static String lastScreenTitle = "";
     private static String lastMenuClass = "";
     private static int lastContainerId = -1;
-    private static long lastScreenOpenTick = -1;
     private static int screenlessMenuTicks;
     private static SmokeRun activeRun;
-    private static AutoRun autoRun = AUTO_RUN && REPORT_PATH != null ? new AutoRun(resolveFallbackCaseId()) : null;
+    private static AutoRun autoRun = AUTO_RUN && REPORT_PATH != null ? new AutoRun(CASE_ID) : null;
 
     private RtsGuiCompatProbe() {
     }
 
     @SubscribeEvent
     public static void registerClientCommands(RegisterClientCommandsEvent event) {
+        if (REPORT_PATH == null) {
+            return;
+        }
         event.getDispatcher().register(Commands.literal("rtsbuilding_gui_compat_run")
-                .executes(context -> startFromCommand(resolveFallbackCaseId()))
+                .executes(context -> startFromCommand(CASE_ID))
                 .then(Commands.argument("caseId", StringArgumentType.word())
                         .executes(context -> startFromCommand(StringArgumentType.getString(context, "caseId")))));
     }
@@ -88,13 +88,10 @@ public final class RtsGuiCompatProbe {
 
         tick++;
         Minecraft minecraft = Minecraft.getInstance();
-        Screen screen = minecraft.screen;
-        String screenClass = screen == null ? "" : screen.getClass().getName();
-        String screenTitle = screen == null || screen.getTitle() == null ? "" : screen.getTitle().getString();
-
-        AbstractContainerMenu menu = minecraft.player == null ? null : minecraft.player.containerMenu;
-        int containerId = menu == null ? -1 : menu.containerId;
-        String menuClass = menu == null || containerId == 0 ? "" : menu.getClass().getName();
+        String screenClass = currentScreenClass(minecraft);
+        String screenTitle = currentScreenTitle(minecraft);
+        String menuClass = currentMenuClass(minecraft);
+        int containerId = currentContainerId(minecraft);
 
         if (!screenClass.equals(lastScreenClass) || !screenTitle.equals(lastScreenTitle)
                 || !menuClass.equals(lastMenuClass) || containerId != lastContainerId) {
@@ -108,7 +105,7 @@ public final class RtsGuiCompatProbe {
             screenlessMenuTicks++;
             if (screenlessMenuTicks == SCREENLESS_MENU_TICK_LIMIT) {
                 writeRow("screenless-menu", "FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "服务端菜单存在但客户端 screen 长时间为空，符合 GUI 一闪后丢失的症状。");
+                        "Menu exists but no client screen stayed open.");
             }
         } else {
             screenlessMenuTicks = 0;
@@ -116,54 +113,50 @@ public final class RtsGuiCompatProbe {
     }
 
     private static int startFromCommand(String requestedCaseId) {
-        if (REPORT_PATH == null) {
-            Minecraft.getInstance().player.displayClientMessage(Component.literal(
-                    "RTS GUI compat probe is disabled. Launch with RTSBUILDING_GUI_COMPAT_PROBE_REPORT first."), false);
-            return 0;
-        }
-
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null) {
-            writeRow("run-start", "FAIL", "", "", "", -1, "客户端世界或玩家尚未就绪。");
+            writeRow("run-start", "FAIL", "", "", "", -1, "Client world or player is not ready.");
             return 0;
         }
+        closeStaleBuilderScreen(minecraft);
+
         BlockHitResult hit = resolveTargetHit(minecraft);
         if (hit == null) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
-                    currentMenuClass(minecraft), currentContainerId(minecraft), "未找到可测试目标方块。");
-            minecraft.player.displayClientMessage(Component.literal("RTS GUI compat: no target block found."), false);
+                    currentMenuClass(minecraft), currentContainerId(minecraft), "No target block found.");
             return 0;
         }
 
         BlockState state = minecraft.level.getBlockState(hit.getBlockPos());
         String targetBlock = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         if (!TARGET_BLOCK.isBlank() && !TARGET_BLOCK.equals(targetBlock)) {
-            String note = "目标方块不匹配，expected=" + TARGET_BLOCK + " actual=" + targetBlock;
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
-                    currentMenuClass(minecraft), currentContainerId(minecraft), note);
-            minecraft.player.displayClientMessage(Component.literal("RTS GUI compat: " + note), false);
+                    currentMenuClass(minecraft), currentContainerId(minecraft),
+                    "Target mismatch: expected=" + TARGET_BLOCK + " actual=" + targetBlock);
             return 0;
         }
+
         Vec3 origin = minecraft.player.getEyePosition();
         Vec3 rayDir = hit.getLocation().subtract(origin);
-        if (rayDir.lengthSqr() < 1.0E-6D) {
-            rayDir = minecraft.player.getLookAngle();
-        } else {
-            rayDir = rayDir.normalize();
-        }
+        rayDir = rayDir.lengthSqr() < 1.0E-6D ? minecraft.player.getLookAngle() : rayDir.normalize();
 
-        activeRun = new SmokeRun(
-                requestedCaseId == null || requestedCaseId.isBlank() ? resolveFallbackCaseId() : requestedCaseId,
-                targetBlock,
-                hit,
-                origin,
-                rayDir);
+        activeRun = new SmokeRun(requestedCaseId == null || requestedCaseId.isBlank() ? CASE_ID : requestedCaseId,
+                targetBlock, hit, origin, rayDir);
         writeRow("run-start", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                 currentMenuClass(minecraft), currentContainerId(minecraft),
                 "pos=" + hit.getBlockPos().toShortString() + " block=" + targetBlock);
-        minecraft.player.displayClientMessage(Component.literal("RTS GUI compat: started " + activeRun.caseId
-                + " on " + targetBlock), false);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static void closeStaleBuilderScreen(Minecraft minecraft) {
+        Screen screen = minecraft.screen;
+        if (screen != null && screen.getClass().getName().equals(
+                "com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen")) {
+            minecraft.setScreen(null);
+            writeRow("screen-close-stale-rts", "INFO", "", "",
+                    currentMenuClass(minecraft), currentContainerId(minecraft),
+                    "Closed stale RTS BuilderScreen before starting the GUI compat probe.");
+        }
     }
 
     private static BlockHitResult resolveTargetHit(Minecraft minecraft) {
@@ -172,10 +165,7 @@ public final class RtsGuiCompatProbe {
                 return hit;
             }
         }
-        if (!TARGET_BLOCK.isBlank()) {
-            return findNearestTargetHit(minecraft);
-        }
-        return null;
+        return findNearestTargetHit(minecraft);
     }
 
     private static boolean matchesTargetBlock(Minecraft minecraft, BlockPos pos) {
@@ -183,18 +173,19 @@ public final class RtsGuiCompatProbe {
             return false;
         }
         BlockState state = minecraft.level.getBlockState(pos);
-        String targetBlock = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        return TARGET_BLOCK.equals(targetBlock);
+        return TARGET_BLOCK.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
     }
 
     private static BlockHitResult findNearestTargetHit(Minecraft minecraft) {
-        if (minecraft.player == null || minecraft.level == null) {
+        if (minecraft.player == null || minecraft.level == null || TARGET_BLOCK.isBlank()) {
             return null;
         }
         BlockPos playerPos = minecraft.player.blockPosition();
         BlockPos nearest = null;
         double bestDistance = Double.MAX_VALUE;
-        for (BlockPos pos : BlockPos.betweenClosed(playerPos.offset(-8, -3, -8), playerPos.offset(8, 5, 8))) {
+        int radius = Math.max(1, TARGET_SEARCH_RADIUS);
+        for (BlockPos pos : BlockPos.betweenClosed(playerPos.offset(-radius, -3, -radius),
+                playerPos.offset(radius, 5, radius))) {
             if (!matchesTargetBlock(minecraft, pos)) {
                 continue;
             }
@@ -207,8 +198,7 @@ public final class RtsGuiCompatProbe {
         if (nearest == null) {
             return null;
         }
-        Vec3 hitLocation = Vec3.atCenterOf(nearest);
-        return new BlockHitResult(hitLocation, Direction.UP, nearest, false);
+        return new BlockHitResult(Vec3.atCenterOf(nearest), Direction.UP, nearest, false);
     }
 
     private static void tickActiveRun(Minecraft minecraft, String screenClass, String screenTitle,
@@ -216,30 +206,32 @@ public final class RtsGuiCompatProbe {
         if (activeRun == null) {
             return;
         }
-        activeRun.ticks++;
-        ClientRtsController controller = ClientRtsController.get();
 
+        activeRun.totalTicks++;
+        activeRun.stageTicks++;
+        if (activeRun.totalTicks > AUTO_TIMEOUT_TICKS) {
+            finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId, "Probe timed out.");
+            return;
+        }
+
+        ClientRtsController controller = ClientRtsController.get();
         if (activeRun.stage == SmokeStage.START) {
             if (!controller.isEnabled()) {
                 if (!activeRun.toggleSent) {
                     RtsClientPacketGateway.sendToggleCamera(controller.isStartCameraAtPlayerHead());
                     activeRun.toggleSent = true;
                     writeRow("run-toggle-rts", "INFO", screenClass, screenTitle, menuClass, containerId,
-                            "等待服务器打开 RTS 模式。");
-                }
-                if (activeRun.ticks > 100) {
-                    finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                            "100 tick 内未进入 RTS 模式。");
+                            "Waiting for RTS mode.");
                 }
                 return;
             }
             controller.selectEmptyHand();
             activeRun.stage = SmokeStage.SEND_INTERACT;
             activeRun.stageTicks = 0;
+            return;
         }
 
         if (activeRun.stage == SmokeStage.SEND_INTERACT) {
-            activeRun.stageTicks++;
             if (activeRun.stageTicks < 2) {
                 return;
             }
@@ -247,31 +239,43 @@ public final class RtsGuiCompatProbe {
             activeRun.stage = SmokeStage.OBSERVE;
             activeRun.stageTicks = 0;
             writeRow("run-interact", "INFO", screenClass, screenTitle, menuClass, containerId,
-                    "已通过 RTS 空手右键链路触发目标方块。");
+                    "Sent RTS empty-hand right-click.");
             return;
         }
 
         if (activeRun.stage == SmokeStage.OBSERVE) {
-            activeRun.stageTicks++;
-            if (isExternalScreen(screenClass)) {
-                activeRun.sawExternalScreen = true;
-                activeRun.lastExternalScreen = screenClass;
+            AbstractContainerMenu menu = minecraft.player == null ? null : minecraft.player.containerMenu;
+            boolean hasMenu = menu != null && menu.containerId != 0;
+            boolean hasScreen = minecraft.screen != null;
+            boolean menuMatches = hasMenu && matchesRegex(menu.getClass().getName(), EXPECTED_MENU_REGEX);
+            boolean screenMatches = hasScreen && matchesRegex(screenClass, EXPECTED_SCREEN_REGEX);
+            if (hasMenu && !menuMatches) {
+                finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
+                        "Unexpected menu: " + menu.getClass().getName() + " expected=" + EXPECTED_MENU_REGEX);
+                return;
             }
-            if (activeRun.stageTicks >= 80) {
-                if (activeRun.failed) {
-                    finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId, activeRun.failureNote);
-                } else if (activeRun.warned) {
-                    finishActiveRun("WARN", screenClass, screenTitle, menuClass, containerId, activeRun.warningNote);
-                } else if (activeRun.sawExternalScreen && isExternalScreen(screenClass)) {
+            if (hasMenu && hasScreen && !screenMatches) {
+                finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
+                        "Unexpected screen: " + screenClass + " expected=" + EXPECTED_SCREEN_REGEX);
+                return;
+            }
+            if (hasMenu && hasScreen && menuMatches && screenMatches) {
+                activeRun.stableTicks++;
+                activeRun.sawMenu = true;
+                if (activeRun.stableTicks >= REQUIRED_STABLE_TICKS) {
                     finishActiveRun("PASS", screenClass, screenTitle, menuClass, containerId,
-                            "外部 GUI 保持打开，screen=" + activeRun.lastExternalScreen);
-                } else if (!menuClass.isEmpty() && screenClass.isEmpty()) {
-                    finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                            "服务端菜单存在但客户端 screen 为空。");
-                } else {
-                    finishActiveRun("WARN", screenClass, screenTitle, menuClass, containerId,
-                            "未观察到稳定的外部 GUI。");
+                            "Expected menu and screen stayed open for " + REQUIRED_STABLE_TICKS + " ticks.");
                 }
+                return;
+            }
+            if (activeRun.sawMenu && !hasScreen) {
+                finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
+                        "Screen closed before " + REQUIRED_STABLE_TICKS + " stable ticks.");
+                return;
+            }
+            if (activeRun.stageTicks > 120) {
+                finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
+                        "Expected menu did not open within 120 ticks after interaction.");
             }
         }
     }
@@ -286,20 +290,10 @@ public final class RtsGuiCompatProbe {
         if (minecraft.player == null || minecraft.level == null || minecraft.player.connection == null) {
             if (autoRun.totalTicks > AUTO_TIMEOUT_TICKS) {
                 writeRow("auto-timeout", "FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "自动探针等待客户端进入世界超时。");
+                        "Timed out waiting for a playable world.");
                 finishAutoRun(minecraft);
             }
             return;
-        }
-
-        if (minecraft.screen instanceof PauseScreen) {
-            // 自动烟测必须让集成服务端继续 tick，否则 setup command 会卡在暂停菜单里。
-            minecraft.setScreen(null);
-            if (!autoRun.closedPauseScreen) {
-                autoRun.closedPauseScreen = true;
-                writeRow("auto-close-pause", "INFO", screenClass, screenTitle, menuClass, containerId,
-                        "自动探针关闭暂停菜单，恢复集成服务端 tick。");
-            }
         }
 
         autoRun.stageTicks++;
@@ -342,12 +336,6 @@ public final class RtsGuiCompatProbe {
                 if (autoRun.stageTicks >= AUTO_EXIT_DELAY) {
                     finishAutoRun(minecraft);
                 }
-                return;
-            }
-            if (autoRun.stageTicks > AUTO_TIMEOUT_TICKS) {
-                finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "自动探针等待 run-finish 超时。");
-                finishAutoRun(minecraft);
             }
         }
     }
@@ -359,75 +347,44 @@ public final class RtsGuiCompatProbe {
         autoRun.finished = true;
         if (AUTO_EXIT) {
             writeRow("auto-exit", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
-                    currentMenuClass(minecraft), currentContainerId(minecraft), "自动探针结束，关闭客户端。");
+                    currentMenuClass(minecraft), currentContainerId(minecraft), "Stopping client.");
             minecraft.stop();
         }
     }
 
     private static void recordTransition(String screenClass, String screenTitle, String menuClass, int containerId) {
-        if (lastScreenClass.isEmpty() && !screenClass.isEmpty()) {
-            lastScreenOpenTick = tick;
-            writeRow("screen-open", "INFO", screenClass, screenTitle, menuClass, containerId, "");
-        } else if (!lastScreenClass.isEmpty() && screenClass.isEmpty()) {
-            long lifetime = lastScreenOpenTick < 0 ? -1 : tick - lastScreenOpenTick;
-            String status = isInternalRtsScreen(lastScreenClass) || lifetime < 0 || lifetime > FLASH_CLOSE_TICK_LIMIT
-                    ? "INFO" : "WARN";
-            String note = lifetime < 0 ? "" : "screen 持续 " + lifetime + " tick 后关闭。";
-            writeRow("screen-close", status, lastScreenClass, lastScreenTitle, menuClass, containerId, note);
-        } else if (!lastScreenClass.isEmpty() && !screenClass.equals(lastScreenClass)) {
-            long lifetime = lastScreenOpenTick < 0 ? -1 : tick - lastScreenOpenTick;
-            String status = isInternalRtsScreen(lastScreenClass) || lifetime < 0 || lifetime > FLASH_CLOSE_TICK_LIMIT
-                    ? "INFO" : "WARN";
-            String note = lifetime < 0 ? "" : "screen 持续 " + lifetime + " tick 后切换到 " + screenClass + "。";
-            writeRow("screen-change", status, screenClass, screenTitle, menuClass, containerId, note);
-            lastScreenOpenTick = tick;
+        if (!lastScreenClass.equals(screenClass)) {
+            writeRow(screenClass.isEmpty() ? "screen-close" : "screen-open", "INFO",
+                    screenClass, screenTitle, menuClass, containerId, "");
         }
-
-        if (!menuClass.equals(lastMenuClass) || containerId != lastContainerId) {
-            String event = menuClass.isEmpty() ? "menu-close" : "menu-open";
-            writeRow(event, "INFO", screenClass, screenTitle, menuClass, containerId, "");
+        if (!lastMenuClass.equals(menuClass) || lastContainerId != containerId) {
+            writeRow(menuClass.isEmpty() ? "menu-close" : "menu-open", "INFO",
+                    screenClass, screenTitle, menuClass, containerId, "");
         }
-
         lastScreenClass = screenClass;
         lastScreenTitle = screenTitle;
         lastMenuClass = menuClass;
         lastContainerId = containerId;
     }
 
-    private static boolean isInternalRtsScreen(String screenClass) {
-        return screenClass.startsWith("com.rtsbuilding.rtsbuilding.client.screen.");
-    }
-
-    private static boolean isExternalScreen(String screenClass) {
-        return screenClass != null && !screenClass.isEmpty() && !isInternalRtsScreen(screenClass)
-                && !screenClass.equals("net.minecraft.client.gui.screens.ChatScreen");
-    }
-
     private static void finishActiveRun(String status, String screenClass, String screenTitle,
             String menuClass, int containerId, String note) {
-        SmokeRun completed = activeRun;
-        if (completed == null) {
-            return;
-        }
         writeRow("run-finish", status, screenClass, screenTitle, menuClass, containerId, note);
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player != null) {
-            minecraft.player.displayClientMessage(Component.literal("RTS GUI compat: " + completed.caseId
-                    + " -> " + status + " (" + note + ")"), false);
-        }
         activeRun = null;
     }
 
     private static String currentScreenClass(Minecraft minecraft) {
-        return minecraft.screen == null ? "" : minecraft.screen.getClass().getName();
+        Screen screen = minecraft == null ? null : minecraft.screen;
+        return screen == null ? "" : screen.getClass().getName();
     }
 
     private static String currentScreenTitle(Minecraft minecraft) {
-        return minecraft.screen == null || minecraft.screen.getTitle() == null ? "" : minecraft.screen.getTitle().getString();
+        Screen screen = minecraft == null ? null : minecraft.screen;
+        return screen == null || screen.getTitle() == null ? "" : screen.getTitle().getString();
     }
 
     private static String currentMenuClass(Minecraft minecraft) {
-        if (minecraft.player == null || minecraft.player.containerMenu == null
+        if (minecraft == null || minecraft.player == null || minecraft.player.containerMenu == null
                 || minecraft.player.containerMenu.containerId == 0) {
             return "";
         }
@@ -435,14 +392,10 @@ public final class RtsGuiCompatProbe {
     }
 
     private static int currentContainerId(Minecraft minecraft) {
-        if (minecraft.player == null || minecraft.player.containerMenu == null) {
+        if (minecraft == null || minecraft.player == null || minecraft.player.containerMenu == null) {
             return -1;
         }
         return minecraft.player.containerMenu.containerId;
-    }
-
-    private static String resolveFallbackCaseId() {
-        return CASE_ID == null || CASE_ID.isBlank() ? "manual" : CASE_ID;
     }
 
     private static Path resolveReportPath() {
@@ -456,28 +409,51 @@ public final class RtsGuiCompatProbe {
         return Path.of(configured).toAbsolutePath().normalize();
     }
 
-    private static String resolveConfig(String propertyName, String environmentName) {
+    private static String resolveConfig(String propertyName, String environmentName, String fallback) {
         String configured = System.getProperty(propertyName);
         if (configured == null || configured.isBlank()) {
             configured = System.getenv(environmentName);
         }
-        return configured == null ? "" : configured;
+        return configured == null || configured.isBlank() ? fallback : configured;
     }
 
     private static boolean resolveBoolean(String propertyName, String environmentName) {
-        String configured = resolveConfig(propertyName, environmentName);
+        String configured = resolveConfig(propertyName, environmentName, "");
         return "1".equals(configured) || "true".equalsIgnoreCase(configured) || "yes".equalsIgnoreCase(configured);
     }
 
-    private static String stripLeadingSlash(String command) {
-        if (command == null) {
-            return "";
+    private static int resolveInt(String propertyName, String environmentName, int fallback) {
+        String configured = resolveConfig(propertyName, environmentName, "");
+        if (configured.isBlank()) {
+            return fallback;
         }
-        String stripped = command.trim();
+        try {
+            return Math.max(1, Integer.parseInt(configured));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static String stripLeadingSlash(String command) {
+        String stripped = command == null ? "" : command.trim();
         while (stripped.startsWith("/")) {
             stripped = stripped.substring(1);
         }
         return stripped;
+    }
+
+    private static String defaultExpectedMenuRegex(String caseId) {
+        if ("vanilla_chest".equals(caseId)) {
+            return "net\\.minecraft\\.world\\.inventory\\.ChestMenu";
+        }
+        return "";
+    }
+
+    private static boolean matchesRegex(String value, String regex) {
+        if (regex == null || regex.isBlank()) {
+            return true;
+        }
+        return value != null && value.matches(regex);
     }
 
     private static void writeRow(String event, String status, String screenClass, String screenTitle,
@@ -513,16 +489,6 @@ public final class RtsGuiCompatProbe {
         } catch (IOException exception) {
             RtsbuildingMod.LOGGER.warn("Failed to write RTS GUI compat probe report: {}", REPORT_PATH, exception);
         }
-
-        if (activeRun != null && activeRun.stage == SmokeStage.OBSERVE) {
-            if ("FAIL".equals(status)) {
-                activeRun.failed = true;
-                activeRun.failureNote = note == null || note.isBlank() ? event : note;
-            } else if ("WARN".equals(status)) {
-                activeRun.warned = true;
-                activeRun.warningNote = note == null || note.isBlank() ? event : note;
-            }
-        }
     }
 
     private static String currentCaseId() {
@@ -534,10 +500,7 @@ public final class RtsGuiCompatProbe {
     }
 
     private static String escape(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ');
+        return value == null ? "" : value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ');
     }
 
     private enum SmokeStage {
@@ -560,15 +523,11 @@ public final class RtsGuiCompatProbe {
         private final Vec3 rayOrigin;
         private final Vec3 rayDir;
         private SmokeStage stage = SmokeStage.START;
-        private int ticks;
+        private int totalTicks;
         private int stageTicks;
+        private int stableTicks;
         private boolean toggleSent;
-        private boolean sawExternalScreen;
-        private boolean warned;
-        private boolean failed;
-        private String lastExternalScreen = "";
-        private String warningNote = "";
-        private String failureNote = "";
+        private boolean sawMenu;
 
         private SmokeRun(String caseId, String targetBlock, BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
             this.caseId = caseId;
@@ -584,7 +543,6 @@ public final class RtsGuiCompatProbe {
         private AutoStage stage = AutoStage.WAIT_WORLD;
         private int totalTicks;
         private int stageTicks;
-        private boolean closedPauseScreen;
         private boolean finished;
 
         private AutoRun(String caseId) {

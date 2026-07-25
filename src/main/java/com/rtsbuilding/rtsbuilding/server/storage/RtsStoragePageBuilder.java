@@ -29,8 +29,6 @@ import java.util.Set;
  */
 public final class RtsStoragePageBuilder {
 
-    public static final int DEFAULT_PAGE_SIZE = RtsPageSharedHelpers.DEFAULT_PAGE_SIZE;
-
     private RtsStoragePageBuilder() {
     }
 
@@ -45,6 +43,10 @@ public final class RtsStoragePageBuilder {
 
     public static int sanitizePageSize(int pageSize) {
         return RtsPageSharedHelpers.sanitizePageSize(pageSize);
+    }
+
+    public static int defaultPageSize() {
+        return RtsPageSharedHelpers.defaultPageSize();
     }
 
     public static Set<String> sanitizeLocalizedSearchMatches(List<String> localizedSearchMatches) {

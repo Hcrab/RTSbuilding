@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.compat.create.BlueprintCreatePlacementCompat;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -170,7 +171,8 @@ public final class BlueprintPlacementService {
                 }
             }
 
-            boolean placedBlock = level.setBlock(target, state, 3);
+            boolean placedBlock = level.setBlock(
+                    target, state, BlueprintCreatePlacementCompat.placementFlags(state));
             if (!placedBlock) {
                 if (!player.isCreative()) {
                     refundExtractedMaterials(player, extractedMaterials);
@@ -185,7 +187,11 @@ public final class BlueprintPlacementService {
                 skippedMissing++;
                 continue;
             }
-            applyBlockEntityTag(player, level, target, block);
+            applyBlockEntityTag(player, level, target, state, block);
+            ItemStack placedStack = extractedMaterials.isEmpty()
+                    ? new ItemStack(state.getBlock().asItem())
+                    : extractedMaterials.get(0);
+            BlueprintCreatePlacementCompat.finishPlacement(level, target, state, placedStack);
 
             PlacedBlockTrackerData.get(level).mark(target);
             for (Item item : materialItems) {
@@ -243,7 +249,12 @@ public final class BlueprintPlacementService {
         }
     }
 
-    private static void applyBlockEntityTag(ServerPlayer player, ServerLevel level, BlockPos target, RtsBlueprintBlock block) {
+    private static void applyBlockEntityTag(
+            ServerPlayer player,
+            ServerLevel level,
+            BlockPos target,
+            BlockState placedState,
+            RtsBlueprintBlock block) {
         if (level == null || target == null || block == null || !block.hasBlockEntityTag()) {
             return;
         }
@@ -251,7 +262,8 @@ public final class BlueprintPlacementService {
         if (blockEntity == null) {
             return;
         }
-        CompoundTag tag = blueprintBlockEntityTagForPlacement(player, block);
+        CompoundTag tag = BlueprintCreatePlacementCompat.prepareBlockEntityTag(
+                level, target, placedState, blueprintBlockEntityTagForPlacement(player, block));
         if (tag == null || tag.isEmpty()) {
             return;
         }

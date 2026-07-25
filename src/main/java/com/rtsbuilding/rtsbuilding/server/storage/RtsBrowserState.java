@@ -20,7 +20,7 @@ public class RtsBrowserState {
     /** 当前页号，0-based。 */
     public int page;
     /** 每页条目数。 */
-    public int pageSize = RtsStoragePageBuilder.DEFAULT_PAGE_SIZE;
+    public int pageSize = RtsStoragePageBuilder.defaultPageSize();
     /** 搜索关键词，空串表示无筛选。 */
     public String search = "";
     /** 分类筛选："all" / "mod|namespace" / "tab|name"。 */
