@@ -14,7 +14,6 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
 import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.CullingUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
@@ -51,7 +50,6 @@ import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
-import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -175,6 +173,14 @@ public final class BuilderScreen extends Screen {
     private final RtsScreenUiStateManager uiStateManager;
     /** 固定 RTS UI 缩放、虚拟视口、输入坐标和裁剪坐标的统一协调器。 */
     private final RtsGuiScaleCoordinator guiScaleCoordinator;
+    /** 鼠标按下的前后层级路由；具体动作仍由屏幕和各专用组件执行。 */
+    private final BuilderScreenPointerClickRouter pointerClickRouter;
+    /** 主操作的世界交互优先级路由；不拥有玩法状态。 */
+    private final BuilderScreenPrimaryActionRouter primaryActionRouter;
+    /** 滚轮的 UI/世界前后层级路由；不拥有各面板滚动状态。 */
+    private final BuilderScreenScrollRouter scrollRouter;
+    /** 按键按下的 UI/世界前后层级路由；业务动作仍由各专用入口执行。 */
+    private final BuilderScreenKeyPressRouter keyPressRouter;
     /** Lightweight overlay/popup renderer split out from the main screen. */
     private final RtsScreenOverlayRenderer overlayRenderer;
     /** Renders player health, food, armor and absorption bars. */
@@ -237,6 +243,19 @@ public final class BuilderScreen extends Screen {
     public BuilderScreen(ClientRtsController controller) {
         super(Component.literal("RTS Builder"));
         this.controller = controller;
+        BuilderScreenInputHost inputHost =
+                new BuilderScreenInputHost(this);
+        this.pointerClickRouter = new BuilderScreenPointerClickRouter(
+                inputHost, this.placementStateWheel, this.modeWheel);
+        this.primaryActionRouter = new BuilderScreenPrimaryActionRouter(
+                new BuilderScreenPrimaryActionHost(this),
+                this.controller,
+                this.bottomPanel,
+                this.cullingManager,
+                this.shapeController,
+                this.cursorPicker);
+        this.keyPressRouter = new BuilderScreenKeyPressRouter(
+                inputHost, this.placementStateWheel, this.modeWheel);
         this.leftDockedTooltipRenderer =
                 new LeftDockedTooltipRenderer(this, this.bottomPanel);
         this.uiStateManager = new RtsScreenUiStateManager(this.controller, this.shapeController, this.quickBuildPanel);
@@ -265,6 +284,15 @@ public final class BuilderScreen extends Screen {
                 this.workflowPanel,
                 this.resumePlacementPanel,
                 this.blueprintResumePanel);
+        this.scrollRouter = new BuilderScreenScrollRouter(
+                inputHost,
+                this.controller,
+                this.placementStateWheel,
+                this.modeWheel,
+                this.floatingWindowLayer,
+                this.cullingManager,
+                this.shapeController,
+                this.bottomPanel);
         this.uiStateManager.registerWindowPanel("settings", this.gearMenuPanel);
         this.uiStateManager.registerWindowPanel("blueprints", this.blueprintWindowPanel);
         this.uiStateManager.registerWindowPanel("guide", this.guidePanel);
@@ -635,52 +663,43 @@ public final class BuilderScreen extends Screen {
                 return mouseClicked(mouseX / frame.scale(), mouseY / frame.scale(), button);
             }
         }
-        if (this.placementStateWheel.isOpen()) {
-            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                if (this.placementStateWheel.handlePlacementPageClick(mouseX, mouseY)) {
-                    return true;
-                }
-                PlacementStateWheel.PlacementChoice choice =
-                        this.placementStateWheel.hoveredChoice(mouseX, mouseY);
-                if (choice != null) {
-                    // 保存轮盘真正渲染的完整安全状态，保证后续幽灵与服务端放置不会
-                    // 因为重新解析射线而丢失未点击的朝向、半部或附着面。
-                    this.controller.copyPlacementState(choice.state());
-                    closePlacementStateWheel();
-                    this.placementStateWheelConsumedMouseButton = button;
-                }
-            } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-                closePlacementStateWheel();
-                this.placementStateWheelConsumedMouseButton = button;
-            }
-            return true;
-        }
-        if (this.modeWheel.isOpen()) {
-            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                BuilderMode selectedMode = this.modeWheel.hoveredMode(mouseX, mouseY);
-                if (selectedMode != null) {
-                    selectModeFromWheel(selectedMode);
-                    this.modeWheel.close();
-                    this.modeWheelConsumedMouseButton = button;
-                }
-            } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-                this.modeWheel.close();
-                this.modeWheelConsumedMouseButton = button;
-            }
-            return true;
-        }
-        if (handleOverlayClicks(mouseX, mouseY, button)) return true;
-        if (handleBlueprintCaptureClicks(mouseX, mouseY, button)) return true;
-        if (handleHomeSelectionClicks(mouseX, mouseY, button)) return true;
-        if (handleRangeCullingSelectionClick(mouseX, mouseY, button)) return true;
-        if (handleAreaMineClickBlock(mouseX, mouseY, button)) return true;
-        if (handleLeftClickInteractions(mouseX, mouseY, button)) return true;
-        if (handleWorldClickActions(mouseX, mouseY, button)) return true;
+        return this.pointerClickRouter.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** 将轮盘选中的完整 BlockState 快照提交给放置链路。 */
+    void selectPlacementStateFromWheel(
+            PlacementStateWheel.PlacementChoice choice, int button) {
+        this.controller.copyPlacementState(choice.state());
+        closePlacementStateWheel();
+        this.placementStateWheelConsumedMouseButton = button;
+    }
+
+    /** 关闭放置状态轮盘，并确保对应 release 不再穿透。 */
+    void closePlacementStateWheelFromPointer(int button) {
+        closePlacementStateWheel();
+        this.placementStateWheelConsumedMouseButton = button;
+    }
+
+    /** 将模式轮盘选择提交给统一 BuilderMode，并确保 release 不再穿透。 */
+    void selectModeFromWheelPointer(BuilderMode selectedMode, int button) {
+        selectModeFromWheel(selectedMode);
+        this.modeWheel.close();
+        this.modeWheelConsumedMouseButton = button;
+    }
+
+    /** 关闭模式轮盘，并确保对应 release 不再穿透。 */
+    void closeModeWheelFromPointer(int button) {
+        this.modeWheel.close();
+        this.modeWheelConsumedMouseButton = button;
+    }
+
+    /** 仅供点击路由器把未消费事件交还 Minecraft Screen 默认链路。 */
+    boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     /** Handles left/right click in blueprint capture mode. */
-    private boolean handleBlueprintCaptureClicks(double mouseX, double mouseY, int button) {
+    boolean handleBlueprintCaptureClicks(double mouseX, double mouseY, int button) {
         if (!BlueprintPanel.isCaptureModeActive()) {
             return false;
         }
@@ -702,7 +721,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles click in home selection mode. */
-    private boolean handleHomeSelectionClicks(double mouseX, double mouseY, int button) {
+    boolean handleHomeSelectionClicks(double mouseX, double mouseY, int button) {
         if (!this.controller.isHomeSelectionMode()) {
             return false;
         }
@@ -721,7 +740,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles click on floating windows through the shared window layer. */
-    private boolean handleOverlayClicks(double mouseX, double mouseY, int button) {
+    boolean handleOverlayClicks(double mouseX, double mouseY, int button) {
         if (handleFloatingWindowClick(mouseX, mouseY, button)) {
             submitCraftQuantityWindowIfReady();
             return true;
@@ -730,7 +749,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Blocks non-break clicks in world area during area mine selection. */
-    private boolean handleAreaMineClickBlock(double mouseX, double mouseY, int button) {
+    boolean handleAreaMineClickBlock(double mouseX, double mouseY, int button) {
         if (BlueprintPanel.isCaptureModeActive()) {
             return false;
         }
@@ -744,7 +763,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles left-click interactions: blueprint placement HUD, storage link, top bar, panels, gui bind, storage linking. */
-    private boolean handleLeftClickInteractions(double mouseX, double mouseY, int button) {
+    boolean handleLeftClickInteractions(double mouseX, double mouseY, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
@@ -814,7 +833,7 @@ public final class BuilderScreen extends Screen {
      * Handles world click actions: break action, primary/rotate mouse,
      * and pan/pick mouse actions.
      */
-    private boolean handleWorldClickActions(double mouseX, double mouseY, int button) {
+    boolean handleWorldClickActions(double mouseX, double mouseY, int button) {
         if (handleAdvancedShapeHandleClick(mouseX, mouseY, button)) {
             return true;
         }
@@ -1043,7 +1062,7 @@ public final class BuilderScreen extends Screen {
      * @return true if the action was consumed
      */
     private boolean runPrimaryActionAt(double mouseX, double mouseY) {
-        return runPrimaryActionAt(mouseX, mouseY, -1);
+        return this.primaryActionRouter.run(mouseX, mouseY, -1);
     }
     /**
      * Executes the primary build/interact action at the given screen coordinates.
@@ -1055,209 +1074,7 @@ public final class BuilderScreen extends Screen {
      * @return true if the action was consumed
      */
     private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton) {
-        enforceBlueprintPlacementModeLock();
-        if (this.pendingGuiBindSlot >= 0) {
-            return true;
-        }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
-            if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                    && isWorldArea(mouseX, mouseY)) {
-                BlockHitResult hit = this.cursorPicker.pickBlockHit();
-                BlueprintPanel.handleCaptureWorldAction(
-                        hit,
-                        this.cursorPicker.currentRayOrigin(),
-                        this.cursorPicker.computeCursorRayDirection());
-            }
-            return true;
-        }
-        if (isInsideBottomPanel(mouseX, mouseY)) {
-            return this.bottomPanel.handleRightClick(mouseX, mouseY);
-        }
-        if (!isWorldArea(mouseX, mouseY)) {
-            return true;
-        }
-        if (this.cullingManager.isManagementMode()) {
-            return mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0
-                    ? handleRangeCullingWorldAction(mouseX, mouseY)
-                    : false;
-        }
-        if (this.controller.getMode() == BuilderMode.LINK_STORAGE) {
-            this.shapeController.clearShapeBuildSession();
-            BlockHitResult hit = this.cursorPicker.pickBlockHit();
-            if (hit != null) {
-                this.controller.linkStorage(hit.getBlockPos(), mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT);
-            }
-            return true;
-        }
-        if (this.controller.getMode() == BuilderMode.FUNNEL) {
-            this.shapeController.clearShapeBuildSession();
-            return true;
-        }
-        if (this.controller.getMode() == BuilderMode.ROTATE) {
-            // 旋转箭头只响应左键；右键完整保留给相机拖拽。
-            return true;
-        }
-        boolean forcePlace = hasShiftDown();
-        boolean rangeDestroyMode = isQuickBuildRangeDestroyMode();
-        if ((mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0)
-                && !rangeDestroyMode
-                && isAdvancedShapeMode()
-                && this.shapeController.clickAdvancedRangeDestroyHandle(
-                        this.cursorPicker.currentRayOrigin(),
-                        this.cursorPicker.computeCursorRayDirection())) {
-            return true;
-        }
-        if (!rangeDestroyMode && this.shapeController.isAwaitingBatchPlaceConfirm()) {
-            if (Config.isKeyboardBatchConfirmEnabled()) {
-                return true;
-            }
-            return this.shapeController.tryConfirmPendingShapeBuild(forcePlace);
-        }
-        if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.hasSelectedBlueprint()) {
-            if (BlueprintPanel.hasPinnedPreview()) {
-                BlueprintPanel.confirmPinnedPreview();
-                return true;
-            }
-            BlockHitResult blueprintHit = this.cursorPicker.pickBlueprintPlacementHit();
-            if (blueprintHit != null) {
-                BlockPos anchor = BlueprintPanel.anchorForCursorTarget(
-                        this.cursorPicker.resolveBlueprintAnchor(blueprintHit));
-                if (anchor != null) {
-                    BlueprintPanel.pinSelected(anchor);
-                }
-            }
-            return true;
-        }
-        InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
-        if (target == null) {
-            tryUseMainHandItemInAir();
-            return true;
-        }
-        if (this.controller.hasSelectedFluid()) {
-            if (target.blockHit() != null) {
-                if (rangeDestroyMode) {
-                    this.controller.placeSelectedFluid(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
-                } else {
-                    this.shapeController.placeWithShape(
-                            target.blockHit(),
-                            forcePlace,
-                            target.rayOrigin(),
-                            target.rayDir(),
-                            mouseY,
-                            true,
-                            InteractionTypes.PlacementReplayKind.TOOL_SLOT,
-                            "",
-                            -1);
-                }
-            }
-            return true;
-        }
-        if (this.controller.hasSelectedItem()) {
-            boolean forceBackpackPlacement = RtsBackpackCompat.isBackpackItem(
-                    this.controller.getSelectedItemPreview());
-            if (target.isEntityTarget() && !forceBackpackPlacement) {
-                this.shapeController.clearShapeBuildSession();
-                this.controller.interactEntityWithPinnedItem(
-                        target.entityId(),
-                        target.hitLocation(),
-                        this.controller.getSelectedItemId(),
-                        target.rayOrigin(),
-                        target.rayDir());
-            } else if (target.blockHit() != null) {
-                if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode
-                        && this.controller.getPlacementStatePreset().isBlank()
-                        && this.controller.getBuildShape() == BuildShape.BLOCK) {
-                    this.shapeController.clearShapeBuildSession();
-                    this.controller.interactBlockWithPinnedItem(
-                            target.blockHit(),
-                            this.controller.getSelectedItemId(),
-                            target.rayOrigin(),
-                            target.rayDir());
-                    return true;
-                }
-                if (rangeDestroyMode) {
-                    this.controller.placeSelected(target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
-                    this.shapeController.recordSinglePlacementForUndo(
-                            target.blockHit(),
-                            InteractionTypes.PlacementReplayKind.PIN_ITEM,
-                            this.controller.getSelectedItemId(),
-                            -1);
-                    return true;
-                }
-                this.shapeController.placeWithShape(
-                        target.blockHit(),
-                        forcePlace || forceBackpackPlacement,
-                        target.rayOrigin(),
-                        target.rayDir(),
-                        mouseY,
-                        false,
-                        InteractionTypes.PlacementReplayKind.PIN_ITEM,
-                        this.controller.getSelectedItemId(),
-                        -1);
-            }
-            return true;
-        }
-        if (target.blockHit() != null
-                && this.controller.getBuildShape() != BuildShape.BLOCK
-                && !rangeDestroyMode
-                && canUseToolSlotShapeSource()) {
-            this.shapeController.placeWithShape(
-                    target.blockHit(),
-                    forcePlace,
-                    target.rayOrigin(),
-                    target.rayDir(),
-                    mouseY,
-                    false,
-                    InteractionTypes.PlacementReplayKind.TOOL_SLOT,
-                    "",
-                    getSelectedToolSlot());
-            return true;
-        }
-        this.shapeController.clearShapeBuildSession();
-        if (this.controller.isEmptyHandSelected()) {
-            if (target.isEntityTarget()) {
-                this.controller.interactEntityEmpty(
-                        target.entityId(),
-                        target.hitLocation(),
-                        target.rayOrigin(),
-                        target.rayDir());
-            } else if (target.blockHit() != null) {
-                this.controller.interactEmpty(target.blockHit(), target.rayOrigin(), target.rayDir());
-            }
-            return true;
-        }
-        if (target.isEntityTarget()) {
-            if (hasMainHandItem()) {
-                this.controller.interactEntityWithToolSlot(
-                        target.entityId(),
-                        target.hitLocation(),
-                        getSelectedToolSlot(),
-                        target.rayOrigin(),
-                        target.rayDir());
-            }
-        } else if (target.blockHit() != null) {
-            if (hasMainHandItem()) {
-                if (forcePlace || !this.controller.getPlacementStatePreset().isBlank()) {
-                    // R 预选状态只能由放置包携带；普通交互包会重新按命中点计算朝向。
-                    this.controller.placeSelected(
-                            target.blockHit(), forcePlace, target.rayOrigin(), target.rayDir());
-                    this.shapeController.recordSinglePlacementForUndo(
-                            target.blockHit(),
-                            InteractionTypes.PlacementReplayKind.TOOL_SLOT,
-                            "",
-                            getSelectedToolSlot());
-                } else {
-                    this.controller.interactBlockWithToolSlot(
-                            target.blockHit(),
-                            getSelectedToolSlot(),
-                            target.rayOrigin(),
-                            target.rayDir());
-                }
-            } else {
-                this.controller.interactEmpty(target.blockHit(), target.rayOrigin(), target.rayDir());
-            }
-        }
-        return true;
+        return this.primaryActionRouter.run(mouseX, mouseY, mouseButton);
     }
 
     /** 打开只影响后续 RTS 放置的 BlockState 预设轮盘。 */
@@ -1334,7 +1151,7 @@ public final class BuilderScreen extends Screen {
         this.placementWheelRestoreMouseY = Double.NaN;
     }
 
-    private boolean tryUseMainHandItemInAir() {
+    boolean tryUseMainHandItemInAir() {
         if (!canUseMainHandItemInAir()) {
             return false;
         }
@@ -1371,47 +1188,8 @@ public final class BuilderScreen extends Screen {
                 return mouseScrolled(mouseX / frame.scale(), mouseY / frame.scale(), scrollX, scrollY);
             }
         }
-        if (this.placementStateWheel.isOpen()) {
-            return true;
-        }
-        if (this.modeWheel.isOpen()) {
-            return true;
-        }
-        if (handleFloatingWindowScroll(mouseX, mouseY, scrollX, scrollY)) {
-            return true;
-        }
-        if (BlueprintPanel.mouseScrolledCaptureHeight(scrollY, isAltDown())) {
-            return true;
-        }
-        if (this.cullingManager.isManagementMode()
-                && (this.cullingManager.activeHandleDirection() != null || isWorldArea(mouseX, mouseY))
-                && CullingUiAdapter.handleScroll(this.cullingManager, scrollY, isAltDown())) {
-            return true;
-        }
-        if (this.shapeController.advancedRangeDestroyActiveHandle() != null
-                && this.shapeController.scrollAdvancedRangeDestroyHandle(scrollY, isAltDown())) {
-            return true;
-        }
-        if (isInsideBottomPanel(mouseX, mouseY)) {
-            return this.bottomPanel.handleMouseScrolled(mouseX, mouseY, scrollY);
-        }
-        if (!isSearchFocused() && this.shapeController.handleShapeHeightMouseScrolled(scrollY)) {
-            return true;
-        }
-        // While area mine selection is active: scroll wheel adjusts height in NEED_HEIGHT phase, blocked otherwise
-        if (!BlueprintPanel.isCaptureModeActive()
-                && this.controller.getAreaMinePhase() != MiningOperationService.AREA_MINE_PHASE_NONE) {
-            if (this.controller.getAreaMinePhase() == MiningOperationService.AREA_MINE_PHASE_NEED_HEIGHT) {
-                int delta = scrollY > 0.0D ? 1 : -1;
-                if (isAltDown()) {
-                    delta *= 4;
-                }
-                this.controller.adjustAreaMineHeightOffset(delta);
-            }
-            return true;
-        }
-        this.controller.queueScroll(scrollY);
-        return true;
+        return this.scrollRouter.mouseScrolled(
+                mouseX, mouseY, scrollX, scrollY);
     }
     @Override
     /**
@@ -1419,44 +1197,21 @@ public final class BuilderScreen extends Screen {
      * search box, tool slot, and sensitivity handlers in priority order.
      */
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (this.placementStateWheel.isOpen()) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                closePlacementStateWheel();
-            } else if (keyCode == GLFW.GLFW_KEY_LEFT
-                    || keyCode == GLFW.GLFW_KEY_KP_4) {
-                this.placementStateWheel.cyclePlacementPage(-1);
-            } else if (keyCode == GLFW.GLFW_KEY_RIGHT
-                    || keyCode == GLFW.GLFW_KEY_KP_6) {
-                this.placementStateWheel.cyclePlacementPage(1);
-            }
-            return true;
-        }
-        if (this.modeWheel.isOpen()) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                this.modeWheel.close();
-                return true;
-            }
-            if (keyCode == GLFW.GLFW_KEY_SPACE && (modifiers & GLFW.GLFW_MOD_ALT) != 0) {
-                this.modeWheel.close();
-            } else {
-                return true;
-            }
-        }
-        if (handleOverlayKeys(keyCode, scanCode, modifiers)) return true;
-        if (handleBlueprintKeys(keyCode, scanCode, modifiers)) return true;
-        if (handleHomeSelectionKey(keyCode)) return true;
-        if (handleSelectionBoxKeys(keyCode, scanCode, modifiers)) return true;
-        // 鼠标正悬浮快捷格时，Pin 是明确的 UI 操作。它必须先于世界/相机按键，
-        // 否则玩家把 Pin 改绑成 A 等常用键后会被前面的世界输入提前消费。
-        if (handleToolSlotKeys(keyCode, scanCode, modifiers)) return true;
-        if (handleWorldInteractionKeys(keyCode, scanCode, modifiers)) return true;
-        if (handleSearchFocusKeys(keyCode, scanCode, modifiers)) return true;
-        if (handleSensitivityKeys(keyCode, scanCode)) return true;
+        return this.keyPressRouter.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** 关闭放置轮盘；键盘路径不需要额外吞掉鼠标 release。 */
+    void closePlacementStateWheelFromKey() {
+        closePlacementStateWheel();
+    }
+
+    /** 仅供按键路由器把未消费事件交还 Minecraft Screen 默认链路。 */
+    boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     /** Dispatches key to blueprint capture mode and blueprint panel. */
-    private boolean handleBlueprintKeys(int keyCode, int scanCode, int modifiers) {
+    boolean handleBlueprintKeys(int keyCode, int scanCode, int modifiers) {
         if (BlueprintPanel.isCaptureModeActive() && BlueprintPanel.keyPressed(keyCode, scanCode, this.controller)) {
             return true;
         }
@@ -1471,7 +1226,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles Esc in home selection mode. */
-    private boolean handleHomeSelectionKey(int keyCode) {
+    boolean handleHomeSelectionKey(int keyCode) {
         if (!this.controller.isHomeSelectionMode()) {
             return false;
         }
@@ -1482,7 +1237,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Dispatches key to floating windows. */
-    private boolean handleOverlayKeys(int keyCode, int scanCode, int modifiers) {
+    boolean handleOverlayKeys(int keyCode, int scanCode, int modifiers) {
         if (this.floatingWindowLayer.keyPressed(keyCode, scanCode, modifiers)) {
             submitCraftQuantityWindowIfReady();
             return true;
@@ -1495,7 +1250,7 @@ public final class BuilderScreen extends Screen {
      * mining, pick block, primary action, mode switch, funnel hotkey, quick drop,
      * shape rotation, and craft terminal.
      */
-    private boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers) {
+    boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers) {
         if (this.cullingManager.isManagementMode()) {
             return true;
         }
@@ -1621,7 +1376,7 @@ public final class BuilderScreen extends Screen {
         return true;
     }
 
-    private boolean handleSelectionBoxKeys(int keyCode, int scanCode, int modifiers) {
+    boolean handleSelectionBoxKeys(int keyCode, int scanCode, int modifiers) {
         if (isSearchFocused()) {
             return false;
         }
@@ -1660,7 +1415,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles search box key events: clear on Escape, typing, and Enter submission. */
-    private boolean handleSearchFocusKeys(int keyCode, int scanCode, int modifiers) {
+    boolean handleSearchFocusKeys(int keyCode, int scanCode, int modifiers) {
         if (isSearchFocused() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             if (this.searchBox != null && this.searchBox.isFocused()) {
                 this.searchBox.setValue("");
@@ -1696,7 +1451,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles tool slot selection (1-9) and pin-quick-slot keybinds. */
-    private boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) {
+    boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) {
         if (!isSearchFocused() && keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9) {
             int slot = keyCode - GLFW.GLFW_KEY_1;
             setSelectedToolSlot(slot);
@@ -1721,7 +1476,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Handles input sensitivity adjustment keys. */
-    private boolean handleSensitivityKeys(int keyCode, int scanCode) {
+    boolean handleSensitivityKeys(int keyCode, int scanCode) {
         if (ClientKeyMappings.DECREASE_SENSITIVITY.matches(keyCode, scanCode)) {
             this.controller.decreaseRotateSensitivity();
             return true;
@@ -2225,10 +1980,6 @@ public final class BuilderScreen extends Screen {
         return handled;
     }
 
-    private boolean handleFloatingWindowScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
-        return this.floatingWindowLayer.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
     public boolean isMouseOverFloatingWindow(double mouseX, double mouseY) {
         return this.floatingWindowLayer.isMouseOverWindowOrResizableBorder(mouseX, mouseY);
     }
@@ -2408,14 +2159,14 @@ public final class BuilderScreen extends Screen {
         closePlacementStateWheel();
     }
 
-    private boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {
+    boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.cullingManager.isManagementMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
         }
         return handleRangeCullingWorldAction(mouseX, mouseY);
     }
 
-    private boolean handleRangeCullingWorldAction(double mouseX, double mouseY) {
+    boolean handleRangeCullingWorldAction(double mouseX, double mouseY) {
         if (!this.cullingManager.isManagementMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
         }
@@ -2497,7 +2248,7 @@ public final class BuilderScreen extends Screen {
         return BlueprintPanel.isPlacementSessionActive();
     }
 
-    private void enforceBlueprintPlacementModeLock() {
+    void enforceBlueprintPlacementModeLock() {
         if (!isBlueprintPlacementModeLocked()) {
             return;
         }
@@ -2606,7 +2357,7 @@ public final class BuilderScreen extends Screen {
     }
 
     /** Returns whether the given coordinates are inside the bottom panel region. */
-    private boolean isInsideBottomPanel(double mouseX, double mouseY) {
+    boolean isInsideBottomPanel(double mouseX, double mouseY) {
         return this.bottomPanel.isInsideBottomPanel(mouseX, mouseY);
     }
 
@@ -2833,7 +2584,7 @@ public final class BuilderScreen extends Screen {
         return label;
     }
     /** Returns whether the player has a non-empty main hand item. */
-    private boolean hasMainHandItem() {
+    boolean hasMainHandItem() {
         return this.minecraft != null
                 && this.minecraft.player != null
                 && !this.minecraft.player.getMainHandItem().isEmpty();
@@ -2932,6 +2683,11 @@ public final class BuilderScreen extends Screen {
         long window = this.minecraft.getWindow().getWindow();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+    }
+
+    /** 供统一滚轮路由读取当前物理 Alt 状态。 */
+    boolean isAltDownForInput() {
+        return isAltDown();
     }
 
     /** Returns the last recorded mouse X coordinate. */

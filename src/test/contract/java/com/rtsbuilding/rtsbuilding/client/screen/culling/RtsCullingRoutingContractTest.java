@@ -50,7 +50,7 @@ class RtsCullingRoutingContractTest {
     void builderScreenRangeCullingWorldActionDelegatesToDedicatedInput() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean handleRangeCullingWorldAction");
+        String body = methodBody(source, "boolean handleRangeCullingWorldAction");
 
         assertTrue(body.contains("RtsCullingWorldInput.handleWorldAction(this.cullingManager, this.cursorPicker)"));
         assertFalse(body.contains("pickBlockHitIgnoringRangeCulling"),

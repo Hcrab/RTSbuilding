@@ -61,7 +61,7 @@ class RtsModeWheelRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
         String mouseDown = methodBody(
                 screen,
-                "private boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
+                "boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
         String rightDrag = methodBody(
                 cameraInput,
                 "public boolean handleRightDrag(double mouseX, double mouseY, int button, double dragX, double dragY)");
@@ -94,7 +94,7 @@ class RtsModeWheelRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String mouseDown = methodBody(
                 screen,
-                "private boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
+                "boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
         String mouseUp = methodBody(
                 screen,
                 "public boolean mouseReleased(double mouseX, double mouseY, int button)");
@@ -116,7 +116,7 @@ class RtsModeWheelRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacedBlockRotationHandles.java");
         String leftClick = methodBody(
                 screen,
-                "private boolean handleLeftClickInteractions(double mouseX, double mouseY, int button)");
+                "boolean handleLeftClickInteractions(double mouseX, double mouseY, int button)");
 
         assertTrue(screen.contains("private final PlacedBlockRotationHandles rotationHandles"));
         assertTrue(leftClick.contains("this.rotationHandles.hitGesture("));
@@ -149,9 +149,12 @@ class RtsModeWheelRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String worldKeys = methodBody(
                 screen,
-                "private boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers)");
+                "boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers)");
+        String keyRouter = source(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenKeyPressRouter.java");
         String keyPressed = methodBody(
-                screen, "public boolean keyPressed(int keyCode, int scanCode, int modifiers)");
+                keyRouter, "boolean keyPressed(int keyCode, int scanCode, int modifiers)");
 
         assertTrue(worldKeys.indexOf("this.cameraInput.updateCameraVerticalHeldState(")
                         < worldKeys.indexOf("handlePlacedBlockRotationKey(keyCode)"),
@@ -166,8 +169,11 @@ class RtsModeWheelRoutingContractTest {
     void hoveredPinBindingGetsPriorityOverWorldKeyConflicts() throws IOException {
         String screen = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String keyRouter = source(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenKeyPressRouter.java");
         String keyPressed = methodBody(
-                screen, "public boolean keyPressed(int keyCode, int scanCode, int modifiers)");
+                keyRouter, "boolean keyPressed(int keyCode, int scanCode, int modifiers)");
 
         assertTrue(keyPressed.indexOf("handleToolSlotKeys(")
                         < keyPressed.indexOf("handleWorldInteractionKeys("),

@@ -68,7 +68,38 @@ final class BlueprintLibraryFileOperations {
         }
     }
 
+    /**
+     * 放置上传前的本地文件读取结果。
+     *
+     * <p>这里只描述磁盘边界的结果，不发送网络包，也不改变蓝图选择或预览状态。</p>
+     */
+    record UploadReadResult(byte[] data, boolean tooLarge, String errorDetail) {
+        UploadReadResult {
+            data = data == null ? new byte[0] : data;
+            errorDetail = errorDetail == null ? "" : errorDetail;
+        }
+
+        boolean succeeded() {
+            return !tooLarge && errorDetail.isBlank();
+        }
+    }
+
     private BlueprintLibraryFileOperations() {}
+
+    /**
+     * 读取待上传的蓝图，并在文件跨过网络协议上限时提前拒绝。
+     */
+    static UploadReadResult readForUpload(BlueprintEntry entry, int maxBytes) {
+        if (entry == null || entry.path() == null) {
+            return new UploadReadResult(new byte[0], false, "Missing blueprint file");
+        }
+        try {
+            byte[] data = Files.readAllBytes(entry.path());
+            return new UploadReadResult(data, data.length > maxBytes, "");
+        } catch (IOException ex) {
+            return new UploadReadResult(new byte[0], false, ex.getMessage());
+        }
+    }
 
     static Result openFolder() {
         Path folder = blueprintFolder();

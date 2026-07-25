@@ -13,7 +13,7 @@ class AdvancedShapeHandleInputContractTest {
     void advancedShapeHandleClickIsConsumedBeforeMiningOrPlacement() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean handleWorldClickActions");
+        String body = methodBody(source, "boolean handleWorldClickActions");
 
         int handleClick = body.indexOf("handleAdvancedShapeHandleClick(mouseX, mouseY, button)");
         int batchConfirm = body.indexOf("handleBatchConfirmMouse(mouseX, mouseY, button)");

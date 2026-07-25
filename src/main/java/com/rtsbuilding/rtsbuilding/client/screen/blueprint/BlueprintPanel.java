@@ -31,7 +31,6 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.*;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintMaterialInspector.*;
@@ -248,31 +247,18 @@ public final class BlueprintPanel {
             return false;
         }
         BlueprintLibraryUiState library = BlueprintLibraryUiAdapter.snapshot(controller);
-        boolean cancelKey = ClientKeyMappings.BLUEPRINT_CANCEL.matches(keyCode, scanCode);
         if (CAPTURE.isActive()) {
             searchFocused = false;
-            if (CAPTURE.isSaving()) {
-                setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
-                return true;
-            }
-            if (cancelKey || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-                if (CAPTURE.releaseActiveHandle()) {
-                    return true;
-                }
-                cancelCaptureMode();
-                return true;
-            }
-            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
-                saveCapturedArea();
-                return true;
-            }
-            RtsSelectionNudge.Delta captureDelta = RtsSelectionNudge.fromKey(keyCode, scanCode);
-            if (captureDelta != null && CAPTURE.isSelectionComplete()) {
-                CAPTURE.moveSelection(captureDelta.dx(), captureDelta.dy(), captureDelta.dz(), BlueprintPanel::setStatus);
-                return true;
-            }
-            return true;
+            return BlueprintCaptureInputRouter.keyPressed(
+                    CAPTURE,
+                    keyCode,
+                    scanCode,
+                    BlueprintPanel::setStatus,
+                    BlueprintPanel::cancelCaptureMode,
+                    BlueprintPanel::saveCapturedArea);
         }
+        boolean cancelKey =
+                ClientKeyMappings.BLUEPRINT_CANCEL.matches(keyCode, scanCode);
         if (!library.searchFocused && hasSelectedBlueprint() && isBlueprintRotateKey(keyCode, scanCode)) {
             return rotateSelectedBlueprintY(isShiftDown() ? -1 : 1);
         }
@@ -793,29 +779,32 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return false;
         }
-        try {
-            byte[] data = Files.readAllBytes(entry.path());
-            if (data.length > C2SBlueprintPlacePayload.MAX_FILE_BYTES) {
-                setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.too_large", "");
-                return true;
-            }
-            // 一次明确点击只生成一个提交身份；网络层若重发此 payload，会自然复用同一 UUID。
-            C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload(
-                    UUID.randomUUID(),
-                    entry.fileName(),
-                    data,
-                    anchor,
-                    (byte) BlueprintTransform.normalizeSteps(yRotationSteps),
-                    (byte) BlueprintTransform.normalizeSteps(xRotationSteps),
-                    (byte) BlueprintTransform.normalizeSteps(zRotationSteps));
-            PacketDistributor.sendToServer(payload);
-            setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.uploading", entry.name());
-            pinnedAnchor = null;
-            return true;
-        } catch (IOException ex) {
-            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.read_failed", ex.getMessage());
+        BlueprintLibraryFileOperations.UploadReadResult upload =
+                BlueprintLibraryFileOperations.readForUpload(
+                        entry, C2SBlueprintPlacePayload.MAX_FILE_BYTES);
+        if (upload.tooLarge()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.too_large", "");
             return true;
         }
+        if (!upload.succeeded()) {
+            setStatus(S2CBlueprintStatusPayload.ERROR,
+                    "screen.rtsbuilding.blueprints.status.read_failed",
+                    upload.errorDetail());
+            return true;
+        }
+        // 一次明确点击只生成一个提交身份；网络层若重发此 payload，会自然复用同一 UUID。
+        C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload(
+                UUID.randomUUID(),
+                entry.fileName(),
+                upload.data(),
+                anchor,
+                (byte) BlueprintTransform.normalizeSteps(yRotationSteps),
+                (byte) BlueprintTransform.normalizeSteps(xRotationSteps),
+                (byte) BlueprintTransform.normalizeSteps(zRotationSteps));
+        PacketDistributor.sendToServer(payload);
+        setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.uploading", entry.name());
+        pinnedAnchor = null;
+        return true;
     }
 
     private static boolean buildPinnedPreview() {

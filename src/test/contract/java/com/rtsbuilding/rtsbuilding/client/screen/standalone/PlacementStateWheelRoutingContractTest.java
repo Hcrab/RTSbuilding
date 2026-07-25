@@ -12,7 +12,13 @@ class PlacementStateWheelRoutingContractTest {
     @Test
     void placementWheelGetsRBeforeRotateModeAndUsesSeparateAction() throws Exception {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPointerClickRouter.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenKeyPressRouter.java"));
         int placementRoute = source.indexOf("openPlacementStateWheel(currentMouseX(), currentMouseY())");
         int modeRoute = source.indexOf("handleModeKeyPressed(keyCode, scanCode)", placementRoute);
         assertTrue(placementRoute >= 0);
