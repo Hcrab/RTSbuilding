@@ -13,8 +13,9 @@ class RtsBackpackRoutingContractTest {
     void carriedBackpackKeepsUuidBindingAndPlacementNeverFallsBackToOpen() throws Exception {
         String compat = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/sophisticatedbackpacks/RtsBackpackCompat.java"));
-        String screen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String itemActions = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
         String placement = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
@@ -25,8 +26,9 @@ class RtsBackpackRoutingContractTest {
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("findCarriedBackpack(player, uuid)"),
                 "UUID resolution must cover Sophisticated Backpacks' carried and accessory slots.");
-        assertTrue(screen.contains("forcePlace || forceBackpackPlacement")
-                        && screen.contains("!forceBackpackPlacement && !forcePlace"),
+        assertTrue(itemActions.contains("forcePlace || forceBackpackPlacement")
+                        && itemActions.contains(
+                        "!forceBackpackPlacement && !forcePlace"),
                 "Right-clicking a backpack must bypass interaction and enter placement.");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
                         && placement.contains(
