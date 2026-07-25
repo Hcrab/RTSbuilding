@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *   <li>{@link #ULTIMINE_MAX_BLOCKS}=256 — BFS 连锁挖掘收集的硬上限</li>
  *   <li>{@link #AREA_MINE_MAX_SIZE}=36 — 区域挖掘每个维度的最大范围</li>
  *   <li>{@link #AREA_DESTROY_MAX_TARGETS}=98304 — 区域破坏接受的最大位置数</li>
- *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK}=16 — 每 tick 处理的连锁挖掘目标数（节流）</li>
+ *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK}=32 — 单个挖掘任务切片处理的目标数（节流）</li>
  * </ul>
  *
  * <p><b>验证功能：</b>
@@ -56,8 +56,8 @@ public final class RtsMiningValidator {
     /** 快速建造接受的显式形状破坏最大目标数。 */
     public static final int AREA_DESTROY_MAX_TARGETS = 98304;
 
-    /** 单个 tick 中处理的连锁挖掘目标数。 */
-    public static final int ULTIMINE_BLOCKS_PER_TICK = 16;
+    /** 单个挖掘任务切片处理的批量目标数。 */
+    public static final int ULTIMINE_BLOCKS_PER_TICK = 32;
 
     /** 玩家的快捷栏槽位数（0-8）。 */
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;

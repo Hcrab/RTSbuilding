@@ -412,7 +412,7 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 | `mining.areaMineMaxDepth` | `36`（1–256） | Z 轴深度上限。 |
 | `mining.areaMineMaxHarvestTier` | `UNLIMITED` | 范围挖掘可使用的插件采掘等级服务端封顶。 |
 | `mining.areaDestroyMaxTargets` | `98304`（1–262144） | 单个范围破坏请求接受的显式坐标数上限。 |
-| `mining.ultimineBlocksPerTick` | `16`（1–128） | 每位玩家每 tick 处理的连锁目标上限。 |
+| `mining.ultimineBlocksPerTick` | `32`（1–128） | 单个挖掘任务在一次调度切片中处理的批量目标上限。 |
 | `storage.ae2NetworkRefreshThrottle` | `10`（1–200） | AE2 昂贵网络快照之间的刷新周期数。 |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10`（1–200） | Refined Storage 昂贵网络快照之间的刷新周期数。 |
 | `storage.pageCacheMaxPlayers` | `256`（1–4096） | 储存页面 LRU 缓存保留的玩家数。 |
@@ -422,7 +422,7 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 | `placement.buildBatchMaxQueuedJobs` | `4`（1–32） | 每位玩家可排队的快速建造任务数。 |
 | `taskEngine.maxUnitsPerTick` | `256`（1–4096） | 所有玩家共享的每 tick 工作单位硬上限。 |
 | `taskEngine.maxUnitsPerSlice` | `32`（1–512） | 轮转到下一玩家前，单个玩家一次获得的工作单位。 |
-| `taskEngine.maxNanosPerTick` | `4000000`（250000–20000000） | Task Engine 每 tick 主线程协作时间预算，单位纳秒。 |
+| `taskEngine.maxNanosPerTick` | `8000000`（250000–20000000） | Task Engine 每 tick 主线程协作时间预算，单位纳秒。 |
 | `interaction.remotePovBlockReach` | `4.0`（1.0–16.0） | 服务端重放远程动作时临时使用的交互距离。 |
 | `mining.dropScanRadius` | `1.25`（0.25–8.0） | 远程挖掘后吸收附近掉落物的扫描半径。 |
 | `placement.remoteBlockActionSoundsPerTick` | `16`（0–16） | 每位玩家每 tick 发送的远程方块动作音效上限；超出直接丢弃。 |

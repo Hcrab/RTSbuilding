@@ -404,7 +404,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `mining.areaMineMaxDepth` | `36` (1–256) | Z depth limit. |
 | `mining.areaMineMaxHarvestTier` | `UNLIMITED` | Server ceiling for area-mining plugin tier. |
 | `mining.areaDestroyMaxTargets` | `98304` (1–262144) | Explicit target positions accepted by one area request. |
-| `mining.ultimineBlocksPerTick` | `16` (1–128) | Chain targets processed per player per tick. |
+| `mining.ultimineBlocksPerTick` | `32` (1–128) | Batch targets processed by one mining task slice. |
 | `storage.ae2NetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive AE2 snapshots. |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive RS snapshots. |
 | `storage.pageCacheMaxPlayers` | `256` (1–4096) | Player entries retained in the page LRU cache. |
@@ -414,7 +414,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `placement.buildBatchMaxQueuedJobs` | `4` (1–32) | Queued quick-build jobs per player. |
 | `taskEngine.maxUnitsPerTick` | `256` (1–4096) | Global work-unit hard limit per tick. |
 | `taskEngine.maxUnitsPerSlice` | `32` (1–512) | Units given to one player before rotation. |
-| `taskEngine.maxNanosPerTick` | `4000000` (250000–20000000) | Main-thread cooperative budget in nanoseconds per tick. |
+| `taskEngine.maxNanosPerTick` | `8000000` (250000–20000000) | Main-thread cooperative budget in nanoseconds per tick. |
 | `interaction.remotePovBlockReach` | `4.0` (1.0–16.0) | Temporary reach while replaying a remote action. |
 | `mining.dropScanRadius` | `1.25` (0.25–8.0) | Radius for absorbing drops around remotely mined blocks. |
 | `placement.remoteBlockActionSoundsPerTick` | `16` (0–16) | Remote block-action sounds sent per player per tick; excess is dropped. |

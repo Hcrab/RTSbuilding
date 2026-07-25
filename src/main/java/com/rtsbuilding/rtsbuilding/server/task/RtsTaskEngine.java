@@ -183,6 +183,9 @@ public final class RtsTaskEngine {
         durableRuntime.checkpointMiningExecutions(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
                 server.overworld().getGameTime());
+        durableRuntime.checkpointDestructionExecutions(
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
+                server.overworld().getGameTime());
         durableBlueprintBridge.checkpointAll(server.overworld().getGameTime());
     }
 
@@ -226,9 +229,12 @@ public final class RtsTaskEngine {
             var next = durable.type() == TaskType.MINING
                     ? durableRuntime.transitionMiningSnapshot(
                             durable, state, player.serverLevel().getGameTime())
-                    : durable.nextRevision(state, null,
-                            player.serverLevel().getGameTime(), durable.cursorUnits(), durable.succeededUnits(),
-                            durable.failedUnits(), durable.payload());
+                    : durable.type() == TaskType.DESTRUCTION
+                            ? durableRuntime.transitionDestructionSnapshot(
+                                    durable, state, player.serverLevel().getGameTime())
+                            : durable.nextRevision(state, null,
+                                    player.serverLevel().getGameTime(), durable.cursorUnits(),
+                                    durable.succeededUnits(), durable.failedUnits(), durable.payload());
             coordinator.replace(next);
         }
         TaskRecord record = findWorkflowTask(key);
@@ -287,8 +293,7 @@ public final class RtsTaskEngine {
                                         .decode(durable.payload()).state());
                     } else if (durable.type() == TaskType.DESTRUCTION) {
                         RtsDestructionBatch.recordDetachedHistory(player,
-                                com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec
-                                        .decode(durable.payload()).state());
+                                durableRuntime.currentDestructionState(durable));
                     } else {
                         RtsMiningStateMachine.finalizeDetachedCancellation(player,
                                 ServiceRegistry.getInstance().session().getIfPresent(player),
@@ -963,6 +968,11 @@ public final class RtsTaskEngine {
                 var token = workflowEngine
                         .from(player, snapshot.workflowEntryId()).orElse(null);
                 if (snapshot.state().terminal()) {
+                    if (java.util.Objects.equals(
+                            projectedDurableStates.get(snapshot.id()), snapshot.revision())) {
+                        coordinator.requestTombstone(snapshot.id(), snapshot.updatedGameTime());
+                        continue;
+                    }
                     if (token == null) {
                         DurableWorkflowProjection projection = inspectDurableProjection(player, snapshot);
                         if (!projection.poisoned()) {

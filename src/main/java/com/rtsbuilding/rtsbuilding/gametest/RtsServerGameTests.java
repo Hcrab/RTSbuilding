@@ -17,6 +17,7 @@ import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.DataCluster;
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsAtomicNbtStore;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
@@ -1409,12 +1410,12 @@ public final class RtsServerGameTests {
         });
     }
 
-    private static boolean hasActiveTask(ServerPlayer player, TaskType type) {
+    static boolean hasActiveTask(ServerPlayer player, TaskType type) {
         return TaskPersistenceRuntime.INSTANCE.coordinator().query().ownedBy(player.getUUID()).stream()
                 .anyMatch(snapshot -> snapshot.type() == type && !snapshot.state().terminal());
     }
 
-    private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
+    static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
         return startRtsPlayer(helper, gameType, new Vec3(3.5D, 2.0D, 3.5D));
     }
 
@@ -1606,7 +1607,7 @@ public final class RtsServerGameTests {
                 UUID.randomUUID(), player.serverLevel().dimension(), target, claims);
     }
 
-    private static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
+    static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
         return asApiPositions(relativePositions.stream()
                 .map(helper::absolutePos)
                 .toList());
@@ -1705,11 +1706,19 @@ public final class RtsServerGameTests {
         return BuiltInRegistries.ITEM.getKey(item).toString();
     }
 
-    private static void stopPlayers(ServerPlayer player) {
+    static void stopPlayers(ServerPlayer player) {
         RtsCameraManager.stopIfActive(player);
         if (player.getServer() != null
                 && player.getServer().getPlayerList().getPlayer(player.getUUID()) == player) {
-            player.getServer().getPlayerList().remove(player);
+            try {
+                player.getServer().getPlayerList().remove(player);
+            } catch (UnsupportedOperationException exception) {
+                // 某些真实整合包模组会在假玩家登出事件中广播仅真实客户端注册的 payload。
+                // GameTest server 没有客户端握手，不能让测试夹具清理动作掩盖被测的 RTS 结果。
+                if (!RtsClientboundPackets.isGameTestServerPlayer(player)) {
+                    throw exception;
+                }
+            }
         }
     }
 

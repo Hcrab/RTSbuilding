@@ -47,6 +47,21 @@ class BatchHotPathContractTest {
     }
 
     @Test
+    void rangeDestructionUsesWriteBehindCheckpointsInsteadOfWaitingForEverySlice() throws IOException {
+        String runtime = readMain("server/task/RtsDurableTaskExecutionRuntime.java");
+        int start = runtime.indexOf("private DurableTaskScheduler.SliceResult executeDurableDestruction");
+        int end = runtime.indexOf("private DurableTaskScheduler.SliceResult durableNoProgress", start);
+        String destruction = runtime.substring(start, end);
+
+        assertTrue(destruction.contains("DestructionProgressOverlay"));
+        assertTrue(destruction.contains("pendingUnits >= 256"));
+        assertTrue(destruction.contains(
+                "return new DurableTaskScheduler.SliceResult(snapshot, result.processedUnits())"));
+        assertTrue(runtime.contains("checkpointDestructionExecutions"));
+        assertTrue(runtime.contains("transitionDestructionSnapshot"));
+    }
+
+    @Test
     void successfulBreakIsNotRetriedWhenToolBecomesProtected() throws IOException {
         String source = readMain("server/service/destruction/RtsDestructionBatch.java");
         int start = source.indexOf("public static DestructionSliceResult tickDetachedDestructionSlice(");

@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.gametest.MekanismToolsCompatibilityGameTests;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -32,10 +33,12 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -87,6 +90,9 @@ public class RtsbuildingMod {
      */
     public RtsbuildingMod(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::onConfigLoading);
+        modEventBus.addListener(this::onConfigReloading);
+        modEventBus.addListener(this::registerCompatibilityGameTests);
         RtsEntities.register(modEventBus);
         RtsBlocks.register(modEventBus);
         RtsItems.register(modEventBus);
@@ -98,6 +104,25 @@ public class RtsbuildingMod {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC, "rts_building/rtsbuilding-client.toml");
             com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
         }
+    }
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        migrateServerConfigIfNeeded(event.getConfig());
+    }
+
+    private void onConfigReloading(ModConfigEvent.Reloading event) {
+        migrateServerConfigIfNeeded(event.getConfig());
+    }
+
+    private void migrateServerConfigIfNeeded(ModConfig config) {
+        if (config != null && config.getSpec() == Config.SERVER_SPEC
+                && Config.migrateLegacyServerDefaults()) {
+            LOGGER.info("已迁移 RTSBuilding 旧版服务端吞吐默认值。");
+        }
+    }
+
+    private void registerCompatibilityGameTests(RegisterGameTestsEvent event) {
+        event.register(MekanismToolsCompatibilityGameTests.class);
     }
 
     /**

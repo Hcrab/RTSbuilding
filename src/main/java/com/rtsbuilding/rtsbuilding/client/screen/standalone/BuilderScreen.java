@@ -289,6 +289,9 @@ public final class BuilderScreen extends Screen {
         this.blueprintMaterialWindowPanel.init(this, this.controller);
         this.craftQuantityWindowPanel.init(this, this.controller);
         this.funnelBufferPanel.init(this, this.controller);
+        // Quick Build 初始化会生成一次正式状态快照，其中的成本与尺寸文本可能读取鼠标射线。
+        // 因此光标拾取器必须先完成绑定，不能等到所有面板初始化结束后再挂载。
+        this.cursorPicker.init(this, this.controller, this.shapeController);
         this.quickBuildPanel.init(this, this.controller);
         this.cullingPanel.init(this, this.controller);
         this.workflowPanel.init(this, this.controller);
@@ -297,7 +300,6 @@ public final class BuilderScreen extends Screen {
         this.linkedStoragePanel.init(this, this.controller);
         this.topBarPanel.init(this, this.controller);
         this.bottomPanel.init(this, this.controller);
-        this.cursorPicker.init(this, this.controller, this.shapeController);
         this.cameraInput.init(this, this.controller);
         RtsCullingClientState.setActiveManager(this.cullingManager);
         RtsCullingClientState.requestCurrentWorldState();
