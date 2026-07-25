@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.screen;
+package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import org.junit.jupiter.api.Test;

@@ -7,12 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RtsAiHelpPromptTest {
     @Test
     void chinesePromptEndsAtQuestionEntry() {
-        String prompt = RtsAiHelpPrompt.compose(true, "1.1.6-pilot1", "1.20.1",
-                "47.4.0", "zh_cn", "交互", "# 开始使用\n按 G 打开。",
+        String prompt = RtsAiHelpPrompt.compose(true, "1.1.6-pilot1", "1.21.1",
+                "21.1.219", "zh_cn", "交互", "# 开始使用\n按 G 打开。",
                 "普通日志尾部", "[Workflow] RTS 日志", true);
 
         assertTrue(prompt.contains("当前 RTS 模式: 交互"));
-        assertTrue(prompt.contains("Forge 版本: 47.4.0"));
+        assertTrue(prompt.contains("Forge 版本: 21.1.219"));
         assertTrue(prompt.contains("# 开始使用"));
         assertTrue(prompt.contains("2～5 条彼此不同"));
         assertTrue(prompt.contains("必须标注为“推测”"));
@@ -24,12 +24,12 @@ class RtsAiHelpPromptTest {
 
     @Test
     void englishPromptEndsAtQuestionEntry() {
-        String prompt = RtsAiHelpPrompt.compose(false, "1.1.6-pilot1", "1.20.1",
-                "47.4.0", "en_us", "Interact", "# Getting started\nPress G.",
+        String prompt = RtsAiHelpPrompt.compose(false, "1.1.6-pilot1", "1.21.1",
+                "21.1.219", "en_us", "Interact", "# Getting started\nPress G.",
                 "general log tail", "[Workflow] RTS log", true);
 
         assertTrue(prompt.contains("Current RTS mode: Interact"));
-        assertTrue(prompt.contains("Forge version: 47.4.0"));
+        assertTrue(prompt.contains("Forge version: 21.1.219"));
         assertTrue(prompt.contains("# Getting started"));
         assertTrue(prompt.contains("2–5 distinct troubleshooting paths"));
         assertTrue(prompt.contains("Label anything not directly supported"));

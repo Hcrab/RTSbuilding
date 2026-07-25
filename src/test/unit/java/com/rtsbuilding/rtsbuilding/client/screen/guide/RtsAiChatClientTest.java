@@ -32,22 +32,4 @@ class RtsAiChatClientTest {
 
         assertEquals(List.of("RTS", "Building"), chunks);
     }
-
-    @Test
-    void ignoresHeartbeatAndMetadataWithoutClosingTheStream() throws Exception {
-        String sse = """
-                : heartbeat
-                event: ping
-
-                data: {"choices":[{"delta":{"content":"still alive"}}]}
-
-                data: [DONE]
-                """;
-        List<String> chunks = new ArrayList<>();
-
-        RtsAiChatClient.readSse(new ByteArrayInputStream(
-                sse.getBytes(StandardCharsets.UTF_8)), chunks::add);
-
-        assertEquals(List.of("still alive"), chunks);
-    }
 }

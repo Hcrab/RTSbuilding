@@ -34,4 +34,5 @@ class RtsPickBlockPlacementSelectorTest {
         assertEquals(RtsPickBlockPlacementSelector.Route.REMOTE, selection.route());
         assertEquals(-1, selection.slot());
     }
+
 }

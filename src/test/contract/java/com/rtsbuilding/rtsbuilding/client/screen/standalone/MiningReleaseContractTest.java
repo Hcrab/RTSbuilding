@@ -12,12 +12,12 @@ class MiningReleaseContractTest {
     @Test
     void mouseReleaseStopsMiningBeforeFloatingWindowsCanConsumeRelease() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public boolean mouseReleased");
 
         int miningGuard = body.indexOf("this.cameraInput.isLeftMiningActive()");
         int stopMining = body.indexOf("this.cameraInput.stopActiveMining()", miningGuard);
-        int floatingRelease = body.indexOf("this.floatingWindowLayer.mouseReleased");
+        int floatingRelease = body.indexOf("handleFloatingWindowRelease");
 
         assertTrue(miningGuard >= 0, "mouse release must check active mining");
         assertTrue(stopMining > miningGuard, "mouse release must stop active mining");
@@ -28,7 +28,7 @@ class MiningReleaseContractTest {
     @Test
     void keyboardReleaseStopsMiningImmediately() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public boolean keyReleased");
 
         int keyboardMiningGuard = body.indexOf("this.cameraInput.isKeyboardMining()");
@@ -45,7 +45,7 @@ class MiningReleaseContractTest {
     @Test
     void abortMiningClearsLocalBreakProgressImmediately() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/service/MiningOperationService.java"));
         String body = methodBody(source, "public void abortMining");
 
         int sendAbort = body.indexOf("RtsClientPacketGateway.sendMineAbort");
@@ -61,7 +61,7 @@ class MiningReleaseContractTest {
     @Test
     void oldServerClearDoesNotWipeNewMiningRenderTarget() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/service/MiningOperationService.java"));
         String clearBody = methodBody(source, "private void clearMineProgressRender");
         String progressBody = methodBody(source, "public void applyMineProgress");
 

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,6 +82,20 @@ class RtsBoxHandleInteractionTest {
                 (handle, delta) -> true));
         assertTrue(interaction.releaseActiveHandleIfDragged(),
                 "发生过拖拽后，松开鼠标应释放箭头");
+        assertNull(interaction.activeDirection());
+    }
+
+    @Test
+    void hiddenHandleDirectionCannotCaptureWheelLock() {
+        RtsBoxHandleInteraction interaction = new RtsBoxHandleInteraction();
+        RtsCullingBox box = singleBlockBox();
+        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
+        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+
+        RtsBoxHandleInteraction.ClickResult result = interaction.clickHandle(
+                box, origin, direction, Set.of(Direction.EAST, Direction.WEST));
+
+        assertEquals(RtsBoxHandleInteraction.ClickKind.NONE, result.kind());
         assertNull(interaction.activeDirection());
     }
 

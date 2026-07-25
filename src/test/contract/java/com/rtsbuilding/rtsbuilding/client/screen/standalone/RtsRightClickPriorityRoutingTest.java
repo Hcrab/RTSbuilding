@@ -10,23 +10,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsRightClickPriorityRoutingTest {
     @Test
-    void selectedStorageItemNormalRightClickInteractsBeforePlacement() throws IOException {
+    void selectedStorageItemSingleBlockNormalRightClickInteractsBeforePlacement() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
 
         int selectedItemBranch = body.indexOf("if (this.controller.hasSelectedItem())");
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode", selectedItemBranch);
+                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode",
+                selectedItemBranch);
         int interactPinnedItem = body.indexOf("this.controller.interactBlockWithPinnedItem", selectedItemBranch);
         int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)", selectedItemBranch);
 
-        assertTrue(normalInteractGuard >= 0, "normal right-click must be explicitly routed to interaction first");
+        assertTrue(normalInteractGuard >= 0,
+                "普通右键交互优先只能截获单方块模式，形状/范围放置不能被提前返回。");
         assertTrue(body.indexOf("this.controller.getBuildShape() == BuildShape.BLOCK", normalInteractGuard)
                         > normalInteractGuard,
-                "normal item interaction must remain limited to single-block mode");
+                "普通物品的交互优先仍必须只作用于单方块模式。");
+        int normalInteractGuardEnd = body.indexOf(") {", normalInteractGuard);
+        assertTrue(body.substring(normalInteractGuard, normalInteractGuardEnd)
+                        .contains("this.controller.getPlacementStatePreset().isBlank()"),
+                "R 已预选 BlockState 时必须绕过自然交互，否则 preset 根本不会进入放置数据包");
         assertTrue(interactPinnedItem > normalInteractGuard,
                 "normal right-click with a selected storage item should send interact before placement");
         assertTrue(forcePlacementBranch > interactPinnedItem,
@@ -34,18 +40,41 @@ class RtsRightClickPriorityRoutingTest {
     }
 
     @Test
+    void selectedStorageItemShapePlacementBypassesNormalInteractBranch() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+
+        int selectedItemBranch = body.indexOf("if (this.controller.hasSelectedItem())");
+        assertTrue(selectedItemBranch >= 0, "selected item branch missing");
+
+        int normalInteractGuard = body.indexOf(
+                "this.controller.getBuildShape() == BuildShape.BLOCK",
+                selectedItemBranch);
+        int shapePlacement = body.indexOf("this.shapeController.placeWithShape(", selectedItemBranch);
+
+        assertTrue(normalInteractGuard >= 0, "selected storage item routing must guard interact-first by shape");
+        assertTrue(shapePlacement > normalInteractGuard,
+                "形状建造需要继续进入 placeWithShape，不能被储存栏物品普通交互吞掉。");
+    }
+
+    @Test
     void mainHandNormalRightClickInteractsAndShiftRightClickPlacesFirst() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
 
         int toolSlotInteract = body.indexOf("this.controller.interactBlockWithToolSlot");
         assertTrue(toolSlotInteract >= 0, "normal main-hand right-click should send tool-slot interaction");
 
-        int shiftPlace = body.lastIndexOf("this.controller.placeSelected(target.blockHit(), true", toolSlotInteract);
-        int forceGuard = body.lastIndexOf("if (forcePlace)", toolSlotInteract);
+        int shiftPlace = body.lastIndexOf("this.controller.placeSelected(", toolSlotInteract);
+        int forceGuard = body.lastIndexOf("if (forcePlace ||", toolSlotInteract);
 
         assertTrue(forceGuard >= 0, "main-hand block action must keep the Shift force-place branch");
+        int forceGuardEnd = body.indexOf(") {", forceGuard);
+        assertTrue(body.substring(forceGuard, forceGuardEnd)
+                        .contains("this.controller.getPlacementStatePreset().isBlank()"),
+                "手持方块的 R preset 也必须让右键走放置包，而不是不携带 preset 的自然交互包");
         assertTrue(shiftPlace > forceGuard,
                 "Shift right-click should run placeSelected before the normal interaction fallback");
     }

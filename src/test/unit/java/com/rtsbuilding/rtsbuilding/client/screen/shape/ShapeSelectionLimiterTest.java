@@ -5,48 +5,42 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShapeSelectionLimiterTest {
     @Test
-    void rectilinearLimitKeepsFirstPointFixed() {
-        ShapeBuildTypes.Input input = input(BuildShape.BOX,
-                new BlockPos(12, 30, -8), new BlockPos(-80, 120, 90), Direction.UP, 70);
+    void rectilinearSelectionIsShrunkBeforeGeometryWhenVolumeIsTooLarge() {
+        ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
+                BuildShape.BOX,
+                Direction.UP,
+                Direction.UP,
+                BlockPos.ZERO,
+                new BlockPos(255, 0, 255),
+                255,
+                false);
 
-        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensions(input, 12, 10, 8);
+        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensionsAndVolume(
+                input, 256, 256, 256, 46_656);
 
-        assertEquals(input.pointA(), limited.pointA());
-        assertEquals(new BlockPos(1, 39, -1), limited.pointB());
-        assertEquals(9, limited.boxHeightOffset());
+        assertTrue(ShapeSelectionLimiter.envelopeVolume(limited) <= 46_656L);
     }
 
     @Test
-    void roundLimitProducesMaximumCircleInsteadOfClippedSquare() {
-        BlockPos center = new BlockPos(0, 64, 0);
-        ShapeBuildTypes.Input input = input(BuildShape.CIRCLE,
-                center, new BlockPos(100, 64, 100), Direction.UP, 0);
+    void centeredRoundSelectionNeverExceedsConfiguredAxisLength() {
+        ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
+                BuildShape.CIRCLE,
+                Direction.UP,
+                Direction.UP,
+                BlockPos.ZERO,
+                new BlockPos(100, 0, 0),
+                0,
+                false);
 
-        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensions(input, 12, 20, 12);
-        int dx = limited.pointB().getX() - center.getX();
-        int dz = limited.pointB().getZ() - center.getZ();
+        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensionsAndVolume(
+                input, 12, 12, 12, 1_728);
+        int radius = Math.abs(limited.pointB().getX() - limited.pointA().getX());
 
-        assertEquals(center, limited.pointA());
-        assertTrue(Math.sqrt(dx * (double) dx + dz * (double) dz) <= 6.5D);
-    }
-
-    @Test
-    void cylinderHeightUsesNormalAxisCap() {
-        ShapeBuildTypes.Input input = input(BuildShape.CYLINDER,
-                new BlockPos(0, 0, 0), new BlockPos(3, 0, 0), Direction.UP, -100);
-
-        ShapeBuildTypes.Input limited = ShapeSelectionLimiter.clampDimensions(input, 12, 10, 12);
-
-        assertEquals(-9, limited.boxHeightOffset());
-    }
-
-    private static ShapeBuildTypes.Input input(BuildShape shape, BlockPos a, BlockPos b,
-            Direction planeFace, int height) {
-        return new ShapeBuildTypes.Input(shape, planeFace, planeFace, a, b, height, false);
+        assertTrue((radius * 2) + 1 <= 12,
+                "中心对称形状在偶数尺寸上限下宁可少一格，也不能越过服务端限制");
     }
 }

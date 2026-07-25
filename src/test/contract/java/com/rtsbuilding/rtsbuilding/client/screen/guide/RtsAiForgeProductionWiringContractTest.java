@@ -15,7 +15,7 @@ class RtsAiForgeProductionWiringContractTest {
     @Test
     void guideAndBuilderOwnTheCompletePlayerEntryFlow() throws Exception {
         String guide = source("client/screen/guide/GuidePanel.java");
-        String builder = source("client/screen/BuilderScreen.java");
+        String builder = source("client/screen/standalone/BuilderScreen.java");
 
         assertTrue(guide.contains("screen.rtsbuilding.ai_help.chat"));
         assertTrue(guide.contains("RtsAiHelpClipboard.copy"));

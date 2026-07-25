@@ -14,7 +14,7 @@ class RtsCullingPersistenceWiringContractTest {
         String inputGate = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/input/RtsClientInputGate.java"));
         String builderScreen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String clientState = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingClientState.java"));
 

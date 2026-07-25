@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsCullingAxisHandleTest {
     @Test
@@ -53,5 +54,26 @@ class RtsCullingAxisHandleTest {
                 new Vec3(11.5D, 62.0D, 12.5D),
                 new Vec3(0.0D, 1.0D, 0.0D),
                 8.0D).orElseThrow().direction());
+    }
+
+    @Test
+    void allowedDirectionsFilterRenderedAndRaycastHandles() {
+        RtsCullingBox box = new RtsCullingBox(
+                1,
+                new BlockPos(10, 64, 10),
+                new BlockPos(12, 66, 14));
+        Set<Direction> allowed = Set.of(Direction.EAST, Direction.WEST);
+
+        Set<Direction> directions = RtsCullingAxisHandle.handles(box.asAabb(), allowed).stream()
+                .map(RtsCullingAxisHandle.Handle::direction)
+                .collect(Collectors.toSet());
+
+        assertEquals(allowed, directions);
+        assertTrue(RtsCullingAxisHandle.nearestHit(
+                box,
+                new Vec3(11.5D, 68.0D, 12.5D),
+                new Vec3(0.0D, -1.0D, 0.0D),
+                8.0D,
+                allowed).isEmpty());
     }
 }

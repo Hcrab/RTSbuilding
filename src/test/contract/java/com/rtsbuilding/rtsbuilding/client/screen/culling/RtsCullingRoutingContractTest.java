@@ -11,30 +11,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsCullingRoutingContractTest {
     @Test
-    void runtimeVerifierRejectsAnUntransformedWorldSlice() {
-        assertFalse(RtsCullingMixinVerifier.hasWorldSliceBridge(UntransformedWorldSlice.class));
-        assertTrue(RtsCullingMixinVerifier.hasWorldSliceBridge(TransformedWorldSlice.class));
-    }
+    void embeddiumCullingUsesItsAreaRebuildEntryWithoutBecomingARequiredDependency() throws IOException {
+        String state = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingClientState.java"));
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingManager.java"));
+        String invalidator = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/culling/RtsCullingRenderInvalidator.java"));
 
-    @Test
-    void forge1201EmbeddiumUsesTheActualWorldSliceEntryPoints() throws IOException {
-        String body = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/EmbeddiumWorldSliceMixin.java"));
-
-        assertTrue(body.contains("me.jellysquid.mods.sodium.client.world.WorldSlice"),
-                "Forge 1.20.1 Embeddium still uses Sodium's legacy WorldSlice package");
-        assertTrue(body.contains("m_8055_"), "production block-state reads must be intercepted");
-        assertTrue(body.contains("getBlockState(III)"), "integer block-state reads must be intercepted");
-        assertTrue(body.contains("m_6425_"), "production fluid-state reads must be intercepted");
-        assertTrue(body.contains("m_7702_"), "production block-entity reads must be intercepted");
-        assertTrue(body.contains("getBlockEntity(III)"), "integer block-entity reads must be intercepted");
+        assertTrue(state.contains("volatile RtsCullingManager activeManager"),
+                "Embeddium worker threads must see the active culling manager");
+        assertTrue(manager.contains("RtsCullingRenderInvalidator.markBlocksDirty"));
+        assertTrue(invalidator.contains("Class.forName("),
+                "optional Embeddium compatibility must not create a hard class link");
+        assertTrue(invalidator.contains("scheduleRebuildForBlockArea"));
+        assertTrue(invalidator.contains("minecraft.levelRenderer.setBlocksDirty"),
+                "vanilla rendering must retain its own dirty-region path");
     }
 
     @Test
     void builderScreenRangeCullingWorldActionDelegatesToDedicatedInput() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean handleRangeCullingSelectionClick");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String body = methodBody(source, "private boolean handleRangeCullingWorldAction");
 
         assertTrue(body.contains("RtsCullingWorldInput.handleWorldAction(this.cullingManager, this.cursorPicker)"));
         assertFalse(body.contains("pickBlockHitIgnoringRangeCulling"),
@@ -44,7 +43,7 @@ class RtsCullingRoutingContractTest {
     @Test
     void screenCursorPickerCullingAwareContractUsesNormalBlockHit() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/ScreenCursorPicker.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenCursorPicker.java"));
         String body = methodBody(source, "public BlockHitResult pickCullingAwareBlockHit");
 
         assertTrue(body.contains("return pickBlockHit(false);"));
@@ -64,38 +63,41 @@ class RtsCullingRoutingContractTest {
     @Test
     void cullingModeOnlySwallowsLeftDragSoRightDragCanRotateCamera() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public boolean mouseDragged");
 
-        assertFalse(body.contains("this.cullingManager.isManagementMode() && button != GLFW.GLFW_MOUSE_BUTTON_LEFT"),
-                "range-culling mode must not consume right-button drags that should rotate the camera");
+        assertTrue(body.contains("this.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT"),
+                "range-culling mode should only consume left-button box-selection drags");
     }
 
     @Test
     void activeBoxHandleDragRoutesBeforeCullingDragSwallow() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public boolean mouseDragged");
 
         int handleDrag = body.indexOf("handleBoxHandleDrag(button, dragX, dragY)");
-        int cullingSwallow = body.indexOf("this.cullingManager.isManagementMode()");
-        int rightDrag = body.indexOf("this.cameraInput.handleRightDrag");
+        int cullingSwallow = body.indexOf("this.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT");
         assertTrue(handleDrag >= 0, "active blueprint/culling handles should receive drag input");
-        assertTrue(cullingSwallow < 0 || handleDrag < cullingSwallow,
-                "active axis-handle dragging must run before any range-culling drag swallow");
-        assertTrue(rightDrag < 0 || handleDrag < rightDrag,
-                "active axis-handle dragging should run before camera drag fallback");
+        assertTrue(cullingSwallow >= 0, "range-culling left drag guard should still exist");
+        assertTrue(handleDrag < cullingSwallow,
+                "active axis-handle dragging must run before range-culling mode consumes left drags");
     }
 
     @Test
     void cullingPanelCloseButtonClosesManagementMode() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingPanel.java"));
+        String adapter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/CullingUiAdapter.java"));
         String constructor = methodBody(source, "public RtsCullingPanel");
         String closeBody = methodBody(source, "protected void onClose");
 
         assertTrue(constructor.contains("this.closable = true"));
-        assertTrue(closeBody.contains("manager.closeManagementMode()"));
+        assertTrue(closeBody.contains("CullingUiAction.Type.CLOSE"),
+                "关闭按钮必须提交共享 Core 的 CLOSE 动作");
+        assertTrue(adapter.contains("case CLOSE -> manager.closeManagementMode()"),
+                "生产适配器必须把共享 CLOSE 命令落到真实管理器");
     }
 
     @Test
@@ -117,7 +119,7 @@ class RtsCullingRoutingContractTest {
         assertTrue(renderer.contains("RtsBoxHandleRenderer.renderAxisHandles"),
                 "selected range-culling boxes should use the shared world-space axis handle renderer");
         assertTrue(handles.contains("RtsCullingAxisHandle.handles(box, allowedDirections)"),
-                "selected range-culling boxes should expose world-space axis handles");
+                "selected range-culling boxes should expose world-space axis handles with optional direction filtering");
         assertTrue(renderer.contains("manager.hoveredHandleDirection()"),
                 "hovered direction handle must get a distinct visual state");
         assertTrue(renderer.contains("manager.activeHandleDirection()"),
@@ -137,10 +139,8 @@ class RtsCullingRoutingContractTest {
                 "range-culling axis handle fill should have a dedicated no-depth render type");
         assertTrue(overlay.contains("CULLING_HANDLE_NO_DEPTH_LINES"),
                 "range-culling axis handle lines should have a dedicated no-depth render type");
-        assertTrue(overlay.contains("drawNoDepth(CULLING_HANDLE_NO_DEPTH_FILL, cullingHandleFillBuffer)")
-                || overlay.contains("drawBuiltBufferNoDepth(CULLING_HANDLE_NO_DEPTH_FILL, cullingHandleFillBuffer)"));
-        assertTrue(overlay.contains("drawNoDepth(CULLING_HANDLE_NO_DEPTH_LINES, cullingHandleLineBuffer)")
-                || overlay.contains("drawBuiltBufferNoDepth(CULLING_HANDLE_NO_DEPTH_LINES, cullingHandleLineBuffer)"));
+        assertTrue(overlay.contains("drawNoDepth(CULLING_HANDLE_NO_DEPTH_FILL, cullingHandleFillBuffer)"));
+        assertTrue(overlay.contains("drawNoDepth(CULLING_HANDLE_NO_DEPTH_LINES, cullingHandleLineBuffer)"));
         assertTrue(renderer.contains("handleLineBuffer"));
         assertTrue(renderer.contains("handleFillBuffer"));
     }
@@ -150,9 +150,9 @@ class RtsCullingRoutingContractTest {
         String renderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/blueprint/BlueprintCaptureRenderer.java"));
         String panel = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/blueprint/client/BlueprintPanel.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java"));
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/blueprint/client/BlueprintCaptureController.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintCaptureController.java"));
 
         assertTrue(renderer.contains("BlueprintPanel.getCapturePreviewAabbForRender()"),
                 "blueprint capture outline should render from the animated AABB path");
@@ -180,11 +180,5 @@ class RtsCullingRoutingContractTest {
             }
         }
         throw new AssertionError("method body is not closed: " + signatureStart);
-    }
-
-    private static final class UntransformedWorldSlice {
-    }
-
-    private static final class TransformedWorldSlice implements RtsCullingWorldSliceBridge {
     }
 }

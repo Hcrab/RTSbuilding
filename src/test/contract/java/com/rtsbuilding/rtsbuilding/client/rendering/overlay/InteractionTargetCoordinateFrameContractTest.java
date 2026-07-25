@@ -19,7 +19,7 @@ class InteractionTargetCoordinateFrameContractTest {
         String source = Files.readString(SOURCE);
         String method = between(source,
                 "private static boolean isInteractionBlockedByUI",
-                "private static Vec3 resolveHighlightRayDirection");
+                "private static void renderEntityCornerHighlight");
 
         assertTrue(method.contains("builderScreen.getCurrentMouseX()"));
         assertTrue(method.contains("builderScreen.getCurrentMouseY()"));

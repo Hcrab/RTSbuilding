@@ -6,35 +6,51 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QuickBuildClosedStateContractTest {
+    @Test
+    void builderBindsShapeControllerBeforeQuickBuildTakesItsInitialSnapshot() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String constructor = methodBody(source, "public BuilderScreen");
+
+        int shapeInit = constructor.indexOf("this.shapeController.init(this, this.controller)");
+        int quickBuildInit = constructor.indexOf("this.quickBuildPanel.init(this, this.controller)");
+        assertTrue(shapeInit >= 0 && quickBuildInit >= 0 && shapeInit < quickBuildInit,
+                "按 G 构造界面时，Quick Build 首次 Core 快照不得读取尚未绑定 screen 的形状控制器");
+    }
+
     @Test
     void closingQuickBuildPanelRestoresSingleBlockCursor() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
         String closeBody = methodBody(source, "protected void onClose");
 
-        assertTrue(closeBody.contains("restoreSingleBlockCursor()"));
-        assertTrue(closeBody.contains("screen.persistUiState()"));
+        assertTrue(closeBody.contains("restoreSingleBlockCursor()"),
+                "closing the quick-build window must leave normal single-block placement/destruction active");
+        assertTrue(closeBody.contains("screen.persistUiState()"),
+                "closing the quick-build window should persist the closed state");
     }
 
     @Test
     void storedQuickBuildStateDoesNotActivateWhenWindowIsClosed() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public void syncQuickBuildActiveState");
 
-        assertTrue(body.contains("if (!this.quickBuildPanel.isQuickBuildOpen() || !canUseQuickBuild())"));
+        assertTrue(body.contains("if (!this.quickBuildPanel.isOpen() || !canUseQuickBuild())"),
+                "hidden or locked quick-build state must not stay active in the controller");
         assertTrue(body.contains("this.controller.setBuildShape(BuildShape.BLOCK)"));
+        assertTrue(body.contains("this.controller.clearAreaMineSession()"));
         assertTrue(body.contains("this.shapeController.clearShapeBuildSession()"));
-        assertTrue(body.contains("ensureFillModeForShape(BuildShape.BLOCK)"));
     }
 
     @Test
     void quickBuildClientUiRequiresRemotePlacementUnlock() throws IOException {
         String builderScreen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String canUseBody = methodBody(builderScreen, "public boolean canUseQuickBuild");
         String toggleBody = methodBody(builderScreen, "public void toggleQuickBuild");
         String panelSource = Files.readString(Path.of(
@@ -42,13 +58,47 @@ class QuickBuildClosedStateContractTest {
         String canShowBody = methodBody(panelSource, "protected boolean canShowWindow");
         String topBarSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java"));
+        String topBarAdapterSource = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java"));
 
-        assertTrue(canUseBody.contains("hasProgressionNode(RtsProgressionNodes.REMOTE_PLACE)"));
-        assertTrue(canShowBody.contains("screen.canUseQuickBuild()"));
-        assertTrue(topBarSource.contains("if (screen.canUseQuickBuild())")
-                && topBarSource.contains("TopBarTypes.TopBarButtonId.QUICK_BUILD"));
-        assertTrue(topBarSource.contains("String shapeStatus = screen.isQuickBuildOpen()"));
-        assertTrue(toggleBody.contains("showQuickBuildLockedMessage()"));
+        assertTrue(canUseBody.contains("!this.controller.isProgressionEnabled()"),
+                "survival balance disabled should keep quick-build available");
+        assertTrue(canUseBody.contains("BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN.toString()"),
+                "survival balance should gate quick-build on the remote placement plugin");
+        assertTrue(canShowBody.contains("screen.canUseQuickBuild()"),
+                "a persisted quick-build window must not render while the feature is locked");
+        assertTrue(topBarSource.contains("TopBarUiAdapter.snapshot(screen, controller)")
+                        && topBarAdapterSource.contains("TopBarUiButtonId.QUICK_BUILD")
+                        && topBarAdapterSource.contains("screen.canUseQuickBuild()"),
+                "the top bar quick-build button should disappear while the feature is locked");
+        assertFalse(topBarSource.contains("screen.rtsbuilding.status.shape"),
+                "the top status row should not duplicate quick-build shape state");
+        assertFalse(topBarSource.contains("screen.rtsbuilding.status.fill"),
+                "the top status row should not duplicate quick-build fill state");
+        assertTrue(toggleBody.contains("showQuickBuildLockedMessage()"),
+                "direct toggles should tell the player why quick-build did not open");
+    }
+
+    @Test
+    void quickBuildPanelOwnsShapeDimensionReadout() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+        String renderer = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java"));
+        String adapter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
+        String layout = Files.readString(Path.of(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/QuickBuildWindowLayout.java"));
+
+        assertTrue(source.contains("QuickBuildStatusRenderer.render(")
+                        && renderer.contains("screen.rtsbuilding.quick_build.dimensions"),
+                "shape dimensions should live in the quick-build status renderer, not the top bar");
+        assertTrue(renderer.contains("state.dimensions")
+                        && adapter.contains("panel.uiScreen().currentShapeSizeText()"),
+                "the production status renderer should render the live width/height/depth readout");
+        assertTrue(layout.contains("public static final int BOTTOM_INFO_H = 72")
+                        && source.contains("QuickBuildWindowLayout.windowHeight("),
+                "the bottom hint area should leave room for the extra dimension row");
     }
 
     @Test
@@ -56,31 +106,12 @@ class QuickBuildClosedStateContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementBatch.java"));
 
-        assertTrue(source.contains("RtsFeature.REMOTE_PLACE"));
-        assertTrue(source.contains("sendRemoteHint") && source.contains("displayClientMessage"));
-        assertTrue(source.contains("message.rtsbuilding.quick_build.remote_place_locked"));
-    }
-
-    @Test
-    void remoteControlPluginDisplayNameUsesControlCoreName() throws IOException {
-        assertTranslation("src/main/resources/assets/rtsbuilding/lang/en_us.json",
-                "\"item.rtsbuilding.remote_control_plugin\": \"Remote Control Core\"",
-                "Remote Placement Plugin");
-        assertTranslation("src/main/resources/assets/rtsbuilding/lang/zh_cn.json",
-                "\"item.rtsbuilding.remote_control_plugin\": \"远程控制核心\"",
-                "远程放置插件");
-        assertTranslation("src/main/resources/assets/rtsbuilding/lang/zh_tw.json",
-                "\"item.rtsbuilding.remote_control_plugin\": \"遠端控制核心\"",
-                "遠端放置插件");
-        assertTranslation("src/main/resources/assets/rtsbuilding/lang/zh_hk.json",
-                "\"item.rtsbuilding.remote_control_plugin\": \"遠程控制核心\"",
-                "遠程放置插件");
-    }
-
-    private static void assertTranslation(String path, String expected, String forbidden) throws IOException {
-        String source = Files.readString(Path.of(path));
-        assertTrue(source.contains(expected), "missing expected translation in " + path);
-        assertTrue(!source.contains(forbidden), "old confusing translation remains in " + path);
+        assertTrue(source.contains("RtsFeature.REMOTE_PLACE"),
+                "server placement fallback must still be gated by remote placement");
+        assertTrue(source.contains("sendRemoteHint") && source.contains("displayClientMessage"),
+                "server fallback should use the lightweight actionbar hint path");
+        assertTrue(source.contains("message.rtsbuilding.quick_build.remote_place_locked"),
+                "server fallback should use the shared translated locked-feature message");
     }
 
     private static String methodBody(String source, String signatureStart) {

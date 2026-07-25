@@ -238,6 +238,49 @@ class RtsCullingManagerTest {
         assertEquals(1, manager.selectedId());
     }
 
+    @Test
+    void worldChangeClearsEveryCoordinateBoundCullingState() {
+        RtsCullingManager manager = new RtsCullingManager();
+        manager.setManagementMode(true);
+        BlockPos hidden = new BlockPos(10, 64, 10);
+        clickBlock(manager, hidden);
+        manager.confirmDraft();
+        manager.revealWorldBlock(hidden);
+
+        manager.clearWorldState();
+
+        assertFalse(manager.isManagementMode());
+        assertTrue(manager.boxes().isEmpty());
+        assertEquals(-1, manager.selectedId());
+        assertEquals(-1, manager.hoveredId());
+        assertEquals(RtsCullingManager.Phase.IDLE, manager.phase());
+        assertFalse(manager.shouldCullWorldBlock(hidden));
+    }
+
+    @Test
+    void returningToWorldRestoresOnlyThatWorldSnapshot() {
+        RtsCullingManager manager = new RtsCullingManager();
+        BlockPos saveAPos = new BlockPos(10, 64, 10);
+        BlockPos saveBPos = new BlockPos(100, 80, 100);
+
+        manager.replaceWorldState(
+                java.util.List.of(new RtsCullingBox(1, saveAPos, saveAPos)),
+                java.util.List.of());
+        assertTrue(manager.shouldCullWorldBlock(saveAPos));
+
+        manager.replaceWorldState(
+                java.util.List.of(new RtsCullingBox(1, saveBPos, saveBPos)),
+                java.util.List.of());
+        assertFalse(manager.shouldCullWorldBlock(saveAPos));
+        assertTrue(manager.shouldCullWorldBlock(saveBPos));
+
+        manager.replaceWorldState(
+                java.util.List.of(new RtsCullingBox(1, saveAPos, saveAPos)),
+                java.util.List.of());
+        assertTrue(manager.shouldCullWorldBlock(saveAPos));
+        assertFalse(manager.shouldCullWorldBlock(saveBPos));
+    }
+
     private static void clickBlock(RtsCullingManager manager, BlockPos pos) {
         manager.handleWorldAction(
                 new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false),

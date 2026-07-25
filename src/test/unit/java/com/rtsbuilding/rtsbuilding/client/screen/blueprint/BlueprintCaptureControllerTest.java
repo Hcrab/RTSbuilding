@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.blueprint.client;
+package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import net.minecraft.core.BlockPos;

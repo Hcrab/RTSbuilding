@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,6 +15,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShapeGeometryUtilTest {
+    @Test
+    void rangeDestroyUsesConfiguredSpanWithoutExpandingNormalBuildCap() {
+        ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
+                BuildShape.LINE,
+                Direction.UP,
+                Direction.UP,
+                BlockPos.ZERO,
+                new BlockPos(35, 0, 0),
+                0,
+                false);
+
+        List<BlockPos> normalBuild = ShapeGeometryUtil.buildShapePositions(input, ShapeFillMode.FILL);
+        List<BlockPos> rangeDestroy = ShapeGeometryUtil.buildRangeDestroyShapePositions(input, ShapeFillMode.FILL);
+
+        assertEquals(32, normalBuild.size(), "普通范围建造仍应保持原有 32 格上限");
+        assertEquals(36, rangeDestroy.size(), "范围破坏应使用服务端允许的 36 格跨度");
+        assertTrue(rangeDestroy.contains(new BlockPos(35, 0, 0)));
+    }
+
     @Test
     void cylinderPreviewUsesCircleFootprintAndScrollHeight() {
         BlockPos start = new BlockPos(0, 64, 0);
@@ -36,6 +56,53 @@ class ShapeGeometryUtilTest {
     }
 
     @Test
+    void normalCylinderBaseUsesExactlyTheNormalCircleFootprint() {
+        BlockPos start = new BlockPos(0, 64, 0);
+        ShapeBuildTypes.Input circleInput = new ShapeBuildTypes.Input(
+                BuildShape.CIRCLE,
+                Direction.UP,
+                Direction.UP,
+                start,
+                new BlockPos(3, 64, 0),
+                0,
+                false);
+        ShapeBuildTypes.Input cylinderInput = new ShapeBuildTypes.Input(
+                BuildShape.CYLINDER,
+                Direction.UP,
+                Direction.UP,
+                start,
+                new BlockPos(3, 64, 0),
+                0,
+                false);
+
+        assertEquals(
+                new HashSet<>(ShapeGeometryUtil.buildShapePositions(circleInput, ShapeFillMode.FILL)),
+                new HashSet<>(ShapeGeometryUtil.buildShapePositions(cylinderInput, ShapeFillMode.FILL)));
+        assertEquals(
+                new HashSet<>(ShapeGeometryUtil.buildShapePositions(circleInput, ShapeFillMode.HOLLOW)),
+                new HashSet<>(ShapeGeometryUtil.buildShapePositions(cylinderInput, ShapeFillMode.HOLLOW)));
+    }
+
+    @Test
+    void verticalCylinderExtrudesAlongPlaneNormalInsteadOfAlwaysY() {
+        BlockPos start = new BlockPos(0, 64, 0);
+        ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
+                BuildShape.CYLINDER,
+                Direction.EAST,
+                Direction.UP,
+                start,
+                new BlockPos(0, 66, 0),
+                2,
+                false);
+
+        List<BlockPos> fill = ShapeGeometryUtil.buildShapePositions(input, ShapeFillMode.FILL);
+
+        assertTrue(fill.contains(new BlockPos(2, 64, 0)));
+        assertTrue(fill.contains(new BlockPos(1, 66, 0)));
+        assertFalse(fill.contains(new BlockPos(0, 67, 0)));
+    }
+
+    @Test
     void ballPreviewCreatesThreeDimensionalRadiusFromCenterPoint() {
         BlockPos start = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
@@ -52,5 +119,65 @@ class ShapeGeometryUtilTest {
         assertEquals(7, new HashSet<>(fill).size());
         assertTrue(fill.contains(start.above()));
         assertTrue(fill.contains(start.below()));
+    }
+
+    @Test
+    void advancedCircleCanUseEllipticFootprintInsideSelectionBox() {
+        RtsCullingBox box = new RtsCullingBox(
+                0,
+                new BlockPos(-2, 64, -1),
+                new BlockPos(2, 64, 1));
+
+        List<BlockPos> fill = ShapeGeometryUtil.buildAdvancedShapePositions(
+                BuildShape.CIRCLE, box, ShapeFillMode.FILL);
+
+        assertTrue(fill.contains(new BlockPos(0, 64, 0)));
+        assertTrue(fill.contains(new BlockPos(2, 64, 0)));
+        assertFalse(fill.contains(new BlockPos(-2, 64, -1)));
+    }
+
+    @Test
+    void advancedCircleCanUseVerticalWallEllipse() {
+        RtsCullingBox box = new RtsCullingBox(
+                0,
+                new BlockPos(0, 62, -1),
+                new BlockPos(0, 66, 1));
+
+        List<BlockPos> fill = ShapeGeometryUtil.buildAdvancedShapePositions(
+                BuildShape.CIRCLE, box, ShapeFillMode.FILL, Direction.EAST);
+
+        assertTrue(fill.contains(new BlockPos(0, 64, 0)));
+        assertTrue(fill.contains(new BlockPos(0, 66, 0)));
+        assertTrue(fill.contains(new BlockPos(0, 64, 1)));
+        assertFalse(fill.contains(new BlockPos(0, 66, 1)));
+    }
+
+    @Test
+    void advancedBallHollowKeepsEllipsoidSurfaceAndRemovesCenter() {
+        RtsCullingBox box = new RtsCullingBox(
+                0,
+                new BlockPos(-1, 63, -1),
+                new BlockPos(1, 65, 1));
+
+        List<BlockPos> hollow = ShapeGeometryUtil.buildAdvancedShapePositions(
+                BuildShape.BALL, box, ShapeFillMode.HOLLOW);
+
+        assertTrue(hollow.contains(new BlockPos(-1, 64, 0)));
+        assertFalse(hollow.contains(new BlockPos(0, 64, 0)));
+    }
+
+    @Test
+    void advancedWallUsesOnlyLengthAndHeightWithoutHiddenThickness() {
+        RtsCullingBox box = new RtsCullingBox(
+                0,
+                new BlockPos(0, 64, 0),
+                new BlockPos(4, 66, 2));
+
+        List<BlockPos> fill = ShapeGeometryUtil.buildAdvancedShapePositions(
+                BuildShape.WALL, box, ShapeFillMode.FILL);
+
+        assertTrue(fill.contains(new BlockPos(4, 66, 0)));
+        assertFalse(fill.contains(new BlockPos(4, 66, 2)));
+        assertEquals(15, new HashSet<>(fill).size());
     }
 }

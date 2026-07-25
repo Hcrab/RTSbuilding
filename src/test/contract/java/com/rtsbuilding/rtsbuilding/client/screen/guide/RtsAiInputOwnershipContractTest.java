@@ -15,7 +15,7 @@ class RtsAiInputOwnershipContractTest {
     @Test
     void focusedAiInputIsPartOfTheGlobalTextInputGate() throws Exception {
         String builder = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"),
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"),
                 StandardCharsets.UTF_8);
         String panel = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/guide/RtsAiChatPanel.java"),
