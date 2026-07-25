@@ -10,8 +10,6 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
-import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.network.blueprint.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
@@ -23,8 +21,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -693,18 +689,12 @@ public final class BlueprintPanel {
      * the transformed blueprint content's bottom-center cell.</p>
      */
     public static BlockPos anchorForCursorTarget(BlockPos cursorTarget) {
-        BlueprintEntry entry = selectedEntry();
-        if (cursorTarget == null || entry == null || !entry.error().isBlank()) {
-            return cursorTarget;
-        }
-        int y = BlueprintTransform.normalizeSteps(yRotationSteps);
-        int x = BlueprintTransform.normalizeSteps(xRotationSteps);
-        int z = BlueprintTransform.normalizeSteps(zRotationSteps);
-        PlacementBounds bounds = transformedContentBounds(entry.blueprint(), y, x, z);
-        if (bounds == null) {
-            return cursorTarget;
-        }
-        return cursorTarget.offset(-bounds.centerX(), -bounds.minY(), -bounds.centerZ());
+        return BlueprintPlacementPreviewFactory.anchorForCursorTarget(
+                selectedEntry(),
+                cursorTarget,
+                yRotationSteps,
+                xRotationSteps,
+                zRotationSteps);
     }
 
     public static BlueprintGhostPreview createGhostPreview(BlockPos anchor, int yRotationSteps, ClientRtsController controller) {
@@ -712,61 +702,14 @@ public final class BlueprintPanel {
         if (!Config.areBlueprintsEnabled() || anchor == null || entry == null || !entry.error().isBlank()) {
             return BlueprintGhostPreview.EMPTY;
         }
-        int previewLimit = Math.max(1, Config.maxBlueprintBlocks());
-        List<BlueprintGhostBlock> out = new ArrayList<>(Math.min(entry.blockCount(), previewLimit));
-        int y = BlueprintTransform.normalizeSteps(yRotationSteps);
-        int x = BlueprintTransform.normalizeSteps(xRotationSteps);
-        int z = BlueprintTransform.normalizeSteps(zRotationSteps);
-        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(entry.blueprint().size(), y, x, z);
-        for (RtsBlueprintBlock block : entry.blueprint().blocks()) {
-            BlockPos pos = anchor.offset(BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset)).immutable();
-            BlockState state = block.isMissingBlock()
-                    ? Blocks.AIR.defaultBlockState()
-                    : BlueprintTransform.rotateState(block.state(), y, x, z);
-            out.add(new BlueprintGhostBlock(pos, state, block.isMissingBlock()));
-            if (out.size() >= previewLimit) {
-                break;
-            }
-        }
-        return new BlueprintGhostPreview(List.copyOf(out), hasEnoughMaterials(entry, controller), entry.blockCount() > out.size());
-    }
-
-    private static PlacementBounds transformedContentBounds(RtsBlueprint blueprint, int y, int x, int z) {
-        if (blueprint == null || blueprint.blocks().isEmpty()) {
-            return null;
-        }
-        BlockPos centerOffset = BlueprintTransform.centerRotationOffset(blueprint.size(), y, x, z);
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        boolean found = false;
-        for (RtsBlueprintBlock block : blueprint.blocks()) {
-            if (block == null || (!block.isMissingBlock() && (block.state() == null || block.state().isAir()))) {
-                continue;
-            }
-            BlockPos pos = BlueprintTransform.rotateAroundCenter(block.relativePos(), y, x, z, centerOffset);
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-            found = true;
-        }
-        return found ? new PlacementBounds(minX, minY, minZ, maxX, maxY, maxZ) : null;
-    }
-
-    private record PlacementBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-        int centerX() {
-            return this.minX + ((this.maxX - this.minX) / 2);
-        }
-
-        int centerZ() {
-            return this.minZ + ((this.maxZ - this.minZ) / 2);
-        }
+        return BlueprintPlacementPreviewFactory.create(
+                entry,
+                anchor,
+                yRotationSteps,
+                xRotationSteps,
+                zRotationSteps,
+                Config.maxBlueprintBlocks(),
+                hasEnoughMaterials(entry, controller));
     }
 
     public static boolean placeSelected(BlockPos anchor, int yRotationSteps, int xRotationSteps, int zRotationSteps) {
@@ -1143,13 +1086,6 @@ public final class BlueprintPanel {
         zRotationSteps = 0;
         DIALOGS.closeMaterial();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_cleared", "");
-    }
-
-    public record BlueprintGhostBlock(BlockPos pos, BlockState state, boolean missing) {
-    }
-
-    public record BlueprintGhostPreview(List<BlueprintGhostBlock> blocks, boolean materialsReady, boolean truncated) {
-        public static final BlueprintGhostPreview EMPTY = new BlueprintGhostPreview(List.of(), false, false);
     }
 
 }

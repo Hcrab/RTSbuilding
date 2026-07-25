@@ -2470,11 +2470,12 @@ public final class BuilderScreen extends Screen {
         if (anchor == null) {
             return BlueprintGhostPreview.EMPTY;
         }
-        var preview = BlueprintPanel.createGhostPreview(anchor, BlueprintPanel.getYRotationSteps(), this.controller);
+        BlueprintGhostPreview preview = BlueprintPanel.createGhostPreview(
+                anchor, BlueprintPanel.getYRotationSteps(), this.controller);
         if (preview.blocks().isEmpty()) {
             return BlueprintGhostPreview.EMPTY;
         }
-        return new BlueprintGhostPreview(preview.blocks(), preview.materialsReady(), preview.truncated());
+        return preview;
     }
     /**
      * Collects the list of block positions that would be affected by an ultimine
