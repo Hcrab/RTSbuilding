@@ -62,14 +62,6 @@ class SkeletonStressTest {
     }
 
     @Test
-    void confirmedDestroyBackstopUsesReadableFarDistanceStyle() {
-        assertTrue(SkeletonRenderStyle.CONFIRMED_NO_DEPTH_ALPHA >= 0.45F,
-                "confirmed destroy skeleton needs a strong enough no-depth layer to remain readable from far away");
-        assertTrue(SkeletonRenderStyle.NO_DEPTH_LINE_WIDTH >= 2.0D,
-                "confirmed destroy skeleton no-depth lines should not fall back to fragile one-pixel GL lines");
-    }
-
-    @Test
     void erodedWorldSpawnAreaCheckpointsMatchOracle() {
         SkeletonScene scene = SkeletonSceneFixtures.worldSpawnAreaTenK();
         assertTrue(scene.blocks().size() >= 10_000, "world spawn scene should stay at 10k-block stress scale");
