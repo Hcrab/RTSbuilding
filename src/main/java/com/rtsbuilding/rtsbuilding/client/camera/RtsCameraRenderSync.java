@@ -1,22 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.camera;
 
-
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+/**
+ * 在 GameRenderer 开始一帧渲染之前推进视觉镜头。
+ *
+ * <p>Forge 1.20.1 没有与 NeoForge {@code RenderFrameEvent.Pre} 等价的事件，
+ * 因此由 {@code GameRendererMixin} 在帧入口调用。这里不监听世界渲染阶段，避免在同一帧
+ * 已经使用旧镜头完成部分渲染后才更新视觉状态。</p>
+ */
 public final class RtsCameraRenderSync {
     private RtsCameraRenderSync() {
     }
 
-    @SubscribeEvent
-    public static void onRenderLevelStage(final RenderLevelStageEvent event) {
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            ClientRtsController.get().syncVisualCameraFrame();
-        }
+    public static void beforeRenderFrame() {
+        ClientRtsController.get().syncVisualCameraFrame();
     }
 }

@@ -285,7 +285,7 @@ tasks.register('verifyUiJava8Bytecode') {
 
 tasks.register('verifyUiDevModSources') {
     group = 'verification'
-    description = '确认 NeoForge 开发运行的 MOD_CLASSES 同时包含 main、UI Core 与 UI Kit。'
+    description = '确认 Forge 开发运行的 MOD_CLASSES 同时包含 main、UI Core 与 UI Kit。'
     dependsOn tasks.named('compileUiCoreJava')
     dependsOn tasks.named('compileUiKitJava')
     doLast {

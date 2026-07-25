@@ -50,7 +50,7 @@ public final class RtsAiHelpClipboard {
                 chinese,
                 modVersion(RtsbuildingMod.MODID),
                 SharedConstants.getCurrentVersion().getName(),
-                modVersion("neoforge"),
+                modVersion("forge"),
                 language,
                 localizedMode(controller == null ? null : controller.getMode()),
                 tutorial,

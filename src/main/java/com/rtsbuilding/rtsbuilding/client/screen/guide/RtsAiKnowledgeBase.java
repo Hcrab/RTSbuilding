@@ -36,7 +36,7 @@ public final class RtsAiKnowledgeBase {
             text.append("## 当前游戏信息\n");
             appendInfo(text, "RTSBuilding 版本", modVersion(RtsbuildingMod.MODID));
             appendInfo(text, "Minecraft 版本", SharedConstants.getCurrentVersion().getName());
-            appendInfo(text, "NeoForge 版本", modVersion("neoforge"));
+            appendInfo(text, "Forge 版本", modVersion("forge"));
             appendInfo(text, "语言", language);
             appendInfo(text, "当前 RTS 模式", localizedMode(controller == null ? null : controller.getMode()));
             text.append("\n## 随当前版本发布的教程\n");
@@ -44,7 +44,7 @@ public final class RtsAiKnowledgeBase {
             text.append("## Current game information\n");
             appendInfo(text, "RTSBuilding version", modVersion(RtsbuildingMod.MODID));
             appendInfo(text, "Minecraft version", SharedConstants.getCurrentVersion().getName());
-            appendInfo(text, "NeoForge version", modVersion("neoforge"));
+            appendInfo(text, "Forge version", modVersion("forge"));
             appendInfo(text, "Language", language);
             appendInfo(text, "Current RTS mode", localizedMode(controller == null ? null : controller.getMode()));
             text.append("\n## Tutorials bundled with this version\n");

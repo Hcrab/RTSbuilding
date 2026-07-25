@@ -7,13 +7,15 @@
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
     "EmbeddiumWorldSliceMixin",
+    "GameRendererMixin",
     "RenderChunkRegionMixin",
     "JadeClientProxyMixin",
     "WailaTickHandlerMixin"
   ],
   "mixins": [
     "ChestMenuMixin",
-    "ModdedRemoteStillValidMixin"
+    "ModdedRemoteStillValidMixin",
+    "compat.sophisticatedstorage.StorageContainerMenuMixin"
   ],
   "injectors": {
     "defaultRequire": 0
