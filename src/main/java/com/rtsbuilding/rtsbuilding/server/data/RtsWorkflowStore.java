@@ -171,7 +171,8 @@ public final class RtsWorkflowStore {
         CompoundTag dimensions = playerTag.getCompound(KEY_DIMENSIONS);
         result.putAll(deserializeDimensions(dimensions));
 
-        // 杩佺Щ蹇呴』鍏堢‘璁ゆ柊鐗堢帺瀹舵枃浠惰惤鐩橈紝鍐嶆竻鐞嗘棫鏂囦欢锛涘弽杩囨潵浼氬湪绗簩娆″啓鐩樺け璐ユ椂涓㈠け鍞竴鍓湰銆?        if (!result.isEmpty()) {
+        // 迁移必须先确认新版玩家文件落盘，再清理旧文件，避免在第二次写盘失败时丢失唯一副本。
+        if (!result.isEmpty()) {
             CompoundTag playerData = new CompoundTag();
             CompoundTag dims = new CompoundTag();
             for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> entry : result.entrySet()) {
@@ -185,7 +186,7 @@ public final class RtsWorkflowStore {
             playerCluster.set(WorkflowComponents.FULL_WORKFLOW, playerData);
             if (!playerCluster.flush()) {
                 RtsbuildingMod.LOGGER.error(
-                        "[Workflow] 鐜╁ {} 鐨勬柊鐗堝伐浣滄祦鏂囦欢鍐欏叆澶辫触锛屾棫鐗堟暟鎹繚鎸佷笉鍙橈紝绛夊緟涓嬫閲嶈瘯",
+                        "[Workflow] 玩家 {} 的新版工作流文件写入失败；保留旧版数据，等待下次重试",
                         playerId);
                 return result;
             }
@@ -196,12 +197,12 @@ public final class RtsWorkflowStore {
             migratedLegacyRoot.putInt(KEY_DATA_VERSION, DATA_VERSION);
             if (!legacyStore.write(migratedLegacyRoot)) {
                 RtsbuildingMod.LOGGER.warn(
-                        "[Workflow] 鐜╁ {} 鐨勬柊鐗堟暟鎹凡钀界洏锛屼絾鏃х増绱㈠紩娓呯悊澶辫触锛涘凡淇濈暀鍙屽壇鏈紝闇€绋嶅悗娓呯悊鏃ф枃浠?,
+                        "[Workflow] 玩家 {} 的新版数据已落盘，但旧版索引清理失败；已保留双副本，需稍后清理旧文件",
                         playerId);
                 return result;
             }
 
-            RtsbuildingMod.LOGGER.info("[Workflow] 宸茶縼绉荤帺瀹?{} 鐨勫伐浣滄祦鏁版嵁鍒版柊鐗堟牸寮?, playerId);
+            RtsbuildingMod.LOGGER.info("[Workflow] 已迁移玩家 {} 的工作流数据到新版格式", playerId);
         }
 
         return result;
