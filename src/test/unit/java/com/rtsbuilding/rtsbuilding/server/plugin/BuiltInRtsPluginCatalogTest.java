@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
@@ -10,6 +11,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuiltInRtsPluginCatalogTest {
@@ -38,7 +40,12 @@ class BuiltInRtsPluginCatalogTest {
                 RtsFeature.AUTO_STORE_MINED_DROPS, RtsFeature.FUNNEL,
                 RtsFeature.FLUID_HANDLING, RtsFeature.REMOTE_GUI_BINDING);
         assertEnables(byId, BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN, RtsFeature.ULTIMINE);
-        assertEnables(byId, BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN, RtsFeature.AREA_DESTROY);
+        assertEnables(byId, BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN,
+                RtsFeature.AREA_MINE, RtsFeature.AREA_DESTROY);
+        assertFalse(byId.get(BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN).enables(RtsFeature.AREA_MINE),
+                "连锁挖掘插件不得隐式解锁范围挖掘");
+        assertFalse(byId.get(BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN).enables(RtsFeature.ULTIMINE),
+                "范围破坏插件不得隐式解锁连锁挖掘");
         assertEnables(byId, BuiltInRtsPluginCatalog.BLUEPRINT_PLUGIN, RtsFeature.BLUEPRINTS);
     }
 
@@ -50,6 +57,20 @@ class BuiltInRtsPluginCatalogTest {
         assertRange(byId, BuiltInRtsPluginCatalog.RANGE_EXTENSION_II, 32);
         assertRange(byId, BuiltInRtsPluginCatalog.RANGE_EXTENSION_III, 48);
         assertRange(byId, BuiltInRtsPluginCatalog.RANGE_EXTENSION_MAX, Integer.MAX_VALUE);
+    }
+
+    @Test
+    void harvestTierPluginsMapToTheFourPlayerFacingLimits() {
+        Map<ResourceLocation, RtsPluginDefinition> byId = definitionsById();
+
+        assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_STONE,
+                RangeMiningHarvestTier.STONE);
+        assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_IRON,
+                RangeMiningHarvestTier.IRON);
+        assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_DIAMOND,
+                RangeMiningHarvestTier.DIAMOND);
+        assertHarvestTier(byId, BuiltInRtsPluginCatalog.HARVEST_TIER_UNLIMITED,
+                RangeMiningHarvestTier.UNLIMITED);
     }
 
     private static Map<ResourceLocation, RtsPluginDefinition> definitionsById() {
@@ -72,5 +93,13 @@ class BuiltInRtsPluginCatalogTest {
         assertTrue(definition != null, "missing range plugin definition: " + pluginId);
         assertEquals(RtsPluginFamily.RANGE_EXTENSION, definition.family());
         assertEquals(radius, definition.radiusBlocks());
+    }
+
+    private static void assertHarvestTier(Map<ResourceLocation, RtsPluginDefinition> byId,
+            ResourceLocation pluginId, RangeMiningHarvestTier tier) {
+        RtsPluginDefinition definition = byId.get(pluginId);
+        assertTrue(definition != null, "missing harvest-tier plugin definition: " + pluginId);
+        assertEquals(RtsPluginFamily.HARVEST_TIER, definition.family());
+        assertEquals(tier, definition.harvestTier());
     }
 }

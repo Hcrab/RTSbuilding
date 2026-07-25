@@ -8,6 +8,17 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
  * exclusive plugins before any inventory mutation happens.
  */
 public enum RtsPluginFamily {
-    UNIQUE,
-    RANGE_EXTENSION
+    UNIQUE(false),
+    RANGE_EXTENSION(true),
+    HARVEST_TIER(true);
+
+    private final boolean mutuallyExclusive;
+
+    RtsPluginFamily(boolean mutuallyExclusive) {
+        this.mutuallyExclusive = mutuallyExclusive;
+    }
+
+    public boolean mutuallyExclusive() {
+        return this.mutuallyExclusive;
+    }
 }

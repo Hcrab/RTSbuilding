@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "tools",
+  "key": {
+    "C": {"tag": "forge:ingots/copper"},
+    "P": {"item": "minecraft:wooden_pickaxe"},
+    "R": {"tag": "forge:dusts/redstone"}
+  },
+  "pattern": [
+    " C ",
+    "RPR",
+    " C "
+  ],
+  "result": {"count": 1, "item": "rtsbuilding:harvest_tier_stone"}
+}

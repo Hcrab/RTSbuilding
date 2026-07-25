@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding;
 
 
+import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,6 +93,10 @@ public final class Config {
     public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_DEPTH = BUILDER
             .comment("Maximum Z-axis depth accepted by one RTS area mining selection.")
             .defineInRange("mining.areaMineMaxDepth", 36, 1, 256);
+
+    public static final ForgeConfigSpec.EnumValue<RangeMiningHarvestTier> AREA_MINE_MAX_HARVEST_TIER = BUILDER
+            .comment("Maximum harvest tier allowed for RTS area mining. The installed harvest-tier plugin may impose a lower limit.")
+            .defineEnum("mining.areaMineMaxHarvestTier", RangeMiningHarvestTier.UNLIMITED);
 
     public static final ForgeConfigSpec.IntValue AREA_DESTROY_MAX_TARGETS = BUILDER
             .comment("Maximum explicit positions accepted by one RTS area destroy request.")
@@ -345,6 +350,10 @@ public final class Config {
 
     public static int areaMineMaxDepth() {
         return AREA_MINE_MAX_DEPTH.get();
+    }
+
+    public static RangeMiningHarvestTier areaMineMaxHarvestTier() {
+        return AREA_MINE_MAX_HARVEST_TIER.get();
     }
 
     public static int areaDestroyMaxTargets() {

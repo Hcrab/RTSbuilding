@@ -183,7 +183,11 @@ public final class RtsUltimineProcessor {
                 bounds.minZ(), bounds.maxZ(),
                 player,
                 shapeType, fillType);
-        Deque<BlockPos> targets = new ArrayDeque<>(candidatePositions);
+        ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, slot, toolLease.stack());
+        int maxRequiredLevel =
+                RtsMiningValidator.rangeMiningMaxRequiredLevel(player, player.isCreative());
+        Deque<BlockPos> targets = filterRangeMiningTargets(
+                player, candidatePositions, actualTool, player.isCreative(), maxRequiredLevel);
 
         if (targets.isEmpty()) {
             RtsToolLeaseManager.returnMiningTool(player, session, toolLease);
@@ -345,7 +349,12 @@ public final class RtsUltimineProcessor {
                 bounds.minZ(), bounds.maxZ(),
                 player,
                 shapeType, fillType);
-        return beginPipelineBatch(player, session, new ArrayDeque<>(candidatePositions), Direction.DOWN, slot,
+        ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, slot, lease.stack());
+        int maxRequiredLevel =
+                RtsMiningValidator.rangeMiningMaxRequiredLevel(player, player.isCreative());
+        Deque<BlockPos> targets = filterRangeMiningTargets(
+                player, candidatePositions, actualTool, player.isCreative(), maxRequiredLevel);
+        return beginPipelineBatch(player, session, targets, Direction.DOWN, slot,
                 lease, selectedToolRequested, toolProtectionEnabled, workflowEntryId, BatchStartMode.WAIT_FOR_SEED);
     }
 
@@ -477,8 +486,14 @@ public final class RtsUltimineProcessor {
                 bounds.minZ(), bounds.maxZ(),
                 player,
                 shapeType, fillType);
-        return queuePipelineBatch(player, session, new ArrayDeque<>(candidatePositions), Direction.DOWN,
-                RtsMiningValidator.clampHotbarSlot(toolSlot), lease, selectedToolRequested,
+        int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
+        ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, slot, lease.stack());
+        int maxRequiredLevel =
+                RtsMiningValidator.rangeMiningMaxRequiredLevel(player, player.isCreative());
+        Deque<BlockPos> targets = filterRangeMiningTargets(
+                player, candidatePositions, actualTool, player.isCreative(), maxRequiredLevel);
+        return queuePipelineBatch(player, session, targets, Direction.DOWN,
+                slot, lease, selectedToolRequested,
                 toolProtectionEnabled, workflowEntryId, player.isCreative());
     }
 
@@ -547,7 +562,10 @@ public final class RtsUltimineProcessor {
             return new ArrayDeque<>();
         }
         ServerLevel level = player.serverLevel();
-        return RtsMiningTargetQueue.collectExplicitDestroyTargets(
+        ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
+        int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
+        List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        Deque<BlockPos> targets = RtsMiningTargetQueue.collectExplicitDestroyTargets(
                 positions,
                 pos -> RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
                         && RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN),
@@ -562,8 +580,51 @@ public final class RtsUltimineProcessor {
                     selectedToolRequested) <= 0.0F) {
                 return false;
             }
+            if (!RtsMiningValidator.canRangeMineWithTool(
+                    state, actualTool, creative, maxRequiredLevel)) {
+                if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
+                        state, actualTool, creative, maxRequiredLevel)) {
+                    harvestTierBlockedPositions.add(pos.immutable());
+                }
+                return false;
+            }
             return true;
                 });
+        notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
+        return targets;
+    }
+
+    private static Deque<BlockPos> filterRangeMiningTargets(
+            ServerPlayer player,
+            List<BlockPos> candidatePositions,
+            ItemStack actualTool,
+            boolean creative,
+            int maxRequiredLevel) {
+        Deque<BlockPos> targets = new ArrayDeque<>();
+        List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        for (BlockPos pos : candidatePositions) {
+            BlockState state = player.serverLevel().getBlockState(pos);
+            if (RtsMiningValidator.canRangeMineWithTool(
+                    state, actualTool, creative, maxRequiredLevel)) {
+                targets.addLast(pos);
+                continue;
+            }
+            if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
+                    state, actualTool, creative, maxRequiredLevel)) {
+                harvestTierBlockedPositions.add(pos.immutable());
+            }
+        }
+        notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
+        return targets;
+    }
+
+    private static void notifyRangeMiningHarvestTierLimit(
+            ServerPlayer player,
+            List<BlockPos> skippedPositions) {
+        if (skippedPositions == null || skippedPositions.isEmpty()) {
+            return;
+        }
+        RtsMiningNetworkHelper.notifyHarvestTierLimit(player, skippedPositions);
     }
 
     /**

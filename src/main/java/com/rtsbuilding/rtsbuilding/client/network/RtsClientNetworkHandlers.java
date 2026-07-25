@@ -14,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayl
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
@@ -94,6 +95,17 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
+    }
+
+    public static void handleHarvestTierSkipped(
+            S2CRtsHarvestTierSkippedPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (Minecraft.getInstance().screen instanceof BuilderScreen screen) {
+                screen.getShapeController()
+                        .removeConfirmedRangeDestroyPreviewBlocks(payload.positions());
+            }
+        });
     }
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, IPayloadContext context) {

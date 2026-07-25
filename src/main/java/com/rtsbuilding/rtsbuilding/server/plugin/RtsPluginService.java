@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -56,6 +57,31 @@ public final class RtsPluginService {
         return Math.max(1, Math.min(Config.maxActionRadiusBlocks(), Math.max(radius, fallback)));
     }
 
+    /**
+     * 返回玩家所在队伍当前生效的范围采掘等级；关闭生存平衡时视为无限，
+     * 开启生存平衡但没有等级插件时返回 {@code null}。
+     */
+    public static RangeMiningHarvestTier rangeMiningHarvestTier(ServerPlayer player) {
+        if (!RtsProgressionManager.isEnabled()) {
+            return RangeMiningHarvestTier.UNLIMITED;
+        }
+        if (player == null) {
+            return null;
+        }
+        RangeMiningHarvestTier highest = null;
+        for (RtsPluginTeamService.EffectivePlugin effective : RtsPluginTeamService.effectivePlugins(player)) {
+            RtsPluginDefinition definition = RtsPluginRegistry.byId(effective.plugin().pluginId());
+            if (definition == null || definition.harvestTier() == null) {
+                continue;
+            }
+            if (highest == null
+                    || definition.harvestTier().maxRequiredLevel() > highest.maxRequiredLevel()) {
+                highest = definition.harvestTier();
+            }
+        }
+        return highest;
+    }
+
     public static boolean canBypassHomeRadius(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled()) {
             return true;
@@ -77,8 +103,11 @@ public final class RtsPluginService {
             player.getInventory().setItem(inventorySlot, ItemStack.EMPTY);
         }
         player.getInventory().setChanged();
-        addInstalled(player, result.definition(), installedStack);
-        success(player, "message.rtsbuilding.plugin.installed");
+        boolean replaced = addInstalled(player, result.definition(), installedStack);
+        syncInventory(player);
+        success(player, replaced
+                ? "message.rtsbuilding.plugin.replaced"
+                : "message.rtsbuilding.plugin.installed");
         return true;
     }
 
@@ -96,8 +125,11 @@ public final class RtsPluginService {
             player.setItemInHand(hand, ItemStack.EMPTY);
         }
         player.getInventory().setChanged();
-        addInstalled(player, result.definition(), installedStack);
-        success(player, "message.rtsbuilding.plugin.installed");
+        boolean replaced = addInstalled(player, result.definition(), installedStack);
+        syncInventory(player);
+        success(player, replaced
+                ? "message.rtsbuilding.plugin.replaced"
+                : "message.rtsbuilding.plugin.installed");
         return true;
     }
 
@@ -122,6 +154,7 @@ public final class RtsPluginService {
             RtsPluginTeamService.saveInstalledPlugins(player, installed);
             player.getInventory().setChanged();
             syncRelatedPlayers(player);
+            syncInventory(player);
             success(player, "message.rtsbuilding.plugin.uninstalled");
             return true;
         }
@@ -205,22 +238,50 @@ public final class RtsPluginService {
             if (existing.id().equals(definition.id())) {
                 return InstallResult.fail("message.rtsbuilding.plugin.already_installed");
             }
-            if (definition.family() == RtsPluginFamily.RANGE_EXTENSION
-                    && existing.family() == RtsPluginFamily.RANGE_EXTENSION) {
-                return InstallResult.fail("message.rtsbuilding.plugin.range_conflict");
-            }
         }
         return InstallResult.success(definition);
     }
 
-    private static void addInstalled(ServerPlayer player, RtsPluginDefinition definition, ItemStack installedStack) {
+    /**
+     * 安装插件并原子替换同一互斥家族的旧插件。旧物品优先退回背包，
+     * 背包已满时落在玩家脚边，不能静默吞掉。
+     */
+    private static boolean addInstalled(
+            ServerPlayer player, RtsPluginDefinition definition, ItemStack installedStack) {
         List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
+        boolean replaced = false;
+        if (definition.family().mutuallyExclusive()) {
+            for (int i = installed.size() - 1; i >= 0; i--) {
+                RtsPluginTeamService.StoredPlugin entry = installed.get(i);
+                RtsPluginDefinition existing = RtsPluginRegistry.byId(entry.plugin().pluginId());
+                if (existing == null || existing.family() != definition.family()) {
+                    continue;
+                }
+                installed.remove(i);
+                returnReplacedPlugin(player, entry.plugin().stack());
+                replaced = true;
+            }
+        }
         installed.add(new RtsPluginTeamService.StoredPlugin(
                 new RtsInstalledPlugin(definition.id(), installedStack, player.level().getGameTime()),
                 player.getUUID(),
                 player.getGameProfile().getName()));
         RtsPluginTeamService.saveInstalledPlugins(player, installed);
         syncRelatedPlayers(player);
+        return replaced;
+    }
+
+    private static void returnReplacedPlugin(ServerPlayer player, ItemStack installedStack) {
+        ItemStack returning = installedStack == null
+                ? ItemStack.EMPTY
+                : installedStack.copyWithCount(1);
+        if (returning.isEmpty()) {
+            return;
+        }
+        if (!player.getInventory().add(returning)) {
+            player.drop(returning, false);
+        }
+        player.getInventory().setChanged();
     }
 
     private static boolean hasPlugin(ServerPlayer player, ResourceLocation pluginId) {
@@ -252,6 +313,14 @@ public final class RtsPluginService {
             player.displayClientMessage(Component.translatable(key), true);
         }
         return false;
+    }
+
+    /** 立刻同步插件装卸造成的背包槽位变化，避免客户端继续提交旧工具。 */
+    private static void syncInventory(ServerPlayer player) {
+        player.inventoryMenu.broadcastChanges();
+        if (player.containerMenu != player.inventoryMenu) {
+            player.containerMenu.broadcastChanges();
+        }
     }
 
     private static void success(ServerPlayer player, String key) {

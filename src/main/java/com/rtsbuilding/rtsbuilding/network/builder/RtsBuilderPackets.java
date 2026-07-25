@@ -134,6 +134,11 @@ public final class RtsBuilderPackets {
                 ClientPayloadDispatcher::dispatchBuilder);
 
         registrar.playToClient(
+                S2CRtsHarvestTierSkippedPayload.TYPE,
+                S2CRtsHarvestTierSkippedPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
+        registrar.playToClient(
                 S2CRtsWorkflowProgressPayload.TYPE,
                 S2CRtsWorkflowProgressPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);

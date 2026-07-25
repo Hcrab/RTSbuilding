@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "tools",
+  "key": {
+    "I": {"tag": "forge:ingots/iron"},
+    "P": {"item": "rtsbuilding:harvest_tier_stone"},
+    "R": {"tag": "forge:dusts/redstone"}
+  },
+  "pattern": [
+    " I ",
+    "RPR",
+    " I "
+  ],
+  "result": {"count": 1, "item": "rtsbuilding:harvest_tier_iron"}
+}

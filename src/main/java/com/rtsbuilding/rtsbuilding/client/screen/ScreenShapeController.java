@@ -1210,6 +1210,45 @@ public final class ScreenShapeController {
         return preview == ShapeDataRecords.GhostPreview.EMPTY ? List.of() : List.of(preview);
     }
 
+    /**
+     * 移除服务端明确因采掘等级不足而拒绝的范围破坏坐标。
+     *
+     * <p>客户端只生成候选预览，最终可挖集合以服务端为准；这里保留同批次
+     * 真正会被挖掘的目标与进度高亮。</p>
+     */
+    public void removeConfirmedRangeDestroyPreviewBlocks(List<BlockPos> skippedPositions) {
+        if (skippedPositions == null || skippedPositions.isEmpty()) {
+            return;
+        }
+        ShapeDataRecords.GhostPreview preview = this.confirmedRangeDestroyPreview;
+        if (preview == null || preview == ShapeDataRecords.GhostPreview.EMPTY) {
+            return;
+        }
+        Set<BlockPos> skipped = new HashSet<>();
+        for (BlockPos pos : skippedPositions) {
+            if (pos != null) {
+                skipped.add(pos);
+            }
+        }
+        List<BlockPos> remainingBlocks = preview.blocks().stream()
+                .filter(pos -> !skipped.contains(pos))
+                .toList();
+        List<BlockPos> remainingEmpty = preview.emptyBlocks().stream()
+                .filter(pos -> !skipped.contains(pos))
+                .toList();
+        if (remainingBlocks.isEmpty() && remainingEmpty.isEmpty()) {
+            clearConfirmedRangeDestroyPreview();
+            return;
+        }
+        this.confirmedRangeDestroyPreview = new ShapeDataRecords.GhostPreview(
+                remainingBlocks,
+                preview.readyConfirm(),
+                preview.destructive(),
+                remainingEmpty,
+                preview.chainDestroyPreview(),
+                preview.confirmedWorkArea());
+    }
+
     /** Returns whether a confirmed destructive work area is currently active. */
     public boolean hasConfirmedDestroyWorkArea() {
         return confirmedRangeDestroyPreviewOrEmpty() != ShapeDataRecords.GhostPreview.EMPTY

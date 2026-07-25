@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
+import com.rtsbuilding.rtsbuilding.server.loadout.RtsMiningRules;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
@@ -125,6 +127,90 @@ public final class RtsMiningValidator {
         return state.getDestroySpeed(level, pos) >= 0.0F;
     }
 
+    /** 真实工具保护：需要正确工具掉落的方块必须由实际参与采掘的工具正确采集。 */
+    public static boolean canHarvestWithTool(BlockState state, ItemStack tool, boolean creative) {
+        return creative
+                || state == null
+                || !state.requiresCorrectToolForDrops()
+                || (tool != null && !tool.isEmpty() && tool.isCorrectToolForDrops(state));
+    }
+
+    /**
+     * 连锁挖掘允许 0 级软块不受“正确工具掉落”限制；石头及更高等级仍要求
+     * 真实 hotbar/远程储存工具可以采集。该规则与范围采掘插件门相互独立。
+     */
+    private static boolean canUltimineWithTool(BlockState state, ItemStack tool, boolean creative) {
+        return creative
+                || RtsMiningRules.requiredLevel(state) <= 0
+                || canHarvestWithTool(state, tool, false);
+    }
+
+    /** 返回非连锁范围采掘在当前服务端与插件组合下允许的最高采集等级。 */
+    public static int rangeMiningMaxRequiredLevel(ServerPlayer player, boolean creative) {
+        if (creative || !Config.ENABLE_SURVIVAL_PROGRESSION.get()) {
+            return Integer.MAX_VALUE;
+        }
+        RangeMiningHarvestTier pluginTier = RtsPluginService.rangeMiningHarvestTier(player);
+        if (pluginTier == null) {
+            return 0;
+        }
+        RangeMiningHarvestTier serverTier;
+        try {
+            serverTier = Config.areaMineMaxHarvestTier();
+        } catch (IllegalStateException ignored) {
+            serverTier = RangeMiningHarvestTier.UNLIMITED;
+        }
+        return Math.min(pluginTier.maxRequiredLevel(), serverTier.maxRequiredLevel());
+    }
+
+    public static boolean canRangeMineWithTool(
+            BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+        return canRangeMineRequiredLevel(
+                canHarvestWithTool(state, tool, creative),
+                creative,
+                RtsMiningRules.requiredLevel(state),
+                maxRequiredLevel);
+    }
+
+    /** 供跨版本纯规则测试共用，不依赖 Minecraft 注册表启动。 */
+    static boolean canRangeMineRequiredLevel(
+            boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
+        return creative
+                || requiredLevel <= 0
+                || (canHarvestWithTool && requiredLevel <= maxRequiredLevel);
+    }
+
+    /** 判断目标是否只因采掘等级插件不足而被范围采掘剔除。 */
+    public static boolean isBlockedByRangeMiningHarvestTier(
+            BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+        return isBlockedByRangeMiningHarvestTier(
+                canHarvestWithTool(state, tool, false),
+                creative,
+                RtsMiningRules.requiredLevel(state),
+                maxRequiredLevel);
+    }
+
+    static boolean isBlockedByRangeMiningHarvestTier(
+            boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
+        return !creative
+                && canHarvestWithTool
+                && requiredLevel > maxRequiredLevel;
+    }
+
+    public static ItemStack resolveMiningTool(
+            ServerPlayer player, int toolSlot, ItemStack linkedTool) {
+        if (linkedTool != null && !linkedTool.isEmpty()) {
+            return linkedTool;
+        }
+        if (player == null) {
+            return ItemStack.EMPTY;
+        }
+        int slot = clampHotbarSlot(toolSlot);
+        return slot < player.getInventory().getContainerSize()
+                ? player.getInventory().getItem(slot)
+                : ItemStack.EMPTY;
+    }
+
     // =========================================================================
     //  Ultimine Candidate Check
     // =========================================================================
@@ -169,6 +255,10 @@ public final class RtsMiningValidator {
             return true;
         }
         if (!hasValidDestroySpeed(state, player.serverLevel(), pos)) {
+            return false;
+        }
+        ItemStack actualTool = resolveMiningTool(player, toolSlot, linkedTool);
+        if (!canUltimineWithTool(state, actualTool, false)) {
             return false;
         }
         float seedDestroySpeed = seedState.getDestroySpeed(player.serverLevel(), pos);
@@ -255,7 +345,8 @@ public final class RtsMiningValidator {
                 && !toolItemId.isBlank()
                 && toolPrototype != null
                 && !toolPrototype.isEmpty()
-                && !(toolPrototype.getItem() instanceof BlockItem);
+                && !(toolPrototype.getItem() instanceof BlockItem)
+                && !RtsPluginService.isPluginItem(toolPrototype);
     }
 
     // =========================================================================
@@ -285,6 +376,22 @@ public final class RtsMiningValidator {
         }
         if (!RtsClaimProtectionService.canBreakBlock(player, seed, Direction.DOWN)) {
             return new java.util.ArrayDeque<>();
+        }
+        BlockState startingState = player.serverLevel().getBlockState(seed);
+        if (!isBreakableBlock(startingState)) {
+            return new java.util.ArrayDeque<>();
+        }
+        if (!creative) {
+            if (!hasValidDestroySpeed(startingState, player.serverLevel(), seed)) {
+                return new java.util.ArrayDeque<>();
+            }
+            if (RtsMiningStateMachine.computeRemoteDestroyStep(
+                    player, startingState, seed, toolSlot, linkedTool, selectedToolRequested) <= 0.0F) {
+                return new java.util.ArrayDeque<>();
+            }
+            if (!canUltimineWithTool(startingState, resolveMiningTool(player, toolSlot, linkedTool), false)) {
+                return new java.util.ArrayDeque<>();
+            }
         }
 
         java.util.List<BlockPos> targets = RtsUltimineCollector.collect(

@@ -1,13 +1,17 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+
+import java.util.List;
 
 /**
  * Stateless helper that sends break-stage, ultimine-progress, and break-animation
@@ -40,6 +44,29 @@ public final class RtsMiningNetworkHelper {
     /** Sends an ultimine progress update (processed / total). */
     public static void sendUltimineProgress(ServerPlayer player, int processed, int total) {
         PacketDistributor.sendToPlayer(player, new S2CRtsUltimineProgressPayload(processed, total));
+    }
+
+    /** 移除客户端已确认预览中被服务端采掘等级规则剔除的坐标。 */
+    public static void sendHarvestTierSkipped(ServerPlayer player, List<BlockPos> positions) {
+        if (player == null || positions == null || positions.isEmpty()) {
+            return;
+        }
+        PacketDistributor.sendToPlayer(
+                player,
+                new S2CRtsHarvestTierSkippedPayload(List.copyOf(positions)));
+    }
+
+    /**
+     * 每批只显示一次聚合提示，并同步裁掉预览，避免逐方块刷屏和持续高亮。
+     */
+    public static void notifyHarvestTierLimit(ServerPlayer player, List<BlockPos> positions) {
+        if (player == null || positions == null || positions.isEmpty()) {
+            return;
+        }
+        player.displayClientMessage(
+                Component.translatable("message.rtsbuilding.plugin.harvest_tier_limited"),
+                true);
+        sendHarvestTierSkipped(player, positions);
     }
 
     /**

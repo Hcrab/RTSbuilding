@@ -1,15 +1,19 @@
 package com.rtsbuilding.rtsbuilding.gametest;
 
 import com.mojang.authlib.GameProfile;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.api.RtsAPI;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
@@ -37,6 +41,7 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -116,6 +121,143 @@ public final class RtsServerGameTests {
             Items.NETHER_WART);
 
     private RtsServerGameTests() {
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80, batch = "survival_progression")
+    public static void areaDestroyStoneWithoutHarvestTierIsBlocked(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        BlockPos stoneRel = new BlockPos(4, 1, 4);
+        helper.setBlock(stoneRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        try {
+            installMiningPlugins(helper, player, false, false);
+            ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+            player.getInventory().setItem(0, diamondPickaxe.copy());
+            player.getInventory().selected = 0;
+            enableProgressionHome(helper, player, stoneRel);
+
+            RtsAPI.get().mining().areaDestroy(
+                    player,
+                    asApiPositions(helper, List.of(stoneRel)),
+                    (byte) 0,
+                    itemId(Items.DIAMOND_PICKAXE),
+                    diamondPickaxe,
+                    false);
+
+            helper.assertBlockPresent(Blocks.STONE, stoneRel);
+            helper.assertTrue(requireSession(helper, player).mining.ultimineTargets.isEmpty(),
+                    "没有采掘等级插件时，石头不得进入范围破坏队列");
+            helper.succeed();
+        } finally {
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        }
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 160, batch = "survival_progression")
+    public static void areaDestroyStoneWithStoneTierWorks(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        BlockPos stoneRel = new BlockPos(4, 1, 4);
+        helper.setBlock(stoneRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        installMiningPlugins(helper, player, true, false);
+        ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+        player.getInventory().setItem(0, diamondPickaxe.copy());
+        player.getInventory().selected = 0;
+        enableProgressionHome(helper, player, stoneRel);
+
+        RtsAPI.get().mining().areaDestroy(
+                player,
+                asApiPositions(helper, List.of(stoneRel)),
+                (byte) 0,
+                itemId(Items.DIAMOND_PICKAXE),
+                diamondPickaxe,
+                false);
+
+        helper.succeedWhen(() -> {
+            tickMiningPlayer(helper, player, 20);
+            helper.assertBlockPresent(Blocks.AIR, stoneRel);
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 160, batch = "survival_progression")
+    public static void areaDestroySoftBlocksWithoutHarvestTierStillWorks(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        BlockPos dirtRel = new BlockPos(3, 1, 4);
+        BlockPos sandRel = new BlockPos(4, 1, 4);
+        BlockPos snowSupportRel = new BlockPos(5, 1, 4);
+        BlockPos snowRel = snowSupportRel.above();
+        helper.setBlock(dirtRel, Blocks.DIRT);
+        helper.setBlock(sandRel, Blocks.SAND);
+        helper.setBlock(snowSupportRel, Blocks.DIRT);
+        helper.setBlock(snowRel, Blocks.SNOW);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        installMiningPlugins(helper, player, false, false);
+        ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+        player.getInventory().setItem(0, diamondPickaxe.copy());
+        player.getInventory().selected = 0;
+        enableProgressionHome(helper, player, dirtRel);
+
+        RtsAPI.get().mining().areaDestroy(
+                player,
+                asApiPositions(helper, List.of(dirtRel, sandRel, snowRel)),
+                (byte) 0,
+                itemId(Items.DIAMOND_PICKAXE),
+                diamondPickaxe,
+                false);
+
+        helper.succeedWhen(() -> {
+            tickMiningPlayer(helper, player, 20);
+            helper.assertBlockPresent(Blocks.AIR, dirtRel);
+            helper.assertBlockPresent(Blocks.AIR, sandRel);
+            helper.assertBlockPresent(Blocks.AIR, snowRel);
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200, batch = "survival_progression")
+    public static void chainMineSnowDoesNotNeedHarvestTierPlugin(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        List<BlockPos> snowLayersRel = new ArrayList<>();
+        for (int z = 4; z < 7; z++) {
+            for (int x = 4; x < 7; x++) {
+                BlockPos supportRel = new BlockPos(x, 1, z);
+                helper.setBlock(supportRel, Blocks.DIRT);
+                BlockPos snowRel = supportRel.above();
+                helper.setBlock(snowRel, Blocks.SNOW);
+                snowLayersRel.add(snowRel);
+            }
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        installMiningPlugins(helper, player, false, true);
+        ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+        player.getInventory().setItem(0, diamondPickaxe.copy());
+        player.getInventory().selected = 0;
+        enableProgressionHome(helper, player, snowLayersRel.get(0));
+
+        RtsAPI.get().mining().startUltimine(
+                player,
+                helper.absolutePos(snowLayersRel.get(0)),
+                Direction.UP,
+                (byte) 0,
+                itemId(Items.DIAMOND_PICKAXE),
+                diamondPickaxe,
+                snowLayersRel.size(),
+                (byte) 0,
+                false);
+
+        helper.succeedWhen(() -> {
+            tickMiningPlayer(helper, player, 40);
+            for (BlockPos snowRel : snowLayersRel) {
+                helper.assertBlockPresent(Blocks.AIR, snowRel);
+            }
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
     }
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
@@ -481,6 +623,40 @@ public final class RtsServerGameTests {
 
     private static ServerPlayer startRtsPlayer(GameTestHelper helper) {
         return startRtsPlayer(helper, "rts-gametest", new Vec3(3.5D, 2.0D, 3.5D));
+    }
+
+    private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
+        ServerPlayer player = startRtsPlayer(helper);
+        player.setGameMode(gameType);
+        return player;
+    }
+
+    private static void installMiningPlugins(
+            GameTestHelper helper,
+            ServerPlayer player,
+            boolean includeStoneTier,
+            boolean chainInsteadOfArea) {
+        List<Item> plugins = new ArrayList<>();
+        plugins.add(RtsItems.RTS_CONTROL_CORE.get());
+        plugins.add(RtsItems.REMOTE_CONTROL_PLUGIN.get());
+        plugins.add(chainInsteadOfArea
+                ? RtsItems.CHAIN_BREAK_PLUGIN.get()
+                : RtsItems.AREA_DESTROY_PLUGIN.get());
+        if (includeStoneTier) {
+            plugins.add(RtsItems.HARVEST_TIER_STONE.get());
+        }
+        for (int slot = 0; slot < plugins.size(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(plugins.get(slot)));
+            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                    "GameTest 前置插件应当能够安装");
+        }
+    }
+
+    private static void enableProgressionHome(GameTestHelper helper, ServerPlayer player, BlockPos targetRel) {
+        Config.setSurvivalProgressionEnabled(true);
+        RtsProgressionManager.beginHomeSelection(player);
+        helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(targetRel)),
+                "GameTest 玩家应当能在目标附近设置 RTS 家园");
     }
 
     private static List<ServerPlayer> startRtsPlayers(GameTestHelper helper, int count) {

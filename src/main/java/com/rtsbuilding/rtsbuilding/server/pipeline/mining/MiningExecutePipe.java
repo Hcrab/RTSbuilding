@@ -78,12 +78,11 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
             return PipelineResult.success();
         }
 
-        if (ctx.hasToolLease()) {
-            session.mining.miningToolLease = ctx.getToolLease();
-        }
-        if (ctx.isSelectedToolRequested()) {
-            session.mining.miningSelectedToolRequested = true;
-        }
+        // 每次请求都覆盖完整工具快照，不能让一次“指定工具”污染后续空手请求。
+        session.mining.miningToolLease = ctx.hasToolLease()
+                ? ctx.getToolLease()
+                : RtsToolLease.empty();
+        session.mining.miningSelectedToolRequested = ctx.isSelectedToolRequested();
         session.mining.miningToolProtectionEnabled = ctx.isToolProtectionEnabled();
         if (ctx.hasWorkflowEntryId()) {
             session.mining.miningWorkflowEntryId = ctx.getWorkflowEntryId();
