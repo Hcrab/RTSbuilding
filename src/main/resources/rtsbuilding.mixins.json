@@ -9,8 +9,7 @@
     "EmbeddiumWorldSliceMixin",
     "RenderChunkRegionMixin",
     "JadeClientProxyMixin",
-    "WailaTickHandlerMixin",
-    "KeyMappingAccessor"
+    "WailaTickHandlerMixin"
   ],
   "mixins": [
     "ChestMenuMixin",

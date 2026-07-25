@@ -4,7 +4,6 @@ import com.mojang.blaze3d.platform.Window;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.JadeOverlayLayout;
 import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.mixin.KeyMappingAccessor;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.InputEvent;
@@ -85,8 +84,7 @@ public final class RtsJadePlugin implements IWailaPlugin {
         if (matched == null) {
             return;
         }
-        KeyMappingAccessor accessor = (KeyMappingAccessor) matched;
-        accessor.setClickCount(accessor.getClickCount() + 1);
+        ForgeKeyMappingClicks.increment(matched);
         JadeClient.onKeyPressed(event.getAction());
     }
 
