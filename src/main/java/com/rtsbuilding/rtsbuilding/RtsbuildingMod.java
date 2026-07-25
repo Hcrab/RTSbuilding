@@ -39,6 +39,7 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
@@ -67,6 +68,8 @@ public final class RtsbuildingMod {
     public RtsbuildingMod(final FMLJavaModLoadingContext context) {
         IEventBus modEventBus = context.getModEventBus();
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::onConfigLoading);
+        modEventBus.addListener(this::onConfigReloading);
 
         ENTITY_TYPES.register(modEventBus);
         RtsItems.register(modEventBus);
@@ -75,6 +78,21 @@ public final class RtsbuildingMod {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(ModLoadingContext.get()));
+    }
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        migrateServerConfigIfNeeded(event.getConfig());
+    }
+
+    private void onConfigReloading(ModConfigEvent.Reloading event) {
+        migrateServerConfigIfNeeded(event.getConfig());
+    }
+
+    private void migrateServerConfigIfNeeded(ModConfig config) {
+        if (config != null && config.getSpec() == Config.SPEC
+                && Config.migrateLegacyServerDefaults()) {
+            LOGGER.info("已迁移 RTSBuilding 旧版服务端吞吐默认值。");
+        }
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

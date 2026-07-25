@@ -44,7 +44,7 @@ public final class RtsMiningValidator {
     public static final int AREA_DESTROY_MAX_TARGETS = 98304;
 
     /** How many ultimine targets are processed in a single tick. */
-    public static final int ULTIMINE_BLOCKS_PER_TICK = 8;
+    public static final int ULTIMINE_BLOCKS_PER_TICK = 32;
 
     /** Number of hotbar slots a player has (0-8). */
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;

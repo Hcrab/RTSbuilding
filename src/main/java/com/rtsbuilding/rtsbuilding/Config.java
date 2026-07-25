@@ -98,8 +98,8 @@ public final class Config {
             .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
 
     public static final ForgeConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = BUILDER
-            .comment("Maximum queued chain mining targets processed per player per server tick.")
-            .defineInRange("mining.ultimineBlocksPerTick", 8, 1, 128);
+            .comment("Maximum queued mining targets processed by one mining task slice.")
+            .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
 
     public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = BUILDER
             .comment("Hard global RTS work-unit limit across all players in one server tick.")
@@ -111,11 +111,15 @@ public final class Config {
 
     public static final ForgeConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = BUILDER
             .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
-            .defineInRange("taskEngine.maxNanosPerTick", 4_000_000L, 250_000L, 20_000_000L);
+            .defineInRange("taskEngine.maxNanosPerTick", 8_000_000L, 250_000L, 20_000_000L);
 
     public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = BUILDER
             .comment("Maximum RTS remote block action sounds sent per player per tick. Excess sounds are dropped.")
             .defineInRange("placement.remoteBlockActionSoundsPerTick", 16, 0, 16);
+
+    private static final ForgeConfigSpec.IntValue SERVER_CONFIG_REVISION = BUILDER
+            .comment("Internal RTSBuilding server configuration migration revision. Do not edit manually.")
+            .defineInRange("internal.configRevision", 0, 0, ServerConfigMigration.CURRENT_REVISION);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
@@ -361,6 +365,26 @@ public final class Config {
 
     public static long taskEngineMaxNanosPerTick() {
         return TASK_ENGINE_MAX_NANOS_PER_TICK.get();
+    }
+
+    /**
+     * 将旧版确实落盘的保守默认值迁移到当前默认值，同时保留服主主动设置的其他数值。
+     *
+     * @return 本次是否写入了新的迁移版本
+     */
+    public static boolean migrateLegacyServerDefaults() {
+        ServerConfigMigration.Values migrated = ServerConfigMigration.migrate(
+                SERVER_CONFIG_REVISION.get(),
+                ULTIMINE_BLOCKS_PER_TICK.get(),
+                TASK_ENGINE_MAX_NANOS_PER_TICK.get());
+        if (migrated.revision() == SERVER_CONFIG_REVISION.get()) {
+            return false;
+        }
+        ULTIMINE_BLOCKS_PER_TICK.set(migrated.miningSlice());
+        TASK_ENGINE_MAX_NANOS_PER_TICK.set(migrated.taskBudgetNanos());
+        SERVER_CONFIG_REVISION.set(migrated.revision());
+        SPEC.save();
+        return true;
     }
 
     private static int clampInt(int value, int min, int max) {
