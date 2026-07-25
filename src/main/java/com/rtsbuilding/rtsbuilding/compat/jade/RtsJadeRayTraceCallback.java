@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.compat.jade;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;

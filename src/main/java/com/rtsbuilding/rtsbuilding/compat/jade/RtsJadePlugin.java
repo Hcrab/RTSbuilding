@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.compat.jade;
 import com.mojang.blaze3d.platform.Window;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.JadeOverlayLayout;
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.InputEvent;

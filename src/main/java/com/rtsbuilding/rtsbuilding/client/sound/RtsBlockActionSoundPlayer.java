@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.sound;
 
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;

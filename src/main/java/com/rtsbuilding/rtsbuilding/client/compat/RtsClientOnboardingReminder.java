@@ -1,11 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.compat;
 
 
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.mojang.brigadier.Command;
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -18,6 +17,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -90,9 +90,9 @@ public final class RtsClientOnboardingReminder {
                 "chat.rtsbuilding.intro.rts_key",
                 Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
         minecraft.player.displayClientMessage(Component.translatable(
-                        "chat.rtsbuilding.intro.version_warning",
-                        currentModVersion(),
-                        RtsCommunityLinks.WEBSITE)
+                "chat.rtsbuilding.intro.version_warning",
+                Component.literal(currentModVersion()),
+                websiteComponent())
                 .withStyle(ChatFormatting.GOLD), false);
         minecraft.player.displayClientMessage(Component.translatable(
                 "chat.rtsbuilding.intro.feedback",
@@ -121,15 +121,22 @@ public final class RtsClientOnboardingReminder {
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
     }
 
-    /** 从当前已加载容器读取版本，避免提醒文案与 Forge 发布版本脱节。 */
+    /** 从当前 Forge ModContainer 读取版本，避免语言文件与实际发布包漂移。 */
     private static String currentModVersion() {
-        try {
-            return ModList.get().getModContainerById(RtsbuildingMod.MODID)
-                    .map(container -> container.getModInfo().getVersion().toString())
-                    .orElse("unavailable");
-        } catch (RuntimeException | LinkageError ignored) {
-            return "unavailable";
-        }
+        return ModList.get()
+                .getModContainerById(RtsbuildingMod.MODID)
+                .map(container -> container.getModInfo().getVersion().toString())
+                .orElse("unknown");
+    }
+
+    private static Component websiteComponent() {
+        return Component.literal(RtsCommunityLinks.WEBSITE).withStyle(style -> style
+                .withColor(ChatFormatting.BLUE)
+                .withUnderlined(true)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.WEBSITE))
+                .withHoverEvent(new HoverEvent(
+                        HoverEvent.Action.SHOW_TEXT,
+                        Component.literal(RtsCommunityLinks.WEBSITE))));
     }
 
     private static Component githubComponent() {

@@ -10,7 +10,8 @@
     "GameRendererMixin",
     "RenderChunkRegionMixin",
     "JadeClientProxyMixin",
-    "WailaTickHandlerMixin"
+    "WailaTickHandlerMixin",
+    "LocalPlayerMixin"
   ],
   "mixins": [
     "ChestMenuMixin",
