@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.camera;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.common.RtsEntities;
+import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -62,7 +62,7 @@ final class RtsCameraEntityHelper {
 
     static RtsCameraEntity createAndSpawnCamera(ServerLevel level, UUID ownerUuid,
             double x, double y, double z, float yaw, float pitch) {
-        RtsCameraEntity camera = new RtsCameraEntity(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), level);
+        RtsCameraEntity camera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), level);
         camera.setOwnerUuid(ownerUuid);
         camera.snapTo(x, y, z, yaw, pitch);
         level.addFreshEntity(camera);

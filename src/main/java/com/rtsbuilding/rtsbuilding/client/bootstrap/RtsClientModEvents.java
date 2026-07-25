@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingMixinVerifier;
 
 import net.minecraft.client.Minecraft;
@@ -26,6 +27,6 @@ public final class RtsClientModEvents {
 
     @SubscribeEvent
     public static void registerRenderers(final EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), RtsCameraEntityRenderer::new);
+        event.registerEntityRenderer(RtsEntities.RTS_CAMERA_ENTITY.get(), RtsCameraEntityRenderer::new);
     }
 }
