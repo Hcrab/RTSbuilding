@@ -19,6 +19,11 @@ public class Config {
             .translation("rtsbuilding.configuration.shareSurvivalProgressionWithTeams")
             .define("shareSurvivalProgressionWithTeams", false);
 
+    public static final ModConfigSpec.BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = SERVER_BUILDER
+            .comment("Allow RTS storage to insert/extract items across dimensions. Disabled by default for survival balance.")
+            .translation("rtsbuilding.configuration.enableCrossDimensionStorage")
+            .define("storage.enableCrossDimensionStorage", false);
+
     public static final ModConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = COMMON_BUILDER
             .comment("Maximum RTS action radius in blocks.")
             .translation("rtsbuilding.configuration.maxActionRadiusBlocks")
@@ -212,6 +217,10 @@ public class Config {
     public static void setSurvivalProgressionEnabled(boolean enabled) {
         ENABLE_SURVIVAL_PROGRESSION.set(enabled);
         SPEC.save();
+    }
+
+    public static boolean isCrossDimensionStorageEnabled() {
+        return ENABLE_CROSS_DIMENSION_STORAGE.getAsBoolean();
     }
 
     public static int maxActionRadiusBlocks() {

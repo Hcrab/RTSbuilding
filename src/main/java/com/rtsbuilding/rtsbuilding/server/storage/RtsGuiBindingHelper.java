@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
@@ -113,12 +115,22 @@ final class RtsGuiBindingHelper {
         if (binding == null || binding.pos() == null || binding.dimension() == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
-        if (!player.serverLevel().dimension().equals(binding.dimension())) {
-            player.displayClientMessage(Component.translatable(
-                    "message.rtsbuilding.gui_binding.other_dimension"), true);
-            return RtsStorageBindings.UpdateResult.none();
+        ServerLevel level;
+        if (RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_STORAGE)) {
+            level = player.server.getLevel(binding.dimension());
+            if (level == null || !level.hasChunkAt(binding.pos())) {
+                return RtsStorageBindings.UpdateResult.none();
+            }
+        } else {
+            if (!player.serverLevel().dimension().equals(binding.dimension())) {
+                player.displayClientMessage(Component.translatable(
+                        "message.rtsbuilding.gui_binding.other_dimension"), true);
+                return RtsStorageBindings.UpdateResult.none();
+            }
+            level = player.serverLevel();
         }
-        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, binding.pos())) {
+        if (!RtsCameraManager.isActive(player)
+                || !RtsCameraManager.isWithinActionRange(player, binding.pos())) {
             return RtsStorageBindings.UpdateResult.none();
         }
         if (!RtsClaimProtectionService.canInteractBlock(
@@ -127,7 +139,6 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
         BlockPos pos = binding.pos();
         RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos);
         GuiBindingInteraction interaction = createGuiBindingInteraction(player, pos, binding.face());

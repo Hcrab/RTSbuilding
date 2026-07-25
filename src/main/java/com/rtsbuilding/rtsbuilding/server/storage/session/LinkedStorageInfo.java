@@ -17,6 +17,7 @@ import java.util.*;
  *   <li>{@code linkedBackpackUuids}——精妙背包 UUID</li>
  *   <li>{@code linkedBackpackItemIds}——精妙背包物品 ID</li>
  *   <li>{@code detachedBackpackRefs}——已断开连接的背包引用</li>
+ *   <li>{@code refLoadStatus}——运行时区块加载状态（不持久化）</li>
  * </ul>
  *
  * <p>所有集合操作均保证一致性：添加 ref 时同时初始化对应的元数据；
@@ -31,6 +32,9 @@ public final class LinkedStorageInfo {
     private final Map<LinkedStorageRef, UUID> linkedBackpackUuids = new HashMap<>();
     private final Map<LinkedStorageRef, String> linkedBackpackItemIds = new HashMap<>();
     private final Set<LinkedStorageRef> detachedBackpackRefs = new HashSet<>();
+
+    /** 运行时区块加载状态（不持久化），以 {@code (维度, 区块X, 区块Z)} 为键，同区块的存储共享一个标记。 */
+    private final Map<RtsLinkedStorageResolver.ChunkKey, RtsLinkedStorageResolver.ChunkLoadStatus> chunkLoadStatus = new HashMap<>();
 
     // ======================================================================
     //  基础查询
@@ -170,6 +174,35 @@ public final class LinkedStorageInfo {
 
     public void removeDetached(LinkedStorageRef ref) {
         detachedBackpackRefs.remove(ref);
+    }
+
+    // ======================================================================
+    //  区块加载状态（运行时，不持久化）
+    // ======================================================================
+
+    public RtsLinkedStorageResolver.ChunkLoadStatus getChunkLoadStatus(RtsLinkedStorageResolver.ChunkKey key) {
+        return chunkLoadStatus.get(key);
+    }
+
+    public void setChunkLoadStatus(RtsLinkedStorageResolver.ChunkKey key, RtsLinkedStorageResolver.ChunkLoadStatus status) {
+        if (status == null) {
+            chunkLoadStatus.remove(key);
+        } else {
+            chunkLoadStatus.put(key, status);
+        }
+    }
+
+    public Map<RtsLinkedStorageResolver.ChunkKey, RtsLinkedStorageResolver.ChunkLoadStatus> getAllChunkLoadStatus() {
+        return Collections.unmodifiableMap(chunkLoadStatus);
+    }
+
+    public RtsLinkedStorageResolver.ChunkLoadStatus getRefChunkLoadStatus(LinkedStorageRef ref) {
+        if (ref == null || ref.pos() == null) return null;
+        return chunkLoadStatus.get(RtsLinkedStorageResolver.ChunkKey.from(ref));
+    }
+
+    public void clearChunkLoadStatus() {
+        chunkLoadStatus.clear();
     }
 
     // ======================================================================

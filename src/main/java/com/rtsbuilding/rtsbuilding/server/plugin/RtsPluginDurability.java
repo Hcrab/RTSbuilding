@@ -12,9 +12,13 @@ import net.neoforged.neoforge.common.IOUtilities;
 /**
  * 插件安装、卸载与迁移完成后的即时耐久化检查点。
  *
- * <p>普通玩家数据仍由 {@link SaveScheduler} 批量保存；本类只服务于低频但不可丢失的插件变更。
- * 它先落盘插件状态，再保存包含插件物品增减的玩家背包，从而把强制结束服务端时的丢失窗口
- * 从自动保存周期缩短到本次操作返回之前。本类不负责判定插件是否合法，也不修改插件列表。
+ * <p>所有 RTS 插件数据统一通过 {@link SaveScheduler} 写入 DataCluster（session.dat），
+ * 不再额外主动保存玩家背包。背包变更由 Minecraft 的自然保存周期持久化，避免两套存储
+ * 系统在服务器崩溃时状态不一致。最坏情况：插件已落盘但物品回滚（玩家可重装或管理员回收），
+ * 远优于插件丢失或物品被扣但插件未安装。
+ *
+ * <p>本类不负责判定插件是否合法，也不修改插件列表。仅将 DataCluster 的丢失窗口从
+ * 自动保存周期（~200 tick）缩短到本次操作返回之前。
  */
 final class RtsPluginDurability {
     private RtsPluginDurability() {
@@ -49,8 +53,6 @@ final class RtsPluginDurability {
                 IOUtilities.waitUntilIOWorkerComplete();
             }
 
-            // 插件物品已经从背包扣除或退回；同一检查点保存玩家文件，避免状态与物品只存一边。
-            server.getPlayerList().saveAll();
             return true;
         } catch (RuntimeException exception) {
             RtsbuildingMod.LOGGER.error(

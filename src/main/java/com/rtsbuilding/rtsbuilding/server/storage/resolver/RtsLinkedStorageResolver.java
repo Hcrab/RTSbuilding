@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.resolver;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -11,10 +13,14 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.items.IItemHandler;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -182,6 +188,49 @@ public final class RtsLinkedStorageResolver {
     }
 
     // ======================================================================
+    //  存储引用加载状态
+    // ======================================================================
+
+    /**
+     * 区块级坐标标识，同一个区块内的存储共享一个加载状态标记。
+     */
+    public record ChunkKey(ResourceKey<Level> dimension, int x, int z) {
+        public static ChunkKey from(LinkedStorageRef ref) {
+            return new ChunkKey(ref.dimension(), ref.pos().getX() >> 4, ref.pos().getZ() >> 4);
+        }
+    }
+
+    /**
+     * 存储引用对应的区块加载状态。在 {@link #updateRefLoadStatus} 中按需刷新，
+     * 标记为 LOADED 仅代表区块存在，不代表方块实体可用。
+     */
+    public enum ChunkLoadStatus {
+        /** 区块已加载（世界存在且 hasChunkAt 为 true） */
+        LOADED,
+        /** 区块未加载（世界不存在、维度未注册或区块尚未加载） */
+        NOT_LOADED
+    }
+
+    /**
+     * 刷新会话中所有引用的加载状态标记，同区块的存储共享一个标记。
+     * 结果写入 {@link com.rtsbuilding.rtsbuilding.server.storage.session.LinkedStorageInfo#setChunkLoadStatus}，
+     * 供后续检测使用。每次调用先清除旧状态再重新填充，确保状态实时准确。
+     */
+    public static void updateRefLoadStatus(ServerPlayer player, RtsStorageSession session) {
+        if (player == null || session == null || session.linkedStorageInfo.isEmpty()) return;
+        session.linkedStorageInfo.clearChunkLoadStatus();
+        for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
+            if (ref == null || ref.pos() == null) continue;
+            ChunkKey key = ChunkKey.from(ref);
+            if (session.linkedStorageInfo.getChunkLoadStatus(key) != null) continue;
+            ServerLevel level = player.server.getLevel(ref.dimension());
+            boolean loaded = level != null && level.hasChunkAt(ref.pos());
+            session.linkedStorageInfo.setChunkLoadStatus(key,
+                    loaded ? ChunkLoadStatus.LOADED : ChunkLoadStatus.NOT_LOADED);
+        }
+    }
+
+    // ======================================================================
     //  会话维度 / 可见性 / 排序
     // ======================================================================
 
@@ -197,10 +246,51 @@ public final class RtsLinkedStorageResolver {
         session.linkedStorageInfo.cleanupOrphans();
     }
 
+    /**
+     * 检查并移除已确认不存在的存储引用（方块被破坏），
+     * 返回被移除的引用列表。仅在区块加载且方块为空气时判定为"缺失"，
+     * 区块未加载时不判定（可能只是暂未加载）。
+     */
+    public static List<LinkedStorageRef> removeMissingRefs(ServerPlayer player, RtsStorageSession session) {
+        List<LinkedStorageRef> missing = new ArrayList<>();
+        if (player == null || session == null || session.linkedStorageInfo.isEmpty()) {
+            return missing;
+        }
+        for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
+            if (ref == null || ref.pos() == null) continue;
+            ServerLevel level = player.server.getLevel(ref.dimension());
+            if (level == null || !level.hasChunkAt(ref.pos())) continue;
+            if (level.getBlockState(ref.pos()).isAir()) {
+                missing.add(ref);
+            }
+        }
+        for (LinkedStorageRef ref : missing) {
+            String name = session.linkedStorageInfo.getNameOrDefault(ref, "Unknown");
+            session.linkedStorageInfo.remove(ref);
+            player.displayClientMessage(Component.translatable(
+                    "message.rtsbuilding.storage.unlinked_missing", name, ref.pos().toShortString()), false);
+        }
+        if (!missing.isEmpty()) {
+            session.linkedStorageInfo.cleanupOrphans();
+        }
+        return missing;
+    }
+
     public static boolean isLinkedRefWorldVisible(ServerPlayer player, RtsStorageSession session, LinkedStorageRef ref) {
         if (player == null || session == null || ref == null || ref.pos() == null
-                || !player.serverLevel().dimension().equals(ref.dimension())
-                || session.linkedStorageInfo.isDetached(ref)
+                || session.linkedStorageInfo.isDetached(ref)) {
+            return false;
+        }
+        if (RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_STORAGE)) {
+            ServerLevel targetLevel = player.server.getLevel(ref.dimension());
+            if (targetLevel == null || !targetLevel.hasChunkAt(ref.pos())) return false;
+            UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
+            if (backpackUuid != null) {
+                return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(targetLevel, ref.pos()));
+            }
+            return !targetLevel.getBlockState(ref.pos()).isAir();
+        }
+        if (!player.serverLevel().dimension().equals(ref.dimension())
                 || !player.serverLevel().hasChunkAt(ref.pos())) {
             return false;
         }

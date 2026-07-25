@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants;
@@ -13,6 +15,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -95,19 +98,25 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         session.funnel.funnelTickCooldown = RtsServiceConstants.FUNNEL_TICK_INTERVAL - 1;
 
         if (session.funnel.funnelTarget == null) return new FunnelTickResult(0, true);
-        if (session.funnel.funnelTargetDimension == null
-                || !player.serverLevel().dimension().equals(session.funnel.funnelTargetDimension)) {
-            // 目标属于其他维度时只让出本轮调度，绝不解析端点或扫描当前世界的同坐标。
-            return new FunnelTickResult(0, true);
+        boolean crossDim = RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_STORAGE);
+        if (crossDim) {
+            if (session.funnel.funnelTargetDimension == null) return new FunnelTickResult(0, true);
+            ServerLevel targetLevel = player.server.getLevel(session.funnel.funnelTargetDimension);
+            if (targetLevel == null || !targetLevel.hasChunkAt(session.funnel.funnelTarget)) {
+                return new FunnelTickResult(0, true);
+            }
+        } else {
+            if (session.funnel.funnelTargetDimension == null
+                    || !player.serverLevel().dimension().equals(session.funnel.funnelTargetDimension)) {
+                return new FunnelTickResult(0, true);
+            }
+            if (!player.serverLevel().hasChunkAt(session.funnel.funnelTarget)) {
+                return new FunnelTickResult(0, true);
+            }
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, session.funnel.funnelTarget)) {
-            return new FunnelTickResult(0, true);
-        }
-        if (!RtsClaimProtectionService.canInteractBlock(
-                player, session.funnel.funnelTarget, Direction.UP,
-                InteractionHand.MAIN_HAND, ItemStack.EMPTY)) return new FunnelTickResult(0, true);
-        if (!RtsCameraManager.isWithinActionRange(player, session.funnel.funnelTarget)) {
+        if (!RtsCameraManager.isActive(player)
+                || !RtsCameraManager.isWithinActionRange(player, session.funnel.funnelTarget)) {
             return new FunnelTickResult(0, true);
         }
 
@@ -120,9 +129,15 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         int limit = Math.max(1, maxUnits);
         WorkResult flushed = flushBuffer(handlers, player, session, limit, deadlineNanos);
         int remainingUnits = Math.max(0, limit - flushed.processedUnits());
-        WorkResult absorbed = remainingUnits == 0 || System.nanoTime() >= deadlineNanos
-                ? new WorkResult(0, false)
-                : absorbDrops(player, session.funnel.funnelTarget, handlers, session,
+        if (remainingUnits == 0 || System.nanoTime() >= deadlineNanos) {
+            return new FunnelTickResult(flushed.processedUnits(), true);
+        }
+        boolean crossDimAbsorb = RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_STORAGE);
+        ServerLevel absorbLevel = crossDimAbsorb && session.funnel.funnelTargetDimension != null
+                ? player.server.getLevel(session.funnel.funnelTargetDimension)
+                : player.serverLevel();
+        if (absorbLevel == null) absorbLevel = player.serverLevel();
+        WorkResult absorbed = absorbDrops(player, absorbLevel, session.funnel.funnelTarget, handlers, session,
                         remainingUnits, deadlineNanos);
         boolean changed = flushed.changed() || absorbed.changed();
         if (changed) {
@@ -168,12 +183,13 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         return new WorkResult(processed, changed);
     }
 
-    private WorkResult absorbDrops(ServerPlayer player, BlockPos target, List<IItemHandler> handlers,
+    private WorkResult absorbDrops(ServerPlayer player, ServerLevel targetLevel, BlockPos target,
+            List<IItemHandler> handlers,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
         AABB box = new AABB(target).inflate(RtsServiceConstants.FUNNEL_RADIUS);
         int queryLimit = Math.min(maxUnits, RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK);
         List<ItemEntity> drops = new ArrayList<>(queryLimit);
-        player.serverLevel().getEntities(
+        targetLevel.getEntities(
                 EntityTypeTest.forClass(ItemEntity.class), box,
                 e -> e != null && e.isAlive() && !e.getItem().isEmpty(), drops, queryLimit);
 

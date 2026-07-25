@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.progression;
 
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager.HomeAnchor;
 import net.minecraft.core.BlockPos;
@@ -98,8 +99,13 @@ final class RtsHomeManager {
             return false;
         }
         HomeAnchor home = getHome(player);
-        if (home == null || !home.dimension().equals(player.serverLevel().dimension())) {
+        if (home == null) {
             return false;
+        }
+        // 玩家在其他维度时，若已启用跨维功能则用相机锚点替代家园锚点
+        if (!home.dimension().equals(player.serverLevel().dimension())) {
+            return RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_HOME)
+                    && RtsCameraManager.isWithinActionRange(player, pos);
         }
         double radius = RtsProgressionManager.getActionRadius(player);
         double dx = (pos.getX() + 0.5D) - (home.pos().getX() + 0.5D);

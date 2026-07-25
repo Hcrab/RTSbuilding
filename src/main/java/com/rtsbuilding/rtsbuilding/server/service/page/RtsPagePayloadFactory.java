@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
@@ -81,7 +83,8 @@ public final class RtsPagePayloadFactory {
             return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
         ResourceKey<Level> currentDimension = player.serverLevel().dimension();
-        ServerLevel level = player.serverLevel();
+        ServerLevel playerLevel = player.serverLevel();
+        boolean crossDim = RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_STORAGE);
         List<LinkedStorageRef> storageRefs = session.linkedStorageInfo.getAll();
         List<Long> positions = new ArrayList<>(storageRefs.size());
         List<String> names = new ArrayList<>(storageRefs.size());
@@ -91,17 +94,20 @@ public final class RtsPagePayloadFactory {
         List<Boolean> worldAvailable = new ArrayList<>(storageRefs.size());
         for (LinkedStorageRef ref : storageRefs) {
             boolean backpackLink = ref != null && session.linkedStorageInfo.hasBackpackUuid(ref);
-            if (ref == null || ref.pos() == null || (!backpackLink && !currentDimension.equals(ref.dimension()))) {
+            if (ref == null || ref.pos() == null) continue;
+            if (!crossDim && !backpackLink && !currentDimension.equals(ref.dimension())) {
                 continue;
             }
             BlockPos pos = ref.pos();
+            ServerLevel refLevel = crossDim ? player.server.getLevel(ref.dimension()) : playerLevel;
+            if (refLevel == null) refLevel = playerLevel;
             boolean visible = RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref);
             positions.add(pos.asLong());
-            names.add(resolveLinkedRefName(level, session, ref, visible));
+            names.add(resolveLinkedRefName(refLevel, session, ref, visible));
             modes.add(session.linkedStorageInfo.getMode(ref));
             priorities.add(RtsLinkedStorageResolver.sanitizeLinkedStoragePriority(
                     session.linkedStorageInfo.getPriority(ref)));
-            iconItemIds.add(resolveLinkedRefIconItemId(level, session, ref, visible));
+            iconItemIds.add(resolveLinkedRefIconItemId(refLevel, session, ref, visible));
             worldAvailable.add(visible);
         }
         return new LinkedRefPayload(positions, names, modes, priorities, iconItemIds, worldAvailable);

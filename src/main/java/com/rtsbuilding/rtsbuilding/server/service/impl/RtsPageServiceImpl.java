@@ -97,6 +97,7 @@ public final class RtsPageServiceImpl implements PageService {
                 RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches));
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        RtsLinkedStorageResolver.removeMissingRefs(player, session);
         session.bdCache.handlerStale = true;
         session.bdCache.fluidHandlerStale = true;
 

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "F": {"item": "rtsbuilding:field_deployment_plugin"},
+    "N": {"item": "minecraft:netherite_ingot"},
+    "B": {"item": "minecraft:beacon"},
+    "E": {"item": "minecraft:end_crystal"},
+    "R": {"item": "minecraft:respawn_anchor"}
+  },
+  "pattern": [
+    " B ",
+    "NFN",
+    "ERE"
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:cross_dimension_home_plugin"}
+}

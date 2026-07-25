@@ -57,6 +57,10 @@ public final class RtsItems {
     public static final DeferredHolder<Item, Item> RANGE_CULLING_PLUGIN = pluginItem("range_culling_plugin", true);
     /** 现场部署插件 —— 快速部署已保存的蓝图 */
     public static final DeferredHolder<Item, Item> FIELD_DEPLOYMENT_PLUGIN = pluginItem("field_deployment_plugin", true);
+    /** 跨维度存储插件 —— 允许跨维度访问链接存储 */
+    public static final DeferredHolder<Item, Item> CROSS_DIMENSION_STORAGE_PLUGIN = pluginItem("cross_dimension_storage_plugin", true);
+    /** 跨维度家园插件 —— 允许在家园所在维度之外执行批量操作 */
+    public static final DeferredHolder<Item, Item> CROSS_DIMENSION_HOME_PLUGIN = pluginItem("cross_dimension_home_plugin", true);
     /** 范围扩展 I —— 扩大基础操作半径 */
     public static final DeferredHolder<Item, Item> RANGE_EXTENSION_I = pluginItem("range_extension_i", true);
     /** 范围扩展 II —— 进一步扩大操作半径 */

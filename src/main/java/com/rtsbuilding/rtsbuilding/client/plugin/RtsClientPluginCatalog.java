@@ -32,7 +32,9 @@ public final class RtsClientPluginCatalog {
             id("harvest_tier_stone"),
             id("harvest_tier_iron"),
             id("harvest_tier_diamond"),
-            id("harvest_tier_unlimited"));
+            id("harvest_tier_unlimited"),
+            id("cross_dimension_storage_plugin"),
+            id("cross_dimension_home_plugin"));
 
     private RtsClientPluginCatalog() {
     }

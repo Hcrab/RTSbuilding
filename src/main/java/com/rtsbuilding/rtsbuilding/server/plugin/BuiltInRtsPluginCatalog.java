@@ -25,6 +25,8 @@ public final class BuiltInRtsPluginCatalog {
     public static final ResourceLocation AREA_DESTROY_PLUGIN = id("area_destroy_plugin");
     public static final ResourceLocation BLUEPRINT_PLUGIN = id("blueprint_plugin");
     public static final ResourceLocation RANGE_CULLING_PLUGIN = id("range_culling_plugin");
+    public static final ResourceLocation CROSS_DIMENSION_STORAGE_PLUGIN = id("cross_dimension_storage_plugin");
+    public static final ResourceLocation CROSS_DIMENSION_HOME_PLUGIN = id("cross_dimension_home_plugin");
     public static final ResourceLocation FIELD_DEPLOYMENT_PLUGIN = id("field_deployment_plugin");
     public static final ResourceLocation RANGE_EXTENSION_I = id("range_extension_i");
     public static final ResourceLocation RANGE_EXTENSION_II = id("range_extension_ii");
@@ -58,6 +60,10 @@ public final class BuiltInRtsPluginCatalog {
                         EnumSet.of(RtsFeature.BLUEPRINTS), 0, false),
                 definition(RANGE_CULLING_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.RANGE_CULLING), 0, false),
+                definition(CROSS_DIMENSION_STORAGE_PLUGIN, RtsPluginFamily.UNIQUE,
+                        EnumSet.of(RtsFeature.CROSS_DIMENSION_STORAGE), 0, false),
+                definition(CROSS_DIMENSION_HOME_PLUGIN, RtsPluginFamily.UNIQUE,
+                        EnumSet.of(RtsFeature.CROSS_DIMENSION_HOME), 0, false),
                 definition(FIELD_DEPLOYMENT_PLUGIN, RtsPluginFamily.UNIQUE,
                         Set.of(), 0, true),
                 definition(RANGE_EXTENSION_I, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 16, false),

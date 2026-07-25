@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -28,15 +29,22 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        return findHandlerInLevel(player.serverLevel(), pos);
+    }
+
+    /**
+     * 在指定世界中探测方块坐标的物品处理器。
+     */
+    public static IItemHandler findHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) {
             return null;
         }
-        IItemHandler direct = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        IItemHandler direct = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            IItemHandler sided = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
+            IItemHandler sided = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
             if (sided != null) {
                 return sided;
             }
@@ -64,15 +72,22 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        return findFluidHandlerInLevel(player.serverLevel(), pos);
+    }
+
+    /**
+     * 在指定世界中探测方块坐标的流体处理器。
+     */
+    public static IFluidHandler findFluidHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) {
             return null;
         }
-        IFluidHandler direct = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+        IFluidHandler direct = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            IFluidHandler sided = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
+            IFluidHandler sided = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
             if (sided != null) {
                 return sided;
             }
