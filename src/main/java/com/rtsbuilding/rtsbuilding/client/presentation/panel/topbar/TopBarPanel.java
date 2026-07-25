@@ -15,11 +15,8 @@ import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -124,9 +121,6 @@ public final class TopBarPanel implements RtsPanelApi {
         this.modeSwitcher = new ModeSwitcher();
         
         this.modeSwitcher.setOnModeChange(mode -> {
-            if (screen != null) {
-                screen.persistUiState();
-            }
         });
         
         this.logoPopup = createLogoPopup();
@@ -201,12 +195,6 @@ public final class TopBarPanel implements RtsPanelApi {
     public void setMode(ModeSwitcher.Mode mode) {
         if (modeSwitcher != null) {
             modeSwitcher.setMode(mode);
-        }
-    }
-
-    public void onPostUiStateLoad() {
-        if (debugPopup != null) {
-            debugPopup.onPostUiStateLoad();
         }
     }
 
@@ -357,33 +345,6 @@ public final class TopBarPanel implements RtsPanelApi {
         return new DebugMenuPopup();
     }
 
-    @Override
-    public List<PersistableProperty> persistableProperties() {
-        List<PersistableProperty> props = new ArrayList<>();
-
-        
-        
-        if (debugPopup != null) {
-            props.addAll(debugPopup.persistableProperties());
-        }
-
-        
-        if (modeSwitcher != null) {
-            props.add(PersistableProperty.enumField(
-                    "mode",
-                    state -> state.mode,
-                    (state, v) -> state.mode = v,
-                    modeSwitcher::getCurrentMode,
-                    modeSwitcher::setMode,
-                    ModeSwitcher.Mode.INTERACTIVE,
-                    ModeSwitcher.Mode.class
-            ));
-        }
-
-        return props;
-    }
-
-    
     public boolean isMouseOverAnyPopup(int mouseX, int mouseY) {
         if (debugPopup != null && debugPopup.isOpen() && debugPopup.contains(mouseX, mouseY)) {
             return true;

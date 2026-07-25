@@ -163,15 +163,7 @@ public final class RtsFloatingWindowLayer {
         return handled;
     }
 
-    public boolean consumeAnyBoundsDirty() {
-        boolean dirty = false;
-        for (RtsPanel window : this.frontToBackWindows) {
-            dirty = window.consumeBoundsDirty() || dirty;
-        }
-        return dirty;
-    }
-
-    public void mouseMoved(double mouseX, double mouseY) {
+        public void mouseMoved(double mouseX, double mouseY) {
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsPanel window = this.frontToBackWindows.get(i);
             if (!window.isOpen()) continue;

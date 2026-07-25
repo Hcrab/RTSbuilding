@@ -1,10 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
-
-import java.util.List;
 
 
 public interface RtsPanelApi {
@@ -39,11 +36,5 @@ public interface RtsPanelApi {
 
     default boolean charTyped(char codePoint, int modifiers) { return false; }
 
-    
     default void close() {}
-
-    
-
-    
-    default List<PersistableProperty> persistableProperties() { return List.of(); }
 }

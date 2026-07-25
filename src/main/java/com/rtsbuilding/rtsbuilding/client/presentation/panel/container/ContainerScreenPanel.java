@@ -150,8 +150,6 @@ public final class ContainerScreenPanel extends RtsPanel {
             inputForwarder.init(cw, ch);
             
             this.computedPanelSize = new int[]{newW, newH};
-            
-            bounds.markDirtyTransient();
             onBoundsChanged();
         }
     }

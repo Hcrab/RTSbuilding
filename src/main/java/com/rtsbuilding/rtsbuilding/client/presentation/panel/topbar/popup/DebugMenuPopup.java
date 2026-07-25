@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.popup.BasePopu
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.debug.DebugRenderer;
@@ -187,43 +186,6 @@ public final class DebugMenuPopup extends BasePopup {
         }
         this.collisionBoxRenderingActive = desired;
     }
-
-    
-
-    public List<PersistableProperty> persistableProperties() {
-        return List.of(
-                
-                PersistableProperty.boolField(
-                        "debug.overlayEnabled",
-                        s -> s.debug.debugOverlayEnabled,
-                        (s, v) -> s.debug.debugOverlayEnabled = v,
-                        () -> this.debugOverlayEnabled,
-                        v -> this.debugOverlayEnabled = v),
-                
-                PersistableProperty.boolField(
-                        "debug.chunkBorderVisible",
-                        s -> s.debug.chunkBorderVisible,
-                        (s, v) -> s.debug.chunkBorderVisible = v,
-                        () -> this.chunkBorderVisible,
-                        v -> {
-                            this.chunkBorderVisible = v;
-                            setItemState(0, v);
-                        }),
-                
-                PersistableProperty.boolField(
-                        "debug.collisionBoxVisible",
-                        s -> s.debug.collisionBoxVisible,
-                        (s, v) -> s.debug.collisionBoxVisible = v,
-                        () -> this.collisionBoxVisible,
-                        v -> {
-                            this.collisionBoxVisible = v;
-                            setItemState(1, v);
-                        })
-
-        );
-    }
-
-    
 
     @Override
     protected int getItemCount() {

@@ -10,8 +10,6 @@ public final class PanelBounds {
     private int defaultWidth;
     private int defaultHeight;
     private boolean initialized;
-    private boolean boundsDirty;
-    private boolean userBoundsPreference;
 
     public PanelBounds(int defaultWidth, int defaultHeight) {
         this.defaultWidth = defaultWidth;
@@ -59,7 +57,6 @@ public final class PanelBounds {
 
     public int getDefaultWidth() { return defaultWidth; }
     public int getDefaultHeight() { return defaultHeight; }
-
     public void setDefaults(int defaultWidth, int defaultHeight) {
         this.defaultWidth = defaultWidth;
         this.defaultHeight = defaultHeight;
@@ -70,31 +67,4 @@ public final class PanelBounds {
         this.width = this.defaultWidth;
         this.height = this.defaultHeight;
     }
-
-    
-
-    
-    public boolean consumeDirty() {
-        boolean dirty = this.boundsDirty;
-        this.boundsDirty = false;
-        return dirty;
-    }
-
-    
-    public void markDirty() {
-        this.boundsDirty = true;
-        this.userBoundsPreference = true;
-    }
-
-    
-    public void markDirtyTransient() {
-        this.boundsDirty = true;
-        this.userBoundsPreference = false;
-    }
-
-    public boolean hasUserPreference() { return userBoundsPreference; }
-    public void clearUserPreference() { this.userBoundsPreference = false; }
-
-    
-    public void clearDirty() { this.boundsDirty = false; }
 }

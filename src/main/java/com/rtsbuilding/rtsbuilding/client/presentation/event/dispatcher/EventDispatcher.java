@@ -26,6 +26,7 @@ public final class EventDispatcher {
     
     public static final int P_INPUT_PIPELINE = 0;
     
+    public static final int P_BUILD_ACTION = -50;
     public static final int P_FALLBACK = -100;
 
     

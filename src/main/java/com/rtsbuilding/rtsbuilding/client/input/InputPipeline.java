@@ -16,6 +16,15 @@ public final class InputPipeline {
     }
 
     
+    @SuppressWarnings("unchecked")
+    public <T extends InputLayer> T findLayer(Class<T> type) {
+        for (InputLayer layer : layers) {
+            if (type.isInstance(layer)) return (T) layer;
+        }
+        return null;
+    }
+
+    
     public void onTickPre() {
         Minecraft mc = Minecraft.getInstance();
         for (InputLayer layer : layers) {

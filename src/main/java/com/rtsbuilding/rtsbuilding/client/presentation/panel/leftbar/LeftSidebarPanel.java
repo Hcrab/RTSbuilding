@@ -4,10 +4,8 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelAp
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.ActionButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.SelectButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 
-import java.util.List;
 import java.util.Objects;
 
 
@@ -157,12 +155,6 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         return false;
     }
 
-    @Override
-    public List<PersistableProperty> persistableProperties() {
-        return List.of();
-    }
-
-    
     @Override
     public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
         renderTooltipOverlays(g, mouseX, mouseY);

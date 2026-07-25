@@ -16,21 +16,19 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.color.ColorPickerPa
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.DownSidebarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.DownSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.gear.GearMenuPanel;
+import com.rtsbuilding.rtsbuilding.client.input.layer.CameraInputLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.*;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.rightbar.RightSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectionHighlight;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
-import com.rtsbuilding.rtsbuilding.client.presentation.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
 
 
 public class BuilderScreen extends Screen {
@@ -49,10 +47,6 @@ public class BuilderScreen extends Screen {
     
     private final PanelRegistry panelRegistry = new PanelRegistry();
 
-    
-    private final RtsScreenUiStateManager uiStateManager;
-
-    
     private final ScreenCoordinator screenCoordinator;
 
     
@@ -71,7 +65,7 @@ public class BuilderScreen extends Screen {
     
     private final EntityInteractionHandler entityInteractionHandler;
     
-    private final CameraPersistenceHandler cameraPersistenceHandler;
+    private final BuildInteractionHandler buildInteractionHandler;
     
     private final EventDispatcher eventDispatcher = new EventDispatcher();
     
@@ -91,25 +85,18 @@ public class BuilderScreen extends Screen {
         panelRegistry.register(leftSidebarPanel, RenderLayer.CONTENT_PANELS);
         panelRegistry.register(rightSidebarPanel, RenderLayer.CONTENT_PANELS);
         panelRegistry.register(downSidebarPanel, RenderLayer.CONTENT_PANELS);
+        this.floatingWindowLayer = new RtsFloatingWindowLayer();
         this.topBarPanel.setOnGearMenuToggle(() -> {
             gearMenuPanel.toggleOpen();
             topBarPanel.setGearMenuOpen(gearMenuPanel.isOpen());
         });
-        this.floatingWindowLayer = new RtsFloatingWindowLayer();
-        this.cameraPersistenceHandler = new CameraPersistenceHandler();
 
-        this.uiStateManager = new RtsScreenUiStateManager(List.of(
-                this.topBarPanel,
-                this.gearMenuPanel,
-                this.leftSidebarPanel,
-                this.rightSidebarPanel,
-                this.downSidebarPanel,
-                this.cameraPersistenceHandler
-        ));
         this.selectionHighlight = new SelectionHighlight();
         this.movementHandler = new BuilderScreenMovementHandler();
         this.bindModeHandler = new BindModeMouseHandler();
         this.entityInteractionHandler = new EntityInteractionHandler(selectionHighlight);
+        CameraInputLayer cameraInputLayer = kernel.inputPipeline().findLayer(CameraInputLayer.class);
+        this.buildInteractionHandler = new BuildInteractionHandler(kernel, cameraInputLayer);
         this.cursorStyleManager = new CursorStyleManager((mx, my) -> {
             var fwCursor = floatingWindowLayer.resizeCursorAt(mx, my);
             if (fwCursor != RtsPanel.ResizeCursor.DEFAULT) return fwCursor;
@@ -137,7 +124,8 @@ public class BuilderScreen extends Screen {
         });
         eventRouter.registerAll(eventDispatcher, panelRegistry, this, kernel,
                 floatingWindowLayer, topBarPanel, leftSidebarPanel, gearMenuPanel,
-                movementHandler, bindModeHandler, entityInteractionHandler);
+                movementHandler, bindModeHandler, entityInteractionHandler,
+                buildInteractionHandler);
     }
 
     @Override
@@ -152,20 +140,10 @@ public class BuilderScreen extends Screen {
         
         panelRegistry.initAll(this);
         
-        this.cameraPersistenceHandler.initCamera(kernel.module(CameraModule.class));
-
-        
-        this.uiStateManager.load();
-
-        
         var eshp = kernel.renderPipeline().entitySelectHighlightPass;
         if (eshp != null) {
             eshp.setHighlightSource(this.selectionHighlight);
         }
-        
-        restoreGlobalState();
-        
-        this.topBarPanel.onPostUiStateLoad();
         
         var csp = screenCoordinator.getContainerScreenPanel();
         if (csp != null && csp.isOpen()) {
@@ -187,8 +165,6 @@ public class BuilderScreen extends Screen {
     public void onClose() {
         screenCoordinator.closeContainerScreen();
         this.topBarPanel.onRtsExited();
-        screenCoordinator.persistGlobalState();
-        this.uiStateManager.save();
         super.onClose();
         this.cursorStyleManager.restoreDefault();
         CameraModule cam = kernel.module(CameraModule.class);
@@ -307,24 +283,6 @@ public class BuilderScreen extends Screen {
     public void closeContainerScreen() {
         screenCoordinator.closeContainerScreen();
     }
-
-    
-    public void persistUiState() {
-        screenCoordinator.persistGlobalState();
-        this.uiStateManager.save();
-    }
-
-    
-    
-    
-
-    private void restoreGlobalState() {
-        screenCoordinator.restoreGlobalState();
-    }
-
-    
-    
-    
 
     
     public double getRtsGuiScale() {

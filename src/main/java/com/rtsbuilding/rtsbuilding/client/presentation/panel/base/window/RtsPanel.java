@@ -8,8 +8,6 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.RtsButton
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
-import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -18,7 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
+public abstract class RtsPanel implements RtsPanelApi {
 
     private static final int DEFAULT_TITLE_BAR_H = 20;
     private static final int DEFAULT_MIN_W = 80;
@@ -69,8 +67,6 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     protected abstract int getDefaultHeight();
     protected abstract void computeDefaultPosition();
 
-    public List<PersistableProperty> persistableProperties() { return List.of(); }
-
     @Override
     public void init(BuilderScreen screen) {
         this.screen = screen;
@@ -107,7 +103,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     public void setOpen(boolean open) {
         boolean wasOpen = this.open;
         if (open && !wasOpen) {
-            initializePosition();
+            initializeDefaultBounds();
             markBroughtToFront();
             if (this.screen != null) this.screen.getFloatingWindowLayer().markSortDirty();
         }
@@ -137,19 +133,18 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     public long getLastClickTime() { return lastClickTime; }
     public void markBroughtToFront() { this.lastClickTime = System.nanoTime(); }
     public boolean hasInitializedBounds() { return bounds.isInitialized(); }
-    public boolean hasUserBoundsPreference() { return bounds.hasUserPreference(); }
     protected boolean isResizing() { return resizeHandler.isResizing(); }
 
     public void setPosition(int x, int y) {
         ensureSizeInitialized(); bounds.setX(x); bounds.setY(y);
-        bounds.setInitialized(true); clampWindowToScreen(); markUserBoundsDirty();
+        bounds.setInitialized(true); clampWindowToScreen();
     }
 
     public void setBounds(int x, int y, int width, int height) {
         bounds.setX(x); bounds.setY(y);
         bounds.setWidth(Math.max(getMinWindowWidth(), width));
         bounds.setHeight(Math.max(getMinWindowHeight(), height));
-        clampWindowSize(); bounds.setInitialized(true); clampWindowToScreen(); markUserBoundsDirty();
+        clampWindowSize(); bounds.setInitialized(true); clampWindowToScreen();
     }
 
     public void setTransientBounds(int x, int y, int width, int height) {
@@ -157,20 +152,17 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
         bounds.setWidth(Math.max(getMinWindowWidth(), width));
         bounds.setHeight(Math.max(getMinWindowHeight(), height));
         clampWindowSize(); bounds.setInitialized(true); clampWindowToScreen();
-        bounds.clearUserPreference();
     }
 
     public void setSize(int width, int height) {
         ensureSizeInitialized(); bounds.setWidth(width); bounds.setHeight(height);
-        clampWindowSize(); clampWindowToScreen(); markUserBoundsDirty();
+        clampWindowSize(); clampWindowToScreen();
     }
 
     public void resetToDefaultBounds() {
         bounds.resetToDefaults(); clampWindowSize(); computeDefaultPosition();
-        clampWindowToScreen(); bounds.setInitialized(true); markUserBoundsDirty();
+        clampWindowToScreen(); bounds.setInitialized(true);
     }
-
-    public boolean consumeBoundsDirty() { return bounds.consumeDirty(); }
 
     public boolean isInsideWindow(double mouseX, double mouseY) {
         return mouseX >= bounds.getX() && mouseX < bounds.getX() + bounds.getWidth()
@@ -230,9 +222,8 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
     protected boolean handleWindowKeyPressed(int kc, int sc, int mod) { return false; }
     protected boolean handleWindowCharTyped(char cp, int mod) { return false; }
     protected void onClose() {}
-    protected void onBoundsChanged() { if (this.screen != null) this.screen.persistUiState(); }
+    protected void onBoundsChanged() {}
 
-    private void markUserBoundsDirty() { bounds.markDirty(); onBoundsChanged(); }
     private RtsButton createCloseButton() { return WindowFrameRenderer.createCloseButton(() -> setOpen(false)); }
 
     protected void positionBelow(RtsPanel aboveWindow, int gap) {
@@ -266,7 +257,7 @@ public abstract class RtsPanel implements RtsPanelApi, BoundsProvider {
 
     private void initializeDefaultBounds() {
         bounds.resetToDefaults(); clampWindowSize(); computeDefaultPosition();
-        clampWindowToScreen(); bounds.setInitialized(true); bounds.clearUserPreference();
+        clampWindowToScreen(); bounds.setInitialized(true);
     }
 
     private void ensureSizeInitialized() {

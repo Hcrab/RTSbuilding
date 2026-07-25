@@ -9,11 +9,9 @@ import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.List;
 import java.util.Objects;
 
 
@@ -210,7 +208,6 @@ public final class DownSidebarPanel implements RtsPanelApi {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != 0) return false;
         int mx = (int) mouseX;
         int my = (int) mouseY;
         
@@ -221,6 +218,8 @@ public final class DownSidebarPanel implements RtsPanelApi {
         if ((rightLayer.contains(mx, my) || rightLayer.isMouseOverPopup(mx, my)) && rightLayer.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        
+        if (button != 0) return false;
         
         if (isMouseOverDownOverlayDivider(mx, my)) {
             isDraggingOverlayDivider = true;
@@ -257,8 +256,7 @@ public final class DownSidebarPanel implements RtsPanelApi {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (leftLayer.charTyped(codePoint, modifiers)) return true;
-        if (rightLayer.charTyped(codePoint, modifiers)) return true;
-        return false;
+        return rightLayer.charTyped(codePoint, modifiers);
     }
 
     @Override
@@ -269,12 +267,10 @@ public final class DownSidebarPanel implements RtsPanelApi {
         if (rightLayer.mouseReleased(mouseX, mouseY, button)) return true;
         if (isDraggingOverlayDivider) {
             isDraggingOverlayDivider = false;
-            this.screen.persistUiState();
             return true;
         }
         if (resizeHandler.isActive()) {
             resizeHandler.end();
-            this.screen.persistUiState();
             return true;
         }
         return false;
@@ -302,35 +298,9 @@ public final class DownSidebarPanel implements RtsPanelApi {
         return true;
     }
 
-    
 
-    
-    public void resetOverlayDividerDrag() {
-        isDraggingOverlayDivider = false;
-    }
-
-    
     public boolean isMouseOverTopEdge(int mx, int my) {
         DownSidebarLayoutHelper.Rect db = layoutRect();
         return resizeHandler.isOverEdge(my, mx, db.y(), db.x(), db.width());
-    }
-
-    @Override
-    public List<PersistableProperty> persistableProperties() {
-        String pk = "downSidebar";
-        return List.of(
-                PersistableProperty.intField(
-                        pk + ".height",
-                        s -> s.downSidebarHeight,
-                        (s, v) -> s.downSidebarHeight = v,
-                        () -> this.currentHeight,
-                        v -> this.currentHeight = v),
-                PersistableProperty.intField(
-                        pk + ".leftOverlayWidth",
-                        s -> s.downSidebarLeftOverlayW,
-                        (s, v) -> s.downSidebarLeftOverlayW = v,
-                        () -> this.leftOverlayWidth,
-                        v -> this.leftOverlayWidth = v)
-        );
     }
 }

@@ -18,19 +18,11 @@ final class PanelInputHandler {
     boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (!panel.open || button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
         if (panel.resizeHandler.isResizing()) {
-            int beforeX = panel.bounds.getX();
-            int beforeY = panel.bounds.getY();
-            int beforeW = panel.bounds.getWidth();
-            int beforeH = panel.bounds.getHeight();
             panel.resizeHandler.resizeToMouse((int) mouseX, (int) mouseY);
-            if (beforeX != panel.bounds.getX() || beforeY != panel.bounds.getY()
-                    || beforeW != panel.bounds.getWidth() || beforeH != panel.bounds.getHeight()) {
-                markUserBoundsDirty();
-            }
             return true;
         }
         if (panel.dragHandler.isDragging()) {
-            if (panel.dragHandler.dragTo(mouseX, mouseY)) markUserBoundsDirty();
+            panel.dragHandler.dragTo(mouseX, mouseY);
             return true;
         }
         return false;
@@ -43,10 +35,8 @@ final class PanelInputHandler {
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            boolean boundsChanged = panel.dragHandler.isDragging() || panel.resizeHandler.isResizing();
             panel.dragHandler.endDrag();
             panel.resizeHandler.endResize();
-            if (boundsChanged) panel.onBoundsChanged();
         }
         return panel.isInsideWindow(mouseX, mouseY);
     }
@@ -142,10 +132,5 @@ final class PanelInputHandler {
         if (nearTop && inHorizontalRange) return ResizeEdge.TOP;
         if (nearBottom && inHorizontalRange) return ResizeEdge.BOTTOM;
         return ResizeEdge.NONE;
-    }
-
-    private void markUserBoundsDirty() {
-        panel.bounds.markDirty();
-        panel.onBoundsChanged();
     }
 }

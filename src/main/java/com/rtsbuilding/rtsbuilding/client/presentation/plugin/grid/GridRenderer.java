@@ -188,6 +188,7 @@ public final class GridRenderer {
     private final TooltipController orderButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
     private final TooltipController typeFilterButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
     private final TooltipController containerButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
+    private final TooltipController recentSortButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
 
     public GridRenderer(OverlayContext ctx, ScrollBar scrollBar, ScrollBar recentScrollBar,
                  GridState state, TypeFilterPopup typeFilterPopup, ContainerModePopup containerModePopup) {
@@ -305,6 +306,7 @@ public final class GridRenderer {
         int recentSortBtnY = y + PAD_TOP + 1;
         boolean isHoveringRecentSort = mouseX >= recentSortBtnX && mouseX < recentSortBtnX + BUTTON_SIZE
                 && mouseY >= recentSortBtnY && mouseY < recentSortBtnY + BUTTON_SIZE;
+        recentSortButtonTooltip.update(isHoveringRecentSort, false);
         SpriteRenderer.drawSprite(g, isHoveringRecentSort ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
                 slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE);
         SpriteRenderer.drawSprite(g, state.recentSortAscending ? ORDER_ASC_ICON : ORDER_DESC_ICON,
@@ -354,7 +356,7 @@ public final class GridRenderer {
         state.recentGridOriginX = x + 3;
         int mainOriginX = calculateGridOriginX(x);
 
-        List<RecentEntry> recentItems = getRecentItems(sm);
+        List<RecentEntry> recentItems = getRecentItems(sm, state);
         int recentList = recentItems.size();
         state.recentGridW = state.recentCols * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
 
@@ -452,10 +454,6 @@ public final class GridRenderer {
             ItemStack stack = re.preview();
             if (!stack.isEmpty()) {
                 GridSlotRenderer.drawIcon(g, stack, slotX, slotY);
-            }
-
-            if (re.amount() > 1) {
-                GridSlotRenderer.drawAmountText(g, mc.font, re.amount(), slotX, slotY);
             }
 
             boolean recentSelected = !state.currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, state.currentSelectedItem);
@@ -641,6 +639,9 @@ public final class GridRenderer {
         int containerBtnX = calculateContainerButtonX(x);
         int containerBtnY = y + PAD_TOP + 1;
 
+        int recentSortBtnX = state.recentGridOriginX;
+        int recentSortBtnY = y + PAD_TOP + 1;
+
         if (currentItemTooltip.shouldRender()) {
             String text = Component.translatable("tooltip.rtsbuilding.rightdown.current_selected_item").getString() + "\n" +
                          Component.translatable("tooltip.rtsbuilding.rightdown.current_selected_item.desc").getString();
@@ -678,6 +679,14 @@ public final class GridRenderer {
                          Component.translatable("tooltip.rtsbuilding.rightdown.container_button.desc").getString();
             renderTooltipAbove(g, containerButtonTooltip,
                     containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE,
+                    text, screenW, screenH);
+        }
+
+        if (recentSortButtonTooltip.shouldRender()) {
+            String text = Component.translatable("tooltip.rtsbuilding.rightdown.recent_order_button").getString() + "\n" +
+                         Component.translatable("tooltip.rtsbuilding.rightdown.recent_order_button.desc").getString();
+            renderTooltipAbove(g, recentSortButtonTooltip,
+                    recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE,
                     text, screenW, screenH);
         }
     }
@@ -891,6 +900,7 @@ public final class GridRenderer {
         }
 
         List<RecentEntry> result = new ArrayList<>(merged.values());
+        result.removeIf(e -> e.id() != null && state.recentRemovedIds.contains(e.id()));
         result.sort(Comparator.<RecentEntry, Integer>comparing(e -> state.itemSelectCounts.getOrDefault(e.id(), 0)).reversed());
         if (!state.recentSortAscending) {
             java.util.Collections.reverse(result);
@@ -909,5 +919,6 @@ public final class GridRenderer {
         if (itemId == null || stack.isEmpty()) return;
         state.itemSelectCounts.merge(itemId, 1, Integer::sum);
         state.itemSelectPreviews.put(itemId, stack);
+        state.recentRemovedIds.remove(itemId);
     }
 }

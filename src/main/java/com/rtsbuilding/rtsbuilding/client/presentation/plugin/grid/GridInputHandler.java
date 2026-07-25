@@ -48,7 +48,7 @@ public final class GridInputHandler {
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != 0) return false;
+        if (button != 0 && button != 1) return false;
         int x = ctx.getX(), y = ctx.getY(), h = ctx.getHeight();
 
         int typeFilterBtnX = calculateTypeFilterButtonX(x);
@@ -102,6 +102,11 @@ public final class GridInputHandler {
             if (!onRecentSearch) {
                 state.recentSearchFocused = false;
             }
+        }
+
+        if (button != 0) {
+            
+            return handleRightClickActions(mouseX, mouseY, originY, localMainGridOriginX);
         }
 
         int itemDisplayX = x + PAD_LEFT;
@@ -222,7 +227,7 @@ public final class GridInputHandler {
         List<RecentEntry> recentItems = GridRenderer.getRecentItems(sm, state);
         if (!recentItems.isEmpty()) {
             int relRecentX = (int) mouseX - localRecentGridOriginX;
-            int relRecentY = (int) mouseY - originY;
+            int relRecentY = (int) mouseY - originY + recentScrollBar.getScroll();
             if (relRecentX >= 0 && relRecentY >= 0) {
                 int recentCol = relRecentX / (SLOT_SIZE + SLOT_GAP);
                 int recentRow = relRecentY / (SLOT_SIZE + SLOT_GAP);
@@ -231,16 +236,25 @@ public final class GridInputHandler {
                     if (recentIdx < recentItems.size()) {
                         RecentEntry clickedRecent = recentItems.get(recentIdx);
                         if (!clickedRecent.preview().isEmpty()) {
-                            state.selectedSlotIndex = -1;
-                            state.currentSelectedItem = clickedRecent.preview().copy();
+                            boolean alreadySelected = ItemStack.isSameItemSameComponents(state.currentSelectedItem, clickedRecent.preview());
 
-                            String itemId = BuiltInRegistries.ITEM.getKey(clickedRecent.preview().getItem()).toString();
-                            if (itemId != null) {
-                                String label = clickedRecent.preview().getHoverName().getString();
-                                renderer.recordItemSelection(itemId, clickedRecent.preview());
+                            state.selectedSlotIndex = -1;
+                            if (alreadySelected) {
+                                state.currentSelectedItem = ItemStack.EMPTY;
                                 BuildingModule buildingModule = CompositionRoot.get().module(BuildingModule.class);
                                 if (buildingModule != null) {
-                                    buildingModule.selectItem(itemId, label, clickedRecent.preview());
+                                    buildingModule.clearSelection();
+                                }
+                            } else {
+                                state.currentSelectedItem = clickedRecent.preview().copy();
+                                String itemId = BuiltInRegistries.ITEM.getKey(clickedRecent.preview().getItem()).toString();
+                                if (itemId != null) {
+                                    String label = clickedRecent.preview().getHoverName().getString();
+                                    renderer.recordItemSelection(itemId, clickedRecent.preview());
+                                    BuildingModule buildingModule = CompositionRoot.get().module(BuildingModule.class);
+                                    if (buildingModule != null) {
+                                        buildingModule.selectItem(itemId, label, clickedRecent.preview());
+                                    }
                                 }
                             }
                         }
@@ -273,13 +287,27 @@ public final class GridInputHandler {
             return false;
         }
 
+        boolean deselect;
         if (state.selectedSlotIndex == idx) {
-            state.selectedSlotIndex = -1;
-            state.currentSelectedItem = ItemStack.EMPTY;
+            deselect = true;
+        } else if (state.selectedSlotIndex == -1
+                && ItemStack.isSameItemSameComponents(state.currentSelectedItem, state.slotEntries.get(idx).stack())) {
+            deselect = true;
         } else {
+            deselect = false;
             state.selectedSlotIndex = idx;
             SlotEntry clickedEntry = state.slotEntries.get(idx);
             state.currentSelectedItem = clickedEntry.stack().copy();
+        }
+
+        if (deselect) {
+            state.selectedSlotIndex = -1;
+            state.currentSelectedItem = ItemStack.EMPTY;
+            BuildingModule buildingModule = CompositionRoot.get().module(BuildingModule.class);
+            if (buildingModule != null) {
+                buildingModule.clearSelection();
+            }
+            return true;
         }
 
         SlotEntry entry = state.slotEntries.get(idx);
@@ -516,6 +544,54 @@ public final class GridInputHandler {
 
     private int getCalcMainGridWidth() {
         return getCalcMainCols() * SLOT_SIZE;
+    }
+
+    
+    private boolean handleRightClickActions(double mouseX, double mouseY, int originY, int localMainGridOriginX) {
+        int x = ctx.getX();
+        int localRecentGridOriginX = x + 3;
+
+        StorageModule sm = CompositionRoot.get().module(StorageModule.class);
+        if (sm == null) return false;
+
+        List<RecentEntry> recentItems = GridRenderer.getRecentItems(sm, state);
+        if (recentItems.isEmpty()) return false;
+
+        int relRecentX = (int) mouseX - localRecentGridOriginX;
+        int relRecentY = (int) mouseY - originY + recentScrollBar.getScroll();
+        if (relRecentX < 0 || relRecentY < 0) return false;
+
+        int recentCol = relRecentX / (SLOT_SIZE + SLOT_GAP);
+        int recentRow = relRecentY / (SLOT_SIZE + SLOT_GAP);
+        if (recentCol >= state.recentCols || recentRow < 0) return false;
+
+        int recentIdx = recentRow * state.recentCols + recentCol;
+        if (recentIdx >= recentItems.size()) return false;
+
+        RecentEntry clicked = recentItems.get(recentIdx);
+        if (clicked.preview().isEmpty() || clicked.id() == null) return false;
+
+        String removedId = clicked.id();
+        state.recentRemovedIds.add(removedId);
+        state.itemSelectCounts.remove(removedId);
+        state.itemSelectPreviews.remove(removedId);
+
+        
+        if (ItemStack.isSameItemSameComponents(state.currentSelectedItem, clicked.preview())) {
+            state.currentSelectedItem = ItemStack.EMPTY;
+            state.selectedSlotIndex = -1;
+            BuildingModule buildingModule = CompositionRoot.get().module(BuildingModule.class);
+            if (buildingModule != null) {
+                buildingModule.clearSelection();
+            }
+        }
+
+        
+        if (sm != null) {
+            List<?> recentEntries = sm.getRecentEntries();
+            recentEntries.removeIf(obj -> obj instanceof RecentEntry re && removedId.equals(re.id()));
+        }
+        return true;
     }
 
     private int getCalcRows() {

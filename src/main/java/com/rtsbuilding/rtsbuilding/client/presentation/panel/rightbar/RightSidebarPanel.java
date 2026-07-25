@@ -9,11 +9,9 @@ import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.List;
 import java.util.Objects;
 
 
@@ -222,12 +220,10 @@ public final class RightSidebarPanel implements RtsPanelApi {
         if (button != 0) return false;
         if (isDraggingOverlayDivider) {
             isDraggingOverlayDivider = false;
-            this.screen.persistUiState();
             return true;
         }
         if (resizeHandler.isActive()) {
             resizeHandler.end();
-            this.screen.persistUiState();
             return true;
         }
         return false;
@@ -263,24 +259,5 @@ public final class RightSidebarPanel implements RtsPanelApi {
     public boolean isMouseOverLeftEdge(int mx, int my) {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
         return resizeHandler.isOverEdge(mx, my, sb.x(), sb.y(), sb.height());
-    }
-
-    @Override
-    public List<PersistableProperty> persistableProperties() {
-        String pk = "rightSidebar";
-        return List.of(
-                PersistableProperty.intField(
-                        pk + ".width",
-                        s -> s.rightSidebarWidth,
-                        (s, v) -> s.rightSidebarWidth = v,
-                        () -> this.currentWidth,
-                        v -> this.currentWidth = v),
-                PersistableProperty.intField(
-                        pk + ".upperOverlayHeight",
-                        s -> s.rightSidebarUpperOverlayH,
-                        (s, v) -> s.rightSidebarUpperOverlayH = v,
-                        () -> this.upperOverlayHeight,
-                        v -> this.upperOverlayHeight = v)
-        );
     }
 }

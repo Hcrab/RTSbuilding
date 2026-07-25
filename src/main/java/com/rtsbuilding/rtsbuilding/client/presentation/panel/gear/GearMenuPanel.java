@@ -11,7 +11,6 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
-import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -245,139 +244,7 @@ public final class GearMenuPanel extends RtsPanel {
                 Math.max(TOP_H + 6, this.screen.height - getWindowHeight() - 8)));
     }
 
-    
-
-    @Override
-    public List<PersistableProperty> persistableProperties() {
-        String pk = "gearMenu";
-        return List.of(
-                
-                PersistableProperty.bounds(pk, this),
-                
-                PersistableProperty.boolField(
-                        pk + ".open",
-                        s -> s.panelOpenStates.getOrDefault(pk, false),
-                        (s, v) -> { if (v) s.panelOpenStates.put(pk, true); else s.panelOpenStates.remove(pk); },
-                        this::isOpen,
-                        this::setOpen),
-                
-                PersistableProperty.intField(
-                        pk + ".scroll",
-                        s -> s.panelScrollOffsets.getOrDefault(pk, 0),
-                        (s, v) -> { if (v != 0) s.panelScrollOffsets.put(pk, v); else s.panelScrollOffsets.remove(pk); },
-                        scrollBar::getScroll,
-                        scrollBar::setScroll),
-                
-                PersistableProperty.boolField(
-                        pk + ".renderingExpanded",
-                        s -> s.sectionExpandedStates.getOrDefault(pk + ".rendering", false),
-                        (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".rendering", true); else s.sectionExpandedStates.remove(pk + ".rendering"); },
-                        renderingSection::isExpanded,
-                        renderingSection::setExpanded),
-                
-                PersistableProperty.boolField(
-                        pk + ".personalizationExpanded",
-                        s -> s.sectionExpandedStates.getOrDefault(pk + ".personalization", false),
-                        (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".personalization", true); else s.sectionExpandedStates.remove(pk + ".personalization"); },
-                        personalizationSection::isExpanded,
-                        personalizationSection::setExpanded),
-                
-                PersistableProperty.boolField(
-                        pk + ".operationExpanded",
-                        s -> s.sectionExpandedStates.getOrDefault(pk + ".operation", false),
-                        (s, v) -> { if (v) s.sectionExpandedStates.put(pk + ".operation", true); else s.sectionExpandedStates.remove(pk + ".operation"); },
-                        operationSection::isExpanded,
-                        operationSection::setExpanded),
-                
-                
-                PersistableProperty.boolField(
-                        pk + ".flowAnimation",
-                        s -> s.settings.flowAnimationEnabled,
-                        (s, v) -> s.settings.flowAnimationEnabled = v,
-                        () -> BoxSelectionPass.flowAnimationEnabled,
-                        v -> BoxSelectionPass.flowAnimationEnabled = v),
-                
-                PersistableProperty.boolField(
-                        pk + ".smoothAnimation",
-                        s -> s.settings.smoothAnimationEnabled,
-                        (s, v) -> s.settings.smoothAnimationEnabled = v,
-                        () -> CornerBracketRenderer.SmoothTarget.enabled,
-                        v -> CornerBracketRenderer.SmoothTarget.enabled = v),
-                
-                PersistableProperty.boolField(
-                        pk + ".uiSmoothAnimation",
-                        s -> s.settings.uiSmoothAnimationEnabled,
-                        (s, v) -> s.settings.uiSmoothAnimationEnabled = v,
-                        FloatAnimation::isEnabled,
-                        FloatAnimation::setEnabled),
-                
-                PersistableProperty.boolField(
-                        pk + ".depthTest",
-                        s -> s.settings.depthTestEnabled,
-                        (s, v) -> s.settings.depthTestEnabled = v,
-                        () -> BoxSelectionPass.depthTestEnabled,
-                        v -> BoxSelectionPass.depthTestEnabled = v),
-                
-                PersistableProperty.doubleField(
-                        pk + ".noDepthAlpha",
-                        s -> s.settings.noDepthAlpha,
-                        (s, v) -> s.settings.noDepthAlpha = v,
-                        () -> (double) CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA,
-                        v -> CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA = v.floatValue()),
-                
-                PersistableProperty.intField(
-                        pk + ".barrierColor",
-                        s -> s.settings.barrierColor,
-                        (s, v) -> s.settings.barrierColor = v,
-                        () -> BoundaryPass.barrierColor,
-                        v -> BoundaryPass.barrierColor = v),
-                
-                PersistableProperty.intField(
-                        pk + ".blockTargetColor",
-                        s -> s.settings.blockTargetColor,
-                        (s, v) -> s.settings.blockTargetColor = v,
-                        () -> InteractionTargetPass.blockTargetColor,
-                        v -> InteractionTargetPass.blockTargetColor = v),
-                
-                PersistableProperty.intField(
-                        pk + ".entityTargetColor",
-                        s -> s.settings.entityTargetColor,
-                        (s, v) -> s.settings.entityTargetColor = v,
-                        () -> InteractionTargetPass.entityTargetColor,
-                        v -> InteractionTargetPass.entityTargetColor = v),
-                
-                PersistableProperty.intField(
-                        pk + ".selectionColor",
-                        s -> s.settings.selectionColor,
-                        (s, v) -> s.settings.selectionColor = v,
-                        () -> BoxSelectionPass.selectionColor,
-                        v -> BoxSelectionPass.selectionColor = v),
-                
-                PersistableProperty.intField(
-                        pk + ".previewOverlayColor",
-                        s -> s.settings.previewOverlayColor,
-                        (s, v) -> s.settings.previewOverlayColor = v,
-                        () -> BoxSelectionPass.previewOverlayColor,
-                        v -> BoxSelectionPass.previewOverlayColor = v),
-                
-                PersistableProperty.intField(
-                        pk + ".selectionGapColor",
-                        s -> s.settings.selectionGapColor,
-                        (s, v) -> s.settings.selectionGapColor = v,
-                        () -> BoxSelectionPass.selectionGapColor,
-                        v -> BoxSelectionPass.selectionGapColor = v),
-                
-                PersistableProperty.intField(
-                        pk + ".entitySelectionColor",
-                        s -> s.settings.entitySelectionColor,
-                        (s, v) -> s.settings.entitySelectionColor = v,
-                        () -> BoxSelectionPass.entitySelectionColor,
-                        v -> BoxSelectionPass.entitySelectionColor = v)
-        );
-    }
-
     public CameraModule getCameraModule() {
         return cameraModule;
     }
-
 }

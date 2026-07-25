@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.List;
+
 
 
 public final class ScreenBackgroundPanel implements RtsPanelApi {
@@ -171,10 +171,5 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         return false;
-    }
-
-    @Override
-    public List<com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty> persistableProperties() {
-        return List.of();
     }
 }

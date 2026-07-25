@@ -15,7 +15,13 @@ public final class CameraInputLayer implements InputLayer {
     private int pressedButton = -1;
 
     
+    private boolean pressedWithShift;
+
+    
     private double accumulatedDragDistance = 0.0D;
+
+    
+    private boolean draggedPastThreshold = false;
 
     
     private static final double DRAG_THRESHOLD = 5.0D;
@@ -30,14 +36,21 @@ public final class CameraInputLayer implements InputLayer {
         return cam != null && cam.getState().isEnabled();
     }
 
+    
+    public boolean wasDragged(int button) {
+        return button == this.pressedButton && this.draggedPastThreshold;
+    }
+
     @Override
     public boolean onMouseClicked(double mouseX, double mouseY, int button) {
         if (!isActive()) return false;
         
         if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
-                || (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && isShiftDown())) {
+                || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             this.pressedButton = button;
+            this.pressedWithShift = isShiftDown();
             this.accumulatedDragDistance = 0.0D;
+            this.draggedPastThreshold = false;
             return true;
         }
         return false;
@@ -46,9 +59,13 @@ public final class CameraInputLayer implements InputLayer {
     @Override
     public boolean onMouseReleased(double mouseX, double mouseY, int button) {
         if (this.pressedButton == button) {
+            boolean wasDragged = this.draggedPastThreshold;
             this.pressedButton = -1;
+            this.pressedWithShift = false;
             this.accumulatedDragDistance = 0.0D;
-            return true;
+            this.draggedPastThreshold = false;
+            
+            return wasDragged;
         }
         return false;
     }
@@ -64,20 +81,26 @@ public final class CameraInputLayer implements InputLayer {
 
         
         this.accumulatedDragDistance += Math.sqrt(dragX * dragX + dragY * dragY);
+        if (this.accumulatedDragDistance >= DRAG_THRESHOLD) {
+            this.draggedPastThreshold = true;
+        }
+
         if (this.accumulatedDragDistance < DRAG_THRESHOLD) {
-            return true; 
+            return true;
         }
 
         if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
             cam.queueRotateDrag(dragX, dragY);
             return true;
         }
-        
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && isShiftDown()) {
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && this.pressedWithShift) {
             cam.queueDragMove(dragX, dragY);
             return true;
         }
-        return false;
+
+        
+        return true;
     }
 
     

@@ -8,6 +8,8 @@ import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsRequestCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.C2SRtsPathfindingPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsRequestPluginsPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPauseWorkflowPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsDeleteWorkflowPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsBeginHomeSelectionPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsRequestProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetHomePayload;
@@ -255,5 +257,13 @@ public final class RtsClientPacketGateway {
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype.copyWithCount(1),
                 toolProtectionEnabled));
+    }
+
+    public static void sendPauseWorkflow(int entryId) {
+        PacketDistributor.sendToServer(new C2SRtsPauseWorkflowPayload(entryId));
+    }
+
+    public static void sendDeleteWorkflow(int entryId) {
+        PacketDistributor.sendToServer(new C2SRtsDeleteWorkflowPayload(entryId));
     }
 }

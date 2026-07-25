@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.layout.PanelRegistry;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.BindModeMouseHandler;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.BuildInteractionHandler;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.BuilderScreenMovementHandler;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.EntityInteractionHandler;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
@@ -45,11 +46,13 @@ public final class BuilderScreenEventRouter {
                             GearMenuPanel gearMenuPanel,
                             BuilderScreenMovementHandler movementHandler,
                             BindModeMouseHandler bindModeHandler,
-                            EntityInteractionHandler entityInteractionHandler) {
+                            EntityInteractionHandler entityInteractionHandler,
+                            BuildInteractionHandler buildInteractionHandler) {
         registerMouseClickHandlers(dispatcher, screen, kernel, floatingWindowLayer,
                 panelRegistry, leftSidebarPanel, movementHandler, bindModeHandler,
-                entityInteractionHandler);
-        registerMouseReleaseHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel);
+                entityInteractionHandler, buildInteractionHandler, topBarPanel);
+        registerMouseReleaseHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel,
+                buildInteractionHandler, screen, topBarPanel);
         registerMouseDragHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel);
         registerMouseScrollHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel,
                 leftSidebarPanel, screen);
@@ -63,7 +66,8 @@ public final class BuilderScreenEventRouter {
     private void registerMouseClickHandlers(EventDispatcher d, BuilderScreen screen,
             RtsClientKernel kernel, RtsFloatingWindowLayer fw, PanelRegistry pr,
             LeftSidebarPanel lb, BuilderScreenMovementHandler mh,
-            BindModeMouseHandler bmh, EntityInteractionHandler eih) {
+            BindModeMouseHandler bmh, EntityInteractionHandler eih,
+            BuildInteractionHandler bih, TopBarPanel topBar) {
         d.onMouseClick(event -> {
             screen.unfocusGridSearch();
             return PASS;
@@ -95,6 +99,10 @@ public final class BuilderScreenEventRouter {
                 eih.handleMouseClick(event, screen, lb),
                 EventDispatcher.P_ENTITY_INTERACT);
 
+        d.onMouseClick(event ->
+                bih.handleMouseClick(event, screen, lb, topBar),
+                EventDispatcher.P_ENTITY_INTERACT);
+
         d.onMouseClick(event -> {
             if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && isAltDown()) {
                 if (mh.handleMovePlayerActionAt(screen)) return CONSUMED;
@@ -115,8 +123,13 @@ public final class BuilderScreenEventRouter {
     }
 
     private void registerMouseReleaseHandlers(EventDispatcher d, PanelRegistry pr,
-            RtsFloatingWindowLayer fw, RtsClientKernel kernel) {
+            RtsFloatingWindowLayer fw, RtsClientKernel kernel,
+            BuildInteractionHandler bih, BuilderScreen screen, TopBarPanel topBar) {
         pr.registerContentPanelMouseRelease(d);
+
+        d.onMouseRelease(event ->
+                bih.handleMouseRelease(event, screen, topBar),
+                EventDispatcher.P_BUILD_ACTION);
 
         d.onMouseRelease(event -> {
             if (fw.mouseReleased(event.x(), event.y(), event.button())) return CONSUMED;

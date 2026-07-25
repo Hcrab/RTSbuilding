@@ -1,14 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.application.service;
 
-import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.container.ContainerScreenPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.DownSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.gui.screens.Screen;
 
 import javax.annotation.Nullable;
@@ -52,25 +48,6 @@ public final class ScreenCoordinator {
         if (containerScreenPanel != null && containerScreenPanel.isOpen()) {
             containerScreenPanel.tick();
         }
-    }
-
-    public void restoreGlobalState() {
-        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
-        ThemeManager.getInstance().setLightMode(state.lightMode);
-        CameraModule cam = CompositionRoot.get().module(CameraModule.class);
-        if (cam != null) {
-            cam.setInputSensitivity((float) state.camera.inputSensitivity);
-        }
-    }
-
-    public void persistGlobalState() {
-        RtsClientUiStateStore.UiState state = RtsClientUiStateStore.load();
-        state.lightMode = ThemeManager.getInstance().isLightMode();
-        CameraModule cam = CompositionRoot.get().module(CameraModule.class);
-        if (cam != null) {
-            state.camera.inputSensitivity = cam.getInputSensitivity();
-        }
-        RtsClientUiStateStore.cache().markDirty();
     }
 
     public boolean isMouseOverUI(double mouseX, double mouseY,

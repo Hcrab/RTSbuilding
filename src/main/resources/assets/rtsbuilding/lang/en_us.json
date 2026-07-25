@@ -80,6 +80,8 @@
   "tooltip.rtsbuilding.rightdown.order_button.desc": "Click to toggle sort order (Ascending/Descending)",
   "tooltip.rtsbuilding.rightdown.type_filter_button": "Type Filter",
   "tooltip.rtsbuilding.rightdown.type_filter_button.desc": "Click to toggle item/fluid display (Both/Items Only/Fluids Only/None)",
+  "tooltip.rtsbuilding.rightdown.recent_order_button": "Recent Sort Order",
+  "tooltip.rtsbuilding.rightdown.recent_order_button.desc": "Click to toggle recent items sort order (Ascending/Descending)",
   "tooltip.rtsbuilding.rightdown.type_filter_item": "Items",
   "tooltip.rtsbuilding.rightdown.type_filter_fluid": "Fluids",
 
