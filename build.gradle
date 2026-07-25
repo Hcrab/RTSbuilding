@@ -389,6 +389,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 apply from: 'gradle/rts-test-reporting.gradle'
+apply from: 'gradle/rts-ui.gradle'
 
 tasks.matching { it.name in ['runClient', 'runServer', 'runGameTestServer'] }.configureEach {
     dependsOn 'createSrgToMcp'
