@@ -71,6 +71,7 @@ final class GearMenuUiAdapter {
         values.put(SettingsId.BD_NETWORK, toggle(controller.isBdNetworkEnabled()));
 
         values.put(SettingsId.RTS_SOUNDS, toggle(RtsClientUiStateStore.isRtsSoundsEnabled()));
+        values.put(SettingsId.PLACEMENT_SOUNDS, toggle(RtsClientUiStateStore.isRtsPlacementSoundsEnabled()));
         values.put(SettingsId.BREAK_SOUNDS, toggle(RtsClientUiStateStore.isRtsBreakSoundsEnabled()));
         values.put(SettingsId.DAMAGE_SOUND, toggle(controller.isDamageSoundEnabled()));
         int soundLimit = RtsClientUiStateStore.getRtsBlockSoundsPerTick();
@@ -162,6 +163,7 @@ final class GearMenuUiAdapter {
             case DAMAGE_AUTO_RETURN -> controller.toggleDamageAutoReturnEnabled();
             case BD_NETWORK -> controller.toggleBdNetworkEnabled();
             case RTS_SOUNDS -> RtsClientUiStateStore.setRtsSoundsEnabled(!RtsClientUiStateStore.isRtsSoundsEnabled());
+            case PLACEMENT_SOUNDS -> RtsClientUiStateStore.setRtsPlacementSoundsEnabled(!RtsClientUiStateStore.isRtsPlacementSoundsEnabled());
             case BREAK_SOUNDS -> RtsClientUiStateStore.setRtsBreakSoundsEnabled(!RtsClientUiStateStore.isRtsBreakSoundsEnabled());
             case DAMAGE_SOUND -> controller.toggleDamageSoundEnabled();
             case UI_ANIMATIONS -> Config.setUiAnimationsEnabled(!Config.isUiAnimationsEnabled());

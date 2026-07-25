@@ -259,6 +259,8 @@
   "screen.rtsbuilding.settings.smooth_camera.hint": "用渲染幀預測移動同拖曳輸入。",
   "screen.rtsbuilding.settings.rts_sounds": "RTS 音效總開關",
   "screen.rtsbuilding.settings.rts_sounds.hint": "統一控制 RTS 放置、破壞同受擊音效。",
+  "screen.rtsbuilding.settings.placement_sounds": "方塊放置音效",
+  "screen.rtsbuilding.settings.placement_sounds.hint": "控制單格、範圍同藍圖放置嘅方塊音效。",
   "screen.rtsbuilding.settings.break_sounds": "方塊破壞音效",
   "screen.rtsbuilding.settings.break_sounds.hint": "控制單格、連鎖同範圍破壞嘅方塊音效。",
   "screen.rtsbuilding.settings.block_sounds_per_tick": "每 tick 最大方塊音效數",

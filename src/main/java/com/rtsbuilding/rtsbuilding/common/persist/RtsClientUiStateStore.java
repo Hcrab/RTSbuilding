@@ -65,7 +65,7 @@ public final class RtsClientUiStateStore {
     }
 
     /** 当前数据版本，用于未来兼容性迁移 */
-    static final int CURRENT_STORE_VERSION = 3;
+    static final int CURRENT_STORE_VERSION = 4;
 
     /** 持久化配置文件路径：config/rts_building/rtsbuilding-client-ui.rtsd（二进制编译格式） */
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
@@ -167,8 +167,18 @@ public final class RtsClientUiStateStore {
             state.quickBuild.building.buildLineConnected = state.quickBuild.buildLineConnected;
             version = 2;
         }
+        if (version < 4) {
+            // v4 新增独立放置音效开关；旧配置必须保持此前默认播放放置音效的行为。
+            if (state.sound == null) {
+                state.sound = new UiState.SoundState();
+            }
+            state.sound.placementSoundsEnabled = true;
+            version = 4;
+        }
         if (version < CURRENT_STORE_VERSION) {
             state._storeVersion = CURRENT_STORE_VERSION;
+        } else {
+            state._storeVersion = version;
         }
         return state;
     }
@@ -289,7 +299,17 @@ public final class RtsClientUiStateStore {
         CACHE.markDirty();
     }
 
-    /** 方块破坏音效是否启用；放置音效只受总开关控制。 */
+    /** 方块放置音效是否启用；总开关关闭时本开关不会单独恢复声音。 */
+    public static synchronized boolean isRtsPlacementSoundsEnabled() {
+        return CACHE.get().sound.placementSoundsEnabled;
+    }
+
+    public static synchronized void setRtsPlacementSoundsEnabled(boolean enabled) {
+        CACHE.get().sound.placementSoundsEnabled = enabled;
+        CACHE.markDirty();
+    }
+
+    /** 方块破坏音效是否启用；总开关关闭时本开关不会单独恢复声音。 */
     public static synchronized boolean isRtsBreakSoundsEnabled() {
         return CACHE.get().sound.breakSoundsEnabled;
     }
@@ -453,6 +473,7 @@ public final class RtsClientUiStateStore {
         /** RTS 客户端音效状态。 */
         public static final class SoundState {
             public boolean rtsSoundsEnabled = true;
+            public boolean placementSoundsEnabled = true;
             public boolean breakSoundsEnabled = true;
             public int blockSoundsPerTick = 8;
         }
@@ -561,6 +582,7 @@ public final class RtsClientUiStateStore {
             // sound
             SoundState sourceSound = this.sound == null ? new SoundState() : this.sound;
             clean.sound.rtsSoundsEnabled = sourceSound.rtsSoundsEnabled;
+            clean.sound.placementSoundsEnabled = sourceSound.placementSoundsEnabled;
             clean.sound.breakSoundsEnabled = sourceSound.breakSoundsEnabled;
             clean.sound.blockSoundsPerTick = Math.max(1, Math.min(16, sourceSound.blockSoundsPerTick));
             // debug

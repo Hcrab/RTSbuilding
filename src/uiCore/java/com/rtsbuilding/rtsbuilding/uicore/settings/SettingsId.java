@@ -57,6 +57,8 @@ public enum SettingsId {
 
     RTS_SOUNDS(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
             "screen.rtsbuilding.settings.rts_sounds", "screen.rtsbuilding.settings.rts_sounds.hint"),
+    PLACEMENT_SOUNDS(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
+            "screen.rtsbuilding.settings.placement_sounds", "screen.rtsbuilding.settings.placement_sounds.hint"),
     BREAK_SOUNDS(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
             "screen.rtsbuilding.settings.break_sounds", "screen.rtsbuilding.settings.break_sounds.hint"),
     DAMAGE_SOUND(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,

@@ -341,6 +341,7 @@ All settings below apply immediately and need no restart. Most live in the clien
 | Setting | Default | Effect |
 |---|---:|---|
 | RTS sound master | On | Controls RTS placement, break, and damage sounds. |
+| Block placement sounds | On | Controls single, shape, and blueprint placement sounds. |
 | Block break sounds | On | Controls single/chain/area break sounds. |
 | RTS damage sound | On | Plays vanilla damage feedback while in RTS. |
 | Max block sounds per tick | 8 | Client limit 1–16; excess is dropped, not queued. Server has a separate send limit. |

@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsSoundSettingsContractTest {
     @Test
-    void gearMenuOwnsTheSoundSectionAndItsThreePlayerControls() throws IOException {
+    void gearMenuOwnsTheSoundSectionAndItsFourPlayerControls() throws IOException {
         String sections = Files.readString(Path.of(
                 "src/uiCore/java/com/rtsbuilding/rtsbuilding/uicore/settings/SettingsSectionId.java"));
         String settings = Files.readString(Path.of(
@@ -33,11 +33,13 @@ class RtsSoundSettingsContractTest {
         assertTrue(hurtSound >= 0 && firstAnimationSetting > hurtSound,
                 "RTS 受击音效应归入音效栏，而不是继续散落在辅助功能中");
         assertTrue(adapter.contains("RtsClientUiStateStore.setRtsSoundsEnabled"));
+        assertTrue(adapter.contains("RtsClientUiStateStore.setRtsPlacementSoundsEnabled"));
         assertTrue(adapter.contains("RtsClientUiStateStore.setRtsBreakSoundsEnabled"));
         assertTrue(adapter.contains("RtsClientUiStateStore.setRtsBlockSoundsPerTick"));
         assertTrue(adapter.contains("SettingsId.DAMAGE_SOUND"));
         assertTrue(adapter.contains("SettingsId.BLOCK_SOUNDS_PER_TICK"));
         assertTrue(store.contains("public SoundState sound = new SoundState()"));
+        assertTrue(store.contains("public boolean placementSoundsEnabled = true"));
         assertTrue(store.contains("public int blockSoundsPerTick = 8"));
         assertTrue(store.contains("Math.max(1, Math.min(16, sourceSound.blockSoundsPerTick))"));
     }
@@ -52,6 +54,8 @@ class RtsSoundSettingsContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
 
         assertTrue(player.contains("isRtsSoundsEnabled()"));
+        assertTrue(player.contains("!payload.breakAction()")
+                && player.contains("isRtsPlacementSoundsEnabled()"));
         assertTrue(player.contains("payload.breakAction()")
                 && player.contains("isRtsBreakSoundsEnabled()"));
         assertTrue(player.contains("getRtsBlockSoundsPerTick()"));
