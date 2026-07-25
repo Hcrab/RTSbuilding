@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -98,6 +99,7 @@ public final class RtsbuildingMod {
     private void commonSetup(final FMLCommonSetupEvent event) {
         RtsAPIImpl.init();
         RtsPipelineRegistration.registerAll();
+        RtsOperationDiagnostics.install();
         LOGGER.info("RTSBuilding common setup complete");
     }
 

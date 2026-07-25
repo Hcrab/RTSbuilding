@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
@@ -49,6 +50,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
 
     public PipelineResult execute(C context) {
         Objects.requireNonNull(context, "context");
+        RtsOperationDiagnostics.begin(this.type, context);
         for (int i = 0; i < this.pipes.size(); i++) {
             PipelinePipe<? super C> pipe = this.pipes.get(i);
             try {
@@ -60,6 +62,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 if (result instanceof PipelineResult.Failure failure) {
                     RtsbuildingMod.LOGGER.warn("[Pipeline] {} pipe {} failed: {}",
                             this.type, pipe.getClass().getSimpleName(), failure.message());
+                    RtsOperationDiagnostics.pipelineResult(
+                            this.type, context, pipe.getClass().getSimpleName(), result, false);
                     rollbackWorkflowIfNeeded(context);
                     firePipelineResultEvent(context, result);
                     return result;
@@ -67,6 +71,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 if (result instanceof PipelineResult.Skip skip) {
                     RtsbuildingMod.LOGGER.info("[Pipeline] {} pipe {} skipped: {}",
                             this.type, pipe.getClass().getSimpleName(), skip.reason());
+                    RtsOperationDiagnostics.pipelineResult(
+                            this.type, context, pipe.getClass().getSimpleName(), result, false);
                     rollbackWorkflowIfNeeded(context);
                     firePipelineResultEvent(context, result);
                     return result;
@@ -75,6 +81,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 PipelineResult failure = new PipelineResult.Failure(
                         "Pipe " + pipe.getClass().getSimpleName() + " threw: " + ex.getMessage(), ex);
                 context.setResult(failure);
+                RtsOperationDiagnostics.pipelineResult(
+                        this.type, context, pipe.getClass().getSimpleName(), failure, true);
                 rollbackWorkflowIfNeeded(context);
                 firePipelineResultEvent(context, failure);
                 RtsbuildingMod.LOGGER.error("[Pipeline] {} pipe {} threw",
@@ -86,6 +94,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         if (this.tickablePipes.isEmpty() && !this.asyncCompletion) {
             firePipelineResultEvent(context, PipelineResult.success());
         }
+        RtsOperationDiagnostics.pipelineResult(
+                this.type, context, "PIPELINE", PipelineResult.success(), false);
         if (!this.tickablePipes.isEmpty()) {
             context.retainOnly(TICKABLE_RETAIN_KEYS);
             TickablePipelineRegistry.register(context.player(), context, this.tickablePipes.get(0));

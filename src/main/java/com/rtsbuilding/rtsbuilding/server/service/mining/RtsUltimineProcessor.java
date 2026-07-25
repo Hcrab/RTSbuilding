@@ -2,11 +2,15 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor;
 import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsDiagnosticReason;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsToolLease;
@@ -565,10 +569,19 @@ public final class RtsUltimineProcessor {
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
         int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        int[] toolBlockedTargets = {0};
+        int[] outsideSessionRangeTargets = {0};
         Deque<BlockPos> targets = RtsMiningTargetQueue.collectExplicitDestroyTargets(
                 positions,
-                pos -> RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
-                        && RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN),
+                pos -> {
+                    if (RtsCameraManager.isActive(player)
+                            && !RtsCameraManager.isWithinActionRange(player, pos)) {
+                        outsideSessionRangeTargets[0]++;
+                        return false;
+                    }
+                    return RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
+                            && RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN);
+                },
                 pos -> {
             BlockState state = level.getBlockState(pos);
             // FIXED: No longer incorrectly excludes waterlogged blocks
@@ -585,12 +598,17 @@ public final class RtsUltimineProcessor {
                 if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                         state, actualTool, creative, maxRequiredLevel)) {
                     harvestTierBlockedPositions.add(pos.immutable());
+                } else {
+                    toolBlockedTargets[0]++;
                 }
                 return false;
             }
             return true;
                 });
         notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
+        logFilteredTargets(player, RtsDiagnosticReason.TOOL_CANNOT_HARVEST, toolBlockedTargets[0]);
+        logFilteredTargets(
+                player, RtsDiagnosticReason.OUTSIDE_SESSION_RANGE, outsideSessionRangeTargets[0]);
         return targets;
     }
 
@@ -602,6 +620,7 @@ public final class RtsUltimineProcessor {
             int maxRequiredLevel) {
         Deque<BlockPos> targets = new ArrayDeque<>();
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        int toolBlockedTargets = 0;
         for (BlockPos pos : candidatePositions) {
             BlockState state = player.serverLevel().getBlockState(pos);
             if (RtsMiningValidator.canRangeMineWithTool(
@@ -612,9 +631,12 @@ public final class RtsUltimineProcessor {
             if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                     state, actualTool, creative, maxRequiredLevel)) {
                 harvestTierBlockedPositions.add(pos.immutable());
+            } else {
+                toolBlockedTargets++;
             }
         }
         notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
+        logFilteredTargets(player, RtsDiagnosticReason.TOOL_CANNOT_HARVEST, toolBlockedTargets);
         return targets;
     }
 
@@ -625,6 +647,31 @@ public final class RtsUltimineProcessor {
             return;
         }
         RtsMiningNetworkHelper.notifyHarvestTierLimit(player, skippedPositions);
+        logFilteredTargets(player, RtsDiagnosticReason.HARVEST_TIER_TOO_LOW, skippedPositions.size());
+    }
+
+    /**
+     * 每批筛选只写一条聚合日志，避免逐方块刷屏，同时保留工作流、模式和拒绝数量。
+     */
+    private static void logFilteredTargets(
+            ServerPlayer player, RtsDiagnosticReason reason, int targetCount) {
+        if (player == null || targetCount <= 0) {
+            return;
+        }
+        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        int workflowId = session == null ? -1 : session.mining.miningWorkflowEntryId;
+        RtsWorkflowType workflowType = workflowId < 0
+                ? null
+                : RtsWorkflowEngine.getInstance().from(player, workflowId)
+                        .map(token -> token.getProgress().type())
+                        .orElse(null);
+        RtsOperationDiagnostics.filteredTargets(
+                player,
+                workflowId,
+                session == null ? "-" : session.mode.name(),
+                workflowType,
+                reason,
+                targetCount);
     }
 
     /**

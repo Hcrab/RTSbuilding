@@ -30,6 +30,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuideTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionWheelPanel;
@@ -146,6 +147,8 @@ public final class BuilderScreen extends Screen {
     private final CameraInputHandler cameraInput = new CameraInputHandler();
     /** Guide/onboarding panel that explains UI elements and controls. */
     private final GuidePanel guidePanel = new GuidePanel();
+    /** 游戏内 AI 求助窗口；会话、教程装配和 SSE 网络均由独立组件持有。 */
+    private final RtsAiChatPanel aiChatPanel = new RtsAiChatPanel();
     /** Gear (settings) menu panel with configuration toggles and sliders. */
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
     /** Radial interaction wheel for advanced block/entity interactions. */
@@ -207,6 +210,7 @@ public final class BuilderScreen extends Screen {
         this.floatingWindowLayer = new RtsFloatingWindowLayer(
                 this.gearMenuPanel,
                 this.guidePanel,
+                this.aiChatPanel,
                 this.blueprintNameWindowPanel,
                 this.blueprintMaterialWindowPanel,
                 this.blueprintWindowPanel,
@@ -215,6 +219,7 @@ public final class BuilderScreen extends Screen {
                 this.cullingPanel,
                 this.quickBuildPanel);
         this.guidePanel.init(this, this.controller);
+        this.aiChatPanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
@@ -368,6 +373,11 @@ public final class BuilderScreen extends Screen {
     public RtsFloatingWindowLayer getFloatingWindowLayer() {
         return this.floatingWindowLayer;
     }
+
+    /** 从顶栏 i 求助入口打开与主线相同的十轮 AI 对话窗口。 */
+    public void openAiChat() {
+        this.aiChatPanel.open();
+    }
     /** Returns the last recorded mouse X position (updated each render frame). */
     public double getCurrentMouseX() {
         return this.lastMouseX;
@@ -434,6 +444,7 @@ public final class BuilderScreen extends Screen {
      * resets input handlers, disables funnel mode, toggles camera if needed, and restores cursor.
      */
     public void onClose() {
+        this.aiChatPanel.close();
         closeInteractionWheel();
         closeShapeWheel();
         this.shapeController.clearShapeBuildSession();
@@ -456,6 +467,7 @@ public final class BuilderScreen extends Screen {
     /* Called when the screen is fully removed from the display stack. Resets camera vertical input and cursor. */
     public void removed() {
         super.removed();
+        this.aiChatPanel.close();
         this.cameraInput.resetCameraVerticalHeld();
         RtsCullingClientState.clearActiveManager(this.cullingManager);
         updateNativeCursorVisibility(false);
@@ -2399,7 +2411,8 @@ public final class BuilderScreen extends Screen {
     /** Returns whether either search box is currently focused. */
     public boolean isSearchFocused() {
         return (this.searchBox != null && this.searchBox.isFocused())
-                || (this.craftSearchBox != null && this.craftSearchBox.isFocused());
+                || (this.craftSearchBox != null && this.craftSearchBox.isFocused())
+                || this.aiChatPanel.isInputFocused();
     }
     /** Returns the player's currently selected hotbar slot index (0-8). */
     public int getSelectedToolSlot() {
