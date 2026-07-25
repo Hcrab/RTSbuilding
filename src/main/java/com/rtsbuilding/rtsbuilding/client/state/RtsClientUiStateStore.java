@@ -129,6 +129,30 @@ public final class RtsClientUiStateStore {
         save(state);
     }
 
+    /** Jade 面板是否在 RTS 模式下跟随鼠标。 */
+    public static synchronized boolean isJadePanelTrackMouseEnabled() {
+        return load().jadePanelTrackMouse;
+    }
+
+    /** 只改变 RTS 内的 Jade 布局，不影响 Jade 自身的普通游戏设置。 */
+    public static synchronized void setJadePanelTrackMouseEnabled(boolean enabled) {
+        UiState state = load();
+        state.jadePanelTrackMouse = enabled;
+        save(state);
+    }
+
+    /** Jade 面板是否仅在 RTS 模式下隐藏。 */
+    public static synchronized boolean isJadePanelHidden() {
+        return load().jadePanelHidden;
+    }
+
+    /** 只改变 RTS 内的可见性，普通第一人称视角仍由 Jade 自己控制。 */
+    public static synchronized void setJadePanelHidden(boolean hidden) {
+        UiState state = load();
+        state.jadePanelHidden = hidden;
+        save(state);
+    }
+
     public static synchronized boolean isRtsSoundsEnabled() {
         return load().rtsSoundsEnabled;
     }
@@ -217,6 +241,8 @@ public final class RtsClientUiStateStore {
         public boolean storageAutoRefreshEnabled = true;
         public boolean showStorageReadyPopup = false;
         public boolean showWorkflowPanel = true;
+        public boolean jadePanelTrackMouse = false;
+        public boolean jadePanelHidden = false;
         public List<String> dismissedIntroReminderKeys = new ArrayList<>();
         public Map<String, PanelBounds> windowPanelBounds = new LinkedHashMap<>();
 
@@ -273,6 +299,8 @@ public final class RtsClientUiStateStore {
             clean.storageAutoRefreshEnabled = this.storageAutoRefreshEnabled;
             clean.showStorageReadyPopup = this.showStorageReadyPopup;
             clean.showWorkflowPanel = this.showWorkflowPanel;
+            clean.jadePanelTrackMouse = this.jadePanelTrackMouse;
+            clean.jadePanelHidden = this.jadePanelHidden;
             clean.dismissedIntroReminderKeys = sanitizeKeys(this.dismissedIntroReminderKeys);
             if (this.windowPanelBounds != null) {
                 clean.windowPanelBounds.putAll(this.windowPanelBounds);

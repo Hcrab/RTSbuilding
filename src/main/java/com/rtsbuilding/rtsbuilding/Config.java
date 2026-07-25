@@ -106,6 +106,16 @@ public final class Config {
             .comment("Maximum queued mining targets processed by one mining task slice.")
             .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
 
+    public static final ForgeConfigSpec.IntValue AE2_NETWORK_REFRESH_THROTTLE = BUILDER
+            .comment("Number of storage cache refresh cycles between expensive AE2 network snapshots.")
+            .translation("rtsbuilding.configuration.ae2NetworkRefreshThrottle")
+            .defineInRange("storage.ae2NetworkRefreshThrottle", 10, 1, 200);
+
+    public static final ForgeConfigSpec.IntValue REFINED_STORAGE_NETWORK_REFRESH_THROTTLE = BUILDER
+            .comment("Number of storage cache refresh cycles between expensive Refined Storage network snapshots.")
+            .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
+            .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
+
     public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = BUILDER
             .comment("Hard global RTS work-unit limit across all players in one server tick.")
             .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
@@ -362,6 +372,14 @@ public final class Config {
 
     public static int ultimineBlocksPerTick() {
         return ULTIMINE_BLOCKS_PER_TICK.get();
+    }
+
+    public static int ae2NetworkRefreshThrottle() {
+        return AE2_NETWORK_REFRESH_THROTTLE.get();
+    }
+
+    public static int refinedStorageNetworkRefreshThrottle() {
+        return REFINED_STORAGE_NETWORK_REFRESH_THROTTLE.get();
     }
 
     public static int taskEngineMaxUnitsPerTick() {

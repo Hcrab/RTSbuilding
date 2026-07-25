@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.compat.rs;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
+import com.rtsbuilding.rtsbuilding.compat.NetworkSnapshotRefreshGate;
+import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import java.lang.reflect.InvocationTargetException;
@@ -48,10 +51,11 @@ public final class RtsRsCompat {
     }
 
     private static final class RsNetworkItemHandler implements IItemHandler,
-            ReportedCountItemHandler, AnySlotInsertItemHandler {
+            ReportedCountItemHandler, AnySlotInsertItemHandler, RefreshableSnapshotHandler {
         private final Object network;
         private final RsReflection reflection;
         private final List<ItemStack> stacks = new ArrayList<>();
+        private final NetworkSnapshotRefreshGate refreshGate = new NetworkSnapshotRefreshGate();
 
         private RsNetworkItemHandler(Object network, RsReflection reflection) {
             this.network = network;
@@ -62,6 +66,13 @@ public final class RtsRsCompat {
         @Override
         public int getSlots() {
             return this.stacks.size();
+        }
+
+        @Override
+        public void ensureFreshSnapshot() {
+            if (this.refreshGate.shouldRefresh(Config.refinedStorageNetworkRefreshThrottle())) {
+                refreshSnapshot();
+            }
         }
 
         @Override
@@ -87,7 +98,7 @@ public final class RtsRsCompat {
             }
             ItemStack remainder = this.reflection.insertItem(this.network, stack, simulate);
             if (!simulate) {
-                refreshSnapshot();
+                this.refreshGate.markStale();
             }
             return remainder;
         }
@@ -100,7 +111,7 @@ public final class RtsRsCompat {
             ItemStack prototype = this.stacks.get(slot).copyWithCount(1);
             ItemStack extracted = this.reflection.extractItem(this.network, prototype, amount, simulate);
             if (!simulate) {
-                refreshSnapshot();
+                updateCachedAmount(slot, extracted.getCount());
             }
             return extracted;
         }
@@ -110,7 +121,8 @@ public final class RtsRsCompat {
             if (targetItem == null || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-            for (ItemStack stack : this.stacks) {
+            for (int slot = 0; slot < this.stacks.size(); slot++) {
+                ItemStack stack = this.stacks.get(slot);
                 if (stack.isEmpty() || stack.getItem() != targetItem) {
                     continue;
                 }
@@ -120,7 +132,7 @@ public final class RtsRsCompat {
                         amount,
                         simulate);
                 if (!simulate) {
-                    refreshSnapshot();
+                    updateCachedAmount(slot, extracted.getCount());
                 }
                 return extracted;
             }
@@ -148,6 +160,16 @@ public final class RtsRsCompat {
         private void refreshSnapshot() {
             this.stacks.clear();
             this.stacks.addAll(this.reflection.snapshot(this.network));
+            this.refreshGate.markRefreshed();
+        }
+
+        private void updateCachedAmount(int slot, int extracted) {
+            if (slot < 0 || slot >= this.stacks.size() || extracted <= 0) {
+                return;
+            }
+            ItemStack cached = this.stacks.get(slot).copy();
+            cached.shrink(extracted);
+            this.stacks.set(slot, cached);
         }
     }
 

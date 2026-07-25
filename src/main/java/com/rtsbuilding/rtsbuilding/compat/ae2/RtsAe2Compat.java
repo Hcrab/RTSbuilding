@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.compat.ae2;
 
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.compat.NetworkSnapshotRefreshGate;
+import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -298,11 +301,12 @@ public final class RtsAe2Compat {
 
     private static final class Ae2NetworkItemHandler implements IItemHandler, ReportedCountItemHandler,
             com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler, AnySlotInsertItemHandler,
-            com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler {
+            com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler, RefreshableSnapshotHandler {
         private final ServerPlayer player;
         private final Object storageService;
         private final Ae2Reflection reflection;
         private final List<SlotView> slots = new ArrayList<>();
+        private final NetworkSnapshotRefreshGate refreshGate = new NetworkSnapshotRefreshGate();
         private boolean released;
 
         private Ae2NetworkItemHandler(ServerPlayer player, Object storageService, Ae2Reflection reflection) {
@@ -315,6 +319,14 @@ public final class RtsAe2Compat {
         @Override
         public int getSlots() {
             return this.released ? 0 : this.slots.size();
+        }
+
+        @Override
+        public void ensureFreshSnapshot() {
+            if (!this.released && this.storageService != null
+                    && this.refreshGate.shouldRefresh(Config.ae2NetworkRefreshThrottle())) {
+                refreshSnapshot();
+            }
         }
 
         @Override
@@ -355,7 +367,7 @@ public final class RtsAe2Compat {
 
             if (!simulate) {
                 this.reflection.invalidateCache(this.storageService);
-                refreshSnapshot();
+                this.refreshGate.markStale();
             }
 
             ItemStack remain = stack.copy();
@@ -441,6 +453,7 @@ public final class RtsAe2Compat {
                     this.slots.add(slot);
                 }
             }
+            this.refreshGate.markRefreshed();
         }
 
         private void release() {

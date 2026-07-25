@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.layout.JadeOverlayLayout;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants;
@@ -319,6 +320,10 @@ public final class GuidePanel extends RtsWindowPanel {
             if (guide != null && button.x() > guide.x()) {
                 nextX = Math.min(nextX, button.x());
             }
+        }
+        int jadeLeftX = JadeOverlayLayout.currentReservedLeftVirtualX();
+        if (jadeLeftX >= 0) {
+            nextX = Math.min(nextX, jadeLeftX);
         }
         if (guide == null) {
             return;

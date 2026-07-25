@@ -295,6 +295,15 @@ public final class BuilderScreen extends Screen {
     public void toggleShowWorkflowPanelEnabled() {
         RtsClientUiStateStore.setShowWorkflowPanelEnabled(!RtsClientUiStateStore.isShowWorkflowPanelEnabled());
     }
+    /** 切换 Jade 面板在 RTS 中是否跟随鼠标。 */
+    public void toggleJadePanelTrackMouse() {
+        RtsClientUiStateStore.setJadePanelTrackMouseEnabled(
+                !RtsClientUiStateStore.isJadePanelTrackMouseEnabled());
+    }
+    /** 切换 Jade 面板是否仅在 RTS 中隐藏。 */
+    public void toggleJadePanelHidden() {
+        RtsClientUiStateStore.setJadePanelHidden(!RtsClientUiStateStore.isJadePanelHidden());
+    }
     /** Returns whether the user is currently dragging the input sensitivity slider. */
     public boolean isDraggingInputSensitivity() {
         return this.draggingInputSensitivity;
@@ -1987,6 +1996,11 @@ public final class BuilderScreen extends Screen {
             return String.format(Locale.ROOT, "%.0fx", scale);
         }
         return String.format(Locale.ROOT, "%.1fx", scale);
+    }
+
+    /** 返回当前 RTS 固定 GUI 缩放值，供 Jade 等客户端兼容布局换算实际坐标。 */
+    public double getRtsGuiScale() {
+        return sanitizeRtsGuiScale(this.fixedRtsGuiScale);
     }
     /**
      * Clamps and snaps the given GUI scale to the allowed range and step intervals.
