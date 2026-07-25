@@ -86,6 +86,10 @@ public final class UiMainlineAssets {
         return image("textures/gui/quickbuild/" + name + ".png");
     }
 
+    public BufferedImage guide(String name) {
+        return image("textures/gui/guide/" + name + ".png");
+    }
+
     public BufferedImage closeButton() {
         return image("textures/gui/general/close_button.png");
     }

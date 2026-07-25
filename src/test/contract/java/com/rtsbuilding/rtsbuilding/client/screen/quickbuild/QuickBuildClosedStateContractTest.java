@@ -83,18 +83,21 @@ class QuickBuildClosedStateContractTest {
     void quickBuildPanelOwnsShapeDimensionReadout() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+        String renderer = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java"));
         String adapter = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
         String layout = Files.readString(Path.of(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/QuickBuildWindowLayout.java"));
 
-        assertTrue(source.contains("screen.rtsbuilding.quick_build.dimensions"),
-                "shape dimensions should live in the quick-build panel, not the top bar");
-        assertTrue(source.contains("core.dimensions")
+        assertTrue(source.contains("QuickBuildStatusRenderer.render(")
+                        && renderer.contains("screen.rtsbuilding.quick_build.dimensions"),
+                "shape dimensions should live in the quick-build status renderer, not the top bar");
+        assertTrue(renderer.contains("state.dimensions")
                         && adapter.contains("panel.uiScreen().currentShapeSizeText()"),
-                "the panel should render the live width/height/depth readout");
-        assertTrue(source.contains("BOTTOM_INFO_H = QuickBuildWindowLayout.BOTTOM_INFO_H")
-                        && layout.contains("public static final int BOTTOM_INFO_H = 72"),
+                "the production status renderer should render the live width/height/depth readout");
+        assertTrue(layout.contains("public static final int BOTTOM_INFO_H = 72")
+                        && source.contains("QuickBuildWindowLayout.windowHeight("),
                 "the bottom hint area should leave room for the extra dimension row");
     }
 

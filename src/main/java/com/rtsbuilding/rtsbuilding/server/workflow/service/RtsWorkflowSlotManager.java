@@ -139,6 +139,39 @@ public final class RtsWorkflowSlotManager {
     }
 
     /**
+     * 将持久任务对应的既有工作流条目重新放回槽位。
+     *
+     * <p>这个入口只负责恢复“显示投影”，不会创建或修改真实任务。条目 ID 必须沿用
+     * TaskStore 中保存的 workflowEntryId，否则暂停、保护和取消操作会指向错误任务。</p>
+     *
+     * @return {@code true} 表示恢复成功；ID 冲突或槽位已满时返回 {@code false}
+     */
+    public boolean addRestoredEntry(RtsWorkflowEntry entry) {
+        if (entry == null || !entry.isOccupied()) return false;
+        rwLock.writeLock().lock();
+        try {
+            if (entries.size() >= MAX_SLOTS || entryIndex.containsKey(entry.id())) {
+                return false;
+            }
+            int insertIndex = entries.size();
+            for (int i = 0; i < entries.size(); i++) {
+                if (entries.get(i).priority().rank() < entry.priority().rank()) {
+                    insertIndex = i;
+                    break;
+                }
+            }
+            entries.add(insertIndex, entry);
+            entryIndex.put(entry.id(), entry);
+            if (entry.id() >= nextId && entry.id() < Integer.MAX_VALUE) {
+                nextId = entry.id() + 1;
+            }
+            return true;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
      * 移除指定索引处的条目。
      *
      * @param index 基于 0 的位置索引
@@ -407,15 +440,27 @@ public final class RtsWorkflowSlotManager {
      * @return 被移除的条目 ID 列表
      */
     public List<Integer> removeStaleEntries(long maxIdleMillis) {
+        return removeStaleEntrySnapshots(maxIdleMillis).stream()
+                .map(RtsWorkflowEntry::id)
+                .toList();
+    }
+
+    /**
+     * 移除超过指定超时时间的条目并返回其最终快照。
+     *
+     * <p>超时服务需要区分“真实任务仍在运行”和“仅保留在面板中的已结束记录”，
+     * 因此不能只返回 ID 后丢失终态信息。</p>
+     */
+    public List<RtsWorkflowEntry> removeStaleEntrySnapshots(long maxIdleMillis) {
         rwLock.writeLock().lock();
         try {
-            List<Integer> removed = new ArrayList<>();
+            List<RtsWorkflowEntry> removed = new ArrayList<>();
             long now = System.currentTimeMillis();
             Iterator<RtsWorkflowEntry> it = entries.iterator();
             while (it.hasNext()) {
                 RtsWorkflowEntry e = it.next();
                 if (e.isOccupied() && !e.protectedWorkflow() && (now - e.lastUpdatedAt() > maxIdleMillis)) {
-                    removed.add(e.id());
+                    removed.add(e);
                     entryIndex.remove(e.id());
                     it.remove();
                 }

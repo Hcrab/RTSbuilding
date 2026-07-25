@@ -1,10 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiState;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.CullingWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CullingWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CullingWindowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
@@ -15,9 +20,6 @@ import net.minecraft.network.chat.Component;
  * 这样玩家看着盒子就能调整剔除范围，面板不会再用大面积空白打断视线。</p>
  */
 public final class RtsCullingPanel extends RtsWindowPanel {
-    private static final int TEXT = 0xFFE7F2FF;
-    private static final int MUTED = 0xFF9FB2C4;
-    private static final int ACCENT = 0xFF8EC8FF;
     private final RtsCullingManager manager;
 
     public RtsCullingPanel(RtsCullingManager manager) {
@@ -36,39 +38,43 @@ public final class RtsCullingPanel extends RtsWindowPanel {
         int x = CullingWindowLayout.contentLeft(contentX());
         int w = CullingWindowLayout.contentInnerWidth(contentWidth());
         drawLine(g, text("screen.rtsbuilding.culling.count", state.boxCount),
-                x, CullingWindowLayout.countRowY(contentY()), TEXT, w);
-        drawLine(g, phaseText(state), x, CullingWindowLayout.phaseRowY(contentY()), ACCENT, w);
+                x, CullingWindowLayout.countRowY(contentY()), CullingWindowStyle.PRIMARY_TEXT, w);
+        drawLine(g, phaseText(state), x, CullingWindowLayout.phaseRowY(contentY()),
+                CullingWindowStyle.PHASE_TEXT, w);
 
         if (!state.hasSelection()) {
             drawLine(g, text("screen.rtsbuilding.culling.no_selection"),
-                    x, CullingWindowLayout.selectedRowY(contentY()), MUTED, w);
+                    x, CullingWindowLayout.selectedRowY(contentY()),
+                    CullingWindowStyle.MUTED_TEXT, w);
             return;
         }
 
         int deleteX = CullingWindowLayout.deleteButtonX(x, w);
         drawLine(g, text("screen.rtsbuilding.culling.selected", state.selectedId),
-                x, CullingWindowLayout.selectedRowY(contentY()), TEXT,
+                x, CullingWindowLayout.selectedRowY(contentY()), CullingWindowStyle.PRIMARY_TEXT,
                 CullingWindowLayout.selectedTextWidth(w));
         drawWideButton(g, deleteX, CullingWindowLayout.deleteButtonRowY(contentY()),
                 text("screen.rtsbuilding.culling.delete_button"),
                 isDeleteButtonHovered(mouseX, mouseY));
         drawLine(g, text("screen.rtsbuilding.culling.dimensions",
                         state.width, state.height, state.depth),
-                x, CullingWindowLayout.dimensionRowY(contentY()), TEXT, w);
+                x, CullingWindowLayout.dimensionRowY(contentY()),
+                CullingWindowStyle.PRIMARY_TEXT, w);
         drawLine(g, text("screen.rtsbuilding.culling.delete_hint"),
-                x, CullingWindowLayout.hintRowY(contentY()), MUTED, w);
+                x, CullingWindowLayout.hintRowY(contentY()), CullingWindowStyle.MUTED_TEXT, w);
     }
 
     private void drawWideButton(GuiGraphics g, int x, int y, String label, boolean hovered) {
-        RtsClientUiUtil.drawPanelFrame(g, x, CullingWindowLayout.buttonTop(y),
-                CullingWindowLayout.DELETE_BUTTON_WIDTH, CullingWindowLayout.buttonHeight(),
-                hovered ? 0xFF9A3340 : 0xFF742833,
-                hovered ? 0xFFFFD1D7 : 0xFFFFA2AE,
-                0xFF0B1017);
+        CullingWindowChromeRenderer.renderDeleteButton(
+                new MinecraftUiCanvas(g, screen.font(), screen),
+                new UiRect(x, CullingWindowLayout.buttonTop(y),
+                        CullingWindowLayout.DELETE_BUTTON_WIDTH,
+                        CullingWindowLayout.buttonHeight()),
+                hovered);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 screen.trimToWidth(label, CullingWindowLayout.deleteButtonTextWidth()),
                 x + CullingWindowLayout.DELETE_BUTTON_WIDTH / 2,
-                CullingWindowLayout.buttonTextY(y), TEXT);
+                CullingWindowLayout.buttonTextY(y), CullingWindowStyle.PRIMARY_TEXT.toArgb());
     }
 
     private boolean isDeleteButtonHovered(int mouseX, int mouseY) {
@@ -148,8 +154,8 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 CullingWindowLayout.deleteButtonRowY(contentY()));
     }
 
-    private void drawLine(GuiGraphics g, String label, int x, int y, int color, int width) {
-        g.drawString(screen.font(), screen.trimToWidth(label, width), x, y, color, false);
+    private void drawLine(GuiGraphics g, String label, int x, int y, UiColor color, int width) {
+        g.drawString(screen.font(), screen.trimToWidth(label, width), x, y, color.toArgb(), false);
     }
 
     private String phaseText(CullingUiState state) {

@@ -67,12 +67,10 @@ public final class RtsProgressionManager {
         return RtsHomeManager.getHome(player);
     }
 
-    public static boolean canAccessHomeRadius(ServerPlayer player, BlockPos pos) {
-        return RtsHomeManager.canAccessHomeRadius(player, pos);
-    }
-
     public static boolean canStartNormalRts(ServerPlayer player) {
-        return !isEnabled() || RtsHomeManager.hasHome(player);
+        return !isEnabled()
+                || (RtsHomeManager.hasHome(player)
+                && RtsHomeManager.canOpenRtsNearHome(player));
     }
 
     public static boolean shouldStartHomeSelection(ServerPlayer player) {

@@ -136,6 +136,11 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     }
 
     @Override
+    protected boolean isModalWindow() {
+        return true;
+    }
+
+    @Override
     protected void computeDefaultPosition() {
         this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
         this.windowY = Mth.clamp((this.screen.height - this.windowHeight) / 2,

@@ -21,6 +21,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
@@ -29,11 +30,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandle
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.PanelLayouts;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationGesture;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
+import com.rtsbuilding.rtsbuilding.client.screen.overlay.LeftDockedTooltipRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.RtsScreenOverlayRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
@@ -61,6 +62,13 @@ import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftDockStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.TooltipStyle;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -143,6 +151,8 @@ public final class BuilderScreen extends Screen {
     private final TopBarPanel topBarPanel = new TopBarPanel();
     /** Bottom panel containing storage grid, crafting, blueprints, and pin slots. */
     private final BottomPanel bottomPanel = new BottomPanel();
+    /** 左侧固定 Tooltip 的几何与 Minecraft 绘制适配器。 */
+    private final LeftDockedTooltipRenderer leftDockedTooltipRenderer;
     /** Controller managing shape-building sessions (geometry, fill mode, rotation, undo). */
     private final ScreenShapeController shapeController = new ScreenShapeController();
     /** Picker for raycasting blocks, entities, and blueprint placement targets from the cursor. */
@@ -157,6 +167,8 @@ public final class BuilderScreen extends Screen {
     private final PlacementStateWheel placementStateWheel = new PlacementStateWheel();
     /** Guide/onboarding panel that explains UI elements and controls. */
     private final GuidePanel guidePanel = new GuidePanel();
+    /** 游戏内 AI 教程问答窗口；与复制教程入口共享同一份本地知识。 */
+    private final RtsAiChatPanel aiChatPanel = new RtsAiChatPanel();
     /** Gear (settings) menu panel with configuration toggles and sliders. */
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
     /** Client-only persisted UI preferences for this screen. */
@@ -232,6 +244,8 @@ public final class BuilderScreen extends Screen {
     public BuilderScreen(ClientRtsController controller) {
         super(Component.literal("RTS Builder"));
         this.controller = controller;
+        this.leftDockedTooltipRenderer =
+                new LeftDockedTooltipRenderer(this, this.bottomPanel);
         this.uiStateManager = new RtsScreenUiStateManager(this.controller, this.shapeController, this.quickBuildPanel);
         this.overlayRenderer = new RtsScreenOverlayRenderer(this, this.controller, this.cursorPicker, this.bottomPanel);
         this.playerStatusRenderer = new PlayerStatusRenderer(this);
@@ -244,6 +258,7 @@ public final class BuilderScreen extends Screen {
                 this.blueprintNameWindowPanel,
                 this.craftQuantityWindowPanel,
                 this.gearMenuPanel,
+                this.aiChatPanel,
                 this.guidePanel,
                 this.quickBuildPanel,
                 this.cullingPanel,
@@ -253,6 +268,7 @@ public final class BuilderScreen extends Screen {
         this.uiStateManager.registerWindowPanel("settings", this.gearMenuPanel);
         this.uiStateManager.registerWindowPanel("blueprints", this.blueprintWindowPanel);
         this.uiStateManager.registerWindowPanel("guide", this.guidePanel);
+        this.uiStateManager.registerWindowPanel("ai_chat", this.aiChatPanel);
         this.uiStateManager.registerWindowPanel("linked_storage", this.linkedStoragePanel);
         this.uiStateManager.registerWindowPanel("craft_quantity", this.craftQuantityWindowPanel);
         this.uiStateManager.registerWindowPanel("blueprint_name", this.blueprintNameWindowPanel);
@@ -266,6 +282,7 @@ public final class BuilderScreen extends Screen {
         this.shapeController.init(this, this.controller);
         this.storageLinkDetailHandler.init(this, this.controller);
         this.guidePanel.init(this, this.controller);
+        this.aiChatPanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
@@ -467,8 +484,9 @@ public final class BuilderScreen extends Screen {
         this.craftSearchBox.setMaxLength(128);
         this.craftSearchBox.setBordered(false);
         this.craftSearchBox.setCanLoseFocus(true);
-        this.craftSearchBox.setTextColor(0xEAF2FF);
-        this.craftSearchBox.setTextColorUneditable(0xAAB8C8);
+        this.craftSearchBox.setTextColor(BottomPanelCraftStyle.SEARCH_TEXT.toArgb());
+        this.craftSearchBox.setTextColorUneditable(
+                BottomPanelCraftStyle.SEARCH_UNEDITABLE_TEXT.toArgb());
         if (this.bottomPanel.craftSearchDraft == null) {
             this.bottomPanel.craftSearchDraft = this.controller.getCraftablesSearch();
         }
@@ -492,6 +510,8 @@ public final class BuilderScreen extends Screen {
      */
     @Override
     public void onClose() {
+        this.floatingWindowLayer.clearTransientInputState();
+        this.topBarPanel.clearTransientInputState();
         this.shapeController.clearShapeBuildSession();
         this.cullingManager.closeManagementMode();
         this.controller.clearAreaMineSession();
@@ -517,6 +537,7 @@ public final class BuilderScreen extends Screen {
         if (this.controller.isEnabled()) {
             RtsClientPacketGateway.sendToggleCamera(this.controller.isStartCameraAtPlayerHead());
         }
+        this.aiChatPanel.close();
         this.craftQuantityWindowPanel.close();
         this.overlayRenderer.updateNativeCursorVisibility(false);
         RtsCullingClientState.clearActiveManager(this.cullingManager);
@@ -525,6 +546,9 @@ public final class BuilderScreen extends Screen {
     @Override
     public void removed() {
         super.removed();
+        this.aiChatPanel.close();
+        this.floatingWindowLayer.clearTransientInputState();
+        this.topBarPanel.clearTransientInputState();
         this.cameraInput.resetCameraVerticalHeld();
         this.modeWheel.close();
         this.modeWheelAltWasDown = false;
@@ -890,6 +914,7 @@ public final class BuilderScreen extends Screen {
         }
         endFixedRtsScaleInput(frame);
         endFunnelMouseHold(button);
+        this.topBarPanel.mouseReleased(button);
         if (button == this.placementStateWheelConsumedMouseButton) {
             this.placementStateWheelConsumedMouseButton = -1;
             return true;
@@ -1861,7 +1886,7 @@ public final class BuilderScreen extends Screen {
         this.lastRtsUiWidth = this.width;
         this.lastRtsUiHeight = this.height;
         resetHoverStates();
-        guiGraphics.fill(0, 0, this.width, TOP_H, 0xC0101116);
+        guiGraphics.fill(0, 0, this.width, TOP_H, RtsMainlineTheme.TOP_BAR_BACKGROUND.toArgb());
         if (this.controller.isHomeSelectionMode()) {
             this.overlayRenderer.renderHomeSelectionOverlay(guiGraphics, mouseX, mouseY);
             this.overlayRenderer.renderDamageFlash(guiGraphics);
@@ -1931,23 +1956,23 @@ public final class BuilderScreen extends Screen {
                     && this.bottomPanel.hoveredCreativeEntry >= 0) {
                 var entry = this.bottomPanel.getCreativeEntryForTooltip(this.bottomPanel.hoveredCreativeEntry);
                 if (entry != null) {
-                    renderLeftDockedTooltip(g, entry.stack());
+                    this.leftDockedTooltipRenderer.render(g, entry.stack());
                 }
             }
             if (!placementSelectionActive
                     && this.bottomPanel.hoveredEntry >= 0
                     && this.bottomPanel.hoveredEntry < this.controller.getStorageEntries().size()) {
                 var entry = this.controller.getStorageEntries().get(this.bottomPanel.hoveredEntry);
-                renderLeftDockedTooltip(g, entry.stack());
+                this.leftDockedTooltipRenderer.render(g, entry.stack());
             }
             if (!placementSelectionActive
                     && this.bottomPanel.hoveredRecentEntry >= 0
                     && this.bottomPanel.hoveredRecentEntry < this.controller.getRecentEntries().size()) {
                 var entry = this.controller.getRecentEntries().get(this.bottomPanel.hoveredRecentEntry);
                 if (!entry.preview().isEmpty()) {
-                    renderLeftDockedTooltip(g, entry.preview());
+                    this.leftDockedTooltipRenderer.render(g, entry.preview());
                 } else {
-                    renderLeftDockedTooltip(g, Component.literal(entry.label()));
+                    this.leftDockedTooltipRenderer.render(g, Component.literal(entry.label()));
                 }
             }
             if (!placementSelectionActive
@@ -1955,43 +1980,49 @@ public final class BuilderScreen extends Screen {
                     && this.bottomPanel.hoveredFluidEntry < this.controller.getFluidEntries().size()) {
                 var fluid = this.controller.getFluidEntries().get(this.bottomPanel.hoveredFluidEntry);
                 if (!fluid.preview().isEmpty()) {
-                    renderLeftDockedTooltip(g, fluid.preview());
+                    this.leftDockedTooltipRenderer.render(g, fluid.preview());
                 } else {
-                    renderLeftDockedTooltip(g, Component.literal(fluid.label()));
+                    this.leftDockedTooltipRenderer.render(g, Component.literal(fluid.label()));
                 }
             }
             if (this.bottomPanel.hoveredCraftableEntry >= 0 && this.bottomPanel.hoveredCraftableEntry < this.controller.getCraftableEntries().size()) {
                 var entry = this.controller.getCraftableEntries().get(this.bottomPanel.hoveredCraftableEntry);
-                renderLeftDockedTooltip(g, entry.stack());
+                this.leftDockedTooltipRenderer.render(g, entry.stack());
                 String detail = entry.craftable()
                         ? text("screen.rtsbuilding.tooltip.craft_choose")
                         : entry.missingSummary();
                 if (detail != null && !detail.isBlank()) {
-                    renderLeftDockedTooltipDetail(g, detail, entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0);
+                    this.leftDockedTooltipRenderer.renderDetail(
+                            g, detail, TooltipStyle.craftChoice(entry.craftable()));
                 }
             }
             if (this.funnelBufferPanel.getHoveredEntry() >= 0 && this.funnelBufferPanel.getHoveredEntry() < this.controller.getFunnelBufferEntries().size()) {
                 var entry = this.controller.getFunnelBufferEntries().get(this.funnelBufferPanel.getHoveredEntry());
-                renderLeftDockedTooltip(g, entry.stack());
-                renderLeftDockedTooltipDetail(g, text("screen.rtsbuilding.tooltip.buffered", entry.count()), 0xFFD8B8);
+                this.leftDockedTooltipRenderer.render(g, entry.stack());
+                this.leftDockedTooltipRenderer.renderDetail(
+                        g, text("screen.rtsbuilding.tooltip.buffered", entry.count()),
+                        TooltipStyle.COUNT);
             }
             if (this.bottomPanel.hoveredGuiBindingSlot >= 0 && this.bottomPanel.hoveredGuiBindingSlot < this.controller.getGuiBindingCount()) {
                 String detail = this.controller.hasGuiBinding(this.bottomPanel.hoveredGuiBindingSlot)
                         ? this.controller.getGuiBindingLabel(this.bottomPanel.hoveredGuiBindingSlot)
                         : text("screen.rtsbuilding.tooltip.gui_empty");
-                renderLeftDockedTooltip(g, Component.literal(detail));
-                renderLeftDockedTooltipDetail(
+                this.leftDockedTooltipRenderer.render(g, Component.literal(detail));
+                this.leftDockedTooltipRenderer.renderDetail(
                         g,
                         this.pendingGuiBindSlot == this.bottomPanel.hoveredGuiBindingSlot
                                 ? text("screen.rtsbuilding.tooltip.gui_cancel_bind")
                                 : (this.controller.hasGuiBinding(this.bottomPanel.hoveredGuiBindingSlot)
                                         ? text("screen.rtsbuilding.tooltip.gui_bound")
                                         : text("screen.rtsbuilding.tooltip.gui_unbound")),
-                        0xFFCFE3F7);
+                        TooltipStyle.DETAIL);
             }
             if (this.bottomPanel.hoveredEmptyHandSlot) {
-                renderLeftDockedTooltip(g, Component.translatable("screen.rtsbuilding.tooltip.empty_hand"));
-                renderLeftDockedTooltipDetail(g, text("screen.rtsbuilding.tooltip.empty_hand_detail"), 0xFFD8B8);
+                this.leftDockedTooltipRenderer.render(
+                        g, Component.translatable("screen.rtsbuilding.tooltip.empty_hand"));
+                this.leftDockedTooltipRenderer.renderDetail(
+                        g, text("screen.rtsbuilding.tooltip.empty_hand_detail"),
+                        TooltipStyle.COUNT);
             }
             boolean funnelCursor = shouldRenderFunnelCursor();
             this.overlayRenderer.updateNativeCursorVisibility(funnelCursor);
@@ -2106,8 +2137,16 @@ public final class BuilderScreen extends Screen {
     private void drawGuiBindCursor(GuiGraphics g, int mouseX, int mouseY) {
         int x = mouseX + 8;
         int y = mouseY + 8;
-        RtsClientUiUtil.drawPanelFrame(g, x, y, CRAFT_DOCK_SLOT_SIZE, CRAFT_DOCK_SLOT_SIZE, 0xCC2D6B47, 0xFF78B28C, 0xFF0F151C);
-        g.drawCenteredString(this.font, "+", x + CRAFT_DOCK_SLOT_SIZE / 2, y + 1, 0xFFFFFF);
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, this.font, this),
+                new UiRect(x, y, CRAFT_DOCK_SLOT_SIZE, CRAFT_DOCK_SLOT_SIZE),
+                1.0D,
+                BottomPanelCraftDockStyle.SLOT_PENDING,
+                BottomPanelCraftDockStyle.BIND_CURSOR_BORDER_LIGHT,
+                BottomPanelCraftDockStyle.SLOT_BORDER_DARK);
+        int textX = x + (CRAFT_DOCK_SLOT_SIZE - this.font.width("+")) / 2;
+        g.drawString(this.font, "+", textX, y + 1,
+                BottomPanelCraftDockStyle.TEXT.toArgb(), false);
     }
     /** Returns true if any recipe viewer mod (JEI, EMI, REI) is loaded. */
     private static boolean hasRecipeViewerLoaded() {
@@ -2135,11 +2174,6 @@ public final class BuilderScreen extends Screen {
     public String rtsGuiScaleLabel() {
         return this.uiStateManager.rtsGuiScaleLabel();
     }
-    /** Resolves the layout metadata for the quick-build panel (used for positioning and hit-testing). */
-    public PanelLayouts.QuickBuildPanelLayout resolveQuickBuildPanelLayout() {
-        return this.quickBuildPanel.resolveLayout();
-    }
-
     /** Returns the floating window layer (for snap/positioning). */
     public RtsFloatingWindowLayer getFloatingWindowLayer() {
         return this.floatingWindowLayer;
@@ -2310,6 +2344,11 @@ public final class BuilderScreen extends Screen {
         } else {
             this.guidePanel.open(GuideUiContext.TOP, x, y);
         }
+    }
+
+    /** 从顶部帮助入口打开可拖动、可缩放的游戏内 AI 问答窗口。 */
+    public void openAiChat() {
+        this.aiChatPanel.open();
     }
     /** Returns whether the current player can open the range-culling editor. */
     public boolean canUseRangeCulling() {
@@ -2661,10 +2700,16 @@ public final class BuilderScreen extends Screen {
     }
 
 
-    /** Returns whether either search box is currently focused. */
+    /**
+     * 返回是否有会接收普通文字的输入框持有键盘。
+     *
+     * <p>相机服务会直接轮询物理 WASD 状态，因此 AI 输入框必须和两个搜索框一起
+     * 阻断相机输入，不能只依赖窗口消费键盘事件。</p>
+     */
     public boolean isSearchFocused() {
         return (this.searchBox != null && this.searchBox.isFocused())
-                || (this.craftSearchBox != null && this.craftSearchBox.isFocused());
+                || (this.craftSearchBox != null && this.craftSearchBox.isFocused())
+                || this.aiChatPanel.isInputFocused();
     }
     /** Returns the player's currently selected hotbar slot index (0-8). */
     public int getSelectedToolSlot() {
@@ -2746,39 +2791,6 @@ public final class BuilderScreen extends Screen {
     }
 
     /**
-     * Computes how many pin (quick-slot) cells are visible within the available
-     * horizontal space, given a starting X and right bound.
-     */
-    private int computeVisiblePinCells(int pinStartX, int rightBoundExclusive) {
-        int visible = 0;
-        for (int i = 0; i < this.controller.getQuickSlotCount(); i++) {
-            int cx = pinStartX + i * HOTBAR_PITCH;
-            if (cx + HOTBAR_SLOT > rightBoundExclusive) {
-                break;
-            }
-            visible++;
-        }
-        return visible;
-    }
-    /** Returns whether a pin pager (left/right arrows) should be shown for quick-slots. */
-    private boolean shouldUsePinPager(int visibleCells, int totalPins) {
-        return visibleCells >= 2 && totalPins > visibleCells;
-    }
-    /**
-     * Computes how many pin slots fit on a single page. If a pager is needed,
-     * one cell is reserved for the pager button.
-     */
-    private int computePinSlotsPerPage(int visibleCells, int totalPins) {
-        if (visibleCells <= 0) {
-            return 1;
-        }
-        if (shouldUsePinPager(visibleCells, totalPins)) {
-            return Math.max(1, visibleCells - 1);
-        }
-        return visibleCells;
-    }
-
-    /**
      * Returns the ghost preview data for the currently selected blueprint, or
      * {@link BlueprintGhostPreview#EMPTY} if no blueprint is active.
      */
@@ -2850,18 +2862,6 @@ public final class BuilderScreen extends Screen {
                 this.controller.getAnchorX(), this.controller.getAnchorZ(), this.controller.getMaxRadius());
     }
 
-    private double currentRtsGuiRenderScale() {
-        if (this.minecraft == null || this.minecraft.getWindow() == null || this.width <= 0) {
-            return 1.0D;
-        }
-        double currentScale = this.minecraft.getWindow().getScreenWidth() / (double) Math.max(1, this.width);
-        if (currentScale <= 0.0D || !Double.isFinite(currentScale)) {
-            return 1.0D;
-        }
-        double renderScale = this.uiStateManager.fixedRtsGuiScale() / currentScale;
-        return renderScale > 0.0D && Double.isFinite(renderScale) ? renderScale : 1.0D;
-    }
-
     private boolean isMovePlayerActionMouse(int button) {
         return ClientKeyMappings.MOVE_PLAYER.isActiveAndMatches(InputConstants.Type.MOUSE.getOrCreate(button));
     }
@@ -2890,9 +2890,6 @@ public final class BuilderScreen extends Screen {
         }
         return true;
     }
-    /** Retired interaction-wheel hook kept so older extracted callers remain harmless. */
-    public void closeInteractionWheel() {
-    }
     /**
      * Enables a scissor region for clipping, adjusting coordinates for the
      * active RTS GUI render scale if a fixed-scale pass is in progress.
@@ -2919,34 +2916,6 @@ public final class BuilderScreen extends Screen {
         return Component.translatable(key, args).getString();
     }
 
-    private void renderLeftDockedTooltip(GuiGraphics g, ItemStack stack) {
-        int x = leftTooltipAnchorX();
-        int y = leftTooltipAnchorY();
-        g.renderTooltip(this.font, stack, x, y);
-    }
-
-    private void renderLeftDockedTooltip(GuiGraphics g, Component text) {
-        int x = leftTooltipAnchorX();
-        int y = leftTooltipAnchorY();
-        g.renderTooltip(this.font, text, x, y);
-    }
-
-    private void renderLeftDockedTooltipDetail(GuiGraphics g, String detail, int color) {
-        if (detail == null || detail.isBlank()) {
-            return;
-        }
-        g.drawString(this.font, detail, leftTooltipAnchorX() + 10,
-                leftTooltipAnchorY() + LEFT_TOOLTIP_DETAIL_Y_OFFSET, color);
-    }
-
-    private int leftTooltipAnchorX() {
-        return this.bottomPanel.resolveBottomPanelLayout().panelX() + LEFT_TOOLTIP_X_OFFSET;
-    }
-
-    private int leftTooltipAnchorY() {
-        return Math.max(TOP_H + 8, this.bottomPanel.getBottomY() - LEFT_TOOLTIP_Y_OFFSET);
-    }
-
     /**
      * Returns a status label for the currently selected item, including durability
      * information if the item is damageable (e.g. "Stone Pickaxe 123/250").
@@ -2960,20 +2929,6 @@ public final class BuilderScreen extends Screen {
             return label + " " + durability + "/" + max;
         }
         return label;
-    }
-    /**
-     * Draws text at a scaled size, useful for rendering labels that need to be
-     * smaller or larger than the default font size.
-     */
-    private void drawScaledText(GuiGraphics g, String text, int x, int y, int color, float scale) {
-        if (text == null || text.isEmpty()) {
-            return;
-        }
-        g.pose().pushPose();
-        g.pose().translate(x, y, 0.0F);
-        g.pose().scale(scale, scale, 1.0F);
-        g.drawString(this.font, text, 0, 0, color, false);
-        g.pose().popPose();
     }
     /** Returns whether the player has a non-empty main hand item. */
     private boolean hasMainHandItem() {
@@ -3039,10 +2994,6 @@ public final class BuilderScreen extends Screen {
     /** Delegates to the cursor picker to perform an interaction target pick (block or entity). */
     public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
         return this.cursorPicker.pickInteractionTarget(includeFluidSource);
-    }
-    /** Returns true if (mouseX, mouseY) is inside the rectangle (x, y, w, h). */
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
     /** Exposes the shape controller for direct access by sub-panels. */
     public ScreenShapeController getShapeController() {

@@ -3,12 +3,20 @@ package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiBevelOutlineRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.OverlayStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
@@ -34,7 +42,8 @@ public final class RtsScreenOverlayRenderer {
     private final ScreenCursorPicker cursorPicker;
     private final BottomPanel bottomPanel;
 
-    private long damageFlashStartMs = -1L;
+    private final UiFloatAnimation damageFlash =
+            new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
     private boolean nativeCursorHidden = false;
     private RtsWindowPanel.ResizeCursor nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
     private long resizeEwCursor;
@@ -54,21 +63,17 @@ public final class RtsScreenOverlayRenderer {
     }
 
     public void triggerDamageFlash() {
-        this.damageFlashStartMs = System.currentTimeMillis();
+        this.damageFlash.snapTo(1.0D);
+        this.damageFlash.animateTo(0.0D, DAMAGE_FLASH_DURATION_MS, UiEasing.LINEAR);
     }
 
     public void renderDamageFlash(GuiGraphics g) {
-        if (this.damageFlashStartMs < 0L) {
+        double visibility = this.damageFlash.value();
+        if (visibility <= 0.0D) {
             return;
         }
-        long elapsed = System.currentTimeMillis() - this.damageFlashStartMs;
-        if (elapsed >= DAMAGE_FLASH_DURATION_MS) {
-            this.damageFlashStartMs = -1L;
-            return;
-        }
-        float alpha = 1.0F - (float) elapsed / (float) DAMAGE_FLASH_DURATION_MS;
-        int argb = ((int) (alpha * 128.0F) << 24) | 0x00FF0000;
-        g.fill(0, 0, this.screen.width, this.screen.height, argb);
+        g.fill(0, 0, this.screen.width, this.screen.height,
+                OverlayStyle.damageFlash(visibility).toArgb());
     }
 
     public void updateNativeCursorVisibility(boolean hide) {
@@ -154,23 +159,41 @@ public final class RtsScreenOverlayRenderer {
         Component cooldown = Component.translatable("screen.rtsbuilding.home_select.cooldown");
         var cooldownLines = this.screen.font().split(cooldown, panelW - 20);
         int panelH = 58 + Math.max(1, cooldownLines.size()) * 10;
-        RtsClientUiUtil.drawPanelFrame(g, panelX, panelY, panelW, panelH, 0xCC101820, 0xFF6E8799, 0xFF0D1218);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.title"), panelX + panelW / 2, panelY + 8, 0xFFFFFF);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.area"), panelX + panelW / 2, panelY + 22, 0xD8E6F5);
-        g.drawCenteredString(this.screen.font(), Component.translatable("screen.rtsbuilding.home_select.confirm"), panelX + panelW / 2, panelY + 34, 0xBFD2E6);
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+                new UiRect(panelX, panelY, panelW, panelH),
+                1.0D,
+                OverlayStyle.HOME_BACKGROUND,
+                OverlayStyle.HOME_BORDER_LIGHT,
+                OverlayStyle.HOME_BORDER_DARK);
+        RtsClientUiUtil.drawCenteredStringNoShadow(
+                g, this.screen.font(),
+                Component.translatable("screen.rtsbuilding.home_select.title").getString(),
+                panelX + panelW / 2, panelY + 8, OverlayStyle.HOME_TITLE.toArgb());
+        RtsClientUiUtil.drawCenteredStringNoShadow(
+                g, this.screen.font(),
+                Component.translatable("screen.rtsbuilding.home_select.area").getString(),
+                panelX + panelW / 2, panelY + 22, OverlayStyle.HOME_AREA.toArgb());
+        RtsClientUiUtil.drawCenteredStringNoShadow(
+                g, this.screen.font(),
+                Component.translatable("screen.rtsbuilding.home_select.confirm").getString(),
+                panelX + panelW / 2, panelY + 34, OverlayStyle.HOME_CONFIRM.toArgb());
         int cooldownY = panelY + 46;
         for (var line : cooldownLines) {
-            g.drawString(this.screen.font(), line, panelX + (panelW - this.screen.font().width(line)) / 2, cooldownY, 0xFFE7C46A);
+            g.drawString(this.screen.font(), line,
+                    panelX + (panelW - this.screen.font().width(line)) / 2,
+                    cooldownY, OverlayStyle.HOME_GUIDE.toArgb(), false);
             cooldownY += 10;
         }
         BlockHitResult hit = this.screen.isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
         if (hit != null) {
             BlockPos pos = hit.getBlockPos();
-            g.drawCenteredString(this.screen.font(),
-                    Component.translatable("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()),
-                    this.screen.width / 2,
-                    panelY + panelH + 14,
-                    0xFFE7C46A);
+            RtsClientUiUtil.drawCenteredStringNoShadow(
+                    g, this.screen.font(),
+                    Component.translatable("screen.rtsbuilding.home_select.target",
+                            pos.getX(), pos.getY(), pos.getZ()).getString(),
+                    this.screen.width / 2, panelY + panelH + 14,
+                    OverlayStyle.HOME_GUIDE.toArgb());
         }
     }
 
@@ -180,15 +203,15 @@ public final class RtsScreenOverlayRenderer {
         }
         int x = Mth.clamp((this.screen.width - QUEST_DETECT_POPUP_W) / 2, 8, Math.max(8, this.screen.width - QUEST_DETECT_POPUP_W - 8));
         int y = TOP_H + 8;
-        RtsClientUiUtil.drawPanelFrame(g, x, y, QUEST_DETECT_POPUP_W, QUEST_DETECT_POPUP_H, 0xEE151A22, 0xFF61758A, 0xFF0D1117);
-        g.drawString(this.screen.font(), Component.translatable("screen.rtsbuilding.quest_scan.title"), x + 9, y + 7, 0xF2F7FF, false);
+        drawPopupFrame(g, x, y, QUEST_DETECT_POPUP_W, QUEST_DETECT_POPUP_H);
+        g.drawString(this.screen.font(),
+                Component.translatable("screen.rtsbuilding.quest_scan.title"),
+                x + 9, y + 7, OverlayStyle.POPUP_TITLE.toArgb(), false);
         byte phase = this.controller.getQuestDetectPhase();
         String status = questDetectStatusText(phase).getString();
-        int statusColor = phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR
-                ? 0xFFFFB0B0
-                : phase == S2CRtsQuestDetectStatusPayload.PHASE_UNAVAILABLE
-                        ? 0xFFE7C46A
-                        : 0xFFCFE3F7;
+        int statusColor = OverlayStyle.questStatus(
+                phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR,
+                phase == S2CRtsQuestDetectStatusPayload.PHASE_UNAVAILABLE).toArgb();
         g.drawString(this.screen.font(), this.screen.trimToWidth(status, QUEST_DETECT_POPUP_W - 18), x + 9, y + 19, statusColor, false);
         int barX = x + 9;
         int barY = y + 34;
@@ -196,19 +219,15 @@ public final class RtsScreenOverlayRenderer {
         int barH = 6;
         float progress = this.controller.getQuestDetectProgress();
         int fillW = Math.max(0, Math.min(barW, Math.round(barW * progress)));
-        int progressColor = phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR
-                ? 0xFFE07070
-                : phase == S2CRtsQuestDetectStatusPayload.PHASE_COMPLETE
-                        ? 0xFF78B28C
-                        : 0xFF88BEF4;
-        g.fill(barX, barY, barX + barW, barY + barH, 0xAA202832);
+        int progressColor = OverlayStyle.questProgress(
+                phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR,
+                phase == S2CRtsQuestDetectStatusPayload.PHASE_COMPLETE).toArgb();
+        g.fill(barX, barY, barX + barW, barY + barH,
+                OverlayStyle.PROGRESS_TRACK.toArgb());
         if (fillW > 0) {
             g.fill(barX, barY, barX + fillW, barY + barH, progressColor);
         }
-        g.hLine(barX, barX + barW, barY, 0xFF405064);
-        g.hLine(barX, barX + barW, barY + barH, 0xFF0A0D12);
-        g.vLine(barX, barY, barY + barH, 0xFF405064);
-        g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
+        drawProgressBorder(g, barX, barY, barW, barH);
     }
 
     public void renderStorageScanPopup(GuiGraphics g) {
@@ -225,27 +244,46 @@ public final class RtsScreenOverlayRenderer {
                 8,
                 Math.max(8, this.screen.width - popupW - 8));
         int y = Math.max(TOP_H + 8, layout.panelY() - STORAGE_SCAN_POPUP_H - 6);
-        RtsClientUiUtil.drawPanelFrame(g, x, y, popupW, STORAGE_SCAN_POPUP_H, 0xEE151A22, 0xFF61758A, 0xFF0D1117);
+        drawPopupFrame(g, x, y, popupW, STORAGE_SCAN_POPUP_H);
         Component label = Component.translatable(this.controller.isStorageScanRunning()
                 ? "screen.rtsbuilding.storage_scan.scanning"
                 : "screen.rtsbuilding.storage_scan.ready");
-        g.drawString(this.screen.font(), this.screen.trimToWidth(label.getString(), popupW - 18), x + 9, y + 6, 0xF2F7FF, false);
+        g.drawString(this.screen.font(),
+                this.screen.trimToWidth(label.getString(), popupW - 18),
+                x + 9, y + 6, OverlayStyle.POPUP_TITLE.toArgb(), false);
         int barX = x + 9;
         int barY = y + 20;
         int barW = popupW - 18;
         int barH = 5;
         int fillW = Math.max(0, Math.min(barW, Math.round(barW * this.controller.getStorageScanProgress())));
-        g.fill(barX, barY, barX + barW, barY + barH, 0xAA202832);
+        g.fill(barX, barY, barX + barW, barY + barH,
+                OverlayStyle.PROGRESS_TRACK.toArgb());
         if (fillW > 0) {
             g.fill(barX, barY, barX + fillW, barY + barH,
-                    this.controller.isStorageScanRunning() ? 0xFF88BEF4 : 0xFF78B28C);
+                    OverlayStyle.storageProgress(
+                            this.controller.isStorageScanRunning()).toArgb());
         }
-        g.hLine(barX, barX + barW, barY, 0xFF405064);
-        g.hLine(barX, barX + barW, barY + barH, 0xFF0A0D12);
-        g.vLine(barX, barY, barY + barH, 0xFF405064);
-        g.vLine(barX + barW, barY, barY + barH, 0xFF0A0D12);
+        drawProgressBorder(g, barX, barY, barW, barH);
     }
 
+    private void drawPopupFrame(GuiGraphics g, int x, int y, int width, int height) {
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+                new UiRect(x, y, width, height),
+                1.0D,
+                OverlayStyle.POPUP_BACKGROUND,
+                OverlayStyle.POPUP_BORDER_LIGHT,
+                OverlayStyle.POPUP_BORDER_DARK);
+    }
+
+    private void drawProgressBorder(
+            GuiGraphics g, int x, int y, int width, int height) {
+        UiBevelOutlineRenderer.outline(
+                new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+                new UiRect(x, y, width, height),
+                OverlayStyle.PROGRESS_BORDER_LIGHT,
+                OverlayStyle.PROGRESS_BORDER_DARK);
+    }
 
     private Component questDetectStatusText(byte phase) {
         int scanned = this.controller.getQuestDetectScannedTasks();

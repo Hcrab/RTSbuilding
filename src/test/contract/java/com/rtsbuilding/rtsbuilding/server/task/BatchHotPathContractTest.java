@@ -162,9 +162,13 @@ class BatchHotPathContractTest {
         String engine = readMain("server/task/RtsTaskEngine.java");
         int projection = engine.indexOf("private void projectDurableWorkflowLifecycles(");
         String projectionBody = engine.substring(projection);
+        assertTrue(projectionBody.contains("inspectDurableProjection(player, snapshot)"));
+        assertTrue(projectionBody.contains("restoreDurableProjection("),
+                "持久任务缺少 UI 条目时必须重建投影，不能让真实任务在后台隐身");
         assertTrue(projectionBody.indexOf("if (token == null) continue;")
-                        < projectionBody.indexOf("projectedDurableStates.put(snapshot.id(), snapshot.revision())"),
-                "令牌尚未创建时不能把状态误记为已投影");
+                        < projectionBody.lastIndexOf(
+                                "projectedDurableStates.put(snapshot.id(), snapshot.revision())"),
+                "重建失败时不能把状态误记为已投影");
         assertTrue(projectionBody.contains("case COMPLETED -> token.complete()"));
         assertTrue(projectionBody.contains("case FAILED, CANCELLED -> token.cancel()"));
 
@@ -197,8 +201,21 @@ class BatchHotPathContractTest {
     @Test
     void workflowUiCommandsMutateTaskEngineFirst() throws IOException {
         String handlers = readMain("network/builder/handler/RtsInteractionHandlers.java");
-        assertTrue(handlers.contains("RtsTaskEngine.INSTANCE.cancelWorkflowTask"));
         assertTrue(handlers.contains("RtsTaskEngine.INSTANCE.setWorkflowPaused"));
+        String workflows = readMain("server/workflow/core/RtsWorkflowEngine.java");
+        int delete = workflows.indexOf("public void deleteWorkflow(");
+        int cancelAll = workflows.indexOf("public void cancelAll(", delete);
+        String deleteBody = workflows.substring(delete, cancelAll);
+        assertTrue(deleteBody.indexOf("cancelWorkflowTask(player, entryId)")
+                        < deleteBody.indexOf("slots.removeEntryById(entryId)"),
+                "删除 UI 条目前必须先取消真实任务");
+        String taskEngine = readMain("server/task/RtsTaskEngine.java");
+        int cancel = taskEngine.indexOf("public boolean cancelWorkflowTask(");
+        int resume = taskEngine.indexOf("public void resumeWaitingPlacementItems(", cancel);
+        String cancelBody = taskEngine.substring(cancel, resume);
+        assertTrue(cancelBody.indexOf("coordinator.replace(cancelled)")
+                        < cancelBody.indexOf("coordinator.requestTombstone("),
+                "控制面取消 durable task 后必须申请 tombstone，不能让终态永久留在 active store");
         String session = readMain("server/service/impl/RtsSessionServiceImpl.java");
         assertTrue(session.indexOf("RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player)")
                 < session.indexOf("RtsWorkflowEngine.getInstance().pauseAllActive"));

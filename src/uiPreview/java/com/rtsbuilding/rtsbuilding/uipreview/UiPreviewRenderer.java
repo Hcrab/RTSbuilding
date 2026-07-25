@@ -8,6 +8,7 @@ public final class UiPreviewRenderer {
     private final UiMainlineChromeRenderer chrome = new UiMainlineChromeRenderer(assets);
     private final UiMainlineTerminalRenderer terminal = new UiMainlineTerminalRenderer(assets);
     private final UiMainlineWindowRenderer windows = new UiMainlineWindowRenderer(assets);
+    private final PopupPreviewRenderer popups = new PopupPreviewRenderer();
     private final UiWorldInteractionBoundaryRenderer worldInteractions =
             new UiWorldInteractionBoundaryRenderer();
 
@@ -24,6 +25,7 @@ public final class UiPreviewRenderer {
         chrome.render(canvas, layout, language, scenario);
         terminal.render(canvas, layout, language, scenario);
         windows.render(canvas, layout, language, scenario);
+        popups.render(canvas, layout, scenario);
         if (scenario.debugOverlay()) drawDebugOverlay(canvas, layout);
         return new UiPreviewResult(canvas, layout);
     }

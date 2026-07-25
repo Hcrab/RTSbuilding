@@ -50,20 +50,30 @@ final class BlueprintPreviewFixtures {
             materialOpen = true;
             materials = new BlueprintMaterialUiState("Harbour Workshop", 73, 3200, 4386,
                     3, 1, 1, Arrays.asList(
-                    row("minecraft:oak_planks", "橡木木板", "384 / 512", 0xFFFFC06C),
-                    row("minecraft:stone_bricks", "石砖", "1024 / 1024", 0xFF8EEA9B),
-                    row("minecraft:glass", "玻璃", "48 / 192", 0xFFFFC06C),
-                    row("minecraft:water_bucket", "水桶", "2 / 2", 0xFF8EEA9B),
-                    row("", "需要模组：create", "需要安装该模组", 0xFFFF9E88),
-                    row("", "create:framed_glass", "缺失 x64", 0xFFFF9E88)));
+                    row("minecraft:oak_planks", "橡木木板", "384 / 512",
+                            BlueprintMaterialUiState.Tone.WARNING),
+                    row("minecraft:stone_bricks", "石砖", "1024 / 1024",
+                            BlueprintMaterialUiState.Tone.READY),
+                    row("minecraft:glass", "玻璃", "48 / 192",
+                            BlueprintMaterialUiState.Tone.WARNING),
+                    row("minecraft:water_bucket", "水桶", "2 / 2",
+                            BlueprintMaterialUiState.Tone.READY),
+                    row("", "需要模组：create", "需要安装该模组",
+                            BlueprintMaterialUiState.Tone.MISSING),
+                    row("", "create:framed_glass", "缺失 x64",
+                            BlueprintMaterialUiState.Tone.MISSING)));
         } else if (scenario.variant() == UiPreviewScenario.Variant.BLUEPRINT_MATERIALS_READY) {
             materialOpen = true;
             materials = new BlueprintMaterialUiState("Harbour Workshop", 100, 4386, 4386,
                     0, 0, 0, Arrays.asList(
-                    row("minecraft:oak_planks", "Oak Planks", "512 / 512", 0xFF8EEA9B),
-                    row("minecraft:stone_bricks", "Stone Bricks", "1024 / 1024", 0xFF8EEA9B),
-                    row("minecraft:glass", "Glass", "192 / 192", 0xFF8EEA9B),
-                    row("minecraft:water_bucket", "Water Bucket", "2 / 2", 0xFF8EEA9B)));
+                    row("minecraft:oak_planks", "Oak Planks", "512 / 512",
+                            BlueprintMaterialUiState.Tone.READY),
+                    row("minecraft:stone_bricks", "Stone Bricks", "1024 / 1024",
+                            BlueprintMaterialUiState.Tone.READY),
+                    row("minecraft:glass", "Glass", "192 / 192",
+                            BlueprintMaterialUiState.Tone.READY),
+                    row("minecraft:water_bucket", "Water Bucket", "2 / 2",
+                            BlueprintMaterialUiState.Tone.READY)));
         } else if (scenario.variant() == UiPreviewScenario.Variant.BLUEPRINT_MATERIALS_EMPTY) {
             materialOpen = true;
             materials = new BlueprintMaterialUiState("Marker Blueprint", 100, 0, 0,
@@ -87,7 +97,11 @@ final class BlueprintPreviewFixtures {
                 replaceOnType, materials);
     }
 
-    private static BlueprintMaterialUiState.Row row(String icon, String label, String detail, int color) {
-        return new BlueprintMaterialUiState.Row(icon, label, detail, color);
+    private static BlueprintMaterialUiState.Row row(
+            String icon,
+            String label,
+            String detail,
+            BlueprintMaterialUiState.Tone tone) {
+        return new BlueprintMaterialUiState.Row(icon, label, detail, tone);
     }
 }

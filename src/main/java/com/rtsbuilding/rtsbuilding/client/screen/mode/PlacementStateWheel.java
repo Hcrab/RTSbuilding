@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsGuiVectorRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -213,7 +214,8 @@ public final class PlacementStateWheel {
                 this.centerY,
                 Math.round(Mth.lerp(progress, 22.0F, RING_RADIUS)),
                 1.25F,
-                multiplyAlpha(0x768996A3, alpha));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.PLACEMENT_TRACK, alpha).toArgb());
         Lighting.setupFor3DItems();
         RenderSystem.enableDepthTest();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
@@ -278,7 +280,8 @@ public final class PlacementStateWheel {
                         : "screen.rtsbuilding.rotation_wheel.hint").getString(),
                 this.centerX,
                 this.centerY + 107,
-                multiplyAlpha(0xFFD6DFEA, alpha * 0.9F));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.HINT_TEXT, alpha * 0.9F).toArgb());
     }
 
     private int hoveredPlacementIndex(double mouseX, double mouseY, long now) {
@@ -340,17 +343,15 @@ public final class PlacementStateWheel {
             float openingProgress) {
         float scale = (0.72F + openingProgress * 0.28F) * (1.0F + hover * 0.12F);
         int radius = Math.max(6, Math.round(OPTION_RADIUS * scale));
-        int border = hover > 0.01F
-                ? blendColor(0xFF82909D, 0xFFFFD878, hover)
-                : current ? 0xFF8FD4A8 : 0xFF82909D;
-        int background = hover > 0.01F
-                ? blendColor(0xD51A2026, 0xE6453820, hover)
-                : current ? 0xD522382D : 0xC91A2026;
+        int border = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.optionBorder(current, hover), alpha).toArgb();
+        int background = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.optionBackground(current, hover), alpha).toArgb();
         RtsGuiVectorRenderer.fillDisc(
-                graphics, centerX, centerY, radius + 1.25F, multiplyAlpha(border, alpha));
+                graphics, centerX, centerY, radius + 1.25F, border);
         RtsGuiVectorRenderer.fillDisc(
                 graphics, centerX, centerY, Math.max(4.0F, radius - 1.25F),
-                multiplyAlpha(background, alpha));
+                background);
 
         var pose = graphics.pose();
         pose.pushPose();
@@ -384,17 +385,20 @@ public final class PlacementStateWheel {
             String text,
             boolean hovered,
             float alpha) {
-        int border = hovered ? 0xFFFFD878 : 0xFF82909D;
-        int background = hovered ? 0xE6453820 : 0xD51A2026;
+        int border = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.pageBorder(hovered), alpha).toArgb();
+        int background = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.pageBackground(hovered), alpha).toArgb();
         RtsGuiVectorRenderer.fillDisc(
                 graphics, centerX, centerY, PAGE_BUTTON_RADIUS + 1.25F,
-                multiplyAlpha(border, alpha));
+                border);
         RtsGuiVectorRenderer.fillDisc(
                 graphics, centerX, centerY, PAGE_BUTTON_RADIUS - 1.25F,
-                multiplyAlpha(background, alpha));
+                background);
         RtsClientUiUtil.drawCenteredStringNoShadow(
                 graphics, font, text, centerX, centerY - 4,
-                multiplyAlpha(0xFFF0F4F7, alpha));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.LABEL_TEXT, alpha).toArgb());
     }
 
     private float animationProgress(long now) {
@@ -428,7 +432,8 @@ public final class PlacementStateWheel {
     private void drawCenterBrackets(GuiGraphics graphics, float alpha) {
         int radius = Math.round(Mth.lerp(alpha, 13.0F, 23.0F));
         int length = 5;
-        int color = multiplyAlpha(0xB8CFD8E1, alpha * 0.72F);
+        int color = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.CENTER_BRACKET, alpha * 0.72F).toArgb();
         graphics.fill(this.centerX - radius, this.centerY - radius,
                 this.centerX - radius + length, this.centerY - radius + 1, color);
         graphics.fill(this.centerX - radius, this.centerY - radius,
@@ -457,7 +462,8 @@ public final class PlacementStateWheel {
         int width = font.width(text) + 14;
         int left = centerX - width / 2;
         int right = left + width;
-        int background = multiplyAlpha(0xD0161B22, alpha * 0.86F);
+        int background = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.LABEL_BACKGROUND, alpha * 0.86F).toArgb();
         RtsGuiVectorRenderer.fillCapsule(
                 graphics, left, right, centerY, 15.0F, background);
         RtsClientUiUtil.drawCenteredStringNoShadow(
@@ -466,21 +472,8 @@ public final class PlacementStateWheel {
                 text,
                 centerX,
                 centerY - 4,
-                multiplyAlpha(0xFFF0F4F7, alpha));
-    }
-
-    private static int multiplyAlpha(int color, float multiplier) {
-        int alpha = Math.round(((color >>> 24) & 0xFF) * Mth.clamp(multiplier, 0.0F, 1.0F));
-        return color & 0x00FFFFFF | alpha << 24;
-    }
-
-    private static int blendColor(int from, int to, float amount) {
-        float clamped = Mth.clamp(amount, 0.0F, 1.0F);
-        int a = Math.round(Mth.lerp(clamped, (from >>> 24) & 0xFF, (to >>> 24) & 0xFF));
-        int r = Math.round(Mth.lerp(clamped, (from >>> 16) & 0xFF, (to >>> 16) & 0xFF));
-        int g = Math.round(Mth.lerp(clamped, (from >>> 8) & 0xFF, (to >>> 8) & 0xFF));
-        int b = Math.round(Mth.lerp(clamped, from & 0xFF, to & 0xFF));
-        return a << 24 | r << 16 | g << 8 | b;
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.LABEL_TEXT, alpha).toArgb());
     }
 
     private <T extends Comparable<T>> void addProperty(BlockState state, Property<T> property) {

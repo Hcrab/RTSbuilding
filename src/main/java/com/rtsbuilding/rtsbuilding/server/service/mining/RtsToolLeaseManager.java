@@ -93,6 +93,12 @@ public final class RtsToolLeaseManager {
      */
     private static RtsToolLease borrowMiningToolFromPlayerInventory(ServerPlayer player, ItemStack prototype, int selectedToolSlot) {
         int selected = RtsMiningValidator.clampHotbarSlot(selectedToolSlot);
+        // RTS 底部栏的工具预览可能就是玩家当前手持的快捷栏槽位；先借它，
+        // 否则“手里明明拿着镐，但范围挖掘判定没有工具”的情况会被误判为不能挖。
+        RtsToolLease selectedLease = borrowMiningToolFromPlayerSlot(player, prototype, selected);
+        if (!selectedLease.isEmpty()) {
+            return selectedLease;
+        }
         int start = RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
         int end = RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
         for (int slot = start; slot < end; slot++) {

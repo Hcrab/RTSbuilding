@@ -25,6 +25,13 @@ Copyright (C) 2026 Re_Construction. These files are distributed as part of
 official RTS Building packages under the normal mod-distribution permissions
 in `LICENSE-ASSETS`. Copyright and attribution remain with the contributor.
 
+The `guide_*` and `developer_*` top-bar states and the monochrome files under
+`textures/gui/guide/` were mechanically frozen in July 2026 from the existing
+mainline `i` / `D` glyphs and guide pixel-icon drawing paths. They contain no
+third-party artwork and are original RTS Building assets covered by
+`LICENSE-ASSETS`; the surrounding button-state palette remains derived from the
+credited PR #133 top-bar set.
+
 ## LGPL-covered project files
 
 Unless another notice applies, source code and non-media project files remain

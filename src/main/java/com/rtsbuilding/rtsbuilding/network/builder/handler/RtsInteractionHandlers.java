@@ -97,7 +97,6 @@ public final class RtsInteractionHandlers {
     public static void handleDeleteWorkflow(C2SRtsDeleteWorkflowPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                RtsTaskEngine.INSTANCE.cancelWorkflowTask(serverPlayer, payload.workflowEntryId());
                 IWorkflowEngine engine = RtsWorkflowEngine.getInstance();
                 engine.deleteWorkflow(serverPlayer, payload.workflowEntryId());
             }
@@ -160,7 +159,8 @@ public final class RtsInteractionHandlers {
                 int entryId = payload.entryId();
                 RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
                 RtsWorkflowStatus status = engine.getProgress(serverPlayer, entryId);
-                if (!status.isActive()) return;
+                var entry = engine.findEntryByPlayer(serverPlayer, entryId);
+                if (!status.isActive() || entry == null || entry.terminal()) return;
 
                 engine.from(serverPlayer, entryId).ifPresent(token -> {
                     if (status.suspended()) {

@@ -11,10 +11,18 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.AdvancedShapeSelectionGeometry;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ConfirmedDestroyPreviewState;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.RangeDestroySelectionLimiter;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeConfirmationPolicy;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDestroyTargetClassifier;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGenerationPlanCache;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeSelectionLimiter;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapePlacementTargetResolver;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeSelectionTextPresenter;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeSessionInputResolver;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
@@ -23,13 +31,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.EndCrystalItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
-import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.AABB;
@@ -38,10 +43,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.SHAPE_MAX_DIMENSION;
@@ -51,6 +53,14 @@ public final class ScreenShapeController {
     private static final int DEFAULT_AREA_MINE_MAX_SIZE = 36;
     private static final int DEFAULT_AREA_MINE_MAX_VOLUME =
             DEFAULT_AREA_MINE_MAX_SIZE * DEFAULT_AREA_MINE_MAX_SIZE * DEFAULT_AREA_MINE_MAX_SIZE;
+    private static final RangeDestroySelectionLimiter.Limits SHAPE_SELECTION_LIMITS =
+            new RangeDestroySelectionLimiter.Limits(
+                    SHAPE_MAX_DIMENSION,
+                    SHAPE_MAX_DIMENSION,
+                    SHAPE_MAX_DIMENSION,
+                    SHAPE_MAX_DIMENSION
+                            * SHAPE_MAX_DIMENSION
+                            * SHAPE_MAX_DIMENSION);
 
     private BuilderScreen screen;
     private ClientRtsController controller;
@@ -76,16 +86,11 @@ public final class ScreenShapeController {
 
     /** 当前活跃的是否为范围破坏模式（用于填充/连线/旋转的同步追踪） */
     private boolean destroyModeActive = false;
-    private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
-    private long confirmedRangeDestroyPreviewUntilMs;
-    private ShapeDataRecords.GhostPreview confirmedChainDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
-    private long confirmedChainDestroyPreviewUntilMs;
+    private final ConfirmedDestroyPreviewState confirmedDestroyPreviews = new ConfirmedDestroyPreviewState();
     private final PlacementHistoryManager placementHistory = new PlacementHistoryManager();
     private final RtsBoxHandleInteraction advancedBoxHandles = new RtsBoxHandleInteraction();
     private final RtsSelectionBoxAnimator shapeBoxAnimator = new RtsSelectionBoxAnimator();
-    private ShapeGenerationKey generatedShapeKey;
-    private List<BlockPos> generatedShapePositions = List.of();
-    private RtsCullingBox generatedShapeBounds;
+    private final ShapeGenerationPlanCache shapeGenerationPlans = new ShapeGenerationPlanCache();
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
@@ -184,7 +189,7 @@ public final class ScreenShapeController {
         this.shapeFootprintNudgeB = 0;
         this.advancedBoxHandles.clear();
         this.shapeBoxAnimator.clear();
-        clearGeneratedShapeCache();
+        this.shapeGenerationPlans.clear();
     }
 
     public void rotateShapeByStep(int step) {
@@ -381,7 +386,12 @@ public final class ScreenShapeController {
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
                 // Single block pending ghost 鈥?resolve target position for accurate direction
-                BlockPos placePos = resolvePlacementTargetPos(hit.getBlockPos(), hit.getDirection());
+                BlockPos placePos = ShapePlacementTargetResolver.resolveClickedTarget(
+                        hit.getBlockPos(),
+                        hit.getDirection(),
+                        ShapePlacementTargetResolver.minecraftWorld(
+                                this.screen.getMinecraft(),
+                                resolveShapePlacementStackForContext()));
                 BlockState pendingState = resolvePendingGhostBlockState(placePos);
                 if (placePos != null) {
                     PlacementAnimationRenderer.addPendingBatch(List.of(placePos.immutable()), pendingState);
@@ -390,6 +400,9 @@ public final class ScreenShapeController {
             return;
         }
         advanceShapeSession(hit, rayDir, mouseY, shape);
+        if (shouldSubmitShapeAfterSelection()) {
+            tryConfirmPendingShapeBuild(forcePlace);
+        }
     }
 
     public void selectRangeDestroyShape(BlockHitResult hit, double mouseY, Vec3 rayDir) {
@@ -399,17 +412,30 @@ public final class ScreenShapeController {
         BuildShape shape = this.controller.getBuildShape();
         if (shape == BuildShape.BLOCK) {
             clearShapeBuildSession();
-            List<BlockPos> breakable = collectBreakableTargets(List.of(hit.getBlockPos().immutable()));
+            List<BlockPos> breakable = ShapeDestroyTargetClassifier.breakableTargets(
+                    List.of(hit.getBlockPos().immutable()),
+                    this::isBreakableDestroyTarget);
             if (!breakable.isEmpty()) {
                 List<BlockPos> boundsFiltered = filterToBounds(breakable);
                 if (!boundsFiltered.isEmpty()) {
-                    rememberConfirmedRangeDestroyPreview(new RangeDestroyPreview(new ArrayList<>(boundsFiltered), List.of()));
+                    rememberConfirmedRangeDestroyPreview(
+                            new ShapeDestroyTargetClassifier.Selection(boundsFiltered, List.of()));
                     this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
                 }
             }
             return;
         }
         advanceShapeSession(hit, rayDir, mouseY, shape);
+        if (shouldSubmitShapeAfterSelection()) {
+            tryConfirmPendingRangeDestroy();
+        }
+    }
+
+    private boolean shouldSubmitShapeAfterSelection() {
+        return this.shapeBuildSession != null
+                && ShapeConfirmationPolicy.shouldSubmitAfterSelection(
+                        Config.isKeyboardBatchConfirmEnabled(),
+                        this.shapeBuildSession.phase());
     }
 
     /**
@@ -428,7 +454,7 @@ public final class ScreenShapeController {
     }
 
     private void startNewSession(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
-        clearConfirmedChainDestroyPreview();
+        this.confirmedDestroyPreviews.clearChain();
         this.shapeFootprintNudgeA = 0;
         this.shapeFootprintNudgeB = 0;
         Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
@@ -480,11 +506,18 @@ public final class ScreenShapeController {
     private void advanceLineSession(BlockHitResult hit, double mouseY) {
         ShapeBuildTypes.Session session = this.shapeBuildSession;
         if (session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) return;
-        BlockPos pointB = resolveShapePlanePoint(session, hit);
+        boolean verticalLine = isVerticalLine(session.shape());
+        BlockPos pointB = verticalLine
+                ? ShapeSessionInputResolver.resolveVerticalLinePoint(session, hit)
+                : resolveShapePlanePoint(session, hit);
         this.shapeBuildSession = new ShapeBuildTypes.Session(
                 session.shape(), session.planeFace(), session.placementFace(),
                 session.pointA(), pointB,
-                ShapeBuildTypes.Phase.READY_CONFIRM, 0, session.boxHeightMouseBaseY());
+                ShapeBuildTypes.Phase.READY_CONFIRM,
+                verticalLine && pointB != null && session.pointA() != null
+                        ? pointB.getY() - session.pointA().getY()
+                        : 0,
+                session.boxHeightMouseBaseY());
     }
 
     /** SQUARE: second click determines opposite corner, then immediately ready to confirm. */
@@ -593,7 +626,11 @@ public final class ScreenShapeController {
                             : 0,
                     mouseY);
             this.shapeBuildSession = isAdvancedShape(session.shape())
-                    ? sessionFromBox(next, clampAdvancedShapeBox(boxFromSession(next), session.pointA()))
+                    ? AdvancedShapeSelectionGeometry.sessionFromBox(
+                            next,
+                            clampAdvancedShapeBox(
+                                    AdvancedShapeSelectionGeometry.boxFromSession(next),
+                                    session.pointA()))
                     : next;
             return;
         }
@@ -613,14 +650,17 @@ public final class ScreenShapeController {
         ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(null, true);
         if (input == null) return false;
         List<BlockPos> raw = generateShapePositions(input);
-        List<BlockPos> breakable = collectBreakableTargets(raw);
+        List<BlockPos> breakable =
+                ShapeDestroyTargetClassifier.breakableTargets(raw, this::isBreakableDestroyTarget);
         List<BlockPos> boundedBreakable = filterToBounds(breakable);
-        List<BlockPos> boundedEnvelope = filterToBounds(collectRangeDestroyEnvelopeBlocks(raw, boundedBreakable));
+        List<BlockPos> boundedEnvelope = filterToBounds(
+                ShapeDestroyTargetClassifier.envelopeTargets(raw, boundedBreakable));
         clearShapeBuildSession();
         if (boundedBreakable.isEmpty()) {
             return true;
         }
-        rememberConfirmedRangeDestroyPreview(new RangeDestroyPreview(new ArrayList<>(boundedBreakable), boundedEnvelope));
+        rememberConfirmedRangeDestroyPreview(
+                new ShapeDestroyTargetClassifier.Selection(boundedBreakable, boundedEnvelope));
         this.controller.confirmShapeAreaDestroy(boundedBreakable, this.screen.getSelectedToolSlot());
         return true;
     }
@@ -639,7 +679,7 @@ public final class ScreenShapeController {
         if (!isAdvancedShapeSelectionSession()) {
             return null;
         }
-        return boxFromSession(this.shapeBuildSession);
+        return AdvancedShapeSelectionGeometry.boxFromSession(this.shapeBuildSession);
     }
 
     public net.minecraft.world.phys.AABB advancedRangeDestroyRenderAabb() {
@@ -660,9 +700,10 @@ public final class ScreenShapeController {
             return null;
         }
         generateShapePositions(input);
-        return this.generatedShapeBounds == null
+        RtsCullingBox bounds = this.shapeGenerationPlans.bounds();
+        return bounds == null
                 ? null
-                : this.shapeBoxAnimator.renderAabb(this.generatedShapeBounds);
+                : this.shapeBoxAnimator.renderAabb(bounds);
     }
 
     public Direction advancedRangeDestroyHoveredHandle() {
@@ -685,7 +726,8 @@ public final class ScreenShapeController {
             return directionsForPlaneAxes(shape, this.shapeBuildSession.planeFace());
         }
         if (shape == BuildShape.WALL) {
-            RtsCullingBox box = boxFromSession(this.shapeBuildSession);
+            RtsCullingBox box =
+                    AdvancedShapeSelectionGeometry.boxFromSession(this.shapeBuildSession);
             return box.width() >= box.depth()
                     ? EnumSet.of(Direction.EAST, Direction.WEST, Direction.UP, Direction.DOWN)
                     : EnumSet.of(Direction.SOUTH, Direction.NORTH, Direction.UP, Direction.DOWN);
@@ -759,13 +801,16 @@ public final class ScreenShapeController {
         if (direction == null || delta == 0 || !isAdvancedShapeSelectionSession()) {
             return false;
         }
-        RtsCullingBox current = boxFromSession(this.shapeBuildSession);
+        RtsCullingBox current =
+                AdvancedShapeSelectionGeometry.boxFromSession(this.shapeBuildSession);
         RtsCullingBox resized = current.resizeFromHandle(direction, delta);
         if (!withinAdvancedShapeCaps(resized)) {
             return true;
         }
         this.shapeBoxAnimator.animate(current, resized);
-        this.shapeBuildSession = sessionFromBox(this.shapeBuildSession, resized);
+        this.shapeBuildSession = AdvancedShapeSelectionGeometry.sessionFromBox(
+                this.shapeBuildSession,
+                resized);
         return true;
     }
 
@@ -778,7 +823,9 @@ public final class ScreenShapeController {
                 || session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             return false;
         }
-        RtsCullingBox oldBox = isAdvancedShapeSelectionSession() ? boxFromSession(session) : null;
+        RtsCullingBox oldBox = isAdvancedShapeSelectionSession()
+                ? AdvancedShapeSelectionGeometry.boxFromSession(session)
+                : null;
         this.shapeBuildSession = new ShapeBuildTypes.Session(
                 session.shape(),
                 session.planeFace(),
@@ -789,132 +836,11 @@ public final class ScreenShapeController {
                 session.boxHeightOffset(),
                 session.boxHeightMouseBaseY());
         if (oldBox != null) {
-            this.shapeBoxAnimator.animate(oldBox, boxFromSession(this.shapeBuildSession));
+            this.shapeBoxAnimator.animate(
+                    oldBox,
+                    AdvancedShapeSelectionGeometry.boxFromSession(this.shapeBuildSession));
         }
         return true;
-    }
-
-    private static RtsCullingBox boxFromSession(ShapeBuildTypes.Session session) {
-        if (session != null && usesPlaneNormalHeight(session.shape())) {
-            Direction normal = session.planeFace() == null ? Direction.UP : session.planeFace();
-            BlockPos normalEnd = withAxisOffset(session.pointA(), normal.getAxis(), session.boxHeightOffset());
-            return new RtsCullingBox(0, session.pointA(), mergeAxis(session.pointB(), normalEnd, normal.getAxis()));
-        }
-        return RtsCullingBox.fromDiagonal(0, session.pointA(), session.pointB(), session.boxHeightOffset());
-    }
-
-    private static ShapeBuildTypes.Session sessionFromBox(ShapeBuildTypes.Session previous, RtsCullingBox box) {
-        if (usesPlaneNormalHeight(previous.shape())) {
-            Direction normal = previous.planeFace() == null ? Direction.UP : previous.planeFace();
-            Direction.Axis normalAxis = normal.getAxis();
-            BlockPos min = box.min();
-            BlockPos max = box.max();
-            BlockPos pointB = mergeAxis(max, min, normalAxis);
-            int heightOffset = coord(max, normalAxis) - coord(min, normalAxis);
-            return new ShapeBuildTypes.Session(
-                    previous.shape(),
-                    previous.planeFace(),
-                    previous.placementFace(),
-                    min,
-                    pointB,
-                    ShapeBuildTypes.Phase.READY_CONFIRM,
-                    heightOffset,
-                    previous.boxHeightMouseBaseY());
-        }
-        BlockPos min = box.min();
-        BlockPos max = box.max();
-        BlockPos pointB = new BlockPos(max.getX(), min.getY(), max.getZ());
-        return new ShapeBuildTypes.Session(
-                previous.shape(),
-                previous.planeFace(),
-                previous.placementFace(),
-                min,
-                pointB,
-                ShapeBuildTypes.Phase.READY_CONFIRM,
-                max.getY() - min.getY(),
-                previous.boxHeightMouseBaseY());
-    }
-
-    private static boolean usesPlaneNormalHeight(BuildShape shape) {
-        return shape == BuildShape.CIRCLE || shape == BuildShape.CYLINDER;
-    }
-
-    private static BlockPos withAxisOffset(BlockPos origin, Direction.Axis axis, int offset) {
-        return switch (axis) {
-            case X -> new BlockPos(origin.getX() + offset, origin.getY(), origin.getZ());
-            case Y -> new BlockPos(origin.getX(), origin.getY() + offset, origin.getZ());
-            case Z -> new BlockPos(origin.getX(), origin.getY(), origin.getZ() + offset);
-        };
-    }
-
-    private static BlockPos mergeAxis(BlockPos base, BlockPos axisSource, Direction.Axis axis) {
-        return switch (axis) {
-            case X -> new BlockPos(axisSource.getX(), base.getY(), base.getZ());
-            case Y -> new BlockPos(base.getX(), axisSource.getY(), base.getZ());
-            case Z -> new BlockPos(base.getX(), base.getY(), axisSource.getZ());
-        };
-    }
-
-    private static int coord(BlockPos pos, Direction.Axis axis) {
-        return switch (axis) {
-            case X -> pos.getX();
-            case Y -> pos.getY();
-            case Z -> pos.getZ();
-        };
-    }
-
-    private RtsCullingBox initialAdvancedShapeBox(ShapeBuildTypes.Session session) {
-        if (session == null || session.pointA() == null || session.pointB() == null) {
-            return session == null ? null : boxFromSession(session);
-        }
-        BlockPos center = session.pointA();
-        BlockPos pointB = session.pointB();
-        return switch (session.shape()) {
-            case CIRCLE -> centeredPlaneBox(center, planeRadius(center, pointB, session.planeFace()), session.planeFace(), 0);
-            case CYLINDER -> centeredPlaneBox(center, planeRadius(center, pointB, session.planeFace()),
-                    session.planeFace(), session.boxHeightOffset());
-            case BALL -> centeredBox(center, spatialRadius(center, pointB));
-            default -> boxFromSession(session);
-        };
-    }
-
-    private static RtsCullingBox centeredPlaneBox(BlockPos center, int radius, Direction face, int heightOffset) {
-        int safeRadius = Math.max(0, radius);
-        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(BuildShape.CIRCLE, face);
-        Direction normal = face == null ? Direction.UP : face;
-        BlockPos min = center;
-        BlockPos max = withAxisOffset(center, normal.getAxis(), heightOffset);
-        for (Direction axis : axes) {
-            min = withAxisOffset(min, axis.getAxis(), -safeRadius);
-            max = withAxisOffset(max, axis.getAxis(), safeRadius);
-        }
-        return new RtsCullingBox(0, min, max);
-    }
-
-    private static RtsCullingBox centeredBox(BlockPos center, int radius) {
-        int safeRadius = Math.max(0, radius);
-        return new RtsCullingBox(
-                0,
-                new BlockPos(center.getX() - safeRadius, center.getY() - safeRadius, center.getZ() - safeRadius),
-                new BlockPos(center.getX() + safeRadius, center.getY() + safeRadius, center.getZ() + safeRadius));
-    }
-
-    private static int planeRadius(BlockPos center, BlockPos point, Direction face) {
-        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(BuildShape.CIRCLE, face);
-        int dx = point.getX() - center.getX();
-        int dy = point.getY() - center.getY();
-        int dz = point.getZ() - center.getZ();
-        int a = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0]);
-        int b = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1]);
-        return Math.max(0, (int) Math.round(Math.sqrt(a * (double) a + b * (double) b)));
-    }
-
-    private static int spatialRadius(BlockPos center, BlockPos point) {
-        int dx = point.getX() - center.getX();
-        int dy = point.getY() - center.getY();
-        int dz = point.getZ() - center.getZ();
-        return Math.max(0, (int) Math.round(Math.sqrt(
-                dx * (double) dx + dy * (double) dy + dz * (double) dz)));
     }
 
     private BlockPos resolveAdvancedBoxSecondPoint(ShapeBuildTypes.Session session, BlockHitResult hit) {
@@ -932,13 +858,9 @@ public final class ScreenShapeController {
     }
 
     private static boolean withinClientAreaMineCaps(RtsCullingBox box) {
-        int width = box.width();
-        int height = box.height();
-        int depth = box.depth();
-        return width <= configInt(Config::areaMineMaxWidth, DEFAULT_AREA_MINE_MAX_SIZE)
-                && height <= configInt(Config::areaMineMaxHeight, DEFAULT_AREA_MINE_MAX_SIZE)
-                && depth <= configInt(Config::areaMineMaxDepth, DEFAULT_AREA_MINE_MAX_SIZE)
-                && (long) width * height * depth <= configInt(Config::areaMineMaxVolume, DEFAULT_AREA_MINE_MAX_VOLUME);
+        return RangeDestroySelectionLimiter.contains(
+                box,
+                currentRangeDestroyLimits());
     }
 
     private boolean withinAdvancedShapeCaps(RtsCullingBox box) {
@@ -955,45 +877,31 @@ public final class ScreenShapeController {
 
     private RtsCullingBox clampAdvancedShapeBox(RtsCullingBox box, BlockPos anchor) {
         if (this.screen != null && this.screen.isQuickBuildRangeDestroyMode()) {
-            return clampBoxToClientCapsAroundAnchor(box, anchor);
+            return RangeDestroySelectionLimiter.clampBox(
+                    box,
+                    anchor,
+                    currentRangeDestroyLimits());
         }
-        return clampBoxToShapeCapsAroundAnchor(box, anchor);
+        return RangeDestroySelectionLimiter.clampBox(
+                box,
+                anchor,
+                SHAPE_SELECTION_LIMITS);
     }
 
-    private static RtsCullingBox clampBoxToShapeCapsAroundAnchor(RtsCullingBox box, BlockPos anchor) {
-        if (box == null || anchor == null) {
-            return box;
-        }
-        AxisBounds x = clampAxisAroundAnchor(box.min().getX(), box.max().getX(), anchor.getX(), SHAPE_MAX_DIMENSION);
-        AxisBounds y = clampAxisAroundAnchor(box.min().getY(), box.max().getY(), anchor.getY(), SHAPE_MAX_DIMENSION);
-        AxisBounds z = clampAxisAroundAnchor(box.min().getZ(), box.max().getZ(), anchor.getZ(), SHAPE_MAX_DIMENSION);
-        return new RtsCullingBox(
-                box.id(),
-                new BlockPos(x.min(), y.min(), z.min()),
-                new BlockPos(x.max(), y.max(), z.max()));
-    }
-
-    private static RtsCullingBox clampBoxToClientCaps(RtsCullingBox box) {
-        int width = Math.min(box.width(), configInt(Config::areaMineMaxWidth, DEFAULT_AREA_MINE_MAX_SIZE));
-        int height = Math.min(box.height(), configInt(Config::areaMineMaxHeight, DEFAULT_AREA_MINE_MAX_SIZE));
-        int depth = Math.min(box.depth(), configInt(Config::areaMineMaxDepth, DEFAULT_AREA_MINE_MAX_SIZE));
-        int maxVolume = configInt(Config::areaMineMaxVolume, DEFAULT_AREA_MINE_MAX_VOLUME);
-        while ((long) width * height * depth > maxVolume) {
-            if (height >= width && height >= depth && height > 1) {
-                height--;
-            } else if (width >= depth && width > 1) {
-                width--;
-            } else if (depth > 1) {
-                depth--;
-            } else {
-                break;
-            }
-        }
-        BlockPos min = box.min();
-        return new RtsCullingBox(
-                box.id(),
-                min,
-                new BlockPos(min.getX() + width - 1, min.getY() + height - 1, min.getZ() + depth - 1));
+    private static RangeDestroySelectionLimiter.Limits currentRangeDestroyLimits() {
+        return new RangeDestroySelectionLimiter.Limits(
+                configInt(
+                        Config::areaMineMaxWidth,
+                        DEFAULT_AREA_MINE_MAX_SIZE),
+                configInt(
+                        Config::areaMineMaxHeight,
+                        DEFAULT_AREA_MINE_MAX_SIZE),
+                configInt(
+                        Config::areaMineMaxDepth,
+                        DEFAULT_AREA_MINE_MAX_SIZE),
+                configInt(
+                        Config::areaMineMaxVolume,
+                        DEFAULT_AREA_MINE_MAX_VOLUME));
     }
 
     private static int configInt(java.util.function.IntSupplier supplier, int fallback) {
@@ -1013,19 +921,19 @@ public final class ScreenShapeController {
                 pointB,
                 ShapeBuildTypes.Phase.READY_CONFIRM,
                 isAdvancedShape(session.shape()) && pointB != null
-                        ? initialAdvancedHeightOffset(session.shape(), session.pointA(), pointB)
+                        ? AdvancedShapeSelectionGeometry.initialHeightOffset(
+                                session.shape(),
+                                session.pointA(),
+                                pointB)
                         : 0,
                 mouseY);
         return isAdvancedShape(session.shape())
-                ? sessionFromBox(ready, clampAdvancedShapeBox(initialAdvancedShapeBox(ready), session.pointA()))
+                ? AdvancedShapeSelectionGeometry.sessionFromBox(
+                        ready,
+                        clampAdvancedShapeBox(
+                                AdvancedShapeSelectionGeometry.initialBox(ready),
+                                session.pointA()))
                 : ready;
-    }
-
-    private static int initialAdvancedHeightOffset(BuildShape shape, BlockPos pointA, BlockPos pointB) {
-        if (shape == BuildShape.CYLINDER || shape == BuildShape.CIRCLE || shape == BuildShape.BALL) {
-            return 0;
-        }
-        return pointB == null || pointA == null ? 0 : pointB.getY() - pointA.getY();
     }
 
     public boolean tryConfirmPendingShapeBuild(boolean forcePlace) {
@@ -1063,7 +971,9 @@ public final class ScreenShapeController {
     public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
         if (this.screen.isQuickBuildRangeDestroyMode()) {
             if (this.screen.isQuickBuildRangeDestroyChainMode()) {
-                ShapeDataRecords.GhostPreview confirmed = confirmedChainDestroyPreviewOrEmpty();
+                ShapeDataRecords.GhostPreview confirmed = this.confirmedDestroyPreviews.activeChain(
+                        currentDestroyPreviewProgress(),
+                        this::isLiveConfirmedDestroyTarget);
                 if (confirmed != ShapeDataRecords.GhostPreview.EMPTY) {
                     return confirmed;
                 }
@@ -1077,7 +987,9 @@ public final class ScreenShapeController {
                 if (hit == null) {
                     return ShapeDataRecords.GhostPreview.EMPTY;
                 }
-                List<BlockPos> breakable = collectBreakableTargets(List.of(hit.getBlockPos().immutable()));
+                List<BlockPos> breakable = ShapeDestroyTargetClassifier.breakableTargets(
+                        List.of(hit.getBlockPos().immutable()),
+                        this::isBreakableDestroyTarget);
                 return breakable.isEmpty()
                         ? ShapeDataRecords.GhostPreview.EMPTY
                         : new ShapeDataRecords.GhostPreview(breakable, true, true, List.of());
@@ -1087,8 +999,10 @@ public final class ScreenShapeController {
                 return ShapeDataRecords.GhostPreview.EMPTY;
             }
             List<BlockPos> raw = generateShapePositions(input);
-            List<BlockPos> breakable = collectBreakableTargets(raw);
-            List<BlockPos> emptyEnvelope = collectRangeDestroyEnvelopeBlocks(raw, breakable);
+            ShapeDestroyTargetClassifier.Selection selection =
+                    ShapeDestroyTargetClassifier.classify(raw, this::isBreakableDestroyTarget);
+            List<BlockPos> breakable = selection.breakableBlocks();
+            List<BlockPos> emptyEnvelope = selection.envelopeBlocks();
             boolean ready = this.shapeBuildSession != null && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
             if (breakable.isEmpty()) {
                 return emptyEnvelope.isEmpty()
@@ -1138,24 +1052,9 @@ public final class ScreenShapeController {
                 return ShapeDataRecords.GhostPreview.EMPTY;
             }
 
-            // Use BlockPlaceContext to properly determine the placement position,
-            // matching the server's auto-adjustment logic (handles slab merging
-            // where canBeReplaced(context) returns true for matching slabs, etc.).
-            BlockPlaceContext context = new BlockPlaceContext(
-                    mc.level, mc.player, InteractionHand.MAIN_HAND, itemStack, hit);
-            BlockPos placePos = context.getClickedPos();
+            BlockPos placePos = ShapePlacementTargetResolver.resolveSingleGhostTarget(mc, hit, itemStack);
             if (placePos == null) {
                 return ShapeDataRecords.GhostPreview.EMPTY;
-            }
-
-            // Use context-aware canBeReplaced() instead of the no-arg variant so
-            // that blocks replaceable only with context (e.g., slabs that can merge
-            // into DOUBLE) are not incorrectly treated as occupied.
-            if (mc.level.hasChunkAt(placePos)) {
-                if (!mc.level.getBlockState(placePos).isAir()
-                        && !mc.level.getBlockState(placePos).canBeReplaced(context)) {
-                    return ShapeDataRecords.GhostPreview.EMPTY;
-                }
             }
             return new ShapeDataRecords.GhostPreview(List.of(placePos), true);
         }
@@ -1182,22 +1081,15 @@ public final class ScreenShapeController {
      */
     public void rememberConfirmedChainDestroyPreview(List<BlockPos> blocks) {
         if (blocks == null || blocks.isEmpty()) {
-            clearConfirmedChainDestroyPreview();
+            this.confirmedDestroyPreviews.clearChain();
             return;
         }
         List<BlockPos> boundsFiltered = filterToBounds(blocks);
         if (boundsFiltered.isEmpty()) {
-            clearConfirmedChainDestroyPreview();
+            this.confirmedDestroyPreviews.clearChain();
             return;
         }
-        this.confirmedChainDestroyPreview = new ShapeDataRecords.GhostPreview(
-                copyImmutableBlocks(boundsFiltered),
-                true,
-                true,
-                List.of(),
-                true,
-                true);
-        this.confirmedChainDestroyPreviewUntilMs = System.currentTimeMillis() + 2500L;
+        this.confirmedDestroyPreviews.rememberChain(boundsFiltered);
     }
 
     /**
@@ -1207,8 +1099,9 @@ public final class ScreenShapeController {
      * imply parallel mining that does not exist.
      */
     public List<ShapeDataRecords.GhostPreview> getConfirmedRangeDestroyPreviews() {
-        ShapeDataRecords.GhostPreview preview = confirmedRangeDestroyPreviewOrEmpty();
-        return preview == ShapeDataRecords.GhostPreview.EMPTY ? List.of() : List.of(preview);
+        return this.confirmedDestroyPreviews.activeRanges(
+                currentDestroyPreviewProgress(),
+                this::isLiveConfirmedDestroyTarget);
     }
 
     /**
@@ -1218,18 +1111,14 @@ public final class ScreenShapeController {
      * 只裁掉被拒绝的方块，继续保留同一批次中真正会被挖掘的目标和进度高亮。
      */
     public void removeConfirmedRangeDestroyPreviewBlocks(List<BlockPos> skippedPositions) {
-        this.confirmedRangeDestroyPreview = pruneConfirmedDestroyPreview(
-                this.confirmedRangeDestroyPreview,
-                skippedPositions);
-        if (this.confirmedRangeDestroyPreview == ShapeDataRecords.GhostPreview.EMPTY) {
-            this.confirmedRangeDestroyPreviewUntilMs = 0L;
-        }
+        this.confirmedDestroyPreviews.removeRangeBlocks(skippedPositions);
     }
 
     /** Returns whether a confirmed destructive work area is currently active. */
     public boolean hasConfirmedDestroyWorkArea() {
-        return confirmedRangeDestroyPreviewOrEmpty() != ShapeDataRecords.GhostPreview.EMPTY
-                || confirmedChainDestroyPreviewOrEmpty() != ShapeDataRecords.GhostPreview.EMPTY;
+        return this.confirmedDestroyPreviews.hasAnyActive(
+                currentDestroyPreviewProgress(),
+                this::isLiveConfirmedDestroyTarget);
     }
 
     // ===== Undo =====
@@ -1288,15 +1177,22 @@ public final class ScreenShapeController {
     public boolean canAdjustCurrentShapeHeight() {
         return this.shapeBuildSession != null
                 && this.shapeBuildSession.shape() == this.controller.getBuildShape()
-                && canAdjustShapeHeight(this.shapeBuildSession.shape());
+                && canAdjustShapeHeight(this.shapeBuildSession.shape())
+                && (this.shapeBuildSession.shape() != BuildShape.LINE || isVerticalLine(BuildShape.LINE));
     }
 
     private static boolean canAdjustShapeHeight(BuildShape shape) {
-        return shape == BuildShape.WALL || shape == BuildShape.CYLINDER || shape == BuildShape.BOX;
+        return shape == BuildShape.LINE
+                || shape == BuildShape.WALL
+                || shape == BuildShape.CYLINDER
+                || shape == BuildShape.BOX;
     }
 
     public boolean adjustShapeHeightNudge(int delta) {
         if (delta == 0 || this.shapeBuildSession == null || !canAdjustShapeHeight(this.shapeBuildSession.shape())) {
+            return false;
+        }
+        if (this.shapeBuildSession.shape() == BuildShape.LINE && !isVerticalLine(BuildShape.LINE)) {
             return false;
         }
         if ((this.shapeBuildSession.shape() == BuildShape.BOX
@@ -1306,12 +1202,16 @@ public final class ScreenShapeController {
             return false;
         }
         int nextOffset = ShapeGeometryUtil.clampShapeOffset(this.shapeBuildSession.boxHeightOffset() + delta);
+        BlockPos nextPointB = this.shapeBuildSession.pointB();
+        if (this.shapeBuildSession.shape() == BuildShape.LINE && this.shapeBuildSession.pointA() != null) {
+            nextPointB = this.shapeBuildSession.pointA().offset(0, nextOffset, 0);
+        }
         this.shapeBuildSession = new ShapeBuildTypes.Session(
                 this.shapeBuildSession.shape(),
                 this.shapeBuildSession.planeFace(),
                 this.shapeBuildSession.placementFace(),
                 this.shapeBuildSession.pointA(),
-                this.shapeBuildSession.pointB(),
+                nextPointB,
                 this.shapeBuildSession.phase(),
                 nextOffset,
                 this.shapeBuildSession.boxHeightMouseBaseY());
@@ -1332,130 +1232,61 @@ public final class ScreenShapeController {
     // ===== Label / status helpers =====
 
     public String fillModeLabel(ShapeFillMode mode) {
-        if (mode == null) {
-            return this.screen.text("screen.rtsbuilding.fill.fill");
-        }
-        return switch (mode) {
-            case FILL -> this.screen.text("screen.rtsbuilding.fill.fill");
-            case HOLLOW -> this.screen.text("screen.rtsbuilding.fill.hollow");
-            case SKELETON -> this.screen.text("screen.rtsbuilding.fill.skeleton");
-        };
+        return ShapeSelectionTextPresenter.fillModeLabel(mode, this.screen::text);
     }
 
     public static String shapeDimensionLabel(BuildShape shape) {
-        if (shape == null) {
-            return "2D";
-        }
-        return switch (shape) {
-            case LINE -> "1D";
-            case CYLINDER, BALL, BOX -> "3D";
-            default -> "2D";
-        };
+        return ShapeSelectionTextPresenter.dimensionLabel(shape);
     }
 
     public String currentShapeSizeText() {
         BuildShape shape = this.controller.getBuildShape();
         if (shape == BuildShape.BLOCK) {
-            return "1*1*1";
+            return ShapeSelectionTextPresenter.sizeText(shape, List.of());
         }
         ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
         if (input == null) {
-            return "0*0*0";
+            return ShapeSelectionTextPresenter.sizeText(shape, List.of());
         }
-        List<BlockPos> blocks = generateShapePositions(input);
-        if (blocks.isEmpty()) {
-            return "0*0*0";
-        }
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        for (BlockPos pos : blocks) {
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        int sx = (maxX - minX) + 1;
-        int sy = (maxY - minY) + 1;
-        int sz = (maxZ - minZ) + 1;
-        return sx + "*" + sy + "*" + sz;
+        return ShapeSelectionTextPresenter.sizeText(shape, generateShapePositions(input));
     }
 
     public String currentShapeCostText() {
         if (this.screen.isQuickBuildRangeDestroyChainMode()) {
             List<BlockPos> preview = this.screen.collectUltiminePreviewBlocks();
-            return Integer.toString(preview.size());
+            return ShapeSelectionTextPresenter.countText(preview.size());
         }
         BuildShape shape = this.controller.getBuildShape();
         if (shape == BuildShape.BLOCK) {
-            return "1";
+            return ShapeSelectionTextPresenter.countText(1);
         }
         ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
         if (input == null) {
-            return "0";
+            return ShapeSelectionTextPresenter.countText(0);
         }
         if (this.screen.isQuickBuildRangeDestroyMode()) {
-            return Integer.toString(collectBreakableTargets(generateShapePositions(input)).size());
+            return ShapeSelectionTextPresenter.countText(
+                    ShapeDestroyTargetClassifier.breakableTargets(
+                            generateShapePositions(input),
+                            this::isBreakableDestroyTarget).size());
         }
         List<BlockPos> blocks = filterOccupiedReadyShapeTargets(input, generateShapePositions(input));
-        return Integer.toString(blocks.size());
+        return ShapeSelectionTextPresenter.countText(blocks.size());
     }
 
     public String pendingShapeStatusText() {
-        if (!this.screen.isQuickBuildOpen()) {
-            return "";
-        }
         BuildShape currentShape = this.controller.getBuildShape();
         boolean destroyMode = this.screen.isQuickBuildRangeDestroyMode();
-        if (this.screen.isQuickBuildRangeDestroyChainMode()) {
-            return this.screen.text("screen.rtsbuilding.shape_status.destroy_chain");
-        }
-        if (currentShape == BuildShape.BLOCK) {
-            return this.screen.text(destroyMode
-                    ? "screen.rtsbuilding.shape_status.destroy"
-                    : "screen.rtsbuilding.shape_status.place");
-        }
-        if (this.shapeBuildSession == null || this.shapeBuildSession.shape() != currentShape) {
-            return this.screen.text(destroyMode
-                    ? "screen.rtsbuilding.shape_status.destroy_step_a"
-                    : "screen.rtsbuilding.shape_status.step_a");
-        }
-        return switch (this.shapeBuildSession.phase()) {
-            case NEED_SECOND_POINT -> {
-                BlockPos a = this.shapeBuildSession.pointA();
-                yield this.screen.text(destroyMode
-                        ? "screen.rtsbuilding.shape_status.destroy_step_b"
-                        : "screen.rtsbuilding.shape_status.step_b", a.getX(), a.getY(), a.getZ());
-            }
-            case NEED_THIRD_POINT -> this.screen.text(destroyMode
-                    ? "screen.rtsbuilding.shape_status.destroy_step_height"
-                    : "screen.rtsbuilding.shape_status.step_height");
-            case READY_CONFIRM -> {
-                String key = confirmStatusKey(currentShape, destroyMode);
-                yield this.screen.text(key, confirmKeyLabel(destroyMode));
-            }
-        };
-    }
-
-    private static String confirmStatusKey(BuildShape shape, boolean destroyMode) {
-        if (shape == BuildShape.WALL) {
-            return destroyMode
-                    ? "screen.rtsbuilding.shape_status.destroy_confirm_wall"
-                    : "screen.rtsbuilding.shape_status.confirm_wall";
-        }
-        if (shape == BuildShape.CYLINDER) {
-            return destroyMode
-                    ? "screen.rtsbuilding.shape_status.destroy_confirm_cylinder"
-                    : "screen.rtsbuilding.shape_status.confirm_cylinder";
-        }
-        return destroyMode
-                ? "screen.rtsbuilding.shape_status.destroy_confirm"
-                : "screen.rtsbuilding.shape_status.confirm";
+        ShapeSelectionTextPresenter.Status status = new ShapeSelectionTextPresenter.Status(
+                this.screen.isQuickBuildOpen(),
+                currentShape,
+                destroyMode,
+                this.screen.isQuickBuildRangeDestroyChainMode(),
+                this.shapeBuildSession);
+        return ShapeSelectionTextPresenter.pendingStatusText(
+                status,
+                () -> confirmKeyLabel(destroyMode),
+                this.screen::text);
     }
 
     private String confirmKeyLabel(boolean destroyMode) {
@@ -1468,19 +1299,7 @@ public final class ScreenShapeController {
     }
 
     public String shapeLabel(BuildShape shape) {
-        if (shape == null) {
-            return this.screen.text("screen.rtsbuilding.shape.block");
-        }
-        return switch (shape) {
-            case BLOCK -> this.screen.text("screen.rtsbuilding.shape.block");
-            case LINE -> this.screen.text("screen.rtsbuilding.shape.line");
-            case SQUARE -> this.screen.text("screen.rtsbuilding.shape.square");
-            case WALL -> this.screen.text("screen.rtsbuilding.shape.wall");
-            case CIRCLE -> this.screen.text("screen.rtsbuilding.shape.circle");
-            case CYLINDER -> this.screen.text("screen.rtsbuilding.shape.cylinder");
-            case BALL -> this.screen.text("screen.rtsbuilding.shape.ball");
-            case BOX -> this.screen.text("screen.rtsbuilding.shape.box");
-        };
+        return ShapeSelectionTextPresenter.shapeLabel(shape, this.screen::text);
     }
 
     // ===== Internal helpers =====
@@ -1529,154 +1348,45 @@ public final class ScreenShapeController {
         if (session == null || session.shape() != this.controller.getBuildShape()) {
             return null;
         }
-        if (requireReady && session.phase() != ShapeBuildTypes.Phase.READY_CONFIRM) {
-            return null;
-        }
-        BlockPos pointA = session.pointA();
-        if (pointA == null) {
-            return null;
-        }
-        if (session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
-            if (requireReady) {
-                return null;
-            }
-            BlockPos pointB = resolveShapePlanePoint(session, cursorHit);
-            pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, 0, this.lineConnected);
-        }
-        BlockPos pointB = session.pointB();
-        if (pointB == null) {
-            return null;
-        }
-        if (session.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT) {
-            if (requireReady) {
-                return null;
-            }
-            pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-            return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session), this.lineConnected);
-        }
-        pointB = applyShapeFootprintNudges(session.shape(), session.planeFace(), pointA, pointB);
-        return new ShapeBuildTypes.Input(session.shape(), session.planeFace(), session.placementFace(), pointA, pointB, resolveBoxHeightOffset(session), this.lineConnected);
-    }
-
-    private int resolveBoxHeightOffset(ShapeBuildTypes.Session session) {
-        if (session == null) {
-            return 0;
-        }
-        return session.boxHeightOffset();
-    }
-
-    private BlockPos resolveShapePlanePoint(ShapeBuildTypes.Session session, BlockHitResult cursorHit) {
-        if (session == null) {
-            return cursorHit != null ? cursorHit.getBlockPos() : null;
-        }
-        BlockPos pointA = session.pointA();
-        if (pointA == null) {
-            return cursorHit != null ? cursorHit.getBlockPos() : null;
-        }
-        BuildShape shape = session.shape();
-        if (shape == null || shape == BuildShape.BLOCK) {
-            return cursorHit != null ? cursorHit.getBlockPos() : pointA;
-        }
-        Direction planeFace = session.planeFace();
-        if (shape == BuildShape.LINE
-                || shape == BuildShape.SQUARE
-                || shape == BuildShape.WALL
-                || shape == BuildShape.BOX) {
-            planeFace = Direction.UP;
-        }
-        if (planeFace == null) {
-            return cursorHit != null ? cursorHit.getBlockPos() : pointA;
-        }
-        Vec3 planeHit = intersectCursorRayWithShapePlane(pointA, planeFace);
-        if (planeHit == null && cursorHit != null) {
-            planeHit = cursorHit.getLocation();
-        }
-        if (planeHit == null) {
-            return pointA;
-        }
-        return blockPosFromPlaneHit(pointA, planeFace, planeHit);
-    }
-
-    private Vec3 intersectCursorRayWithShapePlane(BlockPos anchor, Direction face) {
         Minecraft mc = this.screen.getMinecraft();
-        if (anchor == null || face == null || mc == null || mc.gameRenderer == null) {
-            return null;
-        }
-        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 rayDir = this.screen.computeCursorRayDirection();
-        if (rayOrigin == null || rayDir == null) {
-            return null;
-        }
-        Vec3 planeAnchor = Vec3.atCenterOf(anchor);
-        double planeCoord = switch (face.getAxis()) {
-            case X -> planeAnchor.x;
-            case Y -> planeAnchor.y;
-            case Z -> planeAnchor.z;
-        };
-        double originCoord = switch (face.getAxis()) {
-            case X -> rayOrigin.x;
-            case Y -> rayOrigin.y;
-            case Z -> rayOrigin.z;
-        };
-        double dirCoord = switch (face.getAxis()) {
-            case X -> rayDir.x;
-            case Y -> rayDir.y;
-            case Z -> rayDir.z;
-        };
-        if (Math.abs(dirCoord) < 1.0E-5D) {
-            return null;
-        }
-        double t = (planeCoord - originCoord) / dirCoord;
-        if (t <= 0.0D || t > 128.0D) {
-            return null;
-        }
-        return rayOrigin.add(rayDir.scale(t));
+        Vec3 rayOrigin = mc != null && mc.gameRenderer != null
+                ? mc.gameRenderer.getMainCamera().getPosition()
+                : null;
+        Vec3 rayDirection = mc != null ? this.screen.computeCursorRayDirection() : null;
+        return ShapeSessionInputResolver.resolve(
+                session,
+                cursorHit,
+                requireReady,
+                isVerticalLine(session.shape()),
+                this.lineConnected,
+                this.shapeFootprintNudgeA,
+                this.shapeFootprintNudgeB,
+                rayOrigin,
+                rayDirection);
     }
 
-    private static BlockPos blockPosFromPlaneHit(BlockPos anchor, Direction face, Vec3 hitVec) {
-        if (anchor == null || face == null || hitVec == null) {
-            return anchor;
-        }
-        return switch (face.getAxis()) {
-            case X -> new BlockPos(anchor.getX(), Mth.floor(hitVec.y), Mth.floor(hitVec.z));
-            case Y -> new BlockPos(Mth.floor(hitVec.x), anchor.getY(), Mth.floor(hitVec.z));
-            case Z -> new BlockPos(Mth.floor(hitVec.x), Mth.floor(hitVec.y), anchor.getZ());
-        };
+    private boolean isVerticalLine(BuildShape shape) {
+        return shape == BuildShape.LINE
+                && this.screen != null
+                && this.screen.isRoundShapeVertical(BuildShape.LINE);
     }
 
-    private BlockPos applyShapeFootprintNudges(BuildShape shape, Direction face, BlockPos pointA, BlockPos pointB) {
-        if (pointA == null || pointB == null) {
-            return pointB;
-        }
-        if (this.shapeFootprintNudgeA == 0 && this.shapeFootprintNudgeB == 0) {
-            return pointB;
-        }
-        if (shape == null || shape == BuildShape.BLOCK) {
-            return pointB;
-        }
-        Direction axisA;
-        Direction axisB;
-        if (shape == BuildShape.BOX) {
-            axisA = Direction.EAST;
-            axisB = Direction.SOUTH;
-        } else {
-            Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(shape, face);
-            if (axes.length < 2) {
-                return pointB;
-            }
-            axisA = axes[0];
-            axisB = axes[1];
-        }
-        int dx = pointB.getX() - pointA.getX();
-        int dy = pointB.getY() - pointA.getY();
-        int dz = pointB.getZ() - pointA.getZ();
-        int nextA = ShapeGeometryUtil.clampShapeOffset(ShapeGeometryUtil.dotDelta(dx, dy, dz, axisA) + this.shapeFootprintNudgeA);
-        int nextB = ShapeGeometryUtil.clampShapeOffset(ShapeGeometryUtil.dotDelta(dx, dy, dz, axisB) + this.shapeFootprintNudgeB);
-        return ShapeGeometryUtil.offsetPos(pointA, axisA, nextA, axisB, nextB);
+    /**
+     * 交互阶段只负责提供当前相机射线，平面命中计算统一交给纯解析器。
+     */
+    private BlockPos resolveShapePlanePoint(
+            ShapeBuildTypes.Session session,
+            BlockHitResult cursorHit) {
+        Minecraft mc = this.screen.getMinecraft();
+        Vec3 rayOrigin = mc != null && mc.gameRenderer != null
+                ? mc.gameRenderer.getMainCamera().getPosition()
+                : null;
+        Vec3 rayDirection = mc != null ? this.screen.computeCursorRayDirection() : null;
+        return ShapeSessionInputResolver.resolvePlanePoint(
+                session, cursorHit, rayOrigin, rayDirection);
     }
 
-    private void rememberConfirmedRangeDestroyPreview(RangeDestroyPreview preview) {
+    private void rememberConfirmedRangeDestroyPreview(ShapeDestroyTargetClassifier.Selection preview) {
         if (preview == null || preview.isEmpty()) {
             return;
         }
@@ -1685,190 +1395,28 @@ public final class ScreenShapeController {
         if (boundsFiltered.isEmpty()) {
             return;
         }
-        this.confirmedRangeDestroyPreview = new ShapeDataRecords.GhostPreview(
-                new ArrayList<>(boundsFiltered),
-                true,
-                true,
-                new ArrayList<>(envelopeFiltered),
-                false,
-                true);
-        this.confirmedRangeDestroyPreviewUntilMs = System.currentTimeMillis() + 2500L;
+        this.confirmedDestroyPreviews.rememberRange(boundsFiltered, envelopeFiltered);
     }
 
-    private ShapeDataRecords.GhostPreview confirmedRangeDestroyPreviewOrEmpty() {
-        ShapeDataRecords.GhostPreview preview = this.confirmedRangeDestroyPreview;
-        if (preview == null
-                || preview == ShapeDataRecords.GhostPreview.EMPTY
-                || (preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty())) {
-            return ShapeDataRecords.GhostPreview.EMPTY;
-        }
-        if (!hasAnyLiveConfirmedDestroyTarget(preview)) {
-            clearConfirmedRangeDestroyPreview();
-            return ShapeDataRecords.GhostPreview.EMPTY;
-        }
-        long now = System.currentTimeMillis();
+    private ConfirmedDestroyPreviewState.Progress currentDestroyPreviewProgress() {
         BlockPos progressPos = this.controller.getMineProgressPos();
-        boolean containsProgress = previewContains(preview, progressPos);
-        boolean miningProgressBelongsHere = containsProgress && this.controller.getMineProgressStage() >= 0;
         RtsWorkflowStatus workflow = this.controller.findActiveDestroyWorkflow();
-        boolean batchProgressBelongsHere = containsProgress
-                && workflow != null
-                && workflow.totalBlocks() > 0;
-        if (miningProgressBelongsHere || batchProgressBelongsHere) {
-            this.confirmedRangeDestroyPreviewUntilMs = now + 850L;
-            return preview;
-        }
-        if (now <= this.confirmedRangeDestroyPreviewUntilMs) {
-            return preview;
-        }
-        clearConfirmedRangeDestroyPreview();
-        return ShapeDataRecords.GhostPreview.EMPTY;
+        return new ConfirmedDestroyPreviewState.Progress(
+                progressPos,
+                this.controller.getMineProgressStage(),
+                workflow != null && workflow.totalBlocks() > 0);
     }
 
-    private ShapeDataRecords.GhostPreview confirmedChainDestroyPreviewOrEmpty() {
-        ShapeDataRecords.GhostPreview preview = this.confirmedChainDestroyPreview;
-        if (preview == null
-                || preview == ShapeDataRecords.GhostPreview.EMPTY
-                || (preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty())) {
-            return ShapeDataRecords.GhostPreview.EMPTY;
-        }
-        if (!hasAnyLiveConfirmedDestroyTarget(preview)) {
-            clearConfirmedChainDestroyPreview();
-            return ShapeDataRecords.GhostPreview.EMPTY;
-        }
-        long now = System.currentTimeMillis();
-        BlockPos progressPos = this.controller.getMineProgressPos();
-        boolean containsProgress = previewContains(preview, progressPos);
-        boolean hasForeignProgress = progressPos != null
-                && this.controller.getMineProgressStage() >= 0
-                && !containsProgress;
-        if (hasForeignProgress) {
-            clearConfirmedChainDestroyPreview();
-            return ShapeDataRecords.GhostPreview.EMPTY;
-        }
-        boolean miningProgressBelongsHere = containsProgress && this.controller.getMineProgressStage() >= 0;
-        RtsWorkflowStatus workflow = this.controller.findActiveDestroyWorkflow();
-        boolean batchProgressBelongsHere = containsProgress
-                && workflow != null
-                && workflow.totalBlocks() > 0;
-        if (miningProgressBelongsHere || batchProgressBelongsHere) {
-            this.confirmedChainDestroyPreviewUntilMs = now + 850L;
-            return preview;
-        }
-        if (now <= this.confirmedChainDestroyPreviewUntilMs) {
-            return preview;
-        }
-        clearConfirmedChainDestroyPreview();
-        return ShapeDataRecords.GhostPreview.EMPTY;
-    }
-
-    private void clearConfirmedChainDestroyPreview() {
-        this.confirmedChainDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
-        this.confirmedChainDestroyPreviewUntilMs = 0L;
-    }
-
-    private void clearConfirmedRangeDestroyPreview() {
-        this.confirmedRangeDestroyPreview = ShapeDataRecords.GhostPreview.EMPTY;
-        this.confirmedRangeDestroyPreviewUntilMs = 0L;
-    }
-
-    private boolean hasAnyLiveConfirmedDestroyTarget(ShapeDataRecords.GhostPreview preview) {
-        if (preview == null || preview.blocks().isEmpty()) {
+    private boolean isLiveConfirmedDestroyTarget(BlockPos pos) {
+        if (pos == null) {
             return false;
         }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null) {
             return true;
         }
-        for (BlockPos pos : preview.blocks()) {
-            if (pos == null) {
-                continue;
-            }
-            BlockState state = mc.level.getBlockState(pos);
-            if (!state.isAir() && state.getFluidState().isEmpty()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
-        if (preview == null || pos == null) {
-            return false;
-        }
-        return contains(preview.blocks(), pos) || contains(preview.emptyBlocks(), pos);
-    }
-
-    private static boolean contains(List<BlockPos> blocks, BlockPos pos) {
-        if (blocks == null || pos == null) {
-            return false;
-        }
-        for (BlockPos block : blocks) {
-            if (pos.equals(block)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static List<BlockPos> copyImmutableBlocks(List<BlockPos> blocks) {
-        if (blocks == null || blocks.isEmpty()) {
-            return List.of();
-        }
-        List<BlockPos> copy = new ArrayList<>(blocks.size());
-        for (BlockPos pos : blocks) {
-            if (pos != null) {
-                copy.add(pos.immutable());
-            }
-        }
-        return copy;
-    }
-
-    static ShapeDataRecords.GhostPreview pruneConfirmedDestroyPreview(
-            ShapeDataRecords.GhostPreview preview,
-            List<BlockPos> skippedPositions) {
-        if (preview == null
-                || preview == ShapeDataRecords.GhostPreview.EMPTY
-                || preview.blocks() == null
-                || preview.blocks().isEmpty()
-                || skippedPositions == null
-                || skippedPositions.isEmpty()) {
-            return preview == null ? ShapeDataRecords.GhostPreview.EMPTY : preview;
-        }
-        Set<Long> skippedKeys = new HashSet<>();
-        for (BlockPos pos : skippedPositions) {
-            if (pos != null) {
-                skippedKeys.add(pos.asLong());
-            }
-        }
-        if (skippedKeys.isEmpty()) {
-            return preview;
-        }
-        List<BlockPos> remainingBlocks = preview.blocks().stream()
-                .filter(Objects::nonNull)
-                .filter(pos -> !skippedKeys.contains(pos.asLong()))
-                .map(BlockPos::immutable)
-                .toList();
-        if (remainingBlocks.size() == preview.blocks().size()) {
-            return preview;
-        }
-        if (remainingBlocks.isEmpty()) {
-            return ShapeDataRecords.GhostPreview.EMPTY;
-        }
-        List<BlockPos> remainingEmptyBlocks = preview.emptyBlocks() == null
-                ? List.of()
-                : preview.emptyBlocks().stream()
-                        .filter(Objects::nonNull)
-                        .filter(pos -> !skippedKeys.contains(pos.asLong()))
-                        .map(BlockPos::immutable)
-                        .toList();
-        return new ShapeDataRecords.GhostPreview(
-                remainingBlocks,
-                preview.readyConfirm(),
-                preview.destructive(),
-                remainingEmptyBlocks,
-                preview.chainDestroyPreview(),
-                preview.confirmedWorkArea());
+        BlockState state = mc.level.getBlockState(pos);
+        return !state.isAir() && state.getFluidState().isEmpty();
     }
 
     private List<BlockPos> filterToBounds(List<BlockPos> blocks) {
@@ -1879,66 +1427,18 @@ public final class ScreenShapeController {
                 this.controller.getAnchorX(), this.controller.getAnchorZ(), this.controller.getMaxRadius());
     }
 
-    /**
-     * Collects breakable (non-air, non-fluid, destructible) block positions from the given list.
-     * <p>
-     * Shared by both ghost-preview and cost-count code paths to avoid
-     * duplicating the same filtering logic.
-     */
-    private List<BlockPos> collectBreakableTargets(List<BlockPos> targets) {
-        if (targets == null || targets.isEmpty()) {
-            return List.of();
+    private boolean isBreakableDestroyTarget(BlockPos pos) {
+        if (pos == null) {
+            return false;
         }
-        LinkedHashSet<BlockPos> breakable = new LinkedHashSet<>(targets.size());
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null) {
-            for (BlockPos pos : targets) {
-                if (pos != null) {
-                    breakable.add(pos.immutable());
-                }
-            }
-            return new ArrayList<>(breakable);
+            return true;
         }
-        for (BlockPos pos : targets) {
-            if (pos == null) {
-                continue;
-            }
-            BlockState state = mc.level.getBlockState(pos);
-            if (!state.getFluidState().isEmpty() || state.isAir() || state.getDestroySpeed(mc.level, pos) < 0.0F) {
-                continue;
-            }
-            breakable.add(pos.immutable());
-        }
-        return new ArrayList<>(breakable);
-    }
-
-    private static List<BlockPos> collectRangeDestroyEnvelopeBlocks(List<BlockPos> rawTargets, List<BlockPos> breakableTargets) {
-        if (rawTargets == null || rawTargets.isEmpty()) {
-            return List.of();
-        }
-        HashSet<BlockPos> breakable = new HashSet<>();
-        if (breakableTargets != null) {
-            for (BlockPos pos : breakableTargets) {
-                if (pos != null) {
-                    breakable.add(pos.immutable());
-                }
-            }
-        }
-        LinkedHashSet<BlockPos> envelope = new LinkedHashSet<>(rawTargets.size());
-        for (BlockPos pos : rawTargets) {
-            if (pos != null && !breakable.contains(pos)) {
-                envelope.add(pos.immutable());
-            }
-        }
-        return new ArrayList<>(envelope);
-    }
-
-    private record RangeDestroyPreview(List<BlockPos> breakableBlocks, List<BlockPos> envelopeBlocks) {
-        private static final RangeDestroyPreview EMPTY = new RangeDestroyPreview(List.of(), List.of());
-
-        private boolean isEmpty() {
-            return this.breakableBlocks.isEmpty() && this.envelopeBlocks.isEmpty();
-        }
+        BlockState state = mc.level.getBlockState(pos);
+        return state.getFluidState().isEmpty()
+                && !state.isAir()
+                && state.getDestroySpeed(mc.level, pos) >= 0.0F;
     }
 
     /**
@@ -1952,288 +1452,14 @@ public final class ScreenShapeController {
         }
         boolean rangeDestroy = this.screen.isQuickBuildRangeDestroyMode()
                 && !this.screen.isQuickBuildRangeDestroyChainMode();
-        int maxWidth = rangeDestroy
-                ? configInt(Config::areaMineMaxWidth, DEFAULT_AREA_MINE_MAX_SIZE)
-                : SHAPE_MAX_DIMENSION;
-        int maxHeight = rangeDestroy
-                ? configInt(Config::areaMineMaxHeight, DEFAULT_AREA_MINE_MAX_SIZE)
-                : SHAPE_MAX_DIMENSION;
-        int maxDepth = rangeDestroy
-                ? configInt(Config::areaMineMaxDepth, DEFAULT_AREA_MINE_MAX_SIZE)
-                : SHAPE_MAX_DIMENSION;
-        int maxVolume = rangeDestroy
-                ? configInt(Config::areaMineMaxVolume, DEFAULT_AREA_MINE_MAX_VOLUME)
-                : SHAPE_MAX_DIMENSION * SHAPE_MAX_DIMENSION * SHAPE_MAX_DIMENSION;
-        ShapeBuildTypes.Input effectiveInput = rangeDestroy
-                ? ShapeSelectionLimiter.clampDimensionsAndVolume(
-                        input, maxWidth, maxHeight, maxDepth, maxVolume)
-                : ShapeSelectionLimiter.clampDimensions(
-                        input, maxWidth, maxHeight, maxDepth);
         RtsCullingBox advancedBox = isAdvancedShapeSelectionSession() ? advancedRangeDestroyBox() : null;
-        ShapeGenerationKey key = new ShapeGenerationKey(
-                effectiveInput, this.shapeFillMode, advancedBox, rangeDestroy,
-                maxWidth, maxHeight, maxDepth, maxVolume);
-        if (key.equals(this.generatedShapeKey)) {
-            return this.generatedShapePositions;
-        }
-
-        List<BlockPos> positions;
-        if (advancedBox != null) {
-            positions = ShapeGeometryUtil.buildAdvancedShapePositions(
-                    effectiveInput.shape(), advancedBox, this.shapeFillMode, effectiveInput.planeFace());
-        } else if (rangeDestroy) {
-            positions = ShapeGeometryUtil.buildRangeDestroyShapePositions(effectiveInput, this.shapeFillMode);
-        } else {
-            positions = ShapeGeometryUtil.buildShapePositions(effectiveInput, this.shapeFillMode);
-        }
-        if (rangeDestroy) {
-            positions = isRoundRangeDestroyShape(effectiveInput)
-                    ? clampRoundRangeDestroyPositionsForCaps(
-                            effectiveInput, positions, maxWidth, maxHeight, maxDepth, maxVolume)
-                    : clampRangeDestroyPositionsToClientCaps(effectiveInput, positions);
-        }
-        this.generatedShapeKey = key;
-        this.generatedShapePositions = List.copyOf(positions);
-        this.generatedShapeBounds = boundsOf(this.generatedShapePositions);
-        return this.generatedShapePositions;
-    }
-
-    static ShapeBuildTypes.Input clampRangeDestroyShapeInputForCaps(
-            ShapeBuildTypes.Input input, int maxWidth, int maxHeight, int maxDepth) {
-        return ShapeSelectionLimiter.clampDimensions(input, maxWidth, maxHeight, maxDepth);
-    }
-
-    private static boolean isRoundRangeDestroyShape(ShapeBuildTypes.Input input) {
-        if (input == null || input.shape() == null) {
-            return false;
-        }
-        return input.shape() == BuildShape.CIRCLE
-                || input.shape() == BuildShape.CYLINDER
-                || input.shape() == BuildShape.BALL;
-    }
-
-    static List<BlockPos> clampRoundRangeDestroyPositionsForCaps(
-            ShapeBuildTypes.Input input, List<BlockPos> positions,
-            int maxWidth, int maxHeight, int maxDepth, int maxVolume) {
-        if (positions == null || positions.isEmpty()) {
-            return List.of();
-        }
-        if (roundRangeDestroyEnvelopeFitsCaps(positions, maxWidth, maxHeight, maxDepth, maxVolume)) {
-            List<BlockPos> copy = new ArrayList<>(positions.size());
-            for (BlockPos pos : positions) {
-                if (pos != null) {
-                    copy.add(pos.immutable());
-                }
-            }
-            return copy;
-        }
-        return clampRangeDestroyPositionsToClientCaps(input, positions);
-    }
-
-    private static boolean roundRangeDestroyEnvelopeFitsCaps(
-            List<BlockPos> positions, int maxWidth, int maxHeight, int maxDepth, int maxVolume) {
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        int count = 0;
-        for (BlockPos pos : positions) {
-            if (pos == null) {
-                continue;
-            }
-            count++;
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        if (count == 0) {
-            return true;
-        }
-        int allowedWidth = Math.max(1, maxWidth);
-        int allowedHeight = Math.max(1, maxHeight);
-        int allowedDepth = Math.max(1, maxDepth);
-        return count <= Math.max(1, maxVolume)
-                && (maxX - minX + 1) <= allowedWidth
-                && (maxY - minY + 1) <= allowedHeight
-                && (maxZ - minZ + 1) <= allowedDepth;
-    }
-
-    private static List<BlockPos> clampRangeDestroyPositionsToClientCaps(ShapeBuildTypes.Input input, List<BlockPos> positions) {
-        if (positions == null || positions.isEmpty()) {
-            return List.of();
-        }
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        for (BlockPos pos : positions) {
-            if (pos == null) {
-                continue;
-            }
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        if (minX == Integer.MAX_VALUE) {
-            return List.of();
-        }
-        BlockPos anchor = input != null && input.pointA() != null
-                ? input.pointA()
-                : new BlockPos(minX, minY, minZ);
-        RtsCullingBox limited = clampBoxToClientCapsAroundAnchor(
-                new RtsCullingBox(0, new BlockPos(minX, minY, minZ), new BlockPos(maxX, maxY, maxZ)),
-                anchor);
-        List<BlockPos> clamped = new ArrayList<>(positions.size());
-        for (BlockPos pos : positions) {
-            if (pos != null
-                    && pos.getX() >= limited.min().getX() && pos.getX() <= limited.max().getX()
-                    && pos.getY() >= limited.min().getY() && pos.getY() <= limited.max().getY()
-                    && pos.getZ() >= limited.min().getZ() && pos.getZ() <= limited.max().getZ()) {
-                clamped.add(pos.immutable());
-            }
-        }
-        return clamped;
-    }
-
-    private static RtsCullingBox clampBoxToClientCapsAroundAnchor(RtsCullingBox box, BlockPos anchor) {
-        if (box == null || anchor == null) {
-            return box;
-        }
-        AxisBounds x = clampAxisAroundAnchor(
-                box.min().getX(), box.max().getX(), anchor.getX(),
-                configInt(Config::areaMineMaxWidth, DEFAULT_AREA_MINE_MAX_SIZE));
-        AxisBounds y = clampAxisAroundAnchor(
-                box.min().getY(), box.max().getY(), anchor.getY(),
-                configInt(Config::areaMineMaxHeight, DEFAULT_AREA_MINE_MAX_SIZE));
-        AxisBounds z = clampAxisAroundAnchor(
-                box.min().getZ(), box.max().getZ(), anchor.getZ(),
-                configInt(Config::areaMineMaxDepth, DEFAULT_AREA_MINE_MAX_SIZE));
-        int maxVolume = configInt(Config::areaMineMaxVolume, DEFAULT_AREA_MINE_MAX_VOLUME);
-        while ((long) x.length() * y.length() * z.length() > maxVolume) {
-            if (y.length() >= x.length() && y.length() >= z.length() && y.length() > 1) {
-                y = y.shrinkToward(anchor.getY());
-            } else if (x.length() >= z.length() && x.length() > 1) {
-                x = x.shrinkToward(anchor.getX());
-            } else if (z.length() > 1) {
-                z = z.shrinkToward(anchor.getZ());
-            } else {
-                break;
-            }
-        }
-        return new RtsCullingBox(
-                box.id(),
-                new BlockPos(x.min(), y.min(), z.min()),
-                new BlockPos(x.max(), y.max(), z.max()));
-    }
-
-    private static AxisBounds clampAxisAroundAnchor(int min, int max, int anchor, int maxLength) {
-        if (min > max) {
-            int swap = min;
-            min = max;
-            max = swap;
-        }
-        int safeMaxLength = Math.max(1, maxLength);
-        int length = max - min + 1;
-        if (length <= safeMaxLength) {
-            return new AxisBounds(min, max);
-        }
-        if (anchor <= min) {
-            return new AxisBounds(min, min + safeMaxLength - 1);
-        }
-        if (anchor >= max) {
-            return new AxisBounds(max - safeMaxLength + 1, max);
-        }
-        int leftAvailable = anchor - min;
-        int rightAvailable = max - anchor;
-        int left = Math.min(leftAvailable, safeMaxLength / 2);
-        int right = Math.min(rightAvailable, safeMaxLength - 1 - left);
-        int spare = safeMaxLength - 1 - left - right;
-        if (spare > 0) {
-            int moreLeft = Math.min(spare, leftAvailable - left);
-            left += moreLeft;
-            spare -= moreLeft;
-        }
-        if (spare > 0) {
-            right += Math.min(spare, rightAvailable - right);
-        }
-        return new AxisBounds(anchor - left, anchor + right);
-    }
-
-    private record AxisBounds(int min, int max) {
-        int length() {
-            return max - min + 1;
-        }
-
-        AxisBounds shrinkToward(int anchor) {
-            if (length() <= 1) {
-                return this;
-            }
-            if (anchor <= min) {
-                return new AxisBounds(min, max - 1);
-            }
-            if (anchor >= max) {
-                return new AxisBounds(min + 1, max);
-            }
-            return (max - anchor) >= (anchor - min)
-                    ? new AxisBounds(min, max - 1)
-                    : new AxisBounds(min + 1, max);
-        }
-    }
-
-    private static RtsCullingBox boundsOf(List<BlockPos> positions) {
-        if (positions == null || positions.isEmpty()) {
-            return null;
-        }
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        for (BlockPos pos : positions) {
-            if (pos == null) {
-                continue;
-            }
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        return minX == Integer.MAX_VALUE
-                ? null
-                : new RtsCullingBox(
-                        0,
-                        new BlockPos(minX, minY, minZ),
-                        new BlockPos(maxX, maxY, maxZ));
-    }
-
-    private void clearGeneratedShapeCache() {
-        this.generatedShapeKey = null;
-        this.generatedShapePositions = List.of();
-        this.generatedShapeBounds = null;
-    }
-
-    private record ShapeGenerationKey(
-            ShapeBuildTypes.Input input,
-            ShapeFillMode fillMode,
-            RtsCullingBox advancedBox,
-            boolean rangeDestroy,
-            int maxWidth,
-            int maxHeight,
-            int maxDepth,
-            int maxVolume) {
+        return this.shapeGenerationPlans.positions(new ShapeGenerationPlanCache.Request(
+                input,
+                this.shapeFillMode,
+                advancedBox,
+                rangeDestroy,
+                currentRangeDestroyLimits(),
+                SHAPE_MAX_DIMENSION));
     }
 
     /**
@@ -2309,122 +1535,13 @@ public final class ScreenShapeController {
     }
 
     private List<BlockPos> filterOccupiedReadyShapeTargets(ShapeBuildTypes.Input input, List<BlockPos> targets) {
-        if (targets == null || targets.isEmpty()) {
-            return List.of();
-        }
-        if (input == null || input.placementFace() == null) {
-            return targets;
-        }
         boolean strictEmptyLock = shouldSkipOccupiedReadyShapeTargets(input);
-        boolean uniformPlacement = shouldUseUniformShapePlanePlacement(input);
         ItemStack placementStack = resolveShapePlacementStackForContext();
-        LinkedHashSet<BlockPos> resolved = new LinkedHashSet<>(targets.size());
-        Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null) {
-            for (BlockPos clickedPos : targets) {
-                if (clickedPos == null) {
-                    continue;
-                }
-                BlockPos placePos = uniformPlacement
-                        ? resolveUniformShapePlacementTargetPos(input, clickedPos, placementStack)
-                        : resolvePlacementTargetPos(clickedPos, input.placementFace(), placementStack);
-                if (placePos != null) {
-                    resolved.add(placePos.immutable());
-                }
-            }
-            return new ArrayList<>(resolved);
-        }
-        for (BlockPos clickedPos : targets) {
-            if (clickedPos == null) {
-                continue;
-            }
-            BlockPos placePos = uniformPlacement
-                    ? resolveUniformShapePlacementTargetPos(input, clickedPos, placementStack)
-                    : resolvePlacementTargetPos(clickedPos, input.placementFace(), placementStack);
-            if (placePos == null) {
-                continue;
-            }
-            if (strictEmptyLock
-                    && mc.level.hasChunkAt(placePos)
-                    && !canReplaceForShapePlacement(placePos, input.placementFace(), placementStack)) {
-                continue;
-            }
-            resolved.add(placePos.immutable());
-        }
-        return new ArrayList<>(resolved);
-    }
-
-    private boolean shouldUseUniformShapePlanePlacement(ShapeBuildTypes.Input input) {
-        if (input == null || input.placementFace() == null) {
-            return false;
-        }
-        return switch (input.shape()) {
-            case LINE, SQUARE, WALL, CYLINDER, BALL, BOX -> true;
-            default -> false;
-        };
-    }
-
-    private BlockPos resolvePlacementTargetPos(BlockPos clickedPos, Direction face) {
-        return resolvePlacementTargetPos(clickedPos, face, resolveShapePlacementStackForContext());
-    }
-
-    private BlockPos resolvePlacementTargetPos(BlockPos clickedPos, Direction face, ItemStack placementStack) {
-        Minecraft mc = this.screen.getMinecraft();
-        if (clickedPos == null || face == null || mc == null || mc.level == null) {
-            return null;
-        }
-        if (!mc.level.hasChunkAt(clickedPos)) {
-            return clickedPos;
-        }
-        return canReplaceForShapePlacement(clickedPos, face, placementStack) ? clickedPos : clickedPos.relative(face);
-    }
-
-    private BlockPos resolveUniformShapePlacementTargetPos(ShapeBuildTypes.Input input, BlockPos clickedPos) {
-        return resolveUniformShapePlacementTargetPos(input, clickedPos, resolveShapePlacementStackForContext());
-    }
-
-    private BlockPos resolveUniformShapePlacementTargetPos(ShapeBuildTypes.Input input, BlockPos clickedPos,
-                                                          ItemStack placementStack) {
-        if (input == null || clickedPos == null) {
-            return null;
-        }
-        BlockPos anchor = input.pointA();
-        Direction face = input.placementFace();
-        if (anchor == null || face == null) {
-            return clickedPos;
-        }
-        BlockPos anchorPlaced = resolvePlacementTargetPos(anchor, face, placementStack);
-        if (anchorPlaced == null) {
-            return clickedPos;
-        }
-        return clickedPos.offset(
-                anchorPlaced.getX() - anchor.getX(),
-                anchorPlaced.getY() - anchor.getY(),
-                anchorPlaced.getZ() - anchor.getZ());
-    }
-
-    private boolean canReplaceForShapePlacement(BlockPos clickedPos, Direction face, ItemStack placementStack) {
-        Minecraft mc = this.screen.getMinecraft();
-        if (clickedPos == null || face == null || mc == null || mc.level == null || !mc.level.hasChunkAt(clickedPos)) {
-            return false;
-        }
-        BlockState state = mc.level.getBlockState(clickedPos);
-        BlockPlaceContext context = createShapePlacementContext(clickedPos, face, placementStack);
-        return context == null ? state.canBeReplaced() : state.canBeReplaced(context);
-    }
-
-    private BlockPlaceContext createShapePlacementContext(BlockPos clickedPos, Direction face, ItemStack placementStack) {
-        Minecraft mc = this.screen.getMinecraft();
-        if (clickedPos == null || face == null || placementStack == null || placementStack.isEmpty()
-                || mc == null || mc.level == null || mc.player == null) {
-            return null;
-        }
-        return new BlockPlaceContext(
-                mc.level,
-                mc.player,
-                InteractionHand.MAIN_HAND,
-                placementStack,
-                ShapeGeometryUtil.createShapePlacementHit(clickedPos, face));
+        return ShapePlacementTargetResolver.resolveTargets(
+                input,
+                targets,
+                strictEmptyLock,
+                ShapePlacementTargetResolver.minecraftWorld(this.screen.getMinecraft(), placementStack));
     }
 
     private ItemStack resolveShapePlacementStackForContext() {
@@ -2472,14 +1589,6 @@ public final class ScreenShapeController {
         long window = mc.getWindow().getWindow();
         return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
-    }
-
-    private double currentMouseX() {
-        return this.screen.getCurrentMouseX();
-    }
-
-    private double currentMouseY() {
-        return this.screen.getCurrentMouseY();
     }
 
 }

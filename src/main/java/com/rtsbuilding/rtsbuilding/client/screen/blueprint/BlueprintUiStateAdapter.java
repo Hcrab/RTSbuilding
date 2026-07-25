@@ -79,7 +79,7 @@ final class BlueprintUiStateAdapter {
             String iconId = line.preview().isEmpty() ? ""
                     : BuiltInRegistries.ITEM.getKey(line.preview().getItem()).toString();
             rows.add(new BlueprintMaterialUiState.Row(
-                    iconId, line.label(), line.detail(), line.color()));
+                    iconId, line.label(), line.detail(), line.tone()));
         }
         return new BlueprintMaterialUiState(entry.name(), stats.percent(), stats.buildable(), stats.total(),
                 stats.missingTypes(), stats.unsupportedTypes(), stats.missingBlockTypes(), rows);

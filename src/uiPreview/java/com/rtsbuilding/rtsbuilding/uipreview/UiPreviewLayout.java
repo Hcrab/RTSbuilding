@@ -7,9 +7,12 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CullingWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.FunnelBufferLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityDialogLayout;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftFeedbackLayout;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,7 +65,9 @@ public final class UiPreviewLayout {
                 && !WorkflowPreviewFixtures.supports(scenario.variant())
                 && !GuidePreviewFixtures.supports(scenario.variant())
                 && !FunnelPreviewFixtures.supports(scenario.variant())
-                && !CraftQuantityPreviewFixtures.supports(scenario.variant())) {
+                && !CraftQuantityPreviewFixtures.supports(scenario.variant())
+                && scenario.variant() != UiPreviewScenario.Variant.CONTAINER_CRAFT_DIALOG
+                && scenario.variant() != UiPreviewScenario.Variant.CRAFT_FEEDBACK_POPUP) {
             panels.add(new NamedPanel("settings", settings));
         }
         if (scenario.variant() == UiPreviewScenario.Variant.OVERLAPPING_WINDOWS
@@ -149,6 +154,56 @@ public final class UiPreviewLayout {
                     Math.max(24, (logicalHeight - CraftQuantityWindowLayout.DEFAULT_H) / 2),
                     CraftQuantityWindowLayout.DEFAULT_W,
                     CraftQuantityWindowLayout.DEFAULT_H).clampWithin(screen)));
+        }
+        if (WorkflowResumePreviewFixtures.supportsPlacement(
+                scenario.variant())) {
+            panels.add(new NamedPanel(
+                    "resume_placement",
+                    new UiRect(
+                            (logicalWidth
+                                    - WorkflowResumeWindowLayout.PLACEMENT_W)
+                                    / 2,
+                            Math.max(
+                                    24,
+                                    (logicalHeight
+                                            - WorkflowResumeWindowLayout
+                                            .PLACEMENT_H) / 2),
+                            WorkflowResumeWindowLayout.PLACEMENT_W,
+                            WorkflowResumeWindowLayout.PLACEMENT_H)
+                            .clampWithin(screen)));
+        }
+        if (WorkflowResumePreviewFixtures.supportsBlueprint(
+                scenario.variant())) {
+            panels.add(new NamedPanel(
+                    "resume_blueprint",
+                    new UiRect(
+                            (logicalWidth
+                                    - WorkflowResumeWindowLayout.BLUEPRINT_W)
+                                    / 2,
+                            Math.max(
+                                    24,
+                                    (logicalHeight
+                                            - WorkflowResumeWindowLayout
+                                            .BLUEPRINT_H) / 2),
+                            WorkflowResumeWindowLayout.BLUEPRINT_W,
+                            WorkflowResumeWindowLayout.BLUEPRINT_H)
+                    .clampWithin(screen)));
+        }
+        if (scenario.variant() == UiPreviewScenario.Variant.CONTAINER_CRAFT_DIALOG) {
+            CraftQuantityDialogLayout.Layout dialog =
+                    CraftQuantityDialogLayout.resolve(logicalWidth, logicalHeight);
+            panels.add(new NamedPanel("container_craft_dialog",
+                    new UiRect(dialog.panelX, dialog.panelY,
+                            CraftQuantityDialogLayout.PANEL_W,
+                            CraftQuantityDialogLayout.PANEL_H)));
+        }
+        if (scenario.variant() == UiPreviewScenario.Variant.CRAFT_FEEDBACK_POPUP) {
+            int ingredientCount = 6;
+            panels.add(new NamedPanel("craft_feedback",
+                    new UiRect(CraftFeedbackLayout.panelX(logicalWidth),
+                            CraftFeedbackLayout.panelY(RtsMainlineLayout.TOP_H + 6),
+                            CraftFeedbackLayout.PANEL_W,
+                            CraftFeedbackLayout.panelHeight(ingredientCount))));
         }
         return new UiPreviewLayout(renderScale, screen, top, bottomBounds, jade, bottom, panels);
     }

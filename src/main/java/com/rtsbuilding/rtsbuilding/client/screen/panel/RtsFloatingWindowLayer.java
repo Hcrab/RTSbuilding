@@ -1,7 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
-import com.rtsbuilding.rtsbuilding.uicore.routing.PointerCapture;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
@@ -22,15 +20,19 @@ import java.util.List;
  * brings it to the front automatically.
  */
 public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
-                                     PointerCapture<RtsWindowPanel> pointerCapture) {
+                                     RtsFloatingWindowInputRouter inputRouter) {
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
-        this(new ArrayList<>(List.of(frontToBackWindows)), new PointerCapture<>());
+        this(new ArrayList<>(List.of(frontToBackWindows)));
+    }
+
+    private RtsFloatingWindowLayer(List<RtsWindowPanel> windows) {
+        this(windows, new RtsFloatingWindowInputRouter(windows));
         // 初始 z 排序修正：从后往前调用 markBroughtToFront，
         // 使得前部窗口（索引 0，前端）获得较大的 lastClickTime，
         // 在升序排序中后渲染（出现在顶层）。
-        for (int i = frontToBackWindows.length - 1; i >= 0; i--) {
-            frontToBackWindows[i].markBroughtToFront();
+        for (int i = frontToBackWindows.size() - 1; i >= 0; i--) {
+            frontToBackWindows.get(i).markBroughtToFront();
         }
         ensureZOrder();
     }
@@ -68,8 +70,9 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
             // 安全冲刷：RtsWindowPanel.render() 已在 scissor 内 flush 了内容，
             // 此处额外冲刷共享渲染缓冲区，确保 item 渲染这类立即提交的数据
             // 已经在 scissor 完成时被放入帧缓冲区。
+            // GUI 层只提交自己积累的绘制；共享 BufferSource 的生命周期由 Minecraft 管理。
+            // 主动 endBatch 会把其他模组或后续渲染阶段的批次一并结束。
             g.flush();
-            Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
         }
     }
 
@@ -127,56 +130,15 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
      * When a window handles the click, it is automatically brought to front.
      */
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        RtsWindowPanel captured = this.pointerCapture.ownerOf(button);
-        if (captured != null) {
-            // 同一按钮尚未 release 时不允许另一个窗口抢走所有权。
-            captured.mouseClicked(mouseX, mouseY, button);
-            return true;
-        }
-        ensureZOrder();
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.mouseClicked(mouseX, mouseY, button)) {
-                this.pointerCapture.capture(button, window);
-                window.markBroughtToFront();
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.mouseClicked(mouseX, mouseY, button);
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        RtsWindowPanel captured = this.pointerCapture.ownerOf(button);
-        if (captured != null) {
-            captured.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-            // 捕获期间即使光标离开窗口，也必须阻止事件落到世界和相机。
-            return true;
-        }
-        ensureZOrder();
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        RtsWindowPanel captured = this.pointerCapture.ownerOf(button);
-        if (captured != null) {
-            try {
-                captured.mouseReleased(mouseX, mouseY, button);
-            } finally {
-                this.pointerCapture.release(button);
-            }
-            // release 属于 press 的所有者，不因释放位置在窗口外而穿透到世界。
-            return true;
-        }
-        boolean handled = false;
-        for (RtsWindowPanel window : this.frontToBackWindows) {
-            handled = window.mouseReleased(mouseX, mouseY, button) || handled;
-        }
-        return handled;
+        return this.inputRouter.mouseReleased(mouseX, mouseY, button);
     }
 
     public boolean consumeAnyBoundsDirty() {
@@ -188,33 +150,19 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        ensureZOrder();
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        ensureZOrder();
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).keyPressed(keyCode, scanCode, modifiers)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.keyPressed(keyCode, scanCode, modifiers);
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
-        ensureZOrder();
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).charTyped(codePoint, modifiers)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.charTyped(codePoint, modifiers);
+    }
+
+    public void clearTransientInputState() {
+        this.inputRouter.clearTransientState();
     }
 
     /**

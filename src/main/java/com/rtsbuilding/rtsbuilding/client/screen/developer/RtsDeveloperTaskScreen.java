@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.developer;
 
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uikit.theme.DeveloperScreenStyle;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -36,18 +37,21 @@ public final class RtsDeveloperTaskScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, this.width, this.height, 0xF0101820);
+        graphics.fill(0, 0, this.width, this.height,
+                DeveloperScreenStyle.BACKGROUND.toArgb());
         var layout = RtsDeveloperTaskLayout.resolve(this.width, this.height,
                 RtsDeveloperScenarioTracker.Scenario.values().length);
         RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics, this.font, this.title, layout.centerX(), layout.titleY(), 0xFFFFFFFF);
+                graphics, this.font, this.title, layout.centerX(), layout.titleY(),
+                DeveloperScreenStyle.TITLE.toArgb());
         var tracker = RtsDeveloperScenarioTracker.getInstance();
         if (tracker.activeScenario() != null) {
             RtsClientUiUtil.drawCenteredStringNoShadow(graphics, this.font,
                     Component.translatable("screen.rtsbuilding.developer.active",
                             Component.translatable(tracker.activeScenario().translationKey()),
                             tracker.currentStep() + "/" + tracker.requiredSteps()),
-                    layout.centerX(), layout.activeStatusY(), 0xFFFFD27F);
+                    layout.centerX(), layout.activeStatusY(),
+                    DeveloperScreenStyle.ACTIVE_STATUS.toArgb());
         }
         super.render(graphics, mouseX, mouseY, partialTick);
     }

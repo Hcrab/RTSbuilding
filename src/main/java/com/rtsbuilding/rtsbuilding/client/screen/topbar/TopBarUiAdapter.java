@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButton;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiTransition;
@@ -29,21 +30,10 @@ final class TopBarUiAdapter {
         boolean locked = screen.isBlueprintPlacementModeLocked();
         TopBarUiState.Mode mode = locked ? TopBarUiState.Mode.INTERACT : mode(controller.getMode());
         List<TopBarUiButton> buttons = new ArrayList<>();
-        buttons.add(button(TopBarUiButtonId.INTERACT, true, mode == TopBarUiState.Mode.INTERACT));
-        buttons.add(button(TopBarUiButtonId.LINK, true, mode == TopBarUiState.Mode.LINK_STORAGE));
-        buttons.add(button(TopBarUiButtonId.FUNNEL, true, mode == TopBarUiState.Mode.FUNNEL));
-        buttons.add(button(TopBarUiButtonId.ROTATE, true, mode == TopBarUiState.Mode.ROTATE));
-        buttons.add(button(TopBarUiButtonId.QUICK_BUILD,
-                screen.canUseQuickBuild(), screen.isQuickBuildOpen()));
-        buttons.add(button(TopBarUiButtonId.QUEST_DETECT,
-                isFtbQuestIntegrationLoaded(), controller.isQuestDetectPopupVisible()));
-        buttons.add(button(TopBarUiButtonId.CHUNK_VIEW, true, controller.isChunkCurtainVisible()));
-        buttons.add(button(TopBarUiButtonId.RANGE_CULLING,
-                screen.canUseRangeCulling(), screen.isRangeCullingManagementActive()));
-        buttons.add(button(TopBarUiButtonId.GUIDE, true, screen.isGuideOpen()));
-        buttons.add(button(TopBarUiButtonId.DEVELOPER,
-                Config.isDeveloperModeEnabled(), false));
-        buttons.add(button(TopBarUiButtonId.GEAR, true, screen.isGearMenuOpen()));
+        for (TopBarUiButtonId id : TopBarUiCatalog.orderedButtonIds()) {
+            boolean visible = visible(id, screen);
+            buttons.add(button(id, visible, active(id, mode, screen, controller)));
+        }
         return new TopBarUiState(buttons, mode, controller.isStorageLinked(),
                 controller.getLinkedStorageName(), controller.isAutoStoreMinedDrops(),
                 controller.isFunnelEnabled(),
@@ -110,6 +100,38 @@ final class TopBarUiAdapter {
 
     private static TopBarUiButton button(TopBarUiButtonId id, boolean visible, boolean active) {
         return new TopBarUiButton(id, visible, visible && active);
+    }
+
+    private static boolean visible(TopBarUiButtonId id, BuilderScreen screen) {
+        return switch (id) {
+            case QUICK_BUILD -> canShowQuickBuildButton(id, screen);
+            case QUEST_DETECT -> isFtbQuestIntegrationLoaded();
+            case RANGE_CULLING -> screen.canUseRangeCulling();
+            case DEVELOPER -> Config.isDeveloperModeEnabled();
+            default -> true;
+        };
+    }
+
+    private static boolean canShowQuickBuildButton(TopBarUiButtonId id, BuilderScreen screen) {
+        // 顶栏按钮由注册目录生成，但 Quick Build 仍必须服从远程放置插件门槛。
+        return id == TopBarUiButtonId.QUICK_BUILD && screen.canUseQuickBuild();
+    }
+
+    private static boolean active(TopBarUiButtonId id, TopBarUiState.Mode mode,
+                                  BuilderScreen screen, ClientRtsController controller) {
+        return switch (id) {
+            case INTERACT -> mode == TopBarUiState.Mode.INTERACT;
+            case LINK -> mode == TopBarUiState.Mode.LINK_STORAGE;
+            case FUNNEL -> mode == TopBarUiState.Mode.FUNNEL;
+            case ROTATE -> mode == TopBarUiState.Mode.ROTATE;
+            case QUICK_BUILD -> screen.isQuickBuildOpen();
+            case QUEST_DETECT -> controller.isQuestDetectPopupVisible();
+            case CHUNK_VIEW -> controller.isChunkCurtainVisible();
+            case RANGE_CULLING -> screen.isRangeCullingManagementActive();
+            case GUIDE -> screen.isGuideOpen();
+            case GEAR -> screen.isGearMenuOpen();
+            case DEVELOPER -> false;
+        };
     }
 
     private static TopBarUiState.Mode mode(BuilderMode mode) {

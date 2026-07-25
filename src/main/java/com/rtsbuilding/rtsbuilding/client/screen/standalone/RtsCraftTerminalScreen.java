@@ -3,7 +3,12 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
@@ -84,8 +89,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         this.searchBox = new EditBox(this.font, searchX, searchY, searchW, 8, Component.literal("Search"));
         this.searchBox.setBordered(false);
         this.searchBox.setCanLoseFocus(true);
-        this.searchBox.setTextColor(0xEAF2FF);
-        this.searchBox.setTextColorUneditable(0xAAB8C8);
+        this.searchBox.setTextColor(CraftTerminalStyle.TEXT.toArgb());
+        this.searchBox.setTextColorUneditable(CraftTerminalStyle.UNEDITABLE_TEXT.toArgb());
         ClientRtsController.get().setStorageSearch("");
         this.searchBox.setValue("");
         this.searchBox.setResponder(this::onSearchChanged);
@@ -107,18 +112,30 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int top = this.topPos;
 
         guiGraphics.blit(VANILLA_CRAFTING_BG, left, top, 0, 0, VANILLA_BG_W, this.imageHeight);
-        guiGraphics.fill(left + 3, top + 3, left + VANILLA_BG_W - 3, top + 15, 0xB0212E3D);
-        guiGraphics.hLine(left + 3, left + VANILLA_BG_W - 3, top + 15, 0xFF0F151D);
-        drawPanelFrame(guiGraphics, left + 27, top + 14, 58, 58, 0x66405B78, 0xFF5B7290, 0xFF10161E);
-        drawPanelFrame(guiGraphics, left + 124, top + 33, 18, 18, 0x663F5A76, 0xFF617A99, 0xFF111821);
-        drawPanelFrame(guiGraphics, left + 7, top + 82, 162, 76, 0x441A222C, 0xFF4A6079, 0xFF10151C);
+        guiGraphics.fill(left + 3, top + 3, left + VANILLA_BG_W - 3, top + 15,
+                CraftTerminalStyle.VANILLA_TITLE_BACKGROUND.toArgb());
+        guiGraphics.hLine(left + 3, left + VANILLA_BG_W - 3, top + 15,
+                CraftTerminalStyle.VANILLA_TITLE_DIVIDER.toArgb());
+        drawPanelFrame(guiGraphics, left + 27, top + 14, 58, 58,
+                CraftTerminalStyle.CRAFT_GRID_BACKGROUND,
+                CraftTerminalStyle.CRAFT_GRID_BORDER_LIGHT,
+                CraftTerminalStyle.CRAFT_GRID_BORDER_DARK);
+        drawPanelFrame(guiGraphics, left + 124, top + 33, 18, 18,
+                CraftTerminalStyle.RESULT_BACKGROUND,
+                CraftTerminalStyle.RESULT_BORDER_LIGHT,
+                CraftTerminalStyle.RESULT_BORDER_DARK);
+        drawPanelFrame(guiGraphics, left + 7, top + 82, 162, 76,
+                CraftTerminalStyle.INVENTORY_BACKGROUND,
+                CraftTerminalStyle.INVENTORY_BORDER_LIGHT,
+                CraftTerminalStyle.INVENTORY_BORDER_DARK);
 
         renderLinkedPanel(guiGraphics, mouseX, mouseY);
     }
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY, 0xEAF2FF, false);
+        guiGraphics.drawString(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY,
+                CraftTerminalStyle.TEXT.toArgb(), false);
     }
 
     @Override
@@ -150,7 +167,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         int panelX = this.leftPos + LINK_PANEL_X_OFF;
         int panelY = this.topPos + LINK_PANEL_Y_OFF;
-        if (inside(mouseX, mouseY, panelX, panelY, LINK_PANEL_W, LINK_PANEL_H)) {
+        if (UiRect.contains(panelX, panelY, LINK_PANEL_W, LINK_PANEL_H, mouseX, mouseY)) {
             if (scrollY > 0.0D) {
                 ClientRtsController.get().prevPage();
                 return true;
@@ -197,11 +214,16 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
 
         int panelX = this.leftPos + LINK_PANEL_X_OFF;
         int panelY = this.topPos + LINK_PANEL_Y_OFF;
-        drawPanelFrame(guiGraphics, panelX, panelY, LINK_PANEL_W, LINK_PANEL_H, 0xCC141922, 0xFF637993, 0xFF0D1218);
-        guiGraphics.fill(panelX + 1, panelY + 1, panelX + LINK_PANEL_W - 1, panelY + 16, 0xA0233345);
-        guiGraphics.hLine(panelX + 1, panelX + LINK_PANEL_W - 1, panelY + 16, 0xFF0F171F);
+        drawPanelFrame(guiGraphics, panelX, panelY, LINK_PANEL_W, LINK_PANEL_H,
+                CraftTerminalStyle.LINK_BACKGROUND, CraftTerminalStyle.LINK_BORDER_LIGHT,
+                CraftTerminalStyle.LINK_BORDER_DARK);
+        guiGraphics.fill(panelX + 1, panelY + 1, panelX + LINK_PANEL_W - 1, panelY + 16,
+                CraftTerminalStyle.LINK_TITLE_BACKGROUND.toArgb());
+        guiGraphics.hLine(panelX + 1, panelX + LINK_PANEL_W - 1, panelY + 16,
+                CraftTerminalStyle.LINK_TITLE_DIVIDER.toArgb());
 
-        guiGraphics.drawString(this.font, "Linked", panelX + 6, panelY + 5, 0xEAF2FF, false);
+        guiGraphics.drawString(this.font, "Linked", panelX + 6, panelY + 5,
+                CraftTerminalStyle.TEXT.toArgb(), false);
         drawMiniButton(guiGraphics, panelX + SORT_BUTTON_X_OFF, panelY + BUTTON_ROW_Y_OFF, sortShort(controller.getStorageSort()));
         drawMiniButton(guiGraphics, panelX + DIR_BUTTON_X_OFF, panelY + BUTTON_ROW_Y_OFF, controller.isStorageSortAscending() ? "A" : "D");
 
@@ -212,20 +234,26 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
 
         String pageText = (controller.getStoragePage() + 1) + "/" + controller.getStorageTotalPages();
         int pageTextWidth = this.font.width(pageText);
-        guiGraphics.drawString(this.font, pageText, panelX + LINK_PANEL_W - pageTextWidth - 44, panelY + 9, 0xD7E3F2, false);
+        guiGraphics.drawString(this.font, pageText, panelX + LINK_PANEL_W - pageTextWidth - 44,
+                panelY + 9, CraftTerminalStyle.MUTED_TEXT.toArgb(), false);
 
         int importX = panelX + CARRIED_IMPORT_X_OFF;
         int importY = panelY + CARRIED_IMPORT_Y_OFF;
-        int importBg = this.menu.getCarried().isEmpty() ? 0x8821262D : 0xAA2E516A;
+        UiColor importBg = CraftTerminalStyle.importBackground(!this.menu.getCarried().isEmpty());
         drawSmallButton(guiGraphics, importX, importY, CARRIED_IMPORT_W, CARRIED_IMPORT_H, "STORE", importBg);
 
         int searchX = panelX + LINK_SEARCH_X_OFF;
         int searchY = panelY + LINK_SEARCH_Y_OFF;
-        drawPanelFrame(guiGraphics, searchX, searchY, LINK_GRID_W, LINK_SEARCH_H, 0xAA1E2731, 0xFF5E738A, 0xFF111921);
+        drawPanelFrame(guiGraphics, searchX, searchY, LINK_GRID_W, LINK_SEARCH_H,
+                CraftTerminalStyle.SEARCH_BACKGROUND, CraftTerminalStyle.SEARCH_BORDER_LIGHT,
+                CraftTerminalStyle.SEARCH_BORDER_DARK);
         int clearX = searchX + LINK_GRID_W - LINK_SEARCH_CLEAR_W;
-        drawPanelFrame(guiGraphics, clearX, searchY, LINK_SEARCH_CLEAR_W, LINK_SEARCH_H, 0xAA2A3441, 0xFF647B95, 0xFF111921);
+        drawPanelFrame(guiGraphics, clearX, searchY, LINK_SEARCH_CLEAR_W, LINK_SEARCH_H,
+                CraftTerminalStyle.CLEAR_BACKGROUND, CraftTerminalStyle.CLEAR_BORDER_LIGHT,
+                CraftTerminalStyle.SEARCH_BORDER_DARK);
         String clearLabel = this.searchBox != null && !this.searchBox.getValue().isEmpty() ? "x" : ".";
-        guiGraphics.drawCenteredString(this.font, clearLabel, clearX + (LINK_SEARCH_CLEAR_W / 2), searchY + 2, 0xEAF2FF);
+        guiGraphics.drawCenteredString(this.font, clearLabel, clearX + (LINK_SEARCH_CLEAR_W / 2),
+                searchY + 2, CraftTerminalStyle.TEXT.toArgb());
 
         List<StorageEntry> entries = controller.getStorageEntries();
         int maxSlots = Math.min(entries.size(), LINK_COLS * LINK_ROWS);
@@ -235,8 +263,9 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             int slotX = gridX + (i % LINK_COLS) * LINK_SLOT_PITCH;
             int slotY = gridY + (i / LINK_COLS) * LINK_SLOT_PITCH;
 
-            int slotFill = isHoveringLinkedSlot(mouseX, mouseY, i) ? 0xAA304053 : 0xAA1A212B;
-            drawPanelFrame(guiGraphics, slotX, slotY, LINK_SLOT_SIZE, LINK_SLOT_SIZE, slotFill, 0xFF596D84, 0xFF11171E);
+            UiColor slotFill = CraftTerminalStyle.slotBackground(isHoveringLinkedSlot(mouseX, mouseY, i));
+            drawPanelFrame(guiGraphics, slotX, slotY, LINK_SLOT_SIZE, LINK_SLOT_SIZE, slotFill,
+                    CraftTerminalStyle.SLOT_BORDER_LIGHT, CraftTerminalStyle.SLOT_BORDER_DARK);
             if (i >= maxSlots) {
                 continue;
             }
@@ -260,7 +289,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int searchY = panelY + LINK_SEARCH_Y_OFF;
         int clearX = searchX + LINK_GRID_W - LINK_SEARCH_CLEAR_W;
 
-        if (inside(mouseX, mouseY, clearX, searchY, LINK_SEARCH_CLEAR_W, LINK_SEARCH_H)) {
+        if (UiRect.contains(clearX, searchY, LINK_SEARCH_CLEAR_W, LINK_SEARCH_H, mouseX, mouseY)) {
             if (this.searchBox != null) {
                 this.searchBox.setValue("");
                 this.searchBox.setFocused(true);
@@ -269,7 +298,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             return true;
         }
 
-        if (inside(mouseX, mouseY, searchX, searchY, LINK_GRID_W, LINK_SEARCH_H)) {
+        if (UiRect.contains(searchX, searchY, LINK_GRID_W, LINK_SEARCH_H, mouseX, mouseY)) {
             if (this.searchBox != null) {
                 this.searchBox.setFocused(true);
                 this.setFocused(this.searchBox);
@@ -288,26 +317,26 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int nextX = panelX + PAGE_NEXT_X_OFF;
         int rowY = panelY + BUTTON_ROW_Y_OFF;
 
-        if (inside(mouseX, mouseY, sortX, rowY, MINI_BUTTON_W, MINI_BUTTON_H)) {
+        if (UiRect.contains(sortX, rowY, MINI_BUTTON_W, MINI_BUTTON_H, mouseX, mouseY)) {
             controller.cycleSort();
             return true;
         }
-        if (inside(mouseX, mouseY, dirX, rowY, MINI_BUTTON_W, MINI_BUTTON_H)) {
+        if (UiRect.contains(dirX, rowY, MINI_BUTTON_W, MINI_BUTTON_H, mouseX, mouseY)) {
             controller.toggleSortDirection();
             return true;
         }
-        if (inside(mouseX, mouseY, prevX, rowY, MINI_BUTTON_W, MINI_BUTTON_H)) {
+        if (UiRect.contains(prevX, rowY, MINI_BUTTON_W, MINI_BUTTON_H, mouseX, mouseY)) {
             controller.prevPage();
             return true;
         }
-        if (inside(mouseX, mouseY, nextX, rowY, MINI_BUTTON_W, MINI_BUTTON_H)) {
+        if (UiRect.contains(nextX, rowY, MINI_BUTTON_W, MINI_BUTTON_H, mouseX, mouseY)) {
             controller.nextPage();
             return true;
         }
 
         int importX = panelX + CARRIED_IMPORT_X_OFF;
         int importY = panelY + CARRIED_IMPORT_Y_OFF;
-        if (inside(mouseX, mouseY, importX, importY, CARRIED_IMPORT_W, CARRIED_IMPORT_H)) {
+        if (UiRect.contains(importX, importY, CARRIED_IMPORT_W, CARRIED_IMPORT_H, mouseX, mouseY)) {
             return returnCarriedToLinked(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT ? 1 : Integer.MAX_VALUE);
         }
 
@@ -325,7 +354,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             return true;
         }
 
-        return inside(mouseX, mouseY, panelX, panelY, LINK_PANEL_W, LINK_PANEL_H);
+        return UiRect.contains(panelX, panelY, LINK_PANEL_W, LINK_PANEL_H, mouseX, mouseY);
     }
 
     private boolean pickupFromLinked(StorageEntry entry, int requestedAmount) {
@@ -399,7 +428,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int gridY = this.topPos + LINK_PANEL_Y_OFF + LINK_GRID_Y_OFF;
         int gridW = LINK_COLS * LINK_SLOT_PITCH;
         int gridH = LINK_ROWS * LINK_SLOT_PITCH;
-        if (!inside(mouseX, mouseY, gridX, gridY, gridW, gridH)) {
+        if (!UiRect.contains(gridX, gridY, gridW, gridH, mouseX, mouseY)) {
             return -1;
         }
         int col = Mth.floor((mouseX - gridX) / LINK_SLOT_PITCH);
@@ -409,7 +438,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         }
         int sx = gridX + col * LINK_SLOT_PITCH;
         int sy = gridY + row * LINK_SLOT_PITCH;
-        if (!inside(mouseX, mouseY, sx, sy, LINK_SLOT_SIZE, LINK_SLOT_SIZE)) {
+        if (!UiRect.contains(sx, sy, LINK_SLOT_SIZE, LINK_SLOT_SIZE, mouseX, mouseY)) {
             return -1;
         }
         return row * LINK_COLS + col;
@@ -419,7 +448,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int gridX = this.leftPos + LINK_PANEL_X_OFF + LINK_GRID_X_OFF;
         int gridY = this.topPos + LINK_PANEL_Y_OFF + LINK_GRID_Y_OFF;
         int gridH = LINK_ROWS * LINK_SLOT_PITCH;
-        return inside(mouseX, mouseY, gridX, gridY, LINK_GRID_W, gridH);
+        return UiRect.contains(gridX, gridY, LINK_GRID_W, gridH, mouseX, mouseY);
     }
 
     private boolean isHoveringLinkedSlot(double mouseX, double mouseY, int index) {
@@ -536,16 +565,21 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     private void drawCountOverlay(GuiGraphics guiGraphics, int slotX, int slotY, String countText) {
-        RtsClientUiUtil.drawSlotCountOverlay(guiGraphics, this.font, slotX, slotY, LINK_SLOT_SIZE, countText, 0xFFE8F4FF);
+        RtsClientUiUtil.drawSlotCountOverlay(guiGraphics, this.font, slotX, slotY, LINK_SLOT_SIZE,
+                countText, CraftTerminalStyle.COUNT_TEXT.toArgb());
     }
 
     private void drawMiniButton(GuiGraphics guiGraphics, int x, int y, String label) {
-        drawSmallButton(guiGraphics, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label, 0xAA2B3642);
+        drawSmallButton(guiGraphics, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label,
+                CraftTerminalStyle.MINI_BUTTON_BACKGROUND);
     }
 
-    private void drawSmallButton(GuiGraphics guiGraphics, int x, int y, int w, int h, String label, int fill) {
-        drawPanelFrame(guiGraphics, x, y, w, h, fill, 0xFF667D95, 0xFF111821);
-        guiGraphics.drawCenteredString(this.font, label, x + (w / 2), y + 2, 0xFFFFFF);
+    private void drawSmallButton(GuiGraphics guiGraphics, int x, int y, int w, int h,
+                                 String label, UiColor fill) {
+        drawPanelFrame(guiGraphics, x, y, w, h, fill,
+                CraftTerminalStyle.BUTTON_BORDER_LIGHT, CraftTerminalStyle.BUTTON_BORDER_DARK);
+        guiGraphics.drawCenteredString(this.font, label, x + (w / 2), y + 2,
+                CraftTerminalStyle.BUTTON_TEXT.toArgb());
     }
 
     private static String sortShort(RtsStorageSort sort) {
@@ -556,11 +590,9 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         };
     }
 
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-    }
-
-    private static void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        RtsClientUiUtil.drawPanelFrame(guiGraphics, x, y, w, h, fillColor, light, dark);
+    private void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h,
+                                UiColor fillColor, UiColor light, UiColor dark) {
+        UiChromeRenderer.frame(new MinecraftUiCanvas(guiGraphics, this.font),
+                new UiRect(x, y, w, h), 1.0D, fillColor, light, dark);
     }
 }

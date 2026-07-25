@@ -62,6 +62,19 @@ public final class UiRect {
                 && pointY >= y && pointY < bottom();
     }
 
+    /**
+     * 对尚未持有 {@link UiRect} 的平台适配代码执行同样的半开命中。
+     *
+     * <p>该入口避免生产层继续复制闭区间 helper，也避免仅为一次命中创建临时矩形。
+     * 布局所有权仍应优先落在返回 {@code UiRect} 的 Kit Layout 中。</p>
+     */
+    public static boolean contains(double x, double y, double width, double height,
+                                   double pointX, double pointY) {
+        return width > 0.0D && height > 0.0D
+                && pointX >= x && pointX < x + width
+                && pointY >= y && pointY < y + height;
+    }
+
     public boolean contains(UiRect other) {
         return other != null
                 && other.x >= x && other.y >= y

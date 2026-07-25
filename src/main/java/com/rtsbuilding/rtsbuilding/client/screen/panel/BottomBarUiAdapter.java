@@ -36,7 +36,9 @@ final class BottomBarUiAdapter {
     private BottomBarUiAdapter() {}
 
     static BottomBarUiState snapshot(BottomPanel panel,
-                                     BottomPanelLayoutTypes.BottomPanelLayout layout) {
+                                     BottomPanelLayoutTypes.BottomPanelLayout layout,
+                                     String selectedStatus,
+                                     boolean pluginButtonVisible) {
         BottomBarUiTab requested = toCore(panel.bottomPanelTab);
         BottomPanelLayoutTypes.BottomPanelTab active = panel.activeBottomPanelTab();
         List<RtsCreativeItemCatalog.CreativeEntry> creative =
@@ -56,11 +58,11 @@ final class BottomBarUiAdapter {
         return BottomBarUiState.builder()
                 .requestedTab(requested)
                 .access(panel.isCreativePlayer(), panel.hasBlueprintAccess())
-                .pluginButtonVisible(panel.hasPluginManagementButtonSpace(layout))
+                .pluginButtonVisible(pluginButtonVisible)
                 .storageStatus(panel.controller.isStorageLinked(),
                         panel.controller.isStorageScanRunning(),
                         panel.controller.shouldHighlightStorageRefresh())
-                .selectedStatus(panel.selectedPlacementStatusText())
+                .selectedStatus(selectedStatus)
                 .search(search, panel.screen.isSearchFocused())
                 .page(page, pageCount)
                 .sort(sortLabel(panel), panel.controller.isStorageSortAscending())

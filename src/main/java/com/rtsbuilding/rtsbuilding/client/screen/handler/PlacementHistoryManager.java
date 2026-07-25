@@ -15,8 +15,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
  *   <li>Providing getUndoSize for UI button state</li>
  * </ul>
  * <p>
- * All legacy recording methods are retained as no-ops for API compatibility;
- * actual history recording is handled server-side during operation execution.
+ * Actual history recording is handled server-side during operation execution.
  */
 public final class PlacementHistoryManager {
 

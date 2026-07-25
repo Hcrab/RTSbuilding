@@ -238,30 +238,29 @@ public record RtsWorkflowToken(
     }
 
     /**
-     * 完成此工作流——移除条目并通知客户端。
+     * 完成真实任务，并立即从工作流面板和槽位中移除。
      *
-     * <p>网络通知由 {@link RtsWorkflowEngine#removeEntry(UUID, ResourceKey, int)}
-     * 内部处理，因此此处无需调用 {@code engine.notifyPlayer()}。</p>
+     * <p>先发出带最终快照的完成事件，再统一释放条目。成功任务不再保留 30 秒，
+     * 也不会因为玩家曾经保护该条目而长期占用槽位。</p>
      */
     public void complete() {
         RtsWorkflowEntry entry = resolveEntry();
-        if (entry != null) {
+        if (entry != null && !entry.terminal()) {
+            entry.markTerminal();
             engine.fireEvent(WorkflowEventType.COMPLETED, playerId, entryId, entry);
             engine.removeEntry(playerId, dimension, entryId);
         }
     }
 
     /**
-     * 取消此工作流——移除条目且不标记为已完成。
-     *
-     * <p>网络通知由 {@link RtsWorkflowEngine#removeEntry(UUID, ResourceKey, int)}
-     * 内部处理，因此此处无需调用 {@code engine.notifyPlayer()}。</p>
+     * 标记真实任务已取消，并短暂保留最终状态供玩家查看。
      */
     public void cancel() {
         RtsWorkflowEntry entry = resolveEntry();
-        if (entry != null) {
+        if (entry != null && !entry.terminal()) {
+            entry.markTerminal();
             engine.fireEvent(WorkflowEventType.CANCELLED, playerId, entryId, entry);
-            engine.removeEntry(playerId, dimension, entryId);
+            engine.notifyPlayer(playerId, dimension);
         }
     }
 
@@ -280,6 +279,19 @@ public record RtsWorkflowToken(
             return RtsWorkflowStatus.idle();
         }
         return entry.snapshot();
+    }
+
+    /**
+     * 记录真实任务仍在取得进展，但不产生多余的客户端同步包。
+     *
+     * <p>持久任务的 cursor 可能前进而成功/失败计数暂时不变；这种进展仍应刷新
+     * 30 秒无进展计时器，避免正在工作的任务被误判为僵死。</p>
+     */
+    public void keepAlive() {
+        RtsWorkflowEntry entry = resolveEntry();
+        if (entry != null) {
+            entry.touch();
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────

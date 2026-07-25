@@ -1,19 +1,24 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.routing.PointerCapture;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButton;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
-import net.minecraft.client.Minecraft;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -40,6 +45,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * @see TopBarIconRenderer
  */
 public final class TopBarPanel {
+    private static final int PRIMARY_MOUSE_BUTTON = 0;
 
     /**
      * Maps the current {@link BuilderMode} to a high-level action category used
@@ -54,6 +60,13 @@ public final class TopBarPanel {
 
     private BuilderScreen screen;
     private ClientRtsController controller;
+    private final UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId,
+            TopBarIconRenderer.VisualState> iconTransitions =
+            new UiStateBlendAnimationSet<>(SystemUiClock.INSTANCE,
+                    Arrays.asList(TopBarTypes.TopBarButtonId.values()),
+                    TopBarIconRenderer.visualStates(),
+                    90L, UiEasing.EASE_IN_OUT_QUAD);
+    private final PointerCapture<TopBarTypes.TopBarButtonId> pointerCapture = new PointerCapture<>();
 
     // ======================== Lifecycle ========================
 
@@ -107,10 +120,12 @@ public final class TopBarPanel {
         TopBarLayout.Status status = TopBarLayout.status(screen.width);
         String visibleRow2 = screen.trimToWidth(row2, status.width());
         g.drawString(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(),
-                0xF0F0F0, false);
+                RtsMainlineTheme.PRIMARY_TEXT.toArgb(), false);
         g.drawString(screen.font(), visibleRow2, status.x(), status.row2Y(),
-                state.storageLinked ? 0xB8FFB8 : 0xFFD8AE, false);
+                (state.storageLinked ? RtsMainlineTheme.STATUS_LINKED
+                        : RtsMainlineTheme.STATUS_UNLINKED).toArgb(), false);
         renderContextualModeTip(g, status, visibleRow2, state.mode);
+        renderHoveredTooltip(g, mouseX, mouseY, topButtons);
     }
 
     /**
@@ -130,7 +145,8 @@ public final class TopBarPanel {
                 screen.font().width(tip),
                 12);
         if (tipX >= 0) {
-            g.drawString(screen.font(), tip, tipX, status.row2Y(), 0xB8FFB8, false);
+            g.drawString(screen.font(), tip, tipX, status.row2Y(),
+                    RtsMainlineTheme.STATUS_LINKED.toArgb(), false);
         }
     }
 
@@ -160,12 +176,20 @@ public final class TopBarPanel {
 
         TopBarUiState state = TopBarUiAdapter.snapshot(screen, controller);
         for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts(state)) {
-            if (!inside(mouseX, mouseY, button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H)) {
+            if (!UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
+                    mouseX, mouseY)) {
                 continue;
             }
-            return TopBarUiAdapter.dispatch(TopBarUiAction.click(coreId(button.id())),
+            if (!this.pointerCapture.capture(PRIMARY_MOUSE_BUTTON, button.id())) {
+                return true;
+            }
+            boolean handled = TopBarUiAdapter.dispatch(TopBarUiAction.click(coreId(button.id())),
                     screen, controller, button.x() + button.width() / 2,
                     TopBarLayout.BUTTON_Y + TOP_BUTTON_H);
+            if (!handled) {
+                this.pointerCapture.release(PRIMARY_MOUSE_BUTTON);
+            }
+            return handled;
         }
         return false;
     }
@@ -209,12 +233,14 @@ public final class TopBarPanel {
         return layouts;
     }
 
-    /**
-     * Checks whether the primary (left) mouse button is currently held down.
-     * Used to compute the "pressed" visual state for icon buttons.
-     */
-    public boolean isPrimaryMouseDown() {
-        return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+    /** release 只清理最初按下的所有者；移入其他按钮不会伪造 pressed 状态。 */
+    public void mouseReleased(int button) {
+        this.pointerCapture.release(button);
+    }
+
+    /** 切屏、关闭与失焦时清理瞬时按下所有权，避免下一次打开仍显示按下态。 */
+    public void clearTransientInputState() {
+        this.pointerCapture.clear();
     }
 
     // ======================== Button Rendering ========================
@@ -223,28 +249,9 @@ public final class TopBarPanel {
      * Routes the rendering of a single top bar button to the appropriate
      * method based on whether it is icon-only or text-based.
      */
-    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
-        if (button.iconOnly()) {
-            drawTopIconButton(g, mouseX, mouseY, button);
-            return;
-        }
-        drawTopButtonSized(g, button.x(), button.label(), button.active(), button.width());
-    }
-
-    /**
-     * Renders a text-based top bar button with background, border, and centered label.
-     */
-    private void drawTopButtonSized(GuiGraphics g, int x, String label, boolean active, int w) {
-        int y = TopBarLayout.BUTTON_Y;
-        int h = TOP_BUTTON_H;
-        int bg = active ? 0xFF2E6A50 : 0xAA1F2329;
-        g.fill(x, y, x + w, y + h, bg);
-        g.hLine(x, x + w, y, 0xFF5B6673);
-        g.hLine(x, x + w, y + h, 0xFF0D0E10);
-        g.vLine(x, y, y + h, 0xFF5B6673);
-        g.vLine(x + w, y, y + h, 0xFF0D0E10);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
-                screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
+    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY,
+                               TopBarTypes.TopBarButtonLayout button) {
+        drawTopIconButton(g, mouseX, mouseY, button);
     }
 
     /**
@@ -255,57 +262,32 @@ public final class TopBarPanel {
      * <p>
      * The button background colour changes based on active, pressed, and hovered states.
      */
-    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
+    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY,
+                                   TopBarTypes.TopBarButtonLayout button) {
         int x = button.x();
         int y = TopBarLayout.BUTTON_Y;
         int w = button.width();
-        int h = TOP_BUTTON_H;
-        boolean hovered = inside(mouseX, mouseY, x, y, w, h);
-        boolean pressed = hovered && isPrimaryMouseDown();
+        boolean hovered = UiRect.contains(x, y, w, TOP_BUTTON_H, mouseX, mouseY);
+        boolean pressed = hovered
+                && this.pointerCapture.ownerOf(PRIMARY_MOUSE_BUTTON) == button.id();
 
-        int bg = 0xAA1F2329;
-        int light = 0xFF5B6673;
-        int dark = 0xFF0D0E10;
-        int icon = 0xFFBDC9D6;
-        if (button.active()) {
-            bg = 0xFF2D6B47;
-            light = 0xFF9AD2AE;
-            icon = 0xFFF4FBF5;
-        } else if (pressed) {
-            bg = 0xFF1F5037;
-            light = 0xFF6AA784;
-            icon = 0xFFD9E3EF;
-        } else if (hovered) {
-            bg = 0xFF1D2530;
-            light = 0xFF7A90AA;
-            icon = 0xFFD9E3EF;
-        }
+        TopBarIconRenderer.renderBlended(
+                g, button.id(), x + (w - TOP_BUTTON_H) / 2, y, TOP_BUTTON_H,
+                TopBarIconRenderer.visualState(button.active(), hovered, pressed),
+                iconTransitions, Config.isUiAnimationsEnabled());
+    }
 
-        // Try texture-based icon first
-        ResourceLocation textureIcon = TopBarIconRenderer.topbarModeTexture(
-                button.id(), button.active(), hovered, pressed);
-        if (textureIcon != null) {
-            g.blit(textureIcon, x + (w - TOP_BUTTON_H) / 2, y, 0, 0,
-                    TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
-            return;
-        }
-
-        // Fall back to pixel-art background + icon
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, light, dark);
-        if (pressed) {
-            g.hLine(x + 1, x + w - 1, y + 1, dark);
-            g.vLine(x + 1, y + 1, y + h - 1, dark);
-        }
-
-        // Draw the pixel-art icon at the button centre
-        int cx = x + (w / 2);
-        int cy = y + (h / 2);
-        if (button.id() == TopBarTypes.TopBarButtonId.GUIDE
-                || button.id() == TopBarTypes.TopBarButtonId.DEVELOPER) {
-            String glyph = button.id() == TopBarTypes.TopBarButtonId.DEVELOPER ? "D" : "i";
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), glyph, cx, y + 7, icon);
-        } else {
-            TopBarIconRenderer.renderIcon(button.id(), g, cx, cy, icon, button.active(), screen.font());
+    /** 顶栏正式按钮统一从四语言键显示 Tooltip，避免图标含义依赖猜测。 */
+    private void renderHoveredTooltip(GuiGraphics g, int mouseX, int mouseY,
+                                      List<TopBarTypes.TopBarButtonLayout> buttons) {
+        for (TopBarTypes.TopBarButtonLayout button : buttons) {
+            if (UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
+                    mouseX, mouseY)) {
+                g.renderTooltip(screen.font(),
+                        Component.translatable(TopBarIconRenderer.tooltipKey(button.id())),
+                        mouseX, mouseY);
+                return;
+            }
         }
     }
 
@@ -361,11 +343,4 @@ public final class TopBarPanel {
         };
     }
 
-    /**
-     * Hit-test helper: checks whether a point (mouseX, mouseY) lies inside
-     * a rectangle defined by (x, y, w, h).
-     */
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-    }
 }

@@ -21,13 +21,33 @@ class ShapeGhostRendererTest {
     }
 
     @Test
-    void multiBlockShapePlacementKeepsWireframeEvenWhenSettingIsOff() {
+    void multiBlockShapePlacementWireframeFollowsPlayerSetting() {
         ShapeDataRecords.GhostPreview preview = new ShapeDataRecords.GhostPreview(
                 List.of(
                         new BlockPos(0, 64, 0),
                         new BlockPos(1, 64, 0)),
                 true);
 
-        assertTrue(ShapeGhostRenderer.shouldRenderPlacementWireframe(preview, false));
+        assertFalse(ShapeGhostRenderer.shouldRenderPlacementWireframe(preview, false));
+        assertTrue(ShapeGhostRenderer.shouldRenderPlacementWireframe(preview, true));
+    }
+
+    @Test
+    void lockedMultiBlockShapeKeepsBlockGhostWhenPlayerEnabledIt() {
+        ShapeDataRecords.GhostPreview preview = new ShapeDataRecords.GhostPreview(
+                List.of(
+                        new BlockPos(0, 64, 0),
+                        new BlockPos(1, 64, 0),
+                        new BlockPos(2, 64, 0)),
+                true);
+
+        ShapeDataRecords.GhostPreview selecting = new ShapeDataRecords.GhostPreview(
+                preview.blocks(),
+                false);
+
+        assertFalse(ShapeGhostRenderer.shouldRenderPlacementBlockGhost(preview, false));
+        assertFalse(ShapeGhostRenderer.shouldRenderPlacementBlockGhost(selecting, false));
+        assertTrue(ShapeGhostRenderer.shouldRenderPlacementBlockGhost(preview, true));
+        assertTrue(ShapeGhostRenderer.shouldRenderPlacementBlockGhost(selecting, true));
     }
 }

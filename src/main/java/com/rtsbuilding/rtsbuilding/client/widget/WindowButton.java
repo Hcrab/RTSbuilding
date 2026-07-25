@@ -1,7 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowButtonLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -30,13 +35,6 @@ public class WindowButton extends AbstractButton {
     private final int hoverTextureHeight;  // Texture height for hover state
     private final int fullTextureWidth;   // Total width of the full texture
     private final int fullTextureHeight;  // Total height of the full texture
-
-    private static final int TEXT_COLOR = 0xFFD8E3EE;
-    private static final int TEXT_COLOR_DISABLED = 0xFF556677;
-    private static final int BUTTON_BACKGROUND = 0xDD1A232E;
-    private static final int BUTTON_HOVER = 0xDD2A3442;
-    private static final int BORDER_LIGHT = 0xFF647B92;
-    private static final int BORDER_DARK = 0xFF0D1117;
 
     /**
      * When set, all WindowButton instances suppress hover/focus effects.
@@ -117,12 +115,12 @@ public class WindowButton extends AbstractButton {
         }
 
         // Calculate text position (centred)
-        int textColor = this.active ? TEXT_COLOR : TEXT_COLOR_DISABLED;
+        int textColor = WindowButtonStyle.text(this.active).toArgb();
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
-                Math.max(4, this.width - 8));
+                WindowButtonLayout.textWidth(this.width));
         int textWidth = minecraft.font.width(label);
         int textX = this.getX() + (this.width - textWidth) / 2;
-        int textY = this.getY() + (this.height - 8) / 2;
+        int textY = WindowButtonLayout.textY(this.getY(), this.height);
 
         // Draw text
         if (!label.isEmpty()) {
@@ -149,13 +147,15 @@ public class WindowButton extends AbstractButton {
 
                 if (texture == null) {
                     // If still not loaded, draw a red rectangle as a hint
-                    guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
+                    guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height,
+                            WindowButtonStyle.MISSING_TEXTURE.toArgb());
                     return;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
                 // If still not loaded, draw a red rectangle as a hint
-                guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0xFFFF0000);
+                guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height,
+                        WindowButtonStyle.MISSING_TEXTURE.toArgb());
                 return;
             }
         }
@@ -255,11 +255,12 @@ public class WindowButton extends AbstractButton {
      * Renders the button with solid colours (RTS dark style).
      */
     private void renderWithSolidColor(GuiGraphics guiGraphics) {
-        // Determine background colour (covered windows forced to non-hover colour)
-        int backgroundColor = (!globalSkipHover && this.isHoveredOrFocused()) ? BUTTON_HOVER : BUTTON_BACKGROUND;
-        RtsClientUiUtil.drawPanelFrame(guiGraphics,
-                this.getX(), this.getY(), this.width, this.height,
-                backgroundColor, BORDER_LIGHT, BORDER_DARK);
+        // 被更高层浮窗覆盖时，上层统一抑制 hover/focus 视觉。
+        boolean hovered = !globalSkipHover && this.isHoveredOrFocused();
+        WindowButtonChromeRenderer.renderSolid(
+                new MinecraftUiCanvas(guiGraphics, Minecraft.getInstance().font),
+                new UiRect(this.getX(), this.getY(), this.width, this.height),
+                hovered);
     }
 
     @Override

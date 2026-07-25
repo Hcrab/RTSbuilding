@@ -6,5 +6,9 @@ public enum UiControlRole {
     PRIMARY_ACTION,
     MODE,
     TOGGLE,
-    DESTRUCTIVE
+    DESTRUCTIVE,
+    CHOICE,
+    HOLD_REPEAT,
+    DRAG,
+    DESTRUCTIVE_CONFIRM
 }

@@ -31,6 +31,7 @@ public final class UiPreviewScenario {
         BLUEPRINT_LIBRARY,
         BLUEPRINT_LIBRARY_EMPTY_SEARCH,
         BLUEPRINT_LIBRARY_PARSE_ERROR,
+        BLUEPRINT_LIBRARY_2000_END,
         JADE_MODES,
         CREATIVE_CATALOG,
         TOP_CONTEXT_ACTIONBAR,
@@ -64,7 +65,14 @@ public final class UiPreviewScenario {
         FUNNEL_ROWS,
         CRAFT_QUANTITY_READY,
         CRAFT_QUANTITY_MISSING,
-        CRAFT_QUANTITY_MAX
+        CRAFT_QUANTITY_MAX,
+        RESUME_PLACEMENT_CONFLICTS,
+        RESUME_PLACEMENT_DISABLED,
+        RESUME_BLUEPRINT_MISSING,
+        RESUME_BLUEPRINT_READY,
+        CONTAINER_CRAFT_DIALOG,
+        CRAFT_FEEDBACK_POPUP,
+        ANIMATION_CARET_DAMAGE
     }
 
     private final String id;
@@ -257,7 +265,24 @@ public final class UiPreviewScenario {
                 scene("57_craft_quantity_missing", 1600, 900, 1.0D, "en_us", true,
                         Variant.CRAFT_QUANTITY_MISSING, 300, 12, "missing recipe", false),
                 scene("58_craft_quantity_max", 1920, 1080, 1.0D, "zh_tw", true,
-                        Variant.CRAFT_QUANTITY_MAX, 300, 12, "quantity 999", false)
+                        Variant.CRAFT_QUANTITY_MAX, 300, 12, "quantity 999", false),
+                scene("59_resume_placement_conflicts", 1600, 900, 1.0D, "zh_cn", true,
+                        Variant.RESUME_PLACEMENT_CONFLICTS, 300, 12, "skip or overwrite", false),
+                scene("60_resume_placement_disabled", 1600, 900, 1.0D, "en_us", true,
+                        Variant.RESUME_PLACEMENT_DISABLED, 300, 12, "insufficient items", false),
+                scene("61_resume_blueprint_missing", 1920, 1080, 1.0D, "zh_tw", true,
+                        Variant.RESUME_BLUEPRINT_MISSING, 300, 2000, "bounded missing rows", false),
+                scene("62_resume_blueprint_ready", 1600, 900, 1.0D, "zh_hk", true,
+                        Variant.RESUME_BLUEPRINT_READY, 300, 2000, "bounded ready rows", false),
+                scene("63_blueprint_library_2000_end", 1920, 1080, 1.0D, "en_us", true,
+                        Variant.BLUEPRINT_LIBRARY_2000_END, 300, 2000, "bounded library end", false),
+                scene("64_container_craft_dialog", 1600, 900, 1.0D, "en_us", true,
+                        Variant.CONTAINER_CRAFT_DIALOG, 300, 12, "overlay recipe choice", false),
+                scene("65_craft_feedback_popup", 1600, 900, 1.0D, "zh_cn", true,
+                        Variant.CRAFT_FEEDBACK_POPUP, 300, 12, "faded craft result", false),
+                scene("66_animation_caret_damage", 1600, 900, 1.0D, "en_us", true,
+                        Variant.ANIMATION_CARET_DAMAGE, 300, 12,
+                        "deterministic caret and half damage flash", false)
         ));
     }
 

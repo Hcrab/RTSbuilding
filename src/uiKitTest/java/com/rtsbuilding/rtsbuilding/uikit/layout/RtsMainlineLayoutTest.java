@@ -11,6 +11,8 @@ class RtsMainlineLayoutTest {
         RtsMainlineLayout.BottomPanel panel = RtsMainlineLayout.bottomPanel(1280, 720, 110);
         assertEquals(607, panel.panelY);
         assertEquals(113, panel.panelH);
+        assertEquals(10, panel.craftDockX);
+        assertEquals(671, panel.craftDockY);
         assertEquals(66, panel.categoryX);
         assertEquals(200, panel.storageX);
         assertEquals(1146, panel.craftPanelX);

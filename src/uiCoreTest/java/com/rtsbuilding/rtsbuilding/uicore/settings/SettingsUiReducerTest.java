@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.uicore.settings;
 
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumMap;
@@ -20,6 +21,19 @@ class SettingsUiReducerTest {
                 state.sections.get(0).rows.get(0).id);
         assertEquals(SettingsId.RANGE_DESTROY_SKELETON,
                 state.sections.get(4).rows.get(state.sections.get(4).rows.size() - 1).id);
+    }
+
+    @Test
+    void formalSettingsAreGeneratedByInternalRegistryWithControlRoles() {
+        assertEquals(SettingsId.values().length, SettingsUiCatalog.registrations().size());
+        assertEquals(SettingsId.PAN_DRAG_SENSITIVITY,
+                SettingsUiCatalog.registrations().get(0).getValue().getId());
+        assertEquals(UiControlRole.DRAG,
+                SettingsUiCatalog.registrations().get(0).getValue().getRole());
+        assertEquals(UiControlRole.HOLD_REPEAT,
+                SettingsUiCatalog.registrations().stream()
+                        .filter(registration -> registration.getValue().getId() == SettingsId.UI_SCALE)
+                        .findFirst().get().getValue().getRole());
     }
 
     @Test

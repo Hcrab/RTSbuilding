@@ -1,17 +1,20 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import com.rtsbuilding.rtsbuilding.uikit.performance.UiRenderStats;
-import com.rtsbuilding.rtsbuilding.uikit.skin.UiNineSliceLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 
 import java.awt.Color;
+import java.awt.AlphaComposite;
+import java.awt.Composite;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Shape;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.util.List;
 import java.util.Stack;
 
 /**
@@ -20,7 +23,7 @@ import java.util.Stack;
  * <p>它不认识世界、方块、FBO 或 Minecraft 共享缓冲区。九宫格每次固定提交
  * 九个矩形，绝不根据目标面积继续平铺。</p>
  */
-public final class BufferedImageUiCanvas implements AutoCloseable {
+public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     private final BufferedImage image;
     private final Graphics2D graphics;
     private final double scale;
@@ -28,6 +31,7 @@ public final class BufferedImageUiCanvas implements AutoCloseable {
     private final int logicalHeight;
     private final UiRenderStats stats = new UiRenderStats();
     private final Stack<Shape> clipStack = new Stack<Shape>();
+    private final Stack<AffineTransform> transformStack = new Stack<AffineTransform>();
     private int maximumNineSliceQuads;
 
     public BufferedImageUiCanvas(int width, int height) {
@@ -118,6 +122,18 @@ public final class BufferedImageUiCanvas implements AutoCloseable {
         stats.addPrimitives(1);
     }
 
+    @Override
+    public void fill(UiRect rect, UiColor color) {
+        fill(rect, new Color(color.toArgb(), true));
+    }
+
+    @Override
+    public void fill(double x, double y, double width, double height, UiColor color) {
+        graphics.setColor(new Color(color.toArgb(), true));
+        graphics.fillRect(round(x), round(y), round(width), round(height));
+        stats.addPrimitives(1);
+    }
+
     public void stroke(UiRect rect, Color color) {
         graphics.setColor(color);
         graphics.drawRect(round(rect.getX()), round(rect.getY()),
@@ -129,6 +145,12 @@ public final class BufferedImageUiCanvas implements AutoCloseable {
         graphics.setColor(color);
         graphics.drawString(text, round(x), round(baselineY));
         stats.addPrimitives(1);
+    }
+
+    @Override
+    public void text(String text, double x, double topY, UiColor color) {
+        text(text == null ? "" : text, x,
+                topY + graphics.getFontMetrics().getAscent(), new Color(color.toArgb(), true));
     }
 
     public void centeredText(String text, double centerX, double baselineY, Color color) {
@@ -155,6 +177,23 @@ public final class BufferedImageUiCanvas implements AutoCloseable {
         stats.addPrimitives(1);
     }
 
+    /** 以固定透明度叠加图片，供离屏验证状态纹理交叉淡入。 */
+    public void image(BufferedImage texture, UiRect target, double opacity) {
+        if (texture == null || opacity <= 0.0D) return;
+        Composite previous = graphics.getComposite();
+        graphics.setComposite(AlphaComposite.getInstance(
+                AlphaComposite.SRC_OVER,
+                (float) Math.max(0.0D, Math.min(1.0D, opacity))));
+        try {
+            graphics.drawImage(texture, round(target.getX()), round(target.getY()),
+                    round(target.right()), round(target.bottom()), 0, 0,
+                    texture.getWidth(), texture.getHeight(), null);
+            stats.addPrimitives(1);
+        } finally {
+            graphics.setComposite(previous);
+        }
+    }
+
     public void imageRegion(BufferedImage texture, UiRect source, UiRect target) {
         if (texture == null) return;
         graphics.drawImage(texture, round(target.getX()), round(target.getY()),
@@ -173,12 +212,14 @@ public final class BufferedImageUiCanvas implements AutoCloseable {
         }
     }
 
+    @Override
     public void pushClip(UiRect clip) {
         clipStack.push(graphics.getClip());
         graphics.clipRect(round(clip.getX()), round(clip.getY()),
                 round(clip.getWidth()), round(clip.getHeight()));
     }
 
+    @Override
     public void popClip() {
         if (clipStack.isEmpty()) {
             throw new IllegalStateException("clip stack underflow");
@@ -186,23 +227,41 @@ public final class BufferedImageUiCanvas implements AutoCloseable {
         graphics.setClip(clipStack.pop());
     }
 
-    /** 使用四角、四边和中心固定九块绘制面板。 */
-    public void nineSlice(UiRect target, int border, Color edge, Color center) {
-        int safeBorder = Math.max(1, border);
-        List<UiNineSliceLayout.Slice> slices = UiNineSliceLayout.calculate(
-                new UiRect(0, 0, safeBorder * 3.0D, safeBorder * 3.0D),
-                target, safeBorder, safeBorder, safeBorder, safeBorder);
-        for (UiNineSliceLayout.Slice slice : slices) {
-            fill(slice.getTarget(), slice.getPart() == UiNineSliceLayout.Part.CENTER ? center : edge);
+    @Override
+    public void pushTransform() {
+        transformStack.push(graphics.getTransform());
+    }
+
+    @Override
+    public void popTransform() {
+        if (transformStack.isEmpty()) {
+            throw new IllegalStateException("transform stack underflow");
         }
-        stats.addNineSliceQuads(slices.size());
-        maximumNineSliceQuads = Math.max(maximumNineSliceQuads, slices.size());
+        graphics.setTransform(transformStack.pop());
+    }
+
+    @Override
+    public void translate(double x, double y) {
+        graphics.translate(x, y);
+    }
+
+    @Override
+    public void scale(double x, double y) {
+        graphics.scale(x, y);
+    }
+
+    void recordNineSliceQuads(int count) {
+        stats.addNineSliceQuads(count);
+        maximumNineSliceQuads = Math.max(maximumNineSliceQuads, count);
     }
 
     @Override
     public void close() {
         if (!clipStack.isEmpty()) {
             throw new IllegalStateException("unbalanced clip stack");
+        }
+        if (!transformStack.isEmpty()) {
+            throw new IllegalStateException("unbalanced transform stack");
         }
         graphics.dispose();
     }

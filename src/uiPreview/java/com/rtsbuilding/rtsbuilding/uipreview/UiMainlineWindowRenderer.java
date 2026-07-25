@@ -27,15 +27,46 @@ import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiState;
 import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityOption;
 import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityState;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CullingWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.FunnelBufferLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiControlChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.CullingWindowChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowResumeChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintWindowChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.FunnelBufferChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.GuideWindowChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CullingWindowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowResumeStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.StorageWindowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintWindowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.FunnelBufferStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 
 import java.awt.Color;
 import java.util.ArrayList;
@@ -89,14 +120,31 @@ final class UiMainlineWindowRenderer {
                 drawCraftQuantity(canvas, panel.bounds(),
                         CraftQuantityPreviewFixtures.forScenario(scenario,
                                 CraftQuantityWindowLayout.visibleOptionRows(craftLayout)));
+            } else if ("resume_placement".equals(panel.id())) {
+                drawResumePlacement(
+                        canvas,
+                        panel.bounds(),
+                        language,
+                        WorkflowResumePreviewFixtures.placement(
+                                scenario,
+                                assets));
+            } else if ("resume_blueprint".equals(panel.id())) {
+                drawResumeBlueprint(
+                        canvas,
+                        panel.bounds(),
+                        language,
+                        WorkflowResumePreviewFixtures.blueprint(
+                                scenario,
+                                assets));
             }
         }
         if (scenario.variant() == UiPreviewScenario.Variant.SETTINGS_TOOLTIP) {
             UiRect anchor = layout.panels().get(0).bounds();
             UiRect tooltip = new UiRect(anchor.right() + 6, anchor.getY() + 64, 212, 42)
                     .clampWithin(layout.screen());
-            UiMainlinePreviewStyle.frame(canvas, tooltip,
-                    0xF018202A, 0xFF8CA5BE, 0xFF0B0F14);
+            recordCompactFrame(canvas, tooltip,
+                    RtsMainlineTheme.TOOLTIP_BACKGROUND, RtsMainlineTheme.TOOLTIP_BORDER,
+                    RtsMainlineTheme.WINDOW_BORDER_DARK);
             canvas.text(language.text("screen.rtsbuilding.settings.storage_auto_refresh"),
                     tooltip.getX() + 7, tooltip.getY() + 14, Color.WHITE);
             canvas.text(canvas.trimToWidth(
@@ -105,62 +153,342 @@ final class UiMainlineWindowRenderer {
         }
     }
 
+    private void drawResumePlacement(
+            BufferedImageUiCanvas canvas,
+            UiRect bounds,
+            UiLanguageBundle language,
+            WorkflowResumePreviewFixtures.Placement data) {
+        drawChrome(
+                canvas,
+                bounds,
+                language.text(
+                        "screen.rtsbuilding.workflow.resume_placement.title"));
+        WorkflowResumeWindowLayout.PlacementGeometry geometry =
+                WorkflowResumeWindowLayout.placement(
+                        (int) bounds.getX() + 1,
+                        (int) bounds.getY() + 20,
+                        (int) bounds.getWidth() - 2,
+                        (int) bounds.getHeight() - 21,
+                        data.hasConflicts());
+        WorkflowResumeChromeRenderer.renderPlacement(
+                canvas,
+                geometry,
+                data.enough(),
+                Double.NEGATIVE_INFINITY,
+                Double.NEGATIVE_INFINITY);
+        canvas.image(assets.item(data.assetName), geometry.itemIcon);
+        canvas.text(
+                canvas.trimToWidth(
+                        data.itemLabel,
+                        geometry.innerWidth - 20),
+                geometry.x + 20,
+                geometry.y + 13,
+                resumeColor(WorkflowResumeStyle.ITEM_TEXT));
+
+        int row = 0;
+        drawResumeStat(
+                canvas,
+                language,
+                geometry,
+                row++,
+                "screen.rtsbuilding.workflow.resume_placement.remaining",
+                Integer.toString(data.remaining),
+                WorkflowResumeStyle.PRIMARY_TEXT);
+        drawResumeStat(
+                canvas,
+                language,
+                geometry,
+                row++,
+                "screen.rtsbuilding.workflow.resume_placement.already_placed",
+                Integer.toString(data.alreadyPlaced),
+                WorkflowResumeStyle.SECONDARY_TEXT);
+        if (data.hasConflicts()) {
+            drawResumeStat(
+                    canvas,
+                    language,
+                    geometry,
+                    row++,
+                    "screen.rtsbuilding.workflow.resume_placement.conflicts",
+                    Integer.toString(data.conflicts),
+                    WorkflowResumeStyle.WARNING_TEXT);
+        }
+        drawResumeStat(
+                canvas,
+                language,
+                geometry,
+                row++,
+                "screen.rtsbuilding.workflow.resume_placement.available",
+                Long.toString(data.available),
+                WorkflowResumeStyle.SUCCESS_TEXT);
+        drawResumeStat(
+                canvas,
+                language,
+                geometry,
+                row++,
+                "screen.rtsbuilding.workflow.resume_placement.needed",
+                Integer.toString(data.needed),
+                WorkflowResumeStyle.PRIMARY_TEXT);
+        drawResumeStat(
+                canvas,
+                language,
+                geometry,
+                row,
+                "screen.rtsbuilding.workflow.resume_placement.missing",
+                data.enough()
+                        ? language.text(
+                                "screen.rtsbuilding.workflow.resume_placement.enough")
+                        : Long.toString(data.missing),
+                data.enough()
+                        ? WorkflowResumeStyle.SUCCESS_TEXT
+                        : WorkflowResumeStyle.ERROR_TEXT);
+
+        if (geometry.hasConflicts) {
+            drawResumeActionText(
+                    canvas,
+                    language,
+                    geometry.primaryAction,
+                    data.enough()
+                            ? "screen.rtsbuilding.workflow.resume_placement.skip"
+                            : "screen.rtsbuilding.workflow.insufficient_items",
+                    WorkflowResumeStyle.action(
+                            WorkflowResumeStyle.ActionKind.SKIP,
+                            data.enough(),
+                            false).text);
+            drawResumeActionText(
+                    canvas,
+                    language,
+                    geometry.secondaryAction,
+                    data.enough()
+                            ? "screen.rtsbuilding.workflow.resume_placement.overwrite"
+                            : "screen.rtsbuilding.workflow.insufficient_items",
+                    WorkflowResumeStyle.action(
+                            WorkflowResumeStyle.ActionKind.OVERWRITE,
+                            data.enough(),
+                            false).text);
+        } else {
+            drawResumeActionText(
+                    canvas,
+                    language,
+                    geometry.primaryAction,
+                    data.enough()
+                            ? "screen.rtsbuilding.workflow.resume_placement.restart"
+                            : "screen.rtsbuilding.workflow.insufficient_items",
+                    WorkflowResumeStyle.action(
+                            WorkflowResumeStyle.ActionKind.RESUME,
+                            data.enough(),
+                            false).text);
+        }
+    }
+
+    private void drawResumeBlueprint(
+            BufferedImageUiCanvas canvas,
+            UiRect bounds,
+            UiLanguageBundle language,
+            WorkflowResumePreviewFixtures.Blueprint data) {
+        drawChrome(
+                canvas,
+                bounds,
+                language.text(
+                        "screen.rtsbuilding.workflow.blueprint_resume.title"));
+        WorkflowResumeWindowLayout.BlueprintGeometry geometry =
+                WorkflowResumeWindowLayout.blueprint(
+                        (int) bounds.getX() + 1,
+                        (int) bounds.getY() + 20,
+                        (int) bounds.getWidth() - 2,
+                        (int) bounds.getHeight() - 21,
+                        data.visibleRows.size());
+        WorkflowResumeChromeRenderer.renderBlueprint(
+                canvas,
+                geometry,
+                data.enough(),
+                Double.NEGATIVE_INFINITY,
+                Double.NEGATIVE_INFINITY);
+        canvas.text(
+                language.format(
+                        "screen.rtsbuilding.workflow.blueprint_resume.progress",
+                        data.completed,
+                        data.total,
+                        data.total - data.completed),
+                geometry.x,
+                geometry.y + 9,
+                resumeColor(WorkflowResumeStyle.PROGRESS_TEXT));
+        int headerY = geometry.y + 31;
+        canvas.text(
+                language.text(
+                        "screen.rtsbuilding.workflow.blueprint_resume.material"),
+                geometry.x,
+                headerY,
+                resumeColor(WorkflowResumeStyle.LABEL_TEXT));
+        canvas.text(
+                language.text(
+                        "screen.rtsbuilding.workflow.blueprint_resume.required"),
+                geometry.requiredColumnX,
+                headerY,
+                resumeColor(WorkflowResumeStyle.LABEL_TEXT));
+        canvas.text(
+                language.text(
+                        "screen.rtsbuilding.workflow.blueprint_resume.available"),
+                geometry.availableColumnX,
+                headerY,
+                resumeColor(WorkflowResumeStyle.LABEL_TEXT));
+
+        for (WorkflowResumeWindowLayout.BlueprintRowGeometry row
+                : geometry.rows) {
+            WorkflowResumePreviewFixtures.Material material =
+                    data.visibleRows.get(row.visibleIndex);
+            canvas.image(
+                    assets.item(material.assetName),
+                    row.itemIcon);
+            canvas.text(
+                    canvas.trimToWidth(material.label, 100),
+                    row.itemIcon.getX() + 18,
+                    row.itemIcon.getY() + 13,
+                    resumeColor(WorkflowResumeStyle.ITEM_TEXT));
+            canvas.text(
+                    Integer.toString(material.required),
+                    geometry.requiredColumnX,
+                    row.row.getY() + 13,
+                    resumeColor(WorkflowResumeStyle.PRIMARY_TEXT));
+            canvas.text(
+                    material.enough()
+                            ? Long.toString(material.available)
+                            : language.format(
+                                    "screen.rtsbuilding.workflow.blueprint_resume.missing",
+                                    material.missing()),
+                    geometry.availableColumnX,
+                    row.row.getY() + 13,
+                    resumeColor(
+                            material.enough()
+                                    ? WorkflowResumeStyle.SUCCESS_TEXT
+                                    : WorkflowResumeStyle.ERROR_TEXT));
+        }
+        drawResumeActionText(
+                canvas,
+                language,
+                geometry.action,
+                data.enough()
+                        ? "screen.rtsbuilding.workflow.blueprint_resume.restart"
+                        : "screen.rtsbuilding.workflow.blueprint_resume.insufficient_materials",
+                WorkflowResumeStyle.action(
+                        WorkflowResumeStyle.ActionKind.RESUME,
+                        data.enough(),
+                        false).text);
+    }
+
+    private static void drawResumeStat(
+            BufferedImageUiCanvas canvas,
+            UiLanguageBundle language,
+            WorkflowResumeWindowLayout.PlacementGeometry geometry,
+            int row,
+            String labelKey,
+            String value,
+            UiColor valueColor) {
+        int y = geometry.statY(row) + 9;
+        canvas.text(
+                language.text(labelKey),
+                geometry.x,
+                y,
+                resumeColor(WorkflowResumeStyle.LABEL_TEXT));
+        canvas.text(
+                value,
+                geometry.valueX,
+                y,
+                resumeColor(valueColor));
+    }
+
+    private static void drawResumeActionText(
+            BufferedImageUiCanvas canvas,
+            UiLanguageBundle language,
+            UiRect action,
+            String key,
+            UiColor color) {
+        canvas.centeredText(
+                language.text(key),
+                action.getX() + action.getWidth() / 2.0D,
+                action.getY() + 13,
+                resumeColor(color));
+    }
+
+    private static Color resumeColor(UiColor color) {
+        return UiMainlinePreviewStyle.color(color.toArgb());
+    }
+
     private void drawWorkflow(BufferedImageUiCanvas canvas, UiRect bounds,
                               UiLanguageBundle language, WorkflowUiState state) {
         drawChrome(canvas, bounds, language.text("screen.rtsbuilding.workflow.title"), false);
         int x = (int) bounds.getX() + 1;
-        int y = (int) bounds.getY() + 20 + WorkflowWindowLayout.PADDING;
-        int rowW = WorkflowWindowLayout.rowWidth();
-        for (WorkflowUiRow row : state.rows) {
-            boolean suspended = row.suspended;
-            int bg = row.protectedWorkflow
-                    ? 0xAA315B70 : suspended ? 0xAA2A2820 : 0xAA1A222C;
-            int border = row.protectedWorkflow
-                    ? 0xFFA8E8FF : suspended ? 0xFF8A7A4A : 0xFF5E738A;
-            int labelColor = row.protectedWorkflow
-                    ? 0xFFEAFBFF : suspended ? 0xFFE7C46A : 0xFFEAF2FF;
-            int barFill = row.protectedWorkflow
-                    ? 0xDDA8E8FF : suspended ? 0xAA8A7A3A : 0xFF88BEF4;
-            UiMainlinePreviewStyle.frame(canvas,
-                    new UiRect(x, y, rowW, WorkflowWindowLayout.ROW_H),
-                    bg, border, suspended ? 0xFF0D0D0A : 0xFF0D1117);
-            canvas.text(canvas.trimToWidth(row.label, rowW - 8), x + 4, y + 11,
-                    UiMainlinePreviewStyle.color(labelColor));
-            int barX = x + 4;
-            int barY = y + 12;
-            int barW = rowW - 8;
-            canvas.fill(new UiRect(barX, barY, barW, WorkflowWindowLayout.BAR_H),
-                    UiMainlinePreviewStyle.color(suspended ? 0xAA303030 : 0xAA202832));
-            int fillW = (int) Math.round(row.progress() * barW);
-            if (fillW > 0) {
-                canvas.fill(new UiRect(barX, barY, fillW, WorkflowWindowLayout.BAR_H),
-                        UiMainlinePreviewStyle.color(barFill));
-            }
-            canvas.text(canvas.trimToWidth(row.progressText, barW - 4),
-                    barX + 2, barY + 7, UiMainlinePreviewStyle.color(0xCCFFFFFF));
+        int firstRowY = (int) bounds.getY()
+                + 20
+                + WorkflowWindowLayout.PADDING;
+        WorkflowWindowLayout.Geometry geometry =
+                WorkflowWindowLayout.geometry(
+                        x,
+                        firstRowY,
+                        state.rows.size());
+        for (int index = 0; index < state.rows.size(); index++) {
+            WorkflowUiRow row = state.rows.get(index);
+            WorkflowWindowLayout.RowGeometry rowGeometry =
+                    geometry.rows.get(index);
+            WorkflowChromeRenderer.renderRow(
+                    canvas,
+                    rowGeometry,
+                    row);
 
-            int protectX = WorkflowWindowLayout.protectX(x);
-            drawWorkflowButton(canvas, protectX, y, row.protectedWorkflow ? "◆" : "◇",
-                    row.protectedWorkflow ? 0xCC4DAFD8 : 0xAA263442,
-                    row.protectedWorkflow ? 0xFFA8E8FF : 0xFF5E738A);
-            int actionX = WorkflowWindowLayout.actionX(x);
-            boolean resume = suspended || row.paused;
-            drawWorkflowButton(canvas, actionX, y, resume ? "▶" : "⏸",
-                    resume ? 0xCC2C873F : 0xCC705A1A,
-                    resume ? 0xFF74E88C : 0xFFE7C46A);
-            drawWorkflowButton(canvas, WorkflowWindowLayout.deleteX(x), y, "✖",
-                    0xAA4A2A2A, 0xFFC07070);
-            y += WorkflowWindowLayout.ROW_H;
+            WorkflowStyle.RowVisual rowVisual = WorkflowStyle.row(
+                    row.suspended,
+                    row.protectedWorkflow,
+                    false);
+            canvas.text(
+                    canvas.trimToWidth(
+                            row.label,
+                            (int) rowGeometry.row.getWidth() - 8),
+                    rowGeometry.row.getX() + WorkflowWindowLayout.LABEL_X,
+                    rowGeometry.row.getY() + 11,
+                    UiMainlinePreviewStyle.color(
+                            rowVisual.labelText.toArgb()));
+            canvas.text(
+                    canvas.trimToWidth(
+                            row.progressText,
+                            (int) rowGeometry.progress.getWidth() - 4),
+                    rowGeometry.progress.getX()
+                            + WorkflowWindowLayout.PROGRESS_TEXT_X,
+                    rowGeometry.progress.getY() + 7,
+                    UiMainlinePreviewStyle.color(
+                            rowVisual.progressText.toArgb()));
+
+            drawWorkflowGlyph(
+                    canvas,
+                    rowGeometry.protect,
+                    row.protectedWorkflow ? "◆" : "◇",
+                    WorkflowStyle.protect(
+                            row.protectedWorkflow,
+                            false).text);
+            drawWorkflowGlyph(
+                    canvas,
+                    rowGeometry.action,
+                    row.suspended || row.paused ? "▶" : "⏸",
+                    WorkflowStyle.action(
+                            row.suspended,
+                            row.paused,
+                            false).text);
+            drawWorkflowGlyph(
+                    canvas,
+                    rowGeometry.delete,
+                    "✖",
+                    WorkflowStyle.delete(false).text);
         }
     }
 
-    private void drawWorkflowButton(BufferedImageUiCanvas canvas, int x, int y,
-                                    String label, int bg, int border) {
-        UiMainlinePreviewStyle.frame(canvas,
-                new UiRect(x, y, WorkflowWindowLayout.BUTTON_W, WorkflowWindowLayout.ROW_H),
-                bg, border, 0xFF0D1117);
-        canvas.centeredText(label, x + WorkflowWindowLayout.BUTTON_W / 2.0D,
-                y + 13, Color.WHITE);
+    private void drawWorkflowGlyph(
+            BufferedImageUiCanvas canvas,
+            UiRect bounds,
+            String glyph,
+            UiColor color) {
+        canvas.centeredText(
+                glyph,
+                bounds.getX() + bounds.getWidth() / 2.0D,
+                bounds.getY() + 13,
+                UiMainlinePreviewStyle.color(color.toArgb()));
     }
 
     private void drawGuide(BufferedImageUiCanvas canvas, UiRect bounds,
@@ -170,59 +498,62 @@ final class UiMainlineWindowRenderer {
         int contentY = (int) bounds.getY() + 20;
         int contentW = (int) bounds.getWidth() - 2;
         int contentH = (int) bounds.getHeight() - 21;
-        int tabX = contentX + GuideWindowLayout.CONTENT_PAD;
-        int tabY = contentY + GuideWindowLayout.CONTENT_PAD;
-        int tabW = GuideWindowLayout.topicTabWidth(state.context == GuideUiContext.BOTTOM);
+        GuideWindowLayout.Geometry geometry = GuideWindowLayout.geometry(
+                new UiRect(contentX, contentY, contentW, contentH),
+                state.context == GuideUiContext.BOTTOM);
+        int tabW = geometry.topicTabWidth;
         GuideUiTopic[] topics = GuideUiCatalog.topics(state.context);
-        int visible = GuideWindowLayout.visibleTopicRows(contentH);
+        int visible = geometry.visibleTopicRows;
         int end = Math.min(topics.length, state.topicScroll + visible);
         for (int index = state.topicScroll; index < end; index++) {
-            int y = tabY + (index - state.topicScroll) * 22;
+            UiRect row = geometry.topicRow(index, state.topicScroll);
+            int tabX = (int) row.getX();
+            int y = (int) row.getY();
             boolean active = index == state.page;
-            UiMainlinePreviewStyle.frame(canvas, new UiRect(tabX, y, tabW, 18),
-                    active ? 0xCC355A71 : 0x88303A45,
-                    active ? 0xFF8FB4D0 : 0xFF4A5665, 0xFF0D1218);
+            GuideWindowChromeRenderer.renderTopic(canvas, row, active);
             if (state.context == GuideUiContext.BOTTOM) {
-                canvas.text(canvas.trimToWidth(language.text(topics[index].titleKey), tabW - 8),
-                        tabX + 4, y + 13, active ? Color.WHITE : UiMainlinePreviewStyle.MUTED);
+                canvas.text(canvas.trimToWidth(language.text(topics[index].titleKey),
+                                tabW - GuideWindowLayout.TOPIC_LABEL_HORIZONTAL_PAD),
+                        tabX + GuideWindowLayout.TOPIC_LABEL_INSET_X,
+                        y + GuideWindowLayout.TOPIC_LABEL_BASELINE_Y,
+                        UiMainlinePreviewStyle.color(
+                                GuideWindowStyle.topicContent(active).toArgb()));
             } else {
-                drawGuideIcon(canvas, topics[index], tabX + 10, y + 9);
+                drawGuideIcon(canvas, topics[index],
+                        tabX + GuideWindowLayout.TOPIC_ICON_CENTER_X,
+                        y + GuideWindowLayout.TOPIC_ICON_CENTER_Y);
             }
         }
-        drawGuideScrollbar(canvas, tabX + tabW + 3, tabY,
-                GuideWindowLayout.topicAreaHeight(contentH), state.topicScroll,
+        GuideWindowChromeRenderer.renderScrollbar(canvas, geometry.topicScrollbar,
+                state.topicScroll,
                 topics.length, visible);
-        int textX = contentX + tabW + 18;
-        int titleY = contentY + 10;
-        int maxTextW = GuideWindowLayout.textMaxWidth(contentW, tabW);
+        int textX = (int) geometry.title.getX();
+        int titleY = (int) geometry.title.getY();
+        int maxTextW = (int) geometry.title.getWidth();
         GuideUiTopic topic = topics[state.page];
         canvas.text(canvas.trimToWidth(language.text(topic.titleKey), maxTextW),
-                textX, titleY + 9, UiMainlinePreviewStyle.color(0xFFE7C46A));
-        int bodyY = titleY + 16;
-        int line = 0;
+                textX, titleY + GuideWindowLayout.TITLE_BASELINE_Y,
+                UiMainlinePreviewStyle.color(GuideWindowStyle.TITLE_TEXT.toArgb()));
+        int bodyY = (int) geometry.body.getY();
+        List<String> lines = new ArrayList<String>();
         for (String key : topic.lineKeys) {
-            for (String wrapped : wrap(canvas, language.text(key), maxTextW)) {
-                if (line++ < state.textScroll) continue;
-                int visibleLine = line - state.textScroll - 1;
-                if (visibleLine >= GuideWindowLayout.visibleTextLines(contentH)) return;
-                canvas.text(wrapped, textX, bodyY + visibleLine * 12 + 9,
-                        UiMainlinePreviewStyle.color(0xFFE6EDF8));
-            }
+            lines.addAll(wrap(canvas, language.text(key), maxTextW));
         }
-    }
-
-    private void drawGuideScrollbar(BufferedImageUiCanvas canvas, int x, int y, int h,
-                                    int scroll, int total, int visible) {
-        if (total <= visible || h <= 0) return;
-        int knobH = Math.max(10, h * visible / Math.max(visible + 1, total));
-        int maxScroll = Math.max(1, total - visible);
-        int knobY = y + (h - knobH) * Math.max(0, Math.min(maxScroll, scroll)) / maxScroll;
-        canvas.fill(new UiRect(x, y, 3, h), UiMainlinePreviewStyle.color(0x55303A45));
-        canvas.fill(new UiRect(x, knobY, 3, knobH), UiMainlinePreviewStyle.color(0xCC8FB4D0));
+        int lineEnd = Math.min(lines.size(), state.textScroll + geometry.visibleTextLines);
+        for (int line = state.textScroll; line < lineEnd; line++) {
+            int visibleLine = line - state.textScroll;
+            canvas.text(lines.get(line), textX,
+                    bodyY + visibleLine * GuideWindowLayout.BODY_LINE_H
+                            + GuideWindowLayout.BODY_BASELINE_Y,
+                    UiMainlinePreviewStyle.color(GuideWindowStyle.BODY_TEXT.toArgb()));
+        }
+        GuideWindowChromeRenderer.renderScrollbar(canvas, geometry.bodyScrollbar,
+                state.textScroll, lines.size(), geometry.visibleTextLines);
     }
 
     private void drawGuideIcon(BufferedImageUiCanvas canvas, GuideUiTopic topic, int cx, int cy) {
         String texture = null;
+        boolean guideTexture = false;
         switch (topic.icon) {
             case HAND: texture = "mode_interact"; break;
             case LINK: texture = "mode_link"; break;
@@ -231,54 +562,51 @@ final class UiMainlineWindowRenderer {
             case BUILD: texture = "quick_build"; break;
             case PICKAXE: texture = "ultimine"; break;
             case GRID: texture = "chunk_view"; break;
-            default: break;
+            case GEAR: texture = "settings_gear"; break;
+            default:
+                texture = topic.icon.name().toLowerCase(java.util.Locale.ROOT);
+                guideTexture = true;
+                break;
         }
-        if (texture != null) {
-            canvas.image(assets.topBar(texture, "active"), new UiRect(cx - 7, cy - 7, 14, 14));
-        } else {
-            canvas.fill(new UiRect(cx - 6, cy - 5, 12, 10),
-                    UiMainlinePreviewStyle.color(0xFFB9C7D5));
-            canvas.fill(new UiRect(cx - 3, cy - 2, 6, 4),
-                    UiMainlinePreviewStyle.color(0xFF1B222C));
-        }
+        canvas.image(guideTexture ? assets.guide(texture) : assets.topBar(texture, "active"),
+                new UiRect(cx - 9, cy - 9, 18, 18));
     }
 
     private void drawFunnelBuffer(BufferedImageUiCanvas canvas, UiPreviewLayout layout,
                                   UiRect bounds, FunnelUiState state) {
-        int toggleX = FunnelBufferLayout.toggleX((int) layout.screen().getWidth());
-        int toggleY = FunnelBufferLayout.toggleY((int) layout.topBar().getHeight());
-        canvas.fill(new UiRect(toggleX, toggleY, FunnelBufferLayout.TOGGLE_W,
-                FunnelBufferLayout.TOGGLE_H), UiMainlinePreviewStyle.color(
-                state.panelVisible ? 0xAA2C4E3D : 0xAA2A2D36));
+        FunnelBufferLayout.Geometry geometry = FunnelBufferLayout.geometry(
+                (int) layout.screen().getWidth(),
+                (int) layout.topBar().getHeight(),
+                (int) bounds.getHeight());
+        FunnelBufferChromeRenderer.renderToggle(canvas, geometry.toggle, state.panelVisible);
+        int toggleX = (int) geometry.toggle.getX();
+        int toggleY = (int) geometry.toggle.getY();
         canvas.centeredText("BUFFER", toggleX + FunnelBufferLayout.TOGGLE_W / 2.0D,
-                toggleY + 12, Color.WHITE);
-        if (!state.panelVisible) return;
-        canvas.fill(bounds, UiMainlinePreviewStyle.color(0xAA17191F));
-        canvas.text("Funnel Buffer", bounds.getX() + 6, bounds.getY() + 13, Color.WHITE);
-        int listY = (int) bounds.getY() + 16;
+                toggleY + 12, UiMainlinePreviewStyle.color(FunnelBufferStyle.PRIMARY_TEXT));
+        if (!state.panelVisible || !geometry.panelRenderable) return;
+        FunnelBufferChromeRenderer.renderPanel(canvas, geometry.panel);
+        canvas.text("Funnel Buffer", geometry.panel.getX() + 6, geometry.panel.getY() + 13,
+                FunnelBufferStyle.TITLE_TEXT);
         for (int index = 0; index < state.visibleEntries.size(); index++) {
             FunnelUiEntry entry = state.visibleEntries.get(index);
-            int rowX = (int) bounds.getX() + 4;
-            int rowY = listY + index * FunnelBufferLayout.ROW_H;
-            int rowW = FunnelBufferLayout.PANEL_W - 8;
-            canvas.fill(new UiRect(rowX, rowY, rowW, FunnelBufferLayout.ROW_H - 2),
-                    UiMainlinePreviewStyle.color(0x88303845));
-            canvas.fill(new UiRect(rowX + 2, rowY + 2, 18, 18),
-                    UiMainlinePreviewStyle.color(0xAA1E222A));
+            UiRect row = geometry.row(index);
+            UiRect slot = geometry.slot(index);
+            boolean hovered = entry.sourceIndex == state.hoveredSourceIndex;
+            FunnelBufferChromeRenderer.renderRow(canvas, row, slot, hovered);
+            int rowX = (int) row.getX();
+            int rowY = (int) row.getY();
+            int rowW = (int) row.getWidth();
             String item = entry.itemId.substring(entry.itemId.indexOf(':') + 1);
-            canvas.image(assets.item(item), new UiRect(rowX + 3, rowY + 3, 16, 16));
+            canvas.image(assets.item(item),
+                    new UiRect(slot.getX() + 1, slot.getY() + 1, 16, 16));
             canvas.text(canvas.trimToWidth(entry.label, rowW - 30), rowX + 24, rowY + 12,
-                    Color.WHITE);
+                    FunnelBufferStyle.PRIMARY_TEXT);
             canvas.text("x" + compact(entry.count), rowX + 24, rowY + 21,
-                    UiMainlinePreviewStyle.color(0xFFFFDFAE));
-            if (entry.sourceIndex == state.hoveredSourceIndex) {
-                canvas.fill(new UiRect(rowX, rowY, rowW, FunnelBufferLayout.ROW_H - 2),
-                        UiMainlinePreviewStyle.color(0x33FFFFFF));
-            }
+                    FunnelBufferStyle.COUNT_TEXT);
         }
         if (state.totalEntries == 0) {
-            canvas.text("empty", bounds.getX() + 6, bounds.getY() + 29,
-                    UiMainlinePreviewStyle.MUTED);
+            canvas.text("empty", geometry.panel.getX() + 6, geometry.panel.getY() + 29,
+                    FunnelBufferStyle.EMPTY_TEXT);
         }
     }
 
@@ -291,61 +619,75 @@ final class UiMainlineWindowRenderer {
         String item = state.itemId.substring(state.itemId.indexOf(':') + 1);
         canvas.image(assets.item(item), new UiRect(l.x, l.y, 16, 16));
         canvas.text(canvas.trimToWidth(state.itemLabel, Math.max(24, l.w - 28)),
-                l.x + 22, l.y + 10, UiMainlinePreviewStyle.color(0xFFE4ECF6));
+                l.x + 22, l.y + 10, CraftQuantityStyle.ITEM_LABEL);
         CraftQuantityOption selected = state.selected();
         canvas.text("Each craft: x" + (selected == null ? 1 : selected.resultCount),
-                l.x + 22, l.y + 22, UiMainlinePreviewStyle.color(0xFFAFC0D3));
-        canvas.text("Recipes", l.x, l.optionsY - 1, UiMainlinePreviewStyle.color(0xFFD8E3EE));
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(l.x, l.optionsY, l.optionsW, l.optionsH),
-                0xAA202833, 0xFF61758A, 0xFF11161C);
+                l.x + 22, l.y + 22, CraftQuantityStyle.MUTED_TEXT);
+        canvas.text("Recipes", l.x, l.optionsY - 1, CraftQuantityStyle.SECTION_LABEL);
+        recordChrome(canvas, new UiRect(l.x, l.optionsY, l.optionsW, l.optionsH),
+                CraftQuantityStyle.OPTIONS_BACKGROUND, CraftQuantityStyle.OPTIONS_BORDER_LIGHT,
+                CraftQuantityStyle.OPTIONS_BORDER_DARK);
         int visible = CraftQuantityWindowLayout.visibleOptionRows(l);
         for (int row = 0; row < visible; row++) {
             int optionIndex = state.scroll + row;
             if (optionIndex >= state.options.size()) break;
             CraftQuantityOption option = state.options.get(optionIndex);
             int rowY = l.optionsY + 2 + row * CraftQuantityWindowLayout.OPTION_ROW_H;
-            int fill = option.craftable ? 0xAA223B2E : 0xAA402626;
-            if (optionIndex == state.selectedIndex) fill = option.craftable ? 0xCC2E5B43 : 0xCC684040;
+            UiColor fill = CraftQuantityStyle.rowBackground(option.craftable,
+                    optionIndex == state.selectedIndex);
             canvas.fill(new UiRect(l.x + 2, rowY, l.optionsW - 4,
-                    CraftQuantityWindowLayout.OPTION_ROW_H - 1), UiMainlinePreviewStyle.color(fill));
+                    CraftQuantityWindowLayout.OPTION_ROW_H - 1), fill);
             canvas.text(canvas.trimToWidth("x" + option.resultCount + " "
                             + (option.summary.isEmpty() ? "Recipe" : option.summary), l.optionsW - 56),
-                    l.x + 6, rowY + 12, Color.WHITE);
+                    l.x + 6, rowY + 12, CraftQuantityStyle.ROW_TEXT);
             canvas.text(option.craftable ? "MAKE" : "MISS",
                     l.x + l.optionsW - 30, rowY + 12,
-                    UiMainlinePreviewStyle.color(option.craftable ? 0xFFC9F0C7 : 0xFFF0C4C4));
+                    CraftQuantityStyle.badge(option.craftable));
         }
         String detail = selected == null ? "No recipe" : selected.craftable
                 ? (selected.summary.isEmpty() ? "Recipe" : selected.summary)
                 : (selected.missingSummary.isEmpty() ? "Missing ingredients." : selected.missingSummary);
         canvas.text(canvas.trimToWidth(detail, l.w), l.x, l.detailY + 9,
-                UiMainlinePreviewStyle.color(selected != null && !selected.craftable
-                        ? 0xFFD6AAAA : 0xFFBCD0E2));
+                CraftQuantityStyle.detail(selected != null && !selected.craftable));
         drawCraftButton(canvas, l.minusTenX, l.inputY, CraftQuantityWindowLayout.STEP_W,
-                CraftQuantityWindowLayout.STEP_H, "-10", 0xAA2A3340);
+                CraftQuantityWindowLayout.STEP_H, "-10", UiControlRole.HOLD_REPEAT);
         drawCraftButton(canvas, l.minusOneX, l.inputY, CraftQuantityWindowLayout.STEP_W,
-                CraftQuantityWindowLayout.STEP_H, "-1", 0xAA2A3340);
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(l.inputX, l.inputY,
+                CraftQuantityWindowLayout.STEP_H, "-1", UiControlRole.HOLD_REPEAT);
+        recordChrome(canvas, new UiRect(l.inputX, l.inputY,
                         CraftQuantityWindowLayout.INPUT_W, CraftQuantityWindowLayout.INPUT_H),
-                0xFF202833, 0xFF61758A, 0xFF11161C);
+                RtsMainlineTheme.INPUT_BACKGROUND, RtsMainlineTheme.INPUT_BORDER_LIGHT,
+                RtsMainlineTheme.INPUT_BORDER_DARK);
         canvas.centeredText(Integer.toString(state.quantity),
-                l.inputX + CraftQuantityWindowLayout.INPUT_W / 2.0D, l.inputY + 11, Color.WHITE);
+                l.inputX + CraftQuantityWindowLayout.INPUT_W / 2.0D, l.inputY + 11,
+                UiMainlinePreviewStyle.color(RtsMainlineTheme.BUTTON_TEXT));
         drawCraftButton(canvas, l.plusOneX, l.inputY, CraftQuantityWindowLayout.STEP_W,
-                CraftQuantityWindowLayout.STEP_H, "+1", 0xAA2A3340);
+                CraftQuantityWindowLayout.STEP_H, "+1", UiControlRole.HOLD_REPEAT);
         drawCraftButton(canvas, l.plusTenX, l.inputY, CraftQuantityWindowLayout.STEP_W,
-                CraftQuantityWindowLayout.STEP_H, "+10", 0xAA2A3340);
-        canvas.text("Enter confirm, Esc cancel", l.x, l.helpY + 9, UiMainlinePreviewStyle.MUTED);
+                CraftQuantityWindowLayout.STEP_H, "+10", UiControlRole.HOLD_REPEAT);
+        canvas.text("Enter confirm, Esc cancel", l.x, l.helpY + 9, CraftQuantityStyle.MUTED_TEXT);
         drawCraftButton(canvas, l.cancelX, l.actionY, CraftQuantityWindowLayout.ACTION_W,
-                CraftQuantityWindowLayout.ACTION_H, "Cancel", 0xAA473030);
+                CraftQuantityWindowLayout.ACTION_H, "Cancel", UiControlRole.DESTRUCTIVE_CONFIRM);
         drawCraftButton(canvas, l.confirmX, l.actionY, CraftQuantityWindowLayout.ACTION_W,
-                CraftQuantityWindowLayout.ACTION_H, "Craft", 0xAA345A38);
+                CraftQuantityWindowLayout.ACTION_H, "Craft", UiControlRole.PRIMARY_ACTION);
     }
 
     private void drawCraftButton(BufferedImageUiCanvas canvas, int x, int y, int w, int h,
-                                 String label, int fill) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, h),
-                fill, 0xFF667D95, 0xFF111821);
-        canvas.centeredText(label, x + w / 2.0D, y + Math.max(11, h - 4), Color.WHITE);
+                                 String label, UiControlRole role) {
+        UiControlChromeRenderer.compactFrame(canvas, new UiRect(x, y, w, h),
+                role, UiControlState.enabled());
+        canvas.centeredText(label, x + w / 2.0D, y + Math.max(11, h - 4),
+                UiMainlinePreviewStyle.color(RtsMainlineTheme.BUTTON_TEXT));
+    }
+
+    private static void recordChrome(BufferedImageUiCanvas canvas, UiRect bounds,
+                                     UiColor background, UiColor light, UiColor dark) {
+        int quads = UiChromeRenderer.frame(canvas, bounds, 1.0D, background, light, dark);
+        canvas.recordNineSliceQuads(quads);
+    }
+
+    private static void recordCompactFrame(BufferedImageUiCanvas canvas, UiRect bounds,
+                                           UiColor background, UiColor light, UiColor dark) {
+        UiCompactFrameRenderer.frame(canvas, bounds, background, light, dark);
     }
 
     private static String compact(long count) {
@@ -354,46 +696,149 @@ final class UiMainlineWindowRenderer {
         return Long.toString(count);
     }
 
-    private void drawStorageLinks(BufferedImageUiCanvas canvas,UiRect bounds,
-                                  UiLanguageBundle language,StorageUiState state){
-        drawChrome(canvas,bounds,language.text("screen.rtsbuilding.storage_links.title"));
-        int contentX=(int)bounds.getX()+1,contentY=(int)bounds.getY()+20;
-        int x=StorageWindowLayout.left(contentX),y=StorageWindowLayout.top(contentY);
-        int w=StorageWindowLayout.innerWidth((int)bounds.getWidth()-2);
-        canvas.text(language.text("screen.rtsbuilding.storage_links.header"),x,y+9,UiMainlinePreviewStyle.TEXT);
-        if(state.status!=StorageUiStatus.READY){
-            String label=state.status==StorageUiStatus.LOADING?language.text("screen.rtsbuilding.storage_links.loading")
-                    :state.status==StorageUiStatus.FAILED?language.text(state.errorMessage):language.text("screen.rtsbuilding.storage_links.empty");
-            canvas.text(canvas.trimToWidth(label,w),x,y+StorageWindowLayout.HEADER_H+21,
-                    state.status==StorageUiStatus.FAILED?UiMainlinePreviewStyle.color(0xFFFF9AA8):UiMainlinePreviewStyle.color(0xFFFFD480));
-            if(state.status==StorageUiStatus.EMPTY)canvas.text(canvas.trimToWidth(language.text("screen.rtsbuilding.storage_links.empty_detail"),w),x,y+StorageWindowLayout.HEADER_H+33,UiMainlinePreviewStyle.MUTED);
+    private void drawStorageLinks(
+            BufferedImageUiCanvas canvas,
+            UiRect bounds,
+            UiLanguageBundle language,
+            StorageUiState state) {
+        drawChrome(
+                canvas,
+                bounds,
+                language.text(
+                        "screen.rtsbuilding.storage_links.title"));
+        int contentX = (int) bounds.getX() + 1;
+        int contentY = (int) bounds.getY() + 20;
+        StorageWindowLayout.Geometry geometry =
+                StorageWindowLayout.geometry(
+                        contentX,
+                        contentY,
+                        (int) bounds.getWidth() - 2,
+                        (int) bounds.getHeight() - 21,
+                        state.visibleEntries.size(),
+                        state.totalRows,
+                        state.scroll);
+        canvas.text(
+                language.text(
+                        "screen.rtsbuilding.storage_links.header"),
+                geometry.x,
+                geometry.y + 9,
+                UiMainlinePreviewStyle.color(
+                        StorageWindowStyle.HEADER_TEXT.toArgb()));
+        if (state.status != StorageUiStatus.READY) {
+            String label = state.status == StorageUiStatus.LOADING
+                    ? language.text(
+                            "screen.rtsbuilding.storage_links.loading")
+                    : state.status == StorageUiStatus.FAILED
+                    ? language.text(state.errorMessage)
+                    : language.text(
+                            "screen.rtsbuilding.storage_links.empty");
+            canvas.text(
+                    canvas.trimToWidth(label, geometry.innerWidth),
+                    geometry.x,
+                    geometry.y + StorageWindowLayout.STATUS_Y + 9,
+                    UiMainlinePreviewStyle.color(
+                            StorageWindowStyle.statusText(
+                                    state.status).toArgb()));
+            if (state.status == StorageUiStatus.EMPTY) {
+                canvas.text(
+                        canvas.trimToWidth(
+                                language.text(
+                                        "screen.rtsbuilding.storage_links.empty_detail"),
+                                geometry.innerWidth),
+                        geometry.x,
+                        geometry.y
+                                + StorageWindowLayout.STATUS_Y
+                                + StorageWindowLayout.STATUS_DETAIL_GAP
+                                + 9,
+                        UiMainlinePreviewStyle.color(
+                                StorageWindowStyle.STATUS_DETAIL_TEXT
+                                        .toArgb()));
+            }
             return;
         }
-        int rowW=StorageWindowLayout.rowWidth(w,state.hasScrollbar());
-        canvas.text(language.text("screen.rtsbuilding.storage_links.priority"),StorageWindowLayout.priorityX(x,rowW),y+12,UiMainlinePreviewStyle.MUTED);
-        canvas.text(language.text("screen.rtsbuilding.storage_links.mode_extract_header"),StorageWindowLayout.extractX(x,rowW),y+12,UiMainlinePreviewStyle.MUTED);
-        int firstY=StorageWindowLayout.firstRowY(contentY);
-        for(int i=0;i<state.visibleEntries.size();i++){
-            StorageUiEntry entry=state.visibleEntries.get(i);int rowY=firstY+i*StorageWindowLayout.ROW_H;
-            UiMainlinePreviewStyle.frame(canvas,new UiRect(x,rowY,rowW,StorageWindowLayout.ROW_H-2),0xAA1A222D,0xFF566D83,0xFF0D1117);
-            String item=entry.itemId.substring(entry.itemId.indexOf(':')+1);canvas.image(assets.item(item),new UiRect(x+5,rowY+5,16,16));
-            int priorityX=StorageWindowLayout.priorityX(x,rowW),controlY=StorageWindowLayout.controlY(rowY);
-            canvas.text(canvas.trimToWidth(entry.label,Math.max(30,priorityX-(x+26)-6)),x+26,rowY+11,UiMainlinePreviewStyle.WHITE);
-            canvas.text(entry.position,x+26,rowY+22,UiMainlinePreviewStyle.MUTED);
-            UiMainlinePreviewStyle.frame(canvas,new UiRect(priorityX,controlY,StorageWindowLayout.PRIORITY_W,StorageWindowLayout.CONTROL_H),0xAA101820,0xFF566D83,0xFF0D1117);
-            canvas.text(Integer.toString(entry.priority),priorityX+4,controlY+11,UiMainlinePreviewStyle.WHITE);
-            int extractX=StorageWindowLayout.extractX(x,rowW);UiMainlinePreviewStyle.frame(canvas,new UiRect(extractX,controlY,StorageWindowLayout.EXTRACT_W,StorageWindowLayout.CONTROL_H),entry.extractOnly?0xFF4A253F:0xAA1A222D,entry.extractOnly?0xFFFF74C9:0xFF566D83,0xFF0D1117);
-            canvas.centeredText(language.text(entry.extractOnly?"screen.rtsbuilding.storage_links.mode_yes":"screen.rtsbuilding.storage_links.mode_no"),extractX+StorageWindowLayout.EXTRACT_W/2.0D,controlY+11,UiMainlinePreviewStyle.WHITE);
-            int unlinkX=StorageWindowLayout.unlinkX(x,rowW);UiMainlinePreviewStyle.frame(canvas,new UiRect(unlinkX,controlY,StorageWindowLayout.UNLINK_W,StorageWindowLayout.UNLINK_H),0xAA2A2228,0xFF7B5660,0xFF180B0E);
-            canvas.centeredText(language.text("screen.rtsbuilding.storage_links.unlink"),unlinkX+StorageWindowLayout.UNLINK_W/2.0D,controlY+11,UiMainlinePreviewStyle.WHITE);
+        canvas.text(
+                language.text(
+                        "screen.rtsbuilding.storage_links.priority"),
+                geometry.priorityColumnX,
+                geometry.y + 12,
+                UiMainlinePreviewStyle.color(
+                        StorageWindowStyle.COLUMN_TEXT.toArgb()));
+        canvas.text(
+                language.text(
+                        "screen.rtsbuilding.storage_links.mode_extract_header"),
+                geometry.extractColumnX,
+                geometry.y + 12,
+                UiMainlinePreviewStyle.color(
+                        StorageWindowStyle.COLUMN_TEXT.toArgb()));
+        for (int index = 0;
+                index < state.visibleEntries.size();
+                index++) {
+            StorageUiEntry entry = state.visibleEntries.get(index);
+            StorageWindowLayout.RowGeometry rowGeometry =
+                    geometry.rows.get(index);
+            StorageWindowChromeRenderer.renderRow(
+                    canvas,
+                    rowGeometry,
+                    entry,
+                    false);
+            int separator = entry.itemId.indexOf(':');
+            String item = entry.itemId.substring(separator + 1);
+            canvas.image(
+                    assets.item(item),
+                    rowGeometry.icon);
+            int labelWidth = Math.max(
+                    30,
+                    (int) rowGeometry.priority.getX()
+                            - ((int) rowGeometry.row.getX()
+                            + StorageWindowLayout.ROW_TEXT_X)
+                            - StorageWindowLayout.COLUMN_GAP);
+            canvas.text(
+                    canvas.trimToWidth(entry.label, labelWidth),
+                    rowGeometry.row.getX()
+                            + StorageWindowLayout.ROW_TEXT_X,
+                    rowGeometry.row.getY() + 11,
+                    UiMainlinePreviewStyle.color(
+                            StorageWindowStyle.ROW_LABEL_TEXT.toArgb()));
+            canvas.text(
+                    entry.position,
+                    rowGeometry.row.getX()
+                            + StorageWindowLayout.ROW_TEXT_X,
+                    rowGeometry.row.getY() + 22,
+                    UiMainlinePreviewStyle.color(
+                            StorageWindowStyle.ROW_POSITION_TEXT.toArgb()));
+            canvas.text(
+                    Integer.toString(entry.priority),
+                    rowGeometry.priority.getX()
+                            + StorageWindowLayout.CONTROL_TEXT_X,
+                    rowGeometry.priority.getY() + 11,
+                    UiMainlinePreviewStyle.color(
+                            StorageWindowStyle.PRIORITY_TEXT.toArgb()));
+            StorageWindowStyle.FrameVisual extractVisual =
+                    StorageWindowStyle.extract(
+                            entry.extractOnly,
+                            false);
+            canvas.centeredText(
+                    language.text(
+                            entry.extractOnly
+                                    ? "screen.rtsbuilding.storage_links.mode_yes"
+                                    : "screen.rtsbuilding.storage_links.mode_no"),
+                    rowGeometry.extract.getX()
+                            + rowGeometry.extract.getWidth() / 2.0D,
+                    rowGeometry.extract.getY() + 11,
+                    UiMainlinePreviewStyle.color(
+                            extractVisual.text.toArgb()));
+            canvas.centeredText(
+                    language.text(
+                            "screen.rtsbuilding.storage_links.unlink"),
+                    rowGeometry.unlink.getX()
+                            + rowGeometry.unlink.getWidth() / 2.0D,
+                    rowGeometry.unlink.getY() + 11,
+                    UiMainlinePreviewStyle.color(
+                            StorageWindowStyle.UNLINK_TEXT.toArgb()));
         }
-        if(state.hasScrollbar()){
-            int barX=x+rowW+StorageWindowLayout.SCROLLBAR_GAP,barH=state.visibleRowCapacity*StorageWindowLayout.ROW_H;
-            canvas.fill(new UiRect(barX,firstY,StorageWindowLayout.SCROLLBAR_W,barH),UiMainlinePreviewStyle.color(0xAA101820));
-            int thumbH=Math.max(14,barH*state.visibleRowCapacity/Math.max(1,state.totalRows));
-            int thumbY=firstY+(barH-thumbH)*state.scroll/Math.max(1,state.maxScroll());
-            canvas.fill(new UiRect(barX+1,thumbY,StorageWindowLayout.SCROLLBAR_W-2,thumbH),UiMainlinePreviewStyle.color(0xFF8EA9C4));
-        }
+        StorageWindowChromeRenderer.renderScrollbar(
+                canvas,
+                geometry);
     }
 
     private void drawCulling(BufferedImageUiCanvas canvas, UiRect bounds,
@@ -414,7 +859,7 @@ final class UiMainlineWindowRenderer {
                 : language.text("screen.rtsbuilding.culling.phase.idle");
         canvas.text(canvas.trimToWidth(phase, w), x,
                 CullingWindowLayout.phaseRowY(contentY) + 9,
-                UiMainlinePreviewStyle.color(0xFF8EC8FF));
+                CullingWindowStyle.PHASE_TEXT);
         if (!state.hasSelection()) {
             canvas.text(canvas.trimToWidth(language.text(
                             "screen.rtsbuilding.culling.no_selection"), w), x,
@@ -427,14 +872,17 @@ final class UiMainlineWindowRenderer {
                         "screen.rtsbuilding.culling.selected", state.selectedId),
                         CullingWindowLayout.selectedTextWidth(w)), x,
                 CullingWindowLayout.selectedRowY(contentY) + 9, UiMainlinePreviewStyle.TEXT);
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(buttonX,
+        CullingWindowChromeRenderer.renderDeleteButton(
+                canvas,
+                new UiRect(buttonX,
                         CullingWindowLayout.buttonTop(CullingWindowLayout.deleteButtonRowY(contentY)),
-                        CullingWindowLayout.DELETE_BUTTON_WIDTH, CullingWindowLayout.buttonHeight()),
-                0xFF742833, 0xFFFFA2AE, 0xFF0B1017);
+                        CullingWindowLayout.DELETE_BUTTON_WIDTH,
+                        CullingWindowLayout.buttonHeight()),
+                false);
         canvas.centeredText(language.text("screen.rtsbuilding.culling.delete_button"),
                 buttonX + CullingWindowLayout.DELETE_BUTTON_WIDTH / 2.0D,
                 CullingWindowLayout.buttonTextY(CullingWindowLayout.deleteButtonRowY(contentY)) + 9,
-                UiMainlinePreviewStyle.WHITE);
+                UiMainlinePreviewStyle.color(CullingWindowStyle.PRIMARY_TEXT));
         canvas.text(canvas.trimToWidth(language.format("screen.rtsbuilding.culling.dimensions",
                         state.width, state.height, state.depth), w), x,
                 CullingWindowLayout.dimensionRowY(contentY) + 9, UiMainlinePreviewStyle.TEXT);
@@ -474,14 +922,14 @@ final class UiMainlineWindowRenderer {
             if (maxScroll > 0) {
                 int trackH = Math.max(1, contentH);
                 canvas.fill(new UiRect(contentX + contentW - 7, contentY + 2, 2,
-                        Math.max(1, contentH - 4)), UiMainlinePreviewStyle.color(0x88313A46));
+                        Math.max(1, contentH - 4)), SettingsWindowStyle.SCROLL_TRACK);
                 int totalH = settingsLayout.contentHeight + SettingsWindowLayout.CONTENT_TOP_PADDING;
                 int thumbH = Math.max(18, (int) Math.round(trackH
                         * (trackH / (double) Math.max(trackH, totalH))));
                 int thumbY = contentY + (int) Math.round((trackH - thumbH)
                         * (state.scroll / (double) maxScroll));
                 canvas.fill(new UiRect(contentX + contentW - 8, thumbY, 4, thumbH),
-                        UiMainlinePreviewStyle.color(0xCC8AA0B8));
+                        SettingsWindowStyle.SCROLL_THUMB);
             }
         } finally {
             canvas.popClip();
@@ -502,11 +950,13 @@ final class UiMainlineWindowRenderer {
 
     private void drawCoreSettingsSection(BufferedImageUiCanvas canvas, int x, int y, int width,
                                          String label, boolean expanded) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x + 8, y, width - 16,
+        recordCompactFrame(canvas, new UiRect(x + 8, y, width - 16,
                         SettingsWindowLayout.SECTION_HEADER_H),
-                0xCC202A35, 0xFF596D82, 0xFF0B1016);
-        canvas.text(expanded ? "v" : ">", x + 16, y + 15, UiMainlinePreviewStyle.WHITE);
-        canvas.text(canvas.trimToWidth(label, width - 58), x + 31, y + 15, Color.WHITE);
+                SettingsWindowStyle.SECTION_BACKGROUND, SettingsWindowStyle.SECTION_BORDER,
+                SettingsWindowStyle.SECTION_DARK_BORDER);
+        canvas.text(expanded ? "v" : ">", x + 16, y + 15, SettingsWindowStyle.VALUE);
+        canvas.text(canvas.trimToWidth(label, width - 58), x + 31, y + 15,
+                SettingsWindowStyle.VALUE);
     }
 
     private void drawCoreSettingsRow(BufferedImageUiCanvas canvas, SettingsUiRow row,
@@ -520,7 +970,8 @@ final class UiMainlineWindowRenderer {
                 break;
             case SIMPLE_TOGGLE:
                 canvas.text(canvas.trimToWidth(language.text(row.id.labelKey), width - 126),
-                        x + 16, y + 18, UiMainlinePreviewStyle.TEXT);
+                        x + 16, y + 18, row.enabled
+                                ? SettingsWindowStyle.LABEL : SettingsWindowStyle.DISABLED_TEXT);
                 drawCoreToggleButton(canvas, x + width - 92, y + 4, row.active, language);
                 break;
             case HINT_TOGGLE:
@@ -534,18 +985,20 @@ final class UiMainlineWindowRenderer {
     private void drawCoreSensitivity(BufferedImageUiCanvas canvas, SettingsUiRow row,
                                      int x, int y, int width, UiLanguageBundle language) {
         canvas.text(canvas.trimToWidth(language.text(row.id.labelKey), width - 90),
-                x + 16, y + 14, UiMainlinePreviewStyle.TEXT);
-        canvas.text(row.valueLabel, x + width - 60, y + 14, UiMainlinePreviewStyle.WHITE);
+                x + 16, y + 14, row.enabled
+                        ? SettingsWindowStyle.LABEL : SettingsWindowStyle.DISABLED_TEXT);
+        canvas.text(row.valueLabel, x + width - 60, y + 14,
+                row.enabled ? SettingsWindowStyle.VALUE : SettingsWindowStyle.DISABLED_TEXT);
         int trackX = x + 16;
         int trackY = y + 24;
         int trackW = width - 32;
-        canvas.fill(new UiRect(trackX, trackY, trackW, 4), UiMainlinePreviewStyle.color(0xFF07090D));
+        canvas.fill(new UiRect(trackX, trackY, trackW, 4), SettingsWindowStyle.TRACK_BACKGROUND);
         canvas.fill(new UiRect(trackX + 1, trackY + 1, Math.max(0, trackW - 2), 2),
-                UiMainlinePreviewStyle.color(0xFF313946));
+                SettingsWindowStyle.TRACK_FILL);
         int knobX = trackX + (int) Math.round(row.valueIndex
                 / (double) Math.max(1, row.valueCount - 1) * trackW);
         canvas.fill(new UiRect(knobX - 3, trackY - 5, 7, 13),
-                UiMainlinePreviewStyle.color(0xFF5FE36C));
+                row.enabled ? SettingsWindowStyle.KNOB : SettingsWindowStyle.KNOB_DISABLED);
     }
 
     private void drawCoreStep(BufferedImageUiCanvas canvas, SettingsUiRow row,
@@ -553,41 +1006,47 @@ final class UiMainlineWindowRenderer {
         boolean sound = row.id == SettingsId.BLOCK_SOUNDS_PER_TICK;
         int buttonY = y + (sound ? 8 : 6);
         canvas.text(canvas.trimToWidth(language.text(row.id.labelKey), width - 156),
-                x + 16, y + (sound ? 12 : 17), UiMainlinePreviewStyle.TEXT);
+                x + 16, y + (sound ? 12 : 17), row.enabled
+                        ? SettingsWindowStyle.LABEL : SettingsWindowStyle.DISABLED_TEXT);
         if (sound) {
             canvas.text(canvas.trimToWidth(language.text(row.id.hintKey), width - 156),
-                    x + 16, y + 27, UiMainlinePreviewStyle.MUTED);
+                    x + 16, y + 27, SettingsWindowStyle.HINT);
         }
         int minusX = x + width - 124;
         drawCoreStepButton(canvas, minusX, buttonY, "-");
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(minusX + 26, buttonY, 56, 22),
-                0xCC1A232E, 0xFF566B80, 0xFF0D1218);
+        recordCompactFrame(canvas, new UiRect(minusX + 26, buttonY, 56, 22),
+                SettingsWindowStyle.VALUE_BACKGROUND, SettingsWindowStyle.VALUE_BORDER,
+                SettingsWindowStyle.VALUE_DARK_BORDER);
         canvas.centeredText(row.valueLabel, minusX + 54, buttonY + 15,
-                UiMainlinePreviewStyle.WHITE);
+                UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
         drawCoreStepButton(canvas, minusX + 86, buttonY, "+");
     }
 
     private void drawCoreStepButton(BufferedImageUiCanvas canvas, int x, int y, String label) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, 22, 22),
-                0xCC26303D, 0xFF6A8299, 0xFF0E1116);
-        canvas.centeredText(label, x + 11, y + 15, UiMainlinePreviewStyle.WHITE);
+        recordCompactFrame(canvas, new UiRect(x, y, 22, 22),
+                SettingsWindowStyle.STEP_BACKGROUND, SettingsWindowStyle.STEP_BORDER,
+                SettingsWindowStyle.STEP_DARK_BORDER);
+        canvas.centeredText(label, x + 11, y + 15,
+                UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
     }
 
     private void drawCoreHintToggle(BufferedImageUiCanvas canvas, SettingsUiRow row,
                                     int x, int y, int width, UiLanguageBundle language) {
         canvas.text(canvas.trimToWidth(language.text(row.id.labelKey), width - 116),
-                x + 16, y + 11, UiMainlinePreviewStyle.TEXT);
+                x + 16, y + 11, row.enabled
+                        ? SettingsWindowStyle.LABEL : SettingsWindowStyle.DISABLED_TEXT);
         int hintX = x + 16 + (row.hintExpandable
                 ? SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE + 4 : 0);
         int hintW = Math.max(24, x + width - 92 - hintX - 8);
         if (row.hintExpandable) {
-            UiMainlinePreviewStyle.frame(canvas,
+            recordCompactFrame(canvas,
                     new UiRect(x + 16, y + 12, SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE,
                             SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE),
-                    0xAA26303D, 0xFF6A8299, 0xFF0E1116);
+                    SettingsWindowStyle.STEP_BACKGROUND, SettingsWindowStyle.STEP_BORDER,
+                    SettingsWindowStyle.STEP_DARK_BORDER);
             canvas.centeredText(row.hintExpanded ? "v" : ">",
                     x + 16 + SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE / 2.0D,
-                    y + 21, UiMainlinePreviewStyle.WHITE);
+                    y + 21, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
         }
         List<String> lines = row.hintExpanded
                 ? wrap(canvas, language.text(row.id.hintKey), hintW)
@@ -595,20 +1054,21 @@ final class UiMainlineWindowRenderer {
                 canvas.trimToWidth(language.text(row.id.hintKey), hintW));
         for (int i = 0; i < lines.size(); i++) {
             canvas.text(lines.get(i), hintX, y + 22 + i * SettingsWindowLayout.HINT_LINE_H,
-                    UiMainlinePreviewStyle.MUTED);
+                    row.enabled ? SettingsWindowStyle.HINT : SettingsWindowStyle.DISABLED_REASON);
         }
         drawCoreToggleButton(canvas, x + width - 92, y + 4, row.active, language);
     }
 
     private void drawCoreToggleButton(BufferedImageUiCanvas canvas, int x, int y,
                                       boolean active, UiLanguageBundle language) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, 76, 22),
-                active ? 0xDD329A42 : 0xDD28313C,
-                active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
+        recordCompactFrame(canvas, new UiRect(x, y, 76, 22),
+                active ? SettingsWindowStyle.TOGGLE_ON : SettingsWindowStyle.TOGGLE_OFF,
+                active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER,
+                SettingsWindowStyle.TOGGLE_DARK_BORDER);
         canvas.fill(new UiRect(active ? x + 50 : x + 6, y + 4, 18, 14),
-                UiMainlinePreviewStyle.color(active ? 0xFF72F07A : 0xFF788696));
+                active ? SettingsWindowStyle.TOGGLE_ON_KNOB : SettingsWindowStyle.TOGGLE_OFF_KNOB);
         canvas.centeredText(language.text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"),
-                x + 38, y + 15, Color.WHITE);
+                x + 38, y + 15, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
     }
 
     private static List<String> wrap(BufferedImageUiCanvas canvas, String text, int maxWidth) {
@@ -670,9 +1130,9 @@ final class UiMainlineWindowRenderer {
                 language.text("screen.rtsbuilding.settings.storage_refresh_quiet.hint"), false, language);
 
         canvas.fill(new UiRect(bounds.right() - 7, bounds.getY() + 24, 2,
-                bounds.getHeight() - 30), UiMainlinePreviewStyle.color(0x88313A46));
+                bounds.getHeight() - 30), SettingsWindowStyle.SCROLL_TRACK);
         canvas.fill(new UiRect(bounds.right() - 8, bounds.getY() + 96, 4, 30),
-                UiMainlinePreviewStyle.color(0xCC8AA0B8));
+                SettingsWindowStyle.SCROLL_THUMB);
     }
 
     private int referenceHintToggle(BufferedImageUiCanvas canvas, int x, int y, int w,
@@ -688,22 +1148,20 @@ final class UiMainlineWindowRenderer {
 
     private void drawReferenceToggleButton(BufferedImageUiCanvas canvas, int x, int y,
                                            boolean active, UiLanguageBundle language) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, 80, 22),
-                active ? 0xDD329A42 : 0xDD28313C,
-                active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
-        canvas.fill(new UiRect(active ? x + 54 : x + 6, y + 4, 18, 14),
-                UiMainlinePreviewStyle.color(active ? 0xFF72F07A : 0xFF788696));
+        drawSettingsToggleChrome(canvas, new UiRect(x, y, 80, 22), active);
         canvas.centeredText(language.text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"),
-                x + 40, y + 15, Color.WHITE);
+                x + 40, y + 15, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
     }
 
     private int section(BufferedImageUiCanvas canvas, int x, int y, int w,
                         String label, boolean expanded) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, 22),
-                0xCC202A35, 0xFF596D82, 0xFF0B1016);
+        recordCompactFrame(canvas, new UiRect(x, y, w, 22),
+                SettingsWindowStyle.SECTION_BACKGROUND, SettingsWindowStyle.SECTION_BORDER,
+                SettingsWindowStyle.SECTION_DARK_BORDER);
         canvas.text(expanded ? "v" : ">", x + 8, y + 15,
-                UiMainlinePreviewStyle.WHITE);
-        canvas.text(canvas.trimToWidth(label, w - 34), x + 23, y + 15, Color.WHITE);
+                SettingsWindowStyle.VALUE);
+        canvas.text(canvas.trimToWidth(label, w - 34), x + 23, y + 15,
+                SettingsWindowStyle.VALUE);
         return y + 22;
     }
 
@@ -717,15 +1175,24 @@ final class UiMainlineWindowRenderer {
                     UiMainlinePreviewStyle.MUTED);
         }
         int buttonX = x + w - 80;
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(buttonX, y + 4, 76, 22),
-                active ? 0xDD329A42 : 0xDD28313C,
-                active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
-        int switchX = active ? buttonX + 50 : buttonX + 6;
-        canvas.fill(new UiRect(switchX, y + 8, 18, 14),
-                UiMainlinePreviewStyle.color(active ? 0xFF72F07A : 0xFF788696));
+        drawSettingsToggleChrome(canvas, new UiRect(buttonX, y + 4, 76, 22), active);
         canvas.centeredText(language.text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"),
-                buttonX + 38, y + 19, Color.WHITE);
+                buttonX + 38, y + 19, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
         return y + (hint.isEmpty() ? 28 : 34);
+    }
+
+    /**
+     * 参考态和 Core 驱动态设置页都走同一份开关色板与紧凑框体，避免离屏截图悄悄复制生产颜色。
+     */
+    private void drawSettingsToggleChrome(BufferedImageUiCanvas canvas, UiRect bounds,
+                                          boolean active) {
+        recordCompactFrame(canvas, bounds,
+                active ? SettingsWindowStyle.TOGGLE_ON : SettingsWindowStyle.TOGGLE_OFF,
+                active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER,
+                SettingsWindowStyle.TOGGLE_DARK_BORDER);
+        canvas.fill(new UiRect(active ? bounds.right() - 26 : bounds.getX() + 6,
+                        bounds.getY() + 4, 18, 14),
+                active ? SettingsWindowStyle.TOGGLE_ON_KNOB : SettingsWindowStyle.TOGGLE_OFF_KNOB);
     }
 
     private void drawQuickBuild(BufferedImageUiCanvas canvas, UiRect bounds,
@@ -733,44 +1200,40 @@ final class UiMainlineWindowRenderer {
         drawChrome(canvas, bounds, language.text("screen.rtsbuilding.quick_build.title"));
         QuickBuildWindowLayout.Geometry g = QuickBuildWindowLayout.geometry(
                 (int) bounds.getX(), (int) bounds.getY(), state.mode == QuickBuildUiMode.DESTROY);
-        drawQuickMode(canvas, g.buildModeX, g.modeY, g.modeW,
+        drawQuickMode(canvas, g.buildMode,
                 language.text("screen.rtsbuilding.quick_build.mode_build"),
                 state.mode == QuickBuildUiMode.BUILD, true);
-        drawQuickMode(canvas, g.destroyModeX, g.modeY, g.modeW,
+        drawQuickMode(canvas, g.destroyMode,
                 language.text("screen.rtsbuilding.quick_build.mode_destroy"),
                 state.mode == QuickBuildUiMode.DESTROY, state.destroyEnabled);
         canvas.text(language.text("screen.rtsbuilding.quick_build.shape"),
                 bounds.getX() + 10, g.sectionTitleY + 9,
-                UiMainlinePreviewStyle.TEXT);
+                UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
         for (int i = 0; i < state.shapes.size(); i++) {
             QuickBuildUiShapeOption option = state.shapes.get(i);
             int slotX = g.shapeX(i);
             int slotY = g.shapeY(i);
-            UiMainlinePreviewStyle.frame(canvas, new UiRect(slotX, slotY, 32, 32),
-                    option.selected ? 0xCC355B4C : option.enabled ? 0xAA1B222B : 0xAA111720,
-                    option.selected ? 0xFF7CCB93 : option.enabled ? 0xFF667A91 : 0xFF3A4652,
-                    0xFF0D1117);
-            canvas.image(assets.quickBuild(option.shape.textureName), new UiRect(slotX, slotY, 32, 32));
-            if (!option.enabled) canvas.fill(new UiRect(slotX + 1, slotY + 1, 30, 30),
-                    UiMainlinePreviewStyle.color(0x66000000));
+            canvas.imageRegion(
+                    assets.quickBuild(option.shape.textureName),
+                    new UiRect(0, option.selected ? 450 : 0, 450, 450),
+                    new UiRect(slotX, slotY, 32, 32));
         }
         canvas.text(language.text("screen.rtsbuilding.quick_build.fill"),
-                g.rightX, g.sectionTitleY + 9, UiMainlinePreviewStyle.TEXT);
+                g.rightX, g.sectionTitleY + 9,
+                UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
         if (state.chainMode()) {
-            int labelY = g.bodyY + QuickBuildWindowLayout.SECTION_TOP + 17;
+            int labelY = g.chainLabelY;
             canvas.text(language.text("screen.rtsbuilding.quick_build.chain_limit_label"),
-                    g.rightX, labelY + 9, UiMainlinePreviewStyle.TEXT);
-            int sliderW = Math.max(50, QuickBuildWindowLayout.WINDOW_W
-                    - QuickBuildWindowLayout.RIGHT_COL_X - 40);
-            int sliderY = labelY + 14;
-            UiMainlinePreviewStyle.frame(canvas, new UiRect(g.rightX, sliderY, sliderW, 18),
-                    0xAA1E2731, 0xFF5E738A, 0xFF111921);
-            int fill = (state.chainLimit - state.chainMinimum) * (sliderW - 4)
-                    / Math.max(1, state.chainMaximum - state.chainMinimum);
-            canvas.fill(new UiRect(g.rightX + 2, sliderY + 7, fill, 4),
-                    UiMainlinePreviewStyle.color(0xFF67D47B));
-            canvas.text(Integer.toString(state.chainLimit), g.rightX + sliderW + 6,
-                    sliderY + 13, Color.WHITE);
+                    g.rightX, labelY + 9,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
+            int sliderW = QuickBuildWindowLayout.chainSliderWidth(
+                    QuickBuildWindowLayout.WINDOW_W);
+            int sliderY = g.chainSliderY;
+            WindowSliderChromeRenderer.render(canvas, WindowSliderLayout.geometry(
+                    new UiRect(g.rightX, sliderY, sliderW, 18),
+                    state.chainMinimum, state.chainMaximum, state.chainLimit));
+            canvas.text(Integer.toString(state.chainLimit), g.chainValueX(sliderW),
+                    sliderY + 13, UiMainlinePreviewStyle.color(QuickBuildStyle.VALUE_TEXT));
         } else {
             int row = 0;
             for (QuickBuildUiControl control : state.controls) {
@@ -781,56 +1244,56 @@ final class UiMainlineWindowRenderer {
             }
         }
 
-        canvas.fill(new UiRect(bounds.getX() + 6, g.dividerY - 1,
-                bounds.getWidth() - 12, 1), UiMainlinePreviewStyle.color(0xFF647B92));
-        int progressW = QuickBuildWindowLayout.WINDOW_W - 16;
-        canvas.fill(new UiRect(bounds.getX() + 8, g.dividerY + 4, progressW, 4),
-                UiMainlinePreviewStyle.color(0xFF0B1118));
-        if (state.progressCompleted >= 0 && state.progressTotal > 0) {
-            canvas.fill(new UiRect(bounds.getX() + 8, g.dividerY + 4,
-                    progressW * state.progressCompleted / state.progressTotal, 4),
-                    UiMainlinePreviewStyle.color(0xFFFF8EAD));
-        }
-        int textY = g.dividerY + 21;
+        QuickBuildChromeRenderer.renderStatus(
+                canvas, g, state.progressCompleted, state.progressTotal);
+        int textY = g.statusTextY + 9;
         if (state.mode == QuickBuildUiMode.DESTROY && state.progressCompleted >= 0) {
             canvas.text(canvas.trimToWidth(state.progressText + "  "
                     + language.format("screen.rtsbuilding.quick_build.destroy_remaining", state.remainingBlocks),
-                    QuickBuildWindowLayout.WINDOW_W - 16), bounds.getX() + 8, textY,
-                    UiMainlinePreviewStyle.color(0xFFB8FFB8));
+                    g.contentW), g.contentX, textY,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.SUCCESS_TEXT));
         } else if (state.mode == QuickBuildUiMode.DESTROY) {
             canvas.text(canvas.trimToWidth(language.format(state.hintKey, state.confirmKeyLabel),
-                    QuickBuildWindowLayout.WINDOW_W - 16), bounds.getX() + 8, textY,
-                    UiMainlinePreviewStyle.color(0xFFFFB8B8));
+                    g.contentW), g.contentX, textY,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.ERROR_TEXT));
         } else {
-            canvas.text("x " + state.costText, bounds.getX() + 8, textY,
-                    UiMainlinePreviewStyle.color(0xFFB8FFB8));
+            String costText = "x " + state.costText;
+            canvas.text(costText, g.contentX, textY,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.SUCCESS_TEXT));
             if (state.missingBlocks > 0) canvas.text(language.format(
                     "screen.rtsbuilding.quick_build.missing_blocks", state.missingBlocks),
-                    bounds.getX() + 64, textY, UiMainlinePreviewStyle.color(0xFFFFB8B8));
+                    g.missingTextX(g.contentX + canvas.textWidth(costText)), textY,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.ERROR_TEXT));
         }
         canvas.text(canvas.trimToWidth(language.format(
                         "screen.rtsbuilding.quick_build.dimensions", state.dimensions),
-                QuickBuildWindowLayout.WINDOW_W - 16), bounds.getX() + 8, textY + 14,
-                UiMainlinePreviewStyle.TEXT);
+                g.contentW), g.contentX, textY + 14,
+                UiMainlinePreviewStyle.color(QuickBuildStyle.DIMENSION_TEXT));
     }
 
-    private void drawQuickMode(BufferedImageUiCanvas canvas, int x, int y, int w,
+    private void drawQuickMode(BufferedImageUiCanvas canvas, UiRect area,
                                String label, boolean selected, boolean enabled) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, QuickBuildWindowLayout.MODE_H),
-                !enabled ? 0xFF111720 : selected ? 0xFF29583E : 0xFF141C26,
-                !enabled ? 0xFF3A4652 : selected ? 0xFF5FE36C : 0xFF647B92,
-                0xFF0D1117);
-        canvas.centeredText(canvas.trimToWidth(label, w - 4), x + w / 2.0D,
-                y + 13, enabled ? Color.WHITE : UiMainlinePreviewStyle.MUTED);
+        QuickBuildStyle.ModeVisual visual =
+                QuickBuildStyle.mode(enabled, selected, false);
+        QuickBuildChromeRenderer.renderMode(
+                canvas, area, visual, selected ? 1.0D : 0.0D);
+        canvas.centeredText(
+                canvas.trimToWidth(label, (int) area.getWidth() - 4),
+                area.getX() + area.getWidth() / 2.0D,
+                area.getY() + 13,
+                UiMainlinePreviewStyle.color(visual.text));
     }
 
     private void drawQuickControl(BufferedImageUiCanvas canvas, int x, int y, int w,
                                   String label, boolean selected, boolean enabled) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H),
-                selected ? 0xCC355B4C : enabled ? 0xAA28313C : 0xAA111720,
-                selected ? 0xFF7CCB93 : enabled ? 0xFF63788D : 0xFF3A4652, 0xFF0D1117);
+        WindowButtonChromeRenderer.renderSolid(
+                canvas, new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H), false);
+        canvas.imageRegion(
+                assets.image("textures/gui/general/mode_button.png"),
+                new UiRect(0, selected ? 1024 : 0, 512, 512),
+                new UiRect(x + 2, y + 2, 16, 16));
         canvas.centeredText(canvas.trimToWidth(label, w - 22), x + w / 2.0D,
-                y + 14, enabled ? Color.WHITE : UiMainlinePreviewStyle.MUTED);
+                y + 14, UiMainlinePreviewStyle.color(WindowButtonStyle.text(enabled)));
     }
 
     private void drawBlueprint(BufferedImageUiCanvas canvas, UiRect bounds,
@@ -855,21 +1318,20 @@ final class UiMainlineWindowRenderer {
                                       BlueprintUiState state, BlueprintWindowLayout.Geometry g) {
         canvas.text(language.text("screen.rtsbuilding.blueprints.capture_tool_title"),
                 g.x, g.y + 9, UiMainlinePreviewStyle.TEXT);
-        int hintColor = state.mode == BlueprintUiState.Mode.CAPTURE_READY
-                || state.mode == BlueprintUiState.Mode.CAPTURE_SAVING
-                ? 0xFF8EEA9B : 0xFFFFC06C;
+        boolean complete = state.mode == BlueprintUiState.Mode.CAPTURE_READY
+                || state.mode == BlueprintUiState.Mode.CAPTURE_SAVING;
+        int hintColor = BlueprintWindowStyle.captureState(complete).toArgb();
         canvas.text(canvas.trimToWidth(language.text(
                         "screen.rtsbuilding.blueprints.capture_window_hint"), g.width),
                 g.x, g.y + 23, UiMainlinePreviewStyle.color(hintColor));
         canvas.text(canvas.trimToWidth(language.text(
                         "screen.rtsbuilding.blueprints.capture_window_scroll_hint"), g.width),
                 g.x, g.y + 35, UiMainlinePreviewStyle.MUTED);
-        boolean complete = state.mode == BlueprintUiState.Mode.CAPTURE_READY
-                || state.mode == BlueprintUiState.Mode.CAPTURE_SAVING;
         if (complete) {
             canvas.text(canvas.trimToWidth(language.format(
                             "screen.rtsbuilding.blueprints.capture_size", size(state.captureSize)), g.width),
-                    g.x, g.y + 51, UiMainlinePreviewStyle.color(0xFFB7CDE2));
+                    g.x, g.y + 51, UiMainlinePreviewStyle.color(
+                            BlueprintWindowStyle.INFO_TEXT));
         }
         String status;
         if (state.mode == BlueprintUiState.Mode.CAPTURE_SAVING) {
@@ -882,7 +1344,9 @@ final class UiMainlineWindowRenderer {
             status = language.text("screen.rtsbuilding.blueprints.capture_waiting_a");
         }
         drawStatus(canvas, g.x, g.statusY, g.width, status,
-                complete ? 0xFFB7CDE2 : 0xFFFFC06C);
+                complete
+                        ? BlueprintWindowStyle.INFO_TEXT.toArgb()
+                        : BlueprintWindowStyle.WARNING_TEXT.toArgb());
         int buttonW = (g.width - BlueprintWindowLayout.GAP) / 2;
         drawWindowButton(canvas, g.x, g.footerY, buttonW,
                 language.text("screen.rtsbuilding.blueprints.save_area"),
@@ -907,7 +1371,8 @@ final class UiMainlineWindowRenderer {
         canvas.centeredText(canvas.trimToWidth(state.blueprintName, nameW),
                 groupX + BlueprintWindowLayout.SMALL_BUTTON_W
                         + BlueprintWindowLayout.CONTROL_GAP + nameW / 2.0D,
-                selectorY + 14, Color.WHITE);
+                selectorY + 14, UiMainlinePreviewStyle.color(
+                        BlueprintWindowStyle.PRIMARY_TEXT));
         drawWindowButton(canvas, groupX + BlueprintWindowLayout.SMALL_BUTTON_W
                         + BlueprintWindowLayout.CONTROL_GAP + nameW
                         + BlueprintWindowLayout.CONTROL_GAP,
@@ -917,7 +1382,8 @@ final class UiMainlineWindowRenderer {
                 + BlueprintWindowLayout.DETAILS_BUTTON_W;
         int sizeX = selectorX + Math.max(0, (selectorW - detailGroupW) / 2);
         canvas.centeredText(canvas.trimToWidth(state.blueprintSize, sizeW),
-                sizeX + sizeW / 2.0D, selectorY + 41, UiMainlinePreviewStyle.MUTED);
+                sizeX + sizeW / 2.0D, selectorY + 41,
+                UiMainlinePreviewStyle.color(BlueprintWindowStyle.MUTED_TEXT));
         drawWindowButton(canvas, sizeX + sizeW + BlueprintWindowLayout.CONTROL_GAP,
                 selectorY + 27, BlueprintWindowLayout.DETAILS_BUTTON_W,
                 language.text("screen.rtsbuilding.blueprints.details"), true, false);
@@ -935,8 +1401,9 @@ final class UiMainlineWindowRenderer {
                 + Math.max(0, (g.width - BlueprintWindowLayout.SECTION_PAD * 2 - rowWidth) / 2);
         for (int i = 0; i < 3; i++) {
             int rowY = positionY + 22 + i * 26;
-            canvas.text(axes[i], rowX, rowY + 14, state.isPinned()
-                    ? UiMainlinePreviewStyle.MUTED : UiMainlinePreviewStyle.color(0xFF4F5B68));
+            canvas.text(axes[i], rowX, rowY + 14,
+                    UiMainlinePreviewStyle.color(
+                            BlueprintWindowStyle.axisLabel(state.isPinned())));
             drawWindowButton(canvas, rowX + 14, rowY, 18, "-", state.isPinned(), false);
             drawTextField(canvas, rowX + 36, rowY, BlueprintWindowLayout.POSITION_INPUT_W,
                     state.isPinned() ? Integer.toString(values[i]) : "", state.isPinned());
@@ -947,10 +1414,11 @@ final class UiMainlineWindowRenderer {
             drawStatus(canvas, g.x, g.statusY, g.width,
                     language.text("screen.rtsbuilding.blueprints.status.ready_to_build")
                             + " · " + language.text("screen.rtsbuilding.blueprints.status.ready_to_build_controls"),
-                    0xFF8EEA9B);
+                    BlueprintWindowStyle.READY_TEXT.toArgb());
         } else {
             drawStatus(canvas, g.x, g.statusY, g.width,
-                    language.text("screen.rtsbuilding.blueprints.placement_window_hint"), 0xFFFFE66D);
+                    language.text("screen.rtsbuilding.blueprints.placement_window_hint"),
+                    BlueprintWindowStyle.PLACEMENT_WARNING_TEXT.toArgb());
         }
         int actionW = Math.min(180, Math.max(120, g.width));
         int actionX = g.x + Math.max(0, (g.width - actionW) / 2);
@@ -962,36 +1430,43 @@ final class UiMainlineWindowRenderer {
     }
 
     private void drawSectionFrame(BufferedImageUiCanvas canvas, int x, int y, int w, int h) {
-        canvas.fill(new UiRect(x, y, w, h), UiMainlinePreviewStyle.color(0x33111821));
-        canvas.fill(new UiRect(x, y, w, 1), UiMainlinePreviewStyle.color(0x55344555));
-        canvas.fill(new UiRect(x, y + h - 1, w, 1), UiMainlinePreviewStyle.color(0x550D1117));
+        BlueprintWindowChromeRenderer.renderSection(
+                canvas, new UiRect(x, y, w, h));
     }
 
     private void drawStatus(BufferedImageUiCanvas canvas, int x, int y, int w,
                             String text, int color) {
-        canvas.fill(new UiRect(x, y, w, BlueprintWindowLayout.STATUS_H),
-                UiMainlinePreviewStyle.color(0x66111821));
-        canvas.fill(new UiRect(x, y, w, 1), UiMainlinePreviewStyle.color(0x44344555));
+        BlueprintWindowChromeRenderer.renderStatus(
+                canvas, new UiRect(x, y, w, BlueprintWindowLayout.STATUS_H));
         canvas.centeredText(canvas.trimToWidth(text, w - 12), x + w / 2.0D,
                 y + 21, UiMainlinePreviewStyle.color(color));
     }
 
     private void drawTextField(BufferedImageUiCanvas canvas, int x, int y, int w,
                                String value, boolean enabled) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H),
-                enabled ? 0xAA18212B : 0xAA101620, 0xFF596D84, 0xFF0D1117);
+        BlueprintWindowChromeRenderer.renderField(
+                canvas,
+                new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H),
+                enabled);
         canvas.centeredText(value, x + w / 2.0D, y + 14,
-                enabled ? Color.WHITE : UiMainlinePreviewStyle.MUTED);
+                UiMainlinePreviewStyle.color(enabled
+                        ? BlueprintWindowStyle.PRIMARY_TEXT
+                        : BlueprintWindowStyle.MUTED_TEXT));
     }
 
     private void drawWindowButton(BufferedImageUiCanvas canvas, int x, int y, int w,
                                   String label, boolean enabled, boolean primary) {
-        int fill = !enabled ? 0xAA202630 : primary ? 0xCC244E35 : 0xAA28313C;
-        int light = !enabled ? 0xFF47515D : primary ? 0xFF7FCEA0 : 0xFF63788D;
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H),
-                fill, light, 0xFF0D1117);
+        if (primary && enabled) {
+            BlueprintWindowChromeRenderer.renderPrimaryAction(
+                    canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H));
+        } else {
+            WindowButtonChromeRenderer.renderSolid(
+                    canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H), false);
+        }
         canvas.centeredText(canvas.trimToWidth(label, Math.max(8, w - 10)), x + w / 2.0D,
-                y + 14, enabled ? Color.WHITE : UiMainlinePreviewStyle.MUTED);
+                y + 14, UiMainlinePreviewStyle.color(primary && enabled
+                        ? BlueprintWindowStyle.PRIMARY_TEXT
+                        : WindowButtonStyle.text(enabled)));
     }
 
     private static String size(BlueprintInt3 value) {
@@ -1005,7 +1480,10 @@ final class UiMainlineWindowRenderer {
         int y = (int) bounds.getY() + 20;
         int w = (int) bounds.getWidth() - 2;
         int h = (int) bounds.getHeight() - 21;
-        canvas.text(canvas.trimToWidth(state.materials.blueprintName, w - 20), x + 10, y + 17, Color.WHITE);
+        BlueprintWindowLayout.MaterialDialogGeometry geometry =
+                BlueprintWindowLayout.materialDialog(x, y, w, h);
+        canvas.text(canvas.trimToWidth(state.materials.blueprintName, w - 20),
+                x + 10, y + 17, BlueprintDialogStyle.PRIMARY_TEXT);
         String summary = state.materials.rows.isEmpty()
                 ? language.text("screen.rtsbuilding.blueprints.materials_all_ready")
                 : language.format("screen.rtsbuilding.blueprints.details_summary",
@@ -1013,31 +1491,34 @@ final class UiMainlineWindowRenderer {
                         state.materials.missingTypes, state.materials.unsupportedTypes,
                         state.materials.missingBlockTypes);
         canvas.text(canvas.trimToWidth(summary, w - 20), x + 10, y + 30,
-                state.materials.allReady() ? UiMainlinePreviewStyle.color(0xFF8EEA9B)
-                        : UiMainlinePreviewStyle.color(0xFFFFC06C));
-        int listX = x + 10;
-        int listY = y + 38;
-        int listW = w - 20;
-        int listH = Math.max(44, h - 46);
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(listX, listY, listW, listH),
-                0x99101620, 0xFF415266, 0xFF0B0E13);
-        int columns = listW >= 390 ? 2 : 1;
-        int cellW = (listW - 8 - (columns - 1) * 6) / columns;
+                state.materials.allReady() ? BlueprintDialogStyle.READY
+                        : BlueprintDialogStyle.WARNING);
+        int listX = geometry.listX;
+        int listY = geometry.listY;
+        int listW = geometry.listW;
+        int listH = geometry.listH;
+        recordChrome(canvas, new UiRect(listX, listY, listW, listH),
+                BlueprintDialogStyle.LIST_BACKGROUND, BlueprintDialogStyle.LIST_BORDER,
+                BlueprintDialogStyle.DARK_BORDER);
+        int columns = geometry.columns();
+        int cellW = (listW - 8 - (columns - 1) * BlueprintWindowLayout.MATERIAL_COLUMN_GAP) / columns;
         for (int i = 0; i < state.materials.rows.size(); i++) {
             int row = i / columns;
             int column = i % columns;
-            int rowX = listX + 4 + column * (cellW + 6);
-            int rowY = listY + 3 + row * 22;
+            int rowX = listX + 4 + column * (cellW + BlueprintWindowLayout.MATERIAL_COLUMN_GAP);
+            int rowY = listY + 3 + row * BlueprintWindowLayout.MATERIAL_ROW_H;
             BlueprintMaterialUiState.Row line = state.materials.rows.get(i);
-            UiMainlinePreviewStyle.frame(canvas, new UiRect(rowX + 5, rowY + 3, 16, 16),
-                    0xAA36506A, 0xFF58708A, 0xFF0B0E13);
-            canvas.centeredText("?", rowX + 13, rowY + 15, UiMainlinePreviewStyle.color(0xFFFFD080));
+            // 生产缺失物品占位符是单块 14x14 色块，不应在离屏侧额外制造一组九宫格。
+            canvas.fill(new UiRect(rowX + 6, rowY + 4, 14, 14),
+                    BlueprintDialogStyle.MISSING_ICON_BACKGROUND);
+            canvas.centeredText("?", rowX + 13, rowY + 15,
+                    UiMainlinePreviewStyle.color(BlueprintDialogStyle.MISSING_ICON_TEXT));
             int detailW = Math.min(86, Math.max(54, cellW / 3));
             int detailX = rowX + cellW - detailW - 4;
             canvas.text(canvas.trimToWidth(line.label, Math.max(24, detailX - rowX - 28)),
-                    rowX + 26, rowY + 11, Color.WHITE);
+                    rowX + 26, rowY + 11, BlueprintDialogStyle.PRIMARY_TEXT);
             canvas.text(canvas.trimToWidth(line.detail, detailW), detailX, rowY + 16,
-                    UiMainlinePreviewStyle.color(line.color));
+                    BlueprintDialogStyle.materialTone(line.tone));
         }
     }
 
@@ -1052,41 +1533,38 @@ final class UiMainlineWindowRenderer {
         int h = (int) bounds.getHeight() - 21;
         if (state.captureNameMode) {
             canvas.text(language.text("screen.rtsbuilding.blueprints.capture_preview_title"),
-                    x + 10, y + 19, UiMainlinePreviewStyle.color(0xFFCDEBFF));
+                    x + 10, y + 19, BlueprintDialogStyle.CAPTURE_TEXT);
             canvas.text(language.format("screen.rtsbuilding.blueprints.capture_preview_summary",
                             size(state.captureSize), state.captureBlockCount),
-                    x + 10, y + 31, UiMainlinePreviewStyle.color(0xFFB8FFB8));
+                    x + 10, y + 31, BlueprintDialogStyle.READY);
         } else {
             canvas.text(language.format("screen.rtsbuilding.blueprints.name_dialog_current", state.blueprintName),
-                    x + 10, y + 19, UiMainlinePreviewStyle.MUTED);
+                    x + 10, y + 19, BlueprintDialogStyle.CURRENT_NAME_TEXT);
         }
-        int inputX = x + 10;
-        int inputW = Math.max(80, w - 20);
-        int cancelW = 58;
-        int confirmW = 70;
-        int buttonY = y + h - 24;
-        int inputY = Math.max(y + 36, buttonY - 28);
-        int cancelX = x + w - cancelW - 10;
-        int confirmX = cancelX - confirmW - 6;
+        BlueprintWindowLayout.NameDialogGeometry geometry =
+                BlueprintWindowLayout.nameDialog(x, y, w, h);
         canvas.text(language.text("screen.rtsbuilding.blueprints.name_dialog_label"),
-                inputX, inputY - 2, UiMainlinePreviewStyle.color(0xFFB7CDE2));
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(inputX, inputY, inputW, 18),
-                0xDD05070B, 0xFF8BA4B8, 0xFF0B0E13);
-        canvas.text(canvas.trimToWidth(state.nameDraft + "_", inputW - 8),
-                inputX + 4, inputY + 13, Color.WHITE);
-        drawWindowButton(canvas, confirmX, buttonY, confirmW,
-                language.text("screen.rtsbuilding.blueprints.name_dialog_confirm"), true, false);
-        drawWindowButton(canvas, cancelX, buttonY, cancelW,
-                language.text("screen.rtsbuilding.blueprints.name_dialog_cancel"), true, false);
+                geometry.inputX, geometry.inputY - 2, BlueprintDialogStyle.LABEL_TEXT);
+        recordChrome(canvas, new UiRect(geometry.inputX, geometry.inputY, geometry.inputW, 18),
+                BlueprintDialogStyle.INPUT_BACKGROUND, BlueprintDialogStyle.INPUT_BORDER,
+                BlueprintDialogStyle.DARK_BORDER);
+        canvas.text(canvas.trimToWidth(state.nameDraft + "_", geometry.inputW - 8),
+                geometry.inputX + 4, geometry.inputY + 13, BlueprintDialogStyle.PRIMARY_TEXT);
+        drawBlueprintDialogButton(canvas, geometry.confirmX, geometry.buttonY,
+                BlueprintWindowLayout.NAME_CONFIRM_W,
+                language.text("screen.rtsbuilding.blueprints.name_dialog_confirm"));
+        drawBlueprintDialogButton(canvas, geometry.cancelX, geometry.buttonY,
+                BlueprintWindowLayout.NAME_CANCEL_W,
+                language.text("screen.rtsbuilding.blueprints.name_dialog_cancel"));
     }
 
-    private void drawModeButton(BufferedImageUiCanvas canvas, double x, double y,
-                                int w, String label, boolean active) {
-        UiMainlinePreviewStyle.frame(canvas, new UiRect(x, y, w, 20),
-                active ? 0xCC355B4C : 0xAA28313C,
-                active ? 0xFF7CCB93 : 0xFF63788D, 0xFF0D1117);
-        canvas.centeredText(canvas.trimToWidth(label, w - 8), x + w / 2.0D,
-                y + 14, Color.WHITE);
+    private static void drawBlueprintDialogButton(BufferedImageUiCanvas canvas,
+                                                  int x, int y, int width, String label) {
+        recordChrome(canvas, new UiRect(x, y, width, BlueprintWindowLayout.NAME_BUTTON_H),
+                BlueprintDialogStyle.BUTTON_BACKGROUND, BlueprintDialogStyle.BUTTON_BORDER,
+                BlueprintDialogStyle.BUTTON_DARK_BORDER);
+        canvas.centeredText(canvas.trimToWidth(label, width - 6), x + width / 2.0D,
+                y + 12, UiMainlinePreviewStyle.color(BlueprintDialogStyle.PRIMARY_TEXT));
     }
 
     private void drawChrome(BufferedImageUiCanvas canvas, UiRect bounds, String title) {
@@ -1095,12 +1573,13 @@ final class UiMainlineWindowRenderer {
 
     private void drawChrome(BufferedImageUiCanvas canvas, UiRect bounds, String title,
                             boolean closable) {
-        UiMainlinePreviewStyle.frame(canvas, bounds,
-                0xFF161C24, 0xFF6C839A, 0xFF0D1117);
+        recordChrome(canvas, bounds, RtsMainlineTheme.WINDOW_BACKGROUND,
+                RtsMainlineTheme.WINDOW_BORDER_LIGHT, RtsMainlineTheme.WINDOW_BORDER_DARK);
         canvas.fill(new UiRect(bounds.getX() + 1, bounds.getY() + 1,
-                bounds.getWidth() - 2, 19), UiMainlinePreviewStyle.color(0xCC233345));
+                bounds.getWidth() - 2, 19), RtsMainlineTheme.WINDOW_TITLE);
         canvas.text(canvas.trimToWidth(title, (int) bounds.getWidth() - (closable ? 36 : 16)),
-                bounds.getX() + 8, bounds.getY() + 14, Color.WHITE);
+                bounds.getX() + 8, bounds.getY() + 14,
+                UiMainlinePreviewStyle.color(RtsMainlineTheme.WINDOW_TITLE_TEXT));
         if (closable) {
             canvas.imageRegion(assets.closeButton(), new UiRect(0, 0, 450, 450),
                     new UiRect(bounds.right() - 17, bounds.getY() + 3, 14, 14));

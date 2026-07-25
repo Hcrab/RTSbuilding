@@ -12,20 +12,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RtsSoundSettingsContractTest {
     @Test
     void gearMenuOwnsTheSoundSectionAndItsThreePlayerControls() throws IOException {
-        String gear = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuPanel.java"));
+        String sections = Files.readString(Path.of(
+                "src/uiCore/java/com/rtsbuilding/rtsbuilding/uicore/settings/SettingsSectionId.java"));
+        String settings = Files.readString(Path.of(
+                "src/uiCore/java/com/rtsbuilding/rtsbuilding/uicore/settings/SettingsId.java"));
+        String adapter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuUiAdapter.java"));
         String store = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/common/persist/RtsClientUiStateStore.java"));
 
-        int soundSection = gear.indexOf("screen.rtsbuilding.settings.category.sound");
-        int hurtSound = gear.indexOf("screen.rtsbuilding.settings.damage_sound", soundSection);
-        int animationSection = gear.indexOf("screen.rtsbuilding.settings.category.animation", soundSection);
-        assertTrue(soundSection >= 0 && hurtSound > soundSection && animationSection > hurtSound,
+        int soundSection = sections.indexOf("SOUND(\"screen.rtsbuilding.settings.category.sound\")");
+        int animationSection = sections.indexOf(
+                "ANIMATION(\"screen.rtsbuilding.settings.category.animation\")");
+        int hurtSound = settings.indexOf(
+                "DAMAGE_SOUND(SettingsSectionId.SOUND");
+        int firstAnimationSetting = settings.indexOf(
+                "UI_ANIMATIONS(SettingsSectionId.ANIMATION");
+        assertTrue(soundSection >= 0 && animationSection > soundSection,
+                "音效分类必须在正式 Core 目录中排在动画分类之前");
+        assertTrue(hurtSound >= 0 && firstAnimationSetting > hurtSound,
                 "RTS 受击音效应归入音效栏，而不是继续散落在辅助功能中");
-        assertTrue(gear.contains("RtsClientUiStateStore.setRtsSoundsEnabled"));
-        assertTrue(gear.contains("RtsClientUiStateStore.setRtsBreakSoundsEnabled"));
-        assertTrue(gear.contains("RtsClientUiStateStore.setRtsBlockSoundsPerTick"));
-        assertTrue(gear.contains("settings_sound_expanded"));
+        assertTrue(adapter.contains("RtsClientUiStateStore.setRtsSoundsEnabled"));
+        assertTrue(adapter.contains("RtsClientUiStateStore.setRtsBreakSoundsEnabled"));
+        assertTrue(adapter.contains("RtsClientUiStateStore.setRtsBlockSoundsPerTick"));
+        assertTrue(adapter.contains("SettingsId.DAMAGE_SOUND"));
+        assertTrue(adapter.contains("SettingsId.BLOCK_SOUNDS_PER_TICK"));
         assertTrue(store.contains("public SoundState sound = new SoundState()"));
         assertTrue(store.contains("public int blockSoundsPerTick = 8"));
         assertTrue(store.contains("Math.max(1, Math.min(16, sourceSound.blockSoundsPerTick))"));

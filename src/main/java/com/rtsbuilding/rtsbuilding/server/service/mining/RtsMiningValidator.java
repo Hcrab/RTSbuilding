@@ -146,6 +146,19 @@ public final class RtsMiningValidator {
     }
 
     /**
+     * 连锁挖掘沿用范围挖掘的软方块规则：0 级方块不要求当前工具能够正确采集掉落。
+     *
+     * <p>雪层等方块会要求特定工具才能掉落对应物品，但它们没有采掘等级要求。
+     * 若直接使用 {@link #canHarvestWithTool}，拿着镐选中雪层时，连锁收集会在种子
+     * 方块处得到零目标。这里仅放宽 0 级方块；石头及更高等级方块仍然要求真实工具。</p>
+     */
+    private static boolean canUltimineWithTool(BlockState state, ItemStack tool, boolean creative) {
+        return creative
+                || RtsMiningRules.requiredLevel(state) <= 0
+                || canHarvestWithTool(state, tool, false);
+    }
+
+    /**
      * 非连锁范围挖掘的生存平衡上限。关闭生存平衡时只保留实际工具保护。
      */
     public static int rangeMiningMaxRequiredLevel(ServerPlayer player, boolean creative) {
@@ -180,8 +193,11 @@ public final class RtsMiningValidator {
      */
     static boolean canRangeMineRequiredLevel(
             boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
-        return canHarvestWithTool
-                && (creative || requiredLevel <= maxRequiredLevel);
+        // 0 级软块（泥土、雪、沙子等）不需要采掘等级插件；即使当前工具不是最优工具，也允许破坏。
+        // 1/2/3 级硬块才继续要求真实工具可采集，并受已安装采掘插件等级限制。
+        return creative
+                || requiredLevel <= 0
+                || (canHarvestWithTool && requiredLevel <= maxRequiredLevel);
     }
 
     /**
@@ -266,7 +282,7 @@ public final class RtsMiningValidator {
             return false;
         }
         ItemStack actualTool = resolveMiningTool(player, toolSlot, linkedTool);
-        if (!canHarvestWithTool(state, actualTool, false)) {
+        if (!canUltimineWithTool(state, actualTool, false)) {
             return false;
         }
         float seedDestroySpeed = seedState.getDestroySpeed(player.serverLevel(), pos);
@@ -393,7 +409,7 @@ public final class RtsMiningValidator {
                     selectedToolRequested) <= 0.0F) {
                 return new java.util.ArrayDeque<>();
             }
-            if (!canHarvestWithTool(
+            if (!canUltimineWithTool(
                     seedState, resolveMiningTool(player, toolSlot, linkedTool), false)) {
                 return new java.util.ArrayDeque<>();
             }

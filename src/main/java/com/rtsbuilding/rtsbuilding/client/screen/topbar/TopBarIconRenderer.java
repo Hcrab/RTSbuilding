@@ -1,284 +1,135 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
-import net.minecraft.client.gui.Font;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiCatalog;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiContribution;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
 /**
- * Renders pixel-art icons and texture-based icons for the top bar buttons.
- * <p>
- * This utility class provides two main entry points:
- * <ul>
- *   <li>{@link #renderIcon(TopBarTypes.TopBarButtonId, GuiGraphics, int, int, int, boolean, Font)} -
- *       A single dispatch method that selects and draws the correct icon for a given button type.</li>
- *   <li>{@link #topbarModeTexture(TopBarTypes.TopBarButtonId, boolean, boolean, boolean)} -
-     *       Selects a {@link ResourceLocation} for texture-based icons (INTERACT, LINK, FUNNEL, ROTATE,
-     *       QUICK_BUILD, QUEST_DETECT, CHUNK_VIEW, GEAR).</li>
- * </ul>
- * <p>
- * All methods are static and side-effect free. Instantiation is not allowed.
+ * 顶栏正式图标的资源目录与状态解析器。
  *
- * @see TopBarTypes.TopBarButtonId
+ * <p>本类只负责从按钮语义和视觉状态选择纹理并绘制，不再在运行时拼接像素图形。
+ * 新增正式按钮时必须同时提供 inactive、hover、active、pressed 四态资源。</p>
  */
 public final class TopBarIconRenderer {
-    // ======================== Public API ========================
+    private static final double MIN_VISIBLE_WEIGHT = 0.001D;
+
+    public enum VisualState {
+        INACTIVE,
+        HOVER,
+        ACTIVE,
+        PRESSED
+    }
+
+    private static final List<VisualState> VISUAL_STATES =
+            Collections.unmodifiableList(Arrays.asList(VisualState.values()));
 
     /**
-     * Renders the pixel-art icon for the given button type at the specified center position.
-     * <p>
-     * This is the single public dispatch method. It delegates to the appropriate private
-     * drawing method based on {@code id}. Callers no longer need to switch on button type
-     * before calling this method.
+     * 将当前业务视觉状态提交给有界动画集，再按权重叠加正式状态纹理。
      *
-     * @param id     the button identifier whose icon should be drawn
-     * @param g      the {@link GuiGraphics} used for rendering
-     * @param cx     the X coordinate of the icon center
-     * @param cy     the Y coordinate of the icon center
-     * @param color  the base ARGB color for the icon outline or fill
-     * @param active whether the button is in its active (toggled-on) state; affects accent colors
-     * @param font   the {@link Font} used for text-based icons; may be {@code null} for
-     *               purely pixel-art icons
+     * <p>状态和命中已在调用前立即生效；这里只做纹理交叉淡入。稳定态只提交一张纹理，
+     * 过渡期间最多提交四张，不生成中间帧资源，也不保留额外矩形轮廓。</p>
      */
-    public static void renderIcon(TopBarTypes.TopBarButtonId id, GuiGraphics g, int cx, int cy, int color, boolean active, Font font) {
-        switch (id) {
-            case INTERACT -> drawInteractModeIcon(g, cx, cy, color);
-            case LINK -> drawLinkModeIcon(g, cx, cy, color, active);
-            case FUNNEL -> drawFunnelModeIcon(g, cx, cy, color, active);
-            case ROTATE -> drawRotateModeIcon(g, cx, cy, color);
-            case QUICK_BUILD -> drawQuickBuildIcon(g, cx, cy, color, active);
-            case QUEST_DETECT -> drawQuestCheckIcon(g, cx, cy, color);
-            case CHUNK_VIEW -> drawChunkCurtainIcon(g, cx, cy, color, active);
-            case GEAR -> drawGearIcon(g, cx, cy, color);
-            default -> {
-                // No icon defined for this button type (e.g. GUIDE is rendered as plain text elsewhere)
+    public static void renderBlended(
+            GuiGraphics graphics,
+            TopBarTypes.TopBarButtonId id,
+            int x, int y, int size,
+            VisualState target,
+            UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId, VisualState> transitions,
+            boolean animationsEnabled) {
+        transitions.update(id, target, animationsEnabled);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        try {
+            for (VisualState state : VISUAL_STATES) {
+                double weight = transitions.weight(id, state);
+                if (weight <= MIN_VISIBLE_WEIGHT) {
+                    continue;
+                }
+                ResourceLocation texture = texture(id, state);
+                if (texture == null) {
+                    texture = TOPBAR_GUIDE_INACTIVE;
+                }
+                graphics.setColor(1.0F, 1.0F, 1.0F,
+                        (float) Math.max(0.0D, Math.min(1.0D, weight)));
+                graphics.blit(texture, x, y, 0, 0, size, size, size, size);
             }
+        } finally {
+            graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            RenderSystem.disableBlend();
         }
     }
 
-    /**
-     * Selects the appropriate texture {@link ResourceLocation} for a top bar button
-     * based on its current visual state.
-     * <p>
-     * Each button type has four texture variants: inactive, hover, active, and pressed.
-     * The method resolves these from the constants defined in
-     * {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants}.
-     * <p>
-     * Buttons without a texture-based icon (e.g. GUIDE) return {@code null}.
-     *
-     * @param id      the button identifier
-     * @param active  whether the button is in its activated/toggled state
-     * @param hovered whether the mouse is hovering over the button
-     * @param pressed whether the mouse button is pressed on this button
-     * @return the {@link ResourceLocation} for the resolved texture, or {@code null} if
-     *         this button type has no texture icon and should fall back to pixel-art drawing
-     */
-    public static ResourceLocation topbarModeTexture(TopBarTypes.TopBarButtonId id, boolean active, boolean hovered, boolean pressed) {
-        String state = active ? "active" : pressed ? "pressed" : hovered ? "hover" : "inactive";
+    public static List<VisualState> visualStates() {
+        return VISUAL_STATES;
+    }
+
+    public static String tooltipKey(TopBarTypes.TopBarButtonId id) {
+        try {
+            TopBarUiContribution contribution = TopBarUiCatalog.contribution(
+                    TopBarUiButtonId.valueOf(id.name()));
+            if (contribution != null) return contribution.getTooltipKey();
+        } catch (IllegalArgumentException ignored) {
+            // 旧平台专属按钮尚未进入正式目录时仍保持稳定回退键。
+        }
+        return "screen.rtsbuilding.topbar.tooltip."
+                + id.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    public static ResourceLocation texture(TopBarTypes.TopBarButtonId id, VisualState state) {
         return switch (id) {
-            case INTERACT -> switch (state) {
-                case "active" -> TOPBAR_INTERACT_ACTIVE;
-                case "pressed" -> TOPBAR_INTERACT_PRESSED;
-                case "hover" -> TOPBAR_INTERACT_HOVER;
-                default -> TOPBAR_INTERACT_INACTIVE;
-            };
-            case LINK -> switch (state) {
-                case "active" -> TOPBAR_LINK_ACTIVE;
-                case "pressed" -> TOPBAR_LINK_PRESSED;
-                case "hover" -> TOPBAR_LINK_HOVER;
-                default -> TOPBAR_LINK_INACTIVE;
-            };
-            case FUNNEL -> switch (state) {
-                case "active" -> TOPBAR_FUNNEL_ACTIVE;
-                case "pressed" -> TOPBAR_FUNNEL_PRESSED;
-                case "hover" -> TOPBAR_FUNNEL_HOVER;
-                default -> TOPBAR_FUNNEL_INACTIVE;
-            };
-            case ROTATE -> switch (state) {
-                case "active" -> TOPBAR_ROTATE_ACTIVE;
-                case "pressed" -> TOPBAR_ROTATE_PRESSED;
-                case "hover" -> TOPBAR_ROTATE_HOVER;
-                default -> TOPBAR_ROTATE_INACTIVE;
-            };
-            case QUICK_BUILD -> switch (state) {
-                case "active" -> TOPBAR_QUICK_BUILD_ACTIVE;
-                case "pressed" -> TOPBAR_QUICK_BUILD_PRESSED;
-                case "hover" -> TOPBAR_QUICK_BUILD_HOVER;
-                default -> TOPBAR_QUICK_BUILD_INACTIVE;
-            };
-            case QUEST_DETECT -> switch (state) {
-                case "active" -> TOPBAR_QUEST_DETECT_ACTIVE;
-                case "pressed" -> TOPBAR_QUEST_DETECT_PRESSED;
-                case "hover" -> TOPBAR_QUEST_DETECT_HOVER;
-                default -> TOPBAR_QUEST_DETECT_INACTIVE;
-            };
-            case CHUNK_VIEW -> switch (state) {
-                case "active" -> TOPBAR_CHUNK_VIEW_ACTIVE;
-                case "pressed" -> TOPBAR_CHUNK_VIEW_PRESSED;
-                case "hover" -> TOPBAR_CHUNK_VIEW_HOVER;
-                default -> TOPBAR_CHUNK_VIEW_INACTIVE;
-            };
-            case RANGE_CULLING -> switch (state) {
-                case "active" -> TOPBAR_RANGE_CULLING_ACTIVE;
-                case "pressed" -> TOPBAR_RANGE_CULLING_PRESSED;
-                case "hover" -> TOPBAR_RANGE_CULLING_HOVER;
-                default -> TOPBAR_RANGE_CULLING_INACTIVE;
-            };
-            case GEAR -> switch (state) {
-                case "active" -> TOPBAR_GEAR_ACTIVE;
-                case "pressed" -> TOPBAR_GEAR_PRESSED;
-                case "hover" -> TOPBAR_GEAR_HOVER;
-                default -> TOPBAR_GEAR_INACTIVE;
-            };
+            case INTERACT -> state(state, TOPBAR_INTERACT_INACTIVE, TOPBAR_INTERACT_HOVER,
+                    TOPBAR_INTERACT_ACTIVE, TOPBAR_INTERACT_PRESSED);
+            case LINK -> state(state, TOPBAR_LINK_INACTIVE, TOPBAR_LINK_HOVER,
+                    TOPBAR_LINK_ACTIVE, TOPBAR_LINK_PRESSED);
+            case FUNNEL -> state(state, TOPBAR_FUNNEL_INACTIVE, TOPBAR_FUNNEL_HOVER,
+                    TOPBAR_FUNNEL_ACTIVE, TOPBAR_FUNNEL_PRESSED);
+            case ROTATE -> state(state, TOPBAR_ROTATE_INACTIVE, TOPBAR_ROTATE_HOVER,
+                    TOPBAR_ROTATE_ACTIVE, TOPBAR_ROTATE_PRESSED);
+            case QUICK_BUILD -> state(state, TOPBAR_QUICK_BUILD_INACTIVE, TOPBAR_QUICK_BUILD_HOVER,
+                    TOPBAR_QUICK_BUILD_ACTIVE, TOPBAR_QUICK_BUILD_PRESSED);
+            case QUEST_DETECT -> state(state, TOPBAR_QUEST_DETECT_INACTIVE, TOPBAR_QUEST_DETECT_HOVER,
+                    TOPBAR_QUEST_DETECT_ACTIVE, TOPBAR_QUEST_DETECT_PRESSED);
+            case CHUNK_VIEW -> state(state, TOPBAR_CHUNK_VIEW_INACTIVE, TOPBAR_CHUNK_VIEW_HOVER,
+                    TOPBAR_CHUNK_VIEW_ACTIVE, TOPBAR_CHUNK_VIEW_PRESSED);
+            case RANGE_CULLING -> state(state, TOPBAR_RANGE_CULLING_INACTIVE, TOPBAR_RANGE_CULLING_HOVER,
+                    TOPBAR_RANGE_CULLING_ACTIVE, TOPBAR_RANGE_CULLING_PRESSED);
+            case GUIDE -> state(state, TOPBAR_GUIDE_INACTIVE, TOPBAR_GUIDE_HOVER,
+                    TOPBAR_GUIDE_ACTIVE, TOPBAR_GUIDE_PRESSED);
+            case DEVELOPER -> state(state, TOPBAR_DEVELOPER_INACTIVE, TOPBAR_DEVELOPER_HOVER,
+                    TOPBAR_DEVELOPER_ACTIVE, TOPBAR_DEVELOPER_PRESSED);
+            case GEAR -> state(state, TOPBAR_GEAR_INACTIVE, TOPBAR_GEAR_HOVER,
+                    TOPBAR_GEAR_ACTIVE, TOPBAR_GEAR_PRESSED);
             default -> null;
         };
     }
 
-    // ======================== Private Pixel-Art Icon Methods ========================
-
-    /**
-     * Draws the INTERACT mode icon: a stepped arrow pointing from bottom-left toward top-right.
-     * A small blue accent highlight appears at the tip when hovered/active.
-     */
-    private static void drawInteractModeIcon(GuiGraphics g, int cx, int cy, int color) {
-        g.fill(cx - 7, cy - 8, cx - 5, cy + 7, color);
-        g.fill(cx - 5, cy - 6, cx - 3, cy + 5, color);
-        g.fill(cx - 3, cy - 4, cx - 1, cy + 3, color);
-        g.fill(cx - 1, cy - 2, cx + 2, cy + 2, color);
-        g.fill(cx + 2, cy, cx + 5, cy + 3, color);
-        g.fill(cx - 2, cy + 3, cx + 1, cy + 8, color);
-        g.fill(cx + 1, cy + 6, cx + 4, cy + 8, color);
-        g.fill(cx + 4, cy - 7, cx + 7, cy - 4, 0x6688BEF4);
-        g.fill(cx + 5, cy - 6, cx + 6, cy - 5, color);
+    public static VisualState visualState(boolean active, boolean hovered, boolean pressed) {
+        if (pressed) return VisualState.PRESSED;
+        if (active) return VisualState.ACTIVE;
+        return hovered ? VisualState.HOVER : VisualState.INACTIVE;
     }
 
-    /**
-     * Draws the LINK mode icon: two interlocking chain loop segments.
-     * When active, the left loop gets a blue tint and the right loop a green tint.
-     */
-    private static void drawLinkModeIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
-        int left = active ? 0xFF88BEF4 : color;
-        int right = active ? 0xFF78B28C : color;
-        drawMiniChainLoop(g, cx - 5, cy + 1, left);
-        drawMiniChainLoop(g, cx + 5, cy - 1, right);
-        g.fill(cx - 3, cy - 1, cx + 4, cy + 1, color);
-        g.fill(cx - 2, cy, cx + 3, cy + 2, color);
-    }
-
-    /**
-     * Draws the FUNNEL mode icon: a funnel / filter shape narrowing from a wide top
-     * to a narrow tube at the bottom. When active, the top, middle, and tip use distinct
-     * warm accent colors.
-     */
-    private static void drawFunnelModeIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
-        int top = active ? 0xFFFFC472 : color;
-        int mid = active ? 0xFF78B28C : color;
-        int tip = active ? 0xFF88BEF4 : color;
-        g.fill(cx - 8, cy - 7, cx + 8, cy - 5, top);
-        g.fill(cx - 7, cy - 5, cx + 7, cy - 3, top);
-        g.fill(cx - 5, cy - 3, cx + 5, cy - 1, mid);
-        g.fill(cx - 3, cy - 1, cx + 3, cy + 1, mid);
-        g.fill(cx - 1, cy + 1, cx + 1, cy + 7, tip);
-        g.fill(cx + 1, cy + 5, cx + 4, cy + 7, tip);
-    }
-
-    /**
-     * Draws the ROTATE mode icon: a circular rotation arrow with a hollow center.
-     * The arrow loops clockwise with a small cutout in the middle.
-     */
-    private static void drawRotateModeIcon(GuiGraphics g, int cx, int cy, int color) {
-        g.fill(cx - 5, cy - 7, cx + 5, cy - 5, color);
-        g.fill(cx + 4, cy - 6, cx + 7, cy - 2, color);
-        g.fill(cx + 6, cy - 2, cx + 8, cy + 1, color);
-        g.fill(cx + 3, cy - 8, cx + 8, cy - 5, color);
-        g.fill(cx + 5, cy - 4, cx + 8, cy - 1, color);
-        g.fill(cx - 8, cy - 1, cx - 6, cy + 3, color);
-        g.fill(cx - 7, cy + 3, cx - 4, cy + 6, color);
-        g.fill(cx - 5, cy + 5, cx + 5, cy + 7, color);
-        g.fill(cx - 8, cy + 4, cx - 3, cy + 7, color);
-        g.fill(cx - 8, cy + 1, cx - 5, cy + 4, color);
-        g.fill(cx - 3, cy - 3, cx + 4, cy + 4, 0xFF1B222C);
-        g.hLine(cx - 3, cx + 3, cy - 3, color);
-        g.hLine(cx - 3, cx + 3, cy + 3, color);
-        g.vLine(cx - 3, cy - 3, cy + 3, color);
-        g.vLine(cx + 3, cy - 3, cy + 3, color);
-    }
-
-    /**
-     * Draws the QUICK BUILD icon: a T-shaped bracket representing a building structure
-     * with a small flag extending to the upper-right. When active, the bracket gets
-     * a warm yellow accent.
-     */
-    private static void drawQuickBuildIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
-        int accent = active ? 0xFFFFC96B : color;
-        g.fill(cx - 8, cy - 6, cx + 6, cy - 4, accent);
-        g.fill(cx - 8, cy - 6, cx - 6, cy + 6, accent);
-        g.fill(cx - 8, cy + 4, cx + 6, cy + 6, accent);
-        g.fill(cx + 4, cy - 6, cx + 6, cy + 6, accent);
-        g.fill(cx - 4, cy - 2, cx + 2, cy + 2, 0xFF1B222C);
-        g.fill(cx + 3, cy - 9, cx + 8, cy - 4, color);
-        g.fill(cx + 5, cy - 7, cx + 10, cy - 2, color);
-    }
-
-    /**
-     * Draws the QUEST DETECT icon: a checkmark / tick shape.
-     */
-    private static void drawQuestCheckIcon(GuiGraphics g, int cx, int cy, int color) {
-        g.fill(cx - 7, cy + 1, cx - 3, cy + 5, color);
-        g.fill(cx - 4, cy + 4, cx, cy + 8, color);
-        g.fill(cx - 1, cy + 1, cx + 3, cy + 5, color);
-        g.fill(cx + 2, cy - 2, cx + 6, cy + 2, color);
-        g.fill(cx + 5, cy - 5, cx + 9, cy - 1, color);
-    }
-
-    /**
-     * Draws the CHUNK VIEW icon: a grid pattern representing chunk boundaries.
-     * When active, the background gets a subtle blue glow.
-     */
-    private static void drawChunkCurtainIcon(GuiGraphics g, int cx, int cy, int color, boolean active) {
-        int glow = active ? 0x4488BEF4 : 0x221D2530;
-        g.fill(cx - 8, cy - 7, cx + 8, cy + 7, glow);
-        g.fill(cx - 7, cy - 6, cx - 6, cy + 6, color);
-        g.fill(cx - 1, cy - 6, cx, cy + 6, color);
-        g.fill(cx + 5, cy - 6, cx + 6, cy + 6, color);
-        g.fill(cx - 7, cy - 6, cx + 6, cy - 5, color);
-        g.fill(cx - 7, cy, cx + 6, cy + 1, color);
-        g.fill(cx - 7, cy + 6, cx + 6, cy + 7, color);
-    }
-
-    /**
-     * Draws the GEAR (settings) icon: a cog shape with four outer notches and a solid center.
-     * The center contains a small dark hole.
-     */
-    private static void drawGearIcon(GuiGraphics g, int cx, int cy, int color) {
-        g.fill(cx - 2, cy - 8, cx + 2, cy - 5, color);
-        g.fill(cx - 2, cy + 5, cx + 2, cy + 8, color);
-        g.fill(cx - 8, cy - 2, cx - 5, cy + 2, color);
-        g.fill(cx + 5, cy - 2, cx + 8, cy + 2, color);
-        g.fill(cx - 6, cy - 6, cx - 3, cy - 3, color);
-        g.fill(cx + 3, cy - 6, cx + 6, cy - 3, color);
-        g.fill(cx - 6, cy + 3, cx - 3, cy + 6, color);
-        g.fill(cx + 3, cy + 3, cx + 6, cy + 6, color);
-        g.fill(cx - 4, cy - 4, cx + 4, cy + 4, color);
-        g.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFF1B222C);
-    }
-
-    // ======================== Internal Helper ========================
-
-    /**
-     * Draws a small chain loop segment used by {@link #drawLinkModeIcon}.
-     * Renders a rectangular ring with a dark center void.
-     */
-    private static void drawMiniChainLoop(GuiGraphics g, int cx, int cy, int color) {
-        g.fill(cx - 5, cy - 4, cx + 5, cy - 2, color);
-        g.fill(cx - 5, cy + 2, cx + 5, cy + 4, color);
-        g.fill(cx - 5, cy - 3, cx - 3, cy + 3, color);
-        g.fill(cx + 3, cy - 3, cx + 5, cy + 3, color);
-        g.fill(cx - 1, cy - 2, cx + 2, cy + 2, 0xFF1B222C);
+    private static ResourceLocation state(VisualState state, ResourceLocation inactive,
+                                          ResourceLocation hover, ResourceLocation active,
+                                          ResourceLocation pressed) {
+        return switch (state) {
+            case INACTIVE -> inactive;
+            case HOVER -> hover;
+            case ACTIVE -> active;
+            case PRESSED -> pressed;
+        };
     }
 
     private TopBarIconRenderer() {
-        // Utility class: prevent instantiation
     }
 }

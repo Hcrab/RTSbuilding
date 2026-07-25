@@ -130,7 +130,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
             session.mining.miningSelectedToolRequested = mctx.isSelectedToolRequested();
         }
 
-        RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] Executing {} for player={}, queueMode={}, toolSlot={}",
+        RtsbuildingMod.LOGGER.debug("[UltimineExecutePipe] Executing {} for player={}, queueMode={}, toolSlot={}",
                 type, mctx.player().getGameProfile().getName(), queueMode, toolSlot);
 
         // ── 在会话的 RtsMiningState 中存储工作流条目 ID ──
@@ -155,7 +155,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                             mctx.player(), session, pos, face,
                             toolSlot, requestedLimit, mode, toolProtectionEnabled,
                             mctx.getWorkflowEntryId());
-                    RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] ULTIMINE queued {} blocks for {}",
+                    RtsbuildingMod.LOGGER.debug("[UltimineExecutePipe] ULTIMINE queued {} blocks for {}",
                             queuedCount, mctx.player().getGameProfile().getName());
                     if (queuedCount > 0 && mctx.hasWorkflowEntryId()) {
                         RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())
@@ -193,7 +193,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                             minX, maxX, minY, maxY, minZ, maxZ,
                             toolSlot, shapeType, fillType, toolProtectionEnabled,
                             mctx.getWorkflowEntryId());
-                    RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] AREA_MINE queued {} blocks for {}",
+                    RtsbuildingMod.LOGGER.debug("[UltimineExecutePipe] AREA_MINE queued {} blocks for {}",
                             queuedCount, mctx.player().getGameProfile().getName());
                     if (queuedCount > 0 && mctx.hasWorkflowEntryId()) {
                         RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())
@@ -219,7 +219,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
             case AREA_DESTROY: {
                 List<BlockPos> positions = mctx.getArg(ARG_POSITIONS);
                 int requestSize = positions != null ? positions.size() : 0;
-                RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] AREA_DESTROY enqueuing {} positions for {}",
+                RtsbuildingMod.LOGGER.debug("[UltimineExecutePipe] AREA_DESTROY enqueuing {} positions for {}",
                         requestSize, mctx.player().getGameProfile().getName());
 
                 boolean enqueued = RtsDestructionBatch.enqueueDestroyBatch(

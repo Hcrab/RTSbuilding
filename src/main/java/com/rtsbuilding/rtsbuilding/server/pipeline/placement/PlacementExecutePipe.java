@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.*;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -122,12 +121,9 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
                 quickBuild, forceEmptyHand, sendRemoteHint,
                 workflowEntryId);
 
-        // ── 如果入队被静默跳过（无有效位置、队列已满等），
-        //    完成工作流条目以防止槽泄漏 ──────────────
-        if (!enqueued && workflowEntryId >= 0) {
-            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
-                    .ifPresent(token -> token.complete());
-            return PipelineResult.success();
+        // 入队失败必须沿管线回滚并取消工作流，不能伪装成“完成 0 个方块”。
+        if (!enqueued) {
+            return PipelineResult.failure("Placement task was not queued");
         }
 
         return PipelineResult.success();

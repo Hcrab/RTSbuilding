@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.gear;
 
-import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsId;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsSectionId;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiSection;
@@ -14,11 +13,13 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiState;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiRow;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
-import net.neoforged.fml.ModList;
 
 import java.util.HashSet;
 import java.util.EnumSet;
@@ -39,16 +40,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private static final int LEGACY_DEFAULT_WINDOW_H = 284;
     private static final int DEFAULT_WINDOW_W = 380;
     private static final int MIN_WINDOW_W = 280;
-    private static final int CONTENT_TOP_PADDING = 8;
-    private static final int SECTION_HEADER_H = 22;
-    private static final int SECTION_GAP = 6;
-    private static final int SENSITIVITY_ROW_H = 46;
-    private static final int SCALE_ROW_H = 34;
-    private static final int SOUND_LIMIT_ROW_H = 38;
-    private static final int SIMPLE_TOGGLE_ROW_H = 28;
-    private static final int HINT_TOGGLE_ROW_H = 34;
-    private static final int HINT_LINE_H = 10;
-    private static final int HINT_EXPAND_BUTTON_SIZE = 12;
 
     private int scroll = 0;
     private boolean controlsExpanded = false;
@@ -57,7 +48,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private boolean soundExpanded = false;
     private boolean animationExpanded = false;
     private final Set<String> expandedHintKeys = new HashSet<>();
-    private SensitivityControl draggingSensitivityControl = null;
     private SettingsId draggingCoreSensitivity = null;
 
     EnumSet<SettingsSectionId> coreExpandedSections() {
@@ -103,19 +93,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return section != null && section.expanded;
     }
 
-    private enum SensitivityControl {
-        PAN_DRAG("screen.rtsbuilding.settings.sensitivity.pan_drag"),
-        ROTATE_VIEW("screen.rtsbuilding.settings.sensitivity.rotate_view"),
-        KEYBOARD_MOVE("screen.rtsbuilding.settings.sensitivity.keyboard_move"),
-        WHEEL_ZOOM("screen.rtsbuilding.settings.sensitivity.wheel_zoom");
-
-        private final String labelKey;
-
-        SensitivityControl(String labelKey) {
-            this.labelKey = labelKey;
-        }
-    }
-
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
@@ -130,8 +107,9 @@ public final class GearMenuPanel extends RtsWindowPanel {
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.scroll = Mth.clamp(this.scroll, 0, maxScroll());
-        renderCoreControls(g, mouseX, mouseY);
-        renderScrollbar(g, contentX(), contentY(), contentWidth(), contentHeight());
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
+        renderCoreControls(g, canvas, mouseX, mouseY);
+        renderScrollbar(g, canvas, contentX(), contentY(), contentWidth(), contentHeight());
     }
 
     @Override
@@ -213,96 +191,114 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     /** 生产绘制直接遍历 Core 正式目录，避免设置项在预览与运行时漂移。 */
-    private void renderCoreControls(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderCoreControls(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY) {
         SettingsUiState state = coreSnapshot();
         SettingsWindowLayout.Layout layout = coreLayout(state);
         for (SettingsWindowLayout.Node node : layout.nodes) {
             int drawY = node.y - state.scroll;
             if (node.isSection()) {
-                drawSectionHeader(g, mouseX, mouseY, node.x, node.width, drawY,
+                drawCoreSectionHeader(g, canvas, mouseX, mouseY, node.x, node.width, drawY,
                         node.section.id.titleKey, node.section.expanded);
             } else {
-                drawCoreRow(g, mouseX, mouseY, node.row, node.x, drawY, node.width);
+                drawCoreRow(g, canvas, mouseX, mouseY, node.row, node.x, drawY, node.width);
             }
         }
     }
 
-    private void drawCoreRow(GuiGraphics g, int mouseX, int mouseY,
+    private void drawCoreRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                              SettingsUiRow row, int x, int y, int w) {
         switch (row.id.kind) {
             case SENSITIVITY -> drawCoreSensitivityRow(g, row, y, x, w);
-            case STEP_VALUE -> drawCoreStepRow(g, mouseX, mouseY, row, y, x, w);
-            case SIMPLE_TOGGLE -> drawCoreSimpleToggleRow(g, mouseX, mouseY, row, x, w, y);
-            case HINT_TOGGLE -> drawCoreHintToggleRow(g, mouseX, mouseY, row, x, w, y);
+            case STEP_VALUE -> drawCoreStepRow(g, canvas, mouseX, mouseY, row, y, x, w);
+            case SIMPLE_TOGGLE -> drawCoreSimpleToggleRow(g, canvas, mouseX, mouseY, row, x, w, y);
+            case HINT_TOGGLE -> drawCoreHintToggleRow(g, canvas, mouseX, mouseY, row, x, w, y);
         }
     }
 
     private void drawCoreSensitivityRow(GuiGraphics g, SettingsUiRow row, int rowY, int x, int w) {
         g.drawString(screen.font(), Component.translatable(row.id.labelKey),
-                x + 16, rowY + 5, row.enabled ? 0xC8D3DF : 0x77818D99, false);
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 5, (row.enabled ? SettingsWindowStyle.LABEL
+                        : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
         g.drawString(screen.font(), row.valueLabel,
-                x + w - 60, rowY + 5, row.enabled ? 0xEAF4FF : 0x77818D99, false);
-        int trackX = x + 16;
+                x + w - SettingsWindowLayout.SENSITIVITY_VALUE_RIGHT_INSET,
+                rowY + 5, (row.enabled ? SettingsWindowStyle.VALUE
+                        : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
+        int trackX = x + SettingsWindowLayout.SENSITIVITY_TRACK_INSET;
         int trackY = rowY + 24;
-        int trackW = w - 32;
-        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
-        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
+        int trackW = w - SettingsWindowLayout.SENSITIVITY_TRACK_INSET * 2;
+        g.fill(trackX, trackY, trackX + trackW, trackY + 4,
+                SettingsWindowStyle.TRACK_BACKGROUND.toArgb());
+        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3,
+                SettingsWindowStyle.TRACK_FILL.toArgb());
         int knobX = trackX + (int) Math.round((row.valueIndex
                 / (double) Math.max(1, row.valueCount - 1)) * trackW);
         g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8,
-                row.enabled ? 0xFF5FE36C : 0xFF65717E);
+                (row.enabled ? SettingsWindowStyle.KNOB : SettingsWindowStyle.KNOB_DISABLED).toArgb());
     }
 
-    private void drawCoreStepRow(GuiGraphics g, int mouseX, int mouseY,
+    private void drawCoreStepRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                  SettingsUiRow row, int rowY, int x, int w) {
-        int minusX = x + w - 124;
+        int minusX = x + w - SettingsWindowLayout.STEP_CONTROLS_RIGHT_INSET;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
         boolean soundLimit = row.id == SettingsId.BLOCK_SOUNDS_PER_TICK;
         int labelY = soundLimit ? rowY + 3 : rowY + 8;
         int buttonY = soundLimit ? rowY + 8 : rowY + 6;
-        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey), w - 156),
-                x + 16, labelY, row.enabled ? 0xC8D3DF : 0x77818D99, false);
+        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey),
+                        w - SettingsWindowLayout.STEP_LABEL_RIGHT_RESERVE),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, labelY, (row.enabled ? SettingsWindowStyle.LABEL
+                        : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
         if (soundLimit) {
-            g.drawString(screen.font(), trimToWidth(text(row.id.hintKey), w - 156),
-                    x + 16, rowY + 18, 0x9FB0C2, false);
+            g.drawString(screen.font(), trimToWidth(text(row.id.hintKey),
+                            w - SettingsWindowLayout.STEP_LABEL_RIGHT_RESERVE),
+                    x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 18,
+                    SettingsWindowStyle.HINT.toArgb(), false);
         }
-        drawGearMenuRow(g, mouseX, mouseY, minusX, buttonY, 22, 22, "-", false);
-        RtsClientUiUtil.drawPanelFrame(g, valueX, buttonY, 56, 22,
-                0xCC1A232E, 0xFF566B80, 0xFF0D1218);
+        drawCoreStepButton(g, canvas, mouseX, mouseY, minusX, buttonY, "-");
+        UiCompactFrameRenderer.frame(canvas, new UiRect(valueX, buttonY, 56, 22),
+                SettingsWindowStyle.VALUE_BACKGROUND, SettingsWindowStyle.VALUE_BORDER,
+                SettingsWindowStyle.VALUE_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), row.valueLabel,
-                valueX + 28, buttonY + 7, 0xEAF4FF);
-        drawGearMenuRow(g, mouseX, mouseY, plusX, buttonY, 22, 22, "+", false);
+                valueX + 28, buttonY + 7, SettingsWindowStyle.VALUE.toArgb());
+        drawCoreStepButton(g, canvas, mouseX, mouseY, plusX, buttonY, "+");
     }
 
-    private void drawCoreSimpleToggleRow(GuiGraphics g, int mouseX, int mouseY,
+    private void drawCoreSimpleToggleRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                          SettingsUiRow row, int x, int w, int rowY) {
-        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey), w - 126),
-                x + 16, rowY + 9, row.enabled ? 0xC8D3DF : 0x77818D99, false);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, row.active,
+        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey),
+                        w - SettingsWindowLayout.SIMPLE_LABEL_RIGHT_RESERVE),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 9, (row.enabled ? SettingsWindowStyle.LABEL
+                        : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
+        drawCoreToggleButton(g, canvas, mouseX, mouseY,
+                x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET, rowY + 4, 76, 22, row.active,
                 text(row.active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
 
-    private void drawCoreHintToggleRow(GuiGraphics g, int mouseX, int mouseY,
+    private void drawCoreHintToggleRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                        SettingsUiRow row, int x, int w, int rowY) {
         int hintX = hintTextX(x, row.hintExpandable);
         int hintW = hintTextMaxWidth(x, w, row.hintExpandable);
-        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey), w - 116),
-                x + 16, rowY + 2, row.enabled ? 0xC8D3DF : 0x77818D99, false);
-        if (row.hintExpandable) drawHintExpandButton(g, mouseX, mouseY, x, rowY, row.hintExpanded);
+        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey),
+                        w - SettingsWindowLayout.HINT_LABEL_RIGHT_RESERVE),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 2, (row.enabled ? SettingsWindowStyle.LABEL
+                        : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
+        if (row.hintExpandable) drawCoreHintExpandButton(g, canvas, mouseX, mouseY, x, rowY, row.hintExpanded);
         if (row.hintExpanded) {
             List<FormattedCharSequence> lines = wrappedHintLines(x, w, row.id.hintKey);
             for (int i = 0; i < lines.size(); i++) {
                 g.drawString(screen.font(), lines.get(i), hintX,
-                        rowY + 13 + i * SettingsWindowLayout.HINT_LINE_H, 0x9FB0C2, false);
+                        rowY + 13 + i * SettingsWindowLayout.HINT_LINE_H,
+                        SettingsWindowStyle.HINT.toArgb(), false);
             }
         } else {
             String hint = row.enabled || row.disabledReasonKey.isEmpty()
                     ? text(row.id.hintKey) : text(row.disabledReasonKey);
             g.drawString(screen.font(), trimToWidth(hint, hintW), hintX, rowY + 13,
-                    row.enabled ? 0x9FB0C2 : 0xFFFFA0A0, false);
+                    (row.enabled ? SettingsWindowStyle.HINT
+                            : SettingsWindowStyle.DISABLED_REASON).toArgb(), false);
         }
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, row.active,
+        drawCoreToggleButton(g, canvas, mouseX, mouseY,
+                x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET, rowY + 4, 76, 22, row.active,
                 text(row.active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
 
@@ -322,8 +318,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
         double contentMouseY = mouseY + state.scroll;
         for (SettingsWindowLayout.Node node : layout.nodes) {
             if (node.isSection()) {
-                if (inside(mouseX, contentMouseY, node.x + 8, node.y,
-                        node.width - 16, node.height)) {
+                if (UiRect.contains(
+                        node.x + SettingsWindowLayout.SECTION_HORIZONTAL_INSET, node.y,
+                        node.width - SettingsWindowLayout.SECTION_HORIZONTAL_INSET * 2, node.height,
+                        mouseX, contentMouseY)) {
                     dispatchCore(SettingsUiAction.section(node.section.id));
                     return;
                 }
@@ -331,29 +329,33 @@ public final class GearMenuPanel extends RtsWindowPanel {
             }
             SettingsUiRow row = node.row;
             if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.SENSITIVITY
-                    && inside(mouseX, contentMouseY, node.x + 16, node.y + 16,
-                    node.width - 32, 22)) {
+                    && UiRect.contains(
+                    node.x + SettingsWindowLayout.SENSITIVITY_TRACK_INSET,
+                    node.y + SettingsWindowLayout.SENSITIVITY_TRACK_INSET,
+                    node.width - SettingsWindowLayout.SENSITIVITY_TRACK_INSET * 2, 22,
+                    mouseX, contentMouseY)) {
                 double fraction = calcSensitivityFraction(mouseX, node.x, node.width);
                 if (dispatchCore(SettingsUiAction.sensitivity(row.id, fraction))) {
                     draggingCoreSensitivity = row.id;
                 }
                 return;
             }
-            if (row.hintExpandable && inside(mouseX, contentMouseY,
-                    hintExpandButtonX(node.x), node.y + 12,
+            if (row.hintExpandable && UiRect.contains(
+                    hintExpandButtonX(node.x),
+                    node.y + SettingsWindowLayout.HINT_BUTTON_TOP,
                     SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE,
-                    SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE)) {
+                    SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE, mouseX, contentMouseY)) {
                 dispatchCore(SettingsUiAction.setting(SettingsUiAction.Type.TOGGLE_HINT, row.id));
                 return;
             }
             if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.STEP_VALUE) {
-                int minusX = node.x + node.width - 124;
+                int minusX = node.x + node.width - SettingsWindowLayout.STEP_CONTROLS_RIGHT_INSET;
                 int buttonY = node.y + (row.id == SettingsId.BLOCK_SOUNDS_PER_TICK ? 8 : 6);
-                if (inside(mouseX, contentMouseY, minusX, buttonY, 22, 22)) {
+                if (UiRect.contains(minusX, buttonY, 22, 22, mouseX, contentMouseY)) {
                     dispatchCore(SettingsUiAction.adjust(row.id, -1));
                     return;
                 }
-                if (inside(mouseX, contentMouseY, minusX + 86, buttonY, 22, 22)) {
+                if (UiRect.contains(minusX + 86, buttonY, 22, 22, mouseX, contentMouseY)) {
                     dispatchCore(SettingsUiAction.adjust(row.id, 1));
                     return;
                 }
@@ -361,8 +363,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
             }
             if ((row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.SIMPLE_TOGGLE
                     || row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.HINT_TOGGLE)
-                    && inside(mouseX, contentMouseY, node.x + 12, node.y,
-                    node.width - 24, node.height)) {
+                    && UiRect.contains(
+                    node.x + SettingsWindowLayout.TOGGLE_ROW_HORIZONTAL_INSET, node.y,
+                    node.width - SettingsWindowLayout.TOGGLE_ROW_HORIZONTAL_INSET * 2, node.height,
+                    mouseX, contentMouseY)) {
                 dispatchCore(SettingsUiAction.setting(SettingsUiAction.Type.TOGGLE_VALUE, row.id));
                 return;
             }
@@ -374,665 +378,86 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 contentX(), contentWidth());
     }
 
-    private void renderControls(GuiGraphics g, int mouseX, int mouseY, int x, int controlsY, int w) {
-        int rowY = controlsY;
-        rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.category.controls", this.controlsExpanded);
-        if (this.controlsExpanded) {
-            for (SensitivityControl control : SensitivityControl.values()) {
-                drawSensitivityRow(g, rowY, x, w, control);
-                rowY += SENSITIVITY_ROW_H;
-            }
-            drawSimpleToggleRow(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.head_start",
-                    this.controller.isStartCameraAtPlayerHead());
-            rowY += SIMPLE_TOGGLE_ROW_H;
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.pan_drag_x_invert",
-                    "screen.rtsbuilding.settings.pan_drag_x_invert.hint",
-                    this.controller.isInvertPanDragX());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_x_invert.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.pan_drag_y_invert",
-                    "screen.rtsbuilding.settings.pan_drag_y_invert.hint",
-                    this.controller.isInvertPanDragY());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.keyboard_batch_confirm",
-                    "screen.rtsbuilding.settings.keyboard_batch_confirm.hint",
-                    Config.isKeyboardBatchConfirmEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint");
-        }
-        rowY += SECTION_GAP;
-
-        rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.category.display", this.displayExpanded);
-        if (this.displayExpanded) {
-            drawScaleRow(g, mouseX, mouseY, rowY, x, w);
-            rowY += SCALE_ROW_H;
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.player_status_overlay",
-                    "screen.rtsbuilding.settings.player_status_overlay.hint",
-                    this.controller.isPlayerStatusOverlayEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.player_status_overlay.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.container_overlay",
-                    "screen.rtsbuilding.settings.container_overlay.hint",
-                    RtsClientUiStateStore.isContainerOverlayEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.shift_import",
-                    "screen.rtsbuilding.settings.shift_import.hint",
-                    RtsClientUiStateStore.isOverlayShiftImportEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.show_storage_ready_popup",
-                    "screen.rtsbuilding.settings.show_storage_ready_popup.hint",
-                    RtsClientUiStateStore.isShowStorageReadyPopupEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_storage_ready_popup.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.show_workflow_panel",
-                    "screen.rtsbuilding.settings.show_workflow_panel.hint",
-                    RtsClientUiStateStore.isShowWorkflowPanelEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint");
-            if (isJadeLoaded()) {
-                drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                        "screen.rtsbuilding.settings.jade_panel_track_mouse",
-                        "screen.rtsbuilding.settings.jade_panel_track_mouse.hint",
-                        RtsClientUiStateStore.isJadePanelTrackMouseEnabled());
-                rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint");
-                drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                        "screen.rtsbuilding.settings.jade_panel_hidden",
-                        "screen.rtsbuilding.settings.jade_panel_hidden.hint",
-                        RtsClientUiStateStore.isJadePanelHidden());
-                rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_hidden.hint");
-            }
-        }
-        rowY += SECTION_GAP;
-
-        rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.category.helpers", this.helpersExpanded);
-        if (this.helpersExpanded) {
-            drawSimpleToggleRow(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.auto_store",
-                    this.controller.isAutoStoreMinedDrops());
-            rowY += SIMPLE_TOGGLE_ROW_H;
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.storage_refresh_quiet",
-                    "screen.rtsbuilding.settings.storage_refresh_quiet.hint",
-                    RtsClientUiStateStore.isStorageRefreshQuietEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_refresh_quiet.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.storage_auto_refresh",
-                    "screen.rtsbuilding.settings.storage_auto_refresh.hint",
-                    RtsClientUiStateStore.isStorageAutoRefreshEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_auto_refresh.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.placed_recovery",
-                    "screen.rtsbuilding.settings.placed_recovery.hint",
-                    this.controller.isAllowPlacedBlockRecovery());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placed_recovery.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.tool_protection",
-                    "screen.rtsbuilding.settings.tool_protection.hint",
-                    this.controller.isToolProtectionEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.damage_auto_return",
-                    "screen.rtsbuilding.settings.damage_auto_return.hint",
-                    this.controller.isDamageAutoReturnEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_auto_return.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.bd_network",
-                    "screen.rtsbuilding.settings.bd_network.hint",
-                    this.controller.isBdNetworkEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint");
-        }
-        rowY += SECTION_GAP;
-
-        rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.category.sound", this.soundExpanded);
-        if (this.soundExpanded) {
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.rts_sounds",
-                    "screen.rtsbuilding.settings.rts_sounds.hint",
-                    RtsClientUiStateStore.isRtsSoundsEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.break_sounds",
-                    "screen.rtsbuilding.settings.break_sounds.hint",
-                    RtsClientUiStateStore.isRtsBreakSoundsEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.damage_sound",
-                    "screen.rtsbuilding.settings.damage_sound.hint",
-                    this.controller.isDamageSoundEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
-            drawSoundLimitRow(g, mouseX, mouseY, rowY, x, w);
-            rowY += SOUND_LIMIT_ROW_H;
-        }
-        rowY += SECTION_GAP;
-
-        rowY = drawSectionHeader(g, mouseX, mouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.category.animation", this.animationExpanded);
-        if (this.animationExpanded) {
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.smooth_camera",
-                    "screen.rtsbuilding.settings.smooth_camera.hint",
-                    this.controller.isSmoothCamera());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.placement_block_ghost_preview",
-                    "screen.rtsbuilding.settings.placement_block_ghost_preview.hint",
-                    Config.isPlacementBlockGhostPreviewEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_block_ghost_preview.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.place_block_ghost_animation",
-                    "screen.rtsbuilding.settings.place_block_ghost_animation.hint",
-                    Config.isPlaceBlockGhostAnimationEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_block_ghost_animation.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.destroy_block_ghost_animation",
-                    "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint",
-                    Config.isDestroyBlockGhostAnimationEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.placement_wireframe_preview",
-                    "screen.rtsbuilding.settings.placement_wireframe_preview.hint",
-                    Config.isPlacementWireframePreviewEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_wireframe_preview.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.place_wireframe_animation",
-                    "screen.rtsbuilding.settings.place_wireframe_animation.hint",
-                    Config.isPlaceWireframeAnimationEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_wireframe_animation.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.destroy_wireframe_animation",
-                    "screen.rtsbuilding.settings.destroy_wireframe_animation.hint",
-                    Config.isDestroyWireframeAnimationEnabled());
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_wireframe_animation.hint");
-            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.range_destroy_skeleton",
-                    "screen.rtsbuilding.settings.range_destroy_skeleton.hint",
-                    Config.isRangeDestroySkeletonEnabled());
-        }
+    /** Core 正式目录统一走共享紧凑框体，设置页不再保留私有旧绘制分支。 */
+    private void drawCoreSectionHeader(GuiGraphics g, MinecraftUiCanvas canvas,
+                                       int mouseX, int mouseY, int x, int w, int y,
+                                       String titleKey, boolean expanded) {
+        boolean hover = UiRect.contains(
+                x + SettingsWindowLayout.SECTION_HORIZONTAL_INSET, y,
+                w - SettingsWindowLayout.SECTION_HORIZONTAL_INSET * 2,
+                SettingsWindowLayout.SECTION_HEADER_H, mouseX, mouseY);
+        UiCompactFrameRenderer.frame(canvas,
+                new UiRect(x + SettingsWindowLayout.SECTION_HORIZONTAL_INSET, y,
+                        w - SettingsWindowLayout.SECTION_HORIZONTAL_INSET * 2,
+                        SettingsWindowLayout.SECTION_HEADER_H),
+                hover ? SettingsWindowStyle.SECTION_HOVER_BACKGROUND
+                        : SettingsWindowStyle.SECTION_BACKGROUND,
+                SettingsWindowStyle.SECTION_BORDER, SettingsWindowStyle.SECTION_DARK_BORDER);
+        g.drawString(screen.font(), expanded ? "v" : ">",
+                x + SettingsWindowLayout.ROW_TEXT_INSET,
+                y + SettingsWindowLayout.SECTION_TEXT_TOP,
+                SettingsWindowStyle.VALUE.toArgb(), false);
+        g.drawString(screen.font(),
+                trimToWidth(text(titleKey),
+                        w - SettingsWindowLayout.SECTION_TITLE_RIGHT_RESERVE),
+                x + SettingsWindowLayout.SECTION_TITLE_X,
+                y + SettingsWindowLayout.SECTION_TEXT_TOP,
+                SettingsWindowStyle.VALUE.toArgb(), false);
     }
 
-    private int drawSectionHeader(GuiGraphics g, int mouseX, int mouseY, int x, int w, int y,
-            String titleKey, boolean expanded) {
-        boolean hover = inside(mouseX, mouseY, x + 8, y, w - 16, SECTION_HEADER_H);
-        int bg = hover ? 0xCC2C3948 : 0xCC202A35;
-        RtsClientUiUtil.drawPanelFrame(g, x + 8, y, w - 16, SECTION_HEADER_H,
-                bg, 0xFF596D82, 0xFF0B1016);
-        g.drawString(screen.font(), expanded ? "v" : ">", x + 16, y + 7, 0xEAF4FF, false);
-        g.drawString(screen.font(), trimToWidth(text(titleKey), w - 58), x + 31, y + 7, 0xF4F7FF, false);
-        return y + SECTION_HEADER_H;
+    private void drawCoreStepButton(GuiGraphics g, MinecraftUiCanvas canvas,
+                                    int mouseX, int mouseY, int x, int y, String label) {
+        boolean hover = UiRect.contains(x, y, 22, 22, mouseX, mouseY);
+        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, 22, 22),
+                hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
+                        : SettingsWindowStyle.STEP_BACKGROUND,
+                SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
+                x + SettingsWindowLayout.STEP_BUTTON_TEXT_X,
+                y + SettingsWindowLayout.STEP_BUTTON_TEXT_TOP,
+                SettingsWindowStyle.VALUE.toArgb());
     }
 
-    private void drawSensitivityRow(GuiGraphics g, int rowY, int x, int w, SensitivityControl control) {
-        g.drawString(screen.font(), Component.translatable(control.labelKey),
-                x + 16, rowY + 5, 0xC8D3DF, false);
-        g.drawString(screen.font(), sensitivityLabel(control),
-                x + w - 60, rowY + 5, 0xEAF4FF, false);
-
-        int trackX = x + 16;
-        int trackY = rowY + 24;
-        int trackW = w - 32;
-        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
-        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
-        int presetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
-        int knobX = trackX + (int) Math.round((sensitivityIndex(control)
-                / (double) Math.max(1, presetCount - 1)) * trackW);
-        g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8, 0xFF5FE36C);
+    private void drawCoreToggleButton(GuiGraphics g, MinecraftUiCanvas canvas,
+                                      int mouseX, int mouseY, int x, int y, int w, int h,
+                                      boolean active, String label) {
+        boolean hover = UiRect.contains(x, y, w, h, mouseX, mouseY);
+        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
+                active
+                        ? (hover ? SettingsWindowStyle.TOGGLE_ON_HOVER : SettingsWindowStyle.TOGGLE_ON)
+                        : (hover ? SettingsWindowStyle.TOGGLE_OFF_HOVER : SettingsWindowStyle.TOGGLE_OFF),
+                active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER,
+                SettingsWindowStyle.TOGGLE_DARK_BORDER);
+        int switchX = active
+                ? x + w - SettingsWindowLayout.TOGGLE_KNOB_RIGHT_INSET
+                : x + SettingsWindowLayout.TOGGLE_KNOB_LEFT_INSET;
+        g.fill(switchX, y + SettingsWindowLayout.TOGGLE_KNOB_TOP,
+                switchX + SettingsWindowLayout.TOGGLE_KNOB_WIDTH,
+                y + h - SettingsWindowLayout.TOGGLE_KNOB_BOTTOM_INSET,
+                (active ? SettingsWindowStyle.TOGGLE_ON_KNOB
+                        : SettingsWindowStyle.TOGGLE_OFF_KNOB).toArgb());
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
+                x + w / 2, y + SettingsWindowLayout.TOGGLE_TEXT_TOP,
+                SettingsWindowStyle.VALUE.toArgb());
     }
 
-    private void drawScaleRow(GuiGraphics g, int mouseX, int mouseY, int rowY, int x, int w) {
-        int minusX = x + w - 124;
-        int valueX = minusX + 26;
-        int plusX = valueX + 60;
-        g.drawString(screen.font(), Component.translatable("screen.rtsbuilding.settings.ui_scale"),
-                x + 16, rowY + 8, 0xC8D3DF, false);
-        drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 6, 22, 22, "-", false);
-        RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 6, 56, 22, 0xCC1A232E, 0xFF566B80, 0xFF0D1218);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), rtsGuiScaleLabel(),
-                valueX + 28, rowY + 13, 0xEAF4FF);
-        drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 6, 22, 22, "+", false);
-    }
-
-    private void drawSoundLimitRow(GuiGraphics g, int mouseX, int mouseY, int rowY, int x, int w) {
-        int minusX = x + w - 124;
-        int valueX = minusX + 26;
-        int plusX = valueX + 60;
-        g.drawString(screen.font(), trimToWidth(
-                        text("screen.rtsbuilding.settings.block_sounds_per_tick"), w - 156),
-                x + 16, rowY + 3, 0xC8D3DF, false);
-        g.drawString(screen.font(), trimToWidth(
-                        text("screen.rtsbuilding.settings.block_sounds_per_tick.hint"), w - 156),
-                x + 16, rowY + 18, 0x9FB0C2, false);
-        drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 8, 22, 22, "-", false);
-        RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 8, 56, 22,
-                0xCC1A232E, 0xFF566B80, 0xFF0D1218);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
-                Integer.toString(RtsClientUiStateStore.getRtsBlockSoundsPerTick()),
-                valueX + 28, rowY + 15, 0xEAF4FF);
-        drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 8, 22, 22, "+", false);
-    }
-
-    private void drawSimpleToggleRow(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
-            String labelKey, boolean active) {
-        g.drawString(screen.font(), trimToWidth(text(labelKey), w - 126),
-                x + 16, rowY + 9, 0xC8D3DF, false);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
-                text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
-    }
-
-    private void drawSettingsToggleWithHint(GuiGraphics g, int mouseX, int mouseY, int x, int w, int rowY,
-            String labelKey, String hintKey, boolean active) {
-        boolean expandable = hintCanExpand(x, w, hintKey);
-        boolean expanded = expandable && this.expandedHintKeys.contains(hintKey);
-        int hintX = hintTextX(x, expandable);
-        int hintW = hintTextMaxWidth(x, w, expandable);
-        String label = trimToWidth(text(labelKey), w - 116);
-        g.drawString(screen.font(), label, x + 16, rowY + 2, 0xC8D3DF, false);
-        if (expandable) {
-            drawHintExpandButton(g, mouseX, mouseY, x, rowY, expanded);
-        }
-        if (expanded) {
-            List<FormattedCharSequence> lines = wrappedHintLines(x, w, hintKey);
-            for (int i = 0; i < lines.size(); i++) {
-                g.drawString(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H, 0x9FB0C2, false);
-            }
-        } else {
-            g.drawString(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13, 0x9FB0C2, false);
-        }
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
-                text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
-    }
-
-    private void handleClick(double mouseX, double mouseY) {
-        int x = contentX();
-        int w = contentWidth();
-        int rowY = contentY() + CONTENT_TOP_PADDING;
-        double contentMouseY = mouseY + this.scroll;
-
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
-            this.controlsExpanded = !this.controlsExpanded;
-            clampScroll();
-            screen.persistUiState();
-            return;
-        }
-        rowY += SECTION_HEADER_H;
-        if (this.controlsExpanded) {
-            for (SensitivityControl control : SensitivityControl.values()) {
-                if (inside(mouseX, contentMouseY, x + 16, rowY + 16, w - 32, 22)) {
-                    setSensitivityByFraction(control, calcSensitivityFraction(mouseX, x, w));
-                    this.draggingSensitivityControl = control;
-                    return;
-                }
-                rowY += SENSITIVITY_ROW_H;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24, SIMPLE_TOGGLE_ROW_H)) {
-                this.controller.toggleStartCameraAtPlayerHead();
-                screen.persistUiState();
-                return;
-            }
-            rowY += SIMPLE_TOGGLE_ROW_H;
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.pan_drag_x_invert.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_x_invert.hint"))) {
-                this.controller.toggleInvertPanDragX();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_x_invert.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.pan_drag_y_invert.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint"))) {
-                this.controller.toggleInvertPanDragY();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.keyboard_batch_confirm.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint"))) {
-                Config.setKeyboardBatchConfirmEnabled(!Config.isKeyboardBatchConfirmEnabled());
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint");
-        }
-        rowY += SECTION_GAP;
-
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
-            this.displayExpanded = !this.displayExpanded;
-            clampScroll();
-            screen.persistUiState();
-            return;
-        }
-        rowY += SECTION_HEADER_H;
-        if (this.displayExpanded) {
-            int minusX = x + w - 124;
-            int plusX = minusX + 86;
-            if (inside(mouseX, contentMouseY, minusX, rowY + 6, 22, 22)) {
-                adjustRtsGuiScale(-RTS_GUI_SCALE_STEP);
-                return;
-            }
-            if (inside(mouseX, contentMouseY, plusX, rowY + 6, 22, 22)) {
-                adjustRtsGuiScale(RTS_GUI_SCALE_STEP);
-                return;
-            }
-            rowY += SCALE_ROW_H;
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.player_status_overlay.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.player_status_overlay.hint"))) {
-                this.controller.togglePlayerStatusOverlayEnabled();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.player_status_overlay.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.container_overlay.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint"))) {
-                screen.toggleContainerOverlayEnabled();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.shift_import.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint"))) {
-                screen.toggleOverlayShiftImportEnabled();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.show_storage_ready_popup.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_storage_ready_popup.hint"))) {
-                screen.toggleShowStorageReadyPopup();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_storage_ready_popup.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.show_workflow_panel.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint"))) {
-                screen.toggleShowWorkflowPanelEnabled();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint");
-            if (isJadeLoaded()) {
-                if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                        "screen.rtsbuilding.settings.jade_panel_track_mouse.hint")) {
-                    return;
-                }
-                if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                        hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint"))) {
-                    screen.toggleJadePanelTrackMouse();
-                    return;
-                }
-                rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_track_mouse.hint");
-                if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                        "screen.rtsbuilding.settings.jade_panel_hidden.hint")) {
-                    return;
-                }
-                if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                        hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_hidden.hint"))) {
-                    screen.toggleJadePanelHidden();
-                    return;
-                }
-                rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.jade_panel_hidden.hint");
-            }
-        }
-        rowY += SECTION_GAP;
-
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
-            this.helpersExpanded = !this.helpersExpanded;
-            clampScroll();
-            screen.persistUiState();
-            return;
-        }
-        rowY += SECTION_HEADER_H;
-        if (this.helpersExpanded) {
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24, SIMPLE_TOGGLE_ROW_H)) {
-                this.controller.toggleAutoStoreMinedDrops();
-                screen.persistUiState();
-                return;
-            }
-            rowY += SIMPLE_TOGGLE_ROW_H;
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.storage_refresh_quiet.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_refresh_quiet.hint"))) {
-                screen.toggleStorageRefreshQuietEnabled();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_refresh_quiet.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.storage_auto_refresh.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_auto_refresh.hint"))) {
-                screen.toggleStorageAutoRefreshEnabled();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_auto_refresh.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.placed_recovery.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placed_recovery.hint"))) {
-                this.controller.toggleAllowPlacedBlockRecovery();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placed_recovery.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.tool_protection.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint"))) {
-                this.controller.toggleToolProtectionEnabled();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.damage_auto_return.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_auto_return.hint"))) {
-                this.controller.toggleDamageAutoReturnEnabled();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_auto_return.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.bd_network.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint"))) {
-                this.controller.toggleBdNetworkEnabled();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint");
-        }
-        rowY += SECTION_GAP;
-
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
-            this.soundExpanded = !this.soundExpanded;
-            clampScroll();
-            screen.persistUiState();
-            return;
-        }
-        rowY += SECTION_HEADER_H;
-        if (this.soundExpanded) {
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.rts_sounds.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint"))) {
-                RtsClientUiStateStore.setRtsSoundsEnabled(!RtsClientUiStateStore.isRtsSoundsEnabled());
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.break_sounds.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint"))) {
-                RtsClientUiStateStore.setRtsBreakSoundsEnabled(
-                        !RtsClientUiStateStore.isRtsBreakSoundsEnabled());
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint");
-            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                    "screen.rtsbuilding.settings.damage_sound.hint")) {
-                return;
-            }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint"))) {
-                this.controller.toggleDamageSoundEnabled();
-                screen.persistUiState();
-                return;
-            }
-            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
-            int minusX = x + w - 124;
-            int plusX = minusX + 86;
-            if (inside(mouseX, contentMouseY, minusX, rowY + 8, 22, 22)) {
-                RtsClientUiStateStore.setRtsBlockSoundsPerTick(
-                        RtsClientUiStateStore.getRtsBlockSoundsPerTick() - 1);
-                return;
-            }
-            if (inside(mouseX, contentMouseY, plusX, rowY + 8, 22, 22)) {
-                RtsClientUiStateStore.setRtsBlockSoundsPerTick(
-                        RtsClientUiStateStore.getRtsBlockSoundsPerTick() + 1);
-                return;
-            }
-            rowY += SOUND_LIMIT_ROW_H;
-        }
-        rowY += SECTION_GAP;
-
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
-            this.animationExpanded = !this.animationExpanded;
-            clampScroll();
-            screen.persistUiState();
-            return;
-        }
-        rowY += SECTION_HEADER_H;
-        if (!this.animationExpanded) {
-            return;
-        }
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.smooth_camera.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint"))) {
-            this.controller.toggleSmoothCamera();
-            screen.persistUiState();
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.placement_block_ghost_preview.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_block_ghost_preview.hint"))) {
-            Config.setPlacementBlockGhostPreviewEnabled(!Config.isPlacementBlockGhostPreviewEnabled());
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_block_ghost_preview.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.place_block_ghost_animation.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_block_ghost_animation.hint"))) {
-            Config.setPlaceBlockGhostAnimationEnabled(!Config.isPlaceBlockGhostAnimationEnabled());
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_block_ghost_animation.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint"))) {
-            Config.setDestroyBlockGhostAnimationEnabled(!Config.isDestroyBlockGhostAnimationEnabled());
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.placement_wireframe_preview.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_wireframe_preview.hint"))) {
-            Config.setPlacementWireframePreviewEnabled(!Config.isPlacementWireframePreviewEnabled());
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_wireframe_preview.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.place_wireframe_animation.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_wireframe_animation.hint"))) {
-            Config.setPlaceWireframeAnimationEnabled(!Config.isPlaceWireframeAnimationEnabled());
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_wireframe_animation.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.destroy_wireframe_animation.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_wireframe_animation.hint"))) {
-            Config.setDestroyWireframeAnimationEnabled(!Config.isDestroyWireframeAnimationEnabled());
-            return;
-        }
-        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_wireframe_animation.hint");
-        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
-                "screen.rtsbuilding.settings.range_destroy_skeleton.hint")) {
-            return;
-        }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.range_destroy_skeleton.hint"))) {
-            Config.setRangeDestroySkeletonEnabled(!Config.isRangeDestroySkeletonEnabled());
-        }
+    private void drawCoreHintExpandButton(GuiGraphics g, MinecraftUiCanvas canvas,
+                                          int mouseX, int mouseY, int x, int rowY,
+                                          boolean expanded) {
+        int buttonX = hintExpandButtonX(x);
+        int buttonY = rowY + 12;
+        boolean hover = UiRect.contains(buttonX, buttonY,
+                SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE,
+                SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE, mouseX, mouseY);
+        UiCompactFrameRenderer.frame(canvas, new UiRect(buttonX, buttonY,
+                        SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE,
+                        SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE),
+                hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
+                        : SettingsWindowStyle.STEP_BACKGROUND,
+                SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), expanded ? "v" : ">",
+                buttonX + SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE / 2,
+                buttonY + 2, SettingsWindowStyle.VALUE.toArgb());
     }
 
     @Override
@@ -1040,11 +465,6 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (this.draggingCoreSensitivity != null && button == 0) {
             dispatchCore(SettingsUiAction.sensitivity(this.draggingCoreSensitivity,
                     calcSensitivityFraction(mouseX, contentX(), contentWidth())));
-            return true;
-        }
-        if (this.draggingSensitivityControl != null && button == 0) {
-            setSensitivityByFraction(this.draggingSensitivityControl,
-                    calcSensitivityFraction(mouseX, contentX(), contentWidth()));
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -1057,69 +477,13 @@ public final class GearMenuPanel extends RtsWindowPanel {
             screen.persistUiState();
             return true;
         }
-        if (button == 0 && this.draggingSensitivityControl != null) {
-            this.draggingSensitivityControl = null;
-            screen.persistUiState();
-            return true;
-        }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    private String sensitivityLabel(SensitivityControl control) {
-        return switch (control) {
-            case PAN_DRAG -> this.controller.getPanDragSensitivityLabel();
-            case ROTATE_VIEW -> this.controller.getRotateViewSensitivityLabel();
-            case KEYBOARD_MOVE -> this.controller.getKeyboardMoveSensitivityLabel();
-            case WHEEL_ZOOM -> this.controller.getWheelZoomSensitivityLabel();
-        };
-    }
-
-    private int sensitivityIndex(SensitivityControl control) {
-        return switch (control) {
-            case PAN_DRAG -> this.controller.getPanDragSensitivityIndex();
-            case ROTATE_VIEW -> this.controller.getRotateViewSensitivityIndex();
-            case KEYBOARD_MOVE -> this.controller.getKeyboardMoveSensitivityIndex();
-            case WHEEL_ZOOM -> this.controller.getWheelZoomSensitivityIndex();
-        };
-    }
-
-    private void setSensitivityByFraction(SensitivityControl control, double fraction) {
-        switch (control) {
-            case PAN_DRAG -> this.controller.setPanDragSensitivityByFraction(fraction);
-            case ROTATE_VIEW -> this.controller.setRotateViewSensitivityByFraction(fraction);
-            case KEYBOARD_MOVE -> this.controller.setKeyboardMoveSensitivityByFraction(fraction);
-            case WHEEL_ZOOM -> this.controller.setWheelZoomSensitivityByFraction(fraction);
-        }
-    }
-
-    private boolean handleHintExpandClick(double mouseX, double mouseY, int x, int w, int rowY, String hintKey) {
-        if (!hintCanExpand(x, w, hintKey)) {
-            return false;
-        }
-        if (!inside(mouseX, mouseY, hintExpandButtonX(x), rowY + 12,
-                HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE)) {
-            return false;
-        }
-        if (!this.expandedHintKeys.remove(hintKey)) {
-            this.expandedHintKeys.add(hintKey);
-        }
-        clampScroll();
-        screen.persistUiState();
-        return true;
-    }
-
     private double calcSensitivityFraction(double mouseX, int menuX, int menuW) {
-        int trackX = menuX + 16;
-        int trackW = menuW - 32;
+        int trackX = menuX + SettingsWindowLayout.SENSITIVITY_TRACK_INSET;
+        int trackW = menuW - SettingsWindowLayout.SENSITIVITY_TRACK_INSET * 2;
         return (mouseX - trackX) / Math.max(1.0D, trackW);
-    }
-
-    private void adjustRtsGuiScale(double delta) {
-        screen.adjustRtsGuiScale(delta);
-    }
-
-    private String rtsGuiScaleLabel() {
-        return screen.rtsGuiScaleLabel();
     }
 
     private String text(String key, Object... args) {
@@ -1143,47 +507,22 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return coreLayout(coreSnapshot()).contentHeight;
     }
 
-    private int sectionHeight(boolean expanded, int expandedContentHeight) {
-        return SECTION_HEADER_H + (expanded ? expandedContentHeight : 0);
-    }
-
-    private void renderScrollbar(GuiGraphics g, int x, int y, int w, int h) {
+    private void renderScrollbar(GuiGraphics g, MinecraftUiCanvas canvas, int x, int y, int w, int h) {
         int maxScroll = maxScroll();
         if (maxScroll <= 0) {
             return;
         }
-        int trackX = x + w - 7;
+        int trackX = x + w - SettingsWindowLayout.SCROLLBAR_RIGHT_INSET;
         int trackH = Math.max(1, h);
-        g.fill(trackX, y + 2, trackX + 2, y + h - 2, 0x88313A46);
-        int totalH = settingsContentHeight() + CONTENT_TOP_PADDING;
+        canvas.fill(new UiRect(
+                        trackX, y + SettingsWindowLayout.SCROLL_TRACK_TOP, 2,
+                        Math.max(0, h - SettingsWindowLayout.SCROLL_TRACK_VERTICAL_INSET)),
+                SettingsWindowStyle.SCROLL_TRACK);
+        int totalH = settingsContentHeight() + SettingsWindowLayout.CONTENT_TOP_PADDING;
         int thumbH = Math.max(18, (int) Math.round(trackH * (trackH / (double) Math.max(trackH, totalH))));
         int thumbY = y + (int) Math.round((trackH - thumbH) * (this.scroll / (double) maxScroll));
-        g.fill(trackX - 1, thumbY, trackX + 3, thumbY + thumbH, 0xCC8AA0B8);
-    }
-
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-    }
-
-    private static boolean isJadeLoaded() {
-        return ModList.get().isLoaded("jade");
-    }
-
-    private void drawToggleButton(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h,
-            boolean active, String label) {
-        boolean hover = inside(mouseX, mouseY, x, y, w, h);
-        int bg = active ? (hover ? 0xDD45BA53 : 0xDD329A42) : (hover ? 0xDD3D4957 : 0xDD28313C);
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
-        int switchX = active ? x + w - 26 : x + 6;
-        g.fill(switchX, y + 4, switchX + 18, y + h - 4, active ? 0xFF72F07A : 0xFF788696);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label, x + w / 2, y + 7, 0xF7FBFF);
-    }
-
-    private int hintToggleRowHeight(int x, int w, String hintKey) {
-        if (!hintCanExpand(x, w, hintKey) || !this.expandedHintKeys.contains(hintKey)) {
-            return HINT_TOGGLE_ROW_H;
-        }
-        return Math.max(HINT_TOGGLE_ROW_H, 18 + wrappedHintLines(x, w, hintKey).size() * HINT_LINE_H);
+        canvas.fill(new UiRect(trackX - 1, thumbY, 4, thumbH),
+                SettingsWindowStyle.SCROLL_THUMB);
     }
 
     private boolean hintCanExpand(int x, int w, String hintKey) {
@@ -1195,37 +534,17 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     private int hintTextX(int x, boolean hasExpandButton) {
-        return x + 16 + (hasExpandButton ? HINT_EXPAND_BUTTON_SIZE + 4 : 0);
+        return x + SettingsWindowLayout.ROW_TEXT_INSET
+                + (hasExpandButton ? SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE + 4 : 0);
     }
 
     private int hintTextMaxWidth(int x, int w, boolean hasExpandButton) {
-        int toggleX = x + w - 92;
+        int toggleX = x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET;
         return Math.max(24, toggleX - hintTextX(x, hasExpandButton) - 8);
     }
 
     private int hintExpandButtonX(int x) {
-        return x + 16;
-    }
-
-    private void drawHintExpandButton(GuiGraphics g, int mouseX, int mouseY, int x, int rowY, boolean expanded) {
-        int buttonX = hintExpandButtonX(x);
-        int buttonY = rowY + 12;
-        boolean hover = inside(mouseX, mouseY, buttonX, buttonY,
-                HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE);
-        int bg = hover ? 0xCC334054 : 0xAA26303D;
-        RtsClientUiUtil.drawPanelFrame(g, buttonX, buttonY,
-                HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE, bg, 0xFF6A8299, 0xFF0E1116);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), expanded ? "v" : ">",
-                buttonX + HINT_EXPAND_BUTTON_SIZE / 2, buttonY + 2, 0xDDEBFA);
-    }
-
-    private void drawGearMenuRow(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h,
-            String label, boolean active) {
-        boolean hover = inside(mouseX, mouseY, x, y, w, h);
-        int bg = active ? 0xCC2D7C4B : (hover ? 0xCC334054 : 0xCC26303D);
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, 0xFF6A8299, 0xFF0E1116);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), trimToWidth(label, w - 10),
-                x + w / 2, y + 7, 0xF2F6FB);
+        return x + SettingsWindowLayout.ROW_TEXT_INSET;
     }
 
     private final List<PersistableProperty> properties = List.of(

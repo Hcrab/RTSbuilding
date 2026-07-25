@@ -77,6 +77,7 @@ final class GearMenuUiAdapter {
         values.put(SettingsId.BLOCK_SOUNDS_PER_TICK,
                 value(Integer.toString(soundLimit), soundLimit - 1, 16));
 
+        values.put(SettingsId.UI_ANIMATIONS, toggle(Config.isUiAnimationsEnabled()));
         values.put(SettingsId.SMOOTH_CAMERA, toggle(controller.isSmoothCamera()));
         values.put(SettingsId.PLACEMENT_BLOCK_GHOST_PREVIEW, toggle(Config.isPlacementBlockGhostPreviewEnabled()));
         values.put(SettingsId.PLACE_BLOCK_GHOST_ANIMATION, toggle(Config.isPlaceBlockGhostAnimationEnabled()));
@@ -163,6 +164,7 @@ final class GearMenuUiAdapter {
             case RTS_SOUNDS -> RtsClientUiStateStore.setRtsSoundsEnabled(!RtsClientUiStateStore.isRtsSoundsEnabled());
             case BREAK_SOUNDS -> RtsClientUiStateStore.setRtsBreakSoundsEnabled(!RtsClientUiStateStore.isRtsBreakSoundsEnabled());
             case DAMAGE_SOUND -> controller.toggleDamageSoundEnabled();
+            case UI_ANIMATIONS -> Config.setUiAnimationsEnabled(!Config.isUiAnimationsEnabled());
             case SMOOTH_CAMERA -> controller.toggleSmoothCamera();
             case PLACEMENT_BLOCK_GHOST_PREVIEW -> Config.setPlacementBlockGhostPreviewEnabled(!Config.isPlacementBlockGhostPreviewEnabled());
             case PLACE_BLOCK_GHOST_ANIMATION -> Config.setPlaceBlockGhostAnimationEnabled(!Config.isPlaceBlockGhostAnimationEnabled());
@@ -186,8 +188,10 @@ final class GearMenuUiAdapter {
     }
 
     private static boolean hintCanExpand(BuilderScreen screen, int x, int width, SettingsId id) {
-        int hintX = x + 16 + SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE + 4;
-        int toggleX = x + width - 92;
+        int hintX = x + SettingsWindowLayout.ROW_TEXT_INSET
+                + SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE
+                + SettingsWindowLayout.HINT_BUTTON_GAP;
+        int toggleX = x + width - SettingsWindowLayout.TOGGLE_RIGHT_INSET;
         int maxWidth = Math.max(24, toggleX - hintX - 8);
         return screen.font().width(Component.translatable(id.hintKey).getString()) > maxWidth;
     }

@@ -28,7 +28,10 @@ public final class UiPreviewMain {
                 result.close();
             }
         }
-        System.out.println("Rendered " + scenarios.size() + " headless UI preview scenes to " + outputDirectory);
+        TopBarAnimationPreviewRenderer.render(outputDirectory);
+        System.out.println("Rendered " + scenarios.size() + " headless UI preview scenes and "
+                + TopBarAnimationPreviewRenderer.SLICE_COUNT
+                + " top-bar animation slices to " + outputDirectory);
     }
 
     static File outputDirectory(String[] args) {

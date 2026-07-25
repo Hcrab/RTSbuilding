@@ -13,6 +13,13 @@ public final class CraftQuantityWindowLayout {
     public static final int STEP_H = 14;
     public static final int ACTION_W = 52;
     public static final int ACTION_H = 16;
+    public static final int ITEM_TEXT_RIGHT_RESERVE = 28;
+    public static final int ITEM_TEXT_X = 22;
+    public static final int ITEM_LABEL_TOP = 1;
+    public static final int ITEM_DETAIL_TOP = 13;
+    public static final int OPTION_ROW_HORIZONTAL_INSET = 2;
+    public static final int OPTION_ROW_TEXT_X = 6;
+    public static final int OPTION_ROW_TEXT_TOP = 4;
 
     private CraftQuantityWindowLayout() {
     }

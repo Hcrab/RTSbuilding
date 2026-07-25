@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.*;
@@ -42,6 +43,8 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
+
+import java.time.Duration;
 
 /**
  * RTSbuilding 模组的主入口类。
@@ -118,6 +121,7 @@ public class RtsbuildingMod {
 
         // 注册所有工作流管线，为蓝图放置、挖掘等操作建立处理链路
         RtsPipelineRegistration.registerAll();
+        RtsOperationDiagnostics.install();
 
         LOGGER.info("RTSBuilding 通用初始化完成");
     }
@@ -185,6 +189,7 @@ public class RtsbuildingMod {
                 // 从世界存档恢复工作流，使之前的蓝图放置等任务继续执行
                 RtsWorkflowEngine.getInstance().loadPlayerFromStore(
                         serverPlayer.getServer(), serverPlayer);
+                RtsWorkflowEngine.getInstance().refreshPlayerIdleClocks(serverPlayer);
             }
         }
 
@@ -205,6 +210,9 @@ public class RtsbuildingMod {
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
             // 清理旧版全量文件（迁移完毕后删除）
             SaveScheduler.INSTANCE.cleanupLegacyFiles(event.getServer());
+            // 普通后台任务 30 秒没有任何进展时自动收口；玩家保护的任务不受影响。
+            RtsWorkflowEngine.getInstance().startTimeoutService(
+                    Duration.ofSeconds(1), Duration.ofSeconds(30));
         }
 
         /**
@@ -243,6 +251,7 @@ public class RtsbuildingMod {
         @SubscribeEvent
         static void onServerStopped(ServerStoppedEvent event) {
             RuntimeException durableFailure = null;
+            RtsWorkflowEngine.getInstance().stopTimeoutService();
             try {
                 // Minecraft 会在 ServerStopping 之后才移除在线玩家；等所有 logout flush 完成再关 writer。
                 // 启动期读取 root 失败时 ServerStopped 仍会触发；此时没有 writer 可关，不能用二次异常覆盖首因。

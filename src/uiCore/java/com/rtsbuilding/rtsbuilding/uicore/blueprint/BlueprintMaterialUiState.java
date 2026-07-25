@@ -40,13 +40,20 @@ public final class BlueprintMaterialUiState {
         public final String iconId;
         public final String label;
         public final String detail;
-        public final int color;
+        public final Tone tone;
 
-        public Row(String iconId, String label, String detail, int color) {
+        public Row(String iconId, String label, String detail, Tone tone) {
             this.iconId = iconId == null ? "" : iconId;
             this.label = label == null ? "" : label;
             this.detail = detail == null ? "" : detail;
-            this.color = color;
+            this.tone = tone == null ? Tone.WARNING : tone;
         }
+    }
+
+    /** 材料详情只携带业务语义，不把某套主题的最终 ARGB 泄漏进 Core。 */
+    public enum Tone {
+        MISSING,
+        READY,
+        WARNING
     }
 }

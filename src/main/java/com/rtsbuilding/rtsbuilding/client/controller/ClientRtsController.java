@@ -1444,16 +1444,6 @@ public final class ClientRtsController {
                 this.storageStateManager.getStorageTotalCount(this.buildPlacementService.getSelectedItemId()));
     }
 
-    private boolean shouldAutoClearSelectedItemWhenUnavailable() {
-        if (isLocalPlayerCreative()) {
-            return false;
-        }
-        ItemStack preview = this.buildPlacementService.getSelectedItemPreview();
-        return preview != null
-                && !preview.isEmpty()
-                && preview.getItem() instanceof BlockItem;
-    }
-
     public void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
         beginRemoteMenuOpenGrace();
     }
@@ -1461,17 +1451,6 @@ public final class ClientRtsController {
 
 
 
-
-    private static String normalizeCraftablesSearch(String search) {
-        return search == null ? "" : search.trim();
-    }
-
-    private static double clampLayoutNormalized(double value) {
-        if (!Double.isFinite(value)) {
-            return 0.0D;
-        }
-        return Mth.clamp(value, 0.0D, 1.0D);
-    }
 
 
 

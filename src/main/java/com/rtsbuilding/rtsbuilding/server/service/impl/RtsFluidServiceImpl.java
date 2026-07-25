@@ -98,8 +98,7 @@ public final class RtsFluidServiceImpl implements FluidService {
             return false;
         }
         if (level.mayInteract(player, pos)
-                && RtsCameraManager.isWithinActionRange(player, pos)
-                && RtsProgressionManager.canAccessHomeRadius(player, pos)) {
+                && RtsCameraManager.isWithinActionRange(player, pos)) {
             return true;
         }
         if (!level.getBlockState(pos).isAir()) {
@@ -110,7 +109,6 @@ public final class RtsFluidServiceImpl implements FluidService {
             return false;
         }
         return level.mayInteract(player, below)
-                && RtsCameraManager.isWithinActionRange(player, pos)
-                && RtsProgressionManager.canAccessHomeRadius(player, pos);
+                && RtsCameraManager.isWithinActionRange(player, pos);
     }
 }

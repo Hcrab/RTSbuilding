@@ -2,6 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsDiagnosticReason;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -9,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -206,7 +210,7 @@ public final class RtsUltimineProcessor {
             return;
         }
 
-        RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] areaDestroy: {} valid targets out of {} positions for {}",
+        RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] areaDestroy: {} valid targets out of {} positions for {}",
                 targets.size(), positions.size(), player.getGameProfile().getName());
         int workflowEntryId = session.mining.workflowEntryId;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
@@ -277,7 +281,7 @@ public final class RtsUltimineProcessor {
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
                 player, workflowEntryId, targets,
                 Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
-        RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
+        RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
                 targets.size(), player.getGameProfile().getName());
         return submitted ? targets.size() : 0;
     }
@@ -485,6 +489,8 @@ public final class RtsUltimineProcessor {
         int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        int toolBlockedTargets = 0;
+        int outsideSessionRangeTargets = 0;
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
         for (BlockPos raw : sortedPositions) {
             if (raw == null || unique.size() >= maxExplicitTargets) {
@@ -492,6 +498,11 @@ public final class RtsUltimineProcessor {
             }
             BlockPos pos = raw.immutable();
             if (explicitLimit != null && !contains(explicitLimit, pos)) {
+                continue;
+            }
+            if (RtsCameraManager.isActive(player)
+                    && !RtsCameraManager.isWithinActionRange(player, pos)) {
+                outsideSessionRangeTargets++;
                 continue;
             }
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
@@ -515,6 +526,8 @@ public final class RtsUltimineProcessor {
                 if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                         state, actualTool, creative, maxRequiredLevel)) {
                     harvestTierBlockedPositions.add(pos);
+                } else {
+                    toolBlockedTargets++;
                 }
                 continue;
             }
@@ -523,6 +536,8 @@ public final class RtsUltimineProcessor {
         if (!harvestTierBlockedPositions.isEmpty()) {
             notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
         }
+        logFilteredTargets(player, RtsDiagnosticReason.TOOL_CANNOT_HARVEST, toolBlockedTargets);
+        logFilteredTargets(player, RtsDiagnosticReason.OUTSIDE_SESSION_RANGE, outsideSessionRangeTargets);
         return new ArrayDeque<>(unique);
     }
 
@@ -534,6 +549,7 @@ public final class RtsUltimineProcessor {
             int maxRequiredLevel) {
         Deque<BlockPos> targets = new ArrayDeque<>();
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        int toolBlockedTargets = 0;
         for (BlockPos pos : candidatePositions) {
             BlockState state = player.serverLevel().getBlockState(pos);
             if (RtsMiningValidator.canRangeMineWithTool(state, actualTool, creative, maxRequiredLevel)) {
@@ -543,22 +559,44 @@ public final class RtsUltimineProcessor {
             if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                     state, actualTool, creative, maxRequiredLevel)) {
                 harvestTierBlockedPositions.add(pos.immutable());
+            } else {
+                toolBlockedTargets++;
             }
         }
         if (!harvestTierBlockedPositions.isEmpty()) {
             notifyRangeMiningHarvestTierLimit(player, harvestTierBlockedPositions);
         }
+        logFilteredTargets(player, RtsDiagnosticReason.TOOL_CANNOT_HARVEST, toolBlockedTargets);
         return targets;
     }
 
     private static void notifyRangeMiningHarvestTierLimit(
             ServerPlayer player,
             List<BlockPos> skippedPositions) {
-        player.displayClientMessage(
-                net.minecraft.network.chat.Component.translatable(
-                        "message.rtsbuilding.plugin.harvest_tier_limited"),
-                true);
-        RtsMiningNetworkHelper.sendHarvestTierSkipped(player, skippedPositions);
+        RtsMiningNetworkHelper.notifyHarvestTierLimit(player, skippedPositions);
+        logFilteredTargets(
+                player, RtsDiagnosticReason.HARVEST_TIER_TOO_LOW, skippedPositions.size());
+    }
+
+    private static void logFilteredTargets(
+            ServerPlayer player, RtsDiagnosticReason reason, int targetCount) {
+        if (player == null || targetCount <= 0) return;
+        RtsStorageSession session =
+                com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry.getInstance()
+                        .session().getIfPresent(player);
+        int workflowId = session == null ? -1 : session.mining.workflowEntryId;
+        RtsWorkflowType workflowType = workflowId < 0
+                ? null
+                : RtsWorkflowEngine.getInstance().from(player, workflowId)
+                        .map(token -> token.getProgress().type())
+                        .orElse(null);
+        RtsOperationDiagnostics.filteredTargets(
+                player,
+                workflowId,
+                session == null ? "-" : session.mode.name(),
+                workflowType,
+                reason,
+                targetCount);
     }
 
     static boolean explicitAreaDestroyFitsSoftEnvelopeForCaps(
@@ -643,7 +681,7 @@ public final class RtsUltimineProcessor {
     static RtsMiningStateMachine.MiningAdvance processUltimineTargets(ServerPlayer player, RtsStorageSession session,
             int maxUnits, long deadlineNanos) {
         if (session.mining.ultimineTargets.isEmpty()) {
-            RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] processUltimineTargets: no remaining targets, finishing batch for {}",
+            RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] processUltimineTargets: no remaining targets, finishing batch for {}",
                     player.getGameProfile().getName());
             finishUltimineBatch(player, session);
             return RtsMiningStateMachine.MiningAdvance.ended(0, 0, 0);
@@ -754,7 +792,7 @@ public final class RtsUltimineProcessor {
      * 完成连锁挖掘批次：清除进度、归还借用的工具、标记储存页面为脏并重置挖掘状态。
      */
     static void finishUltimineBatch(ServerPlayer player, RtsStorageSession session) {
-        RtsbuildingMod.LOGGER.info("[RtsUltimineProcessor] finishUltimineBatch: {} broken / {} processed / {} total for {}",
+        RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] finishUltimineBatch: {} broken / {} processed / {} total for {}",
                 session.mining.ultimineBrokenTargets, session.mining.ultimineProcessedTargets,
                 session.mining.ultimineTotalTargets, player.getGameProfile().getName());
         // Copy history records before clearing the session list

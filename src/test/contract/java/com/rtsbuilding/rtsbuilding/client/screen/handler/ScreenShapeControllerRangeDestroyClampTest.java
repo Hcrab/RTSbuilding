@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.RangeDestroySelectionLimiter;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
@@ -29,10 +30,13 @@ class ScreenShapeControllerRangeDestroyClampTest {
                 0,
                 false);
 
-        ShapeBuildTypes.Input clamped = ScreenShapeController.clampRangeDestroyShapeInputForCaps(input, 12, 12, 12);
+        RangeDestroySelectionLimiter.Limits limits =
+                new RangeDestroySelectionLimiter.Limits(12, 12, 12, 1728);
+        ShapeBuildTypes.Input clamped =
+                RangeDestroySelectionLimiter.clampDimensions(input, limits);
         List<BlockPos> positions = ShapeGeometryUtil.buildShapePositions(clamped, ShapeFillMode.FILL);
-        List<BlockPos> capped = ScreenShapeController.clampRoundRangeDestroyPositionsForCaps(
-                clamped, positions, 12, 12, 12, 1728);
+        List<BlockPos> capped = RangeDestroySelectionLimiter.clampRoundPositions(
+                clamped, positions, limits);
 
         assertTrue(capped.contains(new BlockPos(5, 64, 0)));
         assertTrue(capped.contains(new BlockPos(-5, 64, 0)));
@@ -54,10 +58,13 @@ class ScreenShapeControllerRangeDestroyClampTest {
                 100,
                 false);
 
-        ShapeBuildTypes.Input clamped = ScreenShapeController.clampRangeDestroyShapeInputForCaps(input, 12, 12, 12);
+        RangeDestroySelectionLimiter.Limits limits =
+                new RangeDestroySelectionLimiter.Limits(12, 12, 12, 1728);
+        ShapeBuildTypes.Input clamped =
+                RangeDestroySelectionLimiter.clampDimensions(input, limits);
         List<BlockPos> positions = ShapeGeometryUtil.buildShapePositions(clamped, ShapeFillMode.FILL);
-        List<BlockPos> capped = ScreenShapeController.clampRoundRangeDestroyPositionsForCaps(
-                clamped, positions, 12, 12, 12, 1728);
+        List<BlockPos> capped = RangeDestroySelectionLimiter.clampRoundPositions(
+                clamped, positions, limits);
 
         assertTrue(capped.contains(new BlockPos(5, 64, 0)));
         assertTrue(capped.contains(new BlockPos(-5, 64, 0)));
@@ -77,8 +84,14 @@ class ScreenShapeControllerRangeDestroyClampTest {
                 599,
                 false);
 
-        ShapeBuildTypes.Input clamped = ScreenShapeController.clampRangeDestroyShapeInputForCaps(
-                input, 32, 32, 32);
+        ShapeBuildTypes.Input clamped =
+                RangeDestroySelectionLimiter.clampDimensions(
+                        input,
+                        new RangeDestroySelectionLimiter.Limits(
+                                32,
+                                32,
+                                32,
+                                32 * 32 * 32));
         List<BlockPos> positions = ShapeGeometryUtil.buildShapePositions(clamped, ShapeFillMode.FILL);
 
         assertTrue(positions.size() <= 32 * 32 * 32,
@@ -90,19 +103,49 @@ class ScreenShapeControllerRangeDestroyClampTest {
 
     @Test
     void advancedRoundShapesStartFromCenteredOrdinaryPreview() throws IOException {
-        String source = Files.readString(Path.of(
+        String controller = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
-        String initialBox = methodBody(source, "private RtsCullingBox initialAdvancedShapeBox");
-        String readySession = methodBody(source, "private ShapeBuildTypes.Session readySession");
+        String geometry = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/AdvancedShapeSelectionGeometry.java"));
+        String readySession = methodBody(
+                controller,
+                "private ShapeBuildTypes.Session readySession");
 
-        assertTrue(initialBox.contains("case CIRCLE -> centeredPlaneBox(center, planeRadius(center, pointB, session.planeFace()), session.planeFace(), 0)"),
+        assertTrue(geometry.contains("case CIRCLE -> centeredPlaneBox("),
                 "advanced circle should begin as a centered normal circle envelope");
-        assertTrue(initialBox.contains("case CYLINDER -> centeredPlaneBox(center, planeRadius(center, pointB, session.planeFace()),"),
+        assertTrue(geometry.contains("case CYLINDER -> centeredPlaneBox("),
                 "advanced cylinder should begin from the same centered circular base");
-        assertTrue(initialBox.contains("case BALL -> centeredBox(center, spatialRadius(center, pointB))"),
+        assertTrue(geometry.contains("case BALL -> centeredBox(center, spatialRadius(center, pointB))"),
                 "advanced ball should begin as a centered sphere envelope");
-        assertTrue(readySession.contains("initialAdvancedShapeBox(ready)"),
+        assertTrue(readySession.contains("AdvancedShapeSelectionGeometry.initialBox(ready)"),
                 "ready advanced sessions should use the shape-aware initial box instead of the raw diagonal");
+        assertFalse(controller.contains("private RtsCullingBox initialAdvancedShapeBox("));
+        assertFalse(controller.contains("private static RtsCullingBox boxFromSession("));
+        assertFalse(controller.contains("private static ShapeBuildTypes.Session sessionFromBox("));
+    }
+
+    @Test
+    void rangeDestroyCapsUseTheDedicatedPureLimiter() throws IOException {
+        String controller = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+        String planner = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
+        String limiter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
+
+        assertTrue(controller.contains("new ShapeGenerationPlanCache.Request("));
+        assertTrue(controller.contains("currentRangeDestroyLimits()"));
+        assertTrue(planner.contains("RangeDestroySelectionLimiter.clampInput("));
+        assertTrue(planner.contains("RangeDestroySelectionLimiter.clampRoundPositions("));
+        assertTrue(planner.contains("RangeDestroySelectionLimiter.clampPositions("));
+        assertTrue(controller.contains("RangeDestroySelectionLimiter.clampBox("));
+        assertTrue(limiter.contains("record Limits("));
+        assertFalse(controller.contains("RangeDestroySelectionLimiter.clampInput("));
+        assertFalse(controller.contains("RangeDestroySelectionLimiter.clampRoundPositions("));
+        assertFalse(controller.contains("RangeDestroySelectionLimiter.clampPositions("));
+        assertFalse(controller.contains("private static AxisBounds clampAxisAroundAnchor("));
+        assertFalse(controller.contains("private static RtsCullingBox clampBoxToClientCapsAroundAnchor("));
+        assertFalse(controller.contains("private static List<BlockPos> clampRangeDestroyPositionsToClientCaps("));
     }
 
     private static String methodBody(String source, String signatureStart) {

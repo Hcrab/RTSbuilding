@@ -240,8 +240,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (slots.isFull()) {
             RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
             if (replaced != null) {
+                com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                        .cancelWorkflowTask(player, replaced.id());
                 fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
-                RtsbuildingMod.LOGGER.info("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
+                RtsbuildingMod.LOGGER.debug("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
                         player.getGameProfile().getName(), replaced.id(), replaced.type());
             }
         }
@@ -259,7 +261,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         } while (true);
         if (entry == null) {
             String name = player.getGameProfile().getName();
-            RtsbuildingMod.LOGGER.warn("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
+            RtsbuildingMod.LOGGER.debug("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
             player.displayClientMessage(
                     Component.translatable("message.rtsbuilding.workflow.full_protected"),
@@ -276,9 +278,53 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         fireEvent(WorkflowEventType.STARTED, player.getUUID(), entry.id(), entry);
         RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
 
-        RtsbuildingMod.LOGGER.info("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
+        RtsbuildingMod.LOGGER.debug("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
                 player.getGameProfile().getName(), entry.id(), type, totalBlocks);
         return Optional.of(token);
+    }
+
+    /**
+     * 从持久任务库重建缺失的工作流显示条目。
+     *
+     * <p>TaskStore 始终是真实执行权威；这里仅恢复玩家可见、可暂停、可保护和可取消的
+     * UI 投影。恢复时保留原 workflowEntryId，避免把控制操作接到另一条任务上。</p>
+     */
+    public Optional<RtsWorkflowToken> restoreDurableProjection(
+            ServerPlayer player,
+            int entryId,
+            RtsWorkflowType type,
+            int totalBlocks,
+            int completedBlocks,
+            int failedBlocks) {
+        if (player == null || entryId < 0 || type == null) return Optional.empty();
+        ResourceKey<Level> dimension = player.level().dimension();
+        RtsWorkflowSlotManager slots = getOrCreateSlots(player);
+        RtsWorkflowEntry existing = slots.findEntryById(entryId);
+        if (existing != null) {
+            return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+        }
+
+        if (slots.isFull()) {
+            RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
+            if (replaced == null) return Optional.empty();
+            com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                    .cancelWorkflowTask(player, replaced.id());
+            fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
+        }
+
+        RtsWorkflowEntry restored = new RtsWorkflowEntry(entryId);
+        restored.setPriority(RtsWorkflowPriority.NORMAL);
+        restored.setType(type);
+        restored.setTotalBlocks(totalBlocks);
+        restored.setCompletedBlocks(completedBlocks);
+        restored.addFailedBlocks(Math.max(0, failedBlocks));
+        if (!slots.addRestoredEntry(restored)) return Optional.empty();
+
+        playerRefs.put(player.getUUID(), player);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
+        RtsbuildingMod.LOGGER.info("[Workflow] 为 {} 恢复持久任务投影 #{}: {}",
+                player.getGameProfile().getName(), entryId, type);
+        return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -508,7 +554,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             boolean anyChanged = false;
 
             for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
-                if (!entry.suspended() && !entry.paused()) {
+                if (!entry.terminal() && !entry.suspended() && !entry.paused()) {
                     entry.setPaused(true);
                     fireEvent(WorkflowEventType.PAUSED, playerId, entry.id(), entry);
                     anyChanged = true;
@@ -537,6 +583,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsbuildingMod.LOGGER.info("[Workflow] {} 删除工作流 #{}: {}",
                 player.getGameProfile().getName(), entry.id(), entry.type());
 
+        com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .cancelWorkflowTask(player, entryId);
         fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entryId, entry);
         slots.removeEntryById(entryId);
 
@@ -575,6 +623,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (slots == null) return;
 
         for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
+            com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                    .cancelWorkflowTask(player, entry.id());
             fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entry.id(), entry);
         }
         slots.clear();
@@ -656,6 +706,24 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsbuildingMod.LOGGER.info("[Workflow] 已从存储加载玩家 {} 的 {} 个工作流条目",
                 loaded.values().stream().mapToInt(RtsWorkflowSlotManager::occupiedCount).sum(),
                 playerId);
+    }
+
+    /**
+     * 玩家重新上线时重置普通任务的无进展计时起点。
+     *
+     * <p>离线时间不算作“30 秒无进展”，否则玩家隔天进入存档时会在第一轮扫描中
+     * 立刻失去尚未查看的等待任务。</p>
+     */
+    public void refreshPlayerIdleClocks(ServerPlayer player) {
+        if (player == null) return;
+        Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimensions =
+                playerSlots.get(player.getUUID());
+        if (dimensions == null) return;
+        for (RtsWorkflowSlotManager slots : dimensions.values()) {
+            for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
+                entry.touch();
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────

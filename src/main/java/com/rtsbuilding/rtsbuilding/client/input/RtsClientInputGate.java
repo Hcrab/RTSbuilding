@@ -14,6 +14,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScre
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiBlink;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -202,46 +205,65 @@ public final class RtsClientInputGate {
         g.pose().scale((float) profile.renderScale(), (float) profile.renderScale(), 1.0F);
 
         if (!layout.overlayCollapsed()) {
-            drawOverlayWindowFrame(g, layout.craftPanelX(), layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH());
+            drawOverlayWindowFrame(g, minecraft.font, layout.craftPanelX(),
+                    layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH());
             renderOverlayCraftablesPanel(g, minecraft.font, mouseX, mouseY, layout, controller);
         }
 
-        drawOverlayWindowFrame(g, layout.storagePanelX(), layout.storagePanelY(), STORAGE_PANEL_W, layout.storagePanelH());
+        drawOverlayWindowFrame(g, minecraft.font, layout.storagePanelX(),
+                layout.storagePanelY(), STORAGE_PANEL_W, layout.storagePanelH());
         drawMiniButton(g, minecraft.font, layout.dragX(), layout.headerY(), OVERLAY_DRAG_W, OVERLAY_HEADER_H,
                 Component.translatable("screen.rtsbuilding.overlay.drag_button").getString());
         drawMiniButton(g, minecraft.font, layout.sortX(), layout.headerY(), 12, OVERLAY_HEADER_H, sortShort(controller.getStorageSort()));
         drawMiniButton(g, minecraft.font, layout.dirX(), layout.headerY(), 12, OVERLAY_HEADER_H,
                 controller.isStorageSortAscending() ? "A" : "D");
 
-        int searchBg = overlaySearchFocused ? 0xAA304153 : 0xAA202731;
-        g.fill(layout.searchX(), layout.headerY(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, searchBg);
-        g.hLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY(), 0xFF61758A);
-        g.hLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
-        g.vLine(layout.searchX(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF61758A);
-        g.vLine(layout.searchX() + layout.searchW(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
+        drawPanelFrame(g, minecraft.font, layout.searchX(), layout.headerY(),
+                layout.searchW(), OVERLAY_HEADER_H,
+                ContainerOverlayStyle.searchBackground(overlaySearchFocused),
+                ContainerOverlayStyle.SEARCH_BORDER_LIGHT,
+                ContainerOverlayStyle.SEARCH_BORDER_DARK);
 
         String searchText = overlaySearchDraft == null ? "" : overlaySearchDraft;
         String display = trimToWidth(minecraft.font, searchText, Math.max(8, layout.searchW() - OVERLAY_SEARCH_CLEAR_W - 5));
-        g.drawString(minecraft.font, display, layout.searchX() + 2, layout.headerY() + 2, 0xEAF2FF, false);
-        if (overlaySearchFocused && (System.currentTimeMillis() / 300L) % 2L == 0L) {
+        g.drawString(minecraft.font, display, layout.searchX() + 2,
+                layout.headerY() + 2,
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb(), false);
+        if (overlaySearchFocused && UiBlink.caretVisible(SystemUiClock.INSTANCE)) {
             int caretX = layout.searchX() + 2 + minecraft.font.width(display) + 1;
-            g.fill(caretX, layout.headerY() + 2, caretX + 1, layout.headerY() + OVERLAY_HEADER_H - 2, 0xFFEAF2FF);
+            g.fill(caretX, layout.headerY() + 2, caretX + 1,
+                    layout.headerY() + OVERLAY_HEADER_H - 2,
+                    ContainerOverlayStyle.SEARCH_TEXT.toArgb());
         }
-        g.fill(layout.clearX(), layout.headerY(), layout.clearX() + OVERLAY_SEARCH_CLEAR_W, layout.headerY() + OVERLAY_HEADER_H, 0xAA2A3340);
+        g.fill(layout.clearX(), layout.headerY(),
+                layout.clearX() + OVERLAY_SEARCH_CLEAR_W,
+                layout.headerY() + OVERLAY_HEADER_H,
+                ContainerOverlayStyle.SEARCH_CLEAR_BACKGROUND.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "x",
                 layout.clearX() + OVERLAY_SEARCH_CLEAR_W / 2, layout.headerY() + 2,
-                searchText.isEmpty() ? 0x88A0B4C8 : 0xFFFFFF);
+                (searchText.isEmpty()
+                        ? ContainerOverlayStyle.SEARCH_CLEAR_EMPTY
+                        : ContainerOverlayStyle.BUTTON_TEXT).toArgb());
 
         if (!layout.overlayCollapsed()) {
-            g.fill(layout.pageX(), layout.pagePrevY(), layout.pageX() + PAGE_BUTTON_W, layout.pagePrevY() + PAGE_BUTTON_H, 0xAA2A2A2A);
+            g.fill(layout.pageX(), layout.pagePrevY(),
+                    layout.pageX() + PAGE_BUTTON_W,
+                    layout.pagePrevY() + PAGE_BUTTON_H,
+                    ContainerOverlayStyle.PAGE_BACKGROUND.toArgb());
             RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "^",
-                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pagePrevY() + 1, 0xFFFFFF);
+                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pagePrevY() + 1,
+                    ContainerOverlayStyle.BUTTON_TEXT.toArgb());
             String pageText = (controller.getStoragePage() + 1) + "/" + controller.getStorageTotalPages();
             RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, pageText,
-                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageTextY(), 0xDDDDDD);
-            g.fill(layout.pageX(), layout.pageNextY(), layout.pageX() + PAGE_BUTTON_W, layout.pageNextY() + PAGE_BUTTON_H, 0xAA2A2A2A);
+                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageTextY(),
+                    ContainerOverlayStyle.PAGE_TEXT.toArgb());
+            g.fill(layout.pageX(), layout.pageNextY(),
+                    layout.pageX() + PAGE_BUTTON_W,
+                    layout.pageNextY() + PAGE_BUTTON_H,
+                    ContainerOverlayStyle.PAGE_BACKGROUND.toArgb());
             RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "v",
-                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageNextY() + 1, 0xFFFFFF);
+                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageNextY() + 1,
+                    ContainerOverlayStyle.BUTTON_TEXT.toArgb());
         }
 
         if (!layout.overlayCollapsed()) {
@@ -255,11 +277,14 @@ public final class RtsClientInputGate {
         for (int i = 0; i < visibleStorageSlots; i++) {
             int cx = layout.gridX() + (i % STORAGE_COLS) * SLOT_PITCH;
             int cy = layout.gridY() + (i / STORAGE_COLS) * SLOT_PITCH;
-            g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xAA131313);
+            g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE,
+                    ContainerOverlayStyle.STORAGE_SLOT.toArgb());
             if (i < maxSlots) {
                 var entry = entries.get(i);
                 g.renderItem(entry.stack(), cx + 1, cy + 1);
-                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
+                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE,
+                        RtsClientUiUtil.compactCount(entry.count()),
+                        ContainerOverlayStyle.STORAGE_COUNT);
             }
         }
 
@@ -268,18 +293,20 @@ public final class RtsClientInputGate {
             for (int i = 0; i < RETURN_SLOTS; i++) {
                 int cx = layout.returnX() + i * SLOT_PITCH;
                 int cy = layout.returnY();
-                g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xAA20262E);
-                g.hLine(cx, cx + SLOT_SIZE, cy, 0xFF4E5A67);
-                g.hLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF161A20);
-                g.vLine(cx, cy, cy + SLOT_SIZE, 0xFF4E5A67);
-                g.vLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF161A20);
+                drawPanelFrame(g, minecraft.font, cx, cy, SLOT_SIZE, SLOT_SIZE,
+                        ContainerOverlayStyle.RETURN_SLOT,
+                        ContainerOverlayStyle.RETURN_BORDER_LIGHT,
+                        ContainerOverlayStyle.RETURN_BORDER_DARK);
 
                 ItemStack preview = RETURN_QUEUE[i];
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, cx + 1, cy + 1);
-                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(preview.getCount()), 0xFFE8F6FF);
+                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE,
+                            RtsClientUiUtil.compactCount(preview.getCount()),
+                            ContainerOverlayStyle.RETURN_COUNT);
                 } else {
-                    g.drawString(minecraft.font, "+", cx + 6, cy + 5, 0xAACEE1FF, false);
+                    g.drawString(minecraft.font, "+", cx + 6, cy + 5,
+                            ContainerOverlayStyle.RETURN_EMPTY_TEXT.toArgb(), false);
                 }
             }
         }
@@ -300,7 +327,7 @@ public final class RtsClientInputGate {
                         storageCountDetail(controller, entry.count()),
                         (int) mouseX + 10,
                         (int) mouseY + 18,
-                        0xFFFFAA);
+                        ContainerOverlayStyle.TOOLTIP_COUNT.toArgb());
             }
 
             int hoveredCraft = resolveOverlayCraftableEntryIndex(mouseX, mouseY, layout);
@@ -315,7 +342,9 @@ public final class RtsClientInputGate {
                             detail,
                             (int) mouseX + 10,
                             (int) mouseY + 18,
-                            entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0,
+                            (entry.craftable()
+                                    ? ContainerOverlayStyle.TOOLTIP_CRAFTABLE
+                                    : ContainerOverlayStyle.TOOLTIP_MISSING).toArgb(),
                             false);
                 }
             }
@@ -330,7 +359,7 @@ public final class RtsClientInputGate {
                             "x" + (itemId == null ? 0 : resolvePinnedItemCount(itemId)),
                             (int) mouseX + 10,
                             (int) mouseY + 18,
-                            0xFFFFAA);
+                            ContainerOverlayStyle.TOOLTIP_COUNT.toArgb());
                 }
             }
 

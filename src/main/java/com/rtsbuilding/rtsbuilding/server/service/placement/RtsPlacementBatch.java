@@ -83,6 +83,11 @@ public final class RtsPlacementBatch {
         if (session == null || clickedPositions == null || clickedPositions.isEmpty() || face == null) {
             return false;
         }
+        if (quickBuild && (itemId == null || itemId.isBlank())) {
+            player.displayClientMessage(
+                    Component.translatable("message.rtsbuilding.quick_build.select_material"), true);
+            return false;
+        }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         List<BlockPos> positions = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
         for (BlockPos pos : clickedPositions) {

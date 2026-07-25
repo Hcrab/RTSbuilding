@@ -46,6 +46,21 @@ class UiNineSliceLayoutTest {
                 layout(new UiRect(0, 0, 10000, 10000)).size());
     }
 
+    @Test
+    void 高频目标遍历与完整布局保持相同九块边界() {
+        final int[] count = {0};
+        final UiRect[] center = {null};
+        UiNineSliceLayout.visitTargets(new UiRect(10, 20, 100, 80), 4, 5, 6, 6,
+                (part, x, y, width, height) -> {
+                    count[0]++;
+                    if (part == UiNineSliceLayout.Part.CENTER) {
+                        center[0] = new UiRect(x, y, width, height);
+                    }
+                });
+        assertEquals(9, count[0]);
+        assertEquals(layout(new UiRect(10, 20, 100, 80)).get(4).getTarget(), center[0]);
+    }
+
     private static List<UiNineSliceLayout.Slice> layout(UiRect target) {
         return UiNineSliceLayout.calculate(new UiRect(0, 0, 16, 16), target, 4, 5, 6, 6);
     }

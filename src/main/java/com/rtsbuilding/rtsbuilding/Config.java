@@ -36,6 +36,11 @@ public class Config {
 
     // ---- Rendering options ----
 
+    public static final ModConfigSpec.BooleanValue ENABLE_UI_ANIMATIONS = CLIENT_BUILDER
+            .comment("Enable short visual-only hover and selection transitions in the RTS UI.")
+            .translation("rtsbuilding.configuration.enableUiAnimations")
+            .define("enableUiAnimations", true);
+
     public static final ModConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = CLIENT_BUILDER
             .comment("Render translucent block ghost models for placement previews before the player confirms placement.")
             .translation("rtsbuilding.configuration.useBlockGhostPreview")
@@ -70,6 +75,11 @@ public class Config {
             .comment("Render merged skeleton borders for non-chain range destroy previews. Chain mining always uses the skeleton style.")
             .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
             .define("useRangeDestroySkeleton", true);
+
+    public static final ModConfigSpec.BooleanValue SHOW_INVENTORY_RTS_BUTTON = CLIENT_BUILDER
+            .comment("Show the RTS plugin button on the vanilla inventory screen.")
+            .translation("rtsbuilding.configuration.showInventoryRtsButton")
+            .define("showInventoryRtsButton", true);
 
     // ---- Control options ----
 
@@ -256,6 +266,15 @@ public class Config {
         return USE_BLOCK_GHOST_PREVIEW.getAsBoolean();
     }
 
+    public static boolean isUiAnimationsEnabled() {
+        return ENABLE_UI_ANIMATIONS.getAsBoolean();
+    }
+
+    public static void setUiAnimationsEnabled(boolean enabled) {
+        ENABLE_UI_ANIMATIONS.set(enabled);
+        CLIENT_SPEC.save();
+    }
+
     public static void setPlacementBlockGhostPreviewEnabled(boolean enabled) {
         USE_BLOCK_GHOST_PREVIEW.set(enabled);
         CLIENT_SPEC.save();
@@ -312,6 +331,15 @@ public class Config {
 
     public static void setRangeDestroySkeletonEnabled(boolean enabled) {
         USE_RANGE_DESTROY_SKELETON.set(enabled);
+        CLIENT_SPEC.save();
+    }
+
+    public static boolean isInventoryRtsButtonEnabled() {
+        return SHOW_INVENTORY_RTS_BUTTON.getAsBoolean();
+    }
+
+    public static void setInventoryRtsButtonEnabled(boolean enabled) {
+        SHOW_INVENTORY_RTS_BUTTON.set(enabled);
         CLIENT_SPEC.save();
     }
 
