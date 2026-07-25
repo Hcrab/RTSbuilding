@@ -7,8 +7,11 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
@@ -18,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.zip.GZIPInputStream;
 
 /**
  * durable task 根文件专用的严格原子存储。
@@ -66,7 +70,10 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
             return ReadResult.failed(new IOException("NBT 路径不是普通文件: " + filePath));
         }
         try {
-            CompoundTag root = NbtIo.readCompressed(filePath, NbtAccounter.create(MAX_FILE_BYTES));
+            CompoundTag root;
+            try (InputStream input = Files.newInputStream(filePath)) {
+                root = readCompressedLimited(input);
+            }
             return root == null
                     ? ReadResult.failed(new IOException("NBT 根标签为空: " + filePath))
                     : ReadResult.found(root);
@@ -89,8 +96,10 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
                 throw new IOException("NBT 压缩文件大小越界: " + compressedBytes);
             }
             // 发布前按与启动相同的 128 MiB accounter 再读一次，拒绝写出无法重载的根。
-            if (NbtIo.readCompressed(temporary, NbtAccounter.create(MAX_FILE_BYTES)) == null) {
-                throw new IOException("临时 NBT 根标签为空");
+            try (InputStream input = Files.newInputStream(temporary)) {
+                if (readCompressedLimited(input) == null) {
+                    throw new IOException("临时 NBT 根标签为空");
+                }
             }
             mover.move(temporary, filePath);
             fileForcer.force(filePath);
@@ -119,6 +128,14 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
             NbtIo.writeCompressed(tag, output);
             output.flush();
             channel.force(true);
+        }
+    }
+
+    /** 1.20.1 的压缩读取适配，同时保留 durable 仓库的对象内存配额。 */
+    private static CompoundTag readCompressedLimited(InputStream input) throws IOException {
+        try (DataInputStream data = new DataInputStream(
+                new BufferedInputStream(new GZIPInputStream(input)))) {
+            return NbtIo.read(data, new NbtAccounter(MAX_FILE_BYTES));
         }
     }
 

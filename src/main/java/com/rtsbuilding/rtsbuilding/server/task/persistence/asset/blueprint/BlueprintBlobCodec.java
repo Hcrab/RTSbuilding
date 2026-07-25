@@ -11,14 +11,17 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
 
 /** 蓝图独立 blob 的精确 schema、硬上限和内容哈希校验。 */
 public final class BlueprintBlobCodec {
@@ -148,11 +151,19 @@ public final class BlueprintBlobCodec {
             throw new BlobCodecException("蓝图 blob 压缩文件大小越界: " + compressedBytes);
         }
         try {
-            CompoundTag root = NbtIo.readCompressed(input, NbtAccounter.create(MAX_DECODE_ACCOUNTING_BYTES));
+            CompoundTag root = readCompressedLimited(input);
             if (root == null) throw new BlobCodecException("蓝图 blob NBT 根标签为空");
             return decode(root);
         } catch (IOException failure) {
             throw new BlobCodecException("解码蓝图 blob 失败", failure);
+        }
+    }
+
+    /** 1.20.1 压缩 NBT API 的薄适配，保持与主线相同的对象内存配额。 */
+    private static CompoundTag readCompressedLimited(InputStream input) throws IOException {
+        try (DataInputStream data = new DataInputStream(
+                new BufferedInputStream(new GZIPInputStream(input)))) {
+            return NbtIo.read(data, new NbtAccounter(MAX_DECODE_ACCOUNTING_BYTES));
         }
     }
 

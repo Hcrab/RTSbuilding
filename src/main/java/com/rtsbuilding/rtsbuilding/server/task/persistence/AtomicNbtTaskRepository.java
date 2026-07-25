@@ -40,19 +40,17 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
     public synchronized LoadResult load() {
         if (loaded) return exists ? new LoadResult.Found(image) : new LoadResult.Missing();
         try {
-            switch (store.readResult()) {
-                case RtsNbtStore.ReadResult.Missing ignored -> {
-                    image = Image.empty();
-                    exists = false;
-                }
-                case RtsNbtStore.ReadResult.Found found -> {
-                    // Found-empty 仍是存在但损坏的文件，必须让 Codec 因缺少 schema/list 而拒绝。
-                    image = codec.decodeImage(found.root());
-                    exists = true;
-                }
-                case RtsNbtStore.ReadResult.Failed failed -> {
-                    return new LoadResult.Failed(failed.cause());
-                }
+            RtsNbtStore.ReadResult result = store.readResult();
+            if (result instanceof RtsNbtStore.ReadResult.Missing) {
+                image = Image.empty();
+                exists = false;
+            } else if (result instanceof RtsNbtStore.ReadResult.Found found) {
+                // Found-empty 仍是存在但损坏的文件，必须让 Codec 因缺少 schema/list 而拒绝。
+                image = codec.decodeImage(found.root());
+                exists = true;
+            } else {
+                RtsNbtStore.ReadResult.Failed failed = (RtsNbtStore.ReadResult.Failed) result;
+                return new LoadResult.Failed(failed.cause());
             }
             loaded = true;
             return exists ? new LoadResult.Found(image) : new LoadResult.Missing();

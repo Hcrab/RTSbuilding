@@ -61,29 +61,27 @@ public final class TaskPersistenceCoordinator {
         Objects.requireNonNull(codec, "codec");
         TaskStore store = new TaskStore();
         TaskPersistenceCoordinator coordinator = new TaskPersistenceCoordinator(store, repository, codec);
-        switch (repository.load()) {
-            case TaskRepository.LoadResult.Found found -> {
-                found.image().tasks().values().stream()
-                        .sorted(Comparator.comparing(TaskSnapshot::id))
-                        .forEach(snapshot -> {
-                            store.restore(snapshot);
-                            coordinator.durableRevisions.put(snapshot.id(), snapshot.revision());
-                        });
-                found.image().tombstones().values().stream()
-                        .sorted(Comparator.comparing(TaskTombstone::taskId))
-                        .forEach(receipt -> {
-                            store.restoreReceipt(receipt);
-                            coordinator.durableRevisions.put(receipt.taskId(), receipt.revision());
-                        });
-                coordinator.completedMigrations.addAll(found.image().completedMigrations());
-                coordinator.assets = found.image().assets();
-                coordinator.assets.requireOwnedBy(
-                        found.image().tasks().keySet());
-                found.image().tasks().values().forEach(coordinator::requireExistingAssetReference);
-            }
-            case TaskRepository.LoadResult.Missing ignored -> {
-            }
-            case TaskRepository.LoadResult.Failed failed -> throw new IllegalStateException(
+        TaskRepository.LoadResult loadResult = repository.load();
+        if (loadResult instanceof TaskRepository.LoadResult.Found found) {
+            found.image().tasks().values().stream()
+                    .sorted(Comparator.comparing(TaskSnapshot::id))
+                    .forEach(snapshot -> {
+                        store.restore(snapshot);
+                        coordinator.durableRevisions.put(snapshot.id(), snapshot.revision());
+                    });
+            found.image().tombstones().values().stream()
+                    .sorted(Comparator.comparing(TaskTombstone::taskId))
+                    .forEach(receipt -> {
+                        store.restoreReceipt(receipt);
+                        coordinator.durableRevisions.put(receipt.taskId(), receipt.revision());
+                    });
+            coordinator.completedMigrations.addAll(found.image().completedMigrations());
+            coordinator.assets = found.image().assets();
+            coordinator.assets.requireOwnedBy(
+                    found.image().tasks().keySet());
+            found.image().tasks().values().forEach(coordinator::requireExistingAssetReference);
+        } else if (loadResult instanceof TaskRepository.LoadResult.Failed failed) {
+            throw new IllegalStateException(
                     "读取 durable task 仓库失败，拒绝空仓启动", failed.cause());
         }
         return coordinator;

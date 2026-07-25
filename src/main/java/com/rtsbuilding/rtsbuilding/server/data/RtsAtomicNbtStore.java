@@ -7,10 +7,14 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.zip.GZIPInputStream;
 
 /**
  * NBT 文件的原子读写工具——临时文件 + {@link StandardCopyOption#ATOMIC_MOVE} 保证写入安全。
@@ -65,7 +69,10 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
             return ReadResult.failed(cause);
         }
         try {
-            CompoundTag root = NbtIo.readCompressed(filePath, NbtAccounter.create(MAX_FILE_BYTES));
+            CompoundTag root;
+            try (InputStream input = Files.newInputStream(filePath)) {
+                root = readCompressedLimited(input);
+            }
             if (root == null) {
                 IOException cause = new IOException("NBT 根标签为空");
                 RtsbuildingMod.LOGGER.error("读取 NBT 文件 {} 失败: {}", filePath, cause.getMessage());
@@ -85,12 +92,27 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
      * 否则调用方随后保存默认值会覆盖仍可人工恢复的原文件。
      */
     public CompoundTag read() {
-        return switch (readResult()) {
-            case ReadResult.Found found -> found.root();
-            case ReadResult.Missing ignored -> new CompoundTag();
-            case ReadResult.Failed failed -> throw new IllegalStateException(
-                    "读取 NBT 文件失败，拒绝以空数据继续: " + label, failed.cause());
-        };
+        ReadResult result = readResult();
+        if (result instanceof ReadResult.Found found) {
+            return found.root();
+        }
+        if (result instanceof ReadResult.Missing) {
+            return new CompoundTag();
+        }
+        ReadResult.Failed failed = (ReadResult.Failed) result;
+        throw new IllegalStateException(
+                "读取 NBT 文件失败，拒绝以空数据继续: " + label, failed.cause());
+    }
+
+    /**
+     * 1.20.1 没有带配额的压缩 NBT 重载，因此在版本适配层手动解压，
+     * 再交给同一套带 {@link NbtAccounter} 的底层读取入口。
+     */
+    private static CompoundTag readCompressedLimited(InputStream input) throws IOException {
+        try (DataInputStream data = new DataInputStream(
+                new BufferedInputStream(new GZIPInputStream(input)))) {
+            return NbtIo.read(data, new NbtAccounter(MAX_FILE_BYTES));
+        }
     }
 
     /**
@@ -105,7 +127,7 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
     public boolean write(CompoundTag tag) {
         try {
             Files.createDirectories(filePath.getParent());
-            NbtIo.writeCompressed(tag, tempPath);
+            NbtIo.writeCompressed(tag, tempPath.toFile());
             try {
                 Files.move(tempPath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } catch (IOException e) {

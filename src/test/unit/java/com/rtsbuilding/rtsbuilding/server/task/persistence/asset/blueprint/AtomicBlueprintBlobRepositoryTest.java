@@ -494,7 +494,8 @@ class AtomicBlueprintBlobRepositoryTest {
                     Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
                 });
 
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        var executor = Executors.newFixedThreadPool(2);
+        try {
             var write = executor.submit(() -> repository.writeOnce(record));
             assertTrue(moveReached.await(2, TimeUnit.SECONDS));
             var scan = executor.submit(() -> { return repository.scan(); });
@@ -503,6 +504,8 @@ class AtomicBlueprintBlobRepositoryTest {
             assertEquals(AtomicBlueprintBlobRepository.WriteOutcome.WRITTEN,
                     write.get(2, TimeUnit.SECONDS));
             assertEquals(0, scan.get(2, TimeUnit.SECONDS).removedTemporaryFiles());
+        } finally {
+            executor.shutdownNow();
         }
         assertInstanceOf(AtomicBlueprintBlobRepository.LoadResult.Found.class,
                 repository.load(record.assetId()));
@@ -560,7 +563,8 @@ class AtomicBlueprintBlobRepositoryTest {
         AtomicBlueprintBlobRepository first = repository(codec);
         AtomicBlueprintBlobRepository second = repository(codec);
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        var executor = Executors.newFixedThreadPool(2);
+        try {
             var firstWrite = executor.submit(() -> {
                 start.await();
                 return first.writeOnce(record);
@@ -574,6 +578,8 @@ class AtomicBlueprintBlobRepositoryTest {
                     List.of(firstWrite.get(2, TimeUnit.SECONDS), secondWrite.get(2, TimeUnit.SECONDS));
             assertTrue(outcomes.contains(AtomicBlueprintBlobRepository.WriteOutcome.WRITTEN));
             assertTrue(outcomes.contains(AtomicBlueprintBlobRepository.WriteOutcome.ALREADY_PRESENT));
+        } finally {
+            executor.shutdownNow();
         }
         assertInstanceOf(AtomicBlueprintBlobRepository.LoadResult.Found.class,
                 repository(codec).load(record.assetId()));
@@ -585,7 +591,8 @@ class AtomicBlueprintBlobRepositoryTest {
         BlueprintBlobRecord record = codec.freeze(
                 TaskId.create(), 1, "house", "striped", "VANILLA_NBT", structure(new byte[]{4, 5, 6}));
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(8)) {
+        var executor = Executors.newFixedThreadPool(8);
+        try {
             var futures = new java.util.ArrayList<java.util.concurrent.Future<
                     AtomicBlueprintBlobRepository.WriteOutcome>>();
             for (int i = 0; i < 32; i++) {
@@ -601,6 +608,8 @@ class AtomicBlueprintBlobRepositoryTest {
                         == AtomicBlueprintBlobRepository.WriteOutcome.WRITTEN) written++;
             }
             assertEquals(1, written);
+        } finally {
+            executor.shutdownNow();
         }
         var found = assertInstanceOf(
                 AtomicBlueprintBlobRepository.LoadResult.Found.class, repository(codec).load(record.assetId()));
