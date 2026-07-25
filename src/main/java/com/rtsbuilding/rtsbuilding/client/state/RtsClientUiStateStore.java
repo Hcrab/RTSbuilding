@@ -60,8 +60,12 @@ public final class RtsClientUiStateStore {
     }
 
     public static synchronized void dismissIntroReminder(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
         UiState state = load();
         state.addDismissedIntroReminderKey(key);
+        // 这是聊天栏中的显式玩家选择，必须立即落盘，不能等玩家以后打开 RTS 界面。
         save(state);
     }
 
