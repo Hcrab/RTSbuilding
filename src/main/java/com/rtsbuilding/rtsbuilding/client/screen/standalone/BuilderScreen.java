@@ -21,6 +21,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
@@ -157,6 +158,8 @@ public final class BuilderScreen extends Screen {
     private final PlacementStateWheel placementStateWheel = new PlacementStateWheel();
     /** Guide/onboarding panel that explains UI elements and controls. */
     private final GuidePanel guidePanel = new GuidePanel();
+    /** 游戏内 AI 教程问答窗口；教程上下文与十轮会话不进入主屏状态机。 */
+    private final RtsAiChatPanel aiChatPanel = new RtsAiChatPanel();
     /** Gear (settings) menu panel with configuration toggles and sliders. */
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
     /** Client-only persisted UI preferences for this screen. */
@@ -244,6 +247,7 @@ public final class BuilderScreen extends Screen {
                 this.blueprintNameWindowPanel,
                 this.craftQuantityWindowPanel,
                 this.gearMenuPanel,
+                this.aiChatPanel,
                 this.guidePanel,
                 this.quickBuildPanel,
                 this.cullingPanel,
@@ -253,6 +257,7 @@ public final class BuilderScreen extends Screen {
         this.uiStateManager.registerWindowPanel("settings", this.gearMenuPanel);
         this.uiStateManager.registerWindowPanel("blueprints", this.blueprintWindowPanel);
         this.uiStateManager.registerWindowPanel("guide", this.guidePanel);
+        this.uiStateManager.registerWindowPanel("ai_chat", this.aiChatPanel);
         this.uiStateManager.registerWindowPanel("linked_storage", this.linkedStoragePanel);
         this.uiStateManager.registerWindowPanel("craft_quantity", this.craftQuantityWindowPanel);
         this.uiStateManager.registerWindowPanel("blueprint_name", this.blueprintNameWindowPanel);
@@ -266,6 +271,7 @@ public final class BuilderScreen extends Screen {
         this.shapeController.init(this, this.controller);
         this.storageLinkDetailHandler.init(this, this.controller);
         this.guidePanel.init(this, this.controller);
+        this.aiChatPanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
@@ -517,6 +523,7 @@ public final class BuilderScreen extends Screen {
         if (this.controller.isEnabled()) {
             RtsClientPacketGateway.sendToggleCamera(this.controller.isStartCameraAtPlayerHead());
         }
+        this.aiChatPanel.close();
         this.craftQuantityWindowPanel.close();
         this.overlayRenderer.updateNativeCursorVisibility(false);
         RtsCullingClientState.clearActiveManager(this.cullingManager);
@@ -525,6 +532,7 @@ public final class BuilderScreen extends Screen {
     @Override
     public void removed() {
         super.removed();
+        this.aiChatPanel.close();
         this.cameraInput.resetCameraVerticalHeld();
         this.modeWheel.close();
         this.modeWheelAltWasDown = false;
@@ -2310,6 +2318,10 @@ public final class BuilderScreen extends Screen {
         } else {
             this.guidePanel.open(GuideUiContext.TOP, x, y);
         }
+    }
+    /** 从顶部帮助菜单打开可拖动、可缩放的游戏内 AI 求助窗口。 */
+    public void openAiChat() {
+        this.aiChatPanel.open();
     }
     /** Returns whether the current player can open the range-culling editor. */
     public boolean canUseRangeCulling() {

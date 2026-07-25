@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
+import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -20,6 +21,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.Util;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
@@ -35,6 +37,10 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * 图标绘制、{@link RtsWindowPanel} chrome 和持久化窗口边界，不再维护另一份主题清单。
  */
 public final class GuidePanel extends RtsWindowPanel {
+    private static final int AI_HELP_DEFAULT_W = 440;
+    private static final int AI_HELP_DEFAULT_H = 132;
+    private static final int AI_HELP_MIN_W = 300;
+    private static final int AI_HELP_MIN_H = 120;
     private GuideUiContext context = GuideUiContext.TOP;
     private int page = 0;
     private int topicScroll = 0;
@@ -49,6 +55,10 @@ public final class GuidePanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        if (this.context == GuideUiContext.TOP) {
+            renderAiHelp(g, mouseX, mouseY);
+            return;
+        }
         GuideWindowLayout.Rect rect = contentRect();
         GuideUiTopic[] topics = topics();
 
@@ -113,6 +123,10 @@ public final class GuidePanel extends RtsWindowPanel {
         if (button != 0) {
             return;
         }
+        if (this.context == GuideUiContext.TOP) {
+            handleAiHelpClick(mouseX, mouseY);
+            return;
+        }
         int topic = resolveTopicClick(mouseX, mouseY);
         if (topic >= 0) {
             GuideWindowLayout.Rect rect = contentRect();
@@ -125,6 +139,9 @@ public final class GuidePanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (this.context == GuideUiContext.TOP) {
+            return true;
+        }
         if (scrollY == 0.0D) {
             return true;
         }
@@ -165,22 +182,22 @@ public final class GuidePanel extends RtsWindowPanel {
 
     @Override
     protected int getDefaultWidth() {
-        return GuideWindowLayout.DEFAULT_W;
+        return this.context == GuideUiContext.TOP ? AI_HELP_DEFAULT_W : GuideWindowLayout.DEFAULT_W;
     }
 
     @Override
     protected int getDefaultHeight() {
-        return GuideWindowLayout.DEFAULT_H;
+        return this.context == GuideUiContext.TOP ? AI_HELP_DEFAULT_H : GuideWindowLayout.DEFAULT_H;
     }
 
     @Override
     protected int getMinWindowWidth() {
-        return GuideWindowLayout.MIN_W;
+        return this.context == GuideUiContext.TOP ? AI_HELP_MIN_W : GuideWindowLayout.MIN_W;
     }
 
     @Override
     protected int getMinWindowHeight() {
-        return GuideWindowLayout.MIN_H;
+        return this.context == GuideUiContext.TOP ? AI_HELP_MIN_H : GuideWindowLayout.MIN_H;
     }
 
     @Override
@@ -205,11 +222,13 @@ public final class GuidePanel extends RtsWindowPanel {
         this.anchorX = anchorX;
         this.anchorY = anchorY;
 
-        if (!hasUserBoundsPreference()) {
-            int panelW = Math.min(GuideWindowLayout.DEFAULT_W,
-                    Math.max(GuideWindowLayout.MIN_W, this.screen.width - 28));
-            int panelH = Math.min(GuideWindowLayout.DEFAULT_H,
-                    Math.max(GuideWindowLayout.MIN_H, this.screen.height - 90));
+        if (context == GuideUiContext.TOP || !hasUserBoundsPreference()) {
+            int defaultW = context == GuideUiContext.TOP ? AI_HELP_DEFAULT_W : GuideWindowLayout.DEFAULT_W;
+            int defaultH = context == GuideUiContext.TOP ? AI_HELP_DEFAULT_H : GuideWindowLayout.DEFAULT_H;
+            int minW = context == GuideUiContext.TOP ? AI_HELP_MIN_W : GuideWindowLayout.MIN_W;
+            int minH = context == GuideUiContext.TOP ? AI_HELP_MIN_H : GuideWindowLayout.MIN_H;
+            int panelW = Math.min(defaultW, Math.max(minW, this.screen.width - 28));
+            int panelH = Math.min(defaultH, Math.max(minH, this.screen.height - 90));
             GuideWindowLayout.Rect rect = openingWindowRect(panelW, panelH);
             setTransientBounds(rect.x, rect.y, rect.w, rect.h);
         }
@@ -255,7 +274,60 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     private Component title() {
+        if (this.context == GuideUiContext.TOP) {
+            return Component.translatable("screen.rtsbuilding.ai_help.title");
+        }
         return Component.translatable(GuideUiCatalog.titleKey(this.context));
+    }
+
+    private void renderAiHelp(GuiGraphics g, int mouseX, int mouseY) {
+        GuideWindowLayout.Rect rect = contentRect();
+        int x = rect.x + 10;
+        int y = rect.y + 8;
+        int w = Math.max(80, rect.w - 20);
+        String description = RtsClientUiUtil.trimToWidth(screen.font(),
+                Component.translatable("screen.rtsbuilding.ai_help.description").getString(), w);
+        g.drawString(screen.font(), description, x, y, 0xFFE6EDF8, false);
+
+        int buttonY = y + 17;
+        drawAiHelpButton(g, x, buttonY, w, 22, mouseX, mouseY,
+                Component.translatable("screen.rtsbuilding.ai_help.chat"));
+        drawAiHelpButton(g, x, buttonY + 26, w, 22, mouseX, mouseY,
+                Component.translatable("screen.rtsbuilding.ai_help.copy"));
+        drawAiHelpButton(g, x, buttonY + 52, w, 22, mouseX, mouseY,
+                Component.translatable("screen.rtsbuilding.ai_help.website"));
+    }
+
+    private void handleAiHelpClick(double mouseX, double mouseY) {
+        GuideWindowLayout.Rect rect = contentRect();
+        int x = rect.x + 10;
+        int y = rect.y + 25;
+        int w = Math.max(80, rect.w - 20);
+        if (inside(mouseX, mouseY, x, y, w, 22)) {
+            close();
+            screen.openAiChat();
+        } else if (inside(mouseX, mouseY, x, y + 26, w, 22)) {
+            RtsAiHelpClipboard.copy(this.controller);
+            if (screen.getMinecraft().player != null) {
+                screen.getMinecraft().player.displayClientMessage(
+                        Component.translatable("message.rtsbuilding.ai_help.copied"), true);
+            }
+        } else if (inside(mouseX, mouseY, x, y + 52, w, 22)) {
+            Util.getPlatform().openUri(RtsCommunityLinks.WEBSITE);
+        }
+    }
+
+    private void drawAiHelpButton(GuiGraphics g, int x, int y, int w, int h,
+                                  int mouseX, int mouseY, Component label) {
+        boolean hovered = inside(mouseX, mouseY, x, y, w, h);
+        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h,
+                hovered ? 0xCC355A71 : 0xCC24313E,
+                hovered ? 0xFFB7D9ED : 0xFF71879A, 0xFF0D1218);
+        String text = RtsClientUiUtil.trimToWidth(screen.font(), label.getString(), w - 10);
+        g.drawString(screen.font(), text,
+                x + Math.max(5, (w - screen.font().width(text)) / 2),
+                y + (h - screen.font().lineHeight) / 2,
+                hovered ? 0xFFFFFFFF : 0xFFE6EDF8, false);
     }
 
     private GuideUiTopic[] topics() {
