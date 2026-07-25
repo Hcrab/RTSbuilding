@@ -139,6 +139,16 @@ public final class RtsClientUiStateStore {
         save(state);
     }
 
+    public static synchronized boolean isRtsPlacementSoundsEnabled() {
+        return load().rtsPlacementSoundsEnabled;
+    }
+
+    public static synchronized void setRtsPlacementSoundsEnabled(boolean enabled) {
+        UiState state = load();
+        state.rtsPlacementSoundsEnabled = enabled;
+        save(state);
+    }
+
     public static synchronized boolean isRtsBreakSoundsEnabled() {
         return load().rtsBreakSoundsEnabled;
     }
@@ -196,6 +206,7 @@ public final class RtsClientUiStateStore {
         public boolean smoothCamera = true;
         public boolean damageSoundEnabled = true;
         public boolean rtsSoundsEnabled = true;
+        public boolean rtsPlacementSoundsEnabled = true;
         public boolean rtsBreakSoundsEnabled = true;
         public int rtsBlockSoundsPerTick = 8;
         public boolean damageAutoReturnEnabled = true;
@@ -251,6 +262,7 @@ public final class RtsClientUiStateStore {
             clean.smoothCamera = this.smoothCamera;
             clean.damageSoundEnabled = this.damageSoundEnabled;
             clean.rtsSoundsEnabled = this.rtsSoundsEnabled;
+            clean.rtsPlacementSoundsEnabled = this.rtsPlacementSoundsEnabled;
             clean.rtsBreakSoundsEnabled = this.rtsBreakSoundsEnabled;
             clean.rtsBlockSoundsPerTick = Math.max(1, Math.min(16, this.rtsBlockSoundsPerTick));
             clean.damageAutoReturnEnabled = this.damageAutoReturnEnabled;

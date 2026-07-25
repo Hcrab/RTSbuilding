@@ -286,6 +286,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     RtsClientUiStateStore.isRtsSoundsEnabled());
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint");
             drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.placement_sounds",
+                    "screen.rtsbuilding.settings.placement_sounds.hint",
+                    RtsClientUiStateStore.isRtsPlacementSoundsEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_sounds.hint");
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.break_sounds",
                     "screen.rtsbuilding.settings.break_sounds.hint",
                     RtsClientUiStateStore.isRtsBreakSoundsEnabled());
@@ -667,6 +672,17 @@ public final class GearMenuPanel extends RtsWindowPanel {
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint");
             if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.placement_sounds.hint")) {
+                return;
+            }
+            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+                    hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_sounds.hint"))) {
+                RtsClientUiStateStore.setRtsPlacementSoundsEnabled(
+                        !RtsClientUiStateStore.isRtsPlacementSoundsEnabled());
+                return;
+            }
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_sounds.hint");
+            if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.break_sounds.hint")) {
                 return;
             }
@@ -915,6 +931,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         height += SECTION_GAP;
         height += sectionHeight(this.soundExpanded,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint")
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_sounds.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint")
                         + SOUND_LIMIT_ROW_H);

@@ -192,6 +192,8 @@
   "screen.rtsbuilding.settings.smooth_camera.hint": "用渲染帧预测移动和拖拽输入。",
   "screen.rtsbuilding.settings.rts_sounds": "RTS 音效总开关",
   "screen.rtsbuilding.settings.rts_sounds.hint": "统一控制 RTS 放置、破坏和受击音效。",
+  "screen.rtsbuilding.settings.placement_sounds": "方块放置音效",
+  "screen.rtsbuilding.settings.placement_sounds.hint": "控制单块、范围和蓝图放置的方块音效。",
   "screen.rtsbuilding.settings.break_sounds": "方块破坏音效",
   "screen.rtsbuilding.settings.break_sounds.hint": "控制单块、连锁和范围破坏的方块音效。",
   "screen.rtsbuilding.settings.block_sounds_per_tick": "每 tick 最大方块音效数",

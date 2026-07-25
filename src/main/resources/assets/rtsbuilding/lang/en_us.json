@@ -192,6 +192,8 @@
   "screen.rtsbuilding.settings.smooth_camera.hint": "Render-frame visual prediction for movement and drag input.",
   "screen.rtsbuilding.settings.rts_sounds": "RTS sounds",
   "screen.rtsbuilding.settings.rts_sounds.hint": "Master switch for RTS placement, breaking, and hurt sounds.",
+  "screen.rtsbuilding.settings.placement_sounds": "Block placement sounds",
+  "screen.rtsbuilding.settings.placement_sounds.hint": "Play block sounds for single, area, and blueprint placement.",
   "screen.rtsbuilding.settings.break_sounds": "Block breaking sounds",
   "screen.rtsbuilding.settings.break_sounds.hint": "Play block sounds for single, chain, and area destruction.",
   "screen.rtsbuilding.settings.block_sounds_per_tick": "Block sounds per tick",
