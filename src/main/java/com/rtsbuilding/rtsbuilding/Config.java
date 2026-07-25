@@ -163,7 +163,7 @@ public class Config {
     public static final ModConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued chain mining targets processed per player per server tick.")
             .translation("rtsbuilding.configuration.ultimineBlocksPerTick")
-            .defineInRange("mining.ultimineBlocksPerTick", 8, 1, 128);
+            .defineInRange("mining.ultimineBlocksPerTick", 16, 1, 128);
 
     public static final ModConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued remote placement targets processed per player per server tick.")

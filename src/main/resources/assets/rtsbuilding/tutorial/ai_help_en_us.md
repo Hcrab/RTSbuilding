@@ -404,7 +404,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `mining.areaMineMaxDepth` | `36` (1–256) | Z depth limit. |
 | `mining.areaMineMaxHarvestTier` | `UNLIMITED` | Server ceiling for area-mining plugin tier. |
 | `mining.areaDestroyMaxTargets` | `98304` (1–262144) | Explicit target positions accepted by one area request. |
-| `mining.ultimineBlocksPerTick` | `8` (1–128) | Chain targets processed per player per tick. |
+| `mining.ultimineBlocksPerTick` | `16` (1–128) | Chain targets processed per player per tick. |
 | `storage.ae2NetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive AE2 snapshots. |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive RS snapshots. |
 | `storage.pageCacheMaxPlayers` | `256` (1–4096) | Player entries retained in the page LRU cache. |

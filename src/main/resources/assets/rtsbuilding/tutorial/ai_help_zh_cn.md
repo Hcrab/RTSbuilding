@@ -412,7 +412,7 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 | `mining.areaMineMaxDepth` | `36`（1–256） | Z 轴深度上限。 |
 | `mining.areaMineMaxHarvestTier` | `UNLIMITED` | 范围挖掘可使用的插件采掘等级服务端封顶。 |
 | `mining.areaDestroyMaxTargets` | `98304`（1–262144） | 单个范围破坏请求接受的显式坐标数上限。 |
-| `mining.ultimineBlocksPerTick` | `8`（1–128） | 每位玩家每 tick 处理的连锁目标上限。 |
+| `mining.ultimineBlocksPerTick` | `16`（1–128） | 每位玩家每 tick 处理的连锁目标上限。 |
 | `storage.ae2NetworkRefreshThrottle` | `10`（1–200） | AE2 昂贵网络快照之间的刷新周期数。 |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10`（1–200） | Refined Storage 昂贵网络快照之间的刷新周期数。 |
 | `storage.pageCacheMaxPlayers` | `256`（1–4096） | 储存页面 LRU 缓存保留的玩家数。 |
