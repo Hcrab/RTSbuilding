@@ -158,14 +158,14 @@ public final class RtsTaskEngine {
         TaskRecord record = new TaskRecord(
                 taskId,
                 player.getUUID(), TaskType.PLACEMENT,
-                new PlacementTaskPayload(player, session, job), job.totalCount(), now);
+                new LegacyPlacementPayload(player, session, job), job.totalCount(), now);
         record.restoreCursor(job.getIndex(), now);
         applyInitialPause(player, job.workflowEntryId(), record, now);
         return record;
     }
 
     private TaskStepResult executePlacement(TaskRecord task, TaskBudget budget) {
-        PlacementTaskPayload payload = (PlacementTaskPayload) task.payload();
+        LegacyPlacementPayload payload = (LegacyPlacementPayload) task.payload();
         var player = payload.player();
         var session = payload.session();
         var job = payload.job();
@@ -221,7 +221,7 @@ public final class RtsTaskEngine {
                     UUID.nameUUIDFromBytes((player.getUUID() + ":mining:" + source.workflowEntryId())
                             .getBytes(StandardCharsets.UTF_8)),
                     player.getUUID(), TaskType.MINING,
-                    new MiningTaskPayload(player, session, source.workflowEntryId()), source.totalUnits(), now);
+                    new LegacyMiningPayload(player, session, source.workflowEntryId()), source.totalUnits(), now);
             record.restoreSnapshot(source.cursorUnits(), source.succeededUnits(), source.failedUnits(), now);
             applyInitialPause(player, source.workflowEntryId(), record, now);
             miningRecords.put(key, record);
@@ -250,7 +250,7 @@ public final class RtsTaskEngine {
     }
 
     private TaskStepResult executeMining(TaskRecord task, TaskBudget budget) {
-        MiningTaskPayload payload = (MiningTaskPayload) task.payload();
+        LegacyMiningPayload payload = (LegacyMiningPayload) task.payload();
         var player = payload.player();
         var session = payload.session();
         MiningTaskSource source = currentMiningSource(session);
@@ -385,11 +385,11 @@ public final class RtsTaskEngine {
 
     private com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken workflowToken(
             TaskRecord record, int entryId) {
-        if (record.payload() instanceof PlacementTaskPayload payload) {
+        if (record.payload() instanceof LegacyPlacementPayload payload) {
             return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                     .from(payload.player(), entryId).orElse(null);
         }
-        if (record.payload() instanceof MiningTaskPayload payload) {
+        if (record.payload() instanceof LegacyMiningPayload payload) {
             return com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                     .from(payload.player(), entryId).orElse(null);
         }
@@ -397,8 +397,8 @@ public final class RtsTaskEngine {
     }
 
     private int workflowEntryId(TaskRecord record) {
-        if (record.payload() instanceof PlacementTaskPayload payload) return payload.job().workflowEntryId();
-        if (record.payload() instanceof MiningTaskPayload payload) return payload.workflowEntryId();
+        if (record.payload() instanceof LegacyPlacementPayload payload) return payload.job().workflowEntryId();
+        if (record.payload() instanceof LegacyMiningPayload payload) return payload.workflowEntryId();
         return -1;
     }
 
@@ -419,5 +419,24 @@ public final class RtsTaskEngine {
 
     private record MiningTaskSource(
             int workflowEntryId, int totalUnits, int cursorUnits, int succeededUnits, int failedUnits) {
+    }
+
+    /**
+     * Forge 旧在线执行器的瞬态载荷。
+     *
+     * <p>它只在 1.20.1 兼容调度器内存中存在，不能进入 durable task 根文件。
+     * 稳定、可序列化的 {@link PlacementTaskPayload} 与 {@link MiningTaskPayload}
+     * 专门留给同源持久化链路，避免在线对象再次污染磁盘快照。</p>
+     */
+    private record LegacyPlacementPayload(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session,
+            RtsPlacementBatch.PlaceBatchJob job) implements TaskPayload {
+    }
+
+    private record LegacyMiningPayload(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession session,
+            int workflowEntryId) implements TaskPayload {
     }
 }

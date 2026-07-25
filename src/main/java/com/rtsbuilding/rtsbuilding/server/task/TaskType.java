@@ -6,5 +6,7 @@ public enum TaskType {
     DESTRUCTION,
     MINING,
     BLUEPRINT,
-    BUFFER_DRAIN
+    BUFFER_DRAIN,
+    FUNNEL,
+    PLACED_RECOVERY
 }
