@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
@@ -162,9 +163,16 @@ public final class RtsClientInputGate {
     }
 
     @SubscribeEvent
+    public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        // 登录时主动清一次，覆盖崩服或异常断线未完整收到退出事件的情况。
+        RtsCullingClientState.resetForWorldChange();
+    }
+
+    @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         overlayBootstrapRequested = false;
         activeOverlayScreen = null;
+        RtsCullingClientState.resetForWorldChange();
     }
 
     public static List<Rect2i> getJeiOverlayExtraAreas(Screen screen) {

@@ -60,7 +60,15 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
+            net.minecraft.network.chat.MutableComponent message =
+                    net.minecraft.network.chat.Component.translatable(
+                            RtsProgressionManager.hasHome(player)
+                                    ? "message.rtsbuilding.home.too_far"
+                                    : "message.rtsbuilding.home.required");
+            if (RtsProgressionManager.hasHome(player)) {
+                message.withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD);
+            }
+            player.displayClientMessage(message, true);
             return;
         }
         startNormal(player, startAtPlayerHead);
@@ -219,9 +227,25 @@ public final class RtsCameraManager {
             return false;
         }
 
-        double dx = (pos.getX() + 0.5D) - session.anchor().x;
-        double dz = (pos.getZ() + 0.5D) - session.anchor().z;
-        double halfExtent = actionHalfExtent(player, session);
+        return isWithinSessionSquare(
+                session.anchor().x,
+                session.anchor().z,
+                actionHalfExtent(player, session),
+                pos);
+    }
+
+    /**
+     * 纯几何判断：操作范围是以本次会话锚点为中心的正方形。
+     *
+     * <p>该方法不读取家园；家园只参与开启 RTS 前的 3×3 区块门禁。</p>
+     */
+    static boolean isWithinSessionSquare(double anchorX, double anchorZ, double halfExtent, BlockPos pos) {
+        if (pos == null || !Double.isFinite(anchorX) || !Double.isFinite(anchorZ)
+                || !Double.isFinite(halfExtent) || halfExtent < 0.0D) {
+            return false;
+        }
+        double dx = (pos.getX() + 0.5D) - anchorX;
+        double dz = (pos.getZ() + 0.5D) - anchorZ;
         return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
     }
 

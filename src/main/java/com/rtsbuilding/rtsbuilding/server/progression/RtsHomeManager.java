@@ -114,22 +114,36 @@ final class RtsHomeManager {
         return getHome(player) != null;
     }
 
-    static boolean canAccessHomeRadius(ServerPlayer player, BlockPos pos) {
+    /**
+     * 检查玩家当前位置是否在 RTS 家园周围的 3×3 区块内。
+     *
+     * <p>该限制只决定能否启动一次普通 RTS 会话。会话启动后，世界操作范围只由
+     * 本次相机锚点与操作半径决定，不能再与家园位置取交集。</p>
+     */
+    static boolean canOpenRtsNearHome(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled() || RtsProgressionManager.canBypassHomeRadius(player)) {
             return true;
         }
-        if (player == null || pos == null) {
+        if (player == null) {
             return false;
         }
         HomeAnchor home = getHome(player);
         if (home == null || !home.dimension().equals(player.serverLevel().dimension())) {
             return false;
         }
-        double radius = RtsProgressionManager.getActionRadius(player);
-        double dx = (pos.getX() + 0.5D) - (home.pos().getX() + 0.5D);
-        double dz = (pos.getZ() + 0.5D) - (home.pos().getZ() + 0.5D);
-        double halfExtent = radius;
-        return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
+        return isWithinHomeOpeningChunks(home.pos(), player.blockPosition());
+    }
+
+    static boolean isWithinHomeOpeningChunks(BlockPos homePos, BlockPos playerPos) {
+        if (homePos == null || playerPos == null) {
+            return false;
+        }
+        int homeChunkX = homePos.getX() >> 4;
+        int homeChunkZ = homePos.getZ() >> 4;
+        int playerChunkX = playerPos.getX() >> 4;
+        int playerChunkZ = playerPos.getZ() >> 4;
+        return Math.abs(playerChunkX - homeChunkX) <= 1
+                && Math.abs(playerChunkZ - homeChunkZ) <= 1;
     }
 
     // ======================================================================

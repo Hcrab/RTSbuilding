@@ -110,8 +110,7 @@ public final class RtsFluidService {
         if (level.mayInteract(player, pos)
                 && RtsClaimProtectionService.canInteractBlock(
                         player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
-                && RtsCameraManager.isWithinActionRange(player, pos)
-                && RtsProgressionManager.canAccessHomeRadius(player, pos)) {
+                && RtsCameraManager.isWithinActionRange(player, pos)) {
             return true;
         }
         if (!level.getBlockState(pos).isAir()) {
@@ -123,7 +122,6 @@ public final class RtsFluidService {
         }
         return level.mayInteract(player, below)
                 && RtsClaimProtectionService.canPlaceBlock(player, pos)
-                && RtsCameraManager.isWithinActionRange(player, pos)
-                && RtsProgressionManager.canAccessHomeRadius(player, pos);
+                && RtsCameraManager.isWithinActionRange(player, pos);
     }
 }

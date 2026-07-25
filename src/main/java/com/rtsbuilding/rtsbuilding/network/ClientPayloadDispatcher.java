@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
@@ -48,6 +49,13 @@ public final class ClientPayloadDispatcher {
         if (!IS_CLIENT) return;
         if (payload instanceof S2CRtsCameraStatePayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleCameraState(p, ctx);
+        }
+    }
+
+    public static void dispatchCulling(Object payload, IPayloadContext ctx) {
+        if (!IS_CLIENT) return;
+        if (payload instanceof S2CRtsCullingStatePayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleCullingState(p, ctx);
         }
     }
 

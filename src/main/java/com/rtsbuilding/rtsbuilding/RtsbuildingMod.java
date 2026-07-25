@@ -123,6 +123,14 @@ public final class RtsbuildingMod {
         }
 
         @SubscribeEvent
+        static void onPlayerClone(final PlayerEvent.Clone event) {
+            if (event.getOriginal() instanceof net.minecraft.server.level.ServerPlayer original
+                    && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer replacement) {
+                com.rtsbuilding.rtsbuilding.server.culling.RtsCullingPersistence.copyFrom(original, replacement);
+            }
+        }
+
+        @SubscribeEvent
         static void onServerStarted(final ServerStartedEvent event) {
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
         }

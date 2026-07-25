@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -73,7 +72,6 @@ public final class RtsLinkedStorageResolver {
                 IItemHandler handler = null;
 
                 if (sameDimension && !session.detachedBackpackRefs.contains(ref)
-                        && RtsProgressionManager.canAccessHomeRadius(player, pos)
                         && player.serverLevel().hasChunkAt(pos)) {
                     Object endpointIdentity = player.serverLevel().getBlockEntity(pos);
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
@@ -172,9 +170,6 @@ public final class RtsLinkedStorageResolver {
                     continue;
                 }
                 BlockPos pos = ref.pos();
-                if (!RtsProgressionManager.canAccessHomeRadius(player, pos)) {
-                    continue;
-                }
                 if (!player.serverLevel().hasChunkAt(pos)) {
                     continue;
                 }
@@ -212,7 +207,7 @@ public final class RtsLinkedStorageResolver {
 
     /**
      * Linked refs are world targets, so resolver owns the shared camera, chunk,
-     * interaction, and home-radius gate used before resolving them.
+     * interaction, and current-session action-range gate used before resolving them.
      */
     public static boolean canAccessWorldTarget(ServerPlayer player, BlockPos pos) {
         if (!RtsCameraManager.isActive(player) || pos == null) {
@@ -226,10 +221,7 @@ public final class RtsLinkedStorageResolver {
         if (!level.mayInteract(player, pos)) {
             return false;
         }
-        if (!RtsCameraManager.isWithinActionRange(player, pos)) {
-            return false;
-        }
-        return RtsProgressionManager.canAccessHomeRadius(player, pos);
+        return RtsCameraManager.isWithinActionRange(player, pos);
     }
 
     /**

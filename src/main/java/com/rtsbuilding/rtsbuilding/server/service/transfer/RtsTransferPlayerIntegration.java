@@ -114,8 +114,7 @@ public final class RtsTransferPlayerIntegration {
         Vec3 dropPos = new Vec3(dropX, dropY, dropZ);
         BlockPos dropBlock = BlockPos.containing(dropPos);
         if (!player.serverLevel().hasChunkAt(dropBlock)
-                || !RtsCameraManager.isWithinActionRadius(player, dropBlock)
-                || !RtsProgressionManager.canAccessHomeRadius(player, dropBlock)) {
+                || !RtsCameraManager.isWithinActionRadius(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             RtsStorageTickService.INSTANCE.forceRefresh(player);
             session.transfer.pageDataVersion.incrementAndGet();

@@ -234,6 +234,7 @@ public final class BuilderScreen extends Screen {
         this.shapeController.init(this, this.controller);
         this.cameraInput.init(this, this.controller);
         RtsCullingClientState.setActiveManager(this.cullingManager);
+        RtsCullingClientState.requestCurrentWorldState();
     }
     /** Returns the Minecraft font renderer for use by sub-panels and utilities. */
     public Font font() {
