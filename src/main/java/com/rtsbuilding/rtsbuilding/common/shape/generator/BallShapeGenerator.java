@@ -8,9 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 球体形状生成器。
- *
- * <p>起点是球心，终点决定半径。FILL 生成实心球；HOLLOW/SKELETON 生成球壳。</p>
+ * 鐞冧綋褰㈢姸鐢熸垚鍣ㄣ€? *
+ * <p>璧风偣鏄悆蹇冿紝缁堢偣鍐冲畾鍗婂緞銆侳ILL 鐢熸垚瀹炲績鐞冿紱HOLLOW/SKELETON 鐢熸垚鐞冨３銆?/p>
  */
 public class BallShapeGenerator extends AreaShapeGenerator {
     @Override

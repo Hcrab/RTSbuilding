@@ -1,18 +1,15 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintClientPayloadBridge;
-import com.rtsbuilding.rtsbuilding.blueprint.network.BlueprintNetworkHandlers;
-import com.rtsbuilding.rtsbuilding.blueprint.network.C2SBlueprintPlacePayload;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
 import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingPackets;
 import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
 import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
-import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
+import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
 import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
 
@@ -60,15 +57,7 @@ public final class RtsForgePayloadRegistrar {
         RtsPluginPackets.register(registrar);
         RtsFeedbackPackets.register(registrar);
         RtsPathfindingPackets.register(registrar);
-
-        registrar.playToServer(
-                C2SBlueprintPlacePayload.TYPE,
-                C2SBlueprintPlacePayload.STREAM_CODEC,
-                BlueprintNetworkHandlers::handlePlace);
-        registrar.playToClient(
-                S2CBlueprintStatusPayload.TYPE,
-                S2CBlueprintStatusPayload.STREAM_CODEC,
-                BlueprintClientPayloadBridge::handleStatus);
+        BlueprintPayloadRegistrar.register(registrar);
     }
 
     public static void sendToPlayer(ServerPlayer player, Object message) {

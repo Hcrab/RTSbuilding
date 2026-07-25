@@ -7,10 +7,10 @@ import net.minecraft.core.BlockPos;
 import java.util.List;
 
 /**
- * 直线（1D）形状生成器。
+ * 鐩寸嚎锛?D锛夊舰鐘剁敓鎴愬櫒銆?
  * <p>
- * 在三维空间中生成一条连接起点和终点的直线，
- * 通常沿着起点和终点之间距离最大的轴延伸。仅支持 FILL 模式。
+ * 鍦ㄤ笁缁寸┖闂翠腑鐢熸垚涓€鏉¤繛鎺ヨ捣鐐瑰拰缁堢偣鐨勭洿绾匡紝
+ * 閫氬父娌跨潃璧风偣鍜岀粓鐐逛箣闂磋窛绂绘渶澶х殑杞村欢浼搞€備粎鏀寔 FILL 妯″紡銆?
  */
 public class LineShapeGenerator extends AreaShapeGenerator {
 

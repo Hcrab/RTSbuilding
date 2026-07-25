@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.sanitize;
 
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintBlockEntitySanitizer;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;

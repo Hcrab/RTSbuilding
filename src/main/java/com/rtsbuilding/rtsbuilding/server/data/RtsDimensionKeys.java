@@ -17,6 +17,12 @@ import javax.annotation.Nullable;
 public final class RtsDimensionKeys {
     private static final ResourceKey<Registry<Level>> LEVEL_REGISTRY =
             ResourceKey.createRegistryKey(new ResourceLocation("minecraft", "dimension"));
+    public static final ResourceKey<Level> OVERWORLD =
+            create(new ResourceLocation("minecraft", "overworld"));
+    public static final ResourceKey<Level> NETHER =
+            create(new ResourceLocation("minecraft", "the_nether"));
+    public static final ResourceKey<Level> END =
+            create(new ResourceLocation("minecraft", "the_end"));
 
     private RtsDimensionKeys() {
     }

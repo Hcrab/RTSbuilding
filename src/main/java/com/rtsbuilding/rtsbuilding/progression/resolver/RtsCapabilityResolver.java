@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.progression.resolver;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNode;
 import com.rtsbuilding.rtsbuilding.progression.RtsUnlockEffect;
 import com.rtsbuilding.rtsbuilding.progression.tree.RtsProgressionTree;

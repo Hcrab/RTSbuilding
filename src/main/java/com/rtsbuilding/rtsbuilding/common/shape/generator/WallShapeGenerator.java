@@ -8,11 +8,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 墙体（垂直拉伸线）形状生成器。
+ * 澧欎綋锛堝瀭鐩存媺浼哥嚎锛夊舰鐘剁敓鎴愬櫒銆?
  * <p>
- * 先生成基线（在 XZ 平面上从起点到终点的直线），
- * 然后将基线沿 Y 轴按高度偏移量垂直拉伸，形成一面墙。
- * 支持 FILL（实心墙）和 HOLLOW（边框）两种模式。
+ * 鍏堢敓鎴愬熀绾匡紙鍦?XZ 骞抽潰涓婁粠璧风偣鍒扮粓鐐圭殑鐩寸嚎锛夛紝
+ * 鐒跺悗灏嗗熀绾挎部 Y 杞存寜楂樺害鍋忕Щ閲忓瀭鐩存媺浼革紝褰㈡垚涓€闈㈠銆?
+ * 鏀寔 FILL锛堝疄蹇冨锛夊拰 HOLLOW锛堣竟妗嗭級涓ょ妯″紡銆?
  */
 public class WallShapeGenerator extends AreaShapeGenerator {
 
@@ -23,12 +23,12 @@ public class WallShapeGenerator extends AreaShapeGenerator {
 
     @Override
     public List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode) {
-        // 计算 XZ 平面和 Y 轴上的偏移量并限制范围
+        // 璁＄畻 XZ 骞抽潰鍜?Y 杞翠笂鐨勫亸绉婚噺骞堕檺鍒惰寖鍥?
         int dx = clampOffset(input.end().getX() - input.start().getX());
         int dz = clampOffset(input.end().getZ() - input.start().getZ());
         int dy = clampOffset(input.heightOffset());
 
-        // 生成基线（起点 → 终点在 XZ 平面上的投影）
+        // 鐢熸垚鍩虹嚎锛堣捣鐐?鈫?缁堢偣鍦?XZ 骞抽潰涓婄殑鎶曞奖锛?
         BlockPos endPos = new BlockPos(input.start().getX() + dx, input.start().getY(), input.start().getZ() + dz);
         BlockPos baseStart = input.start();
         List<BlockPos> base = generateLinePositions(baseStart, endPos);
@@ -37,12 +37,12 @@ public class WallShapeGenerator extends AreaShapeGenerator {
         int maxY = Math.max(0, dy);
         List<BlockPos> result = new ArrayList<>();
 
-        // 从上往下逐层生成墙面位置
+        // 浠庝笂寰€涓嬮€愬眰鐢熸垚澧欓潰浣嶇疆
         for (int iy = maxY; iy >= minY; iy--) {
             for (int i = 0; i < base.size(); i++) {
                 BlockPos basePos = base.get(i);
                 boolean endColumn = (base.size() <= 1) || (i == 0 || i == base.size() - 1);
-                // 空心模式下只保留端部列和顶部/底部行
+                // 绌哄績妯″紡涓嬪彧淇濈暀绔儴鍒楀拰椤堕儴/搴曢儴琛?
                 if (fillMode != ShapeFillMode.FILL && !endColumn && iy != minY && iy != maxY) {
                     continue;
                 }

@@ -550,7 +550,7 @@ public final class RtsPlacementBatch {
             tag.putBoolean(NBT_SKIP_IF_OCCUPIED, skipIfOccupied);
             tag.putString(NBT_ITEM_ID, itemId);
             if (!itemPrototype.isEmpty()) {
-                tag.put(NBT_ITEM_PROTOTYPE, itemPrototype.save(registryAccess));
+                tag.put(NBT_ITEM_PROTOTYPE, itemPrototype.save(new CompoundTag()));
             }
             tag.putDouble(NBT_RAY_ORIGIN_X, rayOriginX);
             tag.putDouble(NBT_RAY_ORIGIN_Y, rayOriginY);

@@ -4,10 +4,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -90,6 +93,23 @@ final class RtsCraftingUtils {
             type = type.getSuperclass();
         }
         return null;
+    }
+
+    /**
+     * 为 1.20.1 配方接口构造一个真实的 3x3 合成容器。
+     *
+     * <p>1.21.1 可以直接使用 {@code CraftingInput} 值对象；Forge 1.20.1 的
+     * {@link CraftingRecipe} 仍接收 {@link CraftingContainer}。这个适配器只负责
+     * 版本类型翻译，不改变主线的材料选择、回滚与产物处理语义。</p>
+     */
+    static CraftingContainer createCraftingContainer(ServerPlayer player, List<ItemStack> stacks) {
+        CraftingMenu dummyMenu = new CraftingMenu(0, player.getInventory(), ContainerLevelAccess.NULL);
+        TransientCraftingContainer input = new TransientCraftingContainer(dummyMenu, 3, 3);
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = stacks != null && i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
+            input.setItem(i, stack == null ? ItemStack.EMPTY : stack.copy());
+        }
+        return input;
     }
 
     /**

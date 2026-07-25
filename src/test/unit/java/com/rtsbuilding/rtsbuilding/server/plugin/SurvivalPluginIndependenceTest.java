@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

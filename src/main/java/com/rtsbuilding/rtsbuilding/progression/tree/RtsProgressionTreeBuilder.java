@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.progression.tree;
 
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.progression.RtsUnlockEffect;
 import com.rtsbuilding.rtsbuilding.progression.node.RtsProgressionNodeBuilder;
 import com.rtsbuilding.rtsbuilding.progression.node.RtsProgressionNodeId;

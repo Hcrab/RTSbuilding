@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtStringLimits;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskCodec;

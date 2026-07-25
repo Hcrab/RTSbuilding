@@ -15,7 +15,6 @@ import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsBenchmarkCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsGuiCompatSetupCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
@@ -250,7 +249,6 @@ public final class RtsbuildingMod {
 
         @SubscribeEvent
         static void onRegisterCommands(final RegisterCommandsEvent event) {
-            RtsBenchmarkCommand.register(event.getDispatcher());
             RtsGuiCompatSetupCommand.register(event.getDispatcher());
         }
 

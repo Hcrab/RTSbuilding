@@ -73,12 +73,16 @@ public final class RtsCraftingSearch {
 
         List<AvailableCraftItem> availableStacks = snapshotAvailableCraftItems(player, session, activeLinked);
         Map<String, List<CraftableCandidate>> byResultItem = new LinkedHashMap<>();
-        for (RecipeHolder<CraftingRecipe> holder : player.serverLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
-            if (!supportsWorkbenchCraftPanelRecipe(holder.value())) {
+        for (ResourceLocation recipeId : player.serverLevel().getRecipeManager().getRecipeIds().toList()) {
+            Recipe<?> rawRecipe = player.serverLevel().getRecipeManager().byKey(recipeId).orElse(null);
+            if (!(rawRecipe instanceof CraftingRecipe craftingRecipe)) {
+                continue;
+            }
+            if (!supportsWorkbenchCraftPanelRecipe(craftingRecipe)) {
                 continue;
             }
             CraftableCandidate candidate = buildCraftableCandidate(
-                    player, holder, availableStacks,
+                    player, recipeId, craftingRecipe, availableStacks,
                     session.browser.craftSearch, session.browser.craftPinyinSearchEnabled,
                     session.browser.craftLocalizedSearchMatches);
             if (candidate == null) {
@@ -210,13 +214,13 @@ public final class RtsCraftingSearch {
     // ---- candidate building ----------------------------------------------------
 
     private static CraftableCandidate buildCraftableCandidate(
-            ServerPlayer player, RecipeHolder<CraftingRecipe> holder,
+            ServerPlayer player, ResourceLocation recipeId, CraftingRecipe recipe,
             List<AvailableCraftItem> availableStacks, String search,
             boolean pinyinSearchEnabled, Set<String> localizedSearchMatches) {
-        if (player == null || holder == null || holder.value() == null) {
+        if (player == null || recipeId == null || recipe == null) {
             return null;
         }
-        ItemStack result = resolveCraftablePreviewResult(holder.value(), player);
+        ItemStack result = resolveCraftablePreviewResult(recipe, player);
         if (result.isEmpty()) {
             return null;
         }
@@ -228,12 +232,12 @@ public final class RtsCraftingSearch {
         if (!matchesCraftablesSearch(resultId, resultLabel, search, pinyinSearchEnabled, localizedSearchMatches)) {
             return null;
         }
-        RecipeAvailability availability = RtsCraftingAvailability.evaluateRecipeAvailability(holder.value(), availableStacks);
+        RecipeAvailability availability = RtsCraftingAvailability.evaluateRecipeAvailability(recipe, availableStacks);
         return new CraftableCandidate(
-                holder.id().toString(), resultId.toString(),
+                recipeId.toString(), resultId.toString(),
                 Math.max(1, result.getCount()), resultLabel,
                 availability.craftable(), availability.missingSummary(), availability.missingTotal(),
-                RtsCraftingUtils.buildRecipeSummary(holder.value()));
+                RtsCraftingUtils.buildRecipeSummary(recipe));
     }
 
     /**
@@ -274,7 +278,7 @@ public final class RtsCraftingSearch {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.registryAccess());
+        ItemStack result = recipe.getResultItem(player.serverLevel().registryAccess());
         if (!result.isEmpty()) {
             return result.copy();
         }
@@ -291,7 +295,9 @@ public final class RtsCraftingSearch {
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        ItemStack assembled = recipe.assemble(CraftingInput.of(3, 3, previewStacks), player.registryAccess());
+        ItemStack assembled = recipe.assemble(
+                RtsCraftingUtils.createCraftingContainer(player, previewStacks),
+                player.serverLevel().registryAccess());
         return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
     }
 

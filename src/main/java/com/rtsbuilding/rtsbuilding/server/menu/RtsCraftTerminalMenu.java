@@ -9,10 +9,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 
 import java.util.ArrayList;
@@ -109,9 +108,12 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         for (int i = 0; i < 9; i++) {
             stacks.add(this.getSlot(1 + i).getItem().copy());
         }
+        TransientCraftingContainer input = new TransientCraftingContainer(this, 3, 3);
+        for (int i = 0; i < stacks.size(); i++) {
+            input.setItem(i, stacks.get(i));
+        }
         return level.getRecipeManager()
-                .getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, stacks), level)
-                .map(RecipeHolder::value)
+                .getRecipeFor(RecipeType.CRAFTING, input, level)
                 .orElse(null);
     }
 }

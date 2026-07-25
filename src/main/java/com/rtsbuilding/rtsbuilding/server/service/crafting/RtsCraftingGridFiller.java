@@ -19,7 +19,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
@@ -169,8 +169,8 @@ public final class RtsCraftingGridFiller {
         if (key == null) {
             return;
         }
-        RecipeHolder<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
-        if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
+        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        if (!(raw instanceof CraftingRecipe craftingRecipe)) {
             return;
         }
 

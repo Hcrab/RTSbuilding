@@ -1,10 +1,8 @@
 package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
-import com.rtsbuilding.rtsbuilding.common.shape.AreaShape;
-import com.rtsbuilding.rtsbuilding.common.shape.AreaShapeGenerator;
-import com.rtsbuilding.rtsbuilding.common.shape.AreaShapeInput;
-import com.rtsbuilding.rtsbuilding.common.shape.ShapeFillMode;
-import com.rtsbuilding.rtsbuilding.common.shape.ShapeGeneratorRegistry;
+import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
+import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
+import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
@@ -88,6 +86,22 @@ class AreaShapeGeneratorTest {
         assertFalse(hollow.contains(new BlockPos(0, 65, 0)));
         assertTrue(hollow.contains(new BlockPos(0, 64, 0)));
         assertTrue(hollow.contains(new BlockPos(0, 66, 0)));
+    }
+
+    @Test
+    void normalCylinderBaseMatchesNormalCircleExactly() {
+        AreaShapeGenerator circle = ShapeGeneratorRegistry.getGenerator(AreaShape.CIRCLE);
+        AreaShapeGenerator cylinder = ShapeGeneratorRegistry.getGenerator(AreaShape.CYLINDER);
+        BlockPos start = new BlockPos(0, 64, 0);
+        AreaShapeInput circleInput = AreaShapeInput.of(start, new BlockPos(3, 64, 0), 0, Direction.UP, Direction.UP);
+        AreaShapeInput cylinderInput = AreaShapeInput.of(start, new BlockPos(3, 64, 0), 0, Direction.UP, Direction.UP);
+
+        assertEquals(
+                new HashSet<>(circle.generatePositions(circleInput, ShapeFillMode.FILL)),
+                new HashSet<>(cylinder.generatePositions(cylinderInput, ShapeFillMode.FILL)));
+        assertEquals(
+                new HashSet<>(circle.generatePositions(circleInput, ShapeFillMode.HOLLOW)),
+                new HashSet<>(cylinder.generatePositions(cylinderInput, ShapeFillMode.HOLLOW)));
     }
 
     @Test

@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsBoxHandleInteraction
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
 import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;

@@ -71,7 +71,6 @@ import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -1447,12 +1446,11 @@ public final class RtsServerGameTests {
         }
         ensureCoreServices();
         GameProfile profile = new GameProfile(UUID.randomUUID(), name);
-        CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
         // 与原版 GameTest 的 mock player 保持相同的模式判定语义，同时仍使用唯一名称并注册进 PlayerList。
         // 生产放置链会直接查询 isCreative()/isSpectator()；普通 ServerPlayer 在测试连接刚建立时可能尚未
         // 完成这些派生状态的同步，导致实际 useItemOn 已执行却被错误归入跳过。
         ServerPlayer player = new ServerPlayer(
-                helper.getLevel().getServer(), helper.getLevel(), profile, cookie.clientInformation()) {
+                helper.getLevel().getServer(), helper.getLevel(), profile) {
             @Override
             public boolean isSpectator() {
                 return gameType == GameType.SPECTATOR;
@@ -1465,7 +1463,7 @@ public final class RtsServerGameTests {
         };
         Connection connection = new Connection(PacketFlow.SERVERBOUND);
         new EmbeddedChannel(connection);
-        helper.getLevel().getServer().getPlayerList().placeNewPlayer(connection, player, cookie);
+        helper.getLevel().getServer().getPlayerList().placeNewPlayer(connection, player);
         Vec3 playerPos = helper.absoluteVec(relativePos);
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
         player.setGameMode(gameType);
