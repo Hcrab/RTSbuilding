@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.blueprint;
 
 
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintClientNetworkHandlers;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 
 import net.minecraftforge.api.distmarker.Dist;
@@ -13,7 +13,7 @@ public final class BlueprintClientPayloadBridge {
 
     public static void handleStatus(S2CBlueprintStatusPayload payload, IPayloadContext context) {
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintClientNetworkHandlers.handleStatus(payload, context);
+            RtsClientNetworkHandlers.handleBlueprintStatus(payload, context);
         }
     }
 }

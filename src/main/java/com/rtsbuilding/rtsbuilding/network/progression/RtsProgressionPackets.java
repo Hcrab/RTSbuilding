@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
+import com.rtsbuilding.rtsbuilding.network.progression.handler.RtsProgressionNetworkHandlers;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 
@@ -21,19 +22,9 @@ public final class RtsProgressionPackets {
                 RtsProgressionNetworkHandlers::handleQuestDetect);
 
         registrar.playToServer(
-                C2SRtsUnlockProgressionNodePayload.TYPE,
-                C2SRtsUnlockProgressionNodePayload.STREAM_CODEC,
-                RtsProgressionNetworkHandlers::handleUnlockProgressionNode);
-
-        registrar.playToServer(
                 C2SRtsSetSurvivalProgressionPayload.TYPE,
                 C2SRtsSetSurvivalProgressionPayload.STREAM_CODEC,
                 RtsProgressionNetworkHandlers::handleSetSurvivalProgression);
-
-        registrar.playToServer(
-                C2SRtsSetProgressionCostPayload.TYPE,
-                C2SRtsSetProgressionCostPayload.STREAM_CODEC,
-                RtsProgressionNetworkHandlers::handleSetProgressionCost);
 
         registrar.playToServer(
                 C2SRtsSetHomePayload.TYPE,

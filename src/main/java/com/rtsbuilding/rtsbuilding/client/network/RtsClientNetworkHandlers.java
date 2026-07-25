@@ -22,6 +22,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
@@ -159,5 +160,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
+    }
+
+    public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel.setStatus(
+                payload.status(), payload.messageKey(), payload.detail()));
     }
 }

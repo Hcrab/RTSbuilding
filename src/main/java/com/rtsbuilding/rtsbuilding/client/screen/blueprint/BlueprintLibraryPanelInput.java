@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;

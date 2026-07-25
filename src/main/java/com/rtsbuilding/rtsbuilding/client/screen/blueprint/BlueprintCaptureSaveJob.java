@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprintBlock;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
+import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;

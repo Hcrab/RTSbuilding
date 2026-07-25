@@ -47,7 +47,6 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetAutoStorePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetFunnelPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetGuiBindingPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetModePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetProgressionCostPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetQuickSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetSurvivalProgressionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
@@ -55,7 +54,6 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
-import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsUnlockProgressionNodePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
@@ -84,16 +82,8 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsRequestProgressionStatePayload());
     }
 
-    public static void sendUnlockProgressionNode(net.minecraft.resources.ResourceLocation nodeId) {
-        PacketDistributor.sendToServer(new C2SRtsUnlockProgressionNodePayload(nodeId));
-    }
-
     public static void sendSetSurvivalProgression(boolean enabled) {
         PacketDistributor.sendToServer(new C2SRtsSetSurvivalProgressionPayload(enabled));
-    }
-
-    public static void sendSetProgressionCost(net.minecraft.resources.ResourceLocation nodeId, String costsText) {
-        PacketDistributor.sendToServer(new C2SRtsSetProgressionCostPayload(nodeId, costsText == null ? "" : costsText));
     }
 
     public static void sendSetHome(BlockPos pos) {

@@ -128,28 +128,23 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 PipelineResult result = pipe.execute(ctx);
                 ctx.setResult(result);
 
-                switch (result) {
-                    case PipelineResult.Success s -> {
-                        // 继续执行下一个 Pipe
-                    }
-                    case PipelineResult.Failure f -> {
-                        RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' failed: {}",
-                                i, pipe.getClass().getSimpleName(), f.message());
-                        RtsOperationDiagnostics.pipelineResult(
-                                type, ctx, pipe.getClass().getSimpleName(), result, false);
-                        rollbackIfNeeded(ctx);
-                        firePipelineResultEvent(ctx, result);
-                        return result;
-                    }
-                    case PipelineResult.Skip sk -> {
-                        RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' skipped: {}",
-                                i, pipe.getClass().getSimpleName(), sk.reason());
-                        RtsOperationDiagnostics.pipelineResult(
-                                type, ctx, pipe.getClass().getSimpleName(), result, false);
-                        rollbackIfNeeded(ctx);
-                        firePipelineResultEvent(ctx, result);
-                        return result;
-                    }
+                if (result instanceof PipelineResult.Failure failure) {
+                    RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' failed: {}",
+                            i, pipe.getClass().getSimpleName(), failure.message());
+                    RtsOperationDiagnostics.pipelineResult(
+                            type, ctx, pipe.getClass().getSimpleName(), result, false);
+                    rollbackIfNeeded(ctx);
+                    firePipelineResultEvent(ctx, result);
+                    return result;
+                }
+                if (result instanceof PipelineResult.Skip skip) {
+                    RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' skipped: {}",
+                            i, pipe.getClass().getSimpleName(), skip.reason());
+                    RtsOperationDiagnostics.pipelineResult(
+                            type, ctx, pipe.getClass().getSimpleName(), result, false);
+                    rollbackIfNeeded(ctx);
+                    firePipelineResultEvent(ctx, result);
+                    return result;
                 }
             } catch (Exception e) {
                 var failure = new PipelineResult.Failure(
@@ -230,17 +225,13 @@ public final class WorkflowPipeline<C extends PipelineContext> {
             try {
                 PipelineResult result = pipe.execute(ctx);
                 ctx.setResult(result);
-                switch (result) {
-                    case PipelineResult.Success s -> {}
-                    case PipelineResult.Failure f -> {
-                        RtsbuildingMod.LOGGER.error("[Pipeline] Cleanup pipe[{}] '{}' failed: {}",
-                                i, pipe.getClass().getSimpleName(), f.message());
-                        rollbackIfNeeded(ctx);
-                    }
-                    case PipelineResult.Skip sk -> {
-                        RtsbuildingMod.LOGGER.debug("[Pipeline] Cleanup pipe[{}] '{}' skipped: {}",
-                                i, pipe.getClass().getSimpleName(), sk.reason());
-                    }
+                if (result instanceof PipelineResult.Failure failure) {
+                    RtsbuildingMod.LOGGER.error("[Pipeline] Cleanup pipe[{}] '{}' failed: {}",
+                            i, pipe.getClass().getSimpleName(), failure.message());
+                    rollbackIfNeeded(ctx);
+                } else if (result instanceof PipelineResult.Skip skip) {
+                    RtsbuildingMod.LOGGER.debug("[Pipeline] Cleanup pipe[{}] '{}' skipped: {}",
+                            i, pipe.getClass().getSimpleName(), skip.reason());
                 }
             } catch (Exception e) {
                 RtsbuildingMod.LOGGER.error("[Pipeline] Cleanup pipe[{}] '{}' threw",
@@ -345,11 +336,9 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         }
         int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
 
-        WorkflowEventType eventType = switch (result) {
-            case PipelineResult.Success s -> WorkflowEventType.SYNC_PHASE_COMPLETED;
-            case PipelineResult.Failure f -> WorkflowEventType.CANCELLED;
-            case PipelineResult.Skip sk -> WorkflowEventType.CANCELLED;
-        };
+        WorkflowEventType eventType = result instanceof PipelineResult.Success
+                ? WorkflowEventType.SYNC_PHASE_COMPLETED
+                : WorkflowEventType.CANCELLED;
 
         try {
             RtsWorkflowEngine.getInstance().firePipelineEvent(ctx.player(), entryId, eventType);

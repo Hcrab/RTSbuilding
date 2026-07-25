@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintFormat;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import net.minecraft.core.Vec3i;
 import org.junit.jupiter.api.Test;
 

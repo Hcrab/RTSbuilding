@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
-import com.rtsbuilding.rtsbuilding.blueprint.BlueprintReplaceRules;
+import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;

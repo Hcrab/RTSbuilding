@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintReaders;
-import com.rtsbuilding.rtsbuilding.blueprint.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintReaders;
+import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.client.Minecraft;
 
 import java.io.IOException;

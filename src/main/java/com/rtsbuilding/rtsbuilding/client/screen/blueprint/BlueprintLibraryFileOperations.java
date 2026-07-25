@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.blueprint.format.BlueprintWriters;
+import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import net.minecraft.Util;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -17,7 +17,7 @@ import java.util.Map;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelFiles.*;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
-import static com.rtsbuilding.rtsbuilding.blueprint.network.S2CBlueprintStatusPayload.*;
+import static com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload.*;
 
 /**
  * 本地蓝图库的对话框和文件系统操作边界。
