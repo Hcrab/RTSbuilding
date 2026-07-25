@@ -41,9 +41,12 @@ class RtsRemoteMenuCompatSmokeTest {
                 "src/main/resources/rtsbuilding.mixins.json"));
 
         assertTrue(unified.contains("new RemoteMenuTracker(RtsRemoteMenuCompat::isSupportedRemoteMenu)")
+                        && unified.contains("\"ironfurnaces.container.BlockWirelessEnergyHeaterContainer\"")
                         && unified.contains("isRemoteMenuPersistenceDisabledForProbe"),
                 "Forge 远程菜单必须与主线一样使用统一追踪器，并保留自动化失效探针");
         assertTrue(mixin.contains("BlockIronFurnaceContainerBase")
+                        && mixin.contains("\"ironfurnaces.container.BlockWirelessEnergyHeaterContainer\"")
+                        && !mixin.contains("BlockWirelessEnergyHeaterContainerBase")
                         && mixin.contains("GeneratorMenu")
                         && mixin.contains("StorageContainerMenuBase")
                         && mixin.contains("RtsRemoteMenuCompat.shouldForceStillValid")

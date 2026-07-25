@@ -37,6 +37,7 @@ public final class RtsRemoteMenuCompat {
     public static boolean isIronFurnacesMenu(AbstractContainerMenu menu) {
         return menu != null
                 && (isInstanceOf(menu, "ironfurnaces.container.furnaces.BlockIronFurnaceContainerBase")
+                        || isInstanceOf(menu, "ironfurnaces.container.BlockWirelessEnergyHeaterContainer")
                         || isInstanceOf(menu, "ironfurnaces.container.BlockWirelessEnergyHeaterContainerBase"));
     }
 
