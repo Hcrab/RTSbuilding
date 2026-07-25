@@ -10,10 +10,12 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 渲染 Ctrl+右键移动玩家的目标提示。
+ * Renders the Ctrl+right-click movement destination.
  *
- * <p>这里只负责视觉反馈：蓝色目标框在移动中保持显示，抵达后短暂淡出。
- * 移动状态仍由 {@link RtsClientPathfinding} 维护，避免把输入、移动和渲染职责混在一起。</p>
+ * <p>This owns only the visual feedback for the currently selected move target:
+ * a blue, thicker block border that stays while the player is moving and fades
+ * quickly after arrival. Movement state and packet sending remain owned by
+ * {@link RtsClientPathfinding}.</p>
  */
 public final class PlayerMoveTargetRenderer {
     private static final float BLUE_R = 0.16F;
@@ -22,6 +24,7 @@ public final class PlayerMoveTargetRenderer {
     private static final float ACTIVE_ALPHA = 0.95F;
     private static final float NO_DEPTH_ALPHA = 0.28F;
     private static final double INFLATE = 0.045D;
+    private static final double THICKNESS_MULTIPLIER = 1.85D;
 
     private PlayerMoveTargetRenderer() {
     }
@@ -47,14 +50,14 @@ public final class PlayerMoveTargetRenderer {
                 poseStack, bracketBuffer,
                 bounds.minX, bounds.minY, bounds.minZ,
                 bounds.maxX, bounds.maxY, bounds.maxZ,
-                BLUE_R, BLUE_G, BLUE_B, activeAlpha, distance);
+                BLUE_R, BLUE_G, BLUE_B, activeAlpha, distance, THICKNESS_MULTIPLIER);
 
         if (noDepthBuffer != null) {
             CornerBracketRenderer.renderCornerBrackets(
                     poseStack, noDepthBuffer,
                     bounds.minX, bounds.minY, bounds.minZ,
                     bounds.maxX, bounds.maxY, bounds.maxZ,
-                    BLUE_R, BLUE_G, BLUE_B, noDepthAlpha, distance);
+                    BLUE_R, BLUE_G, BLUE_B, noDepthAlpha, distance, THICKNESS_MULTIPLIER);
         }
     }
 }

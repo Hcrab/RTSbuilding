@@ -9,14 +9,17 @@ import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlock
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.sound.RtsBlockActionSoundPlayer;
-import com.rtsbuilding.rtsbuilding.client.screen.PlacementHistoryManager;
+import com.rtsbuilding.rtsbuilding.client.screen.handler.PlacementHistoryManager;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
@@ -40,6 +43,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleCameraState(S2CRtsCameraStatePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyServerCameraState(payload));
+    }
+
+    public static void handleCameraAnchor(S2CRtsCameraAnchorPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> ClientRtsController.get().applyServerCameraAnchor(payload));
     }
 
     public static void handleCullingState(S2CRtsCullingStatePayload payload, IPayloadContext context) {
@@ -126,6 +133,17 @@ public final class RtsClientNetworkHandlers {
         context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof BuilderScreen screen) {
                 RtsResumePlacementPanel panel = screen.getResumePlacementPanel();
+                panel.openWithData(payload);
+            }
+        });
+    }
+
+    public static void handleBlueprintResumeScan(
+            S2CRtsBlueprintResumeScanPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (Minecraft.getInstance().screen instanceof BuilderScreen screen) {
+                RtsBlueprintResumePanel panel = screen.getBlueprintResumePanel();
                 panel.openWithData(payload);
             }
         });

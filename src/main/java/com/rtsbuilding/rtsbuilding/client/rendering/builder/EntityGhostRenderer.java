@@ -1,11 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-
-import java.util.List;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -19,51 +15,100 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.phys.Vec3;
 
-/** Translucent entity previews for spawn eggs and end crystals. */
-final class EntityGhostRenderer {
+import java.util.List;
+
+/**
+ * Ghost entity renderer for spawn eggs and end crystals in quick-build mode.
+ * <p>
+ * When the player holds a Spawn Egg or End Crystal while previewing a
+ * quick-build placement, renders translucent entity models at the target
+ * block positions for instant visual feedback.
+ */
+public final class EntityGhostRenderer {
+
     private static final float GHOST_ALPHA = 0.75F;
     private static final float ENTITY_SCALE = 0.95F;
 
     private EntityGhostRenderer() {
     }
 
-    static void renderEntities(Minecraft minecraft, List<BlockPos> blocks, PoseStack poseStack, ItemStack itemStack) {
+    /**
+     * Renders spawn egg entity ghosts at the target positions.
+     *
+     * @param minecraft Minecraft client instance
+     * @param blocks    Target block positions
+     * @param poseStack Pose stack for coordinate transforms
+     * @param itemStack Spawn egg item stack
+     */
+    public static void renderEntities(Minecraft minecraft, List<BlockPos> blocks,
+            PoseStack poseStack, ItemStack itemStack) {
         if (minecraft == null || minecraft.level == null || blocks == null || blocks.isEmpty()
-                || itemStack == null || itemStack.isEmpty()
-                || !(itemStack.getItem() instanceof SpawnEggItem spawnEggItem)) {
+                || itemStack == null || itemStack.isEmpty()) {
+            return;
+        }
+        if (!(itemStack.getItem() instanceof SpawnEggItem spawnEggItem)) {
             return;
         }
         EntityType<?> entityType = spawnEggItem.getType(itemStack.getTag());
-        Entity entity = entityType == null ? null : entityType.create(minecraft.level);
-        if (entity != null) {
-            renderEntityGhost(minecraft, blocks, poseStack, entity);
+        if (entityType == null) {
+            return;
         }
+        Entity entity = entityType.create(minecraft.level);
+        if (entity == null) {
+            return;
+        }
+        renderEntityGhost(minecraft, blocks, poseStack, entity);
     }
 
-    static void renderEndCrystals(Minecraft minecraft, List<BlockPos> blocks, PoseStack poseStack) {
+    /**
+     * Renders end crystal entity ghosts at the target positions.
+     *
+     * @param minecraft Minecraft client instance
+     * @param blocks    Target block positions
+     * @param poseStack Pose stack for coordinate transforms
+     */
+    public static void renderEndCrystals(Minecraft minecraft, List<BlockPos> blocks,
+            PoseStack poseStack) {
         if (minecraft == null || minecraft.level == null || blocks == null || blocks.isEmpty()) {
             return;
         }
         Entity entity = EntityType.END_CRYSTAL.create(minecraft.level);
-        if (entity != null) {
-            renderEntityGhost(minecraft, blocks, poseStack, entity);
+        if (entity == null) {
+            return;
         }
+        renderEntityGhost(minecraft, blocks, poseStack, entity);
     }
 
-    private static void renderEntityGhost(Minecraft minecraft, List<BlockPos> blocks, PoseStack poseStack, Entity entity) {
+    /**
+     * Shared entity ghost rendering logic.
+     */
+    private static void renderEntityGhost(Minecraft minecraft, List<BlockPos> blocks,
+            PoseStack poseStack, Entity entity) {
+        // Disable gravity to prevent position drift during rendering
         entity.setNoGravity(true);
+
+        // yOffset = 0: entity feet align with block Y coordinate (click position)
+        double yOffset = 0.0;
+
         EntityRenderDispatcher dispatcher = minecraft.getEntityRenderDispatcher();
         MultiBufferSource.BufferSource bufferSource = minecraft.renderBuffers().bufferSource();
-        MultiBufferSource alphaBuffer = renderType -> new GhostAlphaBufferSource.GhostAlphaVertexConsumer(
-                bufferSource.getBuffer(renderType), GHOST_ALPHA);
+
+        // Preserve original RenderType, only modify alpha to keep entity textures correct
+        MultiBufferSource alphaBuffer = renderType ->
+                new GhostAlphaBufferSource.GhostAlphaVertexConsumer(
+                        bufferSource.getBuffer(renderType), GHOST_ALPHA);
+
         float partialTick = minecraft.getFrameTime();
         Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
 
         for (BlockPos pos : blocks) {
-            double dx = pos.getX() + 0.5D - cameraPos.x;
-            double dz = pos.getZ() + 0.5D - cameraPos.z;
+            // Calculate yaw facing the player
+            double dx = pos.getX() + 0.5 - cameraPos.x;
+            double dz = pos.getZ() + 0.5 - cameraPos.z;
             float yaw = (float) Math.toDegrees(Mth.atan2(-dx, dz));
-            entity.setPos(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
+
+            // Reset interpolation rotation old values to prevent cross-frame glitches
+            entity.setPos(pos.getX() + 0.5, pos.getY() + yOffset, pos.getZ() + 0.5);
             entity.setYRot(yaw);
             entity.setXRot(0);
             entity.xRotO = 0;
@@ -75,13 +120,20 @@ final class EntityGhostRenderer {
                 living.yBodyRotO = yaw;
             }
 
-            int packedLight = minecraft.level != null ? LevelRenderer.getLightColor(minecraft.level, pos) : 0xF000F0;
+            int packedLight = minecraft.level != null
+                    ? LevelRenderer.getLightColor(minecraft.level, pos)
+                    : 0xF000F0;
+
             poseStack.pushPose();
             poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
             poseStack.scale(ENTITY_SCALE, ENTITY_SCALE, ENTITY_SCALE);
-            dispatcher.render(entity, 0.5D, 0.0D, 0.5D, yaw, partialTick, poseStack, alphaBuffer, packedLight);
+
+            dispatcher.render(entity, 0.5, yOffset, 0.5,
+                    yaw, partialTick, poseStack, alphaBuffer, packedLight);
+
             poseStack.popPose();
         }
+
         bufferSource.endBatch();
     }
 }

@@ -1,15 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
-
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Client-only visual lie for server-confirmed remote mining.

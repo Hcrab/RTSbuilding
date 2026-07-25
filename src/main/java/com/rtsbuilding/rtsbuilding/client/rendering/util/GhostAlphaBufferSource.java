@@ -1,15 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-
 import com.mojang.blaze3d.vertex.VertexConsumer;
-
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 
 /**
- * Routes block model rendering through the translucent layer while applying a
- * fixed alpha multiplier. This is used only for client-side preview/animation
- * ghosts, never for real world block state.
+ * Applies a fixed alpha multiplier to block model rendering.
+ * Routes all render types through the translucent layer with an alpha override.
  */
 public record GhostAlphaBufferSource(MultiBufferSource delegate, float alpha) implements MultiBufferSource {
     @Override

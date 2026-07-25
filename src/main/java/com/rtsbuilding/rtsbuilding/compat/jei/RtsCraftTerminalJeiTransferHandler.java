@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
 
 import mezz.jei.api.constants.RecipeTypes;

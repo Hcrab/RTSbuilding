@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -14,15 +12,31 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 
 /**
- * 建造预览渲染入口。
- *
- * <p>单方块 Block 模式的蓝色线框遵守玩家设置；范围类建造的线框是选区反馈，
- * 始终保留。</p>
+ * Build-mode ghost renderer (facade class).
+ * <p>
+ * Orchestrates the complete rendering pipeline for single-block ghost previews,
+ * delegating sub-tasks to dedicated sub-renderers:
+ * <ul>
+ *   <li>{@link BuildGhostBlockStateResolver} — block state resolution</li>
+ *   <li>{@link BuildGhostModelRenderer} — translucent block model rendering</li>
+ *   <li>{@link BuildGhostFillRenderer} — fallback fill box rendering</li>
+ *   <li>{@link BuildGhostWireframeRenderer} — wireframe outline rendering</li>
+ * </ul>
+ * <p>
+ * Public API is kept for backward compatibility.
  */
 public final class BuildGhostRenderer {
+    static final float BUILD_GHOST_ALPHA = 0.8F;
+
     private BuildGhostRenderer() {
     }
 
+    /**
+     * 渲染建造模式预览。
+     *
+     * <p>半透明模型层和蓝色线框层分别由玩家的视觉设置控制。
+     * 如果预览线框关闭，这里不能再画蓝色放置描边。</p>
+     */
     static void render(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
             PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             boolean renderBlockGhost, boolean renderWireframe) {
@@ -30,12 +44,16 @@ public final class BuildGhostRenderer {
             return;
         }
         List<BlockPos> blocks = preview.blocks();
-        if (blocks == null || blocks.isEmpty()) {
+        if (blocks.isEmpty()) {
             return;
         }
+        BlockPos targetPos = blocks.isEmpty() ? null : blocks.get(0);
+        boolean readyConfirm = preview.readyConfirm();
 
-        BlockPos targetPos = blocks.get(0);
+        // 1. Resolve placement-direction BlockState
         BlockState blockState = BuildGhostBlockStateResolver.resolve(minecraft, targetPos);
+
+        // 2. Render translucent block model, entity ghost, or fallback fill
         if (renderBlockGhost) {
             if (blockState != null && !blockState.isAir() && blockState.getRenderShape() == RenderShape.MODEL) {
                 BuildGhostModelRenderer.renderModels(minecraft, blocks, poseStack, blockState);
@@ -46,17 +64,14 @@ public final class BuildGhostRenderer {
                 } else if (!BuildGhostBlockStateResolver.resolveEndCrystalStack(minecraft).isEmpty()) {
                     EntityGhostRenderer.renderEndCrystals(minecraft, blocks, poseStack);
                 } else {
-                    BuildGhostFillRenderer.renderFill(blocks, poseStack, fillBuffer, preview.readyConfirm());
+                    BuildGhostFillRenderer.renderFill(blocks, poseStack, fillBuffer, readyConfirm);
                 }
             }
         }
 
+        // 3. 仅在玩家启用预览线框时绘制蓝色描边。
         if (renderWireframe) {
-            BuildGhostWireframeRenderer.renderWireframes(blocks, poseStack, lineBuffer, preview.readyConfirm());
+            BuildGhostWireframeRenderer.renderWireframes(blocks, poseStack, lineBuffer, readyConfirm);
         }
-    }
-
-    static boolean shouldRenderWireframe(BuildShape shape, boolean placementWireframeEnabled) {
-        return shape != BuildShape.BLOCK || placementWireframeEnabled;
     }
 }

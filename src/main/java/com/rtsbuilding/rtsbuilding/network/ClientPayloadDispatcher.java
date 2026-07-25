@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
@@ -11,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
@@ -49,6 +51,8 @@ public final class ClientPayloadDispatcher {
         if (!IS_CLIENT) return;
         if (payload instanceof S2CRtsCameraStatePayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleCameraState(p, ctx);
+        } else if (payload instanceof S2CRtsCameraAnchorPayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleCameraAnchor(p, ctx);
         }
     }
 
@@ -98,6 +102,8 @@ public final class ClientPayloadDispatcher {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleWorkflowProgressBatch(p, ctx);
         } else if (payload instanceof S2CRtsResumePlacementScanPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleResumePlacementScan(p, ctx);
+        } else if (payload instanceof S2CRtsBlueprintResumeScanPayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleBlueprintResumeScan(p, ctx);
         } else if (payload instanceof S2CRtsHistorySyncPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleHistorySync(p, ctx);
         }

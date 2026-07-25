@@ -7,10 +7,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Client-side closed block interval used by range culling.
+ * 客户端范围剔除盒子，负责保存一个闭区间方块区域。
  *
- * <p>The record describes geometry only. UI state, render refresh, input state, persistence,
- * and future sync layers stay outside so the same geometry checks can be reused safely.
+ * <p>它只描述几何形状，不拥有 UI、渲染刷新或输入状态。这样后续要把剔除区
+ * 做成持久化/同步数据时，可以继续复用同一份几何判断。
  */
 public record RtsCullingBox(int id, BlockPos min, BlockPos max) {
     private static final double EPSILON = 1.0E-7D;

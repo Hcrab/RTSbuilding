@@ -7,7 +7,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.fml.ModList;
+import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.BufferedReader;
@@ -50,7 +50,7 @@ public final class RtsAiHelpClipboard {
                 chinese,
                 modVersion(RtsbuildingMod.MODID),
                 SharedConstants.getCurrentVersion().getName(),
-                modVersion("forge"),
+                modVersion("neoforge"),
                 language,
                 localizedMode(controller == null ? null : controller.getMode()),
                 tutorial,

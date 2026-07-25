@@ -10,6 +10,7 @@ public final class BlueprintClientNetworkHandlers {
     }
 
     public static void handleStatus(S2CBlueprintStatusPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> BlueprintPanel.setStatus(payload.status(), payload.messageKey(), payload.detail()));
+        context.enqueueWork(() -> com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel.setStatus(
+                payload.status(), payload.messageKey(), payload.detail()));
     }
 }

@@ -1,16 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.screen.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
+import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -21,60 +23,73 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
+import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
 
 /**
- * 澶勭??RTS 闀滃ご鍜岃緭鍏ヤ氦浜掔殑鐘舵€佺鐞嗐??
+ * Handles RTS camera and input interaction state management.
  * <p>
- * 鍖呭惈榧犳爣鎷栨??鍙抽敭鏃嬭浆銆佷腑閿钩??鎷惧??銆佹寲鐭垮姩浣溿€侀敭鐩橀暅澶存帶鍒跺拰閿洏鎷栨嫿骞崇Щ鐨勭姸鎬併??
- * 鎵€鏈夌姸鎬佸湪 BuilderScreen 鐨勪簨浠舵柟娉曚腑琚娇鐢紝鏈被璐熻矗瀛樺偍鍜岀鐞嗚繖浜涚姸鎬侊紝
- * 骞舵彁渚涜緟鍔╂柟娉曡繘琛岃緭鍏ュ垽鏂拰鍔ㄤ綔鎵ц??
+ * Manages mouse dragging (right-click rotation, middle-click pan),
+ * mining actions, keyboard camera control, and keyboard pan-drag states.
+ * All state is used in BuilderScreen event methods; this class stores and
+ * manages these states and provides helper methods for input detection
+ * and action execution.
+ * <p>
+ * Default mouse bindings:
+ * <ul>
+ *   <li>Right-click drag -> camera rotation</li>
+ *   <li>Middle-click drag -> camera pan (movement)</li>
+ *   <li>Middle-click without drag -> pick block for placement</li>
+ * </ul>
  */
 public final class CameraInputHandler {
     private BuilderScreen screen;
     private ClientRtsController controller;
 
-    // ======================== 榧犳??闀滃ご鐘舵??========================
+    // ======================== Mouse/Camera state ========================
 
-    /** 鍙抽敭鎷栨嫿鏄惁婵€娲?*/
+    /** Whether right-click drag is active */
     private boolean rightPressActive = false;
-    /** 瑙﹀彂鍙抽敭鎷栨嫿鐨勯紶鏍囨寜閽?*/
+    /** Mouse button that triggered right-click drag */
     private int rightPressButton = -1;
-    /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戜富瑕佸姩浣?*/
+    /** Whether current right press can trigger primary action */
     private boolean rightPressCanPrimary = false;
-    /** 褰撳墠鍙抽敭鏄惁鍙Е鍙戞棆??*/
+    /** Whether current right press can trigger rotation */
     private boolean rightPressCanRotate = false;
-    /** 鏄惁宸插彂鐢熸棆杞嫋鎷斤紙鐢ㄤ簬鍖哄垎鐐瑰嚮鍜屾嫋鎷斤級 */
+    /** Whether rotation drag has occurred (distinguishes click vs drag) */
     private boolean rightDragRotated = false;
-    /** 鍙抽敭鎷栨嫿绱Н璺濈??*/
+    /** Accumulated right-click drag distance */
     private double rightDragDistance = 0.0D;
+    /** 跨过拖动阈值前暂存的水平位移，避免微拖既转镜头又触发点击。 */
+    private double pendingRightDragX = 0.0D;
+    /** 跨过拖动阈值前暂存的垂直位移。 */
+    private double pendingRightDragY = 0.0D;
 
-    /** 涓敭鎷栨嫿鏄惁婵€娲?*/
+    /** Whether middle-click drag is active */
     private boolean middlePressActive = false;
-    /** 瑙﹀彂涓敭鎷栨嫿鐨勯紶鏍囨寜閽?*/
+    /** Mouse button that triggered middle-click drag */
     private int middlePressButton = -1;
-    /** 褰撳墠涓敭鏄惁鍙钩??*/
+    /** Whether current middle press can pan */
     private boolean middlePressCanPan = false;
-    /** 褰撳墠涓敭鏄惁鍙嬀鍙栨柟鍧?*/
+    /** Whether current middle press can pick blocks */
     private boolean middlePressCanPick = false;
-    /** 涓敭鎷栨嫿绱Н璺濈??*/
+    /** Accumulated middle-click drag distance */
     private double middleDragDistance = 0.0D;
 
-    /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 X (鐢ㄤ簬璁＄畻澧為?? */
+    /** Keyboard pan-drag - last mouse X (for delta calculation) */
     private double keyboardPanLastMouseX = Double.NaN;
-    /** 閿洏鎷栨嫿骞崇Щ - 涓婃榧犳爣 Y */
+    /** Keyboard pan-drag - last mouse Y */
     private double keyboardPanLastMouseY = Double.NaN;
 
-    /** 宸﹂敭鎸栫熆鏄惁婵€娲?*/
+    /** Whether left-click mining is active */
     private boolean leftMiningActive = false;
-    /** 鎸栫熆婵€娲绘椂鐨勯紶鏍囨寜閽紙閿洏瑙﹀彂鏃朵负 -1??*/
+    /** Mouse button that activated mining (-1 for keyboard-triggered) */
     private int activeMiningMouseButton = -1;
-    /** 鎸栫熆鏄惁鐢遍敭鐩樿Е鍙?*/
+    /** Whether mining was triggered by keyboard */
     private boolean activeMiningKeyboard = false;
 
-    /** 闀滃ご鍚戜笂鍔ㄤ綔鏄惁姝ｅ湪鎸変??*/
+    /** Camera up action held state */
     private boolean cameraUpActionHeld = false;
-    /** 闀滃ご鍚戜笅鍔ㄤ綔鏄惁姝ｅ湪鎸変??*/
+    /** Camera down action held state */
     private boolean cameraDownActionHeld = false;
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
@@ -82,7 +97,7 @@ public final class CameraInputHandler {
         this.controller = controller;
     }
 
-    // ======================== 闈欐€佽緭鍏ヨ緟鍔╂柟娉?========================
+    // ======================== 静态输入辅助方法 ========================
 
     public static boolean isPrimaryActionMouse(int button) {
         return ClientKeyMappings.ACTION_PRIMARY.matchesMouse(button);
@@ -116,7 +131,7 @@ public final class CameraInputHandler {
                 && !isPickBlockActionMouse(button);
     }
 
-    // ======================== 闀滃ご/杈撳叆鐘舵€佹煡??========================
+    // ======================== 镜头/输入状态查询 ========================
 
     public boolean isCameraUpActionHeld() {
         return this.cameraUpActionHeld || ClientKeyMappings.CAMERA_UP.isDown();
@@ -162,7 +177,29 @@ public final class CameraInputHandler {
         return this.middleDragDistance;
     }
 
-    // ======================== 鍙抽敭鎷栨嫿鐘舵€佺鐞?========================
+    // ======================== 右键拖拽状态管理 ========================
+
+    /**
+     * 取消尚未结束的鼠标点击/拖动判定。
+     *
+     * <p>模式轮盘等模态界面接管鼠标时必须调用本方法，避免打开轮盘前按下的
+     * 右键在轮盘关闭后又被解释成一次世界交互或旋转操作。</p>
+     */
+    public void cancelPointerGestures() {
+        this.rightPressActive = false;
+        this.rightPressButton = -1;
+        this.rightPressCanPrimary = false;
+        this.rightPressCanRotate = false;
+        this.rightDragRotated = false;
+        this.rightDragDistance = 0.0D;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
+        this.middlePressActive = false;
+        this.middlePressButton = -1;
+        this.middlePressCanPan = false;
+        this.middlePressCanPick = false;
+        this.middleDragDistance = 0.0D;
+    }
 
     public void beginRightPress(double mouseX, double mouseY, int button, boolean primaryMouse, boolean rotateMouse) {
         this.rightPressActive = true;
@@ -171,31 +208,56 @@ public final class CameraInputHandler {
         this.rightPressCanRotate = rotateMouse;
         this.rightDragRotated = false;
         this.rightDragDistance = 0.0D;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
     }
 
     public boolean isRightDragActive(int button) {
         return this.rightPressActive && button == this.rightPressButton;
     }
 
+    /**
+     * Handles right/middle-click drag.
+     * <ul>
+     *   <li>Right button -> camera rotation by default</li>
+     *   <li>Middle button -> camera pan by default</li>
+     * </ul>
+     * The specific action is determined dynamically via {@link CameraInputHandler#isPanDragActionMouse(int)}
+     * and {@link CameraInputHandler#isRotateDragActionMouse(int)}.
+     */
     public boolean handleRightDrag(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (this.rightPressActive
                 && button == this.rightPressButton
-                && this.rightPressCanRotate
                 && screen.isWorldArea(mouseX, mouseY)
                 && !isAltDown()) {
             this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
-            if (this.rightDragDistance > 1.5D) {
-                this.rightDragRotated = true;
+            this.pendingRightDragX += dragX;
+            this.pendingRightDragY += dragY;
+            if (this.rightDragDistance <= 1.5D) {
+                return true;
             }
-            this.controller.queueRotateDrag(dragX, dragY);
+            this.rightDragRotated = true;
+            if (CameraInputHandler.isPanDragActionMouse(button)) {
+                // Default middle button: camera pan (movement)
+                this.controller.queuePanDrag(this.pendingRightDragX, this.pendingRightDragY);
+            } else if (this.rightPressCanRotate) {
+                // Default right button: camera rotation
+                this.controller.queueRotateDrag(this.pendingRightDragX, this.pendingRightDragY);
+            }
+            this.pendingRightDragX = 0.0D;
+            this.pendingRightDragY = 0.0D;
             return true;
         }
         return false;
     }
 
     /**
-     * 缁撴潫鍙抽敭鎷栨嫿锛岃繑??true 琛ㄧず闇€瑕佽皟??runPrimaryActionAt??
-     * 浠呭綋鎷栨嫿鏈彂鐢熸棆杞笖鍙Е鍙戜富瑕佸姩浣滄椂杩斿??true??
+     * Ends right/middle-click press.
+     * <ul>
+     *   <li>If rotation/pan occurred during drag, returns false (no primary action).</li>
+     *   <li>If middle-click (pick block) without drag, triggers {@link #tryPickHoveredBlockForPlacement()}.</li>
+     *   <li>Otherwise returns true iff a primary action should be triggered at the release position.</li>
+     * </ul>
      */
     public boolean endRightPress(double mouseX, double mouseY, int button) {
         if (!this.rightPressActive || button != this.rightPressButton) {
@@ -206,20 +268,28 @@ public final class CameraInputHandler {
         this.rightPressButton = -1;
         this.rightPressCanPrimary = false;
         this.rightPressCanRotate = false;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
         if (this.rightDragRotated) {
             this.rightDragRotated = false;
             this.rightDragDistance = 0.0D;
-            return false; // 宸插彂鐢熸棆杞紝涓嶈Е鍙戝姩??
+            return false;
+        }
+        // Middle-click without drag → try pick block for placement (no primary action)
+        if (CameraInputHandler.isPickBlockActionMouse(button) && screen.isWorldArea(mouseX, mouseY)) {
+            this.rightDragDistance = 0.0D;
+            tryPickHoveredBlockForPlacement();
+            return false;
         }
         if (!screen.isWorldArea(mouseX, mouseY) || !canPrimary) {
             this.rightDragDistance = 0.0D;
             return false;
         }
         this.rightDragDistance = 0.0D;
-        return true; // 璋冪敤鏂归渶鎵ц runPrimaryActionAt
+        return true;
     }
 
-    // ======================== 涓敭鎷栨嫿鐘舵€佺鐞?========================
+    // ======================== 中键拖拽状态管理 ========================
 
     public void beginMiddlePress(boolean worldArea, int button, boolean panMouse, boolean pickMouse) {
         this.middlePressActive = worldArea;
@@ -242,8 +312,8 @@ public final class CameraInputHandler {
     }
 
     /**
-     * 缁撴潫涓敭鎷栨嫿锛岃繑??true 琛ㄧず浜嬩欢宸插鐞嗐€?
-     * 濡傛灉涓敭鎸変笅鏃舵湭鍙戠敓鎷栨嫿涓斿彲鎷惧彇锛屽垯瑙﹀??tryPickHoveredBlockForPlacement??
+     * 结束中键拖拽，返回 true 表示事件已处理。
+     * 如果中键按下时未发生拖拽且可拾取，则触发 tryPickHoveredBlockForPlacement。
      */
     public boolean endMiddlePress(double mouseX, double mouseY, int button) {
         if (this.middlePressActive && button == this.middlePressButton) {
@@ -262,13 +332,12 @@ public final class CameraInputHandler {
         return false;
     }
 
-    // ======================== 閿洏鎷栨嫿骞崇Щ ========================
+    // ======================== 键盘拖拽平移 ========================
 
     public boolean canUseKeyboardPanDrag(double mouseX, double mouseY) {
         return isKeyboardPanDragActionHeld()
                 && screen.isWorldArea(mouseX, mouseY)
                 && !screen.isMouseOverFloatingWindow(mouseX, mouseY)
-                && !screen.isDraggingInputSensitivity()
                 && !screen.isSearchFocused();
     }
 
@@ -299,7 +368,7 @@ public final class CameraInputHandler {
         return false;
     }
 
-    // ======================== 闀滃ご鍨傜洿鏂瑰悜 ========================
+    // ======================== 镜头垂直方向 ========================
 
     public boolean updateCameraVerticalHeldState(int keyCode, int scanCode, boolean down) {
         boolean handled = false;
@@ -319,7 +388,7 @@ public final class CameraInputHandler {
         this.cameraDownActionHeld = false;
     }
 
-    // ======================== 鎸栫熆鍔ㄤ綔 ========================
+    // ======================== 挖矿动作 ========================
 
     public boolean startMiningAt(double mouseX, double mouseY, int mouseButton, boolean keyboard) {
         if (screen.getPendingGuiBindSlot() >= 0
@@ -329,29 +398,53 @@ public final class CameraInputHandler {
                 || this.controller.getMode() == BuilderMode.FUNNEL) {
             return false;
         }
-        BlockHitResult hit = screen.pickBlockHit();
-        if (hit == null) {
-            return false;
-        }
         if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
             return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
         }
         if (!screen.isQuickBuildRangeDestroyMode() && screen.getShapeController().hasConfirmedDestroyWorkArea()) {
             return false;
         }
-        if (screen.isUltimineOpen()) {
-            this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot(),
-                    screen.getUltimineLimit(), (byte) screen.getUltimineMode().ordinal());
-            screen.setUltimineLastSentLimit(screen.getUltimineLimit());
-        } else if (screen.isQuickBuildRangeDestroyChainMode()) {
-            List<BlockPos> preview = screen.collectUltiminePreviewBlocks();
-            screen.getShapeController().rememberConfirmedChainDestroyPreview(
-                    preview.isEmpty() ? List.of(hit.getBlockPos().immutable()) : preview);
-            this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
-                    screen.getSelectedToolSlot(), screen.getUltimineLimit(), (byte) 0);
+        if (screen.isQuickBuildRangeDestroyMode()
+                && this.controller.getAreaMinePhase() == MiningOperationService.AREA_MINE_PHASE_NEED_HEIGHT) {
+            // 第三次点击：确认范围挖掘，直接发包执行，不需要再求 BlockHit
+            this.controller.confirmAreaMine(screen.getSelectedToolSlot(), screen.getShapeFillMode());
         } else {
-            this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
-            screen.setUltimineLastSentLimit(1);
+            // 如果指示框当前选中实体，阻止方块破坏
+            InteractionTypes.InteractionTarget lookTarget = screen.pickInteractionTarget(false);
+            if (lookTarget != null && lookTarget.isEntityTarget()) {
+                return false;
+            }
+            BlockHitResult hit = screen.pickBlockHit();
+            if (hit == null) {
+                return false;
+            }
+            if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
+                // 三击选点模式（类似快速建造的 BOX 模式）：
+                // 第 1 击 → setPointA (进入 NEED_SECOND)
+                // 第 2 击 → setPointB (进入 NEED_HEIGHT)
+                // 第 3 击 → 上面 confirmAreaMine (由 phase==NEED_HEIGHT 分支处理)
+                int phase = this.controller.getAreaMinePhase();
+                if (phase == MiningOperationService.AREA_MINE_PHASE_NONE) {
+                    // First click: set point A
+                    this.controller.setAreaMinePointA(hit.getBlockPos().immutable());
+                } else if (phase == MiningOperationService.AREA_MINE_PHASE_NEED_SECOND) {
+                    // Second click: set point B (defines base rectangle), enter height adjustment phase
+                    this.controller.setAreaMinePointB(hit.getBlockPos().immutable());
+                }
+            } else if (screen.isQuickBuildRangeDestroyChainMode()) {
+                List<BlockPos> preview = screen.collectUltiminePreviewBlocks();
+                if (preview.isEmpty()) {
+                    preview = List.of(hit.getBlockPos().immutable());
+                }
+                if (!UltimineUiAdapter.confirmPreview(screen, hit, preview)) {
+                    return false;
+                }
+            } else {
+                // 记录普通挖掘操作到撤回栈（等待服务端确认）
+                screen.getShapeController().recordPendingBreakForUndo(
+                        List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
+                this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
+            }
         }
         this.leftMiningActive = true;
         this.activeMiningMouseButton = keyboard ? -1 : mouseButton;
@@ -377,7 +470,7 @@ public final class CameraInputHandler {
         return this.activeMiningMouseButton;
     }
 
-    // ======================== 榧犳爣鎷惧彇鏂瑰潡鍒扮墿鍝佹??========================
+    // ======================== 鼠标拾取方块到物品栏 ========================
 
     public boolean tryPickHoveredBlockForPlacement() {
         Minecraft mc = screen.getMinecraft();
@@ -413,6 +506,7 @@ public final class CameraInputHandler {
             if (selection.route() == RtsPickBlockPlacementSelector.Route.HOTBAR) {
                 inventory.selected = selection.slot();
                 this.controller.clearPlacementSelectionPreserveMode();
+                this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
@@ -420,27 +514,19 @@ public final class CameraInputHandler {
                     && mc.gameMode != null) {
                 mc.gameMode.handlePickItem(selection.slot());
                 this.controller.clearPlacementSelectionPreserveMode();
+                this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
         }
         this.controller.selectItemForPlacement(itemId.toString(), preview.getHoverName().getString(), preview);
+        this.controller.copyPlacementState(state);
         return true;
     }
 
-    // ======================== 杈撳叆鐏垫晱??========================
+    // ======================== 输入灵敏度 ========================
 
-    public void updateInputSensitivityFromMouse(double mouseX) {
-        int menuW = Math.min(300, screen.width - 24);
-        int menuX = (screen.width - menuW) / 2;
-        int trackX = menuX + 16;
-        int trackW = menuW - 32;
-        double fraction = (mouseX - trackX) / (double) trackW;
-        fraction = Mth.clamp(fraction, 0.0D, 1.0D);
-        this.controller.setInputSensitivityByFraction(fraction);
-    }
-
-    // ======================== Modifier 鏌ヨ??========================
+    // ======================== Modifier 查询 ========================
 
     private static boolean isAltDown() {
         Minecraft mc = Minecraft.getInstance();

@@ -1,17 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
 
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.BOTTOM_PANEL_HEADER_H;
-
 /**
  * Container for bottom-panel layout data types.
  * <p>
  * Groups the panel layout parameters and the tab enum that together define
  * the bottom panel's geometry and mode selection. Both types are always
- * referenced together by {@link com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel}
- * and {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen}.
  */
 public final class BottomPanelLayoutTypes {
 
@@ -28,6 +22,8 @@ public final class BottomPanelLayoutTypes {
      * @param panelH        panel height
      * @param sortX         sort-button X
      * @param sortY         sort-button Y
+     * @param craftDockX    craft-dock ring left edge
+     * @param craftDockY    craft-dock ring top edge
      * @param categoryX     category-panel X
      * @param categoryY     category-panel Y
      * @param categoryH     category-panel height
@@ -52,6 +48,8 @@ public final class BottomPanelLayoutTypes {
             int panelH,
             int sortX,
             int sortY,
+            int craftDockX,
+            int craftDockY,
             int categoryX,
             int categoryY,
             int categoryH,
@@ -77,21 +75,10 @@ public final class BottomPanelLayoutTypes {
          * @return true if inside the panel
          */
         public boolean contains(double mouseX, double mouseY) {
-            return mouseX >= this.panelX && mouseX <= this.panelX + this.panelW
-                    && mouseY >= this.panelY && mouseY <= this.panelY + this.panelH;
+            return mouseX >= this.panelX && mouseX < this.panelX + this.panelW
+                    && mouseY >= this.panelY && mouseY < this.panelY + this.panelH;
         }
 
-        /**
-         * Returns whether the mouse is inside the panel's header area.
-         *
-         * @param mouseX current mouse X
-         * @param mouseY current mouse Y
-         * @return true if inside the header bar
-         */
-        public boolean isInsideHeader(double mouseX, double mouseY) {
-            return mouseX >= this.panelX && mouseX <= this.panelX + this.panelW
-                    && mouseY >= this.panelY && mouseY <= this.panelY + BOTTOM_PANEL_HEADER_H;
-        }
     }
 
     /**

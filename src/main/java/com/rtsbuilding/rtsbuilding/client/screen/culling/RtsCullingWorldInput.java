@@ -4,10 +4,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * World-click entry point for the range-culling management page.
+ * 范围剔除管理页的世界点击入口。
  *
- * <p>This class only connects current ray data, culling-aware block hits, and the manager state machine.
- * It deliberately hides raw non-culling pickers so selection cannot regress to being blocked by hidden blocks.
+ * <p>职责边界：这里只串起“当前射线 + 剔除感知方块命中 + 管理器状态机”。
+ * 它刻意不暴露 raw/忽略剔除的 picker，避免之后再把管理页选点改回会被隐藏方块挡住的路径。</p>
  */
 public final class RtsCullingWorldInput {
     private RtsCullingWorldInput() {
@@ -20,7 +20,7 @@ public final class RtsCullingWorldInput {
         Vec3 origin = cursor.currentRayOrigin();
         Vec3 direction = cursor.computeCursorRayDirection();
         BlockHitResult hit = cursor.pickCullingAwareBlockHit();
-        return manager.handleWorldAction(hit, origin, direction);
+        return CullingUiAdapter.worldPrimary(manager, hit, origin, direction);
     }
 
     public interface Cursor {

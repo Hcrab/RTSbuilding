@@ -1,0 +1,384 @@
+package com.rtsbuilding.rtsbuilding.client.screen.craft;
+
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
+import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityAction;
+import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityOption;
+import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityReducer;
+import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityState;
+import com.rtsbuilding.rtsbuilding.uicore.craft.CraftQuantityTransition;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiControlChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import org.lwjgl.glfw.GLFW;
+
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Window-layer version of the RTS craft quantity picker.
+ *
+ * <p>The panel owns only the recipe/count UI state and confirmed request. The
+ * actual craft execution remains in {@link ClientRtsController}, so migrating
+ * this popup into the RTS window layer does not change server-side crafting
+ * semantics or linked-storage validation.
+ */
+public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
+    private static final UiControlState ENABLED_CONTROL = UiControlState.enabled();
+    private ItemStack preview = ItemStack.EMPTY;
+    private CraftQuantityState state = new CraftQuantityState(false, "", "",
+            Collections.<CraftQuantityOption>emptyList(), 0, 0, 1, 1, true);
+    private Request pendingRequest;
+
+    @Override
+    public void init(BuilderScreen screen, ClientRtsController controller) {
+        super.init(screen, controller);
+    }
+
+    public void open(CraftableEntry entry) {
+        if (entry == null || !entry.craftable()) {
+            return;
+        }
+        this.preview = entry.stack().copy();
+        List<CraftQuantityOption> options = entry.recipeOptions().stream()
+                .map(option -> new CraftQuantityOption(option.recipeId(), option.summary(),
+                        option.missingSummary(), option.resultCount(), option.craftable()))
+                .toList();
+        CraftQuantityWindowLayout.Layout layout = resolveLayout();
+        int selected = findDefaultRecipeIndex(options);
+        this.state = new CraftQuantityState(true, entry.stack().getHoverName().getString(),
+                entry.itemId(), options, selected, 0,
+                CraftQuantityWindowLayout.visibleOptionRows(layout), 1, true);
+        this.pendingRequest = null;
+        setOpen(true);
+        markBroughtToFront();
+    }
+
+    public Request consumePendingRequest() {
+        Request request = this.pendingRequest;
+        this.pendingRequest = null;
+        return request;
+    }
+
+    @Override
+    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        CraftQuantityWindowLayout.Layout layout = resolveLayout();
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
+        int visibleRows = CraftQuantityWindowLayout.visibleOptionRows(layout);
+        CraftQuantityOption selected = this.state.selected();
+
+        if (!this.preview.isEmpty()) {
+            g.renderItem(this.preview, layout.x, layout.y);
+        }
+        String label = screen.font().plainSubstrByWidth(
+                this.state.itemLabel,
+                Math.max(24, layout.w - CraftQuantityWindowLayout.ITEM_TEXT_RIGHT_RESERVE));
+        g.drawString(screen.font(), label,
+                layout.x + CraftQuantityWindowLayout.ITEM_TEXT_X,
+                layout.y + CraftQuantityWindowLayout.ITEM_LABEL_TOP,
+                CraftQuantityStyle.ITEM_LABEL.toArgb(), false);
+        int selectedCount = selected == null ? 1 : selected.resultCount;
+        g.drawString(screen.font(), "Each craft: x" + selectedCount,
+                layout.x + CraftQuantityWindowLayout.ITEM_TEXT_X,
+                layout.y + CraftQuantityWindowLayout.ITEM_DETAIL_TOP,
+                CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
+
+        g.drawString(screen.font(), "Recipes", layout.x, layout.optionsY - 10,
+                CraftQuantityStyle.SECTION_LABEL.toArgb(), false);
+        UiChromeRenderer.frame(canvas, rect(layout.x, layout.optionsY, layout.optionsW, layout.optionsH), 1.0D,
+                CraftQuantityStyle.OPTIONS_BACKGROUND, CraftQuantityStyle.OPTIONS_BORDER_LIGHT,
+                CraftQuantityStyle.OPTIONS_BORDER_DARK);
+        for (int row = 0; row < visibleRows; row++) {
+            int optionIndex = this.state.scroll + row;
+            if (optionIndex >= this.state.options.size()) {
+                break;
+            }
+            CraftQuantityOption option = this.state.options.get(optionIndex);
+            int rowY = layout.optionsY + 2 + row * CraftQuantityWindowLayout.OPTION_ROW_H;
+            UiColor fill = CraftQuantityStyle.rowBackground(option.craftable,
+                    optionIndex == this.state.selectedIndex);
+            g.fill(layout.x + CraftQuantityWindowLayout.OPTION_ROW_HORIZONTAL_INSET,
+                    rowY,
+                    layout.x + layout.optionsW
+                            - CraftQuantityWindowLayout.OPTION_ROW_HORIZONTAL_INSET,
+                    rowY + CraftQuantityWindowLayout.OPTION_ROW_H - 1, fill.toArgb());
+            String summary = "x" + option.resultCount + " " + normalizeOptionSummary(option.summary);
+            g.drawString(screen.font(), screen.font().plainSubstrByWidth(summary, layout.optionsW - 56),
+                    layout.x + CraftQuantityWindowLayout.OPTION_ROW_TEXT_X,
+                    rowY + CraftQuantityWindowLayout.OPTION_ROW_TEXT_TOP,
+                    CraftQuantityStyle.ROW_TEXT.toArgb(), false);
+            g.drawString(screen.font(), option.craftable ? "MAKE" : "MISS",
+                    layout.x + layout.optionsW - 30, rowY + 4,
+                    CraftQuantityStyle.badge(option.craftable).toArgb(), false);
+        }
+        if (this.state.options.size() > visibleRows) {
+            String pageText = (this.state.selectedIndex + 1) + "/" + this.state.options.size();
+            g.drawString(screen.font(), pageText,
+                    layout.x + layout.optionsW - screen.font().width(pageText) - 4,
+                    layout.optionsY - 10, CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
+        }
+
+        String detail = selected == null
+                ? "No recipe"
+                : selected.craftable
+                        ? normalizeOptionSummary(selected.summary)
+                        : normalizeOptionMissingSummary(selected.missingSummary);
+        UiColor detailColor = CraftQuantityStyle.detail(
+                selected != null && !selected.craftable);
+        g.drawString(screen.font(), screen.font().plainSubstrByWidth(detail, layout.w),
+                layout.x, layout.detailY, detailColor.toArgb(), false);
+
+        drawSmallButton(g, canvas, layout.minusTenX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
+                "-10", UiControlRole.HOLD_REPEAT);
+        drawSmallButton(g, canvas, layout.minusOneX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
+                "-1", UiControlRole.HOLD_REPEAT);
+        UiChromeRenderer.frame(canvas, rect(layout.inputX, layout.inputY,
+                        CraftQuantityWindowLayout.INPUT_W, CraftQuantityWindowLayout.INPUT_H), 1.0D,
+                RtsMainlineTheme.INPUT_BACKGROUND, RtsMainlineTheme.INPUT_BORDER_LIGHT,
+                RtsMainlineTheme.INPUT_BORDER_DARK);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), Integer.toString(this.state.quantity),
+                layout.inputX + CraftQuantityWindowLayout.INPUT_W / 2, layout.inputY + 3,
+                RtsMainlineTheme.BUTTON_TEXT.toArgb());
+        drawSmallButton(g, canvas, layout.plusOneX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
+                "+1", UiControlRole.HOLD_REPEAT);
+        drawSmallButton(g, canvas, layout.plusTenX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
+                "+10", UiControlRole.HOLD_REPEAT);
+
+        g.drawString(screen.font(), screen.font().plainSubstrByWidth("Enter confirm, Esc cancel", layout.w),
+                layout.x, layout.helpY, CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
+        drawSmallButton(g, canvas, layout.cancelX, layout.actionY,
+                CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H,
+                "Cancel", UiControlRole.DESTRUCTIVE_CONFIRM);
+        drawSmallButton(g, canvas, layout.confirmX, layout.actionY,
+                CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H,
+                "Craft", UiControlRole.PRIMARY_ACTION);
+    }
+
+    @Override
+    protected void handleContentClick(double mouseX, double mouseY, int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return;
+        }
+        CraftQuantityWindowLayout.Layout layout = resolveLayout();
+        int optionIndex = resolveClickedOption(mouseX, mouseY, layout,
+                CraftQuantityWindowLayout.visibleOptionRows(layout));
+        if (optionIndex >= 0) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.SELECT, optionIndex));
+            return;
+        }
+        if (UiRect.contains(layout.minusTenX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H, mouseX, mouseY)) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, -10));
+        } else if (UiRect.contains(layout.minusOneX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H, mouseX, mouseY)) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, -1));
+        } else if (UiRect.contains(layout.plusOneX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H, mouseX, mouseY)) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, 1));
+        } else if (UiRect.contains(layout.plusTenX, layout.inputY,
+                CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H, mouseX, mouseY)) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, 10));
+        } else if (UiRect.contains(layout.cancelX, layout.actionY,
+                CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H, mouseX, mouseY)) {
+            dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.CANCEL));
+        } else if (UiRect.contains(layout.confirmX, layout.actionY,
+                CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H, mouseX, mouseY)) {
+            dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.CONFIRM));
+        }
+    }
+
+    @Override
+    protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (this.state.options.size() > 1 && scrollY != 0.0D) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE,
+                    scrollY > 0.0D ? -1 : 1));
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
+        boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.CONFIRM));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_TAB) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE,
+                    (modifiers & GLFW.GLFW_MOD_SHIFT) != 0 ? -1 : 1));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE, -1));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE, 1));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.BACKSPACE));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.CLEAR));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_RIGHT) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, ctrl ? 10 : 1));
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_LEFT) {
+            dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, ctrl ? -10 : -1));
+            return true;
+        }
+        if (ctrl && keyCode == GLFW.GLFW_KEY_V) {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft != null) {
+                dispatch(CraftQuantityAction.text(minecraft.keyboardHandler.getClipboard()));
+            }
+            return true;
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
+        if (Character.isDigit(codePoint)) {
+            dispatch(CraftQuantityAction.text(Character.toString(codePoint)));
+        }
+        return true;
+    }
+
+    @Override
+    protected void onClose() {
+        this.preview = ItemStack.EMPTY;
+        this.state = new CraftQuantityState(false, "", "",
+                Collections.<CraftQuantityOption>emptyList(), 0, 0, 1, 1, true);
+    }
+
+    @Override
+    protected Component getTitle() {
+        return Component.literal("Craft Recipe");
+    }
+
+    @Override
+    protected int getDefaultWidth() {
+        return CraftQuantityWindowLayout.DEFAULT_W;
+    }
+
+    @Override
+    protected int getDefaultHeight() {
+        return CraftQuantityWindowLayout.DEFAULT_H;
+    }
+
+    @Override
+    protected int getMinWindowWidth() {
+        return CraftQuantityWindowLayout.MIN_W;
+    }
+
+    @Override
+    protected int getMinWindowHeight() {
+        return CraftQuantityWindowLayout.MIN_H;
+    }
+
+    @Override
+    protected void computeDefaultPosition() {
+        this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
+        this.windowY = Math.max(24, (this.screen.height - this.windowHeight) / 2);
+    }
+
+    private static int findDefaultRecipeIndex(List<CraftQuantityOption> options) {
+        for (int i = 0; i < options.size(); i++) {
+            if (options.get(i).craftable) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private int resolveClickedOption(double mouseX, double mouseY,
+                                     CraftQuantityWindowLayout.Layout layout, int visibleRows) {
+        if (!UiRect.contains(layout.x, layout.optionsY, layout.optionsW, layout.optionsH, mouseX, mouseY)) {
+            return -1;
+        }
+        int localY = (int) (mouseY - layout.optionsY) - 2;
+        if (localY < 0) {
+            return -1;
+        }
+        int row = localY / CraftQuantityWindowLayout.OPTION_ROW_H;
+        if (row < 0 || row >= visibleRows) {
+            return -1;
+        }
+        int index = this.state.scroll + row;
+        return index < this.state.options.size() ? index : -1;
+    }
+
+    private CraftQuantityWindowLayout.Layout resolveLayout() {
+        return CraftQuantityWindowLayout.resolve(
+                contentX(), contentY(), contentWidth(), contentHeight());
+    }
+
+    private void dispatch(CraftQuantityAction action) {
+        CraftQuantityTransition transition = CraftQuantityReducer.apply(this.state, action);
+        this.state = transition.state;
+        if (transition.command == CraftQuantityTransition.Command.CONFIRM) {
+            this.pendingRequest = new Request(transition.recipeId, transition.craftCount);
+            setOpen(false);
+        } else if (transition.command == CraftQuantityTransition.Command.CANCEL) {
+            setOpen(false);
+        }
+    }
+
+    private static String normalizeOptionSummary(String summary) {
+        return summary == null || summary.isBlank() ? "Recipe" : summary;
+    }
+
+    private static String normalizeOptionMissingSummary(String summary) {
+        return summary == null || summary.isBlank() ? "Missing ingredients." : summary;
+    }
+
+    private void drawSmallButton(GuiGraphics g, MinecraftUiCanvas canvas,
+                                 int x, int y, int w, int h, String label,
+                                 UiControlRole role) {
+        UiControlChromeRenderer.compactFrame(canvas, rect(x, y, w, h), role, ENABLED_CONTROL);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
+                x + (w / 2), y + Math.max(2, (h - screen.font().lineHeight) / 2),
+                RtsMainlineTheme.BUTTON_TEXT.toArgb());
+    }
+
+    private static UiRect rect(int x, int y, int w, int h) {
+        return new UiRect(x, y, w, h);
+    }
+
+    public record Request(String recipeId, int craftCount) {
+    }
+
+    private final List<PersistableProperty> properties = List.of(
+            PersistableProperty.bounds("craft_quantity", this)
+    );
+
+    @Override
+    public List<PersistableProperty> persistableProperties() {
+        return properties;
+    }
+}

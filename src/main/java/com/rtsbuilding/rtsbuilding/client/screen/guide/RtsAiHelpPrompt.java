@@ -44,7 +44,7 @@ public final class RtsAiHelpPrompt {
                     """);
             appendInfo(text, "RTSBuilding 版本", modVersion);
             appendInfo(text, "Minecraft 版本", minecraftVersion);
-            appendInfo(text, "Forge 版本", loaderVersion);
+            appendInfo(text, "NeoForge 版本", loaderVersion);
             appendInfo(text, "游戏语言", language);
             appendInfo(text, "当前 RTS 模式", mode);
             text.append("\n求助链接：\n");
@@ -72,7 +72,7 @@ public final class RtsAiHelpPrompt {
                     """);
             appendInfo(text, "RTSBuilding version", modVersion);
             appendInfo(text, "Minecraft version", minecraftVersion);
-            appendInfo(text, "Forge version", loaderVersion);
+            appendInfo(text, "NeoForge version", loaderVersion);
             appendInfo(text, "Game language", language);
             appendInfo(text, "Current RTS mode", mode);
             text.append("\nSupport links:\n");

@@ -12,12 +12,12 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Forge 1.20.1 的 RTS 幽灵方块模型渲染入口。
- *
- * <p>不要在建造预览、蓝图预览、放置/破坏动画里直接使用
- * {@code renderSingleBlock}。那个路径按独立方块模型渲染，第三方方块颜色回调
- * 可能拿到空坐标；TFC 这类按季节、海拔、位置染色的方块会因此崩溃。这里直接
- * 调用模型烘焙器，并传入当前客户端世界和真实 {@link BlockPos}。</p>
+ * 共享的 RTS 幽灵方块模型渲染入口。
+ * <p>
+ * 不使用 {@code renderSingleBlock}，因为它按“独立方块/物品预览”渲染，
+ * 第三方方块颜色回调可能拿不到真实世界坐标。这里直接调用模型烘焙器，
+ * 明确传入当前客户端世界和目标 {@link BlockPos}，让 TFC 这类按位置计算
+ * 树叶颜色的模组能拿到非空坐标。
  */
 public final class GhostBlockModelRenderer {
     private static final RandomSource RANDOM = RandomSource.create();

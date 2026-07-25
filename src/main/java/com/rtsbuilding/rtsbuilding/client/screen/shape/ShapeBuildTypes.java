@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -12,13 +11,12 @@ import net.minecraft.core.Direction;
  * Groups three closely coupled types that are always used together in the
  * shape build flow:
  * <ul>
- *   <li>{@link Phase} ??enum for the current interaction stage</li>
- *   <li>{@link Input} ??immutable input parameters for geometry computation</li>
- *   <li>{@link Session} ??full session state including phase and height drag ref</li>
+ *   <li>{@link Phase} — enum for the current interaction stage</li>
+ *   <li>{@link Input} — immutable input parameters for geometry computation</li>
+ *   <li>{@link Session} — full session state including phase and height drag ref</li>
  * </ul>
  * <p>
  * All types here are tightly coupled to {@link ShapeGeometryUtil} and
- * {@link com.rtsbuilding.rtsbuilding.client.screen.ScreenShapeController}.
  */
 public final class ShapeBuildTypes {
 
@@ -28,11 +26,11 @@ public final class ShapeBuildTypes {
      * Represents the current interaction stage when the player is defining
      * a shape through successive clicks:
      * <ul>
-     *   <li>{@link #NEED_SECOND_POINT} ??first anchor placed, waiting for
+     *   <li>{@link #NEED_SECOND_POINT} — first anchor placed, waiting for
      *       the second anchor click</li>
-     *   <li>{@link #NEED_THIRD_POINT} ??second anchor placed, waiting for
+     *   <li>{@link #NEED_THIRD_POINT} — second anchor placed, waiting for
      *       height drag input (cube only)</li>
-     *   <li>{@link #READY_CONFIRM} ??all anchors determined, waiting for
+     *   <li>{@link #READY_CONFIRM} — all anchors determined, waiting for
      *       placement confirmation</li>
      * </ul>
      */
@@ -56,7 +54,6 @@ public final class ShapeBuildTypes {
      * @param pointA         first anchor point (origin corner)
      * @param pointB         second anchor point (opposite corner / end)
      * @param boxHeightOffset height offset in blocks (BOX only, 0 otherwise)
-     * @param connectedLine  true when LINE/WALL should fill face-adjacent bridge blocks
      */
     public record Input(
             BuildShape shape,
@@ -92,6 +89,8 @@ public final class ShapeBuildTypes {
             Phase phase,
             int boxHeightOffset,
             double boxHeightMouseBaseY) {}
+
+
 
     private ShapeBuildTypes() {}
 }

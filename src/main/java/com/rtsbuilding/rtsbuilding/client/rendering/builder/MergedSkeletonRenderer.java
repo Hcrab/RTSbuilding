@@ -2,32 +2,34 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
- * 已确认批量破坏工作区的合并骨架渲染器。
+ * Manages merged skeleton caching, dynamic edge computation, and rendering
+ * of confirmed destructive work areas (both chain-destroy and range-destroy).
  *
- * <p>这个类拥有 1.20.1 Forge 线上的骨架缓存、逐块侵蚀和二段式线框渲染。
- * {@link ShapeGhostRenderer} 只负责按预览状态分发；这里负责保证批量破坏在
- * 预览确认后显示连续的外表面骨架，并在服务端逐块破坏时从剩余目标集合重建边线。
+ * <p>When the player confirms a destructive work area, individual per-block
+ * outlines are replaced by a merged-outer-perimeter skeleton for visual
+ * clarity. As blocks are destroyed (via {@link #markDestroyed(BlockPos)}),
+ * the cached target set is reduced and the visible skeleton is rebuilt from
+ * the remaining blocks, so newly exposed internal faces become visible.
  */
 public final class MergedSkeletonRenderer {
+
     private static CachedMergedSkeleton cachedMergedSkeleton = CachedMergedSkeleton.EMPTY;
     private static final Set<Long> PENDING_DESTROYED_BLOCK_KEYS = new HashSet<>();
     private static final Map<Long, Integer> PENDING_LIVENESS_RECHECK_KEYS = new HashMap<>();
 
-    // 大型自然地形的外表面边线数量会略高于 4096；保留二段式 no-depth 兜底，
-    // 但避免极端噪声选择把额外 pass 变成渲染热点。
+    // Large natural range-destroy selections can sit just above 4096 unit edges
+    // once terrain, caves, trees, or snow break the surface. Keep the no-depth
+    // pass for those real-world cases, but still skip it for pathological noisy
+    // selections where the extra through-terrain line pass becomes too expensive.
     private static final int MAX_MERGED_NO_DEPTH_EDGES = 16384;
     private static final int MAX_MERGED_FILL_BLOCKS = 768;
     private static final int MAX_LIVENESS_RECHECK_KEYS = 512;
@@ -36,47 +38,56 @@ public final class MergedSkeletonRenderer {
     private MergedSkeletonRenderer() {
     }
 
+    // ===== Public API (called externally and from ShapeGhostRenderer) =====
+
+    /** Records a block as destroyed so it can be removed from the merged skeleton. */
     public static void markDestroyed(BlockPos pos) {
         if (pos != null) {
             PENDING_DESTROYED_BLOCK_KEYS.add(pos.asLong());
         }
     }
 
+    /** Clears cached skeleton (e.g. when destructive session ends). */
     static void clearCache() {
         cachedMergedSkeleton = CachedMergedSkeleton.EMPTY;
         PENDING_DESTROYED_BLOCK_KEYS.clear();
         PENDING_LIVENESS_RECHECK_KEYS.clear();
     }
 
+    /** Returns true if the cached skeleton matches the given preview and is non-empty. */
     static boolean hasCachedSkeleton(ShapeDataRecords.GhostPreview preview) {
         return cachedMergedSkeleton.matchesPreview(preview) && !cachedMergedSkeleton.isEmpty();
     }
 
+    /** Returns true even when the matching cached skeleton has been fully eroded. */
     static boolean hasSkeletonCacheForPreview(ShapeDataRecords.GhostPreview preview) {
         return cachedMergedSkeleton.matchesPreview(preview);
     }
 
+    /**
+     * Renders the merged skeleton from cache if available.
+     * @return true if rendering was performed
+     */
     static boolean renderCachedSkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
-        return renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
-                progress, noDepthAlpha, fillAlpha, 1.0F);
+        return renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, noDepthAlpha, fillAlpha, 1.0F);
     }
 
     static boolean renderCachedSkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
             float alphaMultiplier) {
-        if (!cachedMergedSkeleton.matchesPreview(preview)) {
-            return false;
-        }
+        if (!cachedMergedSkeleton.matchesPreview(preview)) return false;
         CachedMergedSkeleton skeleton = getCachedSkeleton(preview);
-        if (skeleton.isEmpty()) {
-            return false;
-        }
+        if (skeleton.isEmpty()) return false;
         renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
                 progress, noDepthAlpha, fillAlpha, alphaMultiplier);
         return true;
     }
 
+    /**
+     * Renders the merged skeleton without cache warm-up (for already-started batches).
+     * Builds skeleton on the fly if needed.
+     */
     static void renderMergedSkeletonFast(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
         renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
@@ -93,17 +104,18 @@ public final class MergedSkeletonRenderer {
     static void renderMergedSkeletonSnapshot(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
             float alphaMultiplier) {
-        if (preview == null || preview.blocks() == null || preview.blocks().isEmpty()) {
-            return;
-        }
+        if (preview == null || preview.blocks() == null || preview.blocks().isEmpty()) return;
         CachedMergedSkeleton skeleton = buildMergedSkeleton(preview, blockCollectionKey(preview.blocks()));
-        if (skeleton.isEmpty()) {
-            return;
-        }
+        if (skeleton.isEmpty()) return;
         renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
                 progress, noDepthAlpha, fillAlpha, alphaMultiplier);
     }
 
+    // ===== Confirmed destructive work area rendering =====
+
+    /**
+     * Renders the confirmed chain-destroy work area with merged skeleton.
+     */
     static void renderConfirmedDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress) {
         renderConfirmedDestroyWorkArea(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
@@ -111,61 +123,64 @@ public final class MergedSkeletonRenderer {
 
     static void renderConfirmedDestroyWorkArea(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
-        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, progress,
-                SkeletonRenderStyle.CONFIRMED_NO_DEPTH_ALPHA, 0.035F,
+        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, 0.30F, 0.035F,
                 alphaMultiplier);
     }
 
+    /** 渲染已确认的范围破坏工作区；确认后立即使用合并骨架，不再等待服务端 processed 进度。 */
     static void renderConfirmedRangeDestroy(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress) {
-        renderConfirmedRangeDestroy(preview, poseStack, lineBuffer, fillBuffer, progress, 1.0F);
+        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, 0.30F, 0.030F,
+                1.0F);
     }
 
-    static void renderConfirmedRangeDestroy(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alphaMultiplier) {
-        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, progress,
-                SkeletonRenderStyle.CONFIRMED_NO_DEPTH_ALPHA, 0.030F,
-                alphaMultiplier);
+    // ===== Merged skeleton rendering =====
+
+    private static void renderMergedDestroySkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
+        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer,
+                progress, noDepthAlpha, fillAlpha, 1.0F);
     }
 
     private static void renderMergedDestroySkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
             float alphaMultiplier) {
         CachedMergedSkeleton skeleton = getCachedSkeleton(preview);
-        if (skeleton.isEmpty()) {
-            return;
-        }
+        if (skeleton.isEmpty()) return;
         renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
                 progress, noDepthAlpha, fillAlpha, alphaMultiplier);
+    }
+
+    private static void renderMergedDestroySkeleton(CachedMergedSkeleton skeleton, PoseStack poseStack,
+            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha) {
+        renderMergedDestroySkeleton(skeleton, poseStack, lineBuffer, fillBuffer,
+                progress, noDepthAlpha, fillAlpha, 1.0F);
     }
 
     private static void renderMergedDestroySkeleton(CachedMergedSkeleton skeleton, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float noDepthAlpha, float fillAlpha,
             float alphaMultiplier) {
         List<UltimineBlockMerger.EdgeLine> edges = skeleton.edges();
-        if (edges.isEmpty()) {
-            return;
-        }
-        float alpha = clamp01(alphaMultiplier);
-        if (alpha <= 0.0F) {
-            return;
-        }
+        if (edges.isEmpty()) return;
+        float alpha = RenderingUtil.clamp01(alphaMultiplier);
+        if (alpha <= 0.0F) return;
 
-        float edgeR = lerp(1.00F, 0.38F, progress);
-        float edgeG = lerp(0.86F, 1.00F, progress);
-        float edgeB = lerp(0.22F, 0.42F, progress);
+        var matrix = poseStack.last().pose();
+        float edgeR = RenderingUtil.lerp(1.00F, 0.38F, progress);
+        float edgeG = RenderingUtil.lerp(0.86F, 1.00F, progress);
+        float edgeB = RenderingUtil.lerp(0.22F, 0.42F, progress);
 
-        UltimineGhostRenderer.renderPass1(edges, poseStack.last().pose(), lineBuffer, edgeR, edgeG, edgeB,
-                0.95F * alpha);
-        if (shouldRenderNoDepthBackstop(edges.size())) {
-            UltimineGhostRenderer.renderPass2(edges, poseStack.last().pose(), edgeR, edgeG, edgeB,
-                    noDepthAlpha * alpha);
+        UltimineGhostRenderer.renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB, 0.95F * alpha);
+        if (edges.size() <= MAX_MERGED_NO_DEPTH_EDGES) {
+            UltimineGhostRenderer.renderPass2(edges, matrix, edgeR, edgeG, edgeB, noDepthAlpha * alpha);
         }
         if (skeleton.fillBlocks().size() <= MAX_MERGED_FILL_BLOCKS) {
             UltimineGhostRenderer.renderFill(skeleton.fillBlocks(), poseStack, fillBuffer, edgeR, edgeG, edgeB,
                     fillAlpha * alpha);
         }
     }
+
+    // ===== Skeleton caching =====
 
     private static CachedMergedSkeleton getCachedSkeleton(ShapeDataRecords.GhostPreview preview) {
         if (preview == null || preview.blocks() == null || preview.blocks().isEmpty()) {
@@ -189,16 +204,12 @@ public final class MergedSkeletonRenderer {
 
     private static CachedMergedSkeleton buildMergedSkeleton(ShapeDataRecords.GhostPreview preview, int key) {
         List<BlockPos> blocks = preview.blocks();
-        if (blocks == null || blocks.isEmpty()) {
-            return CachedMergedSkeleton.EMPTY;
-        }
+        if (blocks == null || blocks.isEmpty()) return CachedMergedSkeleton.EMPTY;
 
         List<BlockPos> remainingBlocks = List.copyOf(blocks);
         Set<Long> remainingKeys = buildBlockKeySet(remainingBlocks);
         EdgeBuild edgeBuild = buildFastSurfaceEdgeBuild(remainingBlocks, remainingKeys);
-        if (edgeBuild.visibleEdges().isEmpty()) {
-            return CachedMergedSkeleton.EMPTY;
-        }
+        if (edgeBuild.visibleEdges().isEmpty()) return CachedMergedSkeleton.EMPTY;
 
         List<BlockPos> fillBlocks = buildFillBlocks(remainingBlocks, remainingKeys);
         return new CachedMergedSkeleton(
@@ -210,6 +221,8 @@ public final class MergedSkeletonRenderer {
                 List.copyOf(fillBlocks));
     }
 
+    // ===== Incremental update for destroyed blocks =====
+
     private static CachedMergedSkeleton applyPendingDestroyedBlocks(CachedMergedSkeleton skeleton) {
         if (skeleton.isSourceEmpty()) {
             PENDING_LIVENESS_RECHECK_KEYS.clear();
@@ -220,25 +233,25 @@ public final class MergedSkeletonRenderer {
             return skeleton;
         }
         Set<Long> remainingKeys = new HashSet<>(skeleton.remainingBlockKeys());
+        Map<EdgeKey, EdgeAccumulator> edgeMap = skeleton.edgeMap();
         List<Long> removedKeys = new ArrayList<>();
         boolean changed = false;
 
         for (Long destroyedKey : PENDING_DESTROYED_BLOCK_KEYS) {
             if (destroyedKey != null && remainingKeys.contains(destroyedKey)) {
+                removeBlockSurfaceContributions(edgeMap, BlockPos.of(destroyedKey), remainingKeys);
                 removedKeys.add(destroyedKey);
                 changed = true;
             }
         }
         PENDING_DESTROYED_BLOCK_KEYS.clear();
-        changed |= removeNoLongerLiveQueuedTargets(removedKeys, remainingKeys);
-        if (!changed) {
-            return skeleton;
-        }
+        changed |= removeNoLongerLiveQueuedTargets(edgeMap, removedKeys, remainingKeys);
+        if (!changed) return skeleton;
 
         for (Long removedKey : removedKeys) {
             remainingKeys.remove(removedKey);
         }
-        collectNoLongerLiveNeighbourTargets(removedKeys, remainingKeys);
+        collectNoLongerLiveNeighbourTargets(edgeMap, removedKeys, remainingKeys);
         List<BlockPos> remainingBlocks = remainingBlocksInSourceOrder(skeleton.remainingBlocks(), remainingKeys);
         EdgeBuild edgeBuild = buildFastSurfaceEdgeBuild(remainingBlocks, remainingKeys);
         List<BlockPos> fillBlocks = remainingKeys.size() <= MAX_MERGED_FILL_BLOCKS
@@ -252,7 +265,8 @@ public final class MergedSkeletonRenderer {
                 List.copyOf(fillBlocks));
     }
 
-    private static boolean removeNoLongerLiveQueuedTargets(List<Long> removedKeys, Set<Long> remainingKeys) {
+    private static boolean removeNoLongerLiveQueuedTargets(Map<EdgeKey, EdgeAccumulator> edges,
+            List<Long> removedKeys, Set<Long> remainingKeys) {
         if (PENDING_LIVENESS_RECHECK_KEYS.isEmpty()) {
             return false;
         }
@@ -266,6 +280,7 @@ public final class MergedSkeletonRenderer {
             }
             BlockPos pos = BlockPos.of(key);
             if (!isLiveDestroyTarget(pos)) {
+                removeBlockSurfaceContributions(edges, pos, remainingKeys);
                 remainingKeys.remove(key);
                 removedKeys.add(key);
                 changed = true;
@@ -279,24 +294,25 @@ public final class MergedSkeletonRenderer {
         return changed;
     }
 
-    private static void collectNoLongerLiveNeighbourTargets(List<Long> removedKeys, Set<Long> remainingKeys) {
+    private static void collectNoLongerLiveNeighbourTargets(Map<EdgeKey, EdgeAccumulator> edges,
+            List<Long> removedKeys, Set<Long> remainingKeys) {
         for (int i = 0; i < removedKeys.size(); i++) {
             Long removedKey = removedKeys.get(i);
             if (removedKey == null) {
                 continue;
             }
             BlockPos pos = BlockPos.of(removedKey);
-            removeNoLongerLiveTargetIfPresent(removedKeys, remainingKeys, pos.getX() + 1, pos.getY(), pos.getZ());
-            removeNoLongerLiveTargetIfPresent(removedKeys, remainingKeys, pos.getX() - 1, pos.getY(), pos.getZ());
-            removeNoLongerLiveTargetIfPresent(removedKeys, remainingKeys, pos.getX(), pos.getY() + 1, pos.getZ());
-            removeNoLongerLiveTargetIfPresent(removedKeys, remainingKeys, pos.getX(), pos.getY() - 1, pos.getZ());
-            removeNoLongerLiveTargetIfPresent(removedKeys, remainingKeys, pos.getX(), pos.getY(), pos.getZ() + 1);
-            removeNoLongerLiveTargetIfPresent(removedKeys, remainingKeys, pos.getX(), pos.getY(), pos.getZ() - 1);
+            removeNoLongerLiveTargetIfPresent(edges, removedKeys, remainingKeys, pos.getX() + 1, pos.getY(), pos.getZ());
+            removeNoLongerLiveTargetIfPresent(edges, removedKeys, remainingKeys, pos.getX() - 1, pos.getY(), pos.getZ());
+            removeNoLongerLiveTargetIfPresent(edges, removedKeys, remainingKeys, pos.getX(), pos.getY() + 1, pos.getZ());
+            removeNoLongerLiveTargetIfPresent(edges, removedKeys, remainingKeys, pos.getX(), pos.getY() - 1, pos.getZ());
+            removeNoLongerLiveTargetIfPresent(edges, removedKeys, remainingKeys, pos.getX(), pos.getY(), pos.getZ() + 1);
+            removeNoLongerLiveTargetIfPresent(edges, removedKeys, remainingKeys, pos.getX(), pos.getY(), pos.getZ() - 1);
         }
     }
 
-    private static void removeNoLongerLiveTargetIfPresent(List<Long> removedKeys, Set<Long> remainingKeys,
-            int x, int y, int z) {
+    private static void removeNoLongerLiveTargetIfPresent(Map<EdgeKey, EdgeAccumulator> edges,
+            List<Long> removedKeys, Set<Long> remainingKeys, int x, int y, int z) {
         long key = BlockPos.asLong(x, y, z);
         if (!remainingKeys.contains(key)) {
             return;
@@ -306,6 +322,7 @@ public final class MergedSkeletonRenderer {
             queueLivenessRecheck(key);
             return;
         }
+        removeBlockSurfaceContributions(edges, pos, remainingKeys);
         remainingKeys.remove(key);
         removedKeys.add(key);
     }
@@ -329,6 +346,20 @@ public final class MergedSkeletonRenderer {
                 && state.getDestroySpeed(minecraft.level, pos) >= 0.0F;
     }
 
+    // ===== Edge contribution management =====
+
+    private static void removeBlockSurfaceContributions(Map<EdgeKey, EdgeAccumulator> edges, BlockPos pos,
+            Set<Long> blockKeys) {
+        if (pos == null || !blockKeys.contains(pos.asLong())) return;
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        if (!blockKeys.contains(BlockPos.asLong(x + 1, y, z))) removeFaceEdges(edges, x, y, z, FaceSide.EAST);
+        if (!blockKeys.contains(BlockPos.asLong(x - 1, y, z))) removeFaceEdges(edges, x, y, z, FaceSide.WEST);
+        if (!blockKeys.contains(BlockPos.asLong(x, y + 1, z))) removeFaceEdges(edges, x, y, z, FaceSide.UP);
+        if (!blockKeys.contains(BlockPos.asLong(x, y - 1, z))) removeFaceEdges(edges, x, y, z, FaceSide.DOWN);
+        if (!blockKeys.contains(BlockPos.asLong(x, y, z + 1))) removeFaceEdges(edges, x, y, z, FaceSide.SOUTH);
+        if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) removeFaceEdges(edges, x, y, z, FaceSide.NORTH);
+    }
+
     private static void addBlockSurfaceContributions(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z,
             Set<Long> blockKeys) {
         if (!blockKeys.contains(BlockPos.asLong(x + 1, y, z))) addFaceEdges(edges, x, y, z, FaceSide.EAST);
@@ -339,11 +370,11 @@ public final class MergedSkeletonRenderer {
         if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) addFaceEdges(edges, x, y, z, FaceSide.NORTH);
     }
 
+    // ===== Fill block computation =====
+
     private static List<BlockPos> buildFillBlocks(List<BlockPos> blocks, Set<Long> remainingKeys) {
         if (blocks == null || blocks.isEmpty() || remainingKeys == null || remainingKeys.isEmpty()
-                || remainingKeys.size() > MAX_MERGED_FILL_BLOCKS) {
-            return List.of();
-        }
+                || remainingKeys.size() > MAX_MERGED_FILL_BLOCKS) return List.of();
         List<BlockPos> outerBlocks = new ArrayList<>();
         for (BlockPos pos : blocks) {
             if (pos != null && remainingKeys.contains(pos.asLong()) && hasMissingFaceNeighbour(pos, remainingKeys)) {
@@ -354,26 +385,18 @@ public final class MergedSkeletonRenderer {
     }
 
     private static List<BlockPos> buildFillBlocks(Set<Long> remainingKeys) {
-        if (remainingKeys == null || remainingKeys.isEmpty() || remainingKeys.size() > MAX_MERGED_FILL_BLOCKS) {
-            return List.of();
-        }
+        if (remainingKeys == null || remainingKeys.isEmpty() || remainingKeys.size() > MAX_MERGED_FILL_BLOCKS) return List.of();
         List<BlockPos> outerBlocks = new ArrayList<>();
         for (Long key : remainingKeys) {
-            if (key == null) {
-                continue;
-            }
+            if (key == null) continue;
             BlockPos pos = BlockPos.of(key);
-            if (hasMissingFaceNeighbour(pos, remainingKeys)) {
-                outerBlocks.add(pos);
-            }
+            if (hasMissingFaceNeighbour(pos, remainingKeys)) outerBlocks.add(pos);
         }
         return outerBlocks;
     }
 
     private static boolean hasMissingFaceNeighbour(BlockPos pos, Set<Long> blockKeys) {
-        int x = pos.getX();
-        int y = pos.getY();
-        int z = pos.getZ();
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
         return !blockKeys.contains(BlockPos.asLong(x + 1, y, z))
                 || !blockKeys.contains(BlockPos.asLong(x - 1, y, z))
                 || !blockKeys.contains(BlockPos.asLong(x, y + 1, z))
@@ -386,9 +409,7 @@ public final class MergedSkeletonRenderer {
         Set<Long> keys = new HashSet<>();
         if (blocks != null) {
             for (BlockPos pos : blocks) {
-                if (pos != null) {
-                    keys.add(pos.asLong());
-                }
+                if (pos != null) keys.add(pos.asLong());
             }
         }
         return keys;
@@ -407,83 +428,65 @@ public final class MergedSkeletonRenderer {
         return remaining;
     }
 
+    // ===== Edge build and fast building =====
+
     private static EdgeBuild buildFastSurfaceEdgeBuild(List<BlockPos> blocks, Set<Long> blockKeys) {
-        if (blocks == null || blocks.isEmpty() || blockKeys == null || blockKeys.isEmpty()) {
-            return EdgeBuild.EMPTY;
-        }
+        if (blocks == null || blocks.isEmpty() || blockKeys == null || blockKeys.isEmpty()) return EdgeBuild.EMPTY;
         Map<EdgeKey, EdgeAccumulator> edges = new HashMap<>(Math.max(64, blocks.size() * 8));
         for (BlockPos pos : blocks) {
-            if (pos != null) {
-                addBlockSurfaceContributions(edges, pos.getX(), pos.getY(), pos.getZ(), blockKeys);
-            }
+            if (pos != null) addBlockSurfaceContributions(edges, pos.getX(), pos.getY(), pos.getZ(), blockKeys);
         }
         return new EdgeBuild(edges, visibleEdgeLines(edges));
     }
 
     private static List<UltimineBlockMerger.EdgeLine> visibleEdgeLines(Map<EdgeKey, EdgeAccumulator> edgeMap) {
-        if (edgeMap == null || edgeMap.isEmpty()) {
-            return List.of();
-        }
+        if (edgeMap == null || edgeMap.isEmpty()) return List.of();
         List<UltimineBlockMerger.EdgeLine> result = new ArrayList<>(edgeMap.size());
         for (Map.Entry<EdgeKey, EdgeAccumulator> entry : edgeMap.entrySet()) {
-            if (entry.getValue().isVisible()) {
-                result.add(entry.getKey().toLine());
-            }
+            if (entry.getValue().isVisible()) result.add(entry.getKey().toLine());
         }
         return result;
     }
 
+    // ===== Face edge operations =====
+
     private static void addFaceEdges(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z, FaceSide side) {
-        int x0 = x;
-        int x1 = x + 1;
-        int y0 = y;
-        int y1 = y + 1;
-        int z0 = z;
-        int z1 = z + 1;
+        int x0 = x, x1 = x + 1, y0 = y, y1 = y + 1, z0 = z, z1 = z + 1;
         switch (side) {
-            case EAST -> {
-                addEdge(edges, x1, y0, z0, x1, y1, z0, side);
-                addEdge(edges, x1, y1, z0, x1, y1, z1, side);
-                addEdge(edges, x1, y1, z1, x1, y0, z1, side);
-                addEdge(edges, x1, y0, z1, x1, y0, z0, side);
-            }
-            case WEST -> {
-                addEdge(edges, x0, y0, z0, x0, y0, z1, side);
-                addEdge(edges, x0, y0, z1, x0, y1, z1, side);
-                addEdge(edges, x0, y1, z1, x0, y1, z0, side);
-                addEdge(edges, x0, y1, z0, x0, y0, z0, side);
-            }
-            case UP -> {
-                addEdge(edges, x0, y1, z0, x0, y1, z1, side);
-                addEdge(edges, x0, y1, z1, x1, y1, z1, side);
-                addEdge(edges, x1, y1, z1, x1, y1, z0, side);
-                addEdge(edges, x1, y1, z0, x0, y1, z0, side);
-            }
-            case DOWN -> {
-                addEdge(edges, x0, y0, z0, x1, y0, z0, side);
-                addEdge(edges, x1, y0, z0, x1, y0, z1, side);
-                addEdge(edges, x1, y0, z1, x0, y0, z1, side);
-                addEdge(edges, x0, y0, z1, x0, y0, z0, side);
-            }
-            case SOUTH -> {
-                addEdge(edges, x0, y0, z1, x1, y0, z1, side);
-                addEdge(edges, x1, y0, z1, x1, y1, z1, side);
-                addEdge(edges, x1, y1, z1, x0, y1, z1, side);
-                addEdge(edges, x0, y1, z1, x0, y0, z1, side);
-            }
-            case NORTH -> {
-                addEdge(edges, x0, y0, z0, x0, y1, z0, side);
-                addEdge(edges, x0, y1, z0, x1, y1, z0, side);
-                addEdge(edges, x1, y1, z0, x1, y0, z0, side);
-                addEdge(edges, x1, y0, z0, x0, y0, z0, side);
-            }
+            case EAST  -> { addEdge(edges, x1, y0, z0, x1, y1, z0, side); addEdge(edges, x1, y1, z0, x1, y1, z1, side); addEdge(edges, x1, y1, z1, x1, y0, z1, side); addEdge(edges, x1, y0, z1, x1, y0, z0, side); }
+            case WEST  -> { addEdge(edges, x0, y0, z0, x0, y0, z1, side); addEdge(edges, x0, y0, z1, x0, y1, z1, side); addEdge(edges, x0, y1, z1, x0, y1, z0, side); addEdge(edges, x0, y1, z0, x0, y0, z0, side); }
+            case UP    -> { addEdge(edges, x0, y1, z0, x0, y1, z1, side); addEdge(edges, x0, y1, z1, x1, y1, z1, side); addEdge(edges, x1, y1, z1, x1, y1, z0, side); addEdge(edges, x1, y1, z0, x0, y1, z0, side); }
+            case DOWN  -> { addEdge(edges, x0, y0, z0, x1, y0, z0, side); addEdge(edges, x1, y0, z0, x1, y0, z1, side); addEdge(edges, x1, y0, z1, x0, y0, z1, side); addEdge(edges, x0, y0, z1, x0, y0, z0, side); }
+            case SOUTH -> { addEdge(edges, x0, y0, z1, x1, y0, z1, side); addEdge(edges, x1, y0, z1, x1, y1, z1, side); addEdge(edges, x1, y1, z1, x0, y1, z1, side); addEdge(edges, x0, y1, z1, x0, y0, z1, side); }
+            case NORTH -> { addEdge(edges, x0, y0, z0, x0, y1, z0, side); addEdge(edges, x0, y1, z0, x1, y1, z0, side); addEdge(edges, x1, y1, z0, x1, y0, z0, side); addEdge(edges, x1, y0, z0, x0, y0, z0, side); }
         }
     }
 
-    private static void addEdge(Map<EdgeKey, EdgeAccumulator> edges, int x1, int y1, int z1, int x2, int y2, int z2,
-            FaceSide side) {
+    private static void removeFaceEdges(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z, FaceSide side) {
+        int x0 = x, x1 = x + 1, y0 = y, y1 = y + 1, z0 = z, z1 = z + 1;
+        switch (side) {
+            case EAST  -> { removeEdge(edges, x1, y0, z0, x1, y1, z0, side); removeEdge(edges, x1, y1, z0, x1, y1, z1, side); removeEdge(edges, x1, y1, z1, x1, y0, z1, side); removeEdge(edges, x1, y0, z1, x1, y0, z0, side); }
+            case WEST  -> { removeEdge(edges, x0, y0, z0, x0, y0, z1, side); removeEdge(edges, x0, y0, z1, x0, y1, z1, side); removeEdge(edges, x0, y1, z1, x0, y1, z0, side); removeEdge(edges, x0, y1, z0, x0, y0, z0, side); }
+            case UP    -> { removeEdge(edges, x0, y1, z0, x0, y1, z1, side); removeEdge(edges, x0, y1, z1, x1, y1, z1, side); removeEdge(edges, x1, y1, z1, x1, y1, z0, side); removeEdge(edges, x1, y1, z0, x0, y1, z0, side); }
+            case DOWN  -> { removeEdge(edges, x0, y0, z0, x1, y0, z0, side); removeEdge(edges, x1, y0, z0, x1, y0, z1, side); removeEdge(edges, x1, y0, z1, x0, y0, z1, side); removeEdge(edges, x0, y0, z1, x0, y0, z0, side); }
+            case SOUTH -> { removeEdge(edges, x0, y0, z1, x1, y0, z1, side); removeEdge(edges, x1, y0, z1, x1, y1, z1, side); removeEdge(edges, x1, y1, z1, x0, y1, z1, side); removeEdge(edges, x0, y1, z1, x0, y0, z1, side); }
+            case NORTH -> { removeEdge(edges, x0, y0, z0, x0, y1, z0, side); removeEdge(edges, x0, y1, z0, x1, y1, z0, side); removeEdge(edges, x1, y1, z0, x1, y0, z0, side); removeEdge(edges, x1, y0, z0, x0, y0, z0, side); }
+        }
+    }
+
+    private static void addEdge(Map<EdgeKey, EdgeAccumulator> edges, int x1, int y1, int z1, int x2, int y2, int z2, FaceSide side) {
         edges.computeIfAbsent(EdgeKey.of(x1, y1, z1, x2, y2, z2), ignored -> new EdgeAccumulator()).add(side);
     }
+
+    private static void removeEdge(Map<EdgeKey, EdgeAccumulator> edges, int x1, int y1, int z1, int x2, int y2, int z2, FaceSide side) {
+        EdgeKey key = EdgeKey.of(x1, y1, z1, x2, y2, z2);
+        EdgeAccumulator acc = edges.get(key);
+        if (acc == null) return;
+        acc.remove(side);
+        if (acc.isEmpty()) edges.remove(key);
+    }
+
+    // ===== Hashing =====
 
     private static int blockCollectionKey(List<BlockPos> blocks) {
         long hash = 0xCBF29CE484222325L;
@@ -496,17 +499,9 @@ public final class MergedSkeletonRenderer {
         return (int) (hash ^ (hash >>> 32));
     }
 
-    private static float lerp(float from, float to, float amount) {
-        return from + (to - from) * clamp01(amount);
-    }
+    // ===== Utility =====
 
-    private static float clamp01(float value) {
-        return Math.max(0.0F, Math.min(1.0F, value));
-    }
-
-    static boolean shouldRenderNoDepthBackstop(int visibleEdgeCount) {
-        return visibleEdgeCount > 0 && visibleEdgeCount <= MAX_MERGED_NO_DEPTH_EDGES;
-    }
+    // ===== Internal records and types =====
 
     private record CachedMergedSkeleton(
             ShapeDataRecords.GhostPreview preview,
@@ -519,27 +514,18 @@ public final class MergedSkeletonRenderer {
             Map<EdgeKey, EdgeAccumulator> edgeMap,
             List<UltimineBlockMerger.EdgeLine> edges,
             List<BlockPos> fillBlocks) {
+
         private static final CachedMergedSkeleton EMPTY = new CachedMergedSkeleton(
                 null, 0, 0, false, false, List.of(), Set.of(), Map.of(), List.of(), List.of());
 
-        private boolean isEmpty() {
-            return this.edges.isEmpty();
-        }
-
-        private boolean isSourceEmpty() {
-            return this.preview == null || this.remainingBlockKeys.isEmpty();
-        }
-
-        private boolean matchesPreview(ShapeDataRecords.GhostPreview candidate) {
-            return candidate != null && candidate == this.preview;
-        }
+        private boolean isEmpty() { return this.edges.isEmpty(); }
+        private boolean isSourceEmpty() { return this.preview == null || this.remainingBlockKeys.isEmpty(); }
+        private boolean matchesPreview(ShapeDataRecords.GhostPreview candidate) { return candidate != null && candidate == this.preview; }
 
         private boolean matchesKey(int candidateKey, int candidateBlockCount, boolean candidateChainDestroyPreview,
                 boolean candidateConfirmedWorkArea) {
-            return this.preview != null
-                    && !isSourceEmpty()
-                    && this.key == candidateKey
-                    && this.blockCount == candidateBlockCount
+            return this.preview != null && !isSourceEmpty()
+                    && this.key == candidateKey && this.blockCount == candidateBlockCount
                     && this.chainDestroyPreview == candidateChainDestroyPreview
                     && this.confirmedWorkArea == candidateConfirmedWorkArea;
         }
@@ -558,37 +544,23 @@ public final class MergedSkeletonRenderer {
         }
     }
 
-    private record EdgeBuild(Map<EdgeKey, EdgeAccumulator> edgeMap,
-            List<UltimineBlockMerger.EdgeLine> visibleEdges) {
+    private record EdgeBuild(Map<EdgeKey, EdgeAccumulator> edgeMap, List<UltimineBlockMerger.EdgeLine> visibleEdges) {
         private static final EdgeBuild EMPTY = new EdgeBuild(Map.of(), List.of());
     }
 
-    private enum FaceSide {
-        EAST,
-        WEST,
-        UP,
-        DOWN,
-        SOUTH,
-        NORTH;
-
+    private enum FaceSide { EAST, WEST, UP, DOWN, SOUTH, NORTH;
         private static final int COUNT = values().length;
     }
 
     private record EdgeKey(int x1, int y1, int z1, int x2, int y2, int z2) {
         private static EdgeKey of(int x1, int y1, int z1, int x2, int y2, int z2) {
-            if (compareVertex(x1, y1, z1, x2, y2, z2) <= 0) {
-                return new EdgeKey(x1, y1, z1, x2, y2, z2);
-            }
+            if (compareVertex(x1, y1, z1, x2, y2, z2) <= 0) return new EdgeKey(x1, y1, z1, x2, y2, z2);
             return new EdgeKey(x2, y2, z2, x1, y1, z1);
         }
 
         private static int compareVertex(int x1, int y1, int z1, int x2, int y2, int z2) {
-            if (x1 != x2) {
-                return Integer.compare(x1, x2);
-            }
-            if (y1 != y2) {
-                return Integer.compare(y1, y2);
-            }
+            if (x1 != x2) return Integer.compare(x1, x2);
+            if (y1 != y2) return Integer.compare(y1, y2);
             return Integer.compare(z1, z2);
         }
 
@@ -601,22 +573,19 @@ public final class MergedSkeletonRenderer {
         private final int[] sideCounts = new int[FaceSide.COUNT];
         private int total;
 
-        private void add(FaceSide side) {
-            this.sideCounts[side.ordinal()]++;
-            this.total++;
+        private void add(FaceSide side) { this.sideCounts[side.ordinal()]++; this.total++; }
+        private void remove(FaceSide side) {
+            int idx = side.ordinal();
+            if (this.sideCounts[idx] <= 0) return;
+            this.sideCounts[idx]--;
+            this.total--;
         }
-
-        private boolean isVisible() {
-            return this.total == 1 || sideTypeCount() > 1;
-        }
+        private boolean isEmpty() { return this.total <= 0; }
+        private boolean isVisible() { return this.total == 1 || sideTypeCount() > 1; }
 
         private int sideTypeCount() {
             int count = 0;
-            for (int sideCount : this.sideCounts) {
-                if (sideCount > 0) {
-                    count++;
-                }
-            }
+            for (int sc : this.sideCounts) { if (sc > 0) count++; }
             return count;
         }
     }

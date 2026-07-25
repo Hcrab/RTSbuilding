@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayLayoutHelper;
 
 import mezz.jei.api.gui.handlers.IGlobalGuiHandler;
 import mezz.jei.api.runtime.IClickableIngredient;
@@ -34,7 +35,8 @@ public final class RtsOverlayJeiGlobalGuiHandler implements IGlobalGuiHandler {
 
     @Override
     public Optional<IClickableIngredient<?>> getClickableIngredientUnderMouse(double mouseX, double mouseY) {
-        RtsClientInputGate.JeiOverlayIngredient ingredient = RtsClientInputGate.getJeiOverlayIngredientUnderMouse(mouseX, mouseY);
+        OverlayLayoutHelper.JeiOverlayIngredient ingredient =
+                RtsClientInputGate.getJeiOverlayIngredientUnderMouse(mouseX, mouseY);
         if (ingredient == null) {
             return Optional.empty();
         }

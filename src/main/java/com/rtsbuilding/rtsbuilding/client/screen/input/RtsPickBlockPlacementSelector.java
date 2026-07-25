@@ -5,8 +5,8 @@ import java.util.function.IntPredicate;
 /**
  * 决定 RTS 中键选取方块后应使用玩家物品栏还是远程选择。
  *
- * <p>这里只负责选择来源，不直接修改玩家物品栏或发送网络包。输入层可以复用原版的
- * 热栏选择/背包换入逻辑，而链接储存和创造模式仍保留原有的远程选择路径。
+ * <p>这里只负责选择来源，不直接修改玩家物品栏或发送网络包。这样输入层可以复用原版的
+ * 热栏选择/背包换入逻辑，而链接储存和创造模式仍保留原有的远程选择路径。</p>
  */
 public final class RtsPickBlockPlacementSelector {
     static final int HOTBAR_SIZE = 9;

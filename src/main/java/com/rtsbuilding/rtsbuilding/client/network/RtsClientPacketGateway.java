@@ -8,6 +8,7 @@ import java.util.Locale;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsBreakPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsDeleteWorkflowPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
@@ -36,6 +37,11 @@ import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsRequestProgressionS
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsRequestCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRotateBlockPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsOrientBlockPayload;
+import com.rtsbuilding.rtsbuilding.network.pathfinding.C2SRtsPathfindingPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetBdNetworkPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUnlinkStoragePayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUpdateLinkedStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.C2SRtsSetHomePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetAutoStorePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetFunnelPayload;
@@ -160,6 +166,26 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsSetAutoStorePayload(enabled));
     }
 
+    public static void sendSetBdNetwork(boolean enabled) {
+        PacketDistributor.sendToServer(new C2SRtsSetBdNetworkPayload(enabled));
+    }
+
+    public static void sendUnlinkStorage(BlockPos pos) {
+        if (pos != null) {
+            PacketDistributor.sendToServer(new C2SRtsUnlinkStoragePayload(pos));
+        }
+    }
+
+    public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
+        if (pos != null) {
+            PacketDistributor.sendToServer(new C2SRtsUpdateLinkedStoragePayload(
+                    pos,
+                    extractOnly ? C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY
+                            : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL,
+                    Mth.clamp(priority, -9999, 9999)));
+        }
+    }
+
     public static void sendCraftRecipe(String recipeId, int craftCount) {
         PacketDistributor.sendToServer(new C2SRtsCraftRecipePayload(recipeId, Math.max(1, craftCount)));
     }
@@ -198,6 +224,12 @@ public final class RtsClientPacketGateway {
 
     public static void sendRotateBlock(BlockPos pos) {
         PacketDistributor.sendToServer(new C2SRtsRotateBlockPayload(pos));
+    }
+
+    public static void sendRotateBlockStep(BlockPos pos, Direction axisDirection, int quarterTurns) {
+        if (pos != null && axisDirection != null && quarterTurns != 0) {
+            PacketDistributor.sendToServer(new C2SRtsOrientBlockPayload(pos, axisDirection, quarterTurns));
+        }
     }
 
     public static void sendStoreHotbarSlot(int slot) {
@@ -323,21 +355,21 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
-        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, rayOrigin, rayDir, false);
+            ItemStack itemPrototype, int rotateSteps, String statePreset, Vec3 rayOrigin, Vec3 rayDir) {
+        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, statePreset, rayOrigin, rayDir, false);
     }
 
     public static void sendEmptyHandPlace(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
-        sendPlace(hit, false, false, "", ItemStack.EMPTY, 0, rayOrigin, rayDir, false, true);
+        sendPlace(hit, false, false, "", ItemStack.EMPTY, 0, "", rayOrigin, rayDir, false, true);
     }
 
     public static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild) {
-        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, rayOrigin, rayDir, quickBuild, false);
+            ItemStack itemPrototype, int rotateSteps, String statePreset, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild) {
+        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, statePreset, rayOrigin, rayDir, quickBuild, false);
     }
 
     private static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
-            ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild,
+            ItemStack itemPrototype, int rotateSteps, String statePreset, Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild,
             boolean forceEmptyHand) {
         ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
         if (!prototype.isEmpty()) {
@@ -351,6 +383,7 @@ public final class RtsClientPacketGateway {
                 hit.getLocation().y,
                 hit.getLocation().z,
                 (byte) rotateSteps,
+                statePreset == null ? "" : statePreset,
                 forcePlace,
                 skipIfOccupied,
                 itemId,
@@ -368,11 +401,12 @@ public final class RtsClientPacketGateway {
     public static void sendPlaceBatch(List<BlockHitResult> hits, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
         sendPlaceBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, skipIfOccupied,
-                itemId, itemPrototype, rotateSteps, rayOrigin, rayDir);
+                itemId, itemPrototype, rotateSteps, "", rayOrigin, rayDir);
     }
 
     public static void sendPlaceBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
-            boolean skipIfOccupied, String itemId, ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
+            boolean skipIfOccupied, String itemId, ItemStack itemPrototype, int rotateSteps, String statePreset,
+            Vec3 rayOrigin, Vec3 rayDir) {
         if (hits == null || hits.isEmpty()) {
             return;
         }
@@ -406,6 +440,7 @@ public final class RtsClientPacketGateway {
                 hitOffsetY,
                 hitOffsetZ,
                 (byte) rotateSteps,
+                statePreset == null ? "" : statePreset,
                 forcePlace,
                 skipIfOccupied,
                 itemId == null ? "" : itemId,
@@ -562,6 +597,25 @@ public final class RtsClientPacketGateway {
                 pos,
                 (byte) face.get3DDataValue(),
                 allowAdjacentFallback));
+    }
+
+    public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+            int toolSlot, String toolItemId, ItemStack toolPrototype, byte shapeType, byte fillType,
+            boolean toolProtectionEnabled) {
+        PacketDistributor.sendToServer(new C2SRtsAreaMinePayload(
+                minX, maxX, minY, maxY, minZ, maxZ,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                shapeType,
+                fillType,
+                toolProtectionEnabled));
+    }
+
+    public static void sendPathfindingGoTo(BlockPos target) {
+        if (target != null) {
+            PacketDistributor.sendToServer(new C2SRtsPathfindingPayload(target));
+        }
     }
 
     public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,

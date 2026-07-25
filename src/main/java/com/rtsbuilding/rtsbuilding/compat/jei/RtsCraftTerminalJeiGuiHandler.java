@@ -5,7 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.runtime.IClickableIngredient;
@@ -30,7 +31,7 @@ public final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler
             RtsCraftTerminalScreen screen,
             double mouseX,
             double mouseY) {
-        ClientRtsController.StorageEntry entry = screen.getLinkedEntryAt(mouseX, mouseY);
+        StorageEntry entry = screen.getLinkedEntryAt(mouseX, mouseY);
         if (entry == null) {
             return Optional.empty();
         }

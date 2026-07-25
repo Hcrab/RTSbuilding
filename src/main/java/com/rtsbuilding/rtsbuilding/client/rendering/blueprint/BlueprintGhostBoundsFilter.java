@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
-import com.rtsbuilding.rtsbuilding.blueprint.client.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 
@@ -9,16 +9,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 蓝图虚影边界过滤。
- *
- * <p>蓝图预览可以很大，但 RTS 建造仍然受玩家基地范围约束。这个类只做客户端显示裁剪，
- * 不替代服务端最终权限判断。</p>
+ * Blueprint ghost bounds filter.
+ * <p>
+ * Clips blueprint ghost blocks to the RTS boundary, so only preview blocks
+ * within the player's base area are rendered.
  */
 public final class BlueprintGhostBoundsFilter {
+
     private BlueprintGhostBoundsFilter() {
     }
 
-    public static List<BlueprintPanel.BlueprintGhostBlock> filter(List<BlueprintPanel.BlueprintGhostBlock> blocks) {
+    /**
+     * Filters the blueprint block list, keeping only blocks within RTS bounds.
+     *
+     * @param blocks the blueprint block list to filter
+     * @return a new list containing only in-bounds blocks; returns the original list if the controller has no bounds
+     */
+    public static List<BlueprintPanel.BlueprintGhostBlock> filter(
+            List<BlueprintPanel.BlueprintGhostBlock> blocks) {
         ClientRtsController controller = ClientRtsController.get();
         if (!controller.hasBounds()) {
             return blocks;
@@ -32,9 +40,7 @@ public final class BlueprintGhostBoundsFilter {
         int maxBlockZ = Mth.ceil(az + r) - 1;
         List<BlueprintPanel.BlueprintGhostBlock> result = new ArrayList<>(blocks.size());
         for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
-            if (block == null) {
-                continue;
-            }
+            if (block == null) continue;
             BlockPos pos = block.pos();
             if (pos.getX() >= minBlockX && pos.getX() <= maxBlockX
                     && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ) {

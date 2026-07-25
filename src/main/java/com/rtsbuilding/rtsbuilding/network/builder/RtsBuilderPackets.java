@@ -29,6 +29,11 @@ public final class RtsBuilderPackets {
                 RtsPlaceHandlers::handleRotateBlock);
 
         registrar.playToServer(
+                C2SRtsOrientBlockPayload.TYPE,
+                C2SRtsOrientBlockPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleOrientBlock);
+
+        registrar.playToServer(
                 C2SRtsPlacePayload.TYPE,
                 C2SRtsPlacePayload.STREAM_CODEC,
                 RtsPlaceHandlers::handlePlace);
@@ -104,6 +109,11 @@ public final class RtsBuilderPackets {
                 RtsInteractionHandlers::handleScanResumePlacement);
 
         registrar.playToServer(
+                C2SRtsScanBlueprintResumePayload.TYPE,
+                C2SRtsScanBlueprintResumePayload.STREAM_CODEC,
+                RtsInteractionHandlers::handleScanBlueprintResume);
+
+        registrar.playToServer(
                 C2SRtsResumePlacementActionPayload.TYPE,
                 C2SRtsResumePlacementActionPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handleResumePlacementAction);
@@ -151,6 +161,11 @@ public final class RtsBuilderPackets {
         registrar.playToClient(
                 S2CRtsResumePlacementScanPayload.TYPE,
                 S2CRtsResumePlacementScanPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
+        registrar.playToClient(
+                S2CRtsBlueprintResumeScanPayload.TYPE,
+                S2CRtsBlueprintResumeScanPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
 
         // ===== Undo =====

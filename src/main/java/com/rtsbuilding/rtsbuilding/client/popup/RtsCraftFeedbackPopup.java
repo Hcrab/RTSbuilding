@@ -1,26 +1,31 @@
 package com.rtsbuilding.rtsbuilding.client.popup;
 
-
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import java.util.List;
-
+import com.rtsbuilding.rtsbuilding.client.record.CraftFeedbackIngredient;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftFeedbackLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CraftFeedbackStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
-public final class RtsCraftFeedbackPopup {
-    private static final int PANEL_W = 228;
-    private static final int ROW_H = 18;
-    private static final int MAX_ROWS = 4;
+import java.util.List;
 
+public final class RtsCraftFeedbackPopup {
     private RtsCraftFeedbackPopup() {
     }
 
     public static void render(GuiGraphics g, Font font, int screenWidth, ClientRtsController controller) {
+        render(g, font, screenWidth, CraftFeedbackLayout.TOP, controller);
+    }
+
+    public static void render(GuiGraphics g, Font font, int screenWidth,
+                              int reservedTop, ClientRtsController controller) {
         if (g == null || font == null || controller == null) {
             return;
         }
@@ -31,46 +36,62 @@ public final class RtsCraftFeedbackPopup {
 
         ItemStack resultPreview = resolvePreview(controller.getCraftFeedbackItemId());
         String resultLabel = resultPreview.isEmpty() ? controller.getCraftFeedbackItemId() : resultPreview.getHoverName().getString();
-        List<ClientRtsController.CraftFeedbackIngredient> ingredients = controller.getCraftFeedbackIngredients();
-        int visibleRows = Math.min(MAX_ROWS, ingredients.size());
+        List<CraftFeedbackIngredient> ingredients = controller.getCraftFeedbackIngredients();
+        int visibleRows = CraftFeedbackLayout.visibleRows(ingredients.size());
         boolean hasOverflow = ingredients.size() > visibleRows;
-        int panelH = 54 + (visibleRows * ROW_H) + (hasOverflow ? 14 : 0);
-        int x = (screenWidth - PANEL_W) / 2;
-        int y = 18;
+        int panelH = CraftFeedbackLayout.panelHeight(ingredients.size());
+        int x = CraftFeedbackLayout.panelX(screenWidth);
+        int y = CraftFeedbackLayout.panelY(reservedTop);
 
-        float progress = (controller.getCraftFeedbackExpiryMs() - now) / 2200.0F;
-        int alpha = Mth.clamp((int) (255.0F * progress), 84, 255);
-        int fill = (alpha << 24) | 0x18222C;
-        int borderLight = (alpha << 24) | 0x6C839A;
-        int borderDark = (alpha << 24) | 0x0D1117;
-        int textColor = (alpha << 24) | 0xF2F7FF;
-        int subColor = (alpha << 24) | 0xC9D8E6;
+        double progress = (controller.getCraftFeedbackExpiryMs() - now) / 2200.0D;
+        int alpha = CraftFeedbackStyle.alpha(progress);
+        UiColor fill = CraftFeedbackStyle.faded(CraftFeedbackStyle.PANEL, alpha);
+        UiColor borderLight = CraftFeedbackStyle.faded(
+                CraftFeedbackStyle.BORDER_LIGHT, alpha);
+        UiColor borderDark = CraftFeedbackStyle.faded(
+                CraftFeedbackStyle.BORDER_DARK, alpha);
+        UiColor textColor = CraftFeedbackStyle.faded(CraftFeedbackStyle.TEXT, alpha);
+        UiColor subColor = CraftFeedbackStyle.faded(
+                CraftFeedbackStyle.SECONDARY_TEXT, alpha);
+        UiColor rowColor = CraftFeedbackStyle.faded(CraftFeedbackStyle.ROW, alpha);
 
         g.pose().pushPose();
         g.pose().translate(0.0F, 0.0F, 700.0F);
-        drawPanelFrame(g, x, y, PANEL_W, panelH, fill, borderLight, borderDark);
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, font),
+                new UiRect(x, y, CraftFeedbackLayout.PANEL_W, panelH), 1.0D,
+                fill, borderLight, borderDark);
         if (!resultPreview.isEmpty()) {
             g.renderItem(resultPreview, x + 8, y + 8);
         }
-        g.drawString(font, "Crafted x" + controller.getCraftFeedbackCount(), x + 30, y + 9, textColor, false);
-        g.drawString(font, font.plainSubstrByWidth(resultLabel, PANEL_W - 38), x + 30, y + 21, subColor, false);
+        g.drawString(font, "Crafted x" + controller.getCraftFeedbackCount(),
+                x + 30, y + 9, textColor.toArgb(), false);
+        g.drawString(font, font.plainSubstrByWidth(
+                        resultLabel, CraftFeedbackLayout.PANEL_W - 38),
+                x + 30, y + 21, subColor.toArgb(), false);
 
-        g.drawString(font, "Consumed", x + 8, y + 40, subColor, false);
+        g.drawString(font, "Consumed", x + 8, y + 40, subColor.toArgb(), false);
 
-        int rowY = y + 54;
+        int rowY = y + CraftFeedbackLayout.BASE_H;
         for (int i = 0; i < visibleRows; i++) {
-            ClientRtsController.CraftFeedbackIngredient ingredient = ingredients.get(i);
-            g.fill(x + 8, rowY - 2, x + PANEL_W - 8, rowY + 14, (alpha << 24) | 0x22303C);
+            CraftFeedbackIngredient ingredient = ingredients.get(i);
+            g.fill(x + 8, rowY - 2,
+                    x + CraftFeedbackLayout.PANEL_W - 8, rowY + 14,
+                    rowColor.toArgb());
             if (!ingredient.preview().isEmpty()) {
                 g.renderItem(ingredient.preview(), x + 10, rowY - 1);
             }
             String label = ingredient.label() == null || ingredient.label().isBlank() ? ingredient.itemId() : ingredient.label();
-            g.drawString(font, font.plainSubstrByWidth(label, PANEL_W - 72), x + 30, rowY + 1, textColor, false);
-            g.drawString(font, "x" + ingredient.count(), x + PANEL_W - 30, rowY + 1, subColor, false);
-            rowY += ROW_H;
+            g.drawString(font, font.plainSubstrByWidth(
+                            label, CraftFeedbackLayout.PANEL_W - 72),
+                    x + 30, rowY + 1, textColor.toArgb(), false);
+            g.drawString(font, "x" + ingredient.count(),
+                    x + CraftFeedbackLayout.PANEL_W - 30, rowY + 1,
+                    subColor.toArgb(), false);
+            rowY += CraftFeedbackLayout.ROW_H;
         }
         if (hasOverflow) {
-            g.drawString(font, "+" + (ingredients.size() - visibleRows) + " more", x + 10, rowY + 1, subColor, false);
+            g.drawString(font, "+" + (ingredients.size() - visibleRows) + " more",
+                    x + 10, rowY + 1, subColor.toArgb(), false);
         }
         g.pose().popPose();
     }
@@ -81,9 +102,5 @@ public final class RtsCraftFeedbackPopup {
             return ItemStack.EMPTY;
         }
         return new ItemStack(BuiltInRegistries.ITEM.get(key));
-    }
-
-    private static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
     }
 }

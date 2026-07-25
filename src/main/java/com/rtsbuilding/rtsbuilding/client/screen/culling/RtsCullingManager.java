@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderInvalidator;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -44,8 +44,7 @@ public final class RtsCullingManager {
     private BlockPos secondCorner;
     private int previewHeight = DEFAULT_HEIGHT;
     private Phase phase = Phase.IDLE;
-    private Runnable stateChangeListener = () -> {
-    };
+    private Runnable stateChangeListener = () -> { };
 
     public boolean isManagementMode() {
         return managementMode;
@@ -63,14 +62,9 @@ public final class RtsCullingManager {
         return List.copyOf(revealedBlocks);
     }
 
-    /**
-     * 注册正式剔除状态变化后的持久化回调。
-     *
-     * <p>草稿移动不会触发保存；只有确认、删除、调整已确认盒子和揭示方块才会触发。</p>
-     */
+    /** 设置正式剔除状态变化后的持久化回调；草稿移动不会触发保存。 */
     public void setStateChangeListener(Runnable listener) {
-        this.stateChangeListener = listener == null ? () -> {
-        } : listener;
+        this.stateChangeListener = listener == null ? () -> { } : listener;
     }
 
     public Optional<RtsCullingBox> selectedBox() {
@@ -430,9 +424,10 @@ public final class RtsCullingManager {
     }
 
     /**
-     * 离开当前存档、服务器或维度时清除只属于旧世界的剔除状态。
+     * 离开当前世界时彻底丢弃只属于该世界的剔除编辑状态。
      *
-     * <p>这里不触发持久化回调，也不尝试保存旧世界状态；正式修改在发生时已经发送给服务端。</p>
+     * <p>范围剔除盒使用世界坐标，不能跨服务器、存档或维度复用。这里不请求旧世界重建网格，
+     * 因为调用时客户端正在卸载旧世界；新世界会用空状态正常编译区块。</p>
      */
     public void clearWorldState() {
         this.managementMode = false;
@@ -446,11 +441,7 @@ public final class RtsCullingManager {
         cancelDraft();
     }
 
-    /**
-     * 用服务端返回的当前存档、当前维度快照替换本地状态。
-     *
-     * <p>服务器是持久化身份的权威来源；客户端只保留当前世界的一份渲染副本。</p>
-     */
+    /** 用当前存档、当前维度从服务端恢复的快照替换内存状态。 */
     public void replaceWorldState(List<RtsCullingBox> restoredBoxes, List<BlockPos> restoredRevealedBlocks) {
         clearWorldState();
         if (restoredBoxes != null) {
@@ -458,7 +449,8 @@ public final class RtsCullingManager {
                 if (box == null) {
                     continue;
                 }
-                this.boxes.add(new RtsCullingBox(this.nextId++, box.min(), box.max()));
+                RtsCullingBox normalized = new RtsCullingBox(nextId++, box.min(), box.max());
+                this.boxes.add(normalized);
             }
         }
         if (restoredRevealedBlocks != null) {
@@ -471,7 +463,7 @@ public final class RtsCullingManager {
     }
 
     private void notifyStateChanged() {
-        this.stateChangeListener.run();
+        stateChangeListener.run();
     }
 
     private double distanceAfterCulledBlockIn(List<RtsCullingBox> candidates, Vec3 origin, Vec3 direction,
@@ -541,23 +533,17 @@ public final class RtsCullingManager {
     }
 
     private void markBoxDirty(RtsCullingBox box) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.levelRenderer == null || box == null) {
+        if (box == null) {
             return;
         }
-        mc.levelRenderer.setBlocksDirty(
-                box.min().getX() - 1, box.min().getY() - 1, box.min().getZ() - 1,
-                box.max().getX() + 1, box.max().getY() + 1, box.max().getZ() + 1);
+        RtsCullingRenderInvalidator.markBlocksDirty(box.min(), box.max());
     }
 
     private void markBlockDirty(BlockPos pos) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.levelRenderer == null || pos == null) {
+        if (pos == null) {
             return;
         }
-        mc.levelRenderer.setBlocksDirty(
-                pos.getX() - 1, pos.getY() - 1, pos.getZ() - 1,
-                pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
+        RtsCullingRenderInvalidator.markBlocksDirty(pos, pos);
     }
 
     public enum Phase {

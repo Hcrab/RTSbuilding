@@ -1,16 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
-
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -18,10 +12,18 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Brief grow-in overlay after the server confirms remote placement. */
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Brief grow-in overlay shown after the server confirms a remote placement.
+ * This is visual feedback only; the real block is already server-authoritative.
+ */
 final class ConfirmedPlacementRenderer {
     private static final long PLACE_DURATION_MS = 220L;
     private static final float MODEL_ALPHA = 0.58F;
+
     private static final Map<Long, PlacementEntry> PLACEMENTS = new LinkedHashMap<>();
 
     private ConfirmedPlacementRenderer() {
@@ -41,6 +43,7 @@ final class ConfirmedPlacementRenderer {
         long now = System.currentTimeMillis();
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
         Iterator<Map.Entry<Long, PlacementEntry>> iterator = PLACEMENTS.entrySet().iterator();
+
         while (iterator.hasNext()) {
             PlacementEntry entry = iterator.next().getValue();
             long elapsed = now - entry.addedAtMs;
@@ -75,16 +78,18 @@ final class ConfirmedPlacementRenderer {
                 iterator.remove();
                 continue;
             }
-            if (isWithinBounds(entry.pos)) {
-                renderLineBox(poseStack, lineBuffer, entry.pos, computeGrowScale(elapsed),
-                        0.30F, 0.85F, 1.00F, 0.82F);
+            if (!isWithinBounds(entry.pos)) {
+                continue;
             }
+            renderLineBox(poseStack, lineBuffer, entry.pos, computeGrowScale(elapsed),
+                    0.30F, 0.85F, 1.00F, 0.82F);
         }
     }
 
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+        LevelRenderer.addChainedFilledBoxVertices(
+                poseStack, fillBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
                 0.40F, 0.85F, 0.90F, 0.16F);
@@ -93,7 +98,8 @@ final class ConfirmedPlacementRenderer {
     private static void renderLineBox(PoseStack poseStack, VertexConsumer lineBuffer, BlockPos pos, float scale,
             float r, float g, float b, float alpha) {
         double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.renderLineBox(poseStack, lineBuffer,
+        LevelRenderer.renderLineBox(
+                poseStack, lineBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
                 r, g, b, alpha);
@@ -107,8 +113,8 @@ final class ConfirmedPlacementRenderer {
 
     private static boolean isWithinBounds(BlockPos pos) {
         ClientRtsController controller = ClientRtsController.get();
-        return !controller.hasBounds()
-                || RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        if (!controller.hasBounds()) return true;
+        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 
     private record PlacementEntry(BlockPos pos, BlockState state, long addedAtMs) {

@@ -1,15 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
-
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 
 import java.util.function.Consumer;
 
 /**
- * 绐楀彛椋庢牸鐨勬按骞虫粦鏉★紝閫傜敤??RTS 闈㈡澘銆?
+ * Window-style horizontal slider, suitable for RTS panels.
  * <p>
- * 鏀寔榧犳爣鐐瑰嚮鍜屾嫋鎷借皟鏁村€硷紝甯︽湁婊戣建鍜屾棆閽覆鏌撱€?
+ * Supports click-and-drag value adjustment with track and knob rendering.
  */
 public class WindowSlider {
 
@@ -24,14 +27,6 @@ public class WindowSlider {
     private boolean dragging = false;
     private Consumer<Integer> onChange;
 
-    // ======================== 棰滆壊甯搁噺 ========================
-    private static final int TRACK_BG = 0xFF07090D;
-    private static final int TRACK_FILL = 0xFF313946;
-    private static final int KNOB_COLOR = 0xFF5FE36C;
-    private static final int TRACK_H = 4;
-    private static final int KNOB_W = 8;
-    private static final int KNOB_H = 12;
-
     public WindowSlider(int x, int y, int width, int height, int min, int max, int value) {
         this.x = x;
         this.y = y;
@@ -42,7 +37,7 @@ public class WindowSlider {
         this.value = Mth.clamp(value, min, this.max);
     }
 
-    // ======================== 灞炴??========================
+    // ======================== Properties ========================
 
     public int getValue() {
         return this.value;
@@ -84,28 +79,20 @@ public class WindowSlider {
         return this;
     }
 
-    // ======================== 娓叉??========================
+    // ======================== Rendering ========================
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
-
-        int knobX = knobPosition();
-        int trackCenterY = y + height / 2;
-
-        // 婊戣建鑳屾櫙
-        g.fill(x, trackCenterY - TRACK_H / 2, x + width, trackCenterY + TRACK_H - TRACK_H / 2, TRACK_BG);
-        g.fill(x + 1, trackCenterY - TRACK_H / 2 + 1, x + width - 1, trackCenterY + TRACK_H - TRACK_H / 2 - 1, TRACK_FILL);
-
-        // 鏃嬮??
-        int knobY = trackCenterY - KNOB_H / 2;
-        g.fill(knobX - KNOB_W / 2, knobY, knobX + KNOB_W - KNOB_W / 2, knobY + KNOB_H, KNOB_COLOR);
+        WindowSliderChromeRenderer.render(
+                new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getInstance().font),
+                geometry());
     }
 
-    // ======================== 杈撳叆澶勭悊 ========================
+    // ======================== Input handling ========================
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!visible || button != 0) return false;
-        if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height) {
+        if (bounds().contains(mouseX, mouseY)) {
             setValueFromMouse(mouseX);
             this.dragging = true;
             return true;
@@ -123,23 +110,21 @@ public class WindowSlider {
 
     public boolean mouseDragged(double mouseX, double mouseY, int button) {
         if (!visible || !dragging || button != 0) return false;
-        double clampedX = Mth.clamp(mouseX, x, x + width);
-        setValueFromMouse(clampedX);
+        setValueFromMouse(mouseX);
         return true;
     }
 
-    // ======================== 绉佹湁杈呭姪 ========================
+    // ======================== Private helpers ========================
 
-    private int knobPosition() {
-        if (max <= min) return x;
-        double fraction = (value - min) / (double) (max - min);
-        return x + (int) Math.round(fraction * width);
+    private WindowSliderLayout.Geometry geometry() {
+        return WindowSliderLayout.geometry(bounds(), min, max, value);
+    }
+
+    private UiRect bounds() {
+        return new UiRect(x, y, width, height);
     }
 
     private void setValueFromMouse(double mouseX) {
-        double fraction = (mouseX - x) / Math.max(1.0D, width);
-        fraction = Mth.clamp(fraction, 0.0D, 1.0D);
-        int newValue = (int) Math.round(min + fraction * (max - min));
-        setValue(Mth.clamp(newValue, min, max));
+        setValue(WindowSliderLayout.valueAt(bounds(), min, max, mouseX));
     }
 }

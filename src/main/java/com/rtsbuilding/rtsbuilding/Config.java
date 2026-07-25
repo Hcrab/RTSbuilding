@@ -37,6 +37,11 @@ public final class Config {
             .comment("Maximum non-air blocks allowed in one RTS blueprint import, capture, or placement job.")
             .defineInRange("maxBlueprintBlocks", 20000, 1, 200000);
 
+    public static final ForgeConfigSpec.BooleanValue ENABLE_UI_ANIMATIONS = BUILDER
+            .comment("Enable short visual-only hover and selection transitions in the RTS UI.")
+            .translation("rtsbuilding.configuration.enableUiAnimations")
+            .define("enableUiAnimations", true);
+
     public static final ForgeConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = BUILDER
             .comment("Render translucent block ghost models before the player confirms placement.")
             .define("useBlockGhostPreview", false);
@@ -65,9 +70,19 @@ public final class Config {
             .comment("Render merged skeleton borders for non-chain range destroy previews. Chain mining always uses the skeleton style.")
             .define("useRangeDestroySkeleton", true);
 
+    public static final ForgeConfigSpec.BooleanValue SHOW_INVENTORY_RTS_BUTTON = BUILDER
+            .comment("Show the RTS plugin button on the vanilla inventory screen.")
+            .translation("rtsbuilding.configuration.showInventoryRtsButton")
+            .define("showInventoryRtsButton", true);
+
     public static final ForgeConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = BUILDER
             .comment("Require a configurable keyboard key for the final multi-block placement/destroy confirmation instead of confirming with the mouse click used to select the range.")
             .define("requireKeyboardBatchConfirm", true);
+
+    public static final ForgeConfigSpec.BooleanValue DEVELOPER_MODE = BUILDER
+            .comment("Show the developer scenario task entry and write local diagnostic logs.")
+            .translation("rtsbuilding.configuration.developerMode")
+            .define("developerMode", false);
 
     // ---- 服务端运行限制 ----
 
@@ -214,6 +229,15 @@ public final class Config {
         return USE_BLOCK_GHOST_PREVIEW.get();
     }
 
+    public static boolean isUiAnimationsEnabled() {
+        return ENABLE_UI_ANIMATIONS.get();
+    }
+
+    public static void setUiAnimationsEnabled(boolean enabled) {
+        ENABLE_UI_ANIMATIONS.set(enabled);
+        SPEC.save();
+    }
+
     public static void setBlockGhostPreviewEnabled(boolean enabled) {
         USE_BLOCK_GHOST_PREVIEW.set(enabled);
         SPEC.save();
@@ -231,7 +255,7 @@ public final class Config {
     }
 
     public static void saveAreaMineLimitSettings(int maxWidth, int maxHeight, int maxDepth,
-            int maxVolume, int maxTargets) {
+            int maxVolume, int maxTargets, RangeMiningHarvestTier maxHarvestTier) {
         int width = clampInt(maxWidth, 1, 256);
         int height = clampInt(maxHeight, 1, 256);
         int depth = clampInt(maxDepth, 1, 256);
@@ -240,8 +264,16 @@ public final class Config {
         AREA_MINE_MAX_DEPTH.set(depth);
         AREA_MINE_MAX_VOLUME.set(clampInt(maxVolume, 1, 262144));
         AREA_DESTROY_MAX_TARGETS.set(clampInt(maxTargets, 1, 262144));
+        AREA_MINE_MAX_HARVEST_TIER.set(
+                maxHarvestTier == null ? RangeMiningHarvestTier.UNLIMITED : maxHarvestTier);
         AREA_MINE_MAX_SIZE.set(clampInt(Math.max(width, Math.max(height, depth)), 1, 64));
         SPEC.save();
+    }
+
+    /** 保留旧调用点，并让未显式传入工具等级时沿用当前配置值。 */
+    public static void saveAreaMineLimitSettings(int maxWidth, int maxHeight, int maxDepth,
+            int maxVolume, int maxTargets) {
+        saveAreaMineLimitSettings(maxWidth, maxHeight, maxDepth, maxVolume, maxTargets, areaMineMaxHarvestTier());
     }
 
     public static boolean isPlacementBlockGhostPreviewEnabled() {
@@ -307,6 +339,24 @@ public final class Config {
 
     public static boolean isRangeDestroySkeletonEnabled() {
         return USE_RANGE_DESTROY_SKELETON.get();
+    }
+
+    public static boolean isInventoryRtsButtonEnabled() {
+        return SHOW_INVENTORY_RTS_BUTTON.get();
+    }
+
+    public static void setInventoryRtsButtonEnabled(boolean enabled) {
+        SHOW_INVENTORY_RTS_BUTTON.set(enabled);
+        SPEC.save();
+    }
+
+    public static boolean isDeveloperModeEnabled() {
+        return DEVELOPER_MODE.get();
+    }
+
+    public static void setDeveloperModeEnabled(boolean enabled) {
+        DEVELOPER_MODE.set(enabled);
+        SPEC.save();
     }
 
     public static void setRangeDestroySkeletonEnabled(boolean enabled) {

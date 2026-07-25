@@ -6,10 +6,11 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Ray clip loop for range-culling passthrough.
+ * 范围剔除专用的射线裁剪循环。
  *
- * <p>This helper owns the generic algorithm: when the ray hits a culled block, resume clipping just past the culling box exit.
- * It avoids direct Minecraft client dependencies so the screen picker, interaction target code, and tests can share it.
+ * <p>这个类只负责“命中被剔除方块时，从剔除盒出口之后继续裁剪”的通用算法；
+ * 它不直接依赖 Minecraft 客户端实例，也不读取屏幕状态。这样真实客户端路径和
+ * 自动化测试都能复用同一段穿透逻辑，避免管理页、交互目标和后续工具各写一套。</p>
  */
 public final class RtsCullingRayClipper {
     private static final int DEFAULT_SKIP_GUARD = 32;

@@ -10,25 +10,25 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.*;
 
 /**
- * 灏勭嚎妫€娴嬭緟鍔╁伐鍏风被
- * 鎻愪緵榧犳爣灏勭嚎璁＄畻鍜屾柟鍧?瀹炰綋妫€娴嬪姛??
+ * Ray-casting utility class.
+ * Provides mouse-cursor ray calculation and block/entity hit detection.
  */
 public final class RaycastHelper {
 
     /**
-     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
+     * Private constructor to prevent instantiation.
      */
     private RaycastHelper() {
     }
 
     /**
-     * 浠庣浉鏈轰綅缃悜榧犳爣鏂瑰悜鍙戝皠灏勭嚎锛屾娴嬪懡涓殑鏂瑰??
+     * Casts a ray from the camera towards the mouse cursor and detects the hit block.
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄??
-     * @param camPos 鐩告満璧峰浣嶇疆
-     * @param to 灏勭嚎缁堢偣浣嶇??
-     * @param includeFluidSource 鏄惁鍖呭惈娴佷綋婧愭柟??
-     * @return 鏂瑰潡鍛戒腑缁撴灉锛屾湭鍛戒腑鍒欒繑鍥瀗ull
+     * @param minecraft          Minecraft client instance
+     * @param camPos             Camera origin position
+     * @param to                 Ray end position
+     * @param includeFluidSource Whether to include fluid source blocks
+     * @return Block hit result, or null if nothing was hit
      */
     public static BlockHitResult raycastBlockFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to,
             boolean includeFluidSource) {
@@ -47,20 +47,10 @@ public final class RaycastHelper {
     }
 
     /**
-     * 浠庣浉鏈轰綅缃悜榧犳爣鏂瑰悜鍙戝皠灏勭嚎锛屾娴嬪懡涓殑瀹炰??
-     *
-     * @param minecraft Minecraft瀹㈡埛绔疄??
-     * @param camPos 鐩告満璧峰浣嶇疆
-     * @param to 灏勭嚎缁堢偣浣嶇??
-     * @param viewDir 瑙嗙嚎鏂瑰悜鍚戦??
-     * @param reach 灏勭嚎鏈€澶ц窛绂?
-     * @return 瀹炰綋鍛戒腑缁撴灉锛屾湭鍛戒腑鍒欒繑鍥瀗ull
-     */
-    /**
      * 使用范围剔除感知的方块射线。
      *
-     * <p>黄色交互框、真实点击和远程放置需要共用同一套“被剔除方块当作透明”的规则，
-     * 否则玩家看到的目标会停在隐藏屋顶/墙体上，真正想操作的室内方块无法被选中。</p>
+     * <p>黄色交互框、实际点击和远程放置必须共用同一套“遇到被剔除方块就从盒子出口后继续”的规则，
+     * 否则玩家看到的目标会停在隐藏屋顶/墙体上，而真正想操作的内部方块无法被选中。</p>
      */
     public static BlockHitResult raycastBlockFromCursorThroughCulling(Minecraft minecraft, Vec3 camPos, Vec3 direction,
             double maxReach, boolean includeFluidSource) {
@@ -92,6 +82,16 @@ public final class RaycastHelper {
                 });
     }
 
+    /**
+     * Casts a ray from the camera towards the mouse cursor and detects the hit entity.
+     *
+     * @param minecraft Minecraft client instance
+     * @param camPos    Camera origin position
+     * @param to        Ray end position
+     * @param viewDir   View direction vector
+     * @param reach     Maximum ray distance
+     * @return Entity hit result, or null if nothing was hit
+     */
     public static EntityHitResult raycastEntityFromCursor(Minecraft minecraft, Vec3 camPos, Vec3 to, Vec3 viewDir,
             double reach) {
         Entity cameraEntity = minecraft.getCameraEntity();
@@ -99,10 +99,10 @@ public final class RaycastHelper {
             return null;
         }
 
-        // 鏋勫缓鎼滅储鑼冨洿锛氫互鐩告満涓轰腑蹇冿紝娌胯绾挎柟鍚戞墿灞?
+        // Build search AABB: expand from camera along view direction
         AABB search = cameraEntity.getBoundingBox().expandTowards(viewDir.scale(reach)).inflate(1.0D);
 
-        // 鎵ц瀹炰綋灏勭嚎妫€??
+        // Perform entity ray-cast
         return ProjectileUtil.getEntityHitResult(
                 cameraEntity,
                 camPos,
@@ -117,48 +117,51 @@ public final class RaycastHelper {
     }
 
     /**
-     * 璁＄畻榧犳爣鍏夋爣瀵瑰簲鐨勫皠绾挎柟鍚戝悜??
-     * 鑰冭檻FOV銆佺獥鍙ｅ昂瀵搞€佺浉鏈烘湞鍚戠瓑鍥犵礌
+     * Computes the ray direction vector corresponding to the mouse cursor.
+     * Accounts for FOV, window dimensions, camera orientation, etc.
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄??
-     * @return 褰掍竴鍖栫殑灏勭嚎鏂瑰悜鍚戦??
+     * @param minecraft Minecraft client instance
+     * @return Normalised ray direction vector
      */
     public static Vec3 computeCursorRayDirection(Minecraft minecraft) {
-        // 鑾峰彇榧犳爣灞忓箷鍧愭爣
+        if (RtsPlacementRayFreeze.isFrozen()) {
+            return RtsPlacementRayFreeze.directionOr(new Vec3(0.0D, 0.0D, 1.0D));
+        }
+        // Get mouse screen coordinates
         double mouseX = minecraft.mouseHandler.xpos();
         double mouseY = minecraft.mouseHandler.ypos();
         double width = Math.max(1.0D, minecraft.getWindow().getScreenWidth());
         double height = Math.max(1.0D, minecraft.getWindow().getScreenHeight());
 
-        // 杞崲涓篘DC锛堝綊涓€鍖栬澶囧潗鏍囷級锛岃寖鍥??1, 1]
+        // Convert to NDC (Normalised Device Coordinates), range [-1, 1]
         double nx = (mouseX / width) * 2.0D - 1.0D;
         double ny = 1.0D - (mouseY / height) * 2.0D;
 
-        // 鑾峰彇鐩告満鏈濆悜瑙掑害
+        // Get camera facing angles
         float yawDeg = minecraft.gameRenderer.getMainCamera().getYRot();
         float pitchDeg = minecraft.gameRenderer.getMainCamera().getXRot();
         double yaw = Math.toRadians(yawDeg);
         double pitch = Math.toRadians(pitchDeg);
 
-        // 璁＄畻鍓嶅悜鍚戦噺锛堢浉鏈烘鍓嶆柟??
+        // Compute forward vector (camera's facing direction)
         Vec3 forward = new Vec3(
                 -Math.sin(yaw) * Math.cos(pitch),
                 -Math.sin(pitch),
                 Math.cos(yaw) * Math.cos(pitch)).normalize();
 
-        // 璁＄畻鍙冲悜鍚戦??
+        // Compute right vector
         Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
 
-        // 璁＄畻涓婂悜鍚戦噺锛堝弶涔橈??
+        // Compute up vector (cross product)
         Vec3 up = forward.cross(right).normalize();
 
-        // 璁＄畻FOV鐩稿叧鐨勭缉鏀惧洜??
+        // Compute FOV-dependent scale factor
         double fovY = Math.toRadians(minecraft.options.fov().get());
         double tanY = Math.tan(fovY * 0.5D);
         double tanX = tanY * (width / height);
 
-        // 缁勫悎鏈€缁堝皠绾挎柟鍚戯細鍓嶅??+ 姘村钩鍋???+ 鍨傜洿鍋???
-        // 娉ㄦ剰锛氬綋鍓峺aw鍩哄悜閲忎骇鐢熺殑鏄乏鍚戦噺锛屽洜姝ら渶瑕佸弽杞琗 NDC浠ヤ繚鎸佸睆骞曞彸渚у搴斿皠绾垮彸渚?
+        // Combine final ray direction: forward + horizontal offset + vertical offset
+        // Note: the yaw basis produces a left vector, so negate X NDC to keep screen-right matching ray-right
         return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
     }
 }

@@ -11,10 +11,10 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * World-space axis handles for a range-culling box.
+ * 范围剔除盒的世界空间轴向手柄。
  *
- * <p>This class describes only visible arrow geometry and ray hit zones; it does not mutate box size.
- * Render and input paths share these AABBs so a visible arrow is also a selectable arrow.
+ * <p>这个类只描述六个面向箭头的可视几何和命中热区，不负责修改盒子尺寸。
+ * 渲染器和输入命中共用这里的 AABB，避免出现玩家看见箭头却无法滚轮选中的错位。</p>
  */
 public final class RtsCullingAxisHandle {
     private static final double GAP = 0.10D;
@@ -58,11 +58,18 @@ public final class RtsCullingAxisHandle {
 
     public static Optional<HandleHit> nearestHit(RtsCullingBox box, Vec3 origin, Vec3 direction, double maxDistance,
             Set<Direction> allowedDirections) {
+        return box == null
+                ? Optional.empty()
+                : nearestHit(box.asAabb(), origin, direction, maxDistance, allowedDirections);
+    }
+
+    public static Optional<HandleHit> nearestHit(AABB box, Vec3 origin, Vec3 direction, double maxDistance,
+            Set<Direction> allowedDirections) {
         if (box == null || origin == null || direction == null || direction.lengthSqr() < EPSILON) {
             return Optional.empty();
         }
         Vec3 normalized = direction.normalize();
-        return handles(box.asAabb(), allowedDirections).stream()
+        return handles(box, allowedDirections).stream()
                 .map(handle -> handle.hit(origin, normalized, maxDistance))
                 .flatMap(Optional::stream)
                 .min(Comparator.comparingDouble(HandleHit::distance));

@@ -15,23 +15,34 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import java.util.List;
 
 /**
- * 建造预览的半透明方块模型渲染器。
- *
- * <p>它只负责模型层绘制，并顺手展开门、床、高草等原版多方块状态。
- * 是否应该绘制模型由 {@link BuildGhostRenderer} 决定。</p>
+ * Block model renderer for single-block placement ghosts.
+ * <p>
+ * Renders translucent block models and automatically handles multi-block
+ * expansions (doors, tall plants, beds, etc.).
  */
 public final class BuildGhostModelRenderer {
-    private static final float GHOST_ALPHA = 0.70F;
+
+    /** Ghost model opacity */
+    public static final float GHOST_ALPHA = 0.8F;
 
     private BuildGhostModelRenderer() {
     }
 
+    /**
+     * Renders translucent block models at all target positions.
+     *
+     * @param minecraft    Minecraft client instance
+     * @param blocks       Target block position list
+     * @param poseStack    Pose stack
+     * @param blockState   BlockState to render
+     */
     public static void renderModels(Minecraft minecraft, List<BlockPos> blocks,
             PoseStack poseStack, BlockState blockState) {
-        if (minecraft == null || minecraft.level == null || blocks == null || blocks.isEmpty()) {
+        if (minecraft == null || blocks == null || blocks.isEmpty()) {
             return;
         }
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
+
         for (BlockPos pos : blocks) {
             renderGhostAt(minecraft, pos, blockState, poseStack, blockBuffer);
             expandMultiblockGhost(minecraft, pos, blockState, poseStack, blockBuffer);
@@ -39,14 +50,19 @@ public final class BuildGhostModelRenderer {
         blockBuffer.endBatch();
     }
 
+    /**
+     * Renders a translucent block model at a single position.
+     */
     private static void renderGhostAt(Minecraft minecraft, BlockPos pos, BlockState state,
             PoseStack poseStack, MultiBufferSource blockBuffer) {
-        if (state == null || state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
-            return;
-        }
+        if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) return;
         GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA);
     }
 
+    /**
+     * Detects and renders additional ghost parts for multi-block structures
+     * (doors, tall plants, beds, etc.) via standard BlockState properties.
+     */
     private static void expandMultiblockGhost(Minecraft minecraft, BlockPos pos, BlockState state,
             PoseStack poseStack, MultiBufferSource blockBuffer) {
         if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {

@@ -1,19 +1,27 @@
 package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import net.minecraft.client.Minecraft;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.routing.PointerCapture;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButton;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.fml.ModList;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*;
+import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
 /**
  * Orchestrates the top bar panel: builds the button layout, renders all buttons
@@ -37,6 +45,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.BuilderScreenConstants.*
  * @see TopBarIconRenderer
  */
 public final class TopBarPanel {
+    private static final int PRIMARY_MOUSE_BUTTON = 0;
 
     /**
      * Maps the current {@link BuilderMode} to a high-level action category used
@@ -51,6 +60,13 @@ public final class TopBarPanel {
 
     private BuilderScreen screen;
     private ClientRtsController controller;
+    private final UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId,
+            TopBarIconRenderer.VisualState> iconTransitions =
+            new UiStateBlendAnimationSet<>(SystemUiClock.INSTANCE,
+                    Arrays.asList(TopBarTypes.TopBarButtonId.values()),
+                    TopBarIconRenderer.visualStates(),
+                    90L, UiEasing.EASE_IN_OUT_QUAD);
+    private final PointerCapture<TopBarTypes.TopBarButtonId> pointerCapture = new PointerCapture<>();
 
     // ======================== Lifecycle ========================
 
@@ -75,41 +91,71 @@ public final class TopBarPanel {
      */
     public void render(GuiGraphics g, int mouseX, int mouseY) {
         screen.ensureFillModeForShape(this.controller.getBuildShape());
-        List<TopBarTypes.TopBarButtonLayout> topButtons = buildTopBarButtonLayouts();
+        TopBarUiState state = TopBarUiAdapter.snapshot(screen, controller);
+        List<TopBarTypes.TopBarButtonLayout> topButtons = buildTopBarButtonLayouts(state);
         for (TopBarTypes.TopBarButtonLayout button : topButtons) {
             drawTopButton(g, mouseX, mouseY, button);
         }
         renderTopGuideHint(g, topButtons);
 
         // ---- Status bar row 1: mode ----
-        String modeText = switch (this.controller.getMode()) {
-            case INTERACT -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.interact"));
-            case LINK_STORAGE -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.link_storage"));
-            case FUNNEL -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.funnel"));
-            case SELECT_PAN -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.camera"));
-            case ROTATE -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.rotate"));
-            default -> screen.text("screen.rtsbuilding.status.mode", screen.text("screen.rtsbuilding.mode.idle"));
-        };
+        String modeText = screen.text("screen.rtsbuilding.status.mode",
+                screen.text(modeTranslationKey(state.mode)));
 
-        String linked = this.controller.isStorageLinked()
-                ? screen.text("screen.rtsbuilding.status.storage_linked", this.controller.getLinkedStorageName())
+        String linked = state.storageLinked
+                ? screen.text("screen.rtsbuilding.status.storage_linked", state.linkedStorageName)
                 : screen.text("screen.rtsbuilding.status.storage_not_linked");
         String row1 = modeText;
 
         // ---- Status bar row 2: storage, auto-store, funnel, active workflow hint ----
-        String shapeStatus = screen.isQuickBuildOpen() ? screen.pendingShapeStatusText() : "";
-        String row2 = linked + (this.controller.isAutoStoreMinedDrops()
+        String row2 = linked + (state.autoStoreMinedDrops
                 ? "    " + screen.text("screen.rtsbuilding.status.auto_store_on")
                 : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
-                + "    " + screen.text("screen.rtsbuilding.status.funnel", screen.text(this.controller.isFunnelEnabled() ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"))
-                + (shapeStatus.isBlank() ? "" : "    " + shapeStatus)
-                + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
+                + "    " + screen.text("screen.rtsbuilding.status.funnel",
+                        screen.text(state.funnelEnabled ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"))
+                + (state.shapeStatus.isBlank() ? "" : "    " + state.shapeStatus)
+                + (state.pendingGuiBindSlot >= 0 ? "    " + screen.text(
+                        "screen.rtsbuilding.status.gui_bind_armed", state.pendingGuiBindSlot + 1) : "");
 
-        int statusX = 8;
-        int statusW = Math.max(40, screen.width - 16);
-        g.drawString(screen.font(), screen.trimToWidth(row1, statusW), statusX, 33, 0xF0F0F0, false);
-        g.drawString(screen.font(), screen.trimToWidth(row2, statusW), statusX, 44,
-                this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
+        TopBarLayout.Status status = TopBarLayout.status(screen.width);
+        String visibleRow2 = screen.trimToWidth(row2, status.width());
+        g.drawString(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(),
+                RtsMainlineTheme.PRIMARY_TEXT.toArgb(), false);
+        g.drawString(screen.font(), visibleRow2, status.x(), status.row2Y(),
+                (state.storageLinked ? RtsMainlineTheme.STATUS_LINKED
+                        : RtsMainlineTheme.STATUS_UNLINKED).toArgb(), false);
+        renderContextualModeTip(g, status, visibleRow2, state.mode);
+        renderHoveredTooltip(g, mouseX, mouseY, topButtons);
+    }
+
+    /**
+     * 在第二行右侧空白处绘制当前模式的操作提示。空间不足时整段隐藏，
+     * 避免提示与储存状态在高 UI 缩放或较长翻译下互相覆盖。
+     */
+    private void renderContextualModeTip(GuiGraphics g, TopBarLayout.Status status,
+                                         String visibleRow2, TopBarUiState.Mode mode) {
+        String key = modeTipKey(mode);
+        if (key.isBlank()) {
+            return;
+        }
+        String tip = screen.text(key);
+        int tipX = TopBarLayout.contextualHintX(
+                status,
+                screen.font().width(visibleRow2),
+                screen.font().width(tip),
+                12);
+        if (tipX >= 0) {
+            g.drawString(screen.font(), tip, tipX, status.row2Y(),
+                    RtsMainlineTheme.STATUS_LINKED.toArgb(), false);
+        }
+    }
+
+    static String modeTipKey(BuilderMode mode) {
+        return mode == BuilderMode.FUNNEL ? "screen.rtsbuilding.mode_tip.funnel" : "";
+    }
+
+    static String modeTipKey(TopBarUiState.Mode mode) {
+        return mode == TopBarUiState.Mode.FUNNEL ? "screen.rtsbuilding.mode_tip.funnel" : "";
     }
 
     // ======================== Click Handling ========================
@@ -124,59 +170,26 @@ public final class TopBarPanel {
      * @return {@code true} if a button was hit (click consumed), {@code false} otherwise
      */
     public boolean handleClick(double mouseX, double mouseY) {
-        if (mouseY < 4 || mouseY > 4 + TOP_BUTTON_H) {
+        if (mouseY < TopBarLayout.BUTTON_Y || mouseY > TopBarLayout.BUTTON_Y + TOP_BUTTON_H) {
             return false;
         }
 
-        for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts()) {
-            if (!inside(mouseX, mouseY, button.x(), 4, button.width(), TOP_BUTTON_H)) {
+        TopBarUiState state = TopBarUiAdapter.snapshot(screen, controller);
+        for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts(state)) {
+            if (!UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
+                    mouseX, mouseY)) {
                 continue;
             }
-            if (screen.isBlueprintPlacementModeLocked() && isModeButton(button.id())) {
-                this.controller.setMode(BuilderMode.INTERACT);
-                this.controller.setFunnelEnabled(false);
+            if (!this.pointerCapture.capture(PRIMARY_MOUSE_BUTTON, button.id())) {
                 return true;
             }
-            switch (button.id()) {
-                case INTERACT -> {
-                    this.controller.setMode(BuilderMode.INTERACT);
-                    this.controller.setFunnelEnabled(false);
-                    screen.clearShapeBuildSession();
-                }
-                case LINK -> {
-                    this.controller.setMode(BuilderMode.LINK_STORAGE);
-                    this.controller.setFunnelEnabled(false);
-                    screen.clearShapeBuildSession();
-                }
-                case FUNNEL -> {
-                    this.controller.setMode(BuilderMode.FUNNEL);
-                    this.controller.setFunnelEnabled(true);
-                    screen.clearShapeBuildSession();
-                }
-                case ROTATE -> {
-                    this.controller.setMode(BuilderMode.ROTATE);
-                    this.controller.setFunnelEnabled(false);
-                    screen.clearShapeBuildSession();
-                }
-                case QUICK_BUILD -> {
-                    screen.toggleQuickBuild();
-                    screen.persistUiState();
-                }
-                case QUEST_DETECT -> {
-                    this.controller.detectQuestsNow();
-                }
-                case CHUNK_VIEW -> {
-                    this.controller.setChunkCurtainVisible(!this.controller.isChunkCurtainVisible());
-                    screen.persistUiState();
-                }
-                case RANGE_CULLING -> screen.toggleRangeCullingManagement();
-                case GUIDE -> {
-                    screen.toggleTopGuide(button.x() + button.width() / 2, 4 + TOP_BUTTON_H);
-                }
-                case GEAR -> screen.toggleGearMenu();
-                default -> { /* no-op for unrecognised button IDs */ }
+            boolean handled = TopBarUiAdapter.dispatch(TopBarUiAction.click(coreId(button.id())),
+                    screen, controller, button.x() + button.width() / 2,
+                    TopBarLayout.BUTTON_Y + TOP_BUTTON_H);
+            if (!handled) {
+                this.pointerCapture.release(PRIMARY_MOUSE_BUTTON);
             }
-            return true;
+            return handled;
         }
         return false;
     }
@@ -197,49 +210,37 @@ public final class TopBarPanel {
      * @return a new list of {@link TopBarTypes.TopBarButtonLayout}s for this frame
      */
     public List<TopBarTypes.TopBarButtonLayout> buildTopBarButtonLayouts() {
+        return buildTopBarButtonLayouts(TopBarUiAdapter.snapshot(screen, controller));
+    }
+
+    private List<TopBarTypes.TopBarButtonLayout> buildTopBarButtonLayouts(TopBarUiState state) {
         List<TopBarTypes.TopBarButtonLayout> layouts = new ArrayList<>();
-        int x = 8;
+        boolean quickBuild = visible(state, TopBarUiButtonId.QUICK_BUILD);
+        boolean questDetect = visible(state, TopBarUiButtonId.QUEST_DETECT);
+        boolean rangeCulling = visible(state, TopBarUiButtonId.RANGE_CULLING);
+        boolean developer = visible(state, TopBarUiButtonId.DEVELOPER);
+        TopBarLayout.Buttons positions = TopBarLayout.buttons(
+                screen.width, TOP_MODE_BUTTON_W, TOP_ICON_BUTTON_W, TOP_BUTTON_GAP,
+                quickBuild, questDetect, rangeCulling, developer);
 
-        // ---- Mode buttons (left group) ----
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.INTERACT, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.INTERACT));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.LINK, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.LINK));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.FUNNEL, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.FUNNEL));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.ROTATE, x, TOP_MODE_BUTTON_W, "", true, topActionForMode() == TopAction.ROTATE));
-        x += TOP_MODE_BUTTON_W + TOP_BUTTON_GAP;
-        x += 8;
-
-        // ---- Action buttons (center group) ----
-        if (screen.canUseQuickBuild()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUICK_BUILD, x, TOP_ICON_BUTTON_W, "", true, screen.isQuickBuildOpen()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
+        for (TopBarUiButton coreButton : state.buttons) {
+            if (!coreButton.visible) continue;
+            TopBarTypes.TopBarButtonId id = productionId(coreButton.id);
+            int width = coreButton.id.modeButton ? TOP_MODE_BUTTON_W : TOP_ICON_BUTTON_W;
+            layouts.add(new TopBarTypes.TopBarButtonLayout(id, positions.x(id), width,
+                    "", true, coreButton.active));
         }
-        if (isFtbQuestIntegrationLoaded()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.QUEST_DETECT, x, TOP_ICON_BUTTON_W, "", true, this.controller.isQuestDetectPopupVisible()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.CHUNK_VIEW, x, TOP_ICON_BUTTON_W, "", true, this.controller.isChunkCurtainVisible()));
-        x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        if (screen.canUseRangeCulling()) {
-            layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.RANGE_CULLING, x, TOP_ICON_BUTTON_W, "", true, screen.isRangeCullingManagementActive()));
-            x += TOP_ICON_BUTTON_W + TOP_BUTTON_GAP;
-        }
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GUIDE, x, TOP_ICON_BUTTON_W, "", true, screen.isGuideOpen()));
-
-        // ---- Right-aligned buttons ----
-        int gearX = Math.max(x + TOP_BUTTON_GAP, screen.width - TOP_ICON_BUTTON_W - 8);
-        layouts.add(new TopBarTypes.TopBarButtonLayout(TopBarTypes.TopBarButtonId.GEAR, gearX, TOP_ICON_BUTTON_W, "", true, screen.isGearMenuOpen()));
         return layouts;
     }
 
-    /**
-     * Checks whether the primary (left) mouse button is currently held down.
-     * Used to compute the "pressed" visual state for icon buttons.
-     */
-    public boolean isPrimaryMouseDown() {
-        return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+    /** release 只清理最初按下的所有者；移入其他按钮不会伪造 pressed 状态。 */
+    public void mouseReleased(int button) {
+        this.pointerCapture.release(button);
+    }
+
+    /** 切屏、关闭与失焦时清理瞬时按下所有权，避免下一次打开仍显示按下态。 */
+    public void clearTransientInputState() {
+        this.pointerCapture.clear();
     }
 
     // ======================== Button Rendering ========================
@@ -248,28 +249,9 @@ public final class TopBarPanel {
      * Routes the rendering of a single top bar button to the appropriate
      * method based on whether it is icon-only or text-based.
      */
-    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
-        if (button.iconOnly()) {
-            drawTopIconButton(g, mouseX, mouseY, button);
-            return;
-        }
-        drawTopButtonSized(g, button.x(), button.label(), button.active(), button.width());
-    }
-
-    /**
-     * Renders a text-based top bar button with background, border, and centered label.
-     */
-    private void drawTopButtonSized(GuiGraphics g, int x, String label, boolean active, int w) {
-        int y = 4;
-        int h = TOP_BUTTON_H;
-        int bg = active ? 0xFF2E6A50 : 0xAA1F2329;
-        g.fill(x, y, x + w, y + h, bg);
-        g.hLine(x, x + w, y, 0xFF5B6673);
-        g.hLine(x, x + w, y + h, 0xFF0D0E10);
-        g.vLine(x, y, y + h, 0xFF5B6673);
-        g.vLine(x + w, y, y + h, 0xFF0D0E10);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
-                screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
+    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY,
+                               TopBarTypes.TopBarButtonLayout button) {
+        drawTopIconButton(g, mouseX, mouseY, button);
     }
 
     /**
@@ -280,53 +262,32 @@ public final class TopBarPanel {
      * <p>
      * The button background colour changes based on active, pressed, and hovered states.
      */
-    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY, TopBarTypes.TopBarButtonLayout button) {
+    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY,
+                                   TopBarTypes.TopBarButtonLayout button) {
         int x = button.x();
-        int y = 4;
+        int y = TopBarLayout.BUTTON_Y;
         int w = button.width();
-        int h = TOP_BUTTON_H;
-        boolean hovered = inside(mouseX, mouseY, x, y, w, h);
-        boolean pressed = hovered && isPrimaryMouseDown();
+        boolean hovered = UiRect.contains(x, y, w, TOP_BUTTON_H, mouseX, mouseY);
+        boolean pressed = hovered
+                && this.pointerCapture.ownerOf(PRIMARY_MOUSE_BUTTON) == button.id();
 
-        int bg = 0xAA1F2329;
-        int light = 0xFF5B6673;
-        int dark = 0xFF0D0E10;
-        int icon = 0xFFBDC9D6;
-        if (button.active()) {
-            bg = 0xFF2D6B47;
-            light = 0xFF9AD2AE;
-            icon = 0xFFF4FBF5;
-        } else if (pressed) {
-            bg = 0xFF1F5037;
-            light = 0xFF6AA784;
-            icon = 0xFFD9E3EF;
-        } else if (hovered) {
-            bg = 0xFF1D2530;
-            light = 0xFF7A90AA;
-            icon = 0xFFD9E3EF;
-        }
+        TopBarIconRenderer.renderBlended(
+                g, button.id(), x + (w - TOP_BUTTON_H) / 2, y, TOP_BUTTON_H,
+                TopBarIconRenderer.visualState(button.active(), hovered, pressed),
+                iconTransitions, Config.isUiAnimationsEnabled());
+    }
 
-        // Try texture-based icon first
-        ResourceLocation textureIcon = TopBarIconRenderer.topbarModeTexture(button.id(), button.active(), hovered, pressed);
-        if (textureIcon != null) {
-            g.blit(textureIcon, x + (w - TOP_BUTTON_H) / 2, y, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
-            return;
-        }
-
-        // Fall back to pixel-art background + icon
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, light, dark);
-        if (pressed) {
-            g.hLine(x + 1, x + w - 1, y + 1, dark);
-            g.vLine(x + 1, y + 1, y + h - 1, dark);
-        }
-
-        // Draw the pixel-art icon at the button centre
-        int cx = x + (w / 2);
-        int cy = y + (h / 2);
-        if (button.id() == TopBarTypes.TopBarButtonId.GUIDE) {
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), "i", cx, y + 7, icon);
-        } else {
-            TopBarIconRenderer.renderIcon(button.id(), g, cx, cy, icon, button.active(), screen.font());
+    /** 顶栏正式按钮统一从四语言键显示 Tooltip，避免图标含义依赖猜测。 */
+    private void renderHoveredTooltip(GuiGraphics g, int mouseX, int mouseY,
+                                      List<TopBarTypes.TopBarButtonLayout> buttons) {
+        for (TopBarTypes.TopBarButtonLayout button : buttons) {
+            if (UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
+                    mouseX, mouseY)) {
+                g.renderTooltip(screen.font(),
+                        Component.translatable(TopBarIconRenderer.tooltipKey(button.id())),
+                        mouseX, mouseY);
+                return;
+            }
         }
     }
 
@@ -358,28 +319,28 @@ public final class TopBarPanel {
         };
     }
 
-    /**
-     * Checks whether any FTB Quest mod (ftbquests, ftb_quests, ftblibrary)
-     * is loaded. When detected, the QUEST_DETECT button is shown in the top bar.
-     */
-    private static boolean isFtbQuestIntegrationLoaded() {
-        return ModList.get().isLoaded("ftbquests")
-                || ModList.get().isLoaded("ftb_quests")
-                || ModList.get().isLoaded("ftblibrary");
+    private static boolean visible(TopBarUiState state, TopBarUiButtonId id) {
+        TopBarUiButton button = state.button(id);
+        return button != null && button.visible;
     }
 
-    private static boolean isModeButton(TopBarTypes.TopBarButtonId id) {
-        return id == TopBarTypes.TopBarButtonId.INTERACT
-                || id == TopBarTypes.TopBarButtonId.LINK
-                || id == TopBarTypes.TopBarButtonId.FUNNEL
-                || id == TopBarTypes.TopBarButtonId.ROTATE;
+    private static TopBarUiButtonId coreId(TopBarTypes.TopBarButtonId id) {
+        return TopBarUiButtonId.valueOf(id.name());
     }
 
-    /**
-     * Hit-test helper: checks whether a point (mouseX, mouseY) lies inside
-     * a rectangle defined by (x, y, w, h).
-     */
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+    private static TopBarTypes.TopBarButtonId productionId(TopBarUiButtonId id) {
+        return TopBarTypes.TopBarButtonId.valueOf(id.name());
     }
+
+    private static String modeTranslationKey(TopBarUiState.Mode mode) {
+        return switch (mode) {
+            case INTERACT -> "screen.rtsbuilding.mode.interact";
+            case LINK_STORAGE -> "screen.rtsbuilding.mode.link_storage";
+            case FUNNEL -> "screen.rtsbuilding.mode.funnel";
+            case CAMERA -> "screen.rtsbuilding.mode.camera";
+            case ROTATE -> "screen.rtsbuilding.mode.rotate";
+            case IDLE -> "screen.rtsbuilding.mode.idle";
+        };
+    }
+
 }

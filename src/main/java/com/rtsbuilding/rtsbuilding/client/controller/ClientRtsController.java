@@ -1,24 +1,27 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
 
-import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import com.rtsbuilding.rtsbuilding.client.screen.RtsCraftTerminalScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.RtsHomeScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.RtsProgressionScreen;
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientLayoutStore;
-import com.rtsbuilding.rtsbuilding.client.state.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
+import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import com.rtsbuilding.rtsbuilding.client.service.BuildPlacementService;
+import com.rtsbuilding.rtsbuilding.client.service.CameraOrbitService;
+import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
+import com.rtsbuilding.rtsbuilding.common.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.network.builder.*;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
@@ -27,95 +30,37 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
-import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.common.BuilderMode;
-import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
-import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidType;
-import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.*;
+import java.util.List;
 
 public final class ClientRtsController {
-    private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
-    private static final int MAX_STORAGE_PAGE_SIZE = 180;
-    private static final long STORAGE_AUTO_REFRESH_INTERVAL_MS = 30_000L;
-
-    private static final float ROT_INPUT_CLAMP = 20.0F;
-    private static final float ROTATE_GAIN_X = 0.24F;
-    private static final float ROTATE_GAIN_Y = 0.22F;
-    private static final float ROT_SENS_MIN = 1.00F;
-    private static final float ROT_SENS_MAX = 10.00F;
-    private static final float ROT_SENS_STEP = 0.50F;
-    private static final double DOLLY_PER_SCROLL = 2.6D;
-    private static final double VERTICAL_SPEED = 0.32D;
-    private static final double FAST_VERTICAL_SPEED = 0.55D;
-    private static final float[] INPUT_SENS_PRESETS = new float[] { 0.50F, 0.75F, 1.00F, 1.25F, 1.50F, 2.00F };
-    private static final int INPUT_SENS_DEFAULT_INDEX = 2;
-    private static final int QUICK_SLOT_COUNT = 27;
-    private static final int GUI_BINDING_SLOT_COUNT = 8;
-    private static final int CRAFTABLE_BATCH_SIZE = 12;
-    private static final String CATEGORY_ALL = "all";
-    private static final String CATEGORY_MOD_PREFIX = "mod|";
-    private static final String CATEGORY_TAB_PREFIX = "tab|";
-
-    private static final float ROT_EMA_ALPHA = 0.28F;
-    private static final float ROT_EMA_DECAY = 0.78F;
+    private static final ClientRtsController INSTANCE = new ClientRtsController();
     private static final int RTS_MINE_RENDER_ID = 0x525453;
-    private static final int CLIENT_MAX_WORKFLOWS = 8;
     private static final int REMOTE_MENU_OPEN_GRACE_TICKS = 80;
     private static final int SCREENLESS_REMOTE_MENU_RECOVERY_TICKS = 10;
     private static final long QUEST_DETECT_MIN_PROGRESS_MS = 700L;
     private static final long QUEST_DETECT_RESULT_VISIBLE_MS = 3500L;
-    private static final long STORAGE_SCAN_RESULT_VISIBLE_MS = 450L;
-    private static final double MIN_CAMERA_HEIGHT_OFFSET = -35.0D;
-    private static final double MAX_CAMERA_HEIGHT_OFFSET = 110.0D;
-    private static final double MAX_HORIZONTAL_CAMERA_DISTANCE = 72.0D;
-    private static final float MIN_CAMERA_PITCH = -90.0F;
-    private static final float MAX_CAMERA_PITCH = 90.0F;
-    private static final float CAMERA_INPUT_EPSILON = 1.0e-4F;
-    private static final int CAMERA_IDLE_HEARTBEAT_TICKS = 20;
-    private static final int CAMERA_RESTORE_COOLDOWN_TICKS = 10;
-    private static final long NANOS_PER_TICK = 50_000_000L;
-    private static final float MAX_SMOOTH_FRAME_TICKS = 2.00F;
 
     private boolean enabled;
-    private int serverCameraEntityId = -1;
-
-    private Entity previousCameraEntity;
-    private CameraType previousCameraType = CameraType.FIRST_PERSON;
-    private boolean previousBobView = true;
-    private double previousFovEffectScale = 1.0D;
-
-    private boolean rotateCaptured;
-    private double restoreCursorX;
-    private double restoreCursorY;
 
     private double anchorX;
     private double anchorY;
@@ -128,78 +73,10 @@ public final class ClientRtsController {
     private boolean allowPlacedBlockRecovery;
     private boolean toolProtectionEnabled = true;
     private boolean playerStatusOverlayEnabled = true;
-    private boolean invertPanDragX;
-    private boolean invertPanDragY;
-    private boolean smoothCamera;
     private boolean damageSoundEnabled = true;
     private boolean damageAutoReturnEnabled = true;
 
-    private boolean localStateReady;
-    private double localX;
-    private double localY;
-    private double localZ;
-    private double localHeightOffset;
-    private float localYawDeg;
-    private float localPitchDeg;
-
-    private float pendingPanX;
-    private float pendingPanY;
-    private float pendingScroll;
-    private int pendingRotateSteps;
-
-    private float pendingRawRotateX;
-    private float pendingRawRotateY;
-    private float emaRotateX;
-    private float emaRotateY;
-    private int cameraMoveHeartbeatTicks;
-    private int cameraRestoreCooldownTicks;
-    private long lastSmoothCameraFrameNanos;
-
-    private float rotateSensitivity = 5.00F;
-    private int inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-    private int panDragSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-    private int rotateViewSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-    private int keyboardMoveSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-    private int wheelZoomSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-
     private BuilderMode mode = BuilderMode.INTERACT;
-    private boolean storageCollapsed;
-    private boolean storageLinked;
-    private boolean bdNetworkEnabled = true;
-    private String linkedStorageName = "No Storage";
-    private final List<BlockPos> linkedStoragePositions = new ArrayList<>();
-    private int storagePage;
-    private int storagePageSize = DEFAULT_STORAGE_PAGE_SIZE;
-    private int storageTotalPages = 1;
-    private int storageTotalEntries;
-    private int storageRevision;
-    private String storageSearch = "";
-    private String storageCategory = "all";
-    private RtsStorageSort storageSort = RtsStorageSort.QUANTITY;
-    private boolean storageSortAscending;
-    private final List<String> storageCategories = new ArrayList<>();
-    private final List<StorageEntry> storageEntries = new ArrayList<>();
-    private final Map<String, Long> storageTotalCounts = new HashMap<>();
-    private final List<FluidEntry> fluidEntries = new ArrayList<>();
-    private final List<RecentEntry> recentEntries = new ArrayList<>();
-    private boolean storageScanRunning;
-    private long storageScanStartedAtMs;
-    private long storageScanVisibleUntilMs;
-    private long storagePageReceivedAtMs;
-    private boolean storageViewDirty;
-    private long storageViewDirtySinceMs;
-    private boolean storageDirtyRefreshRequested;
-    private long storageDirtyRefreshRequestedAtMs;
-    private String craftablesSearch = "";
-    private boolean craftablesShowUnavailable;
-    private final List<CraftableEntry> craftableEntries = new ArrayList<>();
-    private int craftablesRevision;
-    private boolean craftablesHasMore;
-    private final Set<Integer> pendingCraftableOffsets = new HashSet<>();
-    private String craftFeedbackItemId = "";
-    private int craftFeedbackCount;
-    private long craftFeedbackExpiryMs;
-    private final List<CraftFeedbackIngredient> craftFeedbackIngredients = new ArrayList<>();
     private byte questDetectPhase = -1;
     private long questDetectStartedAtMs;
     private long questDetectFinishedAtMs;
@@ -207,103 +84,41 @@ public final class ClientRtsController {
     private int questDetectScannedTasks;
     private int questDetectTotalTasks;
     private int questDetectCompletedTasks;
-    private String selectedItemId = "";
-    private String selectedItemLabel = "";
-    private ItemStack selectedItemPreview = ItemStack.EMPTY;
-    private String selectedFluidId = "";
-    private String selectedFluidLabel = "";
-    private ItemStack selectedFluidPreview = ItemStack.EMPTY;
-    private boolean emptyHandSelected = false;
-    private int placeRotateSteps;
-    private BlockPos activeMinePos;
-    private int activeMineFace = -1;
-    private int activeMineToolSlot;
-    private BlockPos mineRenderPos;
-    private int mineRenderStage = -1;
-    private BlockPos mineProgressCompletedPos;
-    private long mineProgressCompletedAtMs;
-    private int ultimineProgressProcessed = -1;
-    private int ultimineProgressTotal = 0;
+    private boolean chunkCurtainVisible;
+
+    /** Maximum concurrent workflows tracked on client. */
+    private static final int CLIENT_MAX_WORKFLOWS = 8;
+
+    /** Workflow progress array, indexed by slot (0-7). idle entries have null type. */
     private final RtsWorkflowStatus[] workflowStatuses = new RtsWorkflowStatus[CLIENT_MAX_WORKFLOWS];
+    /** Total active workflow count (from server). */
     private int workflowActiveCount;
+    /** Whether the server has pending placement jobs waiting for items. */
     private boolean hasPendingJobs;
-    private BuildShape buildShape = BuildShape.BLOCK;
+
+    /** Cached resume placement scan data (from server). */
+    private S2CRtsResumePlacementScanPayload resumeScanData;
+
+    private final StorageStateManager storageStateManager = new StorageStateManager();
+    private final ProgressionStateManager progressionStateManager = new ProgressionStateManager();
+    private final PluginStateManager pluginStateManager = new PluginStateManager();
+    private final CameraOrbitService cameraOrbitService = new CameraOrbitService();
+    private final MiningOperationService miningOperationService = new MiningOperationService();
+    private final BuildPlacementService buildPlacementService = new BuildPlacementService();
+
+    private BlockPos lastFunnelTarget;
+    private int funnelTargetCooldownTicks;
     private boolean pendingCraftTerminalOpen;
     private int pendingCraftTerminalOpenTicks;
     private int pendingRemoteMenuOpenTicks;
     private int screenlessRemoteMenuTicks;
     private AbstractContainerMenu relaxedRemoteMenu;
-    private boolean autoStoreMinedDrops = true;
-    private final String[] quickSlotItemIds = new String[QUICK_SLOT_COUNT];
-    private final String[] quickSlotLabels = new String[QUICK_SLOT_COUNT];
-    private final ItemStack[] quickSlotPreviews = new ItemStack[QUICK_SLOT_COUNT];
-    private final String[] guiBindingLabels = new String[GUI_BINDING_SLOT_COUNT];
-    private final String[] guiBindingItemIds = new String[GUI_BINDING_SLOT_COUNT];
-    private final ItemStack[] guiBindingPreviews = new ItemStack[GUI_BINDING_SLOT_COUNT];
-    private boolean funnelEnabled;
-    private BlockPos lastFunnelTarget;
-    private int funnelTargetCooldownTicks;
-    private final List<FunnelBufferEntry> funnelBufferEntries = new ArrayList<>();
-    private boolean progressionEnabled;
-    private boolean progressionHomeSet;
-    private BlockPos progressionHomePos = BlockPos.ZERO;
-    private String progressionHomeDimension = "";
-    private long progressionHomeCooldownTicks;
-    private int progressionRadiusBlocks = 48;
-    private int progressionFluidCapacityBuckets = 100;
-    private int progressionUltimineLimit = 256;
-    private boolean progressionBypassHomeRadius;
-    private final Set<String> unlockedProgressionNodes = new HashSet<>();
-    private final Set<String> unlockableProgressionNodes = new HashSet<>();
-    private final PluginStateManager pluginStateManager = new PluginStateManager();
-    private double storagePanelXNormalized;
-    private double storagePanelYNormalized;
-    private double storagePanelWidthNormalized;
-    private double storagePanelHeightNormalized;
-    private boolean chunkCurtainVisible;
-
-    // Local render-only camera entity to isolate rendering from network interpolation.
-    private RtsCameraEntity localMirrorCamera;
 
     private ClientRtsController() {
-        RtsClientUiStateStore.UiState uiState = RtsClientUiStateStore.load();
-        this.startCameraAtPlayerHead = uiState.startCameraAtPlayerHead;
-        this.allowPlacedBlockRecovery = uiState.allowPlacedBlockRecovery;
-        this.toolProtectionEnabled = uiState.toolProtectionEnabled;
-        this.playerStatusOverlayEnabled = uiState.playerStatusOverlayEnabled;
-        this.invertPanDragX = uiState.invertPanDragX;
-        this.invertPanDragY = uiState.invertPanDragY;
-        this.smoothCamera = uiState.smoothCamera;
-        this.damageSoundEnabled = uiState.damageSoundEnabled;
-        this.damageAutoReturnEnabled = uiState.damageAutoReturnEnabled;
-        this.panDragSensitivityIndex = sanitizeSensitivityIndex(uiState.panDragSensitivityIndex);
-        this.rotateViewSensitivityIndex = sanitizeSensitivityIndex(uiState.rotateViewSensitivityIndex);
-        this.keyboardMoveSensitivityIndex = sanitizeSensitivityIndex(uiState.keyboardMoveSensitivityIndex);
-        this.wheelZoomSensitivityIndex = sanitizeSensitivityIndex(uiState.wheelZoomSensitivityIndex);
-        this.inputSensitivityIndex = this.rotateViewSensitivityIndex;
-        applyStoredLayout(RtsClientLayoutStore.loadStoragePanelLayout());
-        this.storageCategories.add("all");
-        for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-            this.quickSlotItemIds[i] = "";
-            this.quickSlotLabels[i] = "";
-            this.quickSlotPreviews[i] = ItemStack.EMPTY;
-        }
-        for (int i = 0; i < GUI_BINDING_SLOT_COUNT; i++) {
-            this.guiBindingLabels[i] = "";
-            this.guiBindingItemIds[i] = "";
-            this.guiBindingPreviews[i] = ItemStack.EMPTY;
-        }
     }
 
     public static ClientRtsController get() {
-        return Holder.INSTANCE;
-    }
-
-    /**
-     * 延迟创建客户端控制器，确保灵敏度预设等外部类静态常量已经完成初始化。
-     */
-    private static final class Holder {
-        private static final ClientRtsController INSTANCE = new ClientRtsController();
+        return INSTANCE;
     }
 
     public boolean isEnabled() {
@@ -311,11 +126,7 @@ public final class ClientRtsController {
     }
 
     public boolean canUseStorageOverlay() {
-        return this.enabled
-                || this.storageLinked
-                || !this.linkedStoragePositions.isEmpty()
-                || !this.storageEntries.isEmpty()
-                || !this.fluidEntries.isEmpty();
+        return this.enabled || this.storageStateManager.hasAnyStorageContent();
     }
 
     public double getAnchorX() {
@@ -343,47 +154,39 @@ public final class ClientRtsController {
     }
 
     public boolean isProgressionEnabled() {
-        return this.progressionEnabled;
+        return this.progressionStateManager.isProgressionEnabled();
     }
 
     public boolean isProgressionHomeSet() {
-        return this.progressionHomeSet;
+        return this.progressionStateManager.isProgressionHomeSet();
     }
 
     public BlockPos getProgressionHomePos() {
-        return this.progressionHomePos;
+        return this.progressionStateManager.getProgressionHomePos();
     }
 
     public String getProgressionHomeDimension() {
-        return this.progressionHomeDimension;
+        return this.progressionStateManager.getProgressionHomeDimension();
     }
 
     public long getProgressionHomeCooldownTicks() {
-        return this.progressionHomeCooldownTicks;
+        return this.progressionStateManager.getProgressionHomeCooldownTicks();
     }
 
     public int getProgressionRadiusBlocks() {
-        return this.progressionRadiusBlocks;
+        return this.progressionStateManager.getProgressionRadiusBlocks();
     }
 
     public int getProgressionFluidCapacityBuckets() {
-        return this.progressionFluidCapacityBuckets;
+        return this.progressionStateManager.getProgressionFluidCapacityBuckets();
     }
 
     public int getProgressionUltimineLimit() {
-        return this.progressionUltimineLimit;
+        return this.progressionStateManager.getProgressionUltimineLimit();
     }
 
     public boolean isProgressionBypassHomeRadius() {
-        return this.progressionBypassHomeRadius;
-    }
-
-    public Set<String> getUnlockedProgressionNodes() {
-        return Collections.unmodifiableSet(this.unlockedProgressionNodes);
-    }
-
-    public Set<String> getUnlockableProgressionNodes() {
-        return Collections.unmodifiableSet(this.unlockableProgressionNodes);
+        return this.progressionStateManager.isProgressionBypassHomeRadius();
     }
 
     public List<PluginStateManager.InstalledPluginView> getInstalledPlugins() {
@@ -408,15 +211,11 @@ public final class ClientRtsController {
     }
 
     public boolean isFunnelEnabled() {
-        return this.funnelEnabled;
+        return this.storageStateManager.isFunnelEnabled();
     }
 
     public void setFunnelEnabled(boolean enabled) {
-        if (this.funnelEnabled == enabled) {
-            return;
-        }
-        this.funnelEnabled = enabled;
-        RtsClientPacketGateway.sendSetFunnelEnabled(enabled);
+        this.storageStateManager.setFunnelEnabled(enabled);
         if (!enabled) {
             this.lastFunnelTarget = null;
             this.funnelTargetCooldownTicks = 0;
@@ -424,196 +223,187 @@ public final class ClientRtsController {
     }
 
     public void toggleFunnelEnabled() {
-        setFunnelEnabled(!this.funnelEnabled);
+        setFunnelEnabled(!this.storageStateManager.isFunnelEnabled());
     }
 
     public boolean isStorageCollapsed() {
-        return this.storageCollapsed;
+        return this.storageStateManager.isStorageCollapsed();
     }
 
     public void toggleStorageCollapsed() {
-        this.storageCollapsed = !this.storageCollapsed;
+        this.storageStateManager.toggleStorageCollapsed();
     }
 
     public double getStoragePanelXNormalized() {
-        return this.storagePanelXNormalized;
+        return this.storageStateManager.getStoragePanelXNormalized();
     }
 
     public double getStoragePanelYNormalized() {
-        return this.storagePanelYNormalized;
+        return this.storageStateManager.getStoragePanelYNormalized();
     }
 
     public double getStoragePanelWidthNormalized() {
-        return this.storagePanelWidthNormalized;
+        return this.storageStateManager.getStoragePanelWidthNormalized();
     }
 
     public double getStoragePanelHeightNormalized() {
-        return this.storagePanelHeightNormalized;
+        return this.storageStateManager.getStoragePanelHeightNormalized();
     }
 
     public void updateStoragePanelLayout(double xNormalized, double yNormalized, double widthNormalized, double heightNormalized) {
-        this.storagePanelXNormalized = clampLayoutNormalized(xNormalized);
-        this.storagePanelYNormalized = clampLayoutNormalized(yNormalized);
-        this.storagePanelWidthNormalized = clampLayoutNormalized(widthNormalized);
-        this.storagePanelHeightNormalized = clampLayoutNormalized(heightNormalized);
-        RtsClientLayoutStore.saveStoragePanelLayout(new RtsClientLayoutStore.StoragePanelLayout(
-                this.storagePanelXNormalized,
-                this.storagePanelYNormalized,
-                this.storagePanelWidthNormalized,
-                this.storagePanelHeightNormalized));
+        this.storageStateManager.updateStoragePanelLayout(xNormalized, yNormalized, widthNormalized, heightNormalized);
     }
 
     public boolean isStorageLinked() {
-        return this.storageLinked;
+        return this.storageStateManager.isStorageLinked();
     }
 
     public String getLinkedStorageName() {
-        return this.linkedStorageName;
+        return this.storageStateManager.getLinkedStorageName();
     }
 
     public List<BlockPos> getLinkedStoragePositions() {
-        return Collections.unmodifiableList(this.linkedStoragePositions);
+        return this.storageStateManager.getLinkedStoragePositions();
+    }
+
+    public List<LinkedStorageEntry> getLinkedStorageEntries() {
+        return this.storageStateManager.getLinkedStorageEntries();
     }
 
     public int getStoragePage() {
-        return this.storagePage;
+        return this.storageStateManager.getStoragePage();
     }
 
     public int getStorageTotalPages() {
-        return this.storageTotalPages;
+        return this.storageStateManager.getStorageTotalPages();
     }
 
     public int getStorageTotalEntries() {
-        return this.storageTotalEntries;
+        return this.storageStateManager.getStorageTotalEntries();
     }
 
     public int getStorageRevision() {
-        return this.storageRevision;
+        return this.storageStateManager.getStorageRevision();
     }
 
     public String getStorageSearch() {
-        return this.storageSearch;
+        return this.storageStateManager.getStorageSearch();
     }
 
     public RtsStorageSort getStorageSort() {
-        return this.storageSort;
+        return this.storageStateManager.getStorageSort();
     }
 
     public boolean isStorageSortAscending() {
-        return this.storageSortAscending;
+        return this.storageStateManager.isStorageSortAscending();
     }
 
     public String getStorageCategory() {
-        return this.storageCategory;
+        return this.storageStateManager.getStorageCategory();
     }
 
     public List<String> getStorageCategories() {
-        return Collections.unmodifiableList(this.storageCategories);
+        return this.storageStateManager.getStorageCategories();
     }
 
     public String getSelectedItemId() {
-        return this.selectedItemId;
+        return this.buildPlacementService.getSelectedItemId();
     }
 
     public String getSelectedItemLabel() {
-        return this.selectedItemLabel;
+        return this.buildPlacementService.getSelectedItemLabel();
     }
 
     public String getSelectedFluidId() {
-        return this.selectedFluidId;
+        return this.buildPlacementService.getSelectedFluidId();
     }
 
     public String getSelectedFluidLabel() {
-        return this.selectedFluidLabel;
+        return this.buildPlacementService.getSelectedFluidLabel();
     }
 
     public boolean hasSelectedItem() {
-        return !this.selectedItemId.isBlank();
+        return this.buildPlacementService.hasSelectedItem();
     }
 
     public boolean hasSelectedFluid() {
-        return !this.selectedFluidId.isBlank();
+        return this.buildPlacementService.hasSelectedFluid();
     }
 
     public boolean isEmptyHandSelected() {
-        return this.emptyHandSelected;
+        return this.buildPlacementService.isEmptyHandSelected();
     }
 
     public ItemStack getSelectedItemPreview() {
-        return this.selectedItemPreview;
+        return this.buildPlacementService.getSelectedItemPreview();
     }
 
     public ItemStack getSelectedFluidPreview() {
-        return this.selectedFluidPreview;
+        return this.buildPlacementService.getSelectedFluidPreview();
     }
 
     public int getPlaceRotateDegrees() {
-        return this.placeRotateSteps * 90;
+        return this.buildPlacementService.getPlaceRotateDegrees();
+    }
+
+    public String getPlacementStatePreset() {
+        return this.buildPlacementService.getPlacementStatePreset();
     }
 
     public List<StorageEntry> getStorageEntries() {
-        return Collections.unmodifiableList(this.storageEntries);
+        return this.storageStateManager.getStorageEntries();
     }
 
     public long getStorageTotalCount(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
-            return 0L;
-        }
-        return Math.max(0L, this.storageTotalCounts.getOrDefault(itemId, 0L));
+        return this.storageStateManager.getStorageTotalCount(itemId);
     }
 
     public List<FluidEntry> getFluidEntries() {
-        return Collections.unmodifiableList(this.fluidEntries);
+        return this.storageStateManager.getFluidEntries();
     }
 
     public List<RecentEntry> getRecentEntries() {
-        return Collections.unmodifiableList(this.recentEntries);
+        return this.storageStateManager.getRecentEntries();
     }
 
     public long getRecentDisplayAmount(RecentEntry entry) {
-        if (entry == null) {
-            return 0L;
-        }
-        if (entry.fluid()) {
-            return getStorageFluidAmount(entry.id());
-        }
-        return getStorageTotalCount(entry.id());
+        return this.storageStateManager.getRecentDisplayAmount(entry);
     }
 
     public String getCraftablesSearch() {
-        return this.craftablesSearch;
+        return this.storageStateManager.getCraftablesSearch();
     }
 
     public boolean isCraftablesShowUnavailable() {
-        return this.craftablesShowUnavailable;
+        return this.storageStateManager.isCraftablesShowUnavailable();
     }
 
     public List<CraftableEntry> getCraftableEntries() {
-        return Collections.unmodifiableList(this.craftableEntries);
+        return this.storageStateManager.getCraftableEntries();
     }
 
     public int getCraftablesRevision() {
-        return this.craftablesRevision;
+        return this.storageStateManager.getCraftablesRevision();
     }
 
     public boolean hasMoreCraftables() {
-        return this.craftablesHasMore;
+        return this.storageStateManager.hasMoreCraftables();
     }
 
     public String getCraftFeedbackItemId() {
-        return this.craftFeedbackItemId;
+        return this.storageStateManager.getCraftFeedbackItemId();
     }
 
     public int getCraftFeedbackCount() {
-        return this.craftFeedbackCount;
+        return this.storageStateManager.getCraftFeedbackCount();
     }
 
     public long getCraftFeedbackExpiryMs() {
-        return this.craftFeedbackExpiryMs;
+        return this.storageStateManager.getCraftFeedbackExpiryMs();
     }
 
     public List<CraftFeedbackIngredient> getCraftFeedbackIngredients() {
-        return Collections.unmodifiableList(this.craftFeedbackIngredients);
+        return this.storageStateManager.getCraftFeedbackIngredients();
     }
 
     public boolean isQuestDetectPopupVisible() {
@@ -646,34 +436,31 @@ public final class ClientRtsController {
     }
 
     public boolean isStorageScanPopupVisible() {
-        return false;
+        return this.storageStateManager.isStorageScanPopupVisible();
     }
 
     public boolean isStorageScanRunning() {
-        return this.storageScanRunning;
+        return this.storageStateManager.isStorageScanRunning();
     }
 
     public boolean isStorageViewDirty() {
-        return this.storageViewDirty;
+        return this.storageStateManager.isStorageViewDirty();
     }
 
     public boolean shouldHighlightStorageRefresh() {
-        return this.storageViewDirty && !RtsClientUiStateStore.isStorageRefreshQuietEnabled();
+        return this.storageStateManager.isStorageViewDirty() && !RtsClientUiStateStore.isStorageRefreshQuietEnabled();
     }
 
     public float getStorageScanProgress() {
-        if (!isStorageScanPopupVisible()) {
-            return 0.0F;
-        }
-        if (this.storageScanRunning) {
-            long elapsed = Math.max(0L, System.currentTimeMillis() - this.storageScanStartedAtMs);
-            return (float) Math.min(0.92D, elapsed / 900.0D * 0.92D);
-        }
-        return 1.0F;
+        return this.storageStateManager.getStorageScanProgress();
+    }
+
+    public void clearStorageScanPopupState() {
+        this.storageStateManager.clearStorageScanState();
     }
 
     public boolean hasStoragePageSnapshot() {
-        return this.storagePageReceivedAtMs > 0L || this.storageRevision > 0;
+        return this.storageStateManager.hasStoragePageSnapshot();
     }
 
     public int getQuestDetectScannedTasks() {
@@ -689,64 +476,85 @@ public final class ClientRtsController {
     }
 
     public List<FunnelBufferEntry> getFunnelBufferEntries() {
-        return Collections.unmodifiableList(this.funnelBufferEntries);
+        return this.storageStateManager.getFunnelBufferEntries();
     }
 
     public boolean isAutoStoreMinedDrops() {
-        return this.autoStoreMinedDrops;
+        return this.storageStateManager.isAutoStoreMinedDrops();
     }
 
     public boolean isBdNetworkEnabled() {
-        return this.bdNetworkEnabled;
+        return this.storageStateManager.isBdNetworkEnabled();
     }
 
     public void setBdNetworkEnabled(boolean enabled) {
-        this.bdNetworkEnabled = enabled;
+        this.storageStateManager.setBdNetworkEnabled(enabled);
     }
 
     public void toggleBdNetworkEnabled() {
-        setBdNetworkEnabled(!this.bdNetworkEnabled);
+        this.storageStateManager.toggleBdNetworkEnabled();
+    }
+
+    public AreaMineShape getAreaMineShape() {
+        return this.miningOperationService.getAreaMineShape();
+    }
+
+    public void setAreaMineShape(AreaMineShape shape) {
+        this.miningOperationService.setAreaMineShape(shape);
     }
 
     public BuildShape getBuildShape() {
-        return this.buildShape;
+        return this.buildPlacementService.getBuildShape();
     }
 
     public void setBuildShape(BuildShape shape) {
-        this.buildShape = shape == null ? BuildShape.BLOCK : shape;
+        this.buildPlacementService.setBuildShape(shape);
     }
 
     public boolean isChunkCurtainVisible() {
         return this.chunkCurtainVisible;
     }
 
+    // ======================================================================
+    //  Workflow Progress (from WorkflowManager)
+    // ======================================================================
+
     /**
-     * 套用服务端发来的单个工作流进度。slot 只负责 UI 排列，按钮操作仍使用 entryId。 */
+     * Applies a workflow progress update from the server.
+     * Updates the slot at {@code payload.workflowIndex()}.
+     */
     public void applyWorkflowProgress(S2CRtsWorkflowProgressPayload payload) {
-        if (payload == null) {
-            return;
-        }
         if (payload.isIdle()) {
-            clearWorkflowData();
+            // Clear all
+            for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
+                this.workflowStatuses[i] = null;
+            }
+            this.workflowActiveCount = 0;
             return;
         }
         this.workflowActiveCount = payload.workflowCount() & 0xFF;
-        int index = payload.workflowIndex() & 0xFF;
-        if (index < 0 || index >= CLIENT_MAX_WORKFLOWS) {
+        int idx = payload.workflowIndex() & 0xFF;
+        if (idx < 0 || idx >= CLIENT_MAX_WORKFLOWS) {
             return;
         }
-
+        byte wt = payload.workflowType();
         RtsWorkflowType[] types = RtsWorkflowType.values();
-        byte workflowType = payload.workflowType();
-        RtsWorkflowType type = workflowType >= 0 && workflowType < types.length ? types[workflowType] : null;
+        RtsWorkflowType type = wt >= 0 && wt < types.length
+                ? types[wt]
+                : null;
         if (type == null) {
-            this.workflowStatuses[index] = RtsWorkflowStatus.idle();
+            // Slot is idle
+            this.workflowStatuses[idx] = RtsWorkflowStatus.idle();
             return;
         }
-
-        this.workflowStatuses[index] = RtsWorkflowStatus.fromRaw(
+        RtsWorkflowPriority[] priorities = RtsWorkflowPriority.values();
+        byte pri = payload.priority();
+        RtsWorkflowPriority priority = pri >= 0 && pri < priorities.length
+                ? priorities[pri]
+                : RtsWorkflowPriority.NORMAL;
+        this.workflowStatuses[idx] = RtsWorkflowStatus.fromRaw(
                 type,
-                RtsWorkflowPriority.byRank(payload.priority()),
+                priority,
                 payload.totalBlocks(),
                 payload.completedBlocks(),
                 payload.failedBlocks(),
@@ -759,20 +567,30 @@ public final class ClientRtsController {
     }
 
     /**
-     * 套用服务端批量同步。先清空再填入，避免已删除任务在客户端闪回。 */
+     * Applies a batch of workflow progress updates received in a single packet.
+     * Identical in effect to calling {@link #applyWorkflowProgress} for each entry.
+     *
+     * <p>清空所有旧数据后再填充，确保渲染器不会看到残留的过期 slot 数据，
+     * 消除工作流移除时旧 destroy entry 仍在 statuses 数组中存留导致的闪烁。
+     * 由于 {@code enqueueWork} 保证整批操作在同一主线程帧内原子完成，
+     * 渲染器只看到最终完整状态。</p>
+     */
     public void applyWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload) {
+        // 先铲平所有 slot，让 batch 从干净状态重新填充
         for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
             this.workflowStatuses[i] = null;
         }
         this.workflowActiveCount = 0;
-        if (payload == null || payload.entries() == null) {
-            return;
-        }
+
         for (S2CRtsWorkflowProgressPayload entry : payload.entries()) {
             applyWorkflowProgress(entry);
         }
     }
 
+    /**
+     * Returns the workflow progress status for a specific slot.
+     * Returns {@link RtsWorkflowStatus#idle()} if the slot is empty.
+     */
     public RtsWorkflowStatus getWorkflowStatus(int slot) {
         if (slot < 0 || slot >= CLIENT_MAX_WORKFLOWS || this.workflowStatuses[slot] == null) {
             return RtsWorkflowStatus.idle();
@@ -780,18 +598,27 @@ public final class ClientRtsController {
         return this.workflowStatuses[slot];
     }
 
+    /**
+     * Returns all non-idle workflow statuses (for UI iteration).
+     */
     public List<RtsWorkflowStatus> getActiveWorkflows() {
-        List<RtsWorkflowStatus> result = new ArrayList<>();
-        int count = Math.min(this.workflowActiveCount, CLIENT_MAX_WORKFLOWS);
+        List<RtsWorkflowStatus> result = new java.util.ArrayList<>();
+        int count = Math.min(workflowActiveCount, CLIENT_MAX_WORKFLOWS);
         for (int i = 0; i < count; i++) {
             RtsWorkflowStatus status = this.workflowStatuses[i];
-            if (status != null && status.isActive()) {
+            if (status != null && status.type() != null) {
                 result.add(status);
             }
         }
         return result;
     }
 
+    /**
+     * Clears all cached workflow data on the client side.
+     * Called when the client disconnects from a server / leaves a world,
+     * so stale workflow entries from a previous save do not linger in the UI
+     * when the player joins a different world.
+     */
     public void clearWorkflowData() {
         for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
             this.workflowStatuses[i] = null;
@@ -800,41 +627,82 @@ public final class ClientRtsController {
         this.hasPendingJobs = false;
     }
 
+    /**
+     * Returns the total number of active workflows.
+     */
     public int getWorkflowActiveCount() {
         return this.workflowActiveCount;
     }
 
+    /**
+     * Returns the raw workflow statuses array for UI iteration.
+     */
     public RtsWorkflowStatus[] getWorkflowStatuses() {
         return this.workflowStatuses;
     }
 
+    /**
+     * 查找当前活跃的破坏类工作流（AREA_DESTROY / ULTIMINE / AREA_MINE），
+     * 用于 QuickBuildPanel 进度条和 ShapeGhostRenderer 渲染。
+     */
+    @javax.annotation.Nullable
     public RtsWorkflowStatus findActiveDestroyWorkflow() {
-        for (RtsWorkflowStatus status : this.workflowStatuses) {
-            if (status == null || status.type() == null) {
-                continue;
-            }
-            switch (status.type()) {
-                case AREA_DESTROY, ULTIMINE, AREA_MINE -> {
-                    return status;
-                }
-                default -> {
+        for (RtsWorkflowStatus status : workflowStatuses) {
+            if (status != null && status.type() != null) {
+                switch (status.type()) {
+                    case AREA_DESTROY:
+                    case ULTIMINE:
+                    case AREA_MINE:
+                        return status;
+                    default:
+                        break;
                 }
             }
         }
         return null;
     }
 
+    /**
+     * Returns {@code true} if the server has pending placement jobs.
+     */
     public boolean hasPendingJobs() {
         return this.hasPendingJobs;
     }
 
+    /**
+     * Sets whether there are pending placement jobs (called from server sync).
+     */
     public void setHasPendingJobs(boolean hasPendingJobs) {
         this.hasPendingJobs = hasPendingJobs;
     }
 
+    /**
+     * Applies a resume placement scan result from the server.
+     */
+    public void applyResumePlacementScan(S2CRtsResumePlacementScanPayload payload) {
+        this.resumeScanData = payload;
+    }
+
+    /**
+     * Returns the cached resume placement scan data, or null.
+     */
+    public S2CRtsResumePlacementScanPayload getResumeScanData() {
+        return this.resumeScanData;
+    }
+
+    /**
+     * Clears the cached resume placement scan data.
+     */
+    public void clearResumeScanData() {
+        this.resumeScanData = null;
+    }
+
+    /**
+     * Returns {@code true} if any workflow is currently active.
+     */
     public boolean hasActiveWorkflow() {
-        for (RtsWorkflowStatus status : this.workflowStatuses) {
-            if (status != null && status.isActive()) {
+        for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
+            if (this.workflowStatuses[i] != null && this.workflowStatuses[i].type() != null) {
                 return true;
             }
         }
@@ -846,189 +714,131 @@ public final class ClientRtsController {
     }
 
     public void cycleBuildShape(int step) {
-        BuildShape[] values = BuildShape.values();
-        int index = this.buildShape.ordinal();
-        int next = Math.floorMod(index + step, values.length);
-        this.buildShape = values[next];
+        this.buildPlacementService.cycleBuildShape(step);
     }
 
     public int getQuickSlotCount() {
-        return QUICK_SLOT_COUNT;
+        return this.storageStateManager.getQuickSlotCount();
     }
 
     public String getQuickSlotItemId(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return "";
-        }
-        return this.quickSlotItemIds[index];
+        return this.storageStateManager.getQuickSlotItemId(index);
     }
 
     public String getQuickSlotLabel(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return "";
-        }
-        return this.quickSlotLabels[index];
+        return this.storageStateManager.getQuickSlotLabel(index);
     }
 
     public ItemStack getQuickSlotPreview(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return ItemStack.EMPTY;
-        }
-        return this.quickSlotPreviews[index];
+        return this.storageStateManager.getQuickSlotPreview(index);
     }
 
     public float getRotateSensitivity() {
-        return this.rotateSensitivity;
+        return this.cameraOrbitService.getRotateSensitivity();
     }
 
     public int getGuiBindingCount() {
-        return GUI_BINDING_SLOT_COUNT;
+        return this.storageStateManager.getGuiBindingCount();
     }
 
     public String getGuiBindingLabel(int index) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
-            return "";
-        }
-        ItemStack preview = this.guiBindingPreviews[index];
-        if (preview != null && !preview.isEmpty()) {
-            // 服务端标签可能已经按服务端语言展开；客户端重新解析物品名以跟随玩家语言。
-            return preview.getHoverName().getString();
-        }
-        return this.guiBindingLabels[index];
+        return this.storageStateManager.getGuiBindingLabel(index);
     }
 
     public ItemStack getGuiBindingPreview(int index) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
-            return ItemStack.EMPTY;
-        }
-        return this.guiBindingPreviews[index];
+        return this.storageStateManager.getGuiBindingPreview(index);
     }
 
     public boolean hasGuiBinding(int index) {
-        return !getGuiBindingLabel(index).isBlank();
+        return this.storageStateManager.hasGuiBinding(index);
     }
 
     public String getInputSensitivityLabel() {
-        return sensitivityLabel(this.rotateViewSensitivityIndex);
+        return this.cameraOrbitService.getInputSensitivityLabel();
     }
 
     public int getInputSensitivityIndex() {
-        if (this.inputSensitivityIndex < 0 || this.inputSensitivityIndex >= INPUT_SENS_PRESETS.length) {
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-        }
-        return this.inputSensitivityIndex;
+        return this.cameraOrbitService.getInputSensitivityIndex();
     }
 
     public int getInputSensitivityPresetCount() {
-        return INPUT_SENS_PRESETS.length;
+        return this.cameraOrbitService.getInputSensitivityPresetCount();
     }
 
     public void setInputSensitivityByFraction(double fraction) {
-        int next = sensitivityIndexFromFraction(fraction);
-        this.inputSensitivityIndex = next;
-        this.panDragSensitivityIndex = next;
-        this.rotateViewSensitivityIndex = next;
-        this.keyboardMoveSensitivityIndex = next;
-        this.wheelZoomSensitivityIndex = next;
+        this.cameraOrbitService.setInputSensitivityByFraction(fraction);
     }
 
     public void cycleInputSensitivity() {
-        int next = (getInputSensitivityIndex() + 1) % INPUT_SENS_PRESETS.length;
-        this.inputSensitivityIndex = next;
-        this.panDragSensitivityIndex = next;
-        this.rotateViewSensitivityIndex = next;
-        this.keyboardMoveSensitivityIndex = next;
-        this.wheelZoomSensitivityIndex = next;
+        this.cameraOrbitService.cycleInputSensitivity();
     }
 
     public String getPanDragSensitivityLabel() {
-        return sensitivityLabel(this.panDragSensitivityIndex);
+        return this.cameraOrbitService.getPanDragSensitivityLabel();
     }
 
     public int getPanDragSensitivityIndex() {
-        this.panDragSensitivityIndex = sanitizeSensitivityIndex(this.panDragSensitivityIndex);
-        return this.panDragSensitivityIndex;
+        return this.cameraOrbitService.getPanDragSensitivityIndex();
     }
 
     public void setPanDragSensitivityByFraction(double fraction) {
-        this.panDragSensitivityIndex = sensitivityIndexFromFraction(fraction);
+        this.cameraOrbitService.setPanDragSensitivityByFraction(fraction);
     }
 
     public String getRotateViewSensitivityLabel() {
-        return sensitivityLabel(this.rotateViewSensitivityIndex);
+        return this.cameraOrbitService.getRotateViewSensitivityLabel();
     }
 
     public int getRotateViewSensitivityIndex() {
-        this.rotateViewSensitivityIndex = sanitizeSensitivityIndex(this.rotateViewSensitivityIndex);
-        return this.rotateViewSensitivityIndex;
+        return this.cameraOrbitService.getRotateViewSensitivityIndex();
     }
 
     public void setRotateViewSensitivityByFraction(double fraction) {
-        this.rotateViewSensitivityIndex = sensitivityIndexFromFraction(fraction);
-        this.inputSensitivityIndex = this.rotateViewSensitivityIndex;
+        this.cameraOrbitService.setRotateViewSensitivityByFraction(fraction);
     }
 
     public String getKeyboardMoveSensitivityLabel() {
-        return sensitivityLabel(this.keyboardMoveSensitivityIndex);
+        return this.cameraOrbitService.getKeyboardMoveSensitivityLabel();
     }
 
     public int getKeyboardMoveSensitivityIndex() {
-        this.keyboardMoveSensitivityIndex = sanitizeSensitivityIndex(this.keyboardMoveSensitivityIndex);
-        return this.keyboardMoveSensitivityIndex;
+        return this.cameraOrbitService.getKeyboardMoveSensitivityIndex();
     }
 
     public void setKeyboardMoveSensitivityByFraction(double fraction) {
-        this.keyboardMoveSensitivityIndex = sensitivityIndexFromFraction(fraction);
+        this.cameraOrbitService.setKeyboardMoveSensitivityByFraction(fraction);
     }
 
     public String getWheelZoomSensitivityLabel() {
-        return sensitivityLabel(this.wheelZoomSensitivityIndex);
+        return this.cameraOrbitService.getWheelZoomSensitivityLabel();
     }
 
     public int getWheelZoomSensitivityIndex() {
-        this.wheelZoomSensitivityIndex = sanitizeSensitivityIndex(this.wheelZoomSensitivityIndex);
-        return this.wheelZoomSensitivityIndex;
+        return this.cameraOrbitService.getWheelZoomSensitivityIndex();
     }
 
     public void setWheelZoomSensitivityByFraction(double fraction) {
-        this.wheelZoomSensitivityIndex = sensitivityIndexFromFraction(fraction);
+        this.cameraOrbitService.setWheelZoomSensitivityByFraction(fraction);
     }
 
     public void increaseRotateSensitivity() {
-            this.rotateSensitivity = Mth.clamp(this.rotateSensitivity + ROT_SENS_STEP, ROT_SENS_MIN, ROT_SENS_MAX);
+        this.cameraOrbitService.increaseRotateSensitivity();
     }
 
     public void decreaseRotateSensitivity() {
-            this.rotateSensitivity = Mth.clamp(this.rotateSensitivity - ROT_SENS_STEP, ROT_SENS_MIN, ROT_SENS_MAX);
+        this.cameraOrbitService.decreaseRotateSensitivity();
     }
 
     public void beginRotateCapture(double cursorX, double cursorY) {
-        if (this.rotateCaptured) {
-            return;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        this.rotateCaptured = true;
-        this.restoreCursorX = cursorX;
-        this.restoreCursorY = cursorY;
-        GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        this.cameraOrbitService.beginRotateCapture(cursorX, cursorY);
     }
 
     public void endRotateCapture(double fallbackX, double fallbackY) {
-        if (!this.rotateCaptured) {
-            return;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        this.rotateCaptured = false;
-        GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
-        double x = this.restoreCursorX == 0.0D ? fallbackX : this.restoreCursorX;
-        double y = this.restoreCursorY == 0.0D ? fallbackY : this.restoreCursorY;
-        GLFW.glfwSetCursorPos(minecraft.getWindow().getWindow(), x, y);
+        this.cameraOrbitService.endRotateCapture(fallbackX, fallbackY);
     }
 
     public boolean isRotateCaptured() {
-        return this.rotateCaptured;
+        return this.cameraOrbitService.isRotateCaptured();
     }
 
     public boolean isStartCameraAtPlayerHead() {
@@ -1080,42 +890,39 @@ public final class ClientRtsController {
     }
 
     public boolean isInvertPanDragX() {
-        return this.invertPanDragX;
+        return this.cameraOrbitService.isInvertPanDragX();
     }
 
     public void setInvertPanDragX(boolean invertPanDragX) {
-        this.invertPanDragX = invertPanDragX;
+        this.cameraOrbitService.setInvertPanDragX(invertPanDragX);
     }
 
     public void toggleInvertPanDragX() {
-        this.invertPanDragX = !this.invertPanDragX;
+        this.cameraOrbitService.toggleInvertPanDragX();
     }
 
     public boolean isInvertPanDragY() {
-        return this.invertPanDragY;
+        return this.cameraOrbitService.isInvertPanDragY();
     }
 
     public void setInvertPanDragY(boolean invertPanDragY) {
-        this.invertPanDragY = invertPanDragY;
+        this.cameraOrbitService.setInvertPanDragY(invertPanDragY);
     }
 
     public void toggleInvertPanDragY() {
-        this.invertPanDragY = !this.invertPanDragY;
+        this.cameraOrbitService.toggleInvertPanDragY();
     }
 
     public boolean isSmoothCamera() {
-        return this.smoothCamera;
+        return this.cameraOrbitService.isSmoothCamera();
     }
 
     public void setSmoothCamera(boolean smoothCamera) {
-        if (this.smoothCamera != smoothCamera) {
-            this.lastSmoothCameraFrameNanos = 0L;
-        }
-        this.smoothCamera = smoothCamera;
+        this.cameraOrbitService.setSmoothCamera(smoothCamera);
     }
 
     public void toggleSmoothCamera() {
-        setSmoothCamera(!this.smoothCamera);
+        this.cameraOrbitService.toggleSmoothCamera();
     }
 
     public boolean isDamageSoundEnabled() {
@@ -1148,7 +955,7 @@ public final class ClientRtsController {
         if (payload.enabled()) {
             boolean freshEnable = !this.enabled;
             this.enabled = true;
-            this.serverCameraEntityId = payload.cameraEntityId();
+            this.cameraOrbitService.setServerCameraEntityId(payload.cameraEntityId());
             this.anchorX = payload.anchorX();
             this.anchorY = payload.anchorY();
             this.anchorZ = payload.anchorZ();
@@ -1157,155 +964,91 @@ public final class ClientRtsController {
             this.closeRangeAllowed = payload.closeRangeAllowed();
 
             if (freshEnable) {
-                this.previousCameraEntity = minecraft.getCameraEntity();
-                this.previousCameraType = minecraft.options.getCameraType();
-                this.previousBobView = minecraft.options.bobView().get();
-                this.previousFovEffectScale = minecraft.options.fovEffectScale().get();
+                this.cameraOrbitService.capturePreviousView(minecraft);
+                // Clear stale player input to prevent WASD presses from before entering RTS mode from affecting movement
+                if (minecraft.player != null) {
+                    LocalPlayer localPlayer = minecraft.player;
+                    localPlayer.input.forwardImpulse = 0.0F;
+                    localPlayer.input.leftImpulse = 0.0F;
+                    localPlayer.input.jumping = false;
+                    localPlayer.input.shiftKeyDown = false;
+                }
             }
 
-            minecraft.options.setCameraType(CameraType.FIRST_PERSON);
-            minecraft.options.bobView().set(false);
-            minecraft.options.fovEffectScale().set(0.0D);
+            this.cameraOrbitService.applyRtsView(minecraft);
 
             if (!(minecraft.screen instanceof BuilderScreen)) {
                 minecraft.setScreen(new BuilderScreen(this));
             }
 
-            this.localHeightOffset = payload.heightOffset();
-            this.localYawDeg = payload.yawDeg();
-            this.localPitchDeg = payload.pitchDeg();
-            this.localX = payload.anchorX();
-            this.localY = payload.anchorY() + payload.heightOffset();
-            this.localZ = payload.anchorZ();
-            this.localStateReady = true;
-
-            this.pendingPanX = 0.0F;
-            this.pendingPanY = 0.0F;
-            this.pendingScroll = 0.0F;
-            this.pendingRotateSteps = 0;
-            this.pendingRawRotateX = 0.0F;
-            this.pendingRawRotateY = 0.0F;
-            this.emaRotateX = 0.0F;
-            this.emaRotateY = 0.0F;
-            this.cameraMoveHeartbeatTicks = 0;
-            this.cameraRestoreCooldownTicks = 0;
-            this.lastSmoothCameraFrameNanos = 0L;
-            this.mode = BuilderMode.INTERACT;
-            this.storageCollapsed = false;
-            this.storageEntries.clear();
-            this.fluidEntries.clear();
-            this.storageLinked = false;
-            this.linkedStorageName = "No Storage";
-            this.linkedStoragePositions.clear();
-            this.storagePage = 0;
-            this.storageTotalPages = 1;
-            this.storageTotalEntries = 0;
-            this.storageSearch = "";
-            this.storageCategory = "all";
-            this.storageSort = RtsStorageSort.QUANTITY;
-            this.storageSortAscending = false;
-            this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-            this.storageCategories.clear();
-            this.storageCategories.add("all");
-            clearStorageScanState();
-            clearStorageViewDirty();
-            this.storagePageReceivedAtMs = 0L;
-            this.selectedItemId = "";
-            this.selectedItemLabel = "";
-            this.selectedItemPreview = ItemStack.EMPTY;
-            this.selectedFluidId = "";
-            this.selectedFluidLabel = "";
-            this.selectedFluidPreview = ItemStack.EMPTY;
-            this.emptyHandSelected = false;
-            this.placeRotateSteps = 0;
-            this.activeMinePos = null;
-            this.activeMineFace = -1;
-            this.mineRenderPos = null;
-            this.mineRenderStage = -1;
-            this.buildShape = BuildShape.BLOCK;
-            this.funnelEnabled = false;
+            this.cameraOrbitService.applyEnabledPose(
+                    payload.anchorX(), payload.anchorY(), payload.anchorZ(),
+                    payload.heightOffset(), payload.yawDeg(), payload.pitchDeg());
+            this.storageStateManager.clearStorageState();
+            this.buildPlacementService.clearPlacementSelectionPreserveMode();
+            this.miningOperationService.clearMiningState();
             this.lastFunnelTarget = null;
             this.funnelTargetCooldownTicks = 0;
-            this.funnelBufferEntries.clear();
             this.pendingCraftTerminalOpen = false;
             this.pendingCraftTerminalOpenTicks = 0;
             this.pendingRemoteMenuOpenTicks = 0;
             this.screenlessRemoteMenuTicks = 0;
             clearRemoteMenuValidationState();
-            clearQuickSlotsLocal();
-            clearGuiBindingsLocal();
+            this.storageStateManager.clearQuickSlotsLocal();
+            this.storageStateManager.clearGuiBindingsLocal();
 
-            this.ensureLocalMirrorCamera(minecraft);
-            this.syncVisualCameraFrame();
+            this.cameraOrbitService.setBounds(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
+            this.cameraOrbitService.syncVisualCameraFrame(minecraft,
+                    payload.anchorX(), payload.anchorY(), payload.anchorZ(),
+                    payload.maxRadius(), true);
             requestStoragePage(0);
             return;
         }
 
         this.enabled = false;
-        this.serverCameraEntityId = -1;
-        this.localStateReady = false;
+        this.cameraOrbitService.resetServerCameraEntityId();
+        this.cameraOrbitService.setLocalStateReady(false);
         this.homeSelectionMode = false;
         this.closeRangeAllowed = false;
-        this.lastSmoothCameraFrameNanos = 0L;
-        this.funnelEnabled = false;
+        this.cameraOrbitService.clearState();
         this.lastFunnelTarget = null;
         this.funnelTargetCooldownTicks = 0;
-        this.funnelBufferEntries.clear();
         this.pendingCraftTerminalOpen = false;
         this.pendingCraftTerminalOpenTicks = 0;
         this.pendingRemoteMenuOpenTicks = 0;
         this.screenlessRemoteMenuTicks = 0;
         clearRemoteMenuValidationState();
 
-        if (this.rotateCaptured) {
-            this.endRotateCapture(0.0D, 0.0D);
-        }
+        this.cameraOrbitService.endRotateCapture(0.0D, 0.0D);
 
-        this.pendingPanX = 0.0F;
-        this.pendingPanY = 0.0F;
-        this.pendingScroll = 0.0F;
-        this.pendingRotateSteps = 0;
-        this.pendingRawRotateX = 0.0F;
-        this.pendingRawRotateY = 0.0F;
-        this.emaRotateX = 0.0F;
-        this.emaRotateY = 0.0F;
-        this.cameraMoveHeartbeatTicks = 0;
-        this.cameraRestoreCooldownTicks = 0;
-        this.inputSensitivityIndex = INPUT_SENS_DEFAULT_INDEX;
-        this.selectedItemId = "";
-        this.selectedItemLabel = "";
-        this.selectedItemPreview = ItemStack.EMPTY;
-        this.selectedFluidId = "";
-        this.selectedFluidLabel = "";
-        this.selectedFluidPreview = ItemStack.EMPTY;
-        this.emptyHandSelected = false;
-        this.placeRotateSteps = 0;
-        this.activeMinePos = null;
-        this.activeMineFace = -1;
-        this.buildShape = BuildShape.BLOCK;
-        clearQuickSlotsLocal();
-        clearGuiBindingsLocal();
-        if (minecraft.level != null && this.mineRenderPos != null) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-        }
-        this.mineRenderPos = null;
-        this.mineRenderStage = -1;
-        clearStorageScanState();
-        clearStorageViewDirty();
-        this.storagePageReceivedAtMs = 0L;
+        this.buildPlacementService.clearPlacementSelectionPreserveMode();
+        this.miningOperationService.clearMiningRenderState();
+        this.storageStateManager.clearQuickSlotsLocal();
+        this.storageStateManager.clearGuiBindingsLocal();
+        this.storageStateManager.clearStorageScanState();
+        this.storageStateManager.clearStorageViewDirty();
 
         if (minecraft.screen instanceof BuilderScreen) {
             minecraft.setScreen(null);
         }
 
-        Entity restore = this.previousCameraEntity != null ? this.previousCameraEntity : minecraft.player;
-        minecraft.setCameraEntity(restore);
-        minecraft.options.setCameraType(this.previousCameraType);
-        minecraft.options.bobView().set(this.previousBobView);
-        minecraft.options.fovEffectScale().set(this.previousFovEffectScale);
+        this.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
+    }
 
-        this.previousCameraEntity = null;
-        this.localMirrorCamera = null;
+    /**
+     * Updates the local anchor position and camera bounds from a server
+     * anchor update payload, keeping client visuals in sync when the
+     * server moves the anchor to follow the player entity.
+     */
+    public void applyServerCameraAnchor(S2CRtsCameraAnchorPayload payload) {
+        if (!this.enabled) {
+            return;
+        }
+        this.anchorX = payload.anchorX();
+        this.anchorY = payload.anchorY();
+        this.anchorZ = payload.anchorZ();
+        this.maxRadius = payload.maxRadius();
+        this.cameraOrbitService.setBounds(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
     }
 
     public void preTick() {
@@ -1409,115 +1152,53 @@ public final class ClientRtsController {
             minecraft.setScreen(new BuilderScreen(this));
         }
 
-        this.ensureLocalMirrorCamera(minecraft);
+        this.cameraOrbitService.tick(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius);
         boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
                 && builderScreen.isStorageViewVisible();
-        tickStorageAutoRefresh(storageViewVisible);
+        this.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
 
-        CameraInput cameraInput = readCameraInput(minecraft);
-        float keyboardScale = getKeyboardMoveSensitivityScale();
-        float forward = cameraInput.forward * keyboardScale;
-        float strafe = cameraInput.strafe * keyboardScale;
-        float vertical = cameraInput.vertical * keyboardScale;
-        boolean fast = cameraInput.fast;
+        // Don't override player.input in RTS mode so the player entity can
+        // properly respond to knockback and physics effects.
+        // BuilderScreen intercepts input events preventing KeyMapping updates, but
+        // the entity's own physics (knockback, gravity) are unaffected since
+        // ServerPlayer's input is always null.
+        // In RTS mode, prevent keyboard from controlling the player entity
+        // (including jumping and sneaking).
+        // isControlledCamera() is overridden by LocalPlayerMixin to return true,
+        // so Minecraft's native sync mechanism handles position/rotation packets automatically.
+        LocalPlayer localPlayer = minecraft.player;
+        if (localPlayer != null) {
+            localPlayer.input.jumping = false;
+            localPlayer.input.shiftKeyDown = false;
+            localPlayer.input.forwardImpulse = 0.0F;
+            localPlayer.input.leftImpulse = 0.0F;
 
-        float safeRawX = Mth.clamp(this.pendingRawRotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float safeRawY = Mth.clamp(this.pendingRawRotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+            // RTS flight vertical control: when player is flying in RTS mode,
+            // Ctrl+Space = ascend, Shift = descend (direct GLFW key state queries)
+            if (localPlayer.getAbilities().flying) {
+                long window = minecraft.getWindow().getWindow();
+                boolean ctrlHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                        || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+                boolean spaceHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+                boolean shiftHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                        || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
 
-        this.emaRotateX += (safeRawX - this.emaRotateX) * ROT_EMA_ALPHA;
-        this.emaRotateY += (safeRawY - this.emaRotateY) * ROT_EMA_ALPHA;
-
-        if (Math.abs(safeRawX) < 0.0001F) {
-            this.emaRotateX *= ROT_EMA_DECAY;
-        }
-        if (Math.abs(safeRawY) < 0.0001F) {
-            this.emaRotateY *= ROT_EMA_DECAY;
-        }
-
-        float rotateSensitivityScale = getRotateViewSensitivityScale();
-        float rotateXForTick = Mth.clamp(this.emaRotateX * this.rotateSensitivity * rotateSensitivityScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float rotateYForTick = Mth.clamp(this.emaRotateY * this.rotateSensitivity * rotateSensitivityScale, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float scrollForTick = this.pendingScroll;
-        if (Math.abs(rotateXForTick) < CAMERA_INPUT_EPSILON) {
-            rotateXForTick = 0.0F;
-            this.emaRotateX = 0.0F;
-        }
-        if (Math.abs(rotateYForTick) < CAMERA_INPUT_EPSILON) {
-            rotateYForTick = 0.0F;
-            this.emaRotateY = 0.0F;
-        }
-        if (Math.abs(scrollForTick) < CAMERA_INPUT_EPSILON) {
-            scrollForTick = 0.0F;
-        }
-
-        boolean hasCameraInput = forward != 0.0F || strafe != 0.0F || vertical != 0.0F
-                || Math.abs(this.pendingPanX) > CAMERA_INPUT_EPSILON
-                || Math.abs(this.pendingPanY) > CAMERA_INPUT_EPSILON
-                || rotateXForTick != 0.0F || rotateYForTick != 0.0F
-                || scrollForTick != 0.0F || this.pendingRotateSteps != 0;
-        if (hasCameraInput && !this.smoothCamera) {
-            this.applyLocalPrediction(
-                    forward,
-                    strafe,
-                    vertical,
-                    this.pendingPanX,
-                    this.pendingPanY,
-                    rotateXForTick,
-                    rotateYForTick,
-                    scrollForTick,
-                    this.pendingRotateSteps,
-                    fast);
+                if (ctrlHeld && spaceHeld) {
+                    double upSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
+                    localPlayer.setDeltaMovement(
+                            localPlayer.getDeltaMovement().x,
+                            upSpeed,
+                            localPlayer.getDeltaMovement().z);
+                } else if (ctrlHeld && shiftHeld) {
+                    double downSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
+                    localPlayer.setDeltaMovement(
+                            localPlayer.getDeltaMovement().x,
+                            -downSpeed,
+                            localPlayer.getDeltaMovement().z);
+                }
+            }
         }
 
-        if (hasCameraInput || ++this.cameraMoveHeartbeatTicks >= CAMERA_IDLE_HEARTBEAT_TICKS) {
-            RtsClientPacketGateway.sendCameraMove(
-                    forward,
-                    strafe,
-                    hasCameraInput ? vertical : 0.0F,
-                    hasCameraInput ? this.pendingPanX : 0.0F,
-                    hasCameraInput ? this.pendingPanY : 0.0F,
-                    hasCameraInput ? rotateXForTick : 0.0F,
-                    hasCameraInput ? rotateYForTick : 0.0F,
-                    hasCameraInput ? scrollForTick : 0.0F,
-                    hasCameraInput ? this.pendingRotateSteps : 0,
-                    fast);
-            this.cameraMoveHeartbeatTicks = 0;
-        }
-
-        this.pendingPanX = 0.0F;
-        this.pendingPanY = 0.0F;
-        this.pendingScroll = 0.0F;
-        this.pendingRotateSteps = 0;
-        this.pendingRawRotateX = 0.0F;
-        this.pendingRawRotateY = 0.0F;
-
-        this.syncVisualCameraFrame();
-    }
-
-    private CameraInput readCameraInput(Minecraft minecraft) {
-        BuilderScreen builderScreen = minecraft.screen instanceof BuilderScreen screen ? screen : null;
-        boolean suppressMoveKeys = builderScreen != null && builderScreen.isSearchFocused();
-        if (suppressMoveKeys) {
-            return CameraInput.NONE;
-        }
-
-        long window = minecraft.getWindow().getWindow();
-        boolean w = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_W);
-        boolean s = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_S);
-        boolean a = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_A);
-        boolean d = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_D);
-        boolean up = ClientKeyMappings.CAMERA_UP.isDown()
-                || ClientKeyMappings.CAMERA_UP_SECONDARY.isDown()
-                || (builderScreen != null && builderScreen.isCameraUpActionHeld());
-        boolean down = ClientKeyMappings.CAMERA_DOWN.isDown()
-                || (builderScreen != null && builderScreen.isCameraDownActionHeld());
-        boolean fast = minecraft.options.keySprint.isDown();
-
-        return new CameraInput(
-                (w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F),
-                (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F),
-                (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F),
-                fast);
     }
 
     private boolean handleDeathScreenHandoff(Minecraft minecraft) {
@@ -1532,96 +1213,43 @@ public final class ClientRtsController {
         this.pendingCraftTerminalOpenTicks = 0;
         this.pendingRemoteMenuOpenTicks = 0;
         this.screenlessRemoteMenuTicks = 0;
-        this.activeMinePos = null;
-        this.activeMineFace = -1;
-        if (minecraft.level != null && this.mineRenderPos != null) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-        }
-        this.mineRenderPos = null;
-        this.mineRenderStage = -1;
+        this.miningOperationService.clearMiningRenderState();
         clearRemoteMenuValidationState();
 
         if (minecraft.screen instanceof BuilderScreen
                 || minecraft.screen instanceof RtsHomeScreen
-                || minecraft.screen instanceof RtsProgressionScreen
                 || minecraft.screen instanceof RtsCraftTerminalScreen) {
             minecraft.setScreen(null);
         }
 
-        Entity restore = this.previousCameraEntity != null ? this.previousCameraEntity : minecraft.player;
-        minecraft.setCameraEntity(restore);
-        minecraft.options.setCameraType(this.previousCameraType);
-        minecraft.options.bobView().set(this.previousBobView);
-        minecraft.options.fovEffectScale().set(this.previousFovEffectScale);
+        this.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
 
         this.enabled = false;
-        this.serverCameraEntityId = -1;
-        this.localStateReady = false;
         this.closeRangeAllowed = false;
-        this.cameraMoveHeartbeatTicks = 0;
-        this.cameraRestoreCooldownTicks = 0;
-        this.lastSmoothCameraFrameNanos = 0L;
-        this.previousCameraEntity = null;
-        this.localMirrorCamera = null;
+        this.cameraOrbitService.clearStateOnDeath();
+        this.cameraOrbitService.resetServerCameraEntityId();
         RtsClientPacketGateway.sendToggleCamera(false);
         return true;
     }
 
     public void queuePanDrag(double dragX, double dragY) {
-        float signedDragX = (float) dragX;
-        float signedDragY = (float) dragY;
-        float scale = getPanDragSensitivityScale();
-        float panX = (this.invertPanDragX ? signedDragX : -signedDragX) * scale;
-        float panY = (this.invertPanDragY ? signedDragY : -signedDragY) * scale;
-        this.pendingPanX += panX;
-        this.pendingPanY += panY;
-        if (this.smoothCamera) {
-            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, panX, panY, 0.0F, 0.0F, 0.0F, 0, false);
-        }
+        this.cameraOrbitService.queuePanDrag(dragX, dragY);
     }
 
     public void queueRotateDrag(double dragX, double dragY) {
-        this.pendingRawRotateX += (float) dragX;
-        this.pendingRawRotateY += (float) dragY;
-        if (this.smoothCamera) {
-            applyImmediateRotation((float) dragX, (float) dragY);
-        }
+        this.cameraOrbitService.queueRotateDrag(dragX, dragY);
     }
 
     public void queueScroll(double scrollY) {
-        float scroll = (float) scrollY * getWheelZoomSensitivityScale();
-        this.pendingScroll += scroll;
-        if (this.smoothCamera) {
-            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-                    scroll, 0, false);
-        }
+        this.cameraOrbitService.queueScroll(scrollY);
     }
 
     public void queueRotateQuarter(int direction) {
-        this.pendingRotateSteps += direction;
-        if (this.smoothCamera) {
-            applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, direction, false);
-        }
-    }
-
-    private void applyImmediateRotation(float dragX, float dragY) {
-        float sens = getRotateViewSensitivityScale() * this.rotateSensitivity;
-        float yawDelta = Mth.clamp(dragX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
-        float pitchDelta = Mth.clamp(dragY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP) * sens;
-        applyImmediateCameraInput(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, yawDelta, pitchDelta, 0.0F, 0, false);
-    }
-
-    private void applyImmediateCameraInput(float forward, float strafe, float vertical, float panX, float panY,
-            float rotateX, float rotateY, float scroll, int rotateSteps, boolean fast) {
-        if (!this.enabled || !this.localStateReady) {
-            return;
-        }
-        applyLocalPrediction(forward, strafe, vertical, panX, panY, rotateX, rotateY, scroll, rotateSteps, fast);
-        snapLocalMirrorCameraPose();
+        this.cameraOrbitService.queueRotateQuarter(direction);
     }
 
     public void updateFunnelTarget(BlockPos target) {
-        if (!this.funnelEnabled || target == null) {
+        if (!this.storageStateManager.isFunnelEnabled() || target == null) {
             return;
         }
         if (this.funnelTargetCooldownTicks > 0) {
@@ -1636,165 +1264,93 @@ public final class ClientRtsController {
     }
 
     public void linkStorage(BlockPos pos) {
-        linkStorage(pos, true);
+        this.storageStateManager.linkStorage(pos);
     }
 
     public void linkStorage(BlockPos pos, boolean allowStore) {
-        if (pos == null) {
-            return;
-        }
-        RtsClientPacketGateway.sendLinkStorage(pos, allowStore);
+        this.storageStateManager.linkStorage(pos, allowStore);
     }
 
     public void requestStoragePage(int page) {
-        markStorageScanStarted();
-        RtsClientPacketGateway.sendRequestStoragePage(
-                page,
-                this.storageSearch,
-                this.storageCategory,
-                this.storageSort,
-                this.storageSortAscending,
-                this.storagePageSize);
+        this.storageStateManager.requestStoragePage(page);
     }
 
     public void updateStoragePageSize(int pageSize) {
-        int safePageSize = Mth.clamp(pageSize, 1, MAX_STORAGE_PAGE_SIZE);
-        if (this.storagePageSize == safePageSize) {
-            return;
-        }
-        this.storagePageSize = safePageSize;
-        if (hasStoragePageSnapshot() && !this.storageScanRunning) {
-            requestStoragePage(this.storagePage);
-        }
+        this.storageStateManager.updateStoragePageSize(pageSize);
     }
 
     public void requestStoragePageIfNoSnapshot(int page) {
-        if (!hasStoragePageSnapshot() && !this.storageScanRunning) {
-            requestStoragePage(page);
-        }
+        this.storageStateManager.requestStoragePageIfNoSnapshot(page);
     }
 
     public void refreshStoragePage() {
-        requestStoragePage(this.storagePage);
+        this.storageStateManager.refreshStoragePage();
     }
 
-    private void tickStorageAutoRefresh(boolean storageViewVisible) {
-        if (!RtsClientUiStateStore.isStorageAutoRefreshEnabled()) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (this.storageViewDirty && this.storageViewDirtySinceMs <= 0L) {
-            this.storageViewDirtySinceMs = now;
-        }
-        if (!RtsStorageDirtyRefreshPolicy.shouldRequest(
-                this.storageViewDirty,
-                storageViewVisible,
-                this.storageScanRunning,
-                hasStoragePageSnapshot(),
-                this.storageDirtyRefreshRequested,
-                this.storageDirtyRefreshRequestedAtMs,
-                this.storageViewDirtySinceMs,
-                now,
-                STORAGE_AUTO_REFRESH_INTERVAL_MS)) {
-            return;
-        }
-        this.storageDirtyRefreshRequested = true;
-        this.storageDirtyRefreshRequestedAtMs = now;
-        requestStoragePage(this.storagePage);
-    }
+
 
     public void requestCraftables() {
-        this.craftablesSearch = normalizeCraftablesSearch(this.craftablesSearch);
-        clearCraftablesState();
-        if (this.craftablesSearch.isBlank()) {
-            return;
-        }
-        requestCraftablesPage(0, CRAFTABLE_BATCH_SIZE);
+        this.storageStateManager.requestCraftables();
     }
 
     public void requestMoreCraftables() {
-        if (this.craftablesSearch.isBlank() || !this.craftablesHasMore) {
-            return;
-        }
-        requestCraftablesPage(this.craftableEntries.size(), CRAFTABLE_BATCH_SIZE);
+        this.storageStateManager.requestMoreCraftables();
     }
 
     public void setAutoStoreMinedDrops(boolean enabled) {
-        this.autoStoreMinedDrops = enabled;
-        RtsClientPacketGateway.sendSetAutoStoreMinedDrops(enabled);
+        this.storageStateManager.setAutoStoreMinedDrops(enabled);
     }
 
     public void toggleAutoStoreMinedDrops() {
-        setAutoStoreMinedDrops(!this.autoStoreMinedDrops);
+        this.storageStateManager.toggleAutoStoreMinedDrops();
     }
 
     public void setStorageSearch(String search) {
-        this.storageSearch = search == null ? "" : search;
-        requestStoragePage(0);
+        this.storageStateManager.setStorageSearch(search);
     }
 
     public void setStorageCategory(String category) {
-        String normalized = normalizeCategory(category);
-        if (this.storageCategory.equals(normalized)) {
-            return;
-        }
-        this.storageCategory = normalized;
-        requestStoragePage(0);
+        this.storageStateManager.setStorageCategory(category);
     }
 
     public void cycleSort() {
-        int next = (this.storageSort.ordinal() + 1) % RtsStorageSort.values().length;
-        this.storageSort = RtsStorageSort.byId(next);
-        requestStoragePage(0);
+        this.storageStateManager.cycleSort();
     }
 
     public void toggleSortDirection() {
-        this.storageSortAscending = !this.storageSortAscending;
-        requestStoragePage(0);
+        this.storageStateManager.toggleSortDirection();
     }
 
     public void prevPage() {
-        requestStoragePage(Math.max(0, this.storagePage - 1));
+        this.storageStateManager.prevPage();
     }
 
     public void nextPage() {
-        requestStoragePage(Math.min(this.storageTotalPages - 1, this.storagePage + 1));
+        this.storageStateManager.nextPage();
     }
 
     public void setCraftablesSearch(String search) {
-        String normalized = normalizeCraftablesSearch(search);
-        if (this.craftablesSearch.equals(normalized)) {
-            return;
-        }
-        this.craftablesSearch = normalized;
-        requestCraftables();
+        this.storageStateManager.setCraftablesSearch(search);
     }
 
     public void setCraftablesShowUnavailable(boolean showUnavailable) {
-        if (this.craftablesShowUnavailable == showUnavailable) {
-            return;
-        }
-        this.craftablesShowUnavailable = showUnavailable;
-        requestCraftables();
+        this.storageStateManager.setCraftablesShowUnavailable(showUnavailable);
     }
 
     public void toggleCraftablesShowUnavailable() {
-        setCraftablesShowUnavailable(!this.craftablesShowUnavailable);
+        this.storageStateManager.toggleCraftablesShowUnavailable();
     }
 
     public void craftRecipeToLinked(String recipeId) {
-        craftRecipeToLinked(recipeId, 1);
+        this.storageStateManager.craftRecipeToLinked(recipeId);
     }
 
     public void craftRecipeToLinked(String recipeId, int craftCount) {
-        if (recipeId == null || recipeId.isBlank()) {
-            return;
-        }
-        RtsClientPacketGateway.sendCraftRecipe(recipeId, craftCount);
+        this.storageStateManager.craftRecipeToLinked(recipeId, craftCount);
     }
 
     public void openCraftTerminal() {
-        setStorageSearch("");
+        this.storageStateManager.setStorageSearch("");
         this.pendingCraftTerminalOpen = true;
         this.pendingCraftTerminalOpenTicks = 120;
         beginRemoteMenuOpenGrace();
@@ -1824,12 +1380,28 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendRotateBlock(pos);
     }
 
+    public void rotateBlockStep(
+            BlockPos pos,
+            Direction axisDirection,
+            int quarterTurns) {
+        this.buildPlacementService.rotateBlockStep(
+                pos, axisDirection, quarterTurns);
+    }
+
     public void storeHotbarSlotToLinked(int slot) {
         RtsClientPacketGateway.sendStoreHotbarSlot(slot);
     }
 
     public void fillInventoryFromLinked() {
         RtsClientPacketGateway.sendFillInventory();
+    }
+
+    public void unlinkLinkedStorage(BlockPos pos) {
+        RtsClientPacketGateway.sendUnlinkStorage(pos);
+    }
+
+    public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
+        RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
     }
 
     private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
@@ -1847,381 +1419,44 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendQuickDrop(itemId, amount, dropPos);
     }
 
-    public void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
-        if (payload == null || !payload.dirty()) {
-            clearStorageViewDirty();
-            return;
-        }
-        if (!this.storageViewDirty) {
-            this.storageViewDirtySinceMs = System.currentTimeMillis();
-        }
-        this.storageViewDirty = true;
-    }
-
     public void applyStoragePage(S2CRtsStoragePagePayload payload) {
-        markStorageScanFinished();
-        clearStorageViewDirty();
-        this.storageLinked = payload.linked();
-        this.linkedStorageName = payload.linkedName();
-        this.autoStoreMinedDrops = payload.autoStoreMinedDrops();
-        this.bdNetworkEnabled = true;
-        this.linkedStoragePositions.clear();
-        for (Long packed : payload.linkedPositions()) {
-            if (packed == null) {
-                continue;
-            }
-            this.linkedStoragePositions.add(BlockPos.of(packed.longValue()));
-        }
-        this.storagePage = payload.page();
-        this.storageTotalPages = Math.max(1, payload.totalPages());
-        this.storageTotalEntries = payload.totalEntries();
-        this.storageSearch = payload.search();
-        this.storageCategory = normalizeCategory(payload.category());
-        this.storageSort = RtsStorageSort.byId(payload.sort());
-        this.storageSortAscending = payload.ascending();
-        this.storageCategories.clear();
-        this.storageCategories.add("all");
-        for (String category : payload.categories()) {
-            String normalized = normalizeCategory(category);
-            if (!this.storageCategories.contains(normalized)) {
-                this.storageCategories.add(normalized);
-            }
-        }
-        if (!this.storageCategories.contains(this.storageCategory)) {
-            this.storageCategory = "all";
-        }
-        this.storageEntries.clear();
-        this.storageTotalCounts.clear();
-        this.fluidEntries.clear();
-        this.recentEntries.clear();
-
-        int size = Math.min(payload.itemStacks().size(), payload.counts().size());
-        for (int i = 0; i < size; i++) {
-            ItemStack stack = payload.itemStacks().get(i);
-            if (stack == null || stack.isEmpty()) {
-                continue;
-            }
-            ItemStack preview = stack.copy();
-            preview.setCount(1);
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
-            if (id == null) {
-                continue;
-            }
-            this.storageEntries.add(new StorageEntry(preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath()));
-        }
-
-        int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
-        for (int i = 0; i < totalItemSize; i++) {
-            String itemId = payload.totalItemIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                continue;
-            }
-            this.storageTotalCounts.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
-        }
-
-        int fluidSize = Math.min(payload.fluidIds().size(),
-                Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
-        for (int i = 0; i < fluidSize; i++) {
-            String fluidId = payload.fluidIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(fluidId);
-            if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) {
-                continue;
-            }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
-            FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
-            ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
-            String label = fluid.getFluidType().getDescription(fluidStack).getString();
-            this.fluidEntries.add(new FluidEntry(
-                    fluidId,
-                    label,
-                    payload.fluidAmounts().get(i),
-                    payload.fluidCapacities().get(i),
-                    id.getNamespace(),
-                    id.getPath(),
-                    preview));
-        }
-
-        int recentSize = Math.min(
-                payload.recentIds().size(),
-                Math.min(
-                        payload.recentAmounts().size(),
-                        Math.min(payload.recentCapacities().size(), payload.recentKinds().size())));
-        for (int i = 0; i < recentSize; i++) {
-            RecentEntry entry = decodeRecentEntry(
-                    payload.recentIds().get(i),
-                    payload.recentAmounts().get(i),
-                    payload.recentCapacities().get(i),
-                    payload.recentKinds().get(i));
-            if (entry != null) {
-                this.recentEntries.add(entry);
-            }
-        }
-
-        applyQuickSlotPayload(payload.quickSlotItemIds(), payload.quickSlotPreviews());
-        applyGuiBindingPayload(payload.guiBindingLabels(), payload.guiBindingItemIds());
-        refreshSelectedItemPreviewFromStorage();
-
-        this.funnelEnabled = payload.funnelEnabled();
-        this.funnelBufferEntries.clear();
-        int funnelBufferSize = Math.min(payload.funnelBufferItemIds().size(), payload.funnelBufferCounts().size());
-        for (int i = 0; i < funnelBufferSize; i++) {
-            String itemId = payload.funnelBufferItemIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                continue;
-            }
-            long count = Math.max(0L, payload.funnelBufferCounts().get(i));
-            if (count <= 0L) {
-                continue;
-            }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
-            this.funnelBufferEntries.add(new FunnelBufferEntry(stack, itemId, count));
-        }
-        this.storageRevision++;
-        if (!this.storageLinked && this.linkedStoragePositions.isEmpty()) {
-            clearCraftablesState();
-        }
+        this.storageStateManager.applyStoragePage(payload, this::refreshSelectedItemPreviewFromStorage);
     }
 
-    private void markStorageScanStarted() {
-        if (!RtsClientUiStateStore.isShowStorageReadyPopupEnabled()) {
-            clearStorageScanState();
-            return;
-        }
-        this.storageScanRunning = true;
-        this.storageScanStartedAtMs = System.currentTimeMillis();
-        this.storageScanVisibleUntilMs = 0L;
+    public void applyCraftables(S2CRtsCraftablesPayload payload) {
+        this.storageStateManager.applyCraftables(payload);
     }
 
-    private void markStorageScanFinished() {
-        if (!this.storageScanRunning && this.storageScanStartedAtMs <= 0L) {
-            return;
-        }
-        this.storageScanRunning = false;
-        long now = System.currentTimeMillis();
-        this.storagePageReceivedAtMs = now;
-        this.storageScanVisibleUntilMs = now + STORAGE_SCAN_RESULT_VISIBLE_MS;
+    public void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
+        this.storageStateManager.applyCraftFeedback(payload);
     }
 
-    private void clearStorageScanState() {
-        this.storageScanRunning = false;
-        this.storageScanStartedAtMs = 0L;
-        this.storageScanVisibleUntilMs = 0L;
+    public void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
+        this.storageStateManager.applyStorageDirty(payload);
     }
 
-    public void clearStorageScanPopupState() {
-        clearStorageScanState();
-    }
 
-    private void clearStorageViewDirty() {
-        this.storageViewDirty = false;
-        this.storageViewDirtySinceMs = 0L;
-        this.storageDirtyRefreshRequested = false;
-        this.storageDirtyRefreshRequestedAtMs = 0L;
-    }
+
+
 
     private void refreshSelectedItemPreviewFromStorage() {
-        if (this.selectedItemId == null || this.selectedItemId.isBlank()) {
-            return;
-        }
-        for (StorageEntry entry : this.storageEntries) {
-            if (entry != null && this.selectedItemId.equals(entry.itemId())) {
-                this.selectedItemPreview = entry.stack().copy();
-                this.selectedItemPreview.setCount(1);
-                return;
-            }
-        }
-        if (shouldAutoClearSelectedItemWhenUnavailable()
-                && hasStoragePageSnapshot()
-                && getStorageTotalCount(this.selectedItemId) <= 0L) {
-            selectEmptyHandPreserveMode();
-        }
-    }
-
-    private boolean shouldAutoClearSelectedItemWhenUnavailable() {
-        if (isLocalPlayerCreative()) {
-            return false;
-        }
-        return this.selectedItemPreview != null
-                && !this.selectedItemPreview.isEmpty()
-                && this.selectedItemPreview.getItem() instanceof BlockItem;
+        this.buildPlacementService.syncSelectedPreviewFromStorage(
+                this.storageStateManager.getInternalStorageEntries(),
+                this.storageStateManager.hasStoragePageSnapshot(),
+                this.storageStateManager.getStorageTotalCount(this.buildPlacementService.getSelectedItemId()));
     }
 
     public void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
         beginRemoteMenuOpenGrace();
     }
 
-    public void applyCraftables(S2CRtsCraftablesPayload payload) {
-        String payloadSearch = normalizeCraftablesSearch(payload.search());
-        if (!this.craftablesSearch.equals(payloadSearch)
-                || this.craftablesShowUnavailable != payload.showUnavailable()) {
-            return;
-        }
 
-        int offset = Math.max(0, payload.offset());
-        this.pendingCraftableOffsets.remove(offset);
-        if (!payload.append() || offset == 0) {
-            this.craftableEntries.clear();
-        } else if (offset != this.craftableEntries.size()) {
-            return;
-        }
 
-        int size = Math.min(
-                payload.recipeIds().size(),
-                Math.min(
-                        payload.resultItemIds().size(),
-                        Math.min(
-                                payload.resultCounts().size(),
-                                Math.min(payload.craftable().size(), payload.missingSummaries().size()))));
-        int optionFlatIndex = 0;
-        for (int i = 0; i < size; i++) {
-            ResourceLocation id = ResourceLocation.tryParse(payload.resultItemIds().get(i));
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                optionFlatIndex += i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
-                continue;
-            }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
-            int resultCount = Math.max(1, payload.resultCounts().get(i));
-            stack.setCount(Math.min(resultCount, stack.getMaxStackSize()));
-            int optionCount = i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
-            List<CraftRecipeOption> recipeOptions = new ArrayList<>(optionCount);
-            for (int optionIndex = 0; optionIndex < optionCount; optionIndex++) {
-                if (optionFlatIndex >= payload.optionRecipeIds().size()
-                        || optionFlatIndex >= payload.optionResultCounts().size()
-                        || optionFlatIndex >= payload.optionCraftable().size()
-                        || optionFlatIndex >= payload.optionSummaries().size()
-                        || optionFlatIndex >= payload.optionMissingSummaries().size()) {
-                    break;
-                }
-                recipeOptions.add(new CraftRecipeOption(
-                        payload.optionRecipeIds().get(optionFlatIndex),
-                        Math.max(1, payload.optionResultCounts().get(optionFlatIndex)),
-                        payload.optionCraftable().get(optionFlatIndex),
-                        payload.optionSummaries().get(optionFlatIndex),
-                        payload.optionMissingSummaries().get(optionFlatIndex)));
-                optionFlatIndex++;
-            }
-            if (recipeOptions.isEmpty()) {
-                recipeOptions.add(new CraftRecipeOption(
-                        payload.recipeIds().get(i),
-                        resultCount,
-                        payload.craftable().get(i),
-                        stack.getHoverName().getString(),
-                        payload.missingSummaries().get(i)));
-            }
-            this.craftableEntries.add(new CraftableEntry(
-                    stack,
-                    payload.recipeIds().get(i),
-                    payload.resultItemIds().get(i),
-                    resultCount,
-                    payload.craftable().get(i),
-                    payload.missingSummaries().get(i),
-                    id.getNamespace(),
-                    id.getPath(),
-                    List.copyOf(recipeOptions)));
-        }
-        this.craftablesSearch = payloadSearch;
-        this.craftablesShowUnavailable = payload.showUnavailable();
-        this.craftablesHasMore = payload.hasMore();
-        this.craftablesRevision++;
-    }
 
-    private void requestCraftablesPage(int offset, int limit) {
-        int normalizedOffset = Math.max(0, offset);
-        int normalizedLimit = Math.max(1, limit);
-        if (!this.pendingCraftableOffsets.add(normalizedOffset)) {
-            return;
-        }
-        RtsClientPacketGateway.sendRequestCraftables(
-                this.craftablesSearch,
-                this.craftablesShowUnavailable,
-                normalizedOffset,
-                normalizedLimit);
-    }
 
-    private void clearCraftablesState() {
-        boolean changed = !this.craftableEntries.isEmpty()
-                || this.craftablesHasMore
-                || !this.pendingCraftableOffsets.isEmpty();
-        this.craftableEntries.clear();
-        this.craftablesHasMore = false;
-        this.pendingCraftableOffsets.clear();
-        if (changed) {
-            this.craftablesRevision++;
-        }
-    }
 
-    private static String normalizeCraftablesSearch(String search) {
-        return search == null ? "" : search.trim();
-    }
 
-    private void applyStoredLayout(RtsClientLayoutStore.StoragePanelLayout layout) {
-        RtsClientLayoutStore.StoragePanelLayout safe = layout == null
-                ? RtsClientLayoutStore.loadStoragePanelLayout()
-                : layout;
-        this.storagePanelXNormalized = clampLayoutNormalized(safe.xNormalized());
-        this.storagePanelYNormalized = clampLayoutNormalized(safe.yNormalized());
-        this.storagePanelWidthNormalized = clampLayoutNormalized(safe.widthNormalized());
-        this.storagePanelHeightNormalized = clampLayoutNormalized(safe.heightNormalized());
-    }
 
-    private static double clampLayoutNormalized(double value) {
-        if (!Double.isFinite(value)) {
-            return 0.0D;
-        }
-        return Mth.clamp(value, 0.0D, 1.0D);
-    }
-
-    private long getStorageFluidAmount(String fluidId) {
-        if (fluidId == null || fluidId.isBlank()) {
-            return 0L;
-        }
-        for (FluidEntry entry : this.fluidEntries) {
-            if (fluidId.equals(entry.fluidId())) {
-                return Math.max(0L, entry.amount());
-            }
-        }
-        return 0L;
-    }
-
-    public void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
-        String itemId = payload.itemId() == null ? "" : payload.itemId();
-        int craftedCount = Math.max(0, payload.craftedCount());
-        if (itemId.isBlank() || craftedCount <= 0) {
-            return;
-        }
-        List<CraftFeedbackIngredient> decodedIngredients = new ArrayList<>();
-        int ingredientSize = Math.min(payload.consumedItemIds().size(), payload.consumedCounts().size());
-        for (int i = 0; i < ingredientSize; i++) {
-            String consumedItemId = payload.consumedItemIds().get(i);
-            ResourceLocation consumedKey = ResourceLocation.tryParse(consumedItemId);
-            if (consumedKey == null || !BuiltInRegistries.ITEM.containsKey(consumedKey)) {
-                continue;
-            }
-            ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(consumedKey));
-            decodedIngredients.add(new CraftFeedbackIngredient(
-                    consumedItemId,
-                    preview.getHoverName().getString(),
-                    preview,
-                    Math.max(0, payload.consumedCounts().get(i))));
-        }
-        long now = System.currentTimeMillis();
-        boolean mergeWithActive = itemId.equals(this.craftFeedbackItemId) && now <= this.craftFeedbackExpiryMs;
-        if (mergeWithActive) {
-            this.craftFeedbackCount += craftedCount;
-        } else {
-            this.craftFeedbackItemId = itemId;
-            this.craftFeedbackCount = craftedCount;
-        }
-        if (mergeWithActive) {
-            mergeCraftFeedbackIngredients(decodedIngredients);
-        } else {
-            this.craftFeedbackIngredients.clear();
-            this.craftFeedbackIngredients.addAll(decodedIngredients);
-        }
-        this.craftFeedbackExpiryMs = now + 2200L;
-    }
 
     public void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -2265,93 +1500,14 @@ public final class ClientRtsController {
         this.questDetectCompletedTasks = Math.max(0, payload.completedTasks());
     }
 
-    private void mergeCraftFeedbackIngredients(List<CraftFeedbackIngredient> added) {
-        if (added == null || added.isEmpty()) {
-            return;
-        }
-        Map<String, CraftFeedbackIngredient> merged = new LinkedHashMap<>();
-        for (CraftFeedbackIngredient ingredient : this.craftFeedbackIngredients) {
-            if (ingredient == null || ingredient.itemId() == null || ingredient.itemId().isBlank()) {
-                continue;
-            }
-            merged.put(ingredient.itemId(), ingredient);
-        }
-        for (CraftFeedbackIngredient ingredient : added) {
-            if (ingredient == null || ingredient.itemId() == null || ingredient.itemId().isBlank()) {
-                continue;
-            }
-            CraftFeedbackIngredient existing = merged.get(ingredient.itemId());
-            if (existing == null) {
-                merged.put(ingredient.itemId(), ingredient);
-                continue;
-            }
-            merged.put(
-                    ingredient.itemId(),
-                    new CraftFeedbackIngredient(
-                            ingredient.itemId(),
-                            ingredient.label(),
-                            ingredient.preview().copy(),
-                            existing.count() + ingredient.count()));
-        }
-        this.craftFeedbackIngredients.clear();
-        this.craftFeedbackIngredients.addAll(merged.values());
-    }
+
 
     public void applyMineProgress(S2CRtsMineProgressPayload payload) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
-        }
-
-        BlockPos pos = payload.pos();
-        int stage = payload.stage();
-        if (stage < 0) {
-            if (pos != null && pos.equals(this.mineRenderPos) && this.mineRenderStage >= 9) {
-                this.mineProgressCompletedPos = pos.immutable();
-                this.mineProgressCompletedAtMs = System.currentTimeMillis();
-            }
-            clearActiveMineTargetIfMatches(pos);
-            clearMineProgressRender(pos);
-            this.mineRenderStage = -1;
-            return;
-        }
-
-        if (this.mineRenderPos != null && !this.mineRenderPos.equals(pos)) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-        }
-        minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, pos, Math.min(9, stage));
-        this.mineRenderPos = pos.immutable();
-        this.mineRenderStage = Math.min(9, stage);
-    }
-
-    public void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
-        if (payload == null || payload.processed() < 0 || payload.total() <= 0) {
-            this.ultimineProgressProcessed = -1;
-            this.ultimineProgressTotal = 0;
-            return;
-        }
-        this.ultimineProgressProcessed = payload.processed();
-        this.ultimineProgressTotal = payload.total();
+        this.miningOperationService.applyMineProgress(payload.pos(), payload.stage());
     }
 
     public void applyProgressionState(S2CRtsProgressionStatePayload payload) {
-        this.progressionEnabled = payload.enabled();
-        this.progressionHomeSet = payload.homeSet();
-        this.progressionHomePos = payload.homePos();
-        this.progressionHomeDimension = payload.homeDimension() == null ? "" : payload.homeDimension();
-        this.progressionHomeCooldownTicks = payload.homeCooldownTicks();
-        this.progressionRadiusBlocks = payload.radiusBlocks();
-        this.progressionFluidCapacityBuckets = payload.fluidCapacityBuckets();
-        this.progressionUltimineLimit = payload.ultimineLimit();
-        this.progressionBypassHomeRadius = payload.bypassHomeRadius();
-        this.unlockedProgressionNodes.clear();
-        this.unlockedProgressionNodes.addAll(payload.unlockedNodes());
-        this.unlockableProgressionNodes.clear();
-        this.unlockableProgressionNodes.addAll(payload.unlockableNodes());
-        if (!this.progressionEnabled) {
-            clearProgressionLocksForDisabled(payload.radiusBlocks(), payload.fluidCapacityBuckets(), payload.ultimineLimit());
-        }
-        RtsProgressionNodes.applySyncedCostOverrides(payload.costOverrides());
+        this.progressionStateManager.applyProgressionState(payload, () -> this.homeSelectionMode = false);
     }
 
     public void applyPluginState(S2CRtsPluginStatePayload payload) {
@@ -2370,206 +1526,93 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendUninstallPlugin(pluginId);
     }
 
-    private void clearProgressionLocksForDisabled() {
-        clearProgressionLocksForDisabled(128, 100, 256);
-    }
-
-    private void clearProgressionLocksForDisabled(int radiusBlocks, int fluidCapacityBuckets, int ultimineLimit) {
-        this.progressionEnabled = false;
-        this.progressionHomeSet = false;
-        this.progressionHomePos = BlockPos.ZERO;
-        this.progressionHomeDimension = "";
-        this.progressionHomeCooldownTicks = 0L;
-        this.progressionRadiusBlocks = Math.max(1, radiusBlocks);
-        this.progressionFluidCapacityBuckets = Math.max(1, fluidCapacityBuckets);
-        this.progressionUltimineLimit = Math.max(1, ultimineLimit);
-        this.progressionBypassHomeRadius = true;
-        this.unlockedProgressionNodes.clear();
-        this.unlockableProgressionNodes.clear();
-        this.homeSelectionMode = false;
-    }
-
     public void requestProgressionState() {
-        RtsClientPacketGateway.sendRequestProgressionState();
-    }
-
-    public void unlockProgressionNode(ResourceLocation nodeId) {
-        RtsClientPacketGateway.sendUnlockProgressionNode(nodeId);
+        this.progressionStateManager.requestProgressionState();
     }
 
     public void setSurvivalProgressionEnabled(boolean enabled) {
-        if (!enabled) {
-            clearProgressionLocksForDisabled();
-        }
-        RtsClientPacketGateway.sendSetSurvivalProgression(enabled);
-        RtsClientPacketGateway.sendRequestProgressionState();
-        RtsClientPacketGateway.sendRequestPlugins();
-    }
-
-    public void setProgressionCost(ResourceLocation nodeId, String costsText) {
-        if (nodeId == null) {
-            return;
-        }
-        RtsClientPacketGateway.sendSetProgressionCost(nodeId, costsText);
+        this.progressionStateManager.setSurvivalProgressionEnabled(enabled, () -> this.homeSelectionMode = false);
     }
 
     public void setHome(BlockPos pos) {
-        RtsClientPacketGateway.sendSetHome(pos);
+        this.progressionStateManager.setHome(pos);
     }
 
     public void beginHomeSelection() {
-        RtsClientPacketGateway.sendBeginHomeSelection();
+        this.progressionStateManager.beginHomeSelection();
     }
 
     public void selectStorageEntry(int index) {
-        if (index < 0 || index >= this.storageEntries.size()) {
-            return;
-        }
-        StorageEntry entry = this.storageEntries.get(index);
-        setSelectedItem(entry.itemId(), entry.stack().getHoverName().getString(), entry.stack().copy());
-        clearSelectedFluid();
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.selectStorageEntry(index, this.storageStateManager.getStorageEntries(),
+                () -> setMode(BuilderMode.INTERACT));
     }
 
     public void selectFluidEntry(int index) {
-        if (index < 0 || index >= this.fluidEntries.size()) {
-            return;
-        }
-        FluidEntry entry = this.fluidEntries.get(index);
-        setSelectedFluid(entry.fluidId(), entry.label(), entry.preview().copy());
-        clearSelectedItemOnly();
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.selectFluidEntry(index, this.storageStateManager.getFluidEntries(),
+                () -> setMode(BuilderMode.INTERACT));
     }
 
     public void clearSelectedItem() {
-        clearPlacementSelectionPreserveMode();
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.clearSelectedItem(() -> setMode(BuilderMode.INTERACT));
     }
 
     public void clearPlacementSelectionPreserveMode() {
-        clearSelectedItemOnly();
-        clearSelectedFluid();
-        this.emptyHandSelected = false;
-        this.placeRotateSteps = 0;
+        this.buildPlacementService.clearPlacementSelectionPreserveMode();
     }
 
     public void selectEmptyHand() {
-        clearSelectedItemOnly();
-        clearSelectedFluid();
-        this.emptyHandSelected = true;
-        this.placeRotateSteps = 0;
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.selectEmptyHand(() -> setMode(BuilderMode.INTERACT));
     }
 
     public void selectRecentEntry(int index) {
-        if (index < 0 || index >= this.recentEntries.size()) {
-            return;
-        }
-        RecentEntry entry = this.recentEntries.get(index);
-        if (entry.fluid()) {
-            setSelectedFluid(entry.id(), entry.label(), entry.preview().copy());
-            clearSelectedItemOnly();
-        } else {
-            setSelectedItem(entry.id(), entry.label(), entry.preview().copy());
-            clearSelectedFluid();
-        }
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.selectRecentEntry(index, this.storageStateManager.getRecentEntries(),
+                () -> setMode(BuilderMode.INTERACT));
     }
 
     public void assignQuickSlotFromSelected(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return;
-        }
-        if (this.selectedItemId.isBlank() || this.selectedItemPreview.isEmpty()) {
-            clearQuickSlot(index);
-            return;
-        }
-        setQuickSlotLocal(index, this.selectedItemId, this.selectedItemPreview.copy());
-        RtsClientPacketGateway.sendSetQuickSlot(index, this.selectedItemId, this.selectedItemPreview);
+        this.storageStateManager.assignQuickSlotFromSelected(index,
+                this.buildPlacementService.getSelectedItemId(),
+                this.buildPlacementService.getSelectedItemPreview());
     }
 
     public void assignQuickSlotFromToolItem(int index, ItemStack stack) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT || stack == null || stack.isEmpty()) {
-            return;
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (id == null) {
-            return;
-        }
-        String itemId = id.toString();
-        setQuickSlotLocal(index, itemId, stack.copy());
-        RtsClientPacketGateway.sendSetQuickSlot(index, itemId, stack);
+        this.storageStateManager.assignQuickSlotFromToolItem(index, stack);
     }
 
     public void clearQuickSlot(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return;
-        }
-        setQuickSlotLocal(index, "", ItemStack.EMPTY);
-        RtsClientPacketGateway.sendSetQuickSlot(index, "", ItemStack.EMPTY);
+        this.storageStateManager.clearQuickSlot(index);
     }
 
     public void selectQuickSlot(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
+        if (index < 0 || index >= StorageStateManager.QUICK_SLOT_COUNT) {
             return;
         }
-        String itemId = this.quickSlotItemIds[index];
-        if (itemId == null || itemId.isBlank()) {
-            return;
-        }
-        ItemStack preview = this.quickSlotPreviews[index];
-        if (preview.isEmpty()) {
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                return;
-            }
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
-        }
-        String label = this.quickSlotLabels[index];
-        if (label == null || label.isBlank()) {
-            label = preview.getHoverName().getString();
-        }
-        setSelectedItem(itemId, label, preview.copy());
-        clearSelectedFluid();
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.selectQuickSlot(index,
+                this.storageStateManager.getQuickSlotItemId(index),
+                this.storageStateManager.getQuickSlotPreview(index),
+                this.storageStateManager.getQuickSlotLabel(index),
+                () -> setMode(BuilderMode.INTERACT));
     }
 
     public void selectItemForPlacement(String itemId, String label, ItemStack preview) {
-        if (itemId == null || itemId.isBlank() || preview == null || preview.isEmpty()) {
-            return;
-        }
-        ItemStack safePreview = preview.copy();
-        safePreview.setCount(1);
-        setSelectedItem(itemId, label == null || label.isBlank() ? safePreview.getHoverName().getString() : label, safePreview);
-        clearSelectedFluid();
-        setMode(BuilderMode.INTERACT);
+        this.buildPlacementService.selectItemForPlacement(itemId, label, preview,
+                () -> setMode(BuilderMode.INTERACT));
     }
 
     public void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT || pos == null) {
-            return;
-        }
-        RtsClientPacketGateway.sendSetGuiBinding(index, pos, face, itemIdHint);
+        this.storageStateManager.setGuiBinding(index, pos, face, itemIdHint);
     }
 
     public void clearGuiBinding(int index) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
-            return;
-        }
-        this.guiBindingLabels[index] = "";
-        RtsClientPacketGateway.sendClearGuiBinding(index);
+        this.storageStateManager.clearGuiBinding(index);
     }
 
     public void openGuiBinding(int index) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT || !hasGuiBinding(index)) {
-            return;
-        }
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendOpenGuiBinding(index);
+        this.storageStateManager.openGuiBinding(index);
     }
 
     public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
-        placeSelected(hit, forcePlace, rayOrigin, rayDir, false);
+        placeSelected(hit, forcePlace, rayOrigin, rayDir, false, false);
     }
 
     public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
@@ -2578,30 +1621,21 @@ public final class ClientRtsController {
 
     public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied,
             boolean quickBuild) {
-        beginRemoteMenuOpenGrace();
-        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        long selectedCount = getSelectedItemCountForPlacement(itemId);
-        boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable();
-        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
-            selectEmptyHandPreserveMode();
-            itemId = "";
-        }
-        boolean clearAfterPlace = !itemId.isBlank() && autoClearUnavailable && selectedCount <= 1L;
-        ItemStack itemPrototype = itemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview;
-        RtsClientPacketGateway.sendPlace(
-                hit,
-                forcePlace,
-                skipIfOccupied,
-                itemId,
-                itemPrototype,
-                itemId.isBlank() ? 0 : this.placeRotateSteps,
-                rayOrigin,
-                rayDir,
-                quickBuild);
-        if (clearAfterPlace) {
-            selectEmptyHandPreserveMode();
-            requestStoragePage(this.storagePage);
-        }
+        String itemId = this.buildPlacementService.getSelectedItemId();
+        this.buildPlacementService.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, quickBuild,
+                this::beginRemoteMenuOpenGrace,
+                () -> {
+                    if (isLocalPlayerCreative()) return false;
+                    ItemStack preview = this.buildPlacementService.getSelectedItemPreview();
+                    return preview != null && !preview.isEmpty()
+                            && preview.getItem() instanceof BlockItem
+                            && this.storageStateManager.hasStoragePageSnapshot()
+                            && this.storageStateManager.getStorageTotalCount(itemId) <= 0L;
+                },
+                () -> requestStoragePage(this.storageStateManager.getStoragePage()),
+                isLocalPlayerCreative(),
+                this.storageStateManager.getStorageTotalCount(itemId),
+                this.storageStateManager.hasStoragePageSnapshot());
     }
 
     public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
@@ -2612,348 +1646,178 @@ public final class ClientRtsController {
 
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
             Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
-        beginRemoteMenuOpenGrace();
-        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
-        long selectedCount = getSelectedItemCountForPlacement(itemId);
-        boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable();
-        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
-            selectEmptyHandPreserveMode();
-            itemId = "";
-        }
-        int attemptedPlacements = hits == null ? 0 : hits.size();
-        boolean clearAfterPlace = !itemId.isBlank()
-                && autoClearUnavailable
-                && selectedCount <= Math.max(1, attemptedPlacements);
-        RtsClientPacketGateway.sendPlaceBatch(
-                hits,
-                templateHit,
-                forcePlace,
-                skipIfOccupied,
-                itemId,
-                itemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
-                itemId.isBlank() ? 0 : this.placeRotateSteps,
-                rayOrigin,
-                rayDir);
-        if (clearAfterPlace) {
-            selectEmptyHandPreserveMode();
-            requestStoragePage(this.storagePage);
-        }
+        String itemId = this.buildPlacementService.getSelectedItemId();
+        this.buildPlacementService.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied,
+                this::beginRemoteMenuOpenGrace,
+                () -> {
+                    if (isLocalPlayerCreative()) return false;
+                    ItemStack preview = this.buildPlacementService.getSelectedItemPreview();
+                    return preview != null && !preview.isEmpty()
+                            && preview.getItem() instanceof BlockItem
+                            && this.storageStateManager.hasStoragePageSnapshot()
+                            && this.storageStateManager.getStorageTotalCount(itemId) <= 0L;
+                },
+                () -> requestStoragePage(this.storageStateManager.getStoragePage()),
+                isLocalPlayerCreative(),
+                this.storageStateManager.getStorageTotalCount(itemId),
+                this.storageStateManager.hasStoragePageSnapshot());
     }
 
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
-        if (hit == null || this.selectedFluidId.isBlank()) {
-            return;
-        }
-        RtsClientPacketGateway.sendPlaceFluid(hit, forcePlace, this.selectedFluidId, rayOrigin, rayDir);
+        this.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
     }
 
     public void storeFluidFromStorageItem(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
-            return;
-        }
-        RtsClientPacketGateway.sendStoreFluid(C2SRtsStoreFluidPayload.SOURCE_STORAGE_ITEM, 0, itemId);
+        this.buildPlacementService.storeFluidFromStorageItem(itemId);
     }
 
     public void storeFluidFromPinnedItem(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
-            return;
-        }
-        RtsClientPacketGateway.sendStoreFluid(C2SRtsStoreFluidPayload.SOURCE_PIN_ITEM, 0, itemId);
+        this.buildPlacementService.storeFluidFromPinnedItem(itemId);
     }
 
     public void storeFluidFromToolSlot(int toolSlot) {
-        RtsClientPacketGateway.sendStoreFluid(C2SRtsStoreFluidPayload.SOURCE_TOOL_SLOT, toolSlot, "");
+        this.buildPlacementService.storeFluidFromToolSlot(toolSlot);
     }
 
-    private void clearQuickSlotsLocal() {
-        for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-            this.quickSlotItemIds[i] = "";
-            this.quickSlotLabels[i] = "";
-            this.quickSlotPreviews[i] = ItemStack.EMPTY;
-        }
-    }
-
-    private void clearGuiBindingsLocal() {
-        for (int i = 0; i < GUI_BINDING_SLOT_COUNT; i++) {
-            this.guiBindingLabels[i] = "";
-            this.guiBindingItemIds[i] = "";
-            this.guiBindingPreviews[i] = ItemStack.EMPTY;
-        }
-    }
-
-    private void applyQuickSlotPayload(List<String> payloadQuickSlots) {
-        applyQuickSlotPayload(payloadQuickSlots, List.of());
-    }
-
-    private void applyQuickSlotPayload(List<String> payloadQuickSlots, List<ItemStack> payloadQuickSlotPreviews) {
-        clearQuickSlotsLocal();
-        int size = Math.min(QUICK_SLOT_COUNT, payloadQuickSlots == null ? 0 : payloadQuickSlots.size());
-        for (int i = 0; i < size; i++) {
-            String itemId = payloadQuickSlots.get(i);
-            if (itemId == null || itemId.isBlank()) {
-                continue;
-            }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                continue;
-            }
-            ItemStack preview = payloadQuickSlotPreviews != null && i < payloadQuickSlotPreviews.size()
-                    ? payloadQuickSlotPreviews.get(i)
-                    : ItemStack.EMPTY;
-            if (preview == null || preview.isEmpty() || !preview.is(BuiltInRegistries.ITEM.get(key))) {
-                preview = resolveQuickSlotFallbackPreview(itemId, key);
-            } else {
-                preview = preview.copyWithCount(1);
-            }
-            setQuickSlotLocal(i, itemId, preview);
-        }
-    }
-
-    private ItemStack resolveQuickSlotFallbackPreview(String itemId, ResourceLocation key) {
-        for (StorageEntry entry : this.storageEntries) {
-            if (entry != null && itemId.equals(entry.itemId()) && entry.stack() != null && !entry.stack().isEmpty()) {
-                return entry.stack().copyWithCount(1);
-            }
-        }
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
-            for (ItemStack stack : mc.player.getInventory().items) {
-                if (stack != null && !stack.isEmpty() && itemId.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) {
-                    return stack.copyWithCount(1);
-                }
-            }
-        }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
-    }
-
-    private void applyGuiBindingPayload(List<String> payloadGuiBindings, List<String> payloadGuiBindingItemIds) {
-        clearGuiBindingsLocal();
-        int size = Math.min(
-                GUI_BINDING_SLOT_COUNT,
-                Math.min(
-                        payloadGuiBindings == null ? 0 : payloadGuiBindings.size(),
-                        payloadGuiBindingItemIds == null ? 0 : payloadGuiBindingItemIds.size()));
-        for (int i = 0; i < size; i++) {
-            String label = payloadGuiBindings.get(i);
-            this.guiBindingLabels[i] = label == null ? "" : label;
-            String itemId = payloadGuiBindingItemIds.get(i);
-            this.guiBindingItemIds[i] = itemId == null ? "" : itemId;
-            ResourceLocation key = ResourceLocation.tryParse(this.guiBindingItemIds[i]);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                this.guiBindingItemIds[i] = "";
-                this.guiBindingPreviews[i] = ItemStack.EMPTY;
-                continue;
-            }
-            this.guiBindingPreviews[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
-        }
-    }
-
-    private void setQuickSlotLocal(int index, String itemId, ItemStack preview) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return;
-        }
-        String normalizedItemId = itemId == null ? "" : itemId;
-        ItemStack normalizedPreview = preview == null ? ItemStack.EMPTY : preview.copy();
-        this.quickSlotItemIds[index] = normalizedItemId;
-        if (normalizedItemId.isBlank() || normalizedPreview.isEmpty()) {
-            this.quickSlotLabels[index] = "";
-            this.quickSlotPreviews[index] = ItemStack.EMPTY;
-            return;
-        }
-        this.quickSlotLabels[index] = normalizedPreview.getHoverName().getString();
-        this.quickSlotPreviews[index] = normalizedPreview;
-    }
 
     public void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendEmptyHandPlace(hit, rayOrigin, rayDir);
+        this.buildPlacementService.interactEmpty(hit, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) {
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendInteractEntityEmptyHand(entityId, hitLocation, rayOrigin, rayDir);
+        this.buildPlacementService.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-        if (hit == null) {
-            return;
-        }
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+        this.buildPlacementService.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-        if (hit == null) {
-            return;
-        }
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+        this.buildPlacementService.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
-        if (hit == null || itemId == null || itemId.isBlank()) {
-            return;
-        }
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir);
+        this.buildPlacementService.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-        if (entityId < 0 || hitLocation == null) {
-            return;
-        }
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendInteractEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir);
+        this.buildPlacementService.interactEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void interactEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
-        if (entityId < 0 || hitLocation == null || itemId == null || itemId.isBlank()) {
-            return;
-        }
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendInteractEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir);
+        this.buildPlacementService.interactEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir, this::beginRemoteMenuOpenGrace);
     }
 
     public void breakPlaced(BlockPos pos) {
-        breakPlaced(pos, Direction.UP, false);
+        this.buildPlacementService.breakPlaced(pos, Direction.UP, false);
     }
 
     public void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) {
-        if (pos == null) {
-            return;
-        }
-        Direction resolvedFace = face == null ? Direction.UP : face;
-        RtsClientPacketGateway.sendBreakPlaced(pos, resolvedFace, allowAdjacentFallback);
+        this.buildPlacementService.breakPlaced(pos, face, allowAdjacentFallback);
     }
 
     public void startMining(BlockPos pos, int face, int toolSlot) {
-        if (pos == null) {
-            return;
-        }
-        this.activeMinePos = pos.immutable();
-        this.activeMineFace = face;
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
-        this.mineRenderPos = this.activeMinePos;
-        this.mineRenderStage = 0;
-        RtsClientPacketGateway.sendMineStart(
-                this.activeMinePos,
-                face,
-                this.activeMineToolSlot,
-                selectedMiningToolItemId(),
-                selectedMiningToolPrototype(),
-                this.allowPlacedBlockRecovery,
-                this.toolProtectionEnabled);
+        this.miningOperationService.startMining(pos, face, toolSlot,
+                this.buildPlacementService.getSelectedItemId(),
+                this.buildPlacementService.getSelectedItemPreview(),
+                this.allowPlacedBlockRecovery, this.toolProtectionEnabled);
     }
 
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) {
-        if (pos == null) {
-            return;
-        }
-        this.activeMinePos = pos.immutable();
-        this.activeMineFace = face;
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
-        this.mineRenderPos = this.activeMinePos;
-        this.mineRenderStage = 0;
-        RtsClientPacketGateway.sendUltimineStart(
-                this.activeMinePos,
-                face,
-                this.activeMineToolSlot,
-                selectedMiningToolItemId(),
-                selectedMiningToolPrototype(),
-                limit,
-                mode,
+        this.miningOperationService.startUltimine(pos, face, toolSlot, limit, mode,
+                this.buildPlacementService.getSelectedItemId(),
+                this.buildPlacementService.getSelectedItemPreview(),
                 this.toolProtectionEnabled);
     }
 
     public void continueMining(int toolSlot) {
-        // Mining progress is maintained server-side after START; no per-tick packet needed.
+        this.miningOperationService.continueMining(toolSlot);
+    }
+
+    public int getAreaMinePhase() {
+        return this.miningOperationService.getAreaMinePhase();
+    }
+
+    public BlockPos getAreaMinePointA() {
+        return this.miningOperationService.getAreaMinePointA();
+    }
+
+    public BlockPos getAreaMinePointB() {
+        return this.miningOperationService.getAreaMinePointB();
+    }
+
+    public int getAreaMineHeightOffset() {
+        return this.miningOperationService.getAreaMineHeightOffset();
+    }
+
+    public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos pointB, int heightOffset) {
+        return MiningOperationService.computeAreaMineBounds(pointA, pointB, heightOffset);
+    }
+
+    public void setAreaMineHeightOffset(int offset) {
+        this.miningOperationService.setAreaMineHeightOffset(offset);
+    }
+
+    public void adjustAreaMineHeightOffset(int delta) {
+        this.miningOperationService.adjustAreaMineHeightOffset(delta);
+    }
+
+    public void setAreaMinePointA(BlockPos pos) {
+        this.miningOperationService.setAreaMinePointA(pos, this.anchorX, this.anchorZ, this.maxRadius, hasBounds());
+    }
+
+    public void setAreaMinePointB(BlockPos pos) {
+        this.miningOperationService.setAreaMinePointB(pos, this.anchorX, this.anchorZ, this.maxRadius, hasBounds());
+    }
+
+    public void clearAreaMineSession() {
+        this.miningOperationService.clearAreaMineSession();
+    }
+
+    public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) {
+        this.miningOperationService.confirmAreaMine(toolSlot, fillMode,
+                this.buildPlacementService.getSelectedItemId(),
+                this.buildPlacementService.getSelectedItemPreview(),
+                this.toolProtectionEnabled);
     }
 
     public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) {
-        if (targets == null || targets.isEmpty()) {
-            return;
-        }
-        BlockPos first = targets.get(0).immutable();
-        this.activeMinePos = first;
-        this.activeMineFace = Direction.UP.get3DDataValue();
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
-        this.mineRenderPos = first;
-        this.mineRenderStage = 0;
-        RtsClientPacketGateway.sendAreaDestroy(
-                targets,
-                this.activeMineToolSlot,
-                selectedMiningToolItemId(),
-                selectedMiningToolPrototype(),
+        this.miningOperationService.confirmShapeAreaDestroy(targets, toolSlot,
+                this.buildPlacementService.getSelectedItemId(),
+                this.buildPlacementService.getSelectedItemPreview(),
                 this.toolProtectionEnabled);
     }
 
     public void abortMining(int toolSlot) {
-        if (this.activeMinePos == null || this.activeMineFace < 0) {
-            return;
-        }
-        BlockPos abortPos = this.activeMinePos;
-        RtsClientPacketGateway.sendMineAbort(abortPos, this.activeMineFace, toolSlot);
-        clearMineProgressRender(abortPos);
-        this.activeMinePos = null;
-        this.activeMineFace = -1;
-        this.mineRenderStage = -1;
-    }
-
-    private void clearMineProgressRender(BlockPos fallbackPos) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level != null
-                && this.mineRenderPos != null
-                && (fallbackPos == null || this.mineRenderPos.equals(fallbackPos))) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
-            this.mineRenderPos = null;
-        }
-    }
-
-    private void clearActiveMineTargetIfMatches(BlockPos pos) {
-        if (pos != null && this.activeMinePos != null && this.activeMinePos.equals(pos)) {
-            this.activeMinePos = null;
-            this.activeMineFace = -1;
-        }
-    }
-
-    private String selectedMiningToolItemId() {
-        return selectedMiningToolPrototype().isEmpty() ? "" : this.selectedItemId;
-    }
-
-    private ItemStack selectedMiningToolPrototype() {
-        if (this.selectedItemId == null || this.selectedItemId.isBlank() || this.selectedItemPreview == null || this.selectedItemPreview.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
-        if (this.selectedItemPreview.getItem() instanceof BlockItem) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack prototype = this.selectedItemPreview.copy();
-        prototype.setCount(1);
-        return prototype;
+        this.miningOperationService.abortMining(toolSlot);
     }
 
     public int getMineProgressStage() {
-        return this.mineRenderStage;
-    }
-
-    public int getUltimineProgressProcessed() {
-        return this.ultimineProgressProcessed;
-    }
-
-    public int getUltimineProgressTotal() {
-        return this.ultimineProgressTotal;
+        return this.miningOperationService.getMineProgressStage();
     }
 
     public BlockPos getMineProgressPos() {
-        return this.mineRenderPos;
+        return this.miningOperationService.getMineProgressPos();
     }
 
     public BlockPos getMineProgressCompletedPos() {
-        return this.mineProgressCompletedPos;
+        return this.miningOperationService.getMineProgressCompletedPos();
     }
 
     public long getMineProgressCompletedAtMs() {
-        return this.mineProgressCompletedAtMs;
+        return this.miningOperationService.getMineProgressCompletedAtMs();
+    }
+
+    public int getUltimineProgressProcessed() {
+        return this.miningOperationService.getUltimineProgressProcessed();
+    }
+
+    public int getUltimineProgressTotal() {
+        return this.miningOperationService.getUltimineProgressTotal();
+    }
+
+    public void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
+        this.miningOperationService.applyUltimineProgress(payload.processed(), payload.total());
     }
 
     private void beginRemoteMenuOpenGrace() {
@@ -2977,8 +1841,7 @@ public final class ClientRtsController {
         if (minecraft.player != null) {
             RtsClientPacketGateway.sendCloseRemoteMenu();
             minecraft.player.closeContainer();
-            minecraft.player.displayClientMessage(
-                    Component.translatable("message.rtsbuilding.gui_binding.open_failed"), true);
+            minecraft.player.displayClientMessage(Component.literal("Open failed."), true);
         }
         minecraft.setScreen(null);
     }
@@ -2988,373 +1851,32 @@ public final class ClientRtsController {
         RtsRemoteMenuCompat.clearClientRemoteMenu();
     }
 
-    private void clearSelectedItemOnly() {
-        setSelectedItem("", "", ItemStack.EMPTY);
-    }
-
-    private void clearSelectedFluid() {
-        setSelectedFluid("", "", ItemStack.EMPTY);
-    }
-
-    private void selectEmptyHandPreserveMode() {
-        clearSelectedItemOnly();
-        clearSelectedFluid();
-        this.emptyHandSelected = true;
-        this.placeRotateSteps = 0;
-    }
-
-    private long getSelectedItemCountForPlacement(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
-            return Long.MAX_VALUE;
-        }
-        if (isLocalPlayerCreative()) {
-            return Long.MAX_VALUE;
-        }
-        return hasStoragePageSnapshot() ? getStorageTotalCount(itemId) : Long.MAX_VALUE;
-    }
 
     private boolean isLocalPlayerCreative() {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft != null && minecraft.player != null && minecraft.player.isCreative();
     }
 
-    private void setSelectedItem(String itemId, String label, ItemStack preview) {
-        this.selectedItemId = itemId == null ? "" : itemId;
-        this.selectedItemLabel = label == null ? "" : label;
-        this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
-        if (!this.selectedItemId.isBlank()) {
-            this.emptyHandSelected = false;
-        }
-    }
-
-    private void setSelectedFluid(String fluidId, String label, ItemStack preview) {
-        this.selectedFluidId = fluidId == null ? "" : fluidId;
-        this.selectedFluidLabel = label == null ? "" : label;
-        this.selectedFluidPreview = preview == null ? ItemStack.EMPTY : preview;
-        if (!this.selectedFluidId.isBlank()) {
-            this.emptyHandSelected = false;
-        }
-    }
 
     public void rotatePlacementClockwise() {
-        this.placeRotateSteps = (this.placeRotateSteps + 1) & 3;
+        this.buildPlacementService.rotatePlacementClockwise();
     }
 
     public void rotatePlacementCounterClockwise() {
-        this.placeRotateSteps = (this.placeRotateSteps + 3) & 3;
+        this.buildPlacementService.rotatePlacementCounterClockwise();
+    }
+
+    public void setPlacementStateProperty(String propertyName, String valueName) {
+        this.buildPlacementService.setPlacementStateProperty(propertyName, valueName);
+    }
+
+    public void copyPlacementState(BlockState state) {
+        this.buildPlacementService.copyPlacementState(state);
     }
 
     public void syncVisualCameraFrame() {
-        if (!this.enabled || !this.localStateReady) {
-            return;
-        }
-
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
-        }
-
-        this.ensureLocalMirrorCamera(minecraft);
-        if (this.localMirrorCamera == null) {
-            return;
-        }
-
-        if (this.smoothCamera) {
-            applySmoothFrameMovement(minecraft);
-        } else {
-            this.lastSmoothCameraFrameNanos = 0L;
-        }
-
-        snapLocalMirrorCameraPose();
-
-        if (minecraft.getCameraEntity() != this.localMirrorCamera) {
-            if (this.cameraRestoreCooldownTicks <= 0) {
-                minecraft.setCameraEntity(this.localMirrorCamera);
-                this.cameraRestoreCooldownTicks = CAMERA_RESTORE_COOLDOWN_TICKS;
-            } else {
-                this.cameraRestoreCooldownTicks--;
-            }
-        } else if (this.cameraRestoreCooldownTicks > 0) {
-            this.cameraRestoreCooldownTicks--;
-        }
-    }
-
-    private void applySmoothFrameMovement(Minecraft minecraft) {
-        long now = System.nanoTime();
-        if (this.lastSmoothCameraFrameNanos == 0L) {
-            this.lastSmoothCameraFrameNanos = now;
-            return;
-        }
-
-        long elapsed = now - this.lastSmoothCameraFrameNanos;
-        this.lastSmoothCameraFrameNanos = now;
-        if (elapsed <= 0L) {
-            return;
-        }
-
-        float tickDelta = Mth.clamp(elapsed / (float) NANOS_PER_TICK, 0.0F, MAX_SMOOTH_FRAME_TICKS);
-        if (tickDelta <= CAMERA_INPUT_EPSILON) {
-            return;
-        }
-
-        CameraInput input = readCameraInput(minecraft);
-        if (!input.hasMovement()) {
-            return;
-        }
-
-        applyLocalPrediction(
-                input.forward * getKeyboardMoveSensitivityScale() * tickDelta,
-                input.strafe * getKeyboardMoveSensitivityScale() * tickDelta,
-                input.vertical * getKeyboardMoveSensitivityScale() * tickDelta,
-                0.0F,
-                0.0F,
-                0.0F,
-                0.0F,
-                0.0F,
-                0,
-                input.fast);
-    }
-
-    private void snapLocalMirrorCameraPose() {
-        if (this.localMirrorCamera != null) {
-            this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
-        }
-    }
-
-    private void ensureLocalMirrorCamera(Minecraft minecraft) {
-        if (minecraft.level == null) {
-            this.localMirrorCamera = null;
-            return;
-        }
-
-        if (this.localMirrorCamera != null && this.localMirrorCamera.level() == minecraft.level) {
-            return;
-        }
-
-        this.localMirrorCamera = new RtsCameraEntity(RtsbuildingMod.RTS_CAMERA_ENTITY.get(), minecraft.level);
-        this.localMirrorCamera.snapTo(this.localX, this.localY, this.localZ, this.localYawDeg, this.localPitchDeg);
-    }
-
-    private void applyLocalPrediction(float forward, float strafe, float vertical, float panX, float panY, float rotateX, float rotateY,
-            float scroll, int rotateSteps, boolean fast) {
-        this.localYawDeg += rotateX * ROTATE_GAIN_X;
-        if (rotateSteps != 0) {
-            this.localYawDeg = snapQuarter(this.localYawDeg + (90.0F * rotateSteps));
-        }
-        this.localPitchDeg = Mth.clamp(this.localPitchDeg + (rotateY * ROTATE_GAIN_Y), MIN_CAMERA_PITCH, MAX_CAMERA_PITCH);
-
-        double speed = fast ? 0.80D : 0.45D;
-        double yawRad = Math.toRadians(this.localYawDeg);
-        double sin = Math.sin(yawRad);
-        double cos = Math.cos(yawRad);
-
-        double targetX = this.localX;
-        double targetY = this.localY;
-        double targetZ = this.localZ;
-
-        float safeVertical = Mth.clamp(vertical, -4.0F, 4.0F);
-        double dx = (-sin * forward + cos * strafe) * speed;
-        double dz = (cos * forward + sin * strafe) * speed;
-
-        double dragScale = 0.020D * Math.max(8.0D, this.localHeightOffset);
-        double moveRight = panX * dragScale;
-        double moveForward = -panY * dragScale;
-
-        double rightX = Math.cos(yawRad);
-        double rightZ = Math.sin(yawRad);
-        double fwdX = -Math.sin(yawRad);
-        double fwdZ = Math.cos(yawRad);
-
-        dx += rightX * moveRight + fwdX * moveForward;
-        dz += rightZ * moveRight + fwdZ * moveForward;
-
-        targetX += dx;
-        targetY += safeVertical * (fast ? FAST_VERTICAL_SPEED : VERTICAL_SPEED);
-        targetZ += dz;
-
-        if (scroll != 0.0F) {
-            double pitchRad = Math.toRadians(this.localPitchDeg);
-            double lookX = -Math.sin(yawRad) * Math.cos(pitchRad);
-            double lookY = -Math.sin(pitchRad);
-            double lookZ = Math.cos(yawRad) * Math.cos(pitchRad);
-
-            double dolly = scroll * DOLLY_PER_SCROLL;
-            targetX += lookX * dolly;
-            targetY += lookY * dolly;
-            targetZ += lookZ * dolly;
-        }
-
-        double adx = targetX - this.anchorX;
-        double adz = targetZ - this.anchorZ;
-        // 限制镜头在以锚点为中心的方形边界内，和可见建造边界保持一致。
-        double halfExtent = this.maxRadius;
-        targetX = Mth.clamp(targetX, this.anchorX - halfExtent, this.anchorX + halfExtent);
-        targetZ = Mth.clamp(targetZ, this.anchorZ - halfExtent, this.anchorZ + halfExtent);
-
-        targetY = Mth.clamp(targetY, this.anchorY + MIN_CAMERA_HEIGHT_OFFSET, this.anchorY + MAX_CAMERA_HEIGHT_OFFSET);
-
-        // Keep movement bounds square so they match the visible build boundary.
-
-        this.localX = targetX;
-        this.localY = targetY;
-        this.localZ = targetZ;
-        this.localHeightOffset = this.localY - this.anchorY;
-    }
-
-    private static float snapQuarter(float yaw) {
-        int quarter = Math.round(yaw / 90.0F);
-        return quarter * 90.0F;
-    }
-
-    private float getInputSensitivityScale() {
-        return getRotateViewSensitivityScale();
-    }
-
-    private float getPanDragSensitivityScale() {
-        return INPUT_SENS_PRESETS[getPanDragSensitivityIndex()];
-    }
-
-    private float getRotateViewSensitivityScale() {
-        return INPUT_SENS_PRESETS[getRotateViewSensitivityIndex()];
-    }
-
-    private float getKeyboardMoveSensitivityScale() {
-        return INPUT_SENS_PRESETS[getKeyboardMoveSensitivityIndex()];
-    }
-
-    private float getWheelZoomSensitivityScale() {
-        return INPUT_SENS_PRESETS[getWheelZoomSensitivityIndex()];
-    }
-
-    private static String sensitivityLabel(int index) {
-        return String.format(Locale.ROOT, "x%.2f", INPUT_SENS_PRESETS[sanitizeSensitivityIndex(index)]);
-    }
-
-    private static int sensitivityIndexFromFraction(double fraction) {
-        double clamped = Mth.clamp(fraction, 0.0D, 1.0D);
-        return Mth.clamp(
-                (int) Math.round(clamped * (INPUT_SENS_PRESETS.length - 1)),
-                0,
-                INPUT_SENS_PRESETS.length - 1);
-    }
-
-    private static int sanitizeSensitivityIndex(int index) {
-        return Mth.clamp(index, 0, INPUT_SENS_PRESETS.length - 1);
-    }
-
-    private static String normalizeCategory(String category) {
-        if (category == null) {
-            return CATEGORY_ALL;
-        }
-        String value = category.trim().toLowerCase(Locale.ROOT);
-        if (value.isEmpty() || CATEGORY_ALL.equals(value)) {
-            return CATEGORY_ALL;
-        }
-        if (value.startsWith(CATEGORY_MOD_PREFIX) || value.startsWith(CATEGORY_TAB_PREFIX)) {
-            return value;
-        }
-        return CATEGORY_MOD_PREFIX + value;
-    }
-
-    public record StorageEntry(ItemStack stack, String itemId, long count, String mod, String name) {
-    }
-
-    public record FluidEntry(
-            String fluidId,
-            String label,
-            long amount,
-            long capacity,
-            String mod,
-            String name,
-            ItemStack preview) {
-    }
-
-    public record FunnelBufferEntry(ItemStack stack, String itemId, long count) {
-    }
-
-    public record RecentEntry(
-            boolean fluid,
-            String id,
-            String label,
-            long amount,
-            long capacity,
-            byte kind,
-            ItemStack preview) {
-    }
-
-    public record CraftRecipeOption(
-            String recipeId,
-            int resultCount,
-            boolean craftable,
-            String summary,
-            String missingSummary) {
-    }
-
-    public record CraftFeedbackIngredient(
-            String itemId,
-            String label,
-            ItemStack preview,
-            int count) {
-    }
-
-    public record CraftableEntry(
-            ItemStack stack,
-            String recipeId,
-            String itemId,
-            int resultCount,
-            boolean craftable,
-            String missingSummary,
-            String mod,
-            String name,
-            List<CraftRecipeOption> recipeOptions) {
-    }
-
-    private static final class CameraInput {
-        private static final CameraInput NONE = new CameraInput(0.0F, 0.0F, 0.0F, false);
-
-        final float forward;
-        final float strafe;
-        final float vertical;
-        final boolean fast;
-
-        CameraInput(float forward, float strafe, float vertical, boolean fast) {
-            this.forward = forward;
-            this.strafe = strafe;
-            this.vertical = vertical;
-            this.fast = fast;
-        }
-
-        boolean hasMovement() {
-            return this.forward != 0.0F || this.strafe != 0.0F || this.vertical != 0.0F;
-        }
-    }
-
-    private static RecentEntry decodeRecentEntry(String idText, long amount, long capacity, byte kind) {
-        if (idText == null || idText.isBlank()) {
-            return null;
-        }
-        ResourceLocation id = ResourceLocation.tryParse(idText);
-        if (id == null) {
-            return null;
-        }
-        boolean fluidKind = kind == S2CRtsStoragePagePayload.RECENT_FLUID_PLACED
-                || kind == S2CRtsStoragePagePayload.RECENT_FLUID_USED
-                || kind == S2CRtsStoragePagePayload.RECENT_FLUID_CRAFTED;
-        if (fluidKind) {
-            if (!BuiltInRegistries.FLUID.containsKey(id)) {
-                return null;
-            }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
-            FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
-            ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
-            String label = fluid.getFluidType().getDescription(fluidStack).getString();
-            return new RecentEntry(true, idText, label, Math.max(0L, amount), Math.max(0L, capacity), kind, preview);
-        }
-        if (!BuiltInRegistries.ITEM.containsKey(id)) {
-            return null;
-        }
-        ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
-        return new RecentEntry(false, idText, preview.getHoverName().getString(), Math.max(0L, amount), 0L, kind, preview);
+        this.cameraOrbitService.syncVisualCameraFrame(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius, this.enabled);
     }
 
 }

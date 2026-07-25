@@ -7,12 +7,11 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Shared six-direction box handle interaction state.
+ * 六向盒子手柄的共享交互状态。
  *
- * <p>This class owns only handle hover, lock/release, scroll, and drag-to-resize math.
- * It intentionally does not own blueprint persistence, culling persistence, block exclusion lists,
- * or world refresh. Blueprint capture and range culling both use this layer so the same arrow
- * interaction keeps the same feel in both tools.
+ * <p>这个类只负责箭头悬停、锁定、二次点击释放，以及把滚轮/拖拽转换成 resize delta。
+ * 它不拥有蓝图保存、范围剔除持久化、方块排除列表或世界刷新逻辑。蓝图框选和范围剔除都
+ * 调用这一层，避免两个极其相似的箭头交互以后再次写出两套手感。</p>
  */
 public final class RtsBoxHandleInteraction {
     private static final double HANDLE_RAY_DISTANCE = 128.0D;

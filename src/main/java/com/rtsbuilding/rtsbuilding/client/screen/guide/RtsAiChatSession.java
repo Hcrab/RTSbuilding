@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -54,7 +55,7 @@ public final class RtsAiChatSession {
                     this.streamingAnswer.setLength(0);
                     this.notices.add(new Notice(Component.translatable(
                             "screen.rtsbuilding.ai_chat.error", error).getString(),
-                            RtsAiChatStyle.ERROR_TEXT));
+                            AiChatStyle.ERROR_TEXT.toArgb()));
                 }),
                 () -> runOnClient(generation, () -> {
                     String answer = RtsAiResponseSanitizer
@@ -64,7 +65,7 @@ public final class RtsAiChatSession {
                     } else {
                         this.notices.add(new Notice(Component.translatable(
                                 "screen.rtsbuilding.ai_chat.empty").getString(),
-                                RtsAiChatStyle.WARNING_TEXT));
+                                AiChatStyle.WARNING_TEXT.toArgb()));
                     }
                     this.pendingQuestion = "";
                     this.streamingAnswer.setLength(0);
@@ -81,7 +82,7 @@ public final class RtsAiChatSession {
         this.streamingAnswer.setLength(0);
         this.notices.add(new Notice(Component.translatable(
                 "screen.rtsbuilding.ai_chat.cleared").getString(),
-                RtsAiChatStyle.SUCCESS_TEXT));
+                AiChatStyle.SUCCESS_TEXT.toArgb()));
     }
 
     public void cancel() {

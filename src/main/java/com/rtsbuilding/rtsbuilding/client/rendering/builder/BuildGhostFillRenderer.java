@@ -8,31 +8,45 @@ import net.minecraft.core.BlockPos;
 import java.util.List;
 
 /**
- * 建造预览的 fallback 填充盒渲染器。
- *
- * <p>只有在方块/实体模型不可用，且玩家开启方块虚影预览时才会使用。
- * 多方块范围 preview 仍只走线框，不在这里画整批 pending fill。</p>
+ * Fallback fill renderer for single-block ghost previews.
+ * <p>
+ * Renders semi-transparent coloured boxes as placeholders when blocks
+ * cannot be rendered as models (e.g., non-model blocks, air).
  */
 public final class BuildGhostFillRenderer {
+
     private BuildGhostFillRenderer() {
     }
 
+    /**
+     * Renders fallback fill boxes at the given positions.
+     *
+     * @param blocks      Target block positions
+     * @param poseStack   Pose stack for coordinate transforms
+     * @param fillBuffer  Fill vertex buffer
+     * @param readyConfirm Whether the placement is ready to confirm
+     */
     public static void renderFill(List<BlockPos> blocks, PoseStack poseStack,
             VertexConsumer fillBuffer, boolean readyConfirm) {
         if (blocks == null || blocks.isEmpty()) {
             return;
         }
-
         float fillR = readyConfirm ? 0.24F : 0.16F;
         float fillG = readyConfirm ? 0.72F : 0.55F;
         float fillB = readyConfirm ? 0.24F : 0.90F;
         float fillA = readyConfirm ? 0.22F : 0.16F;
 
         for (BlockPos pos : blocks) {
+            double minX = pos.getX() + 0.03D;
+            double minY = pos.getY() + 0.03D;
+            double minZ = pos.getZ() + 0.03D;
+            double maxX = pos.getX() + 0.97D;
+            double maxY = pos.getY() + 0.97D;
+            double maxZ = pos.getZ() + 0.97D;
             LevelRenderer.addChainedFilledBoxVertices(
                     poseStack, fillBuffer,
-                    pos.getX() + 0.03D, pos.getY() + 0.03D, pos.getZ() + 0.03D,
-                    pos.getX() + 0.97D, pos.getY() + 0.97D, pos.getZ() + 0.97D,
+                    minX, minY, minZ,
+                    maxX, maxY, maxZ,
                     fillR, fillG, fillB, fillA);
         }
     }

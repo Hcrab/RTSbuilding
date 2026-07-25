@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingPackets;
 import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
 import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
 import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
+import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
 import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
 
@@ -58,6 +59,7 @@ public final class RtsForgePayloadRegistrar {
         RtsProgressionPackets.register(registrar);
         RtsPluginPackets.register(registrar);
         RtsFeedbackPackets.register(registrar);
+        RtsPathfindingPackets.register(registrar);
 
         registrar.playToServer(
                 C2SBlueprintPlacePayload.TYPE,

@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -11,27 +10,27 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 鍖哄潡寮曞绾挎覆鏌撳櫒
- * 璐熻矗鍦≧TS妯″紡涓嬫覆鏌撲互鐜╁涓轰腑蹇冪??x3鍖哄潡缃戞牸锛岀敤浜庤瑙夊弬鑰?
+ * Chunk guide line renderer.
+ * Renders a 3×3 chunk grid centred on the player for visual reference in RTS mode.
  */
 public final class ChunkGuideRenderer {
-    // 鍖哄潡寮曞鑼冨洿鍗婂緞锛堜互鍖哄潡涓哄崟浣嶏級??琛ㄧず娓叉煋涓績鍖哄潡鍛ㄥ??x3鍖哄??
+    // Chunk guide range radius (in chunks); 1 renders a 3×3 area around the centre chunk
     private static final int CHUNK_GUIDE_RADIUS_CHUNKS = 1;
 
     /**
-     * 绉佹湁鏋勯€犲嚱鏁帮紝闃叉瀹炰緥鍖?
+     * Private constructor to prevent instantiation.
      */
     private ChunkGuideRenderer() {
     }
 
     /**
-     * 娓叉煋鍖哄潡寮曞缃戞牸
+     * Renders the chunk guide grid.
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄??
-     * @param cameraPosition 鐩告満浣嶇??
-     * @param poseStack 濮垮娍鏍堬紝鐢ㄤ簬鍧愭爣鍙樻??
-     * @param fillBuffer 濉厖缂撳啿鍖猴紝鐢ㄤ簬缁樺埗鍗婇€忔槑鏂瑰??
-     * @param lineBuffer 绾挎潯缂撳啿鍖猴紝鐢ㄤ簬缁樺埗杈规??
+     * @param minecraft      the Minecraft client instance
+     * @param cameraPosition camera position
+     * @param poseStack      pose stack for coordinate transforms
+     * @param fillBuffer     fill buffer for translucent block rendering
+     * @param lineBuffer     line buffer for wireframe rendering
      */
     public static void renderChunkGuides(
             Minecraft minecraft,
@@ -43,22 +42,22 @@ public final class ChunkGuideRenderer {
             return;
         }
 
-        // 璁＄畻鐩告満鎵€鍦ㄥ尯鍧楀潗鏍?
+        // Compute the chunk coordinates of the camera position
         BlockPos cameraBlockPos = BlockPos.containing(cameraPosition);
         int centerChunkX = SectionPos.blockToSectionCoord(cameraBlockPos.getX());
         int centerChunkZ = SectionPos.blockToSectionCoord(cameraBlockPos.getZ());
 
-        // 璁＄畻娓叉煋鑼冨洿鐨勮竟??
+        // Compute the rendering range boundaries
         int minChunkX = centerChunkX - CHUNK_GUIDE_RADIUS_CHUNKS;
         int maxChunkX = centerChunkX + CHUNK_GUIDE_RADIUS_CHUNKS;
         int minChunkZ = centerChunkZ - CHUNK_GUIDE_RADIUS_CHUNKS;
         int maxChunkZ = centerChunkZ + CHUNK_GUIDE_RADIUS_CHUNKS;
 
-        // 纭畾寮曞绾跨殑Y杞撮珮搴︼細浼樺厛浣跨敤鐜╁浣嶇疆锛屽惁鍒欎娇鐢ㄧ浉鏈轰綅??
+        // Determine the guide line Y-height: prefer player position, fall back to camera position
         int guideYSource = minecraft.player == null ? cameraBlockPos.getY() : minecraft.player.blockPosition().getY();
         int guideY = Mth.clamp(guideYSource, minecraft.level.getMinBuildHeight(), minecraft.level.getMaxBuildHeight() - 1);
 
-        // 閬嶅巻鑼冨洿鍐呯殑鎵€鏈夊尯鍧楋紝娓叉煋杈圭紭楂樹寒
+        // Iterate over all chunks in the range, rendering edge highlights
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
                 renderChunkEdgeHighlights(minecraft, poseStack, fillBuffer, lineBuffer, cx, cz, guideY);
@@ -67,15 +66,15 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 娓叉煋鍗曚釜鍖哄潡鐨勮竟缂橀珮浜?
+     * Renders edge highlights for a single chunk.
      *
-     * @param minecraft Minecraft瀹㈡埛绔疄??
-     * @param poseStack 濮垮娍鏍?
-     * @param fillBuffer 濉厖缂撳啿??
-     * @param lineBuffer 绾挎潯缂撳啿??
-     * @param chunkX 鍖哄潡X鍧愭??
-     * @param chunkZ 鍖哄潡Z鍧愭??
-     * @param guideY 寮曞绾縔杞撮珮??
+     * @param minecraft the Minecraft client instance
+     * @param poseStack pose stack
+     * @param fillBuffer fill buffer
+     * @param lineBuffer line buffer
+     * @param chunkX    chunk X coordinate
+     * @param chunkZ    chunk Z coordinate
+     * @param guideY    guide line Y height
      */
     private static void renderChunkEdgeHighlights(
             Minecraft minecraft,
@@ -85,27 +84,27 @@ public final class ChunkGuideRenderer {
             int chunkX,
             int chunkZ,
             int guideY) {
-        // 灏嗗尯鍧楀潗鏍囪浆鎹负涓栫晫鍧愭爣锛堟瘡涓尯鍧?6x16??
-        int startX = chunkX << 4;  // 绛夊悓浜?chunkX * 16
+        // Convert chunk coordinates to world coordinates (each chunk is 16×16)
+        int startX = chunkX << 4;  // equivalent to chunkX * 16
         int startZ = chunkZ << 4;
         int endX = startX + 15;
         int endZ = startZ + 15;
 
-        // 浼樺寲锛氬湪鍖哄潡绾у埆妫€鏌ュ姞杞界姸鎬侊紝閬垮厤姣忎釜鍗曞厓鏍奸噸澶嶆鏌?
-        if (minecraft.level != null && !minecraft.level.hasChunkAt(new BlockPos(startX, guideY, startZ))) {
+        // Optimisation: check chunk loading state at chunk level to avoid per-cell rechecks
+        if (!minecraft.level.hasChunkAt(new BlockPos(startX, guideY, startZ))) {
             return;
         }
 
-        // 鏍规嵁鍖哄潡鍧愭爣鐨勫鍋舵€ч€夋嫨棰滆壊锛堟鐩樻牸鏁堟灉??
+        // Choose colour based on chunk coordinate parity (checkerboard pattern)
         ChunkGuideColor color = chunkGuideColor(chunkX, chunkZ);
 
-        // 娓叉煋鍖哄潡鍥涙潯杈圭殑鎵€鏈夋柟鍧楀崟鍏冩牸
-        // 涓婁笅杈癸紙瀹屾暣琛岋級
+        // Render all block cells on the four edges of the chunk
+        // Top and bottom edges (full rows)
         for (int x = startX; x <= endX; x++) {
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, x, startZ, guideY, color);
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, x, endZ, guideY, color);
         }
-        // 宸﹀彸杈癸紙鎺掗櫎瑙掔偣锛岄伩鍏嶉噸澶嶆覆鏌擄級
+        // Left and right edges (excluding corner cells to avoid double rendering)
         for (int z = startZ + 1; z < endZ; z++) {
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, startX, z, guideY, color);
             renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, endX, z, guideY, color);
@@ -113,15 +112,15 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 娓叉煋鍗曚釜鍗曞厓鏍肩殑寮曞楂樹寒锛堝～鍏?杈规锛?
+     * Renders guide highlight for a single cell (fill + wireframe).
      *
-     * @param poseStack 濮垮娍鏍?
-     * @param fillBuffer 濉厖缂撳啿??
-     * @param lineBuffer 绾挎潯缂撳啿??
-     * @param x 涓栫晫X鍧愭??
-     * @param z 涓栫晫Z鍧愭??
-     * @param guideY Y杞撮珮搴?
-     * @param color 棰滆壊閰嶇疆
+     * @param poseStack  pose stack
+     * @param fillBuffer fill buffer
+     * @param lineBuffer line buffer
+     * @param x          world X coordinate
+     * @param z          world Z coordinate
+     * @param guideY     Y height
+     * @param color      colour configuration
      */
     private static void renderChunkGuideCell(
             PoseStack poseStack,
@@ -131,7 +130,7 @@ public final class ChunkGuideRenderer {
             int z,
             int guideY,
             ChunkGuideColor color) {
-        // 鍚戝唴鏀剁缉0.04鍗曚綅锛屼娇鐩搁偦鍗曞厓鏍间箣闂翠骇鐢熼棿闅?
+        // Inset by 0.04 units to create a gap between adjacent cells
         double inset = 0.04D;
         double minX = x + inset;
         double minY = guideY + inset;
@@ -140,7 +139,7 @@ public final class ChunkGuideRenderer {
         double maxY = guideY + 1.0D - inset;
         double maxZ = z + 1.0D - inset;
 
-        // 缁樺埗鍗婇€忔槑濉??
+        // Draw translucent fill
         LevelRenderer.addChainedFilledBoxVertices(
                 poseStack,
                 fillBuffer,
@@ -148,7 +147,7 @@ public final class ChunkGuideRenderer {
                 maxX, maxY, maxZ,
                 color.r(), color.g(), color.b(), color.a());
 
-        // 缁樺埗杈规绾匡紙棰滆壊姣斿～鍏呯◢浜??
+        // Draw wireframe (slightly brighter than the fill colour)
         LevelRenderer.renderLineBox(
                 poseStack,
                 lineBuffer,
@@ -161,21 +160,21 @@ public final class ChunkGuideRenderer {
     }
 
     /**
-     * 鏍规嵁鍖哄潡鍧愭爣鐢熸垚妫嬬洏鏍奸??
-     * 鍋舵暟鍖哄潡浣跨敤闈掕摑鑹诧紝濂囨暟鍖哄潡浣跨敤閲戦粍鑹?
+     * Generates a checkerboard colour based on chunk coordinates.
+     * Even chunks use cyan-blue, odd chunks use golden-yellow.
      *
-     * @param chunkX 鍖哄潡X鍧愭??
-     * @param chunkZ 鍖哄潡Z鍧愭??
-     * @return 棰滆壊閰嶇疆
+     * @param chunkX chunk X coordinate
+     * @param chunkZ chunk Z coordinate
+     * @return colour configuration
      */
     private static ChunkGuideColor chunkGuideColor(int chunkX, int chunkZ) {
         return ((chunkX ^ chunkZ) & 1) == 0
-                ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)   // 闈掕摑鑹?
-                : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);  // 閲戦粍鑹?
+                ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)   // Cyan-blue
+                : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);  // Golden-yellow
     }
 
     /**
-     * 棰滆壊璁板綍绫伙紝瀛樺偍RGBA??
+     * Colour record holding RGBA values.
      */
     private record ChunkGuideColor(float r, float g, float b, float a) {
     }

@@ -30,7 +30,7 @@ public final class RtsLatestLogExcerpt {
     /**
      * 按可靠性顺序尝试多个 latest.log 候选路径。
      *
-     * <p>Forge 的规范游戏目录是首选；Minecraft 或启动器有时仍会暴露相对的
+     * <p>NeoForge 的规范游戏目录是首选；Minecraft 或启动器有时仍会暴露相对的
      * {@code .}，因此调用方可以继续提供兼容回退。这里只读取第一个成功候选，
      * 不会把多个运行目录的日志混在一起。</p>
      */

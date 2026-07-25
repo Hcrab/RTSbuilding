@@ -1,29 +1,43 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
-
-import java.util.List;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-
 import com.rtsbuilding.rtsbuilding.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.List;
+
 /**
- * Coordinates pending placement ghosts and short server-confirmed placement /
- * break animations. These effects are visual-only; gameplay state remains
- * server-authoritative.
+ * Facade that coordinates pending placement ghosts and destroy animations.
+ * <p>
+ * Delegates to {@link PendingGhostRenderer} for client-submitted-but-unconfirmed
+ * placement ghosts, and to {@link DestroyGhostRenderer} for brief shrink-out
+ * skeletons on server-confirmed block destruction.
  */
 public final class PlacementAnimationRenderer {
+
     private PlacementAnimationRenderer() {
     }
 
+    // ===== Pending ghost delegation =====
+
+    /**
+     * Registers pending placement ghosts at the given positions.
+     *
+     * @see PendingGhostRenderer#addPendingBatch(List, BlockState)
+     */
     public static void addPendingBatch(List<BlockPos> positions, BlockState blockState) {
         PendingGhostRenderer.addPendingBatch(positions, blockState);
     }
 
+    /**
+     * Removes the pending ghost at the given position and plays the confirmed
+     * grow-in animation when placement visuals are enabled.
+     *
+     * @see PendingGhostRenderer#remove(BlockPos)
+     */
     public static void confirmPlacement(BlockPos pos, BlockState state) {
         PendingGhostRenderer.remove(pos);
         if (shouldRenderPlaceAnimationLayers()) {
@@ -31,13 +45,28 @@ public final class PlacementAnimationRenderer {
         }
     }
 
+    // ===== Destroy ghost delegation =====
+
+    /**
+     * Registers a position for destroy shrink-out animation (server confirmed).
+     *
+     * @see DestroyGhostRenderer#add(BlockPos)
+     */
     public static void addDestroy(BlockPos pos, BlockState state) {
+        // Clean up any lingering pending ghost that was never confirmed
+        // (e.g. placement confirmation packet hadn't arrived before destruction)
         PendingGhostRenderer.remove(pos);
         if (shouldRenderDestroyLayers()) {
             DestroyGhostRenderer.add(pos, state);
         }
     }
 
+    // ===== Render =====
+
+    /**
+     * Renders all ghost effects. Placement feedback and destroy feedback have
+     * separate visual layer settings so players can tune preview noise.
+     */
     public static void render(Minecraft minecraft, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer) {
         if (minecraft == null || minecraft.level == null) {

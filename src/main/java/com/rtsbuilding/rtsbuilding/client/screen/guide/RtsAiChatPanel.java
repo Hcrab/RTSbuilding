@@ -1,12 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
+import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
@@ -46,10 +51,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
         this.session = new RtsAiChatSession(controller);
-        // Forge 1.20.1 在 Screen#init 前就会装配浮动窗口；此时 Screen.font 可能尚未注入。
-        this.input = new WindowTextBox(
-                screen.font() == null ? Minecraft.getInstance().font : screen.font(),
-                0, 0, 100, INPUT_H);
+        this.input = new WindowTextBox(screen.font(), 0, 0, 100, INPUT_H);
         this.input.setMaxLength(500);
         this.input.setPlaceholder(Component.translatable("screen.rtsbuilding.ai_chat.placeholder").getString());
     }
@@ -75,7 +77,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         String limit = Component.translatable("screen.rtsbuilding.ai_chat.turns",
                 this.session.exchangeCount(), RtsAiConversation.MAX_EXCHANGES).getString();
         g.drawString(screen.font(), limit, x, y + LIMIT_TEXT_Y_OFFSET,
-                RtsAiChatStyle.LIMIT_TEXT, false);
+                AiChatStyle.LIMIT_TEXT.toArgb(), false);
 
         int transcriptTop = y + BUTTON_H + 6;
         int transcriptBottom = footerY - 7;
@@ -87,7 +89,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         int end = Math.min(lines.size(), first + visible);
 
         g.fill(x, transcriptTop, x + w, transcriptBottom,
-                RtsAiChatStyle.TRANSCRIPT_BACKGROUND);
+                AiChatStyle.TRANSCRIPT_BACKGROUND.toArgb());
         screen.enableRtsScissor(
                 g,
                 x + TRANSCRIPT_CLIP_X_INSET,
@@ -256,26 +258,26 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
                 && this.session.pendingQuestion().isEmpty()
                 && this.session.notices().isEmpty()) {
             appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.welcome").getString(),
-                    maxWidth, RtsAiChatStyle.WELCOME_TEXT);
+                    maxWidth, AiChatStyle.WELCOME_TEXT.toArgb());
         }
         for (RtsAiConversation.Exchange exchange : this.session.exchanges()) {
             appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.you").getString()
-                    + " " + exchange.question(), maxWidth, RtsAiChatStyle.PLAYER_TEXT);
+                    + " " + exchange.question(), maxWidth, AiChatStyle.PLAYER_TEXT.toArgb());
             appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.ai").getString()
-                    + " " + exchange.answer(), maxWidth, RtsAiChatStyle.AI_TEXT);
+                    + " " + exchange.answer(), maxWidth, AiChatStyle.AI_TEXT.toArgb());
             lines.add(new RenderLine(
                     FormattedCharSequence.forward("", null),
-                    RtsAiChatStyle.AI_TEXT));
+                    AiChatStyle.AI_TEXT.toArgb()));
         }
         if (!this.session.pendingQuestion().isEmpty()) {
             appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.you").getString()
-                    + " " + this.session.pendingQuestion(), maxWidth, RtsAiChatStyle.PLAYER_TEXT);
+                    + " " + this.session.pendingQuestion(), maxWidth, AiChatStyle.PLAYER_TEXT.toArgb());
             String answer = this.session.streamingAnswer();
             if (answer.isEmpty()) {
                 answer = Component.translatable("screen.rtsbuilding.ai_chat.connecting").getString();
             }
             appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.ai").getString()
-                    + " " + answer, maxWidth, RtsAiChatStyle.AI_TEXT);
+                    + " " + answer, maxWidth, AiChatStyle.AI_TEXT.toArgb());
         }
         for (RtsAiChatSession.Notice notice : this.session.notices()) {
             appendWrapped(lines, notice.text(), maxWidth, notice.color());
@@ -292,23 +294,31 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     private void drawButton(GuiGraphics g, int x, int y, int w, int h,
                             int mouseX, int mouseY, Component label, boolean disabled) {
         boolean hovered = !disabled && inside(mouseX, mouseY, x, y, w, h);
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h,
-                disabled ? 0xAA202832 : hovered ? 0xCC355A71 : 0xCC24313E,
-                disabled ? 0xFF46515F : hovered ? 0xFFB7D9ED : 0xFF71879A,
-                0xFF0D1218);
+        WindowButtonChromeRenderer.renderSolid(
+                new MinecraftUiCanvas(g, screen.font(), screen),
+                new UiRect(x, y, w, h),
+                hovered);
         String text = RtsClientUiUtil.trimToWidth(
                 screen.font(), label.getString(), w - TEXT_HORIZONTAL_INSET);
         g.drawString(screen.font(), text,
                 x + Math.max(4, (w - screen.font().width(text)) / 2),
                 y + (h - screen.font().lineHeight) / 2,
-                disabled ? 0xFF778493 : 0xFFE6EDF8, false);
+                WindowButtonStyle.text(!disabled).toArgb(), false);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        return UiRect.contains(x, y, w, h, mouseX, mouseY);
     }
 
     private record RenderLine(FormattedCharSequence text, int color) {
     }
 
+    private final List<PersistableProperty> properties = List.of(
+            PersistableProperty.bounds("ai_chat", this)
+    );
+
+    @Override
+    public List<PersistableProperty> persistableProperties() {
+        return this.properties;
+    }
 }
