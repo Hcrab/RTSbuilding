@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
 
 /**
  * 将平台无关的控件角色/状态解析为主线 chrome 色值。
@@ -90,6 +91,54 @@ public final class UiControlVisualStyle {
         UiColor result = UiColor.interpolate(idle.borderLight, hover.borderLight, hoverStrength);
         result = UiColor.interpolate(result, selected.borderLight, selectionStrength);
         return pressed ? pressedStyle.borderLight : result;
+    }
+
+    /**
+     * 用通用动画强度混合控件 chrome；业务状态和点击结果仍然即时生效。
+     */
+    public static UiControlVisualStyle animated(
+            UiControlRole role,
+            UiControlAnimationState.Snapshot animation) {
+        if (role == null || animation == null) {
+            throw new IllegalArgumentException("role and animation");
+        }
+        UiControlVisualStyle result = resolve(role, UiControlState.enabled());
+        result = interpolate(result, resolve(role,
+                        UiControlState.enabled().withInteraction(
+                                true, false, false)),
+                animation.hover());
+        result = interpolate(result, resolve(role,
+                        new UiControlState(true, true, false, false, "")),
+                animation.selection());
+        result = interpolate(result, resolve(role,
+                        UiControlState.enabled().withInteraction(
+                                true, false, true)),
+                animation.press());
+        UiColor disabledOverlay = UiColor.interpolate(
+                RtsMainlineTheme.TRANSPARENT,
+                RtsMainlineTheme.CONTROL_DISABLED_OVERLAY,
+                animation.disabled());
+        return new UiControlVisualStyle(
+                result.background,
+                result.borderLight,
+                result.borderDark,
+                UiColor.interpolate(
+                        result.text,
+                        RtsMainlineTheme.MUTED_TEXT,
+                        animation.disabled()),
+                disabledOverlay);
+    }
+
+    private static UiControlVisualStyle interpolate(
+            UiControlVisualStyle from,
+            UiControlVisualStyle to,
+            double strength) {
+        return new UiControlVisualStyle(
+                UiColor.interpolate(from.background, to.background, strength),
+                UiColor.interpolate(from.borderLight, to.borderLight, strength),
+                UiColor.interpolate(from.borderDark, to.borderDark, strength),
+                UiColor.interpolate(from.text, to.text, strength),
+                UiColor.interpolate(from.overlay, to.overlay, strength));
     }
 
     public UiColor getBackground() { return background; }

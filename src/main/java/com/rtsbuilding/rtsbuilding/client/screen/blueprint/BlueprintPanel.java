@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintDialogState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
@@ -42,13 +43,8 @@ public final class BlueprintPanel {
     private static int selectedIndex = -1;
     private static int scroll = 0;
     private static boolean searchFocused = false;
-    private static boolean materialDialogOpen = false;
-    private static int materialDialogScroll = 0;
-    private static NameDialogMode nameDialogMode = NameDialogMode.NONE;
-    private static String nameDialogValue = "";
-    private static BlueprintEntry nameDialogEntry = null;
-    private static boolean nameDialogReplaceOnType = false;
-    private static long nameDialogCaptureBlockCount = 0L;
+    private static final BlueprintDialogState<BlueprintEntry> DIALOGS =
+            new BlueprintDialogState<>();
     private static int yRotationSteps = 0;
     private static int xRotationSteps = 0;
     private static int zRotationSteps = 0;
@@ -113,23 +109,23 @@ public final class BlueprintPanel {
     }
 
     public static boolean isMaterialDialogOpen() {
-        return materialDialogOpen;
+        return DIALOGS.isMaterialOpen();
     }
 
     public static boolean isNameDialogOpen() {
-        return nameDialogMode != NameDialogMode.NONE;
+        return DIALOGS.isNameOpen();
     }
 
     static boolean isNameDialogCaptureMode() {
-        return nameDialogMode == NameDialogMode.CAPTURE_SAVE;
+        return DIALOGS.isCaptureNameOpen();
     }
 
     static String nameDialogValue() {
-        return nameDialogValue;
+        return DIALOGS.nameValue();
     }
 
     static boolean nameDialogReplaceOnType() {
-        return nameDialogReplaceOnType;
+        return DIALOGS.replaceOnFirstInput();
     }
 
     /** 由 Core 动作提交命名框完整草稿，统一执行生产长度和非法字符约束。 */
@@ -137,13 +133,11 @@ public final class BlueprintPanel {
         if (!isNameDialogOpen()) {
             return;
         }
-        String safe = value == null ? "" : value;
-        nameDialogValue = safe.substring(0, Math.min(80, safe.length()));
-        nameDialogReplaceOnType = false;
+        DIALOGS.setNameValue(value);
     }
 
     static BlueprintEntry nameDialogEntry() {
-        return nameDialogEntry;
+        return DIALOGS.nameEntry();
     }
 
     static BlockPos nameDialogCapturePointA() {
@@ -155,7 +149,7 @@ public final class BlueprintPanel {
     }
 
     static long nameDialogCaptureBlockCount() {
-        return nameDialogCaptureBlockCount;
+        return DIALOGS.captureBlockCount();
     }
 
     static void confirmActiveNameDialog() {
@@ -171,25 +165,21 @@ public final class BlueprintPanel {
     }
 
     static int materialDialogScroll() {
-        return materialDialogScroll;
+        return DIALOGS.materialScroll();
     }
 
     static void setMaterialDialogScroll(int scroll) {
-        materialDialogScroll = Math.max(0, scroll);
+        DIALOGS.setMaterialScroll(scroll);
     }
 
     static void closeMaterialDialog() {
-        materialDialogOpen = false;
-        materialDialogScroll = 0;
+        DIALOGS.closeMaterial();
     }
 
     private static void openCaptureNameDialog() {
-        nameDialogMode = NameDialogMode.CAPTURE_SAVE;
-        nameDialogValue = sanitizeFileBase("captured_" + System.currentTimeMillis());
-        nameDialogEntry = null;
-        nameDialogReplaceOnType = false;
-        nameDialogCaptureBlockCount = CAPTURE.countCapturableBlocks(Minecraft.getInstance().level);
-        materialDialogOpen = false;
+        DIALOGS.openCaptureName(
+                sanitizeFileBase("captured_" + System.currentTimeMillis()),
+                CAPTURE.countCapturableBlocks(Minecraft.getInstance().level));
         searchFocused = false;
     }
 
@@ -198,26 +188,16 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
         }
-        nameDialogMode = NameDialogMode.RENAME_ENTRY;
-        nameDialogValue = sanitizeFileBase(stripBlueprintExtension(entry.fileName()));
-        nameDialogEntry = entry;
-        // Renaming should behave like a selected text field: the first typed
-        // character replaces the old file name instead of appending to it.
-        nameDialogReplaceOnType = true;
-        nameDialogCaptureBlockCount = 0L;
-        materialDialogOpen = false;
+        DIALOGS.openRename(
+                sanitizeFileBase(stripBlueprintExtension(entry.fileName())),
+                entry);
         searchFocused = false;
     }
 
     private static void cancelNameDialog() {
-        NameDialogMode previous = nameDialogMode;
-        nameDialogMode = NameDialogMode.NONE;
-        nameDialogValue = "";
-        nameDialogEntry = null;
-        nameDialogReplaceOnType = false;
-        nameDialogCaptureBlockCount = 0L;
+        BlueprintDialogState.NameMode previous = DIALOGS.cancelName();
         setStatus(S2CBlueprintStatusPayload.INFO,
-                previous == NameDialogMode.RENAME_ENTRY
+                previous == BlueprintDialogState.NameMode.RENAME_ENTRY
                         ? "screen.rtsbuilding.blueprints.status.rename_cancelled"
                         : "screen.rtsbuilding.blueprints.status.save_cancelled",
                 "");
@@ -227,22 +207,20 @@ public final class BlueprintPanel {
         if (!isNameDialogOpen()) {
             return;
         }
-        String cleanName = sanitizeFileBase(stripBlueprintExtension(nameDialogValue));
+        String cleanName = sanitizeFileBase(
+                stripBlueprintExtension(DIALOGS.nameValue()));
         if (cleanName.isBlank()) {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.name_required", "");
             return;
         }
-        NameDialogMode mode = nameDialogMode;
-        BlueprintEntry entry = nameDialogEntry;
-        nameDialogMode = NameDialogMode.NONE;
-        nameDialogValue = "";
-        nameDialogEntry = null;
-        nameDialogReplaceOnType = false;
-        nameDialogCaptureBlockCount = 0L;
-        if (mode == NameDialogMode.CAPTURE_SAVE) {
+        BlueprintDialogState.Confirmation<BlueprintEntry> confirmation =
+                DIALOGS.consumeName();
+        if (confirmation.mode()
+                == BlueprintDialogState.NameMode.CAPTURE_SAVE) {
             startCaptureSave(cleanName);
-        } else if (mode == NameDialogMode.RENAME_ENTRY) {
-            renameEntry(entry, cleanName);
+        } else if (confirmation.mode()
+                == BlueprintDialogState.NameMode.RENAME_ENTRY) {
+            renameEntry(confirmation.entry(), cleanName);
         }
     }
 
@@ -1039,8 +1017,7 @@ public final class BlueprintPanel {
             setStatus(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.no_selection", "");
             return;
         }
-        materialDialogOpen = true;
-        materialDialogScroll = 0;
+        DIALOGS.openMaterial();
     }
 
     private static void ensureLoaded() {
@@ -1052,8 +1029,7 @@ public final class BlueprintPanel {
         BlueprintRotationDefaults.ensureLoaded();
         selectedIndex = -1;
         scroll = 0;
-        materialDialogOpen = false;
-        materialDialogScroll = 0;
+        DIALOGS.closeMaterial();
         pinnedAnchor = null;
         LIBRARY.reload(BlueprintPanel::setStatus);
     }
@@ -1089,12 +1065,7 @@ public final class BlueprintPanel {
         } else {
             CAPTURE.start(BlueprintPanel::setStatus);
             pinnedAnchor = null;
-            materialDialogOpen = false;
-            nameDialogMode = NameDialogMode.NONE;
-            nameDialogValue = "";
-            nameDialogEntry = null;
-            nameDialogReplaceOnType = false;
-            nameDialogCaptureBlockCount = 0L;
+            DIALOGS.clearAll();
         }
     }
 
@@ -1143,11 +1114,7 @@ public final class BlueprintPanel {
 
     static void cancelCaptureMode() {
         CAPTURE.cancel(BlueprintPanel::setStatus);
-        nameDialogMode = NameDialogMode.NONE;
-        nameDialogValue = "";
-        nameDialogEntry = null;
-        nameDialogReplaceOnType = false;
-        nameDialogCaptureBlockCount = 0L;
+        DIALOGS.clearName();
     }
 
     private static void selectByFileName(String fileName) {
@@ -1169,8 +1136,7 @@ public final class BlueprintPanel {
     private static void selectEntry(BlueprintEntry entry) {
         selectedIndex = LIBRARY.indexOf(entry);
         pinnedAnchor = null;
-        materialDialogOpen = false;
-        materialDialogScroll = 0;
+        DIALOGS.closeMaterial();
         applyDefaultRotation(entry);
         setStatus(
                 entry.error().isBlank() ? S2CBlueprintStatusPayload.INFO : S2CBlueprintStatusPayload.ERROR,
@@ -1186,8 +1152,7 @@ public final class BlueprintPanel {
         yRotationSteps = 0;
         xRotationSteps = 0;
         zRotationSteps = 0;
-        materialDialogOpen = false;
-        materialDialogScroll = 0;
+        DIALOGS.closeMaterial();
         setStatus(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.preview_cleared", "");
     }
 
@@ -1196,12 +1161,6 @@ public final class BlueprintPanel {
 
     public record BlueprintGhostPreview(List<BlueprintGhostBlock> blocks, boolean materialsReady, boolean truncated) {
         public static final BlueprintGhostPreview EMPTY = new BlueprintGhostPreview(List.of(), false, false);
-    }
-
-    private enum NameDialogMode {
-        NONE,
-        CAPTURE_SAVE,
-        RENAME_ENTRY
     }
 
 }

@@ -1,11 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowButtonLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -35,6 +41,11 @@ public class WindowButton extends AbstractButton {
     private final int hoverTextureHeight;  // Texture height for hover state
     private final int fullTextureWidth;   // Total width of the full texture
     private final int fullTextureHeight;  // Total height of the full texture
+    private final UiControlAnimationState visualAnimation =
+            new UiControlAnimationState(SystemUiClock.INSTANCE);
+    private UiControlRole visualRole = UiControlRole.COMMAND;
+    private boolean selectedVisual;
+    private boolean pressedVisual;
 
     /**
      * When set, all WindowButton instances suppress hover/focus effects.
@@ -105,17 +116,20 @@ public class WindowButton extends AbstractButton {
     @Override
     protected void renderWidget(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
+        boolean effectiveHovered = !globalSkipHover
+                && this.isHoveredOrFocused();
+        UiControlVisualStyle visual = resolveVisual(effectiveHovered);
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
             // Render with texture (vector scaling)
             renderWithTexture(guiGraphics);
         } else {
             // Render with solid colour
-            renderWithSolidColor(guiGraphics);
+            renderWithSolidColor(guiGraphics, visual);
         }
 
         // Calculate text position (centred)
-        int textColor = WindowButtonStyle.text(this.active).toArgb();
+        int textColor = visual.getText().toArgb();
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
                 WindowButtonLayout.textWidth(this.width));
         int textWidth = minecraft.font.width(label);
@@ -254,13 +268,74 @@ public class WindowButton extends AbstractButton {
     /**
      * Renders the button with solid colours (RTS dark style).
      */
-    private void renderWithSolidColor(GuiGraphics guiGraphics) {
+    private void renderWithSolidColor(
+            GuiGraphics guiGraphics,
+            UiControlVisualStyle visual) {
         // 被更高层浮窗覆盖时，上层统一抑制 hover/focus 视觉。
-        boolean hovered = !globalSkipHover && this.isHoveredOrFocused();
         WindowButtonChromeRenderer.renderSolid(
                 new MinecraftUiCanvas(guiGraphics, Minecraft.getInstance().font),
                 new UiRect(this.getX(), this.getY(), this.width, this.height),
-                hovered);
+                visual);
+    }
+
+    private UiControlVisualStyle resolveVisual(boolean hovered) {
+        UiControlState state = this.active
+                ? new UiControlState(
+                        true,
+                        true,
+                        hovered,
+                        this.isFocused(),
+                        this.pressedVisual,
+                        this.selectedVisual,
+                        false,
+                        false,
+                        "")
+                : new UiControlState(
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        this.selectedVisual,
+                        false,
+                        false,
+                        "disabled");
+        UiControlAnimationState.Snapshot animation =
+                this.visualAnimation.update(
+                        state, Config.isUiAnimationsEnabled());
+        return UiControlVisualStyle.animated(this.visualRole, animation);
+    }
+
+    /**
+     * 设置按钮在通用主题中的业务角色；只影响视觉，不改变点击行为。
+     */
+    public void setVisualRole(UiControlRole role) {
+        if (role == null) {
+            throw new IllegalArgumentException("role");
+        }
+        this.visualRole = role;
+    }
+
+    /**
+     * 更新可插值的选中视觉；业务状态仍由面板自己的 Core 快照持有。
+     */
+    public void setSelectedVisual(boolean selected) {
+        this.selectedVisual = selected;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean consumed = super.mouseClicked(mouseX, mouseY, button);
+        if (consumed) {
+            this.pressedVisual = true;
+        }
+        return consumed;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        this.pressedVisual = false;
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override

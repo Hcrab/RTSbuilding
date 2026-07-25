@@ -58,13 +58,13 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.CullingWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowResumeStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StorageWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintWindowStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.FunnelBufferStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 
@@ -1286,14 +1286,18 @@ final class UiMainlineWindowRenderer {
 
     private void drawQuickControl(BufferedImageUiCanvas canvas, int x, int y, int w,
                                   String label, boolean selected, boolean enabled) {
+        UiControlVisualStyle visual = controlVisual(
+                UiControlRole.TOGGLE, selected, enabled);
         WindowButtonChromeRenderer.renderSolid(
-                canvas, new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H), false);
+                canvas,
+                new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H),
+                visual);
         canvas.imageRegion(
                 assets.image("textures/gui/general/mode_button.png"),
                 new UiRect(0, selected ? 1024 : 0, 512, 512),
                 new UiRect(x + 2, y + 2, 16, 16));
         canvas.centeredText(canvas.trimToWidth(label, w - 22), x + w / 2.0D,
-                y + 14, UiMainlinePreviewStyle.color(WindowButtonStyle.text(enabled)));
+                y + 14, UiMainlinePreviewStyle.color(visual.getText()));
     }
 
     private void drawBlueprint(BufferedImageUiCanvas canvas, UiRect bounds,
@@ -1456,17 +1460,39 @@ final class UiMainlineWindowRenderer {
 
     private void drawWindowButton(BufferedImageUiCanvas canvas, int x, int y, int w,
                                   String label, boolean enabled, boolean primary) {
+        UiControlVisualStyle visual = controlVisual(
+                primary
+                        ? UiControlRole.PRIMARY_ACTION
+                        : UiControlRole.COMMAND,
+                false,
+                enabled);
         if (primary && enabled) {
             BlueprintWindowChromeRenderer.renderPrimaryAction(
                     canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H));
         } else {
             WindowButtonChromeRenderer.renderSolid(
-                    canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H), false);
+                    canvas,
+                    new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H),
+                    visual);
         }
         canvas.centeredText(canvas.trimToWidth(label, Math.max(8, w - 10)), x + w / 2.0D,
                 y + 14, UiMainlinePreviewStyle.color(primary && enabled
                         ? BlueprintWindowStyle.PRIMARY_TEXT
-                        : WindowButtonStyle.text(enabled)));
+                        : visual.getText()));
+    }
+
+    private static UiControlVisualStyle controlVisual(
+            UiControlRole role,
+            boolean selected,
+            boolean enabled) {
+        return UiControlVisualStyle.resolve(
+                role,
+                new UiControlState(
+                        enabled,
+                        selected,
+                        false,
+                        false,
+                        enabled ? "" : "disabled"));
     }
 
     private static String size(BlueprintInt3 value) {

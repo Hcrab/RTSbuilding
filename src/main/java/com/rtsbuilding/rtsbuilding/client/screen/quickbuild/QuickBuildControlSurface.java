@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowSlider;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
@@ -74,6 +75,8 @@ final class QuickBuildControlSurface {
                     ignored -> this.dispatch.accept(
                             QuickBuildUiAction.shape(option.shape)));
             button.active = option.enabled;
+            button.setVisualRole(UiControlRole.CHOICE);
+            button.setSelectedVisual(option.selected);
             this.shapeButtons[i] = button;
         }
     }
@@ -91,6 +94,8 @@ final class QuickBuildControlSurface {
                     ignored -> this.dispatch.accept(
                             QuickBuildUiAction.control(control.id)));
             button.active = control.enabled;
+            button.setVisualRole(UiControlRole.TOGGLE);
+            button.setSelectedVisual(control.selected);
             if (control.id == QuickBuildUiControl.Id.CONNECT) {
                 this.connectToggle = button;
             } else {
@@ -237,15 +242,26 @@ final class QuickBuildControlSurface {
             this.shapeButtons[i].setY(layout.shapeY(i));
             if (i < state.shapes.size()) {
                 this.shapeButtons[i].active = state.shapes.get(i).enabled;
+                this.shapeButtons[i].setSelectedVisual(
+                        state.shapes.get(i).selected);
             }
         }
+        List<QuickBuildUiControl> regular = controlsWithoutConnect(state);
         for (int i = 0; i < this.controlButtons.length; i++) {
             this.controlButtons[i].setX(layout.rightX);
             this.controlButtons[i].setY(layout.controlY(i));
+            if (i < regular.size()) {
+                this.controlButtons[i].setSelectedVisual(
+                        regular.get(i).selected);
+            }
         }
         if (this.connectToggle != null) {
             this.connectToggle.setX(layout.rightX);
             this.connectToggle.setY(layout.controlY(this.controlButtons.length));
+            QuickBuildUiControl connect =
+                    state.control(QuickBuildUiControl.Id.CONNECT);
+            this.connectToggle.setSelectedVisual(
+                    connect != null && connect.selected);
         }
         this.chainLimitSlider.setWidth(
                 QuickBuildWindowLayout.chainSliderWidth(windowWidth));
@@ -288,6 +304,17 @@ final class QuickBuildControlSurface {
             }
         }
         return false;
+    }
+
+    private static List<QuickBuildUiControl> controlsWithoutConnect(
+            QuickBuildUiState state) {
+        List<QuickBuildUiControl> result = new ArrayList<>();
+        for (QuickBuildUiControl control : state.controls) {
+            if (control.id != QuickBuildUiControl.Id.CONNECT) {
+                result.add(control);
+            }
+        }
+        return result;
     }
 
     private static String shapeSignature(QuickBuildUiState state) {

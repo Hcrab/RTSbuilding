@@ -20,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDestroyTargetClassifier;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGenerationPlanCache;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeModeState;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapePlacementTargetResolver;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeSelectionTextPresenter;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeSessionInputResolver;
@@ -70,22 +71,13 @@ public final class ScreenShapeController {
     private int shapeFootprintNudgeA = 0;
     private int shapeFootprintNudgeB = 0;
     private double shapeCursorY = 0.0D;
-    private ShapeFillMode shapeFillMode = ShapeFillMode.FILL;
-    private boolean lineConnected = false;
-    private int shapeRotateDegrees = 0;
+    private final ShapeModeState modeState = new ShapeModeState();
 
     // ===== BUILD 模式独立按钮状态 =====
-    private ShapeFillMode buildShapeFillMode = ShapeFillMode.FILL;
-    private boolean buildLineConnected = false;
-    private int buildRotateDegrees = 0;
 
     // ===== 范围破坏模式独立按钮状态 =====
-    private ShapeFillMode destroyShapeFillMode = ShapeFillMode.FILL;
-    private boolean destroyLineConnected = false;
-    private int destroyRotateDegrees = 0;
 
     /** 当前活跃的是否为范围破坏模式（用于填充/连线/旋转的同步追踪） */
-    private boolean destroyModeActive = false;
     private final ConfirmedDestroyPreviewState confirmedDestroyPreviews = new ConfirmedDestroyPreviewState();
     private final PlacementHistoryManager placementHistory = new PlacementHistoryManager();
     private final RtsBoxHandleInteraction advancedBoxHandles = new RtsBoxHandleInteraction();
@@ -101,79 +93,69 @@ public final class ScreenShapeController {
     // ===== Public state accessors =====
 
     public ShapeFillMode getShapeFillMode() {
-        return this.shapeFillMode;
+        return this.modeState.activeFillMode();
     }
 
     public void setShapeFillMode(ShapeFillMode mode) {
-        this.shapeFillMode = mode;
-        syncActiveToModeFields();
+        this.modeState.setActiveFillMode(mode);
     }
 
     /** 返回 BUILD 模式的独立填充模式 */
     public ShapeFillMode getBuildShapeFillMode() {
-        return this.buildShapeFillMode;
+        return this.modeState.buildFillMode();
     }
 
     public void setBuildShapeFillMode(ShapeFillMode mode) {
-        this.buildShapeFillMode = mode;
-        // The quick-build button changes the mode-specific field; keep the active generator in sync.
-        if (!this.destroyModeActive) {
-            this.shapeFillMode = mode;
-        }
+        this.modeState.setBuildFillMode(mode);
     }
 
     /** 返回范围破坏模式的独立填充模式 */
     public ShapeFillMode getDestroyShapeFillMode() {
-        return this.destroyShapeFillMode;
+        return this.modeState.destroyFillMode();
     }
 
     public void setDestroyShapeFillMode(ShapeFillMode mode) {
-        this.destroyShapeFillMode = mode;
-        // Range destruction has its own fill mode and must update the active preview immediately.
-        if (this.destroyModeActive) {
-            this.shapeFillMode = mode;
-        }
+        this.modeState.setDestroyFillMode(mode);
     }
 
     public boolean isLineConnected() {
-        return this.lineConnected;
+        return this.modeState.activeLineConnected();
     }
 
     public void setLineConnected(boolean connected) {
-        this.lineConnected = connected;
-        syncActiveToModeFields();
+        this.modeState.setActiveLineConnected(connected);
     }
 
     /** 返回 BUILD 模式的独立直线连接状态 */
     public boolean isBuildLineConnected() {
-        return this.buildLineConnected;
+        return this.modeState.buildLineConnected();
     }
 
     public void setBuildLineConnected(boolean connected) {
-        this.buildLineConnected = connected;
+        this.modeState.setBuildLineConnected(connected);
     }
 
     /** 返回范围破坏模式的独立直线连接状态 */
     public boolean isDestroyLineConnected() {
-        return this.destroyLineConnected;
+        return this.modeState.destroyLineConnected();
     }
 
     public void setDestroyLineConnected(boolean connected) {
-        this.destroyLineConnected = connected;
+        this.modeState.setDestroyLineConnected(connected);
     }
 
     public int getShapeRotateDegrees() {
-        return this.shapeRotateDegrees;
+        return this.modeState.activeRotateDegrees();
     }
 
     /** 返回 BUILD 模式的独立旋转角度 */
     public int getBuildRotateDegrees() {
-        return this.buildRotateDegrees;
+        return this.modeState.buildRotateDegrees();
     }
 
     /** 返回范围破坏模式的独立旋转角度 */
     public int getDestroyRotateDegrees() {
-        return this.destroyRotateDegrees;
+        return this.modeState.destroyRotateDegrees();
     }
 
     public int getShapeUndoSize() {
@@ -193,25 +175,25 @@ public final class ScreenShapeController {
     }
 
     public void rotateShapeByStep(int step) {
-        int raw = this.shapeRotateDegrees + (step * SHAPE_ROTATE_STEP_DEGREES);
-        this.shapeRotateDegrees = Math.floorMod(raw, 360);
-        syncActiveRotationToModeFields();
+        int raw = this.modeState.activeRotateDegrees()
+                + (step * SHAPE_ROTATE_STEP_DEGREES);
+        this.modeState.setActiveRotateDegrees(raw);
         this.screen.persistUiState();
     }
     public void rotateToDegrees(int degrees) {
-        this.shapeRotateDegrees = Math.floorMod(degrees, 360);
+        this.modeState.setActiveRotateDegrees(degrees);
     }
 
     public void setBuildRotateDegrees(int degrees) {
-        this.buildRotateDegrees = Math.floorMod(degrees, 360);
+        this.modeState.setBuildRotateDegrees(degrees);
     }
 
     public void setDestroyRotateDegrees(int degrees) {
-        this.destroyRotateDegrees = Math.floorMod(degrees, 360);
+        this.modeState.setDestroyRotateDegrees(degrees);
     }
 
     public void rotateDestroyToDegrees(int degrees) {
-        this.destroyRotateDegrees = Math.floorMod(degrees, 360);
+        this.modeState.setDestroyRotateDegrees(degrees);
     }
 
     public void setShapeCursorY(double cursorY) {
@@ -225,14 +207,12 @@ public final class ScreenShapeController {
     public void ensureFillModeForShape(BuildShape shape) {
         List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
         if (modes.isEmpty()) {
-            this.shapeFillMode = ShapeFillMode.FILL;
-            syncActiveToModeFields();
+            this.modeState.setActiveFillMode(ShapeFillMode.FILL);
             this.screen.persistUiState();
             return;
         }
-        if (!modes.contains(this.shapeFillMode)) {
-            this.shapeFillMode = modes.get(0);
-            syncActiveToModeFields();
+        if (!modes.contains(this.modeState.activeFillMode())) {
+            this.modeState.setActiveFillMode(modes.get(0));
             this.screen.persistUiState();
         }
     }
@@ -241,12 +221,12 @@ public final class ScreenShapeController {
     public void ensureDestroyFillModeForShape(BuildShape shape) {
         List<ShapeFillMode> modes = ShapeGeometryUtil.availableFillModes(shape);
         if (modes.isEmpty()) {
-            this.destroyShapeFillMode = ShapeFillMode.FILL;
+            this.modeState.setDestroyFillMode(ShapeFillMode.FILL);
             this.screen.persistUiState();
             return;
         }
-        if (!modes.contains(this.destroyShapeFillMode)) {
-            this.destroyShapeFillMode = modes.get(0);
+        if (!modes.contains(this.modeState.destroyFillMode())) {
+            this.modeState.setDestroyFillMode(modes.get(0));
             this.screen.persistUiState();
         }
     }
@@ -257,16 +237,14 @@ public final class ScreenShapeController {
         if (modes.isEmpty()) {
             return false;
         }
-        int currentIndex = modes.indexOf(this.shapeFillMode);
+        int currentIndex = modes.indexOf(this.modeState.activeFillMode());
         if (currentIndex < 0) {
-            this.shapeFillMode = modes.get(0);
-            syncActiveToModeFields();
+            this.modeState.setActiveFillMode(modes.get(0));
             this.screen.persistUiState();
             return true;
         }
         int next = Math.floorMod(currentIndex + step, modes.size());
-        this.shapeFillMode = modes.get(next);
-        syncActiveToModeFields();
+        this.modeState.setActiveFillMode(modes.get(next));
         this.screen.persistUiState();
         return true;
     }
@@ -278,14 +256,14 @@ public final class ScreenShapeController {
         if (modes.isEmpty()) {
             return false;
         }
-        int currentIndex = modes.indexOf(this.destroyShapeFillMode);
+        int currentIndex = modes.indexOf(this.modeState.destroyFillMode());
         if (currentIndex < 0) {
-            this.destroyShapeFillMode = modes.get(0);
+            this.modeState.setDestroyFillMode(modes.get(0));
             this.screen.persistUiState();
             return true;
         }
         int next = Math.floorMod(currentIndex + step, modes.size());
-        this.destroyShapeFillMode = modes.get(next);
+        this.modeState.setDestroyFillMode(modes.get(next));
         this.screen.persistUiState();
         return true;
     }
@@ -298,14 +276,8 @@ public final class ScreenShapeController {
      */
     public void switchToDestroy() {
         // 保存当前活跃的 BUILD 状态
-        this.buildShapeFillMode = this.shapeFillMode;
-        this.buildLineConnected = this.lineConnected;
-        this.buildRotateDegrees = this.shapeRotateDegrees;
         // 恢复 DESTROY 状态到活跃字段
-        this.shapeFillMode = this.destroyShapeFillMode;
-        this.lineConnected = this.destroyLineConnected;
-        this.shapeRotateDegrees = this.destroyRotateDegrees;
-        this.destroyModeActive = true;
+        this.modeState.switchToDestroy();
     }
 
     /**
@@ -314,14 +286,8 @@ public final class ScreenShapeController {
      */
     public void switchToBuild() {
         // 保存当前活跃的 DESTROY 状态
-        this.destroyShapeFillMode = this.shapeFillMode;
-        this.destroyLineConnected = this.lineConnected;
-        this.destroyRotateDegrees = this.shapeRotateDegrees;
         // 恢复 BUILD 状态到活跃字段
-        this.shapeFillMode = this.buildShapeFillMode;
-        this.lineConnected = this.buildLineConnected;
-        this.shapeRotateDegrees = this.buildRotateDegrees;
-        this.destroyModeActive = false;
+        this.modeState.switchToBuild();
     }
 
     /**
@@ -329,10 +295,7 @@ public final class ScreenShapeController {
      * 不覆盖独立字段中的值。
      */
     public void applyBuildStateAsActive() {
-        this.shapeFillMode = this.buildShapeFillMode;
-        this.lineConnected = this.buildLineConnected;
-        this.shapeRotateDegrees = this.buildRotateDegrees;
-        this.destroyModeActive = false;
+        this.modeState.applyBuildState();
     }
 
     /**
@@ -340,35 +303,7 @@ public final class ScreenShapeController {
      * 不覆盖独立字段中的值。
      */
     public void applyDestroyStateAsActive() {
-        this.shapeFillMode = this.destroyShapeFillMode;
-        this.lineConnected = this.destroyLineConnected;
-        this.shapeRotateDegrees = this.destroyRotateDegrees;
-        this.destroyModeActive = true;
-    }
-
-    // ===== 模式状态同步 =====
-
-    /**
-     * 将活跃字段（shapeFillMode/lineConnected）同步到当前模式对应的独立字段。
-     * 确保在每次活跃字段被外部修改时，模式独立字段保持同步。
-     */
-    private void syncActiveToModeFields() {
-        if (this.destroyModeActive) {
-            this.destroyShapeFillMode = this.shapeFillMode;
-            this.destroyLineConnected = this.lineConnected;
-        } else {
-            this.buildShapeFillMode = this.shapeFillMode;
-            this.buildLineConnected = this.lineConnected;
-        }
-    }
-
-    /** 将活跃旋转角度同步到当前模式对应的独立字段。 */
-    private void syncActiveRotationToModeFields() {
-        if (this.destroyModeActive) {
-            this.destroyRotateDegrees = this.shapeRotateDegrees;
-        } else {
-            this.buildRotateDegrees = this.shapeRotateDegrees;
-        }
+        this.modeState.applyDestroyState();
     }
 
     // ===== Shape building flow =====
@@ -1337,7 +1272,7 @@ public final class ScreenShapeController {
         if (state == null) return null;
 
         // Apply rotation from shape controller
-        int rotateDegrees = this.shapeRotateDegrees;
+        int rotateDegrees = this.modeState.activeRotateDegrees();
         if (rotateDegrees != 0) {
             state = BuildGhostBlockStateResolver.applyRotation(state, rotateDegrees, mc.level, targetPos);
         }
@@ -1359,7 +1294,7 @@ public final class ScreenShapeController {
                 cursorHit,
                 requireReady,
                 isVerticalLine(session.shape()),
-                this.lineConnected,
+                this.modeState.activeLineConnected(),
                 this.shapeFootprintNudgeA,
                 this.shapeFootprintNudgeB,
                 rayOrigin,
@@ -1456,7 +1391,7 @@ public final class ScreenShapeController {
         RtsCullingBox advancedBox = isAdvancedShapeSelectionSession() ? advancedRangeDestroyBox() : null;
         return this.shapeGenerationPlans.positions(new ShapeGenerationPlanCache.Request(
                 input,
-                this.shapeFillMode,
+                this.modeState.activeFillMode(),
                 advancedBox,
                 rangeDestroy,
                 currentRangeDestroyLimits(),

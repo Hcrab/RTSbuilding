@@ -173,6 +173,8 @@ public final class BuilderScreen extends Screen {
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
     /** Client-only persisted UI preferences for this screen. */
     private final RtsScreenUiStateManager uiStateManager;
+    /** 固定 RTS UI 缩放、虚拟视口、输入坐标和裁剪坐标的统一协调器。 */
+    private final RtsGuiScaleCoordinator guiScaleCoordinator;
     /** Lightweight overlay/popup renderer split out from the main screen. */
     private final RtsScreenOverlayRenderer overlayRenderer;
     /** Renders player health, food, armor and absorption bars. */
@@ -205,16 +207,7 @@ public final class BuilderScreen extends Screen {
     private double placementWheelRestoreMouseX = Double.NaN;
     private double placementWheelRestoreMouseY = Double.NaN;
     /** 最近一次 RTS 固定缩放渲染所使用的虚拟宽度。 */
-    private int lastRtsUiWidth = 0;
     /** 最近一次 RTS 固定缩放渲染所使用的虚拟高度。 */
-    private int lastRtsUiHeight = 0;
-    /** Whether we are currently inside a fixed-RTS-scale render pass (for UI scaling). */
-    private boolean fixedRtsScaleRenderPass = false;
-    /** Whether we are currently inside a fixed-RTS-scale input pass (for UI scaling). */
-    private boolean fixedRtsScaleInputPass = false;
-    /** The actual render scale factor active during the current fixed-scale render pass. */
-    private double activeRtsGuiRenderScale = 1.0D;
-    /** Stable hover anchor above the left "RTS" label; keeps item tooltips from chasing the cursor. */
     /** Last recorded mouse X position, updated each render frame for input consistency. */
     private int lastMouseX = 0;
     /** Last recorded mouse Y position, updated each render frame for input consistency. */
@@ -247,6 +240,13 @@ public final class BuilderScreen extends Screen {
         this.leftDockedTooltipRenderer =
                 new LeftDockedTooltipRenderer(this, this.bottomPanel);
         this.uiStateManager = new RtsScreenUiStateManager(this.controller, this.shapeController, this.quickBuildPanel);
+        this.guiScaleCoordinator = new RtsGuiScaleCoordinator(
+                () -> this.minecraft,
+                () -> this.width,
+                () -> this.height,
+                value -> this.width = value,
+                value -> this.height = value,
+                this.uiStateManager::fixedRtsGuiScale);
         this.overlayRenderer = new RtsScreenOverlayRenderer(this, this.controller, this.cursorPicker, this.bottomPanel);
         this.playerStatusRenderer = new PlayerStatusRenderer(this);
         this.storageLinkDetailHandler = new StorageLinkDetailHandler(this, this.controller, this.topBarPanel, this.linkedStoragePanel);
@@ -466,7 +466,7 @@ public final class BuilderScreen extends Screen {
     protected void init() {
         super.init();
         // Enter the RTS scale frame so that clamps in applyStoredUiState use the virtual coordinate space (rather than the GUI-scaled width)
-        RtsUiScaleFrame frame = enterFixedRtsGuiScale();
+        RtsUiScaleFrame frame = this.guiScaleCoordinator.enterLayoutFrame();
         try {
             this.uiStateManager.applyStoredUiState();
         } finally {
@@ -629,15 +629,12 @@ public final class BuilderScreen extends Screen {
       @return true if the click was consumed by this screen, false otherwise
      */
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        RtsUiScaleFrame frame = beginFixedRtsScaleInput();
-        if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            try {
+        try (RtsGuiScaleCoordinator.InputFrame frame =
+                     this.guiScaleCoordinator.beginInput()) {
+            if (frame.requiresRemap()) {
                 return mouseClicked(mouseX / frame.scale(), mouseY / frame.scale(), button);
-            } finally {
-                endFixedRtsScaleInput(frame);
             }
         }
-        endFixedRtsScaleInput(frame);
         if (this.placementStateWheel.isOpen()) {
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 if (this.placementStateWheel.handlePlacementPageClick(mouseX, mouseY)) {
@@ -906,15 +903,12 @@ public final class BuilderScreen extends Screen {
      * open dialogs, dragging state, floating windows, and camera input handlers.
      */
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        RtsUiScaleFrame frame = beginFixedRtsScaleInput();
-        if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            try {
+        try (RtsGuiScaleCoordinator.InputFrame frame =
+                     this.guiScaleCoordinator.beginInput()) {
+            if (frame.requiresRemap()) {
                 return mouseReleased(mouseX / frame.scale(), mouseY / frame.scale(), button);
-            } finally {
-                endFixedRtsScaleInput(frame);
             }
         }
-        endFixedRtsScaleInput(frame);
         endFunnelMouseHold(button);
         this.topBarPanel.mouseReleased(button);
         if (button == this.placementStateWheelConsumedMouseButton) {
@@ -970,15 +964,12 @@ public final class BuilderScreen extends Screen {
      * and search box focus logic.
      */
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        RtsUiScaleFrame frame = beginFixedRtsScaleInput();
-        if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            try {
+        try (RtsGuiScaleCoordinator.InputFrame frame =
+                     this.guiScaleCoordinator.beginInput()) {
+            if (frame.requiresRemap()) {
                 return mouseDragged(mouseX / frame.scale(), mouseY / frame.scale(), button, dragX / frame.scale(), dragY / frame.scale());
-            } finally {
-                endFixedRtsScaleInput(frame);
             }
         }
-        endFixedRtsScaleInput(frame);
         if (this.placementStateWheel.isOpen()) {
             return true;
         }
@@ -1018,16 +1009,13 @@ public final class BuilderScreen extends Screen {
     @Override
     /** Handles mouse movement with RTS GUI scale remapping. Updates keyboard-pan drag state. */
     public void mouseMoved(double mouseX, double mouseY) {
-        RtsUiScaleFrame frame = beginFixedRtsScaleInput();
-        if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            try {
+        try (RtsGuiScaleCoordinator.InputFrame frame =
+                     this.guiScaleCoordinator.beginInput()) {
+            if (frame.requiresRemap()) {
                 mouseMoved(mouseX / frame.scale(), mouseY / frame.scale());
                 return;
-            } finally {
-                endFixedRtsScaleInput(frame);
             }
         }
-        endFixedRtsScaleInput(frame);
         if (this.placementStateWheel.isOpen()) {
             return;
         }
@@ -1294,8 +1282,8 @@ public final class BuilderScreen extends Screen {
             return false;
         }
         var camera = this.minecraft.gameRenderer.getMainCamera();
-        int uiWidth = this.lastRtsUiWidth > 0 ? this.lastRtsUiWidth : this.width;
-        int uiHeight = this.lastRtsUiHeight > 0 ? this.lastRtsUiHeight : this.height;
+        int uiWidth = this.guiScaleCoordinator.viewportWidth();
+        int uiHeight = this.guiScaleCoordinator.viewportHeight();
         if (!this.placementStateWheel.open(
                 state, mouseX, mouseY, uiWidth, uiHeight, camera.getYRot(), camera.getXRot())) {
             if (this.minecraft.player != null) {
@@ -1377,15 +1365,12 @@ public final class BuilderScreen extends Screen {
      * previews, rotation mode, and item slot scrolling.
      */
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        RtsUiScaleFrame frame = beginFixedRtsScaleInput();
-        if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            try {
+        try (RtsGuiScaleCoordinator.InputFrame frame =
+                     this.guiScaleCoordinator.beginInput()) {
+            if (frame.requiresRemap()) {
                 return mouseScrolled(mouseX / frame.scale(), mouseY / frame.scale(), scrollX, scrollY);
-            } finally {
-                endFixedRtsScaleInput(frame);
             }
         }
-        endFixedRtsScaleInput(frame);
         if (this.placementStateWheel.isOpen()) {
             return true;
         }
@@ -1880,13 +1865,14 @@ public final class BuilderScreen extends Screen {
      * tooltips, cursor preview, damage flash, and modal layers (wheel, gear, guide, dialogs).
      */
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
+        if (!this.guiScaleCoordinator.isRenderPass()
+                && this.guiScaleCoordinator.renderScaled(
+                        guiGraphics, mouseX, mouseY, partialTick, this::render)) {
             return;
         }
         this.lastMouseX = mouseX;
         this.lastMouseY = mouseY;
-        this.lastRtsUiWidth = this.width;
-        this.lastRtsUiHeight = this.height;
+        this.guiScaleCoordinator.recordViewport();
         resetHoverStates();
         guiGraphics.fill(0, 0, this.width, TOP_H, RtsMainlineTheme.TOP_BAR_BACKGROUND.toArgb());
         if (this.controller.isHomeSelectionMode()) {
@@ -2044,87 +2030,6 @@ public final class BuilderScreen extends Screen {
         }
     }
 
-    /**
-     * Scales the rendering to the user-configured fixed RTS GUI scale, then recursively
-     * calls {@link #render(GuiGraphics, int, int, float)} with adjusted coordinates.
-     *
-     * @return true if the render was handled at a non-unit scale (calling code should return)
-     */
-    private boolean renderWithFixedRtsGuiScale(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        RtsUiScaleFrame frame = enterFixedRtsGuiScale();
-        if (frame == null || Math.abs(frame.scale() - 1.0D) < 0.001D) {
-            if (frame != null) {
-                frame.close();
-            }
-            return false;
-        }
-        this.fixedRtsScaleRenderPass = true;
-        double previousActiveRenderScale = this.activeRtsGuiRenderScale;
-        this.activeRtsGuiRenderScale = frame.scale();
-        g.pose().pushPose();
-        g.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
-        try {
-            render(g, (int) Math.round(mouseX / frame.scale()), (int) Math.round(mouseY / frame.scale()), partialTick);
-        } finally {
-            g.pose().popPose();
-            this.activeRtsGuiRenderScale = previousActiveRenderScale;
-            this.fixedRtsScaleRenderPass = false;
-            frame.close();
-        }
-        return true;
-    }
-    /**
-     * Begins a fixed RTS GUI scale input frame. Returns the scale frame if scaling
-     * is needed (caller must call {@link #endFixedRtsScaleInput}), or null/unit-scale
-     * frame if no remapping is required.
-     */
-    private RtsUiScaleFrame beginFixedRtsScaleInput() {
-        if (this.fixedRtsScaleInputPass) return null;
-        RtsUiScaleFrame frame = enterFixedRtsGuiScale();
-        if (frame != null && Math.abs(frame.scale() - 1.0D) >= 0.001D) {
-            this.fixedRtsScaleInputPass = true;
-        }
-        return frame;
-    }
-
-    /**
-     * Ends a fixed RTS GUI scale input frame, resetting the pass flag and restoring
-     * original window dimensions.
-     */
-    private void endFixedRtsScaleInput(RtsUiScaleFrame frame) {
-        if (frame == null) return;
-        this.fixedRtsScaleInputPass = false;
-        frame.close();
-    }
-
-    /**
-     * Enters a fixed RTS GUI scale frame by temporarily adjusting the screen width/height
-     * to virtual dimensions that produce the desired render scale. Returns an
-     * {@link RtsUiScaleFrame} that restores the original dimensions when closed.
-     */
-    private RtsUiScaleFrame enterFixedRtsGuiScale() {
-        if (this.minecraft == null || this.minecraft.getWindow() == null || this.width <= 0 || this.height <= 0) {
-            return null;
-        }
-        double currentScale = this.minecraft.getWindow().getScreenWidth() / (double) Math.max(1, this.width);
-        if (currentScale <= 0.0D || !Double.isFinite(currentScale)) {
-            return null;
-        }
-        double renderScale = this.uiStateManager.fixedRtsGuiScale() / currentScale;
-        if (renderScale <= 0.0D || !Double.isFinite(renderScale)) {
-            return null;
-        }
-        int oldW = this.width;
-        int oldH = this.height;
-        int virtualW = Math.max(1, (int) Math.round(oldW / renderScale));
-        int virtualH = Math.max(1, (int) Math.round(oldH / renderScale));
-        this.width = virtualW;
-        this.height = virtualH;
-        return new RtsUiScaleFrame(oldW, oldH, renderScale, () -> {
-            this.width = oldW;
-            this.height = oldH;
-        });
-    }
     /**
      * Renders a hint message at the top of the screen related to the guide panel when
      * the top bar buttons are visible.
@@ -2466,8 +2371,8 @@ public final class BuilderScreen extends Screen {
             syncFunnelHoldState();
             this.rotationHandles.clear();
             closePlacementStateWheelImmediately();
-            int uiWidth = this.lastRtsUiWidth > 0 ? this.lastRtsUiWidth : this.width;
-            int uiHeight = this.lastRtsUiHeight > 0 ? this.lastRtsUiHeight : this.height;
+            int uiWidth = this.guiScaleCoordinator.viewportWidth();
+            int uiHeight = this.guiScaleCoordinator.viewportHeight();
             this.modeWheel.open(currentMouseX(), currentMouseY(), uiWidth, uiHeight);
         } else if (!altDown && this.modeWheelAltWasDown) {
             this.modeWheel.close();
@@ -2901,16 +2806,7 @@ public final class BuilderScreen extends Screen {
      * active RTS GUI render scale if a fixed-scale pass is in progress.
      */
     public void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) {
-        double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
-        if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
-            g.enableScissor(
-                    (int) Math.floor(x1 * scale),
-                    (int) Math.floor(y1 * scale),
-                    (int) Math.ceil(x2 * scale),
-                    (int) Math.ceil(y2 * scale));
-            return;
-        }
-        g.enableScissor(x1, y1, x2, y2);
+        this.guiScaleCoordinator.enableScissor(g, x1, y1, x2, y2);
     }
 
     /** Truncates the given text to fit within the specified pixel width. */

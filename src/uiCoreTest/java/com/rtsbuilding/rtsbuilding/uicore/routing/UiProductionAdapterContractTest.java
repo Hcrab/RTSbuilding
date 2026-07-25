@@ -780,14 +780,15 @@ class UiProductionAdapterContractTest {
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
 
         assertTrue(button.contains("WindowButtonChromeRenderer.renderSolid("));
-        assertTrue(button.contains("WindowButtonStyle.text(this.active)"));
+        assertTrue(button.contains("UiControlVisualStyle.animated("));
+        assertTrue(button.contains("UiControlAnimationState"));
         assertTrue(button.contains("WindowButtonStyle.MISSING_TEXTURE"));
         assertTrue(chrome.contains("width + 1.0D"));
         assertTrue(chrome.contains("height + 1.0D"));
         assertTrue(style.contains("HOVER_BACKGROUND"));
         assertTrue(style.contains("TEXT_DISABLED"));
         assertTrue(preview.contains("WindowButtonChromeRenderer.renderSolid("));
-        assertTrue(preview.contains("WindowButtonStyle.text(enabled)"));
+        assertTrue(preview.contains("UiControlVisualStyle.resolve("));
         assertFalse(button.contains("RtsClientUiUtil.drawPanelFrame("));
         assertFalse(button.contains("0xFFFF0000"));
         assertFalse(preview.contains("int fill = !enabled"));

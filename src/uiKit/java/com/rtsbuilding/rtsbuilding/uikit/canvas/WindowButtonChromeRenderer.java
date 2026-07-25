@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.uikit.canvas;
 
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 
 /**
@@ -29,6 +30,35 @@ public final class WindowButtonChromeRenderer {
         canvas.fill(x, y + height, width + 1.0D, 1.0D, WindowButtonStyle.BORDER_DARK);
         canvas.fill(x, y, 1.0D, height + 1.0D, WindowButtonStyle.BORDER_LIGHT);
         canvas.fill(x + width, y, 1.0D, height + 1.0D, WindowButtonStyle.BORDER_DARK);
+        return PRIMITIVE_COUNT;
+    }
+
+    /**
+     * 使用通用控件视觉快照绘制同一套五矩形 chrome。
+     */
+    public static int renderSolid(
+            UiCanvas2D canvas,
+            UiRect bounds,
+            UiControlVisualStyle style) {
+        if (canvas == null || bounds == null || style == null) {
+            throw new IllegalArgumentException(
+                    "canvas, bounds and style must not be null");
+        }
+        double x = bounds.getX();
+        double y = bounds.getY();
+        double width = bounds.getWidth();
+        double height = bounds.getHeight();
+        canvas.fill(bounds, style.getBackground());
+        canvas.fill(x, y, width + 1.0D, 1.0D, style.getBorderLight());
+        canvas.fill(x, y + height, width + 1.0D, 1.0D,
+                style.getBorderDark());
+        canvas.fill(x, y, 1.0D, height + 1.0D, style.getBorderLight());
+        canvas.fill(x + width, y, 1.0D, height + 1.0D,
+                style.getBorderDark());
+        if (style.getOverlay().alpha() > 0) {
+            canvas.fill(bounds, style.getOverlay());
+            return PRIMITIVE_COUNT + 1;
+        }
         return PRIMITIVE_COUNT;
     }
 }

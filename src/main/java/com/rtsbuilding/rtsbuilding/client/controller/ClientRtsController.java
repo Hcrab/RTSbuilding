@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.client.service.BuildPlacementService;
 import com.rtsbuilding.rtsbuilding.client.service.CameraOrbitService;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
+import com.rtsbuilding.rtsbuilding.client.state.ClientWorkflowStateManager;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
@@ -30,9 +31,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.player.LocalPlayer;
@@ -86,25 +85,14 @@ public final class ClientRtsController {
     private int questDetectCompletedTasks;
     private boolean chunkCurtainVisible;
 
-    /** Maximum concurrent workflows tracked on client. */
-    private static final int CLIENT_MAX_WORKFLOWS = 8;
-
-    /** Workflow progress array, indexed by slot (0-7). idle entries have null type. */
-    private final RtsWorkflowStatus[] workflowStatuses = new RtsWorkflowStatus[CLIENT_MAX_WORKFLOWS];
-    /** Total active workflow count (from server). */
-    private int workflowActiveCount;
-    /** Whether the server has pending placement jobs waiting for items. */
-    private boolean hasPendingJobs;
-
-    /** Cached resume placement scan data (from server). */
-    private S2CRtsResumePlacementScanPayload resumeScanData;
-
     private final StorageStateManager storageStateManager = new StorageStateManager();
     private final ProgressionStateManager progressionStateManager = new ProgressionStateManager();
     private final PluginStateManager pluginStateManager = new PluginStateManager();
     private final CameraOrbitService cameraOrbitService = new CameraOrbitService();
     private final MiningOperationService miningOperationService = new MiningOperationService();
     private final BuildPlacementService buildPlacementService = new BuildPlacementService();
+    private final ClientWorkflowStateManager workflowStateManager =
+            new ClientWorkflowStateManager();
 
     private BlockPos lastFunnelTarget;
     private int funnelTargetCooldownTicks;
@@ -524,46 +512,7 @@ public final class ClientRtsController {
      * Updates the slot at {@code payload.workflowIndex()}.
      */
     public void applyWorkflowProgress(S2CRtsWorkflowProgressPayload payload) {
-        if (payload.isIdle()) {
-            // Clear all
-            for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
-                this.workflowStatuses[i] = null;
-            }
-            this.workflowActiveCount = 0;
-            return;
-        }
-        this.workflowActiveCount = payload.workflowCount() & 0xFF;
-        int idx = payload.workflowIndex() & 0xFF;
-        if (idx < 0 || idx >= CLIENT_MAX_WORKFLOWS) {
-            return;
-        }
-        byte wt = payload.workflowType();
-        RtsWorkflowType[] types = RtsWorkflowType.values();
-        RtsWorkflowType type = wt >= 0 && wt < types.length
-                ? types[wt]
-                : null;
-        if (type == null) {
-            // Slot is idle
-            this.workflowStatuses[idx] = RtsWorkflowStatus.idle();
-            return;
-        }
-        RtsWorkflowPriority[] priorities = RtsWorkflowPriority.values();
-        byte pri = payload.priority();
-        RtsWorkflowPriority priority = pri >= 0 && pri < priorities.length
-                ? priorities[pri]
-                : RtsWorkflowPriority.NORMAL;
-        this.workflowStatuses[idx] = RtsWorkflowStatus.fromRaw(
-                type,
-                priority,
-                payload.totalBlocks(),
-                payload.completedBlocks(),
-                payload.failedBlocks(),
-                payload.missingItems(),
-                payload.detailMessage(),
-                payload.suspended() != 0,
-                payload.paused() != 0,
-                payload.protectedWorkflow() != 0,
-                payload.workflowEntryId());
+        this.workflowStateManager.apply(payload);
     }
 
     /**
@@ -577,14 +526,7 @@ public final class ClientRtsController {
      */
     public void applyWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload) {
         // 先铲平所有 slot，让 batch 从干净状态重新填充
-        for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
-            this.workflowStatuses[i] = null;
-        }
-        this.workflowActiveCount = 0;
-
-        for (S2CRtsWorkflowProgressPayload entry : payload.entries()) {
-            applyWorkflowProgress(entry);
-        }
+        this.workflowStateManager.applyBatch(payload);
     }
 
     /**
@@ -592,25 +534,14 @@ public final class ClientRtsController {
      * Returns {@link RtsWorkflowStatus#idle()} if the slot is empty.
      */
     public RtsWorkflowStatus getWorkflowStatus(int slot) {
-        if (slot < 0 || slot >= CLIENT_MAX_WORKFLOWS || this.workflowStatuses[slot] == null) {
-            return RtsWorkflowStatus.idle();
-        }
-        return this.workflowStatuses[slot];
+        return this.workflowStateManager.status(slot);
     }
 
     /**
      * Returns all non-idle workflow statuses (for UI iteration).
      */
     public List<RtsWorkflowStatus> getActiveWorkflows() {
-        List<RtsWorkflowStatus> result = new java.util.ArrayList<>();
-        int count = Math.min(workflowActiveCount, CLIENT_MAX_WORKFLOWS);
-        for (int i = 0; i < count; i++) {
-            RtsWorkflowStatus status = this.workflowStatuses[i];
-            if (status != null && status.type() != null) {
-                result.add(status);
-            }
-        }
-        return result;
+        return this.workflowStateManager.activeWorkflows();
     }
 
     /**
@@ -620,25 +551,21 @@ public final class ClientRtsController {
      * when the player joins a different world.
      */
     public void clearWorkflowData() {
-        for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
-            this.workflowStatuses[i] = null;
-        }
-        this.workflowActiveCount = 0;
-        this.hasPendingJobs = false;
+        this.workflowStateManager.clear();
     }
 
     /**
      * Returns the total number of active workflows.
      */
     public int getWorkflowActiveCount() {
-        return this.workflowActiveCount;
+        return this.workflowStateManager.activeCount();
     }
 
     /**
      * Returns the raw workflow statuses array for UI iteration.
      */
     public RtsWorkflowStatus[] getWorkflowStatuses() {
-        return this.workflowStatuses;
+        return this.workflowStateManager.rawStatuses();
     }
 
     /**
@@ -647,66 +574,49 @@ public final class ClientRtsController {
      */
     @javax.annotation.Nullable
     public RtsWorkflowStatus findActiveDestroyWorkflow() {
-        for (RtsWorkflowStatus status : workflowStatuses) {
-            if (status != null && status.type() != null) {
-                switch (status.type()) {
-                    case AREA_DESTROY:
-                    case ULTIMINE:
-                    case AREA_MINE:
-                        return status;
-                    default:
-                        break;
-                }
-            }
-        }
-        return null;
+        return this.workflowStateManager.activeDestroyWorkflow();
     }
 
     /**
      * Returns {@code true} if the server has pending placement jobs.
      */
     public boolean hasPendingJobs() {
-        return this.hasPendingJobs;
+        return this.workflowStateManager.hasPendingJobs();
     }
 
     /**
      * Sets whether there are pending placement jobs (called from server sync).
      */
     public void setHasPendingJobs(boolean hasPendingJobs) {
-        this.hasPendingJobs = hasPendingJobs;
+        this.workflowStateManager.setPendingJobs(hasPendingJobs);
     }
 
     /**
      * Applies a resume placement scan result from the server.
      */
     public void applyResumePlacementScan(S2CRtsResumePlacementScanPayload payload) {
-        this.resumeScanData = payload;
+        this.workflowStateManager.applyResumeScan(payload);
     }
 
     /**
      * Returns the cached resume placement scan data, or null.
      */
     public S2CRtsResumePlacementScanPayload getResumeScanData() {
-        return this.resumeScanData;
+        return this.workflowStateManager.resumeScanData();
     }
 
     /**
      * Clears the cached resume placement scan data.
      */
     public void clearResumeScanData() {
-        this.resumeScanData = null;
+        this.workflowStateManager.clearResumeScanData();
     }
 
     /**
      * Returns {@code true} if any workflow is currently active.
      */
     public boolean hasActiveWorkflow() {
-        for (int i = 0; i < CLIENT_MAX_WORKFLOWS; i++) {
-            if (this.workflowStatuses[i] != null && this.workflowStatuses[i].type() != null) {
-                return true;
-            }
-        }
-        return false;
+        return this.workflowStateManager.hasActiveWorkflow();
     }
 
     public void setChunkCurtainVisible(boolean visible) {
