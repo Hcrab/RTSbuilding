@@ -506,6 +506,7 @@ class AtomicBlueprintBlobRepositoryTest {
             assertEquals(0, scan.get(2, TimeUnit.SECONDS).removedTemporaryFiles());
         } finally {
             executor.shutdownNow();
+            assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
         }
         assertInstanceOf(AtomicBlueprintBlobRepository.LoadResult.Found.class,
                 repository.load(record.assetId()));
@@ -580,6 +581,7 @@ class AtomicBlueprintBlobRepositoryTest {
             assertTrue(outcomes.contains(AtomicBlueprintBlobRepository.WriteOutcome.ALREADY_PRESENT));
         } finally {
             executor.shutdownNow();
+            assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
         }
         assertInstanceOf(AtomicBlueprintBlobRepository.LoadResult.Found.class,
                 repository(codec).load(record.assetId()));
@@ -610,6 +612,7 @@ class AtomicBlueprintBlobRepositoryTest {
             assertEquals(1, written);
         } finally {
             executor.shutdownNow();
+            assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
         }
         var found = assertInstanceOf(
                 AtomicBlueprintBlobRepository.LoadResult.Found.class, repository(codec).load(record.assetId()));

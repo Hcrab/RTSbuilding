@@ -9,18 +9,21 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * 批量挖掘/破坏的目标锁定和逐 tick 出队规则。
+ * Shared target-locking and queue-draining rules for multi-block mining.
  *
- * <p>这个类只拥有确定性的目标选择和队列消耗顺序。工具借取、耐久保护、
- * 掉落回收、历史记录、网络同步和 session 重置仍然留在
- * {@link RtsUltimineProcessor} / {@link RtsMiningStateMachine}。</p>
+ * <p>This class owns only deterministic target selection and queue order. It
+ * deliberately does not own tool leasing, durability protection, drop pickup,
+ * history, networking, or session reset. Those side effects stay in
+ * {@link RtsUltimineProcessor}.</p>
  */
 public final class RtsMiningTargetQueue {
+
     private RtsMiningTargetQueue() {
     }
 
     /**
-     * 按服务端收到的位置顺序锁定显式破坏目标，同时应用调用方传入的访问和接受规则。
+     * Locks explicit destroy targets in the same order the server receives
+     * them, while applying caller-supplied access and acceptance rules.
      */
     public static Deque<BlockPos> collectExplicitDestroyTargets(
             List<BlockPos> positions,
@@ -47,12 +50,14 @@ public final class RtsMiningTargetQueue {
         return new ArrayDeque<>(unique);
     }
 
+    /** Returns true when the current server tick may process another queued target. */
     public static boolean canProcessAnotherTargetThisTick(int processedThisTick, Deque<BlockPos> targets) {
         return processedThisTick < RtsMiningValidator.ultimineBlocksPerTick()
                 && targets != null
                 && !targets.isEmpty();
     }
 
+    /** Removes and returns the next locked target from the queue. */
     public static BlockPos pollNextTarget(Deque<BlockPos> targets) {
         return targets == null || targets.isEmpty() ? null : targets.removeFirst();
     }

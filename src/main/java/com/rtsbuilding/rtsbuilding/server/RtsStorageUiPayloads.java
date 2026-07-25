@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server;
 
-import com.rtsbuilding.rtsbuilding.server.storage.GuiBinding;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSessionCodec;
+import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -11,35 +10,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Builds read-only client packet/UI snapshots from an RTS storage session.
+ * 从 RTS 存储会话构建只读的客户端数据包/UI 快照。
  *
- * <p>This helper only converts already-owned {@link RtsStorageSession} state
- * into the ordered lists consumed by client storage packets and UI widgets. It
- * does not serialize or deserialize NBT; saved session format belongs to
- * {@link RtsStorageSessionCodec}. It does not perform capability lookup; linked
- * storage resolution belongs to the linked resolver/manager path. It also does
- * not open external GUIs, prove a GUI binding is still usable, or mutate quick
- * slots.
+ * <p>该辅助类仅将已拥有的 {@link RtsStorageSession} 状态转换为客户端存储数据包和 UI 组件
+ * 所需的有序列表。它不负责 NBT 的序列化或反序列化——持久化会话格式在
+ * 它也不打开外部 GUI、验证 GUI 绑定是否仍可用、或修改快捷栏。
  *
- * <p>The packet contract is intentionally strict: quick slots and GUI bindings
- * must keep their server-side order, missing/null values must be padded as empty
- * strings, and the emitted slot count must remain exactly the manager-owned
- * constants. Client layout and packet decoding depend on those counts rather
- * than on compacted lists.
+ * <p>数据包的约定是故意严格的：快捷栏和 GUI 绑定必须保持服务端的顺序，缺失/空值必须用空字符串
+ * 填充，发出的槽位数量必须严格等于管理器持有的常量。客户端的布局和数据包解码依赖于这些固定数量，
+ * 而非压缩后的列表。
  */
 public final class RtsStorageUiPayloads {
     private RtsStorageUiPayloads() {
     }
 
     /**
-     * Emits exactly {@code quickSlotCount} item-id entries in quick-slot order.
-     * A missing session, null backing array, null entry, or blank entry occupies
-     * its original slot as an empty string so client hotbar-style indexes stay
-     * stable.
+     * 按快捷栏顺序发出恰好 {@code quickSlotCount} 个物品 ID 条目。
+     * 缺失的会话、空的后备数组、空条目或空白条目在其原始位置上用空字符串占位，
+     * 以保持客户端热栏式索引的稳定。
      */
     public static List<String> buildQuickSlotPayload(RtsStorageSession session, int quickSlotCount) {
         List<String> quickSlotItemIds = new ArrayList<>(quickSlotCount);
-        String[] source = session == null ? null : session.quickSlotItemIds;
+        String[] source = session == null ? null : session.uiMemory.getQuickSlotItemIds();
         for (int i = 0; i < quickSlotCount; i++) {
             String itemId = source == null || i >= source.length ? "" : source[i];
             quickSlotItemIds.add(itemId == null || itemId.isEmpty() ? "" : itemId);
@@ -48,14 +40,14 @@ public final class RtsStorageUiPayloads {
     }
 
     /**
-     * Emits exactly {@code quickSlotCount} preview stacks in quick-slot order.
-     * Component-heavy modded tools, such as Silent Gear gear items, need the
-     * stored stack rather than a fresh item-id-only stack to render correctly.
+     * 按快捷栏顺序发出恰好 {@code quickSlotCount} 个预览物品堆。
+     * 对于组件繁多的模组工具（例如 Silent Gear 的装备物品），需要使用存储的物品堆
+     * 而非仅凭物品 ID 新建的物品堆才能正确渲染。
      */
     public static List<ItemStack> buildQuickSlotPreviewPayload(RtsStorageSession session, int quickSlotCount) {
         List<ItemStack> previews = new ArrayList<>(quickSlotCount);
-        String[] itemIds = session == null ? null : session.quickSlotItemIds;
-        ItemStack[] source = session == null ? null : session.quickSlotPreviews;
+        String[] itemIds = session == null ? null : session.uiMemory.getQuickSlotItemIds();
+        ItemStack[] source = session == null ? null : session.uiMemory.getQuickSlotPreviews();
         for (int i = 0; i < quickSlotCount; i++) {
             String itemId = itemIds == null || i >= itemIds.length ? "" : itemIds[i];
             ItemStack preview = source == null || i >= source.length || source[i] == null ? ItemStack.EMPTY : source[i];
@@ -79,14 +71,13 @@ public final class RtsStorageUiPayloads {
     }
 
     /**
-     * Emits exactly {@code guiBindingSlotCount} labels in GUI binding slot
-     * order. A missing session, missing binding, null label, or empty label is
-     * represented as an empty string so the client keeps one label cell per
-     * binding slot.
+     * 按 GUI 绑定槽位顺序发出恰好 {@code guiBindingSlotCount} 个标签。
+     * 缺失的会话、缺失的绑定、空标签或空白标签均用空字符串表示，
+     * 以便客户端在每个绑定槽位保持一个标签单元格。
      */
     public static List<String> buildGuiBindingLabelPayload(RtsStorageSession session, int guiBindingSlotCount) {
         List<String> guiBindingLabels = new ArrayList<>(guiBindingSlotCount);
-        GuiBinding[] source = session == null ? null : session.guiBindings;
+        GuiBinding[] source = session == null ? null : session.uiMemory.getGuiBindings();
         for (int i = 0; i < guiBindingSlotCount; i++) {
             GuiBinding guiBinding = source == null || i >= source.length ? null : source[i];
             String label = guiBinding == null ? "" : guiBinding.label();
@@ -96,14 +87,13 @@ public final class RtsStorageUiPayloads {
     }
 
     /**
-     * Emits exactly {@code guiBindingSlotCount} item ids in GUI binding slot
-     * order. A missing session, missing binding, null item id, or empty item id
-     * is represented as an empty string so icon lookup stays aligned with the
-     * label payload and the fixed GUI binding slots.
+     * 按 GUI 绑定槽位顺序发出恰好 {@code guiBindingSlotCount} 个物品 ID。
+     * 缺失的会话、缺失的绑定、空物品 ID 或空白物品 ID 均用空字符串表示，
+     * 以便图标查找与标签数据包及固定的 GUI 绑定槽位保持对齐。
      */
     public static List<String> buildGuiBindingItemIdPayload(RtsStorageSession session, int guiBindingSlotCount) {
         List<String> guiBindingItemIds = new ArrayList<>(guiBindingSlotCount);
-        GuiBinding[] source = session == null ? null : session.guiBindings;
+        GuiBinding[] source = session == null ? null : session.uiMemory.getGuiBindings();
         for (int i = 0; i < guiBindingSlotCount; i++) {
             GuiBinding guiBinding = source == null || i >= source.length ? null : source[i];
             String itemId = guiBinding == null ? "" : guiBinding.itemId();

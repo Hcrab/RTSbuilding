@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.performance;
 
-import com.rtsbuilding.rtsbuilding.server.storage.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;

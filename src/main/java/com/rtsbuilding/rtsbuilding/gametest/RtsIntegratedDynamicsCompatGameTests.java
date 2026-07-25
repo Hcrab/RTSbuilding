@@ -4,12 +4,12 @@ import com.mojang.authlib.GameProfile;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
-import com.rtsbuilding.rtsbuilding.server.api.RtsAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -107,7 +107,7 @@ public final class RtsIntegratedDynamicsCompatGameTests {
                 "", ItemStack.EMPTY, false, false);
 
         helper.succeedWhen(() -> {
-            RtsStorageSession session = RtsSessionService.getIfPresent(player);
+            RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
             helper.assertTrue(session != null, "RTS session should still exist after mining ID cable");
             if (session != null) {
                 RtsMiningStateMachine.tickActiveMining(player, session);
@@ -152,7 +152,7 @@ public final class RtsIntegratedDynamicsCompatGameTests {
         player.setGameMode(GameType.SURVIVAL);
         RtsCameraManager.start(player);
         helper.assertTrue(RtsCameraManager.isActive(player), "GameTest 玩家应该能进入 RTS 模式");
-        helper.assertTrue(RtsSessionService.getIfPresent(player) != null, "RTS session should be initialized");
+        helper.assertTrue(ServiceRegistry.getInstance().session().getIfPresent(player) != null, "RTS session should be initialized");
         return player;
     }
 

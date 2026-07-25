@@ -4,13 +4,10 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.ContainerLevelAccess;
-import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.minecraft.server.level.ServerPlayer;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -19,7 +16,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Shared utility methods used across the crafting sub-package.
+ * craft 子包共享工具方法集合。
+ *
+ * <p>提供在合成流程中多处复用的静态辅助方法，涵盖：
+ * <ul>
+ *   <li><b>配方材料映射</b>（{@link #mapCraftingIngredients}）— 将任意 {@link CraftingRecipe}
+ *   的 Ingredient 列表平铺为固定的 9 槽位数组（有序配方按 3x3 布局定位）</li>
+ *   <li><b>容器反射</b>（{@link #resolveCraftingContainer}）— 通过反射从 {@link net.minecraft.world.inventory.CraftingMenu}
+ *   中获取 {@link net.minecraft.world.inventory.CraftingContainer}，用于触发结果更新</li>
+ *   <li><b>物品合并与统计</b>— 可用物品列表合并（{@link #mergeAvailableCraftItem}）、
+ *   消耗计数收集与合并（{@link #collectConsumedCounts} / {@link #mergeConsumedCounts}）</li>
+ *   <li><b>人类可读摘要</b>— 缺少材料摘要（{@link #buildMissingSummary}）、
+ *   配方材料摘要（{@link #buildRecipeSummary}）、材料名称解析（{@link #resolveIngredientLabel}）</li>
+ * </ul>
  */
 final class RtsCraftingUtils {
 
@@ -27,8 +36,8 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Maps a crafting recipe's ingredients into a flat 9-slot Ingredient array.
-     * Shaped recipes are positioned as a 3x3 grid; shapeless recipes fill slots sequentially.
+     * 将合成配方的材料映射为扁平的 9 槽 Ingredient 数组。
+     * 有形状的配方定位为 3x3 网格；无序配方按顺序填满槽位。
      */
     static Ingredient[] mapCraftingIngredients(CraftingRecipe recipe) {
         Ingredient[] mapped = new Ingredient[9];
@@ -58,8 +67,8 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Attempts to reflectively resolve the {@link CraftingContainer} from a {@link CraftingMenu}.
-     * Falls back to {@code null} if the field is inaccessible.
+     * 尝试通过反射从 {@link CraftingMenu} 解析 {@link CraftingContainer}。
+     * 如果字段不可访问，则回退返回 {@code null}。
      */
     static CraftingContainer resolveCraftingContainer(CraftingMenu menu) {
         Class<?> type = menu.getClass();
@@ -83,18 +92,8 @@ final class RtsCraftingUtils {
         return null;
     }
 
-    static CraftingContainer createCraftingContainer(ServerPlayer player, List<ItemStack> stacks) {
-        CraftingMenu dummyMenu = new CraftingMenu(0, player.getInventory(), ContainerLevelAccess.NULL);
-        TransientCraftingContainer input = new TransientCraftingContainer(dummyMenu, 3, 3);
-        for (int i = 0; i < 9; i++) {
-            ItemStack stack = stacks != null && i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
-            input.setItem(i, stack == null ? ItemStack.EMPTY : stack.copy());
-        }
-        return input;
-    }
-
     /**
-     * Merges a slot-by-slot consumed-counts map into a cumulative map.
+     * 将逐槽消耗计数映射合并到累积映射中。
      */
     static void mergeConsumedCounts(Map<String, Integer> into, Map<String, Integer> added) {
         if (into == null || added == null || added.isEmpty()) {
@@ -113,7 +112,7 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Builds a consumed-counts map from the extracted ingredients.
+     * 从已提取的材料构建消耗计数映射。
      */
     static Map<String, Integer> collectConsumedCounts(ExtractedIngredient[] extracted) {
         Map<String, Integer> consumed = new LinkedHashMap<>();
@@ -134,7 +133,7 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Returns the display name of the first non-empty item in an ingredient.
+     * 返回材料中第一个非空物品的显示名称。
      */
     static String resolveIngredientLabel(Ingredient ingredient) {
         for (ItemStack option : ingredient.getItems()) {
@@ -146,7 +145,7 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Builds a human-readable "Missing: item xN, ..." summary (max 3 missing items).
+     * 构建人类可读的"缺少：item xN, ..."摘要（最多 3 种缺少的物品）。
      */
     static String buildMissingSummary(Map<String, Integer> missing) {
         if (missing.isEmpty()) {
@@ -170,7 +169,7 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Builds a compact ingredient summary for the recipe selection panel (max 3 ingredients).
+     * 为配方选择面板构建紧凑的材料摘要（最多 3 种材料）。
      */
     static String buildRecipeSummary(CraftingRecipe recipe) {
         if (recipe == null) {
@@ -207,7 +206,7 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Merges an item stack into the available-items list, aggregating same-item entries.
+     * 将物品栈合并到可用物品列表中，聚合相同物品的条目。
      */
     static void mergeAvailableCraftItem(List<AvailableCraftItem> entries, ItemStack stack, long count) {
         if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
@@ -247,7 +246,7 @@ final class RtsCraftingUtils {
     }
 
     /**
-     * Refreshes the crafting result slot in an open menu.
+     * 刷新打开菜单中的合成结果槽。
      */
     static void refreshCraftingResult(CraftingMenu menu) {
         if (menu == null) {

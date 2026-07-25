@@ -2,16 +2,20 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,14 +24,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.inventory.ContainerLevelAccess;
-import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.items.IItemHandler;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +40,23 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
- * Handles craft execution: single-craft loop, ingredient extraction, output storage, rollback.
+ * 合成执行器，负责完整的远程合成生命周期管理。
+ *
+ * <p>处理从打开远程合成终端、获取配方、提取材料、执行合成、
+ * 存储产出到链接存储、到回滚失败操作的全流程。支持批量合成（最多 999 次）
+ * 和自动记录消耗/产出统计。
+ *
+ * <p>核心流程：
+ * <ul>
+ *   <li>{@link #openCraftTerminal} — 打开 RTS 远程合成终端菜单</li>
+ *   <li>{@link #craftRecipeToLinked} — 将指定配方批量合成到链接存储中</li>
+ *   <li>{@link #craftSingleRecipeToLinked} — 单次合成的原子操作（提取→合成→存储→回滚）</li>
+ *   <li>{@link #snapshotCraftGridBlueprint} — 捕获当前合成网格的蓝图</li>
+ * </ul>
+ *
+ * <p>提取材料时优先从链接存储中取用，若玩家不在合成终端中则回退到玩家背包。
+ * 任何中间步骤失败都会触发完整的回滚机制（{@link #rollbackCraftIngredients}），
+ * 将已提取的材料归还到链接存储或玩家背包。
  */
 public final class RtsCraftingExecutor {
 
@@ -45,7 +64,7 @@ public final class RtsCraftingExecutor {
     }
 
     /**
-     * Opens the remote crafting terminal from RTS mode.
+     * 从 RTS 模式打开远程合成终端。
      */
     public static void openCraftTerminal(ServerPlayer player, RtsStorageSession session) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
@@ -75,11 +94,11 @@ public final class RtsCraftingExecutor {
                         }),
                 Component.literal("RTS Craft Terminal")));
         RtsRemoteMenuService.relaxOpenedMenuValidation(player.containerMenu);
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
     }
 
     /**
-     * Crafts a recipe into linked storage, up to {@code craftCount} times.
+     * 将配方合成到链接存储中，最多合成 {@code craftCount} 次。
      */
     public static void craftRecipeToLinked(ServerPlayer player, RtsStorageSession session, String recipeId, int craftCount) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
@@ -102,8 +121,8 @@ public final class RtsCraftingExecutor {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
-        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
-        if (!(raw instanceof CraftingRecipe craftingRecipe)) {
+        RecipeHolder<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
@@ -145,7 +164,7 @@ public final class RtsCraftingExecutor {
             RtsCraftingUtils.mergeConsumedCounts(consumedCounts, result.consumedCounts());
         }
 
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
         RtsCraftingSearch.refreshCraftables(player, session);
         if (completedCrafts <= 0) {
             if (storageFull) {
@@ -156,10 +175,10 @@ public final class RtsCraftingExecutor {
             return;
         }
 
-        RtsStorageRecentEntries.recordRecentItem(session, craftedItemId,
+        ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                 S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, totalCraftedCount);
-        RtsSessionService.saveToPlayerNbt(player, session);
-        PacketDistributor.sendToPlayer(player, new S2CRtsCraftFeedbackPayload(
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCraftFeedbackPayload(
                 craftedItemId, totalCraftedCount,
                 new ArrayList<>(consumedCounts.keySet()),
                 new ArrayList<>(consumedCounts.values())));
@@ -173,6 +192,8 @@ public final class RtsCraftingExecutor {
         }
         player.displayClientMessage(Component.literal(summary.toString()), true);
         QuestService.runQuestDetect(player, session, false);
+        // 合成完成后自动尝试恢复挂起放置作业
+        RtsPendingPlacementService.tryResumeAfterStorageChange(player, java.util.List.of(craftedItemId));
     }
 
     // ---- single craft -----------------------------------------------------------
@@ -212,12 +233,12 @@ public final class RtsCraftingExecutor {
             inputStacks.add(taken.stack().copyWithCount(1));
         }
 
-        CraftingContainer input = RtsCraftingUtils.createCraftingContainer(player, inputStacks);
+        CraftingInput input = CraftingInput.of(3, 3, inputStacks);
         if (!recipe.matches(input, player.serverLevel())) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
-        ItemStack result = recipe.assemble(input, player.serverLevel().registryAccess());
+        ItemStack result = recipe.assemble(input, player.registryAccess());
         if (result.isEmpty()) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
@@ -433,7 +454,7 @@ public final class RtsCraftingExecutor {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.serverLevel().registryAccess());
+        ItemStack result = recipe.getResultItem(player.registryAccess());
         if (!result.isEmpty()) {
             return result.copy();
         }
@@ -450,13 +471,13 @@ public final class RtsCraftingExecutor {
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        return recipe.assemble(RtsCraftingUtils.createCraftingContainer(player, previewStacks), player.serverLevel().registryAccess()).copy();
+        return recipe.assemble(CraftingInput.of(3, 3, previewStacks), player.registryAccess()).copy();
     }
 
     // ---- craft grid refill from blueprint ----------------------------------------
 
     /**
-     * Captures a one-item-per-slot blueprint of the current crafting grid.
+     * 捕获当前合成网格的每个槽位一个物品的蓝图。
      */
     public static ItemStack[] snapshotCraftGridBlueprint(
             net.minecraft.world.inventory.CraftingMenu menu) {

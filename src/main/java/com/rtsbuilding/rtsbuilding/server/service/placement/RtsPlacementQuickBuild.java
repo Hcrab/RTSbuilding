@@ -1,13 +1,16 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -18,7 +21,6 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraftforge.items.IItemHandler;
@@ -26,16 +28,29 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 /**
- * Quick-build (pre-resolved state) placement logic for RTS storage builder.
+ * RTS 快速建造（预解析状态）放置逻辑，用于储存浏览器批处理作业。
  *
- * <p>Quick-build pre-computes a {@link StatePlacementPlan} once per batch job
- * so that every target position shares the same resolved block state, hit
- * template, and item extraction rules. This eliminates redundant
- * {@link BlockPlaceContext} creation and state lookups for large batches.
+ * <p>快速建造为每个批处理作业预计算一个 {@link StatePlacementPlan}，
+ * 使得作业内所有目标位置共享同一组解析后的方块状态、点击上下文模板
+ * 和物品提取规则。这显著消除了大批量放置中重复的
+ * {@link BlockPlaceContext} 创建和状态查找开销。
  *
- * <p>This helper deliberately does not execute interactive (main-hand)
- * placement, manage batch-job lifecycle, play sounds, or handle extraction
- * orchestration ??those responsibilities live in their dedicated helpers.
+ * <p><b>核心方法：</b>
+ * <ul>
+ *   <li>{@link #resolveStatePlacementPlan(ServerPlayer, RtsPlacementBatch.PlaceBatchJob)} —
+ *       从批处理作业的第一个位置解析放置计划，缓存物品、模板堆叠、旋转状态和来源 ID</li>
+ *   <li>{@link #placeStateBatchEntry(ServerPlayer, RtsStorageSession, BlockPos, StatePlacementPlan)} —
+ *       使用预解析计划放置单个方块，提取物品、设置方块、触发动画/声音</li>
+ *   <li>{@link #canPlaceStateAt(ServerLevel, ServerPlayer, BlockPos, BlockState)} —
+ *       检查目标位置是否可以放置给定方块状态（空气/可替换检查 + 碰撞检测）</li>
+ * </ul>
+ *
+ * <p><b>内部记录：</b>{@link StatePlacementPlan} 包含物品引用、单次计数模板堆叠、
+ * 完全旋转后的方块状态、是否从储存提取的标志和物品 ID。
+ *
+ * <p><b>设计原则：</b>此类故意不处理交互式主手放置、批处理作业生命周期管理、
+ * 声音播放或提取编排——这些职责位于 {@code RtsPlacementExecutor}、
+ * {@code RtsPlacementBatch}、{@code RtsPlacementSound} 和 {@code RtsPlacementExtractor} 中。
  */
 public final class RtsPlacementQuickBuild {
 
@@ -43,14 +58,12 @@ public final class RtsPlacementQuickBuild {
     }
 
     /**
-     * Resolves a {@link StatePlacementPlan} from the first position of a batch
-     * job. The plan caches the item, a single-count template stack, the
-     * final rotated block state, whether it uses a selected storage item, and
-     * the source item id so that every position in the same job reuses the same
-     * plan.
+     * 从批处理作业的第一个位置解析 {@link StatePlacementPlan}。
+     * 该计划缓存物品、单个计数的模板堆叠、最终的旋转方块状态、
+     * 是否使用选中的储存物品以及来源物品 ID，
+     * 以便同一作业中的每个位置重用相同的计划。
      *
-     * <p>Returns {@code null} when the player, job, or placement context is
-     * invalid.
+     * <p>当玩家、作业或放置上下文无效时返回 {@code null}。
      */
     public static StatePlacementPlan resolveStatePlacementPlan(ServerPlayer player,
                                                                RtsPlacementBatch.PlaceBatchJob job) {
@@ -58,8 +71,8 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        // 完全改为使用储存空间的方块进行放置，快捷栏只用来???
-        // 必须存在有效??itemId，否则拒??
+        // 完全改为使用储存空间的方块进行放置。
+        // 必须存在有效的 itemId，否则拒绝
         String jobItemId = job.itemId();
         if (jobItemId == null || jobItemId.isBlank()) {
             return null;
@@ -102,19 +115,19 @@ public final class RtsPlacementQuickBuild {
         return new StatePlacementPlan(
                 item,
                 templateStack,
-                RtsPlacementHelper.rotateState(state, job.rotateSteps()),
+                PlacementStatePreset.apply(
+                        RtsPlacementHelper.rotateState(state, job.rotateSteps()),
+                        job.statePreset()),
                 true,
                 sourceId.toString());
     }
 
     /**
-     * Places a single block using a pre-resolved {@link StatePlacementPlan}.
-     * This is the fast path taken by quick-build batch jobs: it extracts the
-     * item once (or reuses a main-hand stack), sets the block directly, and
-     * fires the success effects.
+     * 使用预解析的 {@link StatePlacementPlan} 放置单个方块。
+     * 这是快速建造批处理作业采用的快速路径：它提取物品一次
+     * （或重用主手堆叠），直接设置方块，并触发成功效果。
      *
-     * @return {@code true} to continue processing the batch, {@code false}
-     *         to abort the current job
+     * @return {@code true} 继续处理批次，{@code false} 中止当前作业
      */
     public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
                                                StatePlacementPlan plan) {
@@ -127,12 +140,12 @@ public final class RtsPlacementQuickBuild {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, targetPos)) {
             return false;
         }
-        if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
-            return false;
-        }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
         ServerLevel level = player.serverLevel();
+        if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
+            return true;
+        }
         if (!canPlaceStateAt(level, player, targetPos, plan.state())) {
             return true;
         }
@@ -141,7 +154,7 @@ public final class RtsPlacementQuickBuild {
         ItemStack extracted = ItemStack.EMPTY;
         boolean refundExtractedOnFailure = false;
         List<IItemHandler> insertHandlers = List.of();
-        // 完全改为使用储存空间的方块进行放??
+        // 完全改为使用储存空间的方块进行放置
         {
             List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
             boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
@@ -155,7 +168,7 @@ public final class RtsPlacementQuickBuild {
                     ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())
                     : includePlayerMainInventory
                             ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
-                            : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, plan.item(), plan.templateStack());
+                            : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
             if (extracted.isEmpty()) {
                 return false;
             }
@@ -164,7 +177,7 @@ public final class RtsPlacementQuickBuild {
             placementStack.setCount(1);
         }
 
-        boolean placed = level.setBlock(targetPos, plan.state(), 3);
+        boolean placed = BlockPlacer.setBlock(level, targetPos, plan.state());
         if (!placed) {
             if (refundExtractedOnFailure && !extracted.isEmpty()) {
                 RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
@@ -174,18 +187,13 @@ public final class RtsPlacementQuickBuild {
 
         BlockState placedState = level.getBlockState(targetPos);
         if (placedState.is(plan.state().getBlock())) {
-            BlockItem.updateCustomBlockEntityTag(level, player, targetPos, placementStack);
-            BlockEntity blockEntity = level.getBlockEntity(targetPos);
-            if (blockEntity != null) {
-                blockEntity.setChanged();
-            }
-            placedState.getBlock().setPlacedBy(level, targetPos, placedState, player, placementStack);
+            BlockPlacer.applyQuickBuildBlockEntity(level, targetPos, placementStack, placedState, player);
         }
-        // 完全改为使用储存空间的方块进行放置，不再从主手扣??
-        PlacedBlockTrackerData.get(level).mark(targetPos);
+        // 完全改为使用储存空间的方块进行放置，不再从主手扣除
+        BlockPlacer.trackPlaced(level, targetPos);
         RtsPlacementSound.playRemotePlacedBlockAnimation(player, targetPos);
         RtsPlacementSound.playRemotePlacedBlockSound(player, level, targetPos);
-        RtsPageService.recordRecentItem(session, plan.itemId(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
+        ServiceRegistry.getInstance().page().recordRecentItem(session, plan.itemId(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
         return true;
     }
 
@@ -202,14 +210,14 @@ public final class RtsPlacementQuickBuild {
     }
 
     /**
-     * Pre-computed placement plan for the quick-build path.
+     * 快速建造路径的预计算放置计划。
      *
-     * @param item                  the block item to place
-     * @param templateStack         single-count template stack (components preserved)
-     * @param state                 fully rotated block state
-     * @param selectedStorageItem   whether this plan extracts from storage ({@code true})
-     *                              or uses the main-hand stack ({@code false})
-     * @param itemId                string-encoded item id for recent-item tracking
+     * @param item                  要放置的方块物品
+     * @param templateStack         单次计数模板堆叠（组件保留）
+     * @param state                 完全旋转后的方块状态
+     * @param selectedStorageItem   此计划是从储存中提取（{@code true}）
+     *                              还是使用主手堆叠（{@code false}）
+     * @param itemId                用于最近物品追踪的字符串编码物品 ID
      */
     public record StatePlacementPlan(
             Item item,

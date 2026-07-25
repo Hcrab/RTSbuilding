@@ -6,7 +6,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.state;
  */
 public final class RtsMiningDropBufferPolicy {
     public static final int MAX_BUFFERED_ITEMS = 4096;
-    public static final int MAX_STACKS = 128;
+    public static final int MAX_STACKS = 4096;
 
     private RtsMiningDropBufferPolicy() {
     }

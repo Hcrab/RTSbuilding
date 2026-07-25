@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.core.registries.Registries;
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
@@ -20,8 +20,8 @@ class PlacementTaskCodecTest {
     @Test
     void roundTripPreservesPurePlacementSnapshot() {
         UUID owner = UUID.randomUUID();
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        ResourceKey<Level> dimension =
+                RtsDimensionKeys.create(new ResourceLocation("minecraft", "overworld"));
         CompoundTag definition = new CompoundTag();
         definition.putLongArray("positions", new long[]{new BlockPos(1, 2, 3).asLong(), 9L});
         PlacementTaskState state = new PlacementTaskState(
@@ -62,8 +62,8 @@ class PlacementTaskCodecTest {
 
     @Test
     void payloadRejectsWorkflowIdentityDrift() {
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        ResourceKey<Level> dimension =
+                RtsDimensionKeys.create(new ResourceLocation("minecraft", "overworld"));
         PlacementTaskState state = new PlacementTaskState(
                 definition(), 3, 1, 0, 0, 0, List.of());
         assertThrows(IllegalArgumentException.class,

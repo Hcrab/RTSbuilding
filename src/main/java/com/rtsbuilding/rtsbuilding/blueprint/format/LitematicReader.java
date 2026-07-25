@@ -39,7 +39,7 @@ public final class LitematicReader {
             throw new BlueprintParseException("Litematic file is missing Regions data: " + fileName);
         }
 
-        HolderGetter<Block> blockLookup = registryAccess.lookupOrThrow(Registries.BLOCK);
+        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
         CompoundTag regions = root.getCompound("Regions");
         List<PendingBlock> pending = new ArrayList<>();
 

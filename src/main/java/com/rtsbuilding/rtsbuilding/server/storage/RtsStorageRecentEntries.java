@@ -1,26 +1,27 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Maintains the player's recent item/fluid history for the RTS storage UI.
+ * 维护玩家的最近物品/流体历史记录，用于 RTS 存储 UI。
  *
- * <p>This class owns only the short "recently seen or used" history stored in
- * {@link RtsStorageSession#recentEntries}. Recent entries are UI memory, not
- * authoritative inventory quantities, and must never be used as storage counts.
+ * <p>本类仅持有存储在 {@link RtsUiMemory#getRecentEntries()} 中的
+ * 短期"最近看到或使用过"的历史记录。最近条目是 UI 记忆，
+ * 不是权威的物品栏数量，绝不能用作存储计数。
  *
- * <p>It deliberately does not serialize NBT, search storage, build storage page
- * payloads, execute crafting, transfer items or fluids, or absorb drops. Those
- * systems can read or record recent entries, but this class only mutates the
- * recent deque.
+ * <p>它刻意不序列化 NBT、搜索存储、构建存储页面负载、
+ * 执行合成、转移物品或流体，或吸收掉落物。
+ * 这些系统可以读取或记录最近条目，但本类仅修改最近条目的双端队列。
  *
- * <p>The original dedupe, ordering, amount merge, capacity merge, and limit
- * behavior must stay stable: equivalent item/fluid entries merge, the newest
- * entry appears first, and the history is trimmed to the storage UI limit.
+ * <p>原来的去重、排序、数量合并、容量合并和限制行为必须保持稳定：
+ * 等效的物品/流体条目合并，最新条目出现在最前，
+ * 历史记录裁剪到存储 UI 限制。
  */
 public final class RtsStorageRecentEntries {
     public static final int RECENT_ENTRY_LIMIT = 24;
@@ -40,9 +41,8 @@ public final class RtsStorageRecentEntries {
     }
 
     /**
-     * Records an item by resolving its registry key. If the key cannot be
-     * resolved, the item is skipped; display names are never used because they
-     * change with language and resource packs.
+     * 通过解析注册表键来记录一个物品。如果键无法解析，
+     * 该物品被跳过；从不使用显示名称，因为它们随语言和资源包变化。
      */
     static void recordRecentItem(RtsStorageSession session, ItemStack stack, byte kind, long amount) {
         if (stack == null || stack.isEmpty()) {
@@ -56,9 +56,9 @@ public final class RtsStorageRecentEntries {
     }
 
     /**
-     * Records a pre-resolved item registry key. A missing key is skipped, and
-     * callers must pass the stable registry id rather than a translated display
-     * name so recent history survives language changes.
+     * 记录一个预解析的物品注册表键。缺失的键被跳过，
+     * 调用者必须传递稳定的注册表 ID 而非翻译后的显示名称，
+     * 以确保最近历史在语言变更后仍然有效。
      */
     public static void recordRecentItem(RtsStorageSession session, String itemId, byte kind, long amount) {
         if (itemId == null || itemId.isBlank()) {
@@ -68,9 +68,9 @@ public final class RtsStorageRecentEntries {
     }
 
     /**
-     * Records a pre-resolved fluid registry key. A missing key is skipped, and
-     * callers must pass the stable registry id rather than a translated display
-     * name so recent history survives language changes.
+     * 记录一个预解析的流体注册表键。缺失的键被跳过，
+     * 调用者必须传递稳定的注册表 ID 而非翻译后的显示名称，
+     * 以确保最近历史在语言变更后仍然有效。
      */
     static void recordRecentFluid(RtsStorageSession session, String fluidId, byte kind, long amount, long capacity) {
         if (fluidId == null || fluidId.isBlank()) {
@@ -80,12 +80,11 @@ public final class RtsStorageRecentEntries {
     }
 
     /**
-     * Pushes a recent entry using the existing UI history rules: entries dedupe
-     * by registry id plus item/fluid category, the newest or merged entry is
-     * inserted at the front, and older entries past the UI limit are trimmed
-     * from the end. Non-positive amounts are ignored because recent history
-     * represents something the player actually saw or used; zero/negative
-     * amounts would create empty UI rows that are not real storage counts.
+     * 使用现有的 UI 历史规则推送最近条目：按注册表 ID 加物品/流体类别去重，
+     * 最新或合并后的条目插入到最前，
+     * 超出 UI 限制的旧条目从末尾裁剪。
+     * 非正数量被忽略，因为最近历史代表玩家实际看到或使用过的内容；
+     * 零/负数量会创建空的 UI 行，这不是真实的存储计数。
      */
     static void pushRecentEntry(RtsStorageSession session, RecentEntry entry) {
         if (session == null
@@ -101,7 +100,8 @@ public final class RtsStorageRecentEntries {
                 Math.max(0L, entry.capacity()),
                 entry.kind());
         RecentEntry merged = normalized;
-        for (RecentEntry existing : session.recentEntries) {
+        var recentEntries = session.uiMemory.getRecentEntries();
+        for (RecentEntry existing : recentEntries) {
             if (!sameRecentKey(existing, normalized)) {
                 continue;
             }
@@ -111,10 +111,10 @@ public final class RtsStorageRecentEntries {
             break;
         }
         final RecentEntry mergedEntry = merged;
-        session.recentEntries.removeIf(existing -> sameRecentKey(existing, mergedEntry));
-        session.recentEntries.addFirst(mergedEntry);
-        while (session.recentEntries.size() > RECENT_ENTRY_LIMIT) {
-            session.recentEntries.removeLast();
+        recentEntries.removeIf(existing -> sameRecentKey(existing, mergedEntry));
+        recentEntries.addFirst(mergedEntry);
+        while (recentEntries.size() > RECENT_ENTRY_LIMIT) {
+            recentEntries.removeLast();
         }
     }
 

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -54,7 +54,7 @@ public final class RtsPlacementSound {
             return;
         }
         BlockState state = player.serverLevel().getBlockState(pos);
-        PacketDistributor.sendToPlayer(player, new S2CRtsPlaceAnimationPayload(pos.immutable(), state));
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsPlaceAnimationPayload(pos.immutable(), state));
     }
 
     /**
@@ -123,7 +123,7 @@ public final class RtsPlacementSound {
         if (player == null || sound == null) {
             return;
         }
-        PacketDistributor.sendToPlayer(
+        RtsClientboundPackets.sendToPlayer(
                 player,
                 new S2CRtsBlockActionSoundPayload(
                         sound.getLocation().toString(),

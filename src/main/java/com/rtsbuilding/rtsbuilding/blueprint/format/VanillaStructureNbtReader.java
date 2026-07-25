@@ -40,7 +40,7 @@ public final class VanillaStructureNbtReader {
             throw new BlueprintParseException("NBT file is not a vanilla structure blueprint: " + fileName);
         }
 
-        HolderGetter<Block> blocks = registryAccess.lookupOrThrow(Registries.BLOCK);
+        HolderGetter<Block> blocks = registryAccess.registryOrThrow(Registries.BLOCK);
         ListTag paletteTag = root.getList("palette", Tag.TAG_COMPOUND);
         List<PaletteEntry> palette = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {

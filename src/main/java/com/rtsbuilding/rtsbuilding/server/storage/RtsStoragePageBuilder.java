@@ -4,7 +4,9 @@ import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageCore;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageCreativeTabIndexer;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageSharedHelpers;
-import net.minecraft.server.level.ServerLevel;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -14,17 +16,17 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Facade for storage browser page building.
+ * 存储浏览器页面构建的外观（Facade）。
  *
- * <p>All methods delegate to the appropriate sub-module in the
- * {@code page} package.  This class exists solely to preserve the
- * existing service and network call sites without importing page internals.
+ * <p>所有方法委托给 {@code page} 包中的相应子模块。
+ * 本类仅用于保留 {@link com.rtsbuilding.rtsbuilding.server.RtsStorageManager}
+ * 和网络层中现有的调用点，无需更改导入。
  *
- * <p>The actual implementation lives in:
+ * <p>实际实现位于：
  * <ul>
- *   <li>{@link RtsPageCore}  ??page build (count, sort, filter, paginate)</li>
- *   <li>{@link RtsPageCreativeTabIndexer}  ??creative-tab index cache</li>
- *   <li>{@link RtsPageSharedHelpers}  ??search, sort, category helpers</li>
+ *   <li>{@link RtsPageCore}——页面构建（计数、排序、过滤、分页）</li>
+ *   <li>{@link RtsPageCreativeTabIndexer}——创造模式标签页索引缓存</li>
+ *   <li>{@link RtsPageSharedHelpers}——搜索、排序、分类辅助方法</li>
  * </ul>
  */
 public final class RtsStoragePageBuilder {
@@ -57,10 +59,6 @@ public final class RtsStoragePageBuilder {
         return RtsPageSharedHelpers.normalizeCategory(category);
     }
 
-    public static void warmCreativeTabCacheMode(ServerLevel level, boolean operatorTabs) {
-        RtsPageCreativeTabIndexer.warmCreativeTabCacheMode(level, operatorTabs);
-    }
-
     public static void clearCreativeTabCacheState() {
         RtsPageCreativeTabIndexer.clearCreativeTabCacheState();
     }
@@ -90,7 +88,7 @@ public final class RtsStoragePageBuilder {
         RtsPageCore.accumulatePlayerMainInventoryCounts(player, counts, namespaceTotals);
     }
 
-    // ---- count helpers exposed for crafting ------------------------------------
+    // ---- 为合成暴露的计数辅助方法 ------------------------------------
 
     public static long saturatedAdd(long a, long b) {
         return RtsPageCore.saturatedAdd(a, b);

@@ -50,7 +50,7 @@ public final class SpongeSchemReader {
         CompoundTag blocksRoot = schematic.getCompound("Blocks");
         CompoundTag paletteTag = blocksRoot.getCompound("Palette");
         byte[] packed = readBlockData(blocksRoot);
-        HolderLookup<Block> blockLookup = registryAccess.lookupOrThrow(Registries.BLOCK);
+        HolderLookup<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
         Map<Integer, PaletteEntry> palette = readPalette(paletteTag, blockLookup);
 
         List<Integer> stateIds = decodeVarInts(packed, width * height * length);

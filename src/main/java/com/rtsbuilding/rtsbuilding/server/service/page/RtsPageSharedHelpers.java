@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -13,7 +14,20 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Utility methods for storage page building: search filtering, sorting, category parsing.
+ * 储存页面构建的共享工具方法集合。
+ *
+ * <p>提供在页面构建流程中多处复用的静态辅助方法，涵盖：
+ * <ul>
+ *   <li><b>搜索过滤</b>（{@link #matchesSearchQuery}）— 支持物品 ID、显示名称、拼音搜索、
+ *   {@code @modid} 命名空间过滤、本地化搜索匹配</li>
+ *   <li><b>排序</b>（{@link #entryComparator} / {@link #fluidComparator}）— 按模组、名称、数量排序，
+ *   支持升序/降序</li>
+ *   <li><b>类别解析</b>（{@link #parseCategorySelection} / {@link #encodeModCategory} / {@link #encodeTabCategory}）—
+ *   处理 "all"、"mod|namespace"、"tab|namespace|tabKey" 三种类别格式</li>
+ *   <li><b>命名空间排序</b>（{@link #compareNamespace}）— "minecraft" 优先，其余按字母序</li>
+ *   <li><b>页面大小</b>（{@link #sanitizePageSize}）— 限制在服务端配置允许的范围内</li>
+ *   <li><b>玩家背包边界</b>— 确定主背包物品在储存视图中的包含范围</li>
+ * </ul>
  */
 public final class RtsPageSharedHelpers {
 
@@ -79,7 +93,7 @@ public final class RtsPageSharedHelpers {
                 continue;
             }
             sanitized.add(key.toString());
-            if (sanitized.size() >= 8192) {
+            if (sanitized.size() >= C2SRtsRequestStoragePagePayload.MAX_LOCALIZED_SEARCH_MATCHES) {
                 break;
             }
         }
@@ -221,7 +235,7 @@ public final class RtsPageSharedHelpers {
         if (player == null || player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu) {
             return false;
         }
-        if (session != null && session.linkedStorages.isEmpty() && !com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat.hasPrimaryNetwork(player)) {
+        if (session != null && session.linkedStorageInfo.isEmpty() && !com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat.hasPrimaryNetwork(player)) {
             return true;
         }
         return player.containerMenu == player.inventoryMenu;

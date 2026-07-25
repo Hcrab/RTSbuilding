@@ -1,5 +1,10 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -8,12 +13,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.service.RtsTransferService;
-
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 
 final class RtsFtbCompatImpl {
     private final Method teamsApiMethod;
@@ -112,7 +111,7 @@ final class RtsFtbCompatImpl {
 
                 scannedTasks++;
                 long total = countInPlayerInventory(task, player)
-                        + RtsTransferService.countLinkedItemsMatching(player, stack -> testItemTask(task, stack));
+                        + ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player, stack -> testItemTask(task, stack));
                 long maxProgress = asLong(this.itemTaskGetMaxProgressMethod.invoke(task));
                 long clamped = Math.max(0L, Math.min(total, maxProgress));
                 long previousProgress = readProgress(teamData, task);

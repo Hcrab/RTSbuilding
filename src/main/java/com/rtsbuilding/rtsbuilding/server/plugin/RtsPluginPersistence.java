@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
+import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
+import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -11,13 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Plugin 列表的序列化——数据存储于 {@link com.rtsbuilding.rtsbuilding.server.data.DataCluster}，
- * 通过 {@link PlayerComponents#PLUGINS} 组件读写，替代旧的 {@code player.getPersistentData()} 方式。
+ * Plugin 鍒楄〃鐨勫簭鍒楀寲鈥斺€旀暟鎹瓨鍌ㄤ簬 {@link com.rtsbuilding.rtsbuilding.server.data.DataCluster}锛?
+ * 閫氳繃 {@link PlayerComponents#PLUGINS} 缁勪欢璇诲啓锛屾浛浠ｆ棫鐨?{@code player.getPersistentData()} 鏂瑰紡銆?
  *
- * <p>仅负责序列化/反序列化，不判断安装是否合法，不修改玩家背包。
+ * <p>浠呰礋璐ｅ簭鍒楀寲/鍙嶅簭鍒楀寲锛屼笉鍒ゆ柇瀹夎鏄惁鍚堟硶锛屼笉淇敼鐜╁鑳屽寘銆?
  */
 final class RtsPluginPersistence {
-    private static final String NBT_ROOT = "rtsbuilding_plugins";
     private static final String NBT_INSTALLED = "installed";
     private static final String NBT_PLUGIN_ID = "plugin_id";
     private static final String NBT_STACK = "stack";
@@ -27,7 +28,7 @@ final class RtsPluginPersistence {
     }
 
     static List<RtsInstalledPlugin> load(ServerPlayer player) {
-        CompoundTag root = player.getPersistentData().getCompound(NBT_ROOT);
+        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PLUGINS);
         ListTag list = root.getList(NBT_INSTALLED, Tag.TAG_COMPOUND);
         List<RtsInstalledPlugin> installed = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
@@ -59,6 +60,6 @@ final class RtsPluginPersistence {
             list.add(tag);
         }
         root.put(NBT_INSTALLED, list);
-        player.getPersistentData().put(NBT_ROOT, root);
+        SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PLUGINS, root);
     }
 }

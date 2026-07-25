@@ -1,14 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.placement;
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
+import com.rtsbuilding.rtsbuilding.server.pipeline.core.*;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,15 +13,29 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 /**
- * 将放置请求入队到 Forge 1.20.1 现有批处理队列。
+ * 将放置批处理作业（单方块、批处理或快速构建）入队到
+ * 玩家的放置作业队列。
  *
- * <p>这里是 pipeline 与旧放置服务之间的薄桥：pipeline 负责启动 workflow
- * 并提供 entryId，旧队列继续负责逐 tick 真正放置方块。</p>
+ * <p>此 Pipe 是 {@link
+ * RtsWorkflowType#PLACE_SINGLE}、
+ * {@link RtsWorkflowType#PLACE_BATCH}
+ * 和 {@link RtsWorkflowType#QUICK_BUILD}
+ * 的"执行"阶段。
+ * 它从管道上下文读取会话和工作流条目 ID，
+ * 并委托给 {@link RtsPlacementBatch#enqueuePlaceBatch}。</p>
+ *
+ * <p>此 Pipe 声明为 {@link PipelinePipe}{@code <PlaceContext>}，
+ * 因此编译器强制类型安全——
+ * 通过 {@link PipelineRegistry#placementPipeline(RtsWorkflowType)} 使用。
+ * 调用 {@link PlaceContext#require(PipelineContext)} 进行安全转换。</p>
  */
 public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
+
+    // ── 参数键常量（由 PlaceContext 访问器使用） ──
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static final TypedKey<List<BlockPos>> ARG_CLICKED_POSITIONS =
-            new TypedKey("clickedPositions", (Class) List.class);
+            new TypedKey<>("clickedPositions", (Class) List.class);
     public static final TypedKey<Direction> ARG_FACE =
             new TypedKey<>("face", Direction.class);
     public static final TypedKey<Double> ARG_HIT_OFFSET_X =
@@ -36,6 +46,8 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
             new TypedKey<>("hitOffsetZ", Double.class);
     public static final TypedKey<Integer> ARG_ROTATE_STEPS =
             new TypedKey<>("rotateSteps", Integer.class);
+    public static final TypedKey<String> ARG_STATE_PRESET =
+            new TypedKey<>("statePreset", String.class);
     public static final TypedKey<Boolean> ARG_FORCE_PLACE =
             new TypedKey<>("forcePlace", Boolean.class);
     public static final TypedKey<Boolean> ARG_SKIP_IF_OCCUPIED =
@@ -63,42 +75,57 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
     public static final TypedKey<Boolean> ARG_SEND_REMOTE_HINT =
             new TypedKey<>("sendRemoteHint", Boolean.class);
 
+    public static final TypedKey<Integer> KEY_WORKFLOW_ENTRY_ID = PipelineContext.KEY_WORKFLOW_ENTRY_ID;
+
     @Override
     public PipelineResult execute(PlaceContext ctx) {
-        PlaceContext pctx = PlaceContext.require(ctx);
+        PlaceContext pctx = ctx;
         RtsStorageSession session = pctx.getResolvedSession();
         if (session == null) {
-            return PipelineResult.failure("No session in context");
+            return PipelineResult.failure("No session in context — SessionValidatePipe must run first");
         }
 
         ServerPlayer player = pctx.player();
-        int workflowEntryId = pctx.hasWorkflowEntryId() ? pctx.getWorkflowEntryId() : -1;
-        boolean enqueued = RtsPlacementBatch.enqueuePlaceBatch(player, session,
-                pctx.getClickedPositions(),
-                pctx.getFace(),
-                pctx.getHitOffsetX(),
-                pctx.getHitOffsetY(),
-                pctx.getHitOffsetZ(),
-                pctx.getRotateSteps(),
-                pctx.isForcePlace(),
-                pctx.isSkipIfOccupied(),
-                pctx.getItemId(),
-                pctx.getItemPrototype(),
-                pctx.getRayOriginX(),
-                pctx.getRayOriginY(),
-                pctx.getRayOriginZ(),
-                pctx.getRayDirX(),
-                pctx.getRayDirY(),
-                pctx.getRayDirZ(),
-                pctx.isQuickBuild(),
-                pctx.isForceEmptyHand(),
-                pctx.isSendRemoteHint(),
+
+        // ── 通过类型安全访问器读取放置参数 ──
+        List<BlockPos> clickedPositions = pctx.getClickedPositions();
+        Direction face = pctx.getFace();
+        double hitOffsetX = pctx.getHitOffsetX();
+        double hitOffsetY = pctx.getHitOffsetY();
+        double hitOffsetZ = pctx.getHitOffsetZ();
+        // 从参数（不可变输入）中读取，而不是从 data（可变共享状态）中读取
+        byte rotateSteps = pctx.getRotateSteps();
+        String statePreset = pctx.getStatePreset();
+        boolean forcePlace = pctx.isForcePlace();
+        boolean skipIfOccupied = pctx.isSkipIfOccupied();
+        String itemId = pctx.getItemId();
+        ItemStack itemPrototype = pctx.getItemPrototype();
+        double rayOriginX = pctx.getRayOriginX();
+        double rayOriginY = pctx.getRayOriginY();
+        double rayOriginZ = pctx.getRayOriginZ();
+        double rayDirX = pctx.getRayDirX();
+        double rayDirY = pctx.getRayDirY();
+        double rayDirZ = pctx.getRayDirZ();
+        boolean quickBuild = pctx.isQuickBuild();
+        boolean forceEmptyHand = pctx.isForceEmptyHand();
+        boolean sendRemoteHint = pctx.isSendRemoteHint();
+
+        int workflowEntryId = pctx.hasWorkflowEntryId()
+                ? pctx.getWorkflowEntryId() : -1;
+
+        boolean enqueued = RtsPlacementBatch.enqueuePlaceBatch(player, session, clickedPositions,
+                face, hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
+                forcePlace, skipIfOccupied, itemId, itemPrototype,
+                rayOriginX, rayOriginY, rayOriginZ,
+                rayDirX, rayDirY, rayDirZ,
+                quickBuild, forceEmptyHand, sendRemoteHint,
                 workflowEntryId);
 
-        if (!enqueued && workflowEntryId >= 0) {
-            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
-                    .ifPresent(token -> token.complete());
+        // 入队失败必须沿管线回滚并取消工作流，不能伪装成“完成 0 个方块”。
+        if (!enqueued) {
+            return PipelineResult.failure("Placement task was not queued");
         }
+
         return PipelineResult.success();
     }
 }

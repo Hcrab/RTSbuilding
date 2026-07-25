@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingGridFiller;
 import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingSearch;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
@@ -12,17 +13,17 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 /**
- * Facade for RTS crafting operations.
+ * RTS 合成操作的外观（Facade）。
  *
- * <p>All methods delegate to the appropriate sub-module in the
- * {@code crafting} package.  This class exists solely to preserve the
- * existing service and network call sites without importing crafting internals.
+ * <p>所有方法委托给 {@code crafting} 包中的相应子模块。
+ * 本类仅用于保留 {@link com.rtsbuilding.rtsbuilding.server.RtsStorageManager}
+ * 和网络层中现有的调用点，无需更改导入。
  *
- * <p>The actual implementation lives in:
+ * <p>实际实现位于：
  * <ul>
- *   <li>{@link RtsCraftingSearch}  ??craftable-panel search &amp; recipe scanning</li>
- *   <li>{@link RtsCraftingExecutor} ??craft execution &amp; terminal opening</li>
- *   <li>{@link RtsCraftingGridFiller} ??grid refill &amp; JEI transfer</li>
+ *   <li>{@link RtsCraftingSearch}——可合成面板搜索与配方扫描</li>
+ *   <li>{@link RtsCraftingExecutor}——合成执行与终端打开</li>
+ *   <li>{@link RtsCraftingGridFiller}——合成网格填充与 JEI 转移</li>
  * </ul>
  *
  * @see RtsCraftingSearch

@@ -27,6 +27,7 @@ import java.util.List;
 public class RtsPluginItem extends Item {
     private static final String REMOTE_CONTROL_PLUGIN = "remote_control_plugin";
     private static final String STORAGE_INTEGRATION_PLUGIN = "storage_integration_plugin";
+    private static final String AREA_DESTROY_PLUGIN = "area_destroy_plugin";
 
     public RtsPluginItem(Properties properties) {
         super(properties);
@@ -79,6 +80,8 @@ public class RtsPluginItem extends Item {
         return switch (pluginPath) {
             case "chain_break_plugin", "area_destroy_plugin", "blueprint_plugin" -> List.of(REMOTE_CONTROL_PLUGIN);
             case "craft_terminal_plugin" -> List.of(STORAGE_INTEGRATION_PLUGIN);
+            case "harvest_tier_stone", "harvest_tier_iron",
+                    "harvest_tier_diamond", "harvest_tier_unlimited" -> List.of(AREA_DESTROY_PLUGIN);
             default -> List.of();
         };
     }

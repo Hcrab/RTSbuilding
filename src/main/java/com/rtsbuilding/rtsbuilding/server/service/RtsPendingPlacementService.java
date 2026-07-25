@@ -1,80 +1,116 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.items.IItemHandler;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 管理因缺材料或冲突被挂起的放置作业
+ * 挂起放置作业的 UI/恢复服务。
  *
- * <p>本服务只负责“扫描、策略选择、把作业放回队列”。它不执行实际放置，
- * 也不改写快速建造的状态计划，避免恢复 UI 追平时改变玩家放置手感/p>
+ * <p>TaskStore 是挂起状态、游标和恢复策略的唯一权威；Session 不再保存放置任务副本。
+ *
+ * <p><b>核心职责：</b>范围放置作业的挂起/恢复（蓝图扫描已移至
+ * {@link RtsBlueprintJobService}，进度刷新已移至 {@link RtsProgressRefresher}）。
+ *
+ * <p><b>设计特点：</b>
+ * <ul>
+ *   <li>扫描结果缓存于 {@link #SCAN_CACHE}（ConcurrentHashMap），由客户端消费后清除</li>
+ *   <li>创造模式下可用物品数视为 {@code Integer.MAX_VALUE}，永不挂起</li>
+ *   <li>支持跳过（skip）和覆盖（overwrite）两种重启策略</li>
+ *   <li>工作流仅由 Task Engine 在 tick 末投影，不在恢复入口直接改写</li>
+ * </ul>
  */
 public final class RtsPendingPlacementService {
-    private static final Map<UUID, RtsResumeScanResult> SCAN_CACHE = new ConcurrentHashMap<>();
-    private static final Map<UUID, Long> SCAN_TIMESTAMPS = new ConcurrentHashMap<>();
+
+    /** Per-player cached scan results, cleared after resume/cancel. */
+    private static final Map<UUID, PendingPlacementScanTicket> SCAN_CACHE = new ConcurrentHashMap<>();
+
+    /** 扫描缓存 TTL：30 秒后自动过期，防止玩家扫描后从未消费导致内存泄漏。 */
     private static final long SCAN_CACHE_TTL_MS = 30_000L;
+
+    /** 每玩家的扫描时间戳（与 SCAN_CACHE 同步更新），用于 TTL 检测。 */
+    private static final Map<UUID, Long> SCAN_TIMESTAMPS = new ConcurrentHashMap<>();
 
     private RtsPendingPlacementService() {
     }
 
-    public static void clearPlayerScanCache(UUID playerId) {
-        if (playerId == null) {
-            return;
+    /**
+     * 清除指定玩家的扫描缓存条目，防止玩家断线后内存泄漏。
+     * 在玩家登出事件中由 {@code RtsbuildingMod} 调用。
+     * 蓝图节流缓存由 {@link RtsProgressRefresher#clearPlayerCache} 清理。
+     */
+    public static void clearPlayerScanCache(UUID playerUuid) {
+        if (playerUuid != null) {
+            SCAN_CACHE.remove(playerUuid);
+            SCAN_TIMESTAMPS.remove(playerUuid);
         }
-        SCAN_CACHE.remove(playerId);
-        SCAN_TIMESTAMPS.remove(playerId);
     }
 
+    /**
+     * 获取并清除缓存中指定玩家的搁置扫描结果。
+     */
     public static RtsResumeScanResult consumeScanResult(ServerPlayer player) {
-        if (player == null) {
-            return null;
-        }
-        UUID playerId = player.getUUID();
-        SCAN_TIMESTAMPS.remove(playerId);
-        return SCAN_CACHE.remove(playerId);
+        if (player == null) return null;
+        UUID uuid = player.getUUID();
+        SCAN_TIMESTAMPS.remove(uuid);
+        PendingPlacementScanTicket ticket = SCAN_CACHE.remove(uuid);
+        return ticket == null ? null : ticket.result();
     }
 
-    public static RtsResumeScanResult scanPendingJob(
-            ServerPlayer player, RtsStorageSession session, int workflowEntryId) {
-        if (player == null || session == null || workflowEntryId < 0) {
+    /**
+     * 扫描指定玩家的挂起作业的剩余位置，返回扫描结果。
+     * 根据 workflowEntryId 找到对应的作业。
+     * 结果会被缓存到 SCAN_CACHE 中。
+     *
+     * @param workflowEntryId 目标工作流条目 ID
+     * @return 扫描结果，如果没有匹配的挂起作业则返回 null
+     */
+    public static RtsResumeScanResult scanPendingJob(ServerPlayer player, RtsStorageSession session, int workflowEntryId) {
+        if (player == null || session == null) {
             return null;
         }
-        RtsPlacementBatch.PlaceBatchJob job = findPendingJob(session, workflowEntryId);
-        if (job == null) {
+        var engine = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE;
+        var view = engine.findWaitingPlacement(player, workflowEntryId);
+        if (view == null) {
             return null;
         }
+        var state = view.state();
+        RtsPlacementBatch.PlaceBatchJob job = RtsPlacementBatch.restoreDetachedJob(
+                state, player.registryAccess());
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+
         String itemId = job.itemId();
-        ItemStack template = resolveTemplate(job.itemPrototype(), itemId);
-        Block expectedBlock = expectedBlock(template, itemId);
-        String itemLabel = itemLabel(template, itemId);
+        if (itemId == null || itemId.isBlank()) {
+            return null;
+        }
+
+        // 获取物品的显示名称
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        String itemLabel = itemId;
+        Block expectedBlock = null;
+        if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            itemLabel = stack.getHoverName().getString();
+            if (BuiltInRegistries.ITEM.get(id) instanceof net.minecraft.world.item.BlockItem blockItem) {
+                expectedBlock = blockItem.getBlock();
+            }
+        }
 
         List<BlockPos> remaining = job.remainingPositions();
         int totalRemaining = remaining.size();
@@ -83,11 +119,16 @@ public final class RtsPendingPlacementService {
 
         if (expectedBlock != null && expectedBlock != Blocks.AIR) {
             for (BlockPos pos : remaining) {
-                if (!player.serverLevel().hasChunkAt(pos)) {
+                BlockPos targetPos = job.quickBuild()
+                        ? pos
+                        : com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor
+                                .placementTargetPos(player.serverLevel(), pos, job.face());
+                if (!player.serverLevel().hasChunkAt(targetPos)) {
                     continue;
                 }
-                BlockState currentState = player.serverLevel().getBlockState(pos);
+                BlockState currentState = player.serverLevel().getBlockState(targetPos);
                 Block currentBlock = currentState.getBlock();
+
                 if (currentBlock == expectedBlock) {
                     alreadyPlacedCount++;
                 } else if (!currentState.isAir() && !currentState.canBeReplaced()) {
@@ -96,305 +137,126 @@ public final class RtsPendingPlacementService {
             }
         }
 
-        long availableItems = player.isCreative() ? Integer.MAX_VALUE : countAvailableItems(player, template);
-        int neededItems = Math.max(0, totalRemaining - alreadyPlacedCount);
-        long missingItems = Math.max(0L, neededItems - availableItems);
-        RtsResumeScanResult result = new RtsResumeScanResult(
-                itemId == null ? "" : itemId,
-                itemLabel,
-                totalRemaining,
-                alreadyPlacedCount,
-                conflictCount,
-                availableItems,
-                neededItems,
-                missingItems,
-                workflowEntryId);
+        ItemStack template = resolveTemplate(job.itemPrototype(), itemId);
+        final ItemStack finalTemplate = template;
+        long availableItems = 0;
+        if (!finalTemplate.isEmpty()) {
+            availableItems = ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
+                    stack -> ItemStack.isSameItemSameTags(stack, finalTemplate));
+            availableItems = RtsCountUtil.saturatedAdd(availableItems,
+                    RtsProgressRefresher.countItemsInPlayerInventory(player, finalTemplate));
+        }
 
-        SCAN_CACHE.put(player.getUUID(), result);
-        SCAN_TIMESTAMPS.put(player.getUUID(), System.currentTimeMillis());
+        if (player.isCreative()) {
+            availableItems = Integer.MAX_VALUE;
+        }
+
+        int neededItems = totalRemaining - alreadyPlacedCount;
+        long missingItems = Math.max(0, neededItems - availableItems);
+
+        RtsResumeScanResult result = new RtsResumeScanResult(
+                itemId, itemLabel,
+                totalRemaining, alreadyPlacedCount, conflictCount,
+                availableItems, neededItems, missingItems, workflowEntryId);
+
+        UUID uuid = player.getUUID();
+        SCAN_CACHE.put(uuid, new PendingPlacementScanTicket(
+                view.taskId(), view.revision(), workflowEntryId, result));
+        SCAN_TIMESTAMPS.put(uuid, System.currentTimeMillis());
+
+        // 每次写入后触发一次过期清理，防止缓存无限膨胀
         evictStaleScanCacheEntries();
+
         return result;
     }
 
-    public static boolean resumeWithStrategy(
-            ServerPlayer player, RtsStorageSession session, int strategy, int workflowEntryId) {
-        if (player == null || session == null || workflowEntryId < 0) {
-            return false;
-        }
-        RtsPlacementBatch.PlaceBatchJob job = findPendingJob(session, workflowEntryId);
-        if (job == null) {
-            return false;
-        }
-
-        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (strategy == 0) {
-            skipAlreadyPlacedAndConflicts(player, job);
-        } else if (strategy == 1) {
-            overwriteConflicts(player, session, job);
-        }
-
-        session.placement.removePendingJob(job);
-        session.placement.placeBatchJobs.addLast(job);
-        RtsWorkflowEngine.getInstance().from(player, workflowEntryId).ifPresent(token -> token.resume());
-        RtsSessionService.saveToPlayerNbt(player, session);
-        RtsPageService.markStorageViewDirty(player, session);
-        consumeScanResult(player);
-        RtsbuildingMod.LOGGER.info("[PendingPlacement] {} resumed workflow #{} with strategy {}",
-                player.getGameProfile().getName(), workflowEntryId, strategy);
-        return true;
-    }
-
+    /**
+     * 尝试恢复指定玩家的所有挂起放置作业。
+     * 把 TaskStore 中当前维度的等待任务切换为 QUEUED。
+     *
+     * @return 恢复的作业数量
+     */
     public static int resumeAllPendingJobs(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.placement.pendingJobs.isEmpty()) {
+        if (player == null || session == null) {
             return 0;
         }
-        int count = 0;
-        List<RtsPlacementBatch.PlaceBatchJob> resumable = new ArrayList<>();
-        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobs) {
-            ItemStack template = resolveTemplate(job.itemPrototype(), job.itemId());
-            if (player.isCreative() || countAvailableItems(player, template) > 0) {
-                resumable.add(job);
-            }
-        }
-        for (RtsPlacementBatch.PlaceBatchJob job : resumable) {
-            session.placement.removePendingJob(job);
-            session.placement.placeBatchJobs.addLast(job);
-            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
-            count++;
-        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        var engine = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE;
+        int count = engine.resumeAllWaitingPlacements(player);
         if (count > 0) {
-            RtsSessionService.saveToPlayerNbt(player, session);
-            RtsPageService.markStorageViewDirty(player, session);
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
         }
         return count;
     }
 
-    public static void tryResumeAfterStorageChange(ServerPlayer player) {
-        if (player == null) {
-            return;
-        }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
-        if (session == null || session.placement.pendingJobs.isEmpty()) {
-            return;
-        }
-        resumeAllPendingJobs(player, session);
+    /** 只检查与本次变化物品相关的挂起任务，避免任意储存变化触发全队列库存查询。 */
+    public static void tryResumeAfterStorageChange(ServerPlayer player, java.util.Collection<String> changedItemIds) {
+        if (player == null || changedItemIds == null || changedItemIds.isEmpty()) return;
+        com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .resumeWaitingPlacementItems(player, changedItemIds);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session != null) ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
     }
 
     /**
-     * 只检查与本次变化物品相关的挂起任务，避免任意储存变化触发全队列库存查询。
+     * 使用指定的策略重启指定搁置作业。
+     *
+     * @param strategy 重启策略：0=正常重启（失败项跳过），1=覆盖放置
+     * @param workflowEntryId 目标工作流条目 ID
      */
-    public static void tryResumeAfterStorageChange(ServerPlayer player, Collection<String> changedItemIds) {
-        if (player == null || changedItemIds == null || changedItemIds.isEmpty()) {
-            return;
-        }
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
-        if (session == null || session.placement.pendingJobs.isEmpty()) {
-            return;
-        }
-
-        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
-            return;
-        }
-
-        List<RtsPlacementBatch.PlaceBatchJob> resumed = new ArrayList<>();
-        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobsForItems(changedItemIds)) {
-            if (!session.placement.pendingJobs.contains(job)) {
-                continue;
-            }
-            ItemStack template = resolveTemplate(job.itemPrototype(), job.itemId());
-            if (!player.isCreative() && countAvailableItems(player, template) <= 0) {
-                continue;
-            }
-            session.placement.removePendingJob(job);
-            session.placement.placeBatchJobs.addLast(job);
-            resumed.add(job);
-        }
-        if (resumed.isEmpty()) {
-            return;
-        }
-        for (RtsPlacementBatch.PlaceBatchJob job : resumed) {
-            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId()).ifPresent(token -> token.resume());
-        }
-        RtsSessionService.saveToPlayerNbt(player, session);
-        RtsPageService.markStorageViewDirty(player, session);
-    }
-
-    public static void refreshWorkflowProgress(ServerPlayer player, RtsStorageSession session) {
+    public static boolean resumeWithStrategy(ServerPlayer player, RtsStorageSession session, int strategy, int workflowEntryId) {
         if (player == null || session == null) {
-            return;
+            return false;
         }
-
-        List<RtsPlacementBatch.PlaceBatchJob> allJobs = new ArrayList<>();
-        allJobs.addAll(session.placement.pendingJobs);
-        allJobs.addAll(session.placement.placeBatchJobs);
-
-        for (RtsPlacementBatch.PlaceBatchJob job : allJobs) {
-            if (job.workflowEntryId() < 0) {
-                continue;
-            }
-            String itemId = job.itemId();
-            if (itemId == null || itemId.isBlank()) {
-                continue;
-            }
-
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                continue;
-            }
-            if (!(BuiltInRegistries.ITEM.get(id) instanceof BlockItem blockItem)) {
-                continue;
-            }
-            Block expectedBlock = blockItem.getBlock();
-            if (expectedBlock == Blocks.AIR) {
-                continue;
-            }
-
-            Direction face = job.face();
-            int actualPlaced = 0;
-            for (BlockPos pos : job.clickedPositions()) {
-                boolean found = false;
-                if (player.serverLevel().hasChunkAt(pos)) {
-                    BlockState state = player.serverLevel().getBlockState(pos);
-                    found = state.getBlock() == expectedBlock;
-                }
-                if (!found && face != null) {
-                    BlockPos adjPos = pos.relative(face);
-                    if (player.serverLevel().hasChunkAt(adjPos)) {
-                        BlockState adjState = player.serverLevel().getBlockState(adjPos);
-                        found = adjState.getBlock() == expectedBlock;
-                    }
-                }
-                if (found) {
-                    actualPlaced++;
-                }
-            }
-
-            int finalActualPlaced = actualPlaced;
-            RtsWorkflowEngine.getInstance().from(player, job.workflowEntryId())
-                    .ifPresent(token -> token.setCompletedBlocks(finalActualPlaced));
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        var engine = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE;
+        Long scannedAt = SCAN_TIMESTAMPS.get(player.getUUID());
+        PendingPlacementScanTicket ticket = SCAN_CACHE.get(player.getUUID());
+        if (ticket == null || scannedAt == null
+                || System.currentTimeMillis() - scannedAt > SCAN_CACHE_TTL_MS
+                || ticket.workflowEntryId() != workflowEntryId) {
+            clearPlayerScanCache(player.getUUID());
+            return false;
         }
+        boolean resumed = engine.resumeWaitingPlacementWithStrategy(
+                player, workflowEntryId, strategy, ticket.taskId(), ticket.revision());
+        clearPlayerScanCache(player.getUUID());
+        if (resumed) {
+            ServiceRegistry.getInstance().page().markStorageViewDirty(player, session);
+        }
+        return resumed;
     }
 
-    private static RtsPlacementBatch.PlaceBatchJob findPendingJob(RtsStorageSession session, int workflowEntryId) {
-        if (session == null || workflowEntryId < 0) {
-            return null;
-        }
-        for (RtsPlacementBatch.PlaceBatchJob job : session.placement.pendingJobs) {
-            if (job.workflowEntryId() == workflowEntryId) {
-                return job;
-            }
-        }
-        return null;
-    }
-
-    private static void skipAlreadyPlacedAndConflicts(ServerPlayer player, RtsPlacementBatch.PlaceBatchJob job) {
-        Block expectedBlock = expectedBlock(job.itemPrototype(), job.itemId());
-        if (expectedBlock == null || expectedBlock == Blocks.AIR) {
-            return;
-        }
-        for (BlockPos pos : job.remainingPositions()) {
-            if (!player.serverLevel().hasChunkAt(pos)) {
-                break;
-            }
-            BlockState currentState = player.serverLevel().getBlockState(pos);
-            Block currentBlock = currentState.getBlock();
-            if (currentBlock == expectedBlock || (!currentState.isAir() && !currentState.canBeReplaced())) {
-                job.skipOne();
-                continue;
-            }
-            break;
-        }
-    }
-
-    private static void overwriteConflicts(
-            ServerPlayer player, RtsStorageSession session, RtsPlacementBatch.PlaceBatchJob job) {
-        Block expectedBlock = expectedBlock(job.itemPrototype(), job.itemId());
-        if (expectedBlock == null || expectedBlock == Blocks.AIR) {
-            return;
-        }
-        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
-        for (BlockPos pos : job.remainingPositions()) {
-            if (!player.serverLevel().hasChunkAt(pos)) {
-                continue;
-            }
-            BlockState currentState = player.serverLevel().getBlockState(pos);
-            Block currentBlock = currentState.getBlock();
-            if (currentBlock == expectedBlock || currentState.isAir() || currentState.canBeReplaced()) {
-                continue;
-            }
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.UP)) {
-                continue;
-            }
-
-            List<ItemStack> drops = Block.getDrops(currentState, player.serverLevel(), pos,
-                    player.serverLevel().getBlockEntity(pos));
-            player.serverLevel().destroyBlock(pos, false, player);
-            for (ItemStack drop : drops) {
-                if (!drop.isEmpty()) {
-                    RtsTransferInserter.storeToLinkedWithFallback(insertHandlers, player, drop);
-                }
-            }
-        }
-    }
-
-    private static long countAvailableItems(ServerPlayer player, ItemStack template) {
-        if (player == null || template == null || template.isEmpty()) {
-            return 0L;
-        }
-        long total = RtsTransferService.countLinkedItemsMatching(
-                player, stack -> ItemStack.isSameItemSameTags(stack, template));
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
-        if (RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session)) {
-            int start = RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
-            int end = RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
-            for (int slot = start; slot < end; slot++) {
-                ItemStack stack = player.getInventory().getItem(slot);
-                if (!stack.isEmpty() && ItemStack.isSameItemSameTags(stack, template)) {
-                    total = RtsCountUtil.saturatedAdd(total, stack.getCount());
-                }
-            }
-        }
-        return total;
-    }
-
-    private static ItemStack resolveTemplate(ItemStack template, String itemId) {
-        if (template != null && !template.isEmpty()) {
-            ItemStack copy = template.copy();
-            copy.setCount(1);
-            return copy;
-        }
-        ResourceLocation id = parseItemId(itemId);
-        if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-            return new ItemStack(BuiltInRegistries.ITEM.get(id));
-        }
-        return ItemStack.EMPTY;
-    }
-
-    private static Block expectedBlock(ItemStack template, String itemId) {
-        ItemStack stack = resolveTemplate(template, itemId);
-        if (!stack.isEmpty() && stack.getItem() instanceof BlockItem blockItem) {
-            return blockItem.getBlock();
-        }
-        return null;
-    }
-
-    private static String itemLabel(ItemStack template, String itemId) {
-        ItemStack stack = resolveTemplate(template, itemId);
-        if (!stack.isEmpty()) {
-            return stack.getHoverName().getString();
-        }
-        return itemId == null || itemId.isBlank() ? "unknown" : itemId;
-    }
-
-    private static ResourceLocation parseItemId(String itemId) {
-        return itemId == null || itemId.isBlank() ? null : ResourceLocation.tryParse(itemId);
-    }
-
+    /**
+     * 移除超过 TTL 的过期扫描缓存条目。
+     * 在每次新缓存写入时触发，无需额外调度线程。
+     */
     private static void evictStaleScanCacheEntries() {
         long now = System.currentTimeMillis();
-        SCAN_TIMESTAMPS.entrySet().removeIf(entry -> now - entry.getValue() > SCAN_CACHE_TTL_MS);
-        SCAN_CACHE.keySet().removeIf(playerId -> !SCAN_TIMESTAMPS.containsKey(playerId));
+        SCAN_TIMESTAMPS.entrySet().removeIf(e -> (now - e.getValue() > SCAN_CACHE_TTL_MS));
+        SCAN_CACHE.keySet().removeIf(k -> !SCAN_TIMESTAMPS.containsKey(k));
+    }
+
+    private record PendingPlacementScanTicket(
+            com.rtsbuilding.rtsbuilding.server.task.identity.TaskId taskId,
+            long revision,
+            int workflowEntryId,
+            RtsResumeScanResult result) {
+    }
+
+    // ======================================================================
+    //  辅助方法
+    // ======================================================================
+
+    @Nullable
+    private static ItemStack resolveTemplate(ItemStack template, String itemId) {
+        if (!template.isEmpty() || itemId == null || itemId.isBlank()) {
+            return template;
+        }
+        ResourceLocation fallbackId = ResourceLocation.tryParse(itemId);
+        if (fallbackId != null && BuiltInRegistries.ITEM.containsKey(fallbackId)) {
+            return new ItemStack(BuiltInRegistries.ITEM.get(fallbackId));
+        }
+        return template;
     }
 }

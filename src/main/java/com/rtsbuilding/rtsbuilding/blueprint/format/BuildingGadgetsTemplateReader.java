@@ -54,13 +54,13 @@ final class BuildingGadgetsTemplateReader {
 
         String statePosArrayList = readString(root, "statePosArrayList");
         if (!statePosArrayList.isBlank()) {
-            HolderGetter<Block> blockLookup = registryAccess.lookupOrThrow(Registries.BLOCK);
+            HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
             return parseStatePosArrayList(statePosArrayList, name, fileName, blockLookup);
         }
 
         String body = readString(root, "body");
         if (!body.isBlank()) {
-            HolderGetter<Block> blockLookup = registryAccess.lookupOrThrow(Registries.BLOCK);
+            HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
             return parseLegacyBody(root, body, name, fileName, blockLookup);
         }
 

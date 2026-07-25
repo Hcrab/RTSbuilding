@@ -1,39 +1,47 @@
 package com.rtsbuilding.rtsbuilding;
 
-
 import com.mojang.logging.LogUtils;
-import com.rtsbuilding.rtsbuilding.blueprint.server.BlueprintPlacementService;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
-import com.rtsbuilding.rtsbuilding.server.RtsAPIImpl;
+import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
+import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBenchmarkCommand;
+import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsGuiCompatSetupCommand;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
+import com.rtsbuilding.rtsbuilding.server.service.ServerTickOrchestrator;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.level.ChunkEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -46,15 +54,23 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
-import net.minecraftforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 
+import java.time.Duration;
+
+/**
+ * Forge 1.20.1 平台入口。
+ *
+ * <p>业务生命周期与 1.21.1 主线保持同构；这里只翻译 Forge 的注册表和事件类型，
+ * 不再维护第二套会话、蓝图或后台任务调度。</p>
+ */
 @Mod(RtsbuildingMod.MODID)
 public final class RtsbuildingMod {
     public static final String MODID = "rtsbuilding";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
+            DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
 
     public static final RegistryObject<EntityType<RtsCameraEntity>> RTS_CAMERA_ENTITY = ENTITY_TYPES.register(
             "rts_camera",
@@ -76,9 +92,19 @@ public final class RtsbuildingMod {
         RtsItems.register(modEventBus);
         RtsCreativeTabs.register(modEventBus);
         RtsForgePayloadRegistrar.register();
+        MinecraftForge.EVENT_BUS.register(this);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(ModLoadingContext.get()));
+                () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap
+                        .registerConfigUi(ModLoadingContext.get()));
+    }
+
+    private void commonSetup(final FMLCommonSetupEvent event) {
+        ServiceRegistry.init();
+        RtsAPIImpl.init();
+        RtsPipelineRegistration.registerAll();
+        RtsOperationDiagnostics.install();
+        LOGGER.info("RTSBuilding Forge common setup complete");
     }
 
     private void onConfigLoading(ModConfigEvent.Loading event) {
@@ -90,24 +116,24 @@ public final class RtsbuildingMod {
     }
 
     private void migrateServerConfigIfNeeded(ModConfig config) {
-        if (config != null && config.getSpec() == Config.SPEC
-                && Config.migrateLegacyServerDefaults()) {
-            LOGGER.info("已迁移 RTSBuilding 旧版服务端吞吐默认值。");
+        if (config != null && config.getSpec() == Config.SPEC && Config.migrateLegacyServerDefaults()) {
+            LOGGER.info("已迁移 RTSBuilding 旧版服务端默认值。");
         }
-    }
-
-    private void commonSetup(final FMLCommonSetupEvent event) {
-        RtsAPIImpl.init();
-        RtsPipelineRegistration.registerAll();
-        RtsOperationDiagnostics.install();
-        LOGGER.info("RTSBuilding common setup complete");
     }
 
     @SubscribeEvent
     public void onServerStarting(final ServerStartingEvent event) {
-        LOGGER.info("HELLO from server starting");
+        try {
+            TaskPersistenceRuntime.INSTANCE.start(event.getServer());
+        } catch (RuntimeException failure) {
+            LOGGER.error("读取 durable task 仓库失败，服务端将 fail-closed 停止启动", failure);
+            throw failure;
+        }
     }
 
+    /**
+     * 业务事件统一从这里进入。事件签名是 Forge 1.20.1 的平台插头，调用顺序与主线一致。
+     */
     @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
     static final class GameEvents {
         private GameEvents() {
@@ -115,77 +141,126 @@ public final class RtsbuildingMod {
 
         @SubscribeEvent
         static void onPlayerLogin(final PlayerEvent.PlayerLoggedInEvent event) {
-            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                RtsCameraManager.cleanupOrphanCameras(serverPlayer.getServer());
-                RtsDamageFeedbackManager.remember(serverPlayer);
-                RtsProgressionManager.onPlayerLogin(serverPlayer);
-                RtsPluginService.syncRelatedPlayers(serverPlayer);
-                RtsWorkflowEngine.getInstance().loadPlayerFromStore(serverPlayer.getServer(), serverPlayer);
+            if (event.getEntity() instanceof ServerPlayer player) {
+                RtsCameraManager.cleanupOrphanCameras(player.getServer());
+                RtsDamageFeedbackManager.remember(player);
+                RtsProgressionManager.onPlayerLogin(player);
+                RtsPluginService.syncRelatedPlayers(player);
+                RtsWorkflowEngine.getInstance().loadPlayerFromStore(player.getServer(), player);
+                RtsWorkflowEngine.getInstance().refreshPlayerIdleClocks(player);
             }
         }
 
         @SubscribeEvent
         static void onPlayerClone(final PlayerEvent.Clone event) {
-            if (event.getOriginal() instanceof net.minecraft.server.level.ServerPlayer original
-                    && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer replacement) {
+            if (event.getOriginal() instanceof ServerPlayer original
+                    && event.getEntity() instanceof ServerPlayer replacement) {
                 com.rtsbuilding.rtsbuilding.server.culling.RtsCullingPersistence.copyFrom(original, replacement);
             }
         }
 
         @SubscribeEvent
         static void onServerStarted(final ServerStartedEvent event) {
+            RtsEffectAccumulator.INSTANCE.resetForServerStart();
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
+            SaveScheduler.INSTANCE.cleanupLegacyFiles(event.getServer());
+            RtsWorkflowEngine.getInstance().startTimeoutService(
+                    Duration.ofSeconds(1), Duration.ofSeconds(30));
         }
 
         @SubscribeEvent
-        static void onServerStopped(final ServerStoppedEvent event) {
-            TickablePipelineRegistry.clearAll();
-            RtsWorkflowEngine.getInstance().saveAll(event.getServer());
-            RtsWorkflowEngine.getInstance().clearAllData();
-            RtsStoragePageRequestCoalescer.clearAll();
-        }
-
-        @SubscribeEvent
-        static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
-            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                RtsCameraManager.stopIfActive(serverPlayer);
-                BlueprintPlacementService.clear(serverPlayer);
-                TickablePipelineRegistry.removeAll(serverPlayer.getUUID());
-                RtsDamageFeedbackManager.forget(serverPlayer);
-                // 会话清理会丢弃运行期队列，先把玩家可见的任务状态压成暂停并写盘。
-                RtsWorkflowEngine.getInstance().pauseAllActive(serverPlayer.getUUID(), false);
-                RtsWorkflowEngine.getInstance().saveAll(serverPlayer.getServer());
-                RtsWorkflowEngine.getInstance().forgetPlayerReference(serverPlayer.getUUID());
-                RtsPendingPlacementService.clearPlayerScanCache(serverPlayer.getUUID());
-                RtsSessionService.onPlayerLogout(serverPlayer);
-                RtsProgressionManager.onPlayerLogout(serverPlayer);
-                RtsPlacementSound.forgetPlayer(serverPlayer.getUUID());
-                ServerHistoryManager.clear(serverPlayer.getUUID());
+        static void onServerStopping(final ServerStoppingEvent event) {
+            try {
+                for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                    RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
+                }
+                RtsTaskEngine.INSTANCE.checkpointAllDurableExecutions(event.getServer());
+                for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                    TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+                    RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
+                }
+            } catch (RuntimeException failure) {
+                LOGGER.error("停服时 durable task 冻结失败，未确认的 dirty 数据不会伪装成已落盘", failure);
+                throw failure;
             }
         }
 
         @SubscribeEvent
+        static void onServerStopped(final ServerStoppedEvent event) {
+            RuntimeException durableFailure = null;
+            RtsWorkflowEngine.getInstance().stopTimeoutService();
+            try {
+                if (TaskPersistenceRuntime.INSTANCE.isStarted()) {
+                    TaskPersistenceRuntime.INSTANCE.stop();
+                }
+                RtsTaskEngine.INSTANCE.resetDurableRuntimeAfterServerStop();
+            } catch (RuntimeException failure) {
+                durableFailure = failure;
+                LOGGER.error("服务端停止后关闭 durable task writer 失败", failure);
+            }
+            RtsWorkflowEngine.getInstance().saveAll(event.getServer());
+            SaveScheduler.INSTANCE.onServerStopped();
+            RtsWorkflowEngine.getInstance().clearAllData();
+            RtsStoragePageRequestCoalescer.clearAll();
+            RtsEffectAccumulator.INSTANCE.clearAll();
+            RtsDeveloperMetrics.clearAll();
+            if (durableFailure != null) {
+                throw durableFailure;
+            }
+        }
+
+        @SubscribeEvent
+        static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
+            if (!(event.getEntity() instanceof ServerPlayer player)) {
+                return;
+            }
+            try {
+                RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
+                RtsTaskEngine.INSTANCE.detachPlayer(player.getUUID());
+                TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+                RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
+            } catch (RuntimeException failure) {
+                LOGGER.error("玩家 {} 登出时 durable task 冲刷失败，已保留 dirty 状态", player.getUUID(), failure);
+            }
+
+            RtsCameraManager.stopIfActive(player);
+            RtsDamageFeedbackManager.forget(player);
+            ServiceRegistry.getInstance().session().onPlayerLogout(player);
+            RtsProgressionManager.onPlayerLogout(player);
+            RtsPendingPlacementService.clearPlayerScanCache(player.getUUID());
+            RtsPlacementSound.forgetPlayer(player.getUUID());
+            RtsProgressRefresher.clearPlayerCache(player.getUUID());
+            RtsStoragePageRequestCoalescer.clearPlayer(player.getUUID());
+            RtsDeveloperMetrics.clearPlayer(player.getUUID());
+            RtsPluginService.syncRelatedPlayers(player);
+            RtsEffectAccumulator.INSTANCE.clearPlayer(player.getUUID());
+            ServerHistoryManager.clear(player.getUUID());
+            SaveScheduler.INSTANCE.onPlayerLogout(player);
+        }
+
+        @SubscribeEvent
         static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
-            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                RtsCameraManager.stopIfActive(serverPlayer);
-                TickablePipelineRegistry.removeAll(serverPlayer.getUUID(), event.getFrom());
-                RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
-                // 维度变化后旧端点的 BlockEntity/AE Grid 身份不再可信；先卸载聚合缓存再释放租约。
-                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(serverPlayer.getUUID());
+            if (event.getEntity() instanceof ServerPlayer player) {
+                RtsCameraManager.stopIfActive(player);
+                ServiceRegistry.getInstance().pathfinding().cancel(player);
+                RtsStorageTickService.INSTANCE.unregisterPlayer(player);
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+                RtsEffectAccumulator.INSTANCE.clearDimension(player.getUUID(), event.getFrom());
+            }
+        }
+
+        @SubscribeEvent
+        static void onChunkLoad(final ChunkEvent.Load event) {
+            if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                RtsTaskEngine.INSTANCE.resumeLoadedChunk(level, event.getChunk().getPos());
             }
         }
 
         @SubscribeEvent
         static void onPlayerTick(final TickEvent.PlayerTickEvent event) {
-            if (!(event.player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
-                return;
-            }
-            if (event.phase == TickEvent.Phase.START) {
-                RtsSessionService.onPlayerTickPre(serverPlayer);
-            } else {
-                RtsSessionService.onPlayerTickPost(serverPlayer);
-                RtsDamageFeedbackManager.tick(serverPlayer);
-                BlueprintPlacementService.tick(serverPlayer);
+            if (event.phase == TickEvent.Phase.END && event.player instanceof ServerPlayer player) {
+                ServerTickOrchestrator.getInstance().onPlayerTickPost(player);
+                RtsDamageFeedbackManager.tick(player);
             }
         }
 
@@ -200,11 +275,9 @@ public final class RtsbuildingMod {
             if (event.phase != TickEvent.Phase.END) {
                 return;
             }
-            var server = ServerLifecycleHooks.getCurrentServer();
-            if (server != null) {
-                RtsSessionService.tickMining(server);
-                TickablePipelineRegistry.tickAll();
-            }
+            ServerTickOrchestrator.getInstance().tickMining(event.getServer());
+            SaveScheduler.INSTANCE.onTick(event.getServer());
+            TaskPersistenceRuntime.INSTANCE.tick();
         }
     }
 }

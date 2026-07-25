@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.benchmark;
 
-import com.rtsbuilding.rtsbuilding.server.storage.RtsAggregateStorage;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraft.world.item.Item;
 import org.junit.jupiter.api.*;

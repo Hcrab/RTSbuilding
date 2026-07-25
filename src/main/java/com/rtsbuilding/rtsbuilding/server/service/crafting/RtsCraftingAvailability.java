@@ -12,8 +12,21 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Evaluates whether a crafting recipe is craftable from the available items,
- * and estimates missing ingredients when it is not.
+ * 合成材料可用性评估器。
+ *
+ * <p>负责判断给定合成配方是否能从当前可用的物品栈集合中凑齐材料，
+ * 并采用回溯算法（backtracking）为每个材料槽位分配合适的物品。
+ * 当材料不足以合成时，自动估算缺失物品的种类和数量，生成人类可读的缺失摘要。
+ *
+ * <p>核心能力：
+ * <ul>
+ *   <li>{@link #evaluateRecipeAvailability} — 返回配方是否可合成的判定结果</li>
+ *   <li>{@link #resolveCraftIngredientPlan} — 执行回溯分配，生成槽位材料计划</li>
+ *   <li>{@link #snapshotAvailable} — 从链接存储处理器和玩家背包中快照可用物品</li>
+ *   <li>{@link #estimateMissingIngredients} — 在材料不足时估算缺失信息</li>
+ * </ul>
+ *
+ * <p>此类的所有方法均为静态工具方法，不持有状态。
  */
 final class RtsCraftingAvailability {
 
@@ -21,8 +34,8 @@ final class RtsCraftingAvailability {
     }
 
     /**
-     * Returns a {@link RecipeAvailability} indicating whether the recipe can be crafted
-     * from the given available stacks, and if not, what is missing.
+     * 返回一个 {@link RecipeAvailability}，指示是否可用给定的可用物品栈合成配方，
+     * 如果不能，则返回缺失的内容。
      */
     static RecipeAvailability evaluateRecipeAvailability(CraftingRecipe recipe, List<AvailableCraftItem> availableStacks) {
         CraftIngredientPlan plan = resolveCraftIngredientPlan(recipe, availableStacks);
@@ -33,8 +46,8 @@ final class RtsCraftingAvailability {
     }
 
     /**
-     * Attempts to find a valid ingredient assignment for the recipe from the available stacks.
-     * Returns a plan if successful, or {@code null} if ingredients are insufficient.
+     * 尝试从可用物品栈中为配方找到有效的材料分配。
+     * 如果成功返回计划，如果材料不足则返回 {@code null}。
      */
     static CraftIngredientPlan resolveCraftIngredientPlan(CraftingRecipe recipe, List<AvailableCraftItem> availableStacks) {
         Ingredient[] required = RtsCraftingUtils.mapCraftingIngredients(recipe);
@@ -59,7 +72,7 @@ final class RtsCraftingAvailability {
     }
 
     /**
-     * Snapshot of available items from the given handlers and optional player inventory.
+     * 从给定的处理器和可选的玩家背包中快照可用物品。
      */
     static List<AvailableCraftItem> snapshotAvailable(ServerPlayer player, java.util.List<IItemHandler> handlers,
             boolean includePlayerMainInventory) {

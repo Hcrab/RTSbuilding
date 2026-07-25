@@ -9,18 +9,18 @@ import com.rtsbuilding.rtsbuilding.compat.rs.RtsRsCompat;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.api.RtsAPI;
+import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExtractor;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedFluidHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedHandlerViews;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.view.RtsLinkedHandlerViews;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -582,7 +582,7 @@ public final class RtsStorageCompatGameTests {
     }
 
     private static RtsStorageSession requireSession(GameTestHelper helper, ServerPlayer player) {
-        RtsStorageSession session = RtsSessionService.getIfPresent(player);
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         helper.assertTrue(session != null, "RTS 模式开启后应该存在服务端会话");
         return session;
     }

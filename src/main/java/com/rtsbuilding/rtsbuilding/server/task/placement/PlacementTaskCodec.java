@@ -56,7 +56,7 @@ public final class PlacementTaskCodec {
         if (dimensionId == null || !dimensionId.toString().equals(tag.getString("dimension"))) {
             throw new IllegalArgumentException("placement task 维度无效");
         }
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
+        ResourceKey<Level> dimension = RtsDimensionKeys.create(dimensionId);
         if (!tag.contains("definition", Tag.TAG_COMPOUND)) {
             throw new IllegalArgumentException("placement task 缺少 definition");
         }

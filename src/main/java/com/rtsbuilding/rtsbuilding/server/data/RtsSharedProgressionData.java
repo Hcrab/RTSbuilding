@@ -65,7 +65,7 @@ public final class RtsSharedProgressionData extends SavedData {
                 ResourceLocation dimensionId = ResourceLocation.tryParse(groupTag.getString(KEY_HOME_DIMENSION));
                 if (dimensionId != null) {
                     progression.homePos = BlockPos.of(groupTag.getLong(KEY_HOME_POS)).immutable();
-                    progression.homeDimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
+                    progression.homeDimension = RtsDimensionKeys.create(dimensionId);
                     progression.homeSetGameTime = groupTag.getLong(KEY_HOME_SET_GAME_TIME);
                 }
             }

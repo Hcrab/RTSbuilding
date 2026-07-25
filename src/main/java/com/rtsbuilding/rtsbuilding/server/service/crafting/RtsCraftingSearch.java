@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
-import com.rtsbuilding.rtsbuilding.server.storage.LinkedHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -13,12 +16,25 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraftforge.items.IItemHandler;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
 import java.util.*;
 
 /**
- * Handles craftable-panel search, recipe scanning, and candidate building.
+ * 可合成物品搜索器，负责扫描所有服务器配方并构建可合成面板。
+ *
+ * <p>核心职责：
+ * <ul>
+ *   <li><b>配方扫描</b>（{@link #requestCraftables}）— 遍历服务器所有 {@link net.minecraft.world.item.crafting.CraftingRecipe}，
+ *   过滤出 3x3 工作台配方，评估可用材料，构建可合成候选项列表</li>
+ *   <li><b>搜索过滤</b>— 支持物品 ID、显示名称、拼音（{@code pinyinSearchEnabled}）、
+ *   模组命名空间（{@code @modid}）等多种搜索方式</li>
+ *   <li><b>分组排序</b>— 按产出物品分组合成方案，可合成优先、标签排序</li>
+ *   <li><b>刷新</b>（{@link #refreshCraftables}）— 重用会话中的搜索状态重新扫描</li>
+ * </ul>
+ *
+ * <p>搜索状态存储在 {@link com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState} 中，
+ * 支持分页加载。每个配方组（{@link CraftableGroupEntry}）包含多个候选方案
+ * （如不同配方 ID 产出同一物品），客户端可切换选择。
  */
 public final class RtsCraftingSearch {
 
@@ -26,7 +42,7 @@ public final class RtsCraftingSearch {
     }
 
     /**
-     * Scans all server recipes for those the linked storage can craft, grouped by result item.
+     * 扫描所有服务器配方，找出链接存储可合成的配方，按结果物品分组。
      */
     public static void requestCraftables(ServerPlayer player, RtsStorageSession session, String search,
             boolean showUnavailable, int offset, int limit,
@@ -39,8 +55,8 @@ public final class RtsCraftingSearch {
         session.browser.craftLocalizedSearchMatches.addAll(sanitizeLocalizedSearchMatches(localizedSearchMatches));
         int batchOffset = Math.max(0, offset);
         int batchLimit = Math.max(1, limit);
-        session.browser.craftRequestedCount = Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
-        RtsSessionService.saveToPlayerNbt(player, session);
+        session.browser.craftRequestedCount = Math.max(RtsBrowserState.CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
 
         if (session.browser.craftSearch.isBlank()) {
             sendCraftables(player, session, List.of(), 0, false, false);
@@ -57,16 +73,12 @@ public final class RtsCraftingSearch {
 
         List<AvailableCraftItem> availableStacks = snapshotAvailableCraftItems(player, session, activeLinked);
         Map<String, List<CraftableCandidate>> byResultItem = new LinkedHashMap<>();
-        for (ResourceLocation recipeId : player.serverLevel().getRecipeManager().getRecipeIds().toList()) {
-            Recipe<?> rawRecipe = player.serverLevel().getRecipeManager().byKey(recipeId).orElse(null);
-            if (!(rawRecipe instanceof CraftingRecipe craftingRecipe)) {
-                continue;
-            }
-            if (!supportsWorkbenchCraftPanelRecipe(craftingRecipe)) {
+        for (RecipeHolder<CraftingRecipe> holder : player.serverLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
+            if (!supportsWorkbenchCraftPanelRecipe(holder.value())) {
                 continue;
             }
             CraftableCandidate candidate = buildCraftableCandidate(
-                    player, recipeId, craftingRecipe, availableStacks,
+                    player, holder, availableStacks,
                     session.browser.craftSearch, session.browser.craftPinyinSearchEnabled,
                     session.browser.craftLocalizedSearchMatches);
             if (candidate == null) {
@@ -99,12 +111,12 @@ public final class RtsCraftingSearch {
     }
 
     /**
-     * Refreshes the currently visible craftable panel (re-uses search state from session).
+     * 刷新当前可见的可合成面板（重用会话中的搜索状态）。
      */
     public static void refreshCraftables(ServerPlayer player, RtsStorageSession session) {
         requestCraftables(player, session,
                 session.browser.craftSearch, session.browser.craftShowUnavailable,
-                0, Math.max(RtsStorageSession.CRAFTABLE_BATCH_SIZE, session.browser.craftRequestedCount),
+                0, Math.max(RtsBrowserState.CRAFTABLE_BATCH_SIZE, session.browser.craftRequestedCount),
                 session.browser.craftPinyinSearchEnabled,
                 List.copyOf(session.browser.craftLocalizedSearchMatches));
     }
@@ -145,7 +157,7 @@ public final class RtsCraftingSearch {
                 optionMissingSummaries.add(option.missingSummary());
             }
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsCraftablesPayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsCraftablesPayload(
                 session.browser.craftSearch, session.browser.craftShowUnavailable,
                 Math.max(0, offset), append, hasMore,
                 recipeIds, resultItemIds, resultCounts, craftable, missingSummaries,
@@ -156,7 +168,7 @@ public final class RtsCraftingSearch {
     private static List<AvailableCraftItem> snapshotAvailableCraftItems(
             ServerPlayer player, RtsStorageSession session, List<LinkedHandler> activeLinked) {
         boolean includePlayerMainInventory = session != null
-                && !session.linkedStorages.isEmpty()
+                && !session.linkedStorageInfo.isEmpty()
                 && player != null
                 && !(player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu);
         return snapshotAvailableCraftItemsFromHandlers(
@@ -198,13 +210,13 @@ public final class RtsCraftingSearch {
     // ---- candidate building ----------------------------------------------------
 
     private static CraftableCandidate buildCraftableCandidate(
-            ServerPlayer player, ResourceLocation recipeId, CraftingRecipe recipe,
+            ServerPlayer player, RecipeHolder<CraftingRecipe> holder,
             List<AvailableCraftItem> availableStacks, String search,
             boolean pinyinSearchEnabled, Set<String> localizedSearchMatches) {
-        if (player == null || recipeId == null || recipe == null) {
+        if (player == null || holder == null || holder.value() == null) {
             return null;
         }
-        ItemStack result = resolveCraftablePreviewResult(recipe, player);
+        ItemStack result = resolveCraftablePreviewResult(holder.value(), player);
         if (result.isEmpty()) {
             return null;
         }
@@ -216,16 +228,16 @@ public final class RtsCraftingSearch {
         if (!matchesCraftablesSearch(resultId, resultLabel, search, pinyinSearchEnabled, localizedSearchMatches)) {
             return null;
         }
-        RecipeAvailability availability = RtsCraftingAvailability.evaluateRecipeAvailability(recipe, availableStacks);
+        RecipeAvailability availability = RtsCraftingAvailability.evaluateRecipeAvailability(holder.value(), availableStacks);
         return new CraftableCandidate(
-                recipeId.toString(), resultId.toString(),
+                holder.id().toString(), resultId.toString(),
                 Math.max(1, result.getCount()), resultLabel,
                 availability.craftable(), availability.missingSummary(), availability.missingTotal(),
-                RtsCraftingUtils.buildRecipeSummary(recipe));
+                RtsCraftingUtils.buildRecipeSummary(holder.value()));
     }
 
     /**
-     * Checks whether a recipe is supported by the workbench craft panel (3x3 grid only).
+     * 检查配方是否受工作台合成面板支持（仅 3x3 网格）。
      */
     static boolean supportsWorkbenchCraftPanelRecipe(CraftingRecipe recipe) {
         if (recipe == null) {
@@ -262,7 +274,7 @@ public final class RtsCraftingSearch {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.serverLevel().registryAccess());
+        ItemStack result = recipe.getResultItem(player.registryAccess());
         if (!result.isEmpty()) {
             return result.copy();
         }
@@ -279,7 +291,7 @@ public final class RtsCraftingSearch {
             }
             previewStacks.add(options[0].copyWithCount(1));
         }
-        ItemStack assembled = recipe.assemble(RtsCraftingUtils.createCraftingContainer(player, previewStacks), player.serverLevel().registryAccess());
+        ItemStack assembled = recipe.assemble(CraftingInput.of(3, 3, previewStacks), player.registryAccess());
         return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
     }
 

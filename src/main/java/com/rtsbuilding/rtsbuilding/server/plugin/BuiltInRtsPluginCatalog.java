@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import net.minecraft.resources.ResourceLocation;
 
@@ -82,7 +82,7 @@ public final class BuiltInRtsPluginCatalog {
                 Set.of(), 0, false, harvestTier);
     }
 
-    /** 返回解锁指定功能的内置插件；没有对应插件时返回 {@code null}。 */
+    /** 杩斿洖瑙ｉ攣鎸囧畾鍔熻兘鐨勫唴缃彃浠讹紱娌℃湁瀵瑰簲鎻掍欢鏃惰繑鍥?{@code null}銆?*/
     public static ResourceLocation requiredPluginFor(RtsFeature feature) {
         if (feature == null) {
             return null;

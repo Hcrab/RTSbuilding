@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,7 +31,7 @@ class RtsSessionServiceTest {
 
     @Test
     void allSessionsReturnsUnmodifiableMap() {
-        Map<UUID, RtsStorageSession> sessions = RtsSessionService.allSessions();
+        Map<UUID, RtsStorageSession> sessions = ServiceRegistry.init().session().allSessions();
         assertThrows(UnsupportedOperationException.class,
                 () -> sessions.put(UUID.randomUUID(), null));
     }
@@ -42,6 +42,6 @@ class RtsSessionServiceTest {
 
     @Test
     void markStorageViewDirtyNullPlayerDoesNotThrow() {
-        assertDoesNotThrow(() -> RtsSessionService.markStorageViewDirty(null, null));
+        assertDoesNotThrow(() -> ServiceRegistry.init().page().markStorageViewDirty(null, null));
     }
 }

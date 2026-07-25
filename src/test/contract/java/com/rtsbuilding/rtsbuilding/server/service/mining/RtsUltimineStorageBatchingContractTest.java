@@ -37,8 +37,8 @@ class RtsUltimineStorageBatchingContractTest {
 
         assertTrue(absorber.contains("RtsStorageTickService.INSTANCE.alert(player.getUUID())"),
                 "batch storage work should wake the next storage tick instead of forcing synchronous refresh");
-        assertTrue(processor.contains("RtsPageService.markStorageViewDirty(player, session)"),
-                "Forge should mark the storage page dirty after a changed batch");
+        assertTrue(absorber.contains("RtsEffectAccumulator.INSTANCE.markPersistence"),
+                "批量吸收后应通过统一副作用屏障提交持久化和 UI 刷新");
         assertFalse(processor.contains("RtsStorageTickService.INSTANCE.forceRefresh"),
                 "ultimine mid-batch handling should not synchronously force refresh large linked storage");
     }

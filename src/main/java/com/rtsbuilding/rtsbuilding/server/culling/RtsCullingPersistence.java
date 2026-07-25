@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.culling;
 
 import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingBoxSnapshot;
+import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
+import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -11,13 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 按“当前存档中的玩家 + 维度”保存范围剔除区域。
- *
- * <p>Forge 1.20.1 使用玩家持久数据作为薄平台适配。玩家文件天然属于当前存档或服务器，
- * 维度键进一步隔离主世界、下界和末地；客户端不再承担存档身份判断。</p>
+ * 鎸夆€滃綋鍓嶅瓨妗ｄ腑鐨勭帺瀹?+ 缁村害鈥濅繚瀛樿寖鍥村墧闄ゅ尯鍩熴€? *
+ * <p>鍓旈櫎鍙奖鍝嶅鎴风瑙嗚锛屼絾鍧愭爣灞炰簬涓栫晫鏁版嵁锛屽洜姝や笉鑳芥斁杩涘叏灞€瀹㈡埛绔缃€傜帺瀹舵枃浠跺ぉ鐒堕殢瀛樻。
+ * 闅旂锛涚淮搴﹂敭鍐嶄繚璇佷富涓栫晫銆佷笅鐣屽拰鏈湴涓嶄細浜掔浉濂楃敤鍚屼竴缁勫潗鏍囥€?/p>
  */
 public final class RtsCullingPersistence {
-    static final String NBT_ROOT = "rtsbuilding_culling";
     private static final String NBT_DIMENSIONS = "dimensions";
     private static final String NBT_BOXES = "boxes";
     private static final String NBT_MIN = "min";
@@ -33,7 +33,7 @@ public final class RtsCullingPersistence {
         if (player == null) {
             return State.EMPTY;
         }
-        CompoundTag root = player.getPersistentData().getCompound(NBT_ROOT);
+        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING);
         return decode(root, dimensionKey(player));
     }
 
@@ -65,27 +65,13 @@ public final class RtsCullingPersistence {
         if (player == null) {
             return;
         }
-        CompoundTag root = player.getPersistentData().getCompound(NBT_ROOT).copy();
+        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING).copy();
         encode(root, dimensionKey(player), boxes, revealed);
-        player.getPersistentData().put(NBT_ROOT, root);
+        SaveScheduler.INSTANCE.player(player).set(PlayerComponents.CULLING, root);
     }
 
-    /** 玩家死亡重建实体时保留当前存档内的剔除数据。 */
-    public static void copyFrom(ServerPlayer original, ServerPlayer replacement) {
-        if (original == null || replacement == null) {
-            return;
-        }
-        CompoundTag root = original.getPersistentData().getCompound(NBT_ROOT);
-        if (!root.isEmpty()) {
-            replacement.getPersistentData().put(NBT_ROOT, root.copy());
-        }
-    }
-
-    static void encode(
-            CompoundTag root,
-            String dimensionKey,
-            List<RtsCullingBoxSnapshot> boxes,
-            List<BlockPos> revealed) {
+    static void encode(CompoundTag root, String dimensionKey,
+            List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
         if (root == null || dimensionKey == null || dimensionKey.isBlank()) {
             return;
         }
@@ -108,11 +94,8 @@ public final class RtsCullingPersistence {
 
         long[] revealedValues = revealed == null
                 ? new long[0]
-                : revealed.stream()
-                        .filter(java.util.Objects::nonNull)
-                        .limit(MAX_REVEALED_BLOCKS)
-                        .mapToLong(BlockPos::asLong)
-                        .toArray();
+                : revealed.stream().filter(java.util.Objects::nonNull)
+                        .limit(MAX_REVEALED_BLOCKS).mapToLong(BlockPos::asLong).toArray();
         dimension.putLongArray(NBT_REVEALED, revealedValues);
         dimensions.put(dimensionKey, dimension);
         root.put(NBT_DIMENSIONS, dimensions);

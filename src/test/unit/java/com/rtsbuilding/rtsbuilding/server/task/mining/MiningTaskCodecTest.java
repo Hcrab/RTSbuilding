@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.mining;
 import com.rtsbuilding.rtsbuilding.server.task.MiningTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -21,8 +21,8 @@ class MiningTaskCodecTest {
     @Test
     void roundTripPreservesDetachedMiningSnapshot() {
         UUID owner = UUID.randomUUID();
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        ResourceKey<Level> dimension =
+                RtsDimensionKeys.create(new ResourceLocation("minecraft", "overworld"));
         MiningTaskState state = new MiningTaskState(
                 MiningTaskState.Mode.BATCH, 9,
                 List.of(new BlockPos(4, 5, 6)),
@@ -53,8 +53,8 @@ class MiningTaskCodecTest {
 
     @Test
     void payloadRejectsWorkflowDrift() {
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        ResourceKey<Level> dimension =
+                RtsDimensionKeys.create(new ResourceLocation("minecraft", "overworld"));
         MiningTaskState state = new MiningTaskState(
                 MiningTaskState.Mode.BATCH, 2, List.of(new BlockPos(0, 0, 0)),
                 1, 0, 0, 0, Direction.DOWN, 0,
@@ -68,8 +68,8 @@ class MiningTaskCodecTest {
                 MiningTaskState.Mode.BATCH, -1, List.of(new BlockPos(0, 0, 0)),
                 1, 0, 0, 0, Direction.DOWN, 0,
                 false, true, 0.0F, -1, List.of());
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        ResourceKey<Level> dimension =
+                RtsDimensionKeys.create(new ResourceLocation("minecraft", "overworld"));
         return MiningTaskCodec.encode(new MiningTaskPayload(UUID.randomUUID(), dimension, -1, state));
     }
 

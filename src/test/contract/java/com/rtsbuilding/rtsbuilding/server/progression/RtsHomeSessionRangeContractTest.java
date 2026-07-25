@@ -16,9 +16,9 @@ class RtsHomeSessionRangeContractTest {
         String camera = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/camera/RtsCameraManager.java"));
         String sources = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/RtsLinkedStorageResolver.java"))
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/resolver/RtsLinkedStorageResolver.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsFluidService.java"))
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/impl/RtsFluidServiceImpl.java"))
                 + Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/transfer/RtsTransferPlayerIntegration.java"));
 

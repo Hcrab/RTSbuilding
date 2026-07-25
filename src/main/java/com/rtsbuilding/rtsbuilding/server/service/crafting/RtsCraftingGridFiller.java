@@ -1,13 +1,16 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsPageService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsSessionService;
+import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,14 +19,28 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Handles craft grid refill from linked storage and JEI recipe transfer.
+ * 合成网格填充器，负责将物品从链接存储自动填入工作台的 3x3 合成网格。
+ *
+ * <p>支持三种填充模式：
+ * <ul>
+ *   <li><b>蓝图填充</b>（{@link #refillCraftGridFromLinked}）— 根据预定义的物品蓝图，
+ *   从链接存储逐槽填充合成网格，支持单次填充和多次堆叠填充（最多 64 轮）</li>
+ *   <li><b>网络包填充</b>（{@link #refillCurrentCraftGridFromBlueprintIds} /
+ *   {@link #refillCurrentCraftGridFromBlueprintStacks}）— 从客户端发送的物品 ID
+ *   或物品原型栈列表填充当前合成网格</li>
+ *   <li><b>JEI 一键填充</b>（{@link #applyJeiTransfer}）— 支持 JEI 配方传输集成，
+ *   可清除现有网格、首选原型匹配、多次堆叠填充</li>
+ * </ul>
+ *
+ * <p>填充时优先匹配精确原型，回退到任意匹配的材料。
+ * 若网格中已有物品，会自动检测堆叠上限并尝试增量填充。
  */
 public final class RtsCraftingGridFiller {
 
@@ -33,7 +50,7 @@ public final class RtsCraftingGridFiller {
     // ---- refill from linked storage (player result click) -----------------------
 
     /**
-     * Refills an open crafting grid from linked storage using a one-item blueprint.
+     * 使用单物品蓝图从链接存储填充打开的合成网格。
      */
     public static void refillCraftGridFromLinked(
             ServerPlayer player, RtsStorageSession session,
@@ -59,13 +76,13 @@ public final class RtsCraftingGridFiller {
         Ingredient[] ingredients = recipe == null ? null : RtsCraftingUtils.mapCraftingIngredients(recipe);
         refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
     }
 
     // ---- refill from ids / stacks (network packets) ------------------------------
 
     /**
-     * Rehydrates the current crafting grid from item ids sent by the client.
+     * 从客户端发送的物品 ID 重新填充当前合成网格。
      */
     public static void refillCurrentCraftGridFromBlueprintIds(
             ServerPlayer player, RtsStorageSession session,
@@ -80,9 +97,9 @@ public final class RtsCraftingGridFiller {
             return;
         }
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
-            RtsStorageRecentEntries.recordRecentItem(session, craftedItemId,
-                    com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
+                    S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
@@ -102,7 +119,7 @@ public final class RtsCraftingGridFiller {
     }
 
     /**
-     * Rehydrates the current crafting grid from exact item prototypes sent by the client.
+     * 从客户端发送的精确物品原型重新填充当前合成网格。
      */
     public static void refillCurrentCraftGridFromBlueprintStacks(
             ServerPlayer player, RtsStorageSession session,
@@ -117,9 +134,9 @@ public final class RtsCraftingGridFiller {
             return;
         }
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
-            RtsStorageRecentEntries.recordRecentItem(session, craftedItemId,
-                    com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            RtsSessionService.saveToPlayerNbt(player, session);
+            ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
+                    S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
@@ -152,8 +169,8 @@ public final class RtsCraftingGridFiller {
         if (key == null) {
             return;
         }
-        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
-        if (!(raw instanceof CraftingRecipe craftingRecipe)) {
+        RecipeHolder<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        if (raw == null || !(raw.value() instanceof CraftingRecipe craftingRecipe)) {
             return;
         }
 
@@ -253,7 +270,7 @@ public final class RtsCraftingGridFiller {
         }
         RtsCraftingUtils.refreshCraftingResult(craftingMenu);
         craftingMenu.broadcastChanges();
-        RtsPageService.requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
+        ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
         if (anyInserted) {
             QuestService.runQuestDetect(player, session, false);
         }
@@ -262,7 +279,7 @@ public final class RtsCraftingGridFiller {
     // ---- low-level grid refill loop ----------------------------------------------
 
     /**
-     * Performs the low-level grid refill loop from linked storage / player fallback.
+     * 执行从链接存储/玩家回退的低级网格填充循环。
      */
     public static void refillCraftGridFromBlueprint(
             CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,

@@ -2,15 +2,15 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.loadout.RtsMiningRules;
-import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
+import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsLinkedStorageResolver;
-import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,36 +19,47 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Central repository for all validation predicates used by the mining
- * system. Every method is stateless and idempotent.
+ * 挖掘系统验证谓词中心仓库，提供所有无状态且幂等的检查和限制常量。
  *
- * <p>This class owns constants that define mining limits:
+ * <p>定义挖掘系统的硬限制和验证方法：
+ *
+ * <p><b>常量限制：</b>
  * <ul>
- *   <li>{@link #ULTIMINE_MAX_BLOCKS} ??hard cap on BFS ultimine collection</li>
- *   <li>{@link #AREA_MINE_MAX_SIZE} ??max extent per dimension for area mine</li>
- *   <li>{@link #AREA_DESTROY_MAX_TARGETS} ??max explicit positions accepted</li>
- *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK} ??batch throttle</li>
+ *   <li>{@link #ULTIMINE_MAX_BLOCKS}=256 — BFS 连锁挖掘收集的硬上限</li>
+ *   <li>{@link #AREA_MINE_MAX_SIZE}=36 — 区域挖掘每个维度的最大范围</li>
+ *   <li>{@link #AREA_DESTROY_MAX_TARGETS}=98304 — 区域破坏接受的最大位置数</li>
+ *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK}=32 — 单个挖掘任务切片处理的目标数（节流）</li>
+ * </ul>
+ *
+ * <p><b>验证功能：</b>
+ * <ul>
+ *   <li>{@link #isBreakableBlock} — 判断方块是否可破坏（排除空气，允许含水方块）</li>
+ *   <li>{@link #hasValidDestroySpeed} — 检查方块是否有正的破坏速度</li>
+ *   <li>{@link #isUltimineCandidate} — 连锁挖掘候选检查（类型匹配、速度比、工具可达性）</li>
+ *   <li>{@link #isToolNearBreak} — 检测工具是否即将损坏（≤5% 耐久）</li>
+ *   <li>{@link #collectUltimineTargets} — 委托 {@link com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector} 收集连通方块</li>
+ *   <li>{@link #tryRecoverPlacedBlock} — 尝试恢复 RTS 已放置的方块</li>
  * </ul>
  */
 public final class RtsMiningValidator {
 
     // =========================================================================
-    //  Constants
+    //  常量
     // =========================================================================
 
-    /** Maximum number of blocks an ultimine batch may collect. */
+    /** 连锁挖掘批次最多可收集的方块数。 */
     public static final int ULTIMINE_MAX_BLOCKS = 256;
 
-    /** Max blocks per dimension for area mine (X, Y, Z). */
+    /** 区域挖掘每维度最大方块数（X、Y、Z）。 */
     public static final int AREA_MINE_MAX_SIZE = 36;
 
-    /** Maximum explicit shape-destroy targets accepted from Quick Build. */
+    /** 快速建造接受的显式形状破坏最大目标数。 */
     public static final int AREA_DESTROY_MAX_TARGETS = 98304;
 
-    /** How many ultimine targets are processed in a single tick. */
+    /** 单个挖掘任务切片处理的批量目标数。 */
     public static final int ULTIMINE_BLOCKS_PER_TICK = 32;
 
-    /** Number of hotbar slots a player has (0-8). */
+    /** 玩家的快捷栏槽位数（0-8）。 */
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
 
     private RtsMiningValidator() {
@@ -63,9 +74,7 @@ public final class RtsMiningValidator {
     }
 
     public static int areaMineMaxVolume() {
-        return configIntOrDefault(
-                Config::areaMineMaxVolume,
-                AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE);
+        return configIntOrDefault(Config::areaMineMaxVolume, AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE);
     }
 
     public static int areaMineMaxWidth() {
@@ -88,46 +97,47 @@ public final class RtsMiningValidator {
         return configIntOrDefault(Config::ultimineBlocksPerTick, ULTIMINE_BLOCKS_PER_TICK);
     }
 
-    private static int configIntOrDefault(java.util.function.IntSupplier getter, int fallback) {
+    private static int configIntOrDefault(java.util.function.IntSupplier supplier, int fallback) {
         try {
-            return Math.max(1, getter.getAsInt());
+            return supplier.getAsInt();
         } catch (IllegalStateException ignored) {
             return fallback;
         }
     }
 
     // =========================================================================
-    //  Block Validation
+    //  方块验证
     // =========================================================================
 
     /**
-     * Returns {@code true} if the block state is neither air nor
-     * unbreakable (destroy speed &lt; 0).  Unlike the old code,
-     * <b>waterlogged blocks are allowed</b> ??only pure fluids
-     * (states where the block itself is effectively air) are excluded.
+     * 如果方块状态既不是空气也不是不可破坏的（破坏速度 < 0），返回 {@code true}。
+     * 与旧代码不同，<b>含水方块是允许的</b>——仅排除纯流体
+     * （方块本身实际上为空气的状态）。
      */
     public static boolean isBreakableBlock(BlockState state) {
-        // Check isAir first ??this catches pure fluids too since
-        // FluidState.isAir() is not the same as BlockState.isAir().
+        // 先检查 isAir——这也能捕获纯流体，因为
+        // FluidState.isAir() 与 BlockState.isAir() 不同。
         if (state.isAir()) {
             return false;
         }
-        // NOTE: we do NOT check state.getFluidState().isEmpty() here.
-        // Waterlogged blocks (stairs, slabs, fences, etc.) have a non-empty
-        // FluidState but are perfectly breakable.  Only pure-fluid blocks
-        // that are also isAir() are excluded by the check above.
+        // 注意：我们不在此处检查 state.getFluidState().isEmpty()。
+        // 含水方块（楼梯、台阶、栅栏等）有非空的 FluidState，
+        // 但是完全可以破坏的。只有同时也是 isAir() 的纯流体方块
+        // 才会被上面的检查排除。
         return true;
     }
 
     /**
-     * Returns {@code true} if the block has a positive destroy speed.
-     * Unbreakable blocks (bedrock, end portal frame, etc.) return false.
+     * 如果方块具有正的破坏速度，返回 {@code true}。
+     * 不可破坏的方块（基岩、末地传送门框架等）返回 false。
      */
     public static boolean hasValidDestroySpeed(BlockState state, net.minecraft.world.level.BlockGetter level, BlockPos pos) {
         return state.getDestroySpeed(level, pos) >= 0.0F;
     }
 
-    /** 真实工具保护：需要正确工具掉落的方块必须由实际参与采掘的工具正确采集。 */
+    /**
+     * 实际工具保护：需要正确工具掉落的方块，必须由当前真正参与挖掘的工具正确采集。
+     */
     public static boolean canHarvestWithTool(BlockState state, ItemStack tool, boolean creative) {
         return creative
                 || state == null
@@ -136,8 +146,11 @@ public final class RtsMiningValidator {
     }
 
     /**
-     * 连锁挖掘允许 0 级软块不受“正确工具掉落”限制；石头及更高等级仍要求
-     * 真实 hotbar/远程储存工具可以采集。该规则与范围采掘插件门相互独立。
+     * 连锁挖掘沿用范围挖掘的软方块规则：0 级方块不要求当前工具能够正确采集掉落。
+     *
+     * <p>雪层等方块会要求特定工具才能掉落对应物品，但它们没有采掘等级要求。
+     * 若直接使用 {@link #canHarvestWithTool}，拿着镐选中雪层时，连锁收集会在种子
+     * 方块处得到零目标。这里仅放宽 0 级方块；石头及更高等级方块仍然要求真实工具。</p>
      */
     private static boolean canUltimineWithTool(BlockState state, ItemStack tool, boolean creative) {
         return creative
@@ -145,13 +158,16 @@ public final class RtsMiningValidator {
                 || canHarvestWithTool(state, tool, false);
     }
 
-    /** 返回非连锁范围采掘在当前服务端与插件组合下允许的最高采集等级。 */
+    /**
+     * 非连锁范围挖掘的生存平衡上限。关闭生存平衡时只保留实际工具保护。
+     */
     public static int rangeMiningMaxRequiredLevel(ServerPlayer player, boolean creative) {
-        if (creative || !Config.ENABLE_SURVIVAL_PROGRESSION.get()) {
+        if (creative || !Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean()) {
             return Integer.MAX_VALUE;
         }
         RangeMiningHarvestTier pluginTier = RtsPluginService.rangeMiningHarvestTier(player);
         if (pluginTier == null) {
+            // 没有等级插件时保留原版 0 级：泥土、沙子等无采掘等级要求的方块仍可范围挖掘。
             return 0;
         }
         RangeMiningHarvestTier serverTier;
@@ -172,15 +188,24 @@ public final class RtsMiningValidator {
                 maxRequiredLevel);
     }
 
-    /** 供跨版本纯规则测试共用，不依赖 Minecraft 注册表启动。 */
+    /**
+     * 纯数值的范围采掘等级判定，供服务端规则与无需启动 Minecraft 注册表的单元测试共用。
+     */
     static boolean canRangeMineRequiredLevel(
             boolean canHarvestWithTool, boolean creative, int requiredLevel, int maxRequiredLevel) {
+        // 0 级软块（泥土、雪、沙子等）不需要采掘等级插件；即使当前工具不是最优工具，也允许破坏。
+        // 1/2/3 级硬块才继续要求真实工具可采集，并受已安装采掘插件等级限制。
         return creative
                 || requiredLevel <= 0
                 || (canHarvestWithTool && requiredLevel <= maxRequiredLevel);
     }
 
-    /** 判断目标是否只因采掘等级插件不足而被范围采掘剔除。 */
+    /**
+     * 判断目标是否仅因为范围挖掘插件的采掘等级上限而被拒绝。
+     *
+     * <p>真实工具不正确、创造模式以及完全未安装等级插件都不在这里提示；
+     * 它们分别由工具检查、创造绕过和功能门提示负责。</p>
+     */
     public static boolean isBlockedByRangeMiningHarvestTier(
             BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
         return isBlockedByRangeMiningHarvestTier(
@@ -212,21 +237,20 @@ public final class RtsMiningValidator {
     }
 
     // =========================================================================
-    //  Ultimine Candidate Check
+    //  连锁挖掘候选检查
     // =========================================================================
 
     /**
-     * Checks whether a candidate block is a valid ultimine target.
+     * 检查候选方块是否为有效的连锁挖掘目标。
      *
-     * <p>A candidate is valid if:
+     * <p>候选方块在以下情况下有效：
      * <ol>
-     *   <li>It is not air.</li>
-     *   <li>In mode 0, its block type matches the seed block.</li>
-     *   <li>The player can access the world target.</li>
-     *   <li>Creative mode bypasses further checks.</li>
-     *   <li>Survival: the block has a valid destroy speed, is not
-     *       significantly harder than the seed block, and the tool can make
-     *       progress on it.</li>
+     *   <li>不是空气。</li>
+     *   <li>在模式 0 下，其方块类型与种子方块匹配。</li>
+     *   <li>玩家可以访问世界目标。</li>
+     *   <li>创造模式绕过进一步检查。</li>
+     *   <li>生存模式：方块有有效的破坏速度，且不比种子方块显著更难。
+     *       工具进度会在收集前验证种子块，并在实际破坏前逐块复核。</li>
      * </ol>
      */
     public static boolean isUltimineCandidate(
@@ -266,35 +290,31 @@ public final class RtsMiningValidator {
         if (seedDestroySpeed >= 0.0F && candidateDestroySpeed > seedDestroySpeed * 1.5F) {
             return false;
         }
-        return RtsMiningStateMachine.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool,
-                selectedToolRequested) > 0.0F;
+        return true;
     }
 
     // =========================================================================
-    //  Session / Feature Checks
+    //  会话/功能检查
     // =========================================================================
 
     /**
-     * Returns {@code true} if the auto-store-mined-drops feature is both
-     * enabled in the session and unlocked by the player's progression.
+     * 如果自动储存挖掘掉落物功能在会话中启用且被玩家的进度解锁，返回 {@code true}。
      */
     public static boolean canAutoStoreDrops(ServerPlayer player, RtsStorageSession session) {
-        return session.autoStoreMinedDrops
+        return session.sessionFlags.autoStoreMinedDrops
                 && RtsProgressionManager.canUse(player, RtsFeature.AUTO_STORE_MINED_DROPS);
     }
 
     /**
-     * Returns {@code true} if an ultimine batch is currently committed
-     * (miningPos is null but targets remain).
+     * 如果连锁挖掘批次已提交（miningPos 为 null 但目标仍存在），返回 {@code true}。
      */
     public static boolean isCommittedUltimineBatch(RtsStorageSession session) {
         return session.mining.miningPos == null && !session.mining.ultimineTargets.isEmpty();
     }
 
     /**
-     * Checks whether the active tool (from lease or selected slot) is within
-     * 5% of its maximum durability.  When protection is enabled, the mining
-     * system should stop to avoid breaking the tool.
+     * 检查活跃工具（来自租赁或选中槽位）是否在其最大耐久度的 5% 以内。
+     * 当保护启用时，挖掘系统应停止以避免破坏工具。
      */
     public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session) {
         if (session == null || !session.mining.miningToolProtectionEnabled) {
@@ -314,9 +334,8 @@ public final class RtsMiningValidator {
     }
 
     /**
-     * Returns the stack of the active mining tool, preferring the tool lease
-     * if one exists, otherwise falling back to the player's selected hotbar
-     * slot.
+     * 返回活跃挖掘工具的堆叠，优先使用工具租赁（如果存在），
+     * 否则回退到玩家的选中快捷栏槽位。
      */
     public static ItemStack activeMiningTool(ServerPlayer player, RtsStorageSession session) {
         if (session == null) {
@@ -336,9 +355,8 @@ public final class RtsMiningValidator {
     }
 
     /**
-     * Returns {@code true} if the client indicated a non-BlockItem tool was
-     * selected in the hotbar (i.e. the player explicitly chose a mining tool
-     * and expects the system to borrow it).
+     * 如果客户端指示快捷栏中选中了非 BlockItem 的工具（即玩家明确选择了
+     * 一个挖掘工具并期望系统借用它），返回 {@code true}。
      */
     public static boolean isSelectedMiningToolRequested(String toolItemId, ItemStack toolPrototype) {
         return toolItemId != null
@@ -350,23 +368,23 @@ public final class RtsMiningValidator {
     }
 
     // =========================================================================
-    //  Math / Slot Helpers
+    //  数学/槽位辅助
     // =========================================================================
 
-    /** Maps a progress float to a visible crack stage (0-8). */
+    /** 将进度浮点映射到可见裂纹阶段（0-8）。 */
     public static int visibleMiningStage(float progress) {
         return Math.min(8, Math.max(0, (int) (progress * 9.0F)));
     }
 
-    /** Clamps a slot index to the valid hotbar range (0-8). */
+    /** 将槽位索引限制在有效快捷栏范围（0-8）内。 */
     public static int clampHotbarSlot(int slot) {
         return Math.max(0, Math.min(8, slot));
     }
 
     /**
-     * Collects connected ultimine candidates starting from {@code seed}.
-     * Delegates to {@link RtsUltimineCollector} with an
-     * {@link #isUltimineCandidate} predicate for per-block validation.
+     * 从 {@code seed} 开始收集连接的连锁挖掘候选。
+     * 委托给 {@link RtsUltimineCollector}，使用 {@link #isUltimineCandidate}
+     * 谓词进行每方块验证。
      */
     public static java.util.Deque<BlockPos> collectUltimineTargets(
             ServerPlayer player, BlockPos seed, int toolSlot, ItemStack linkedTool,
@@ -377,19 +395,22 @@ public final class RtsMiningValidator {
         if (!RtsClaimProtectionService.canBreakBlock(player, seed, Direction.DOWN)) {
             return new java.util.ArrayDeque<>();
         }
-        BlockState startingState = player.serverLevel().getBlockState(seed);
-        if (!isBreakableBlock(startingState)) {
+        BlockState seedState = player.serverLevel().getBlockState(seed);
+        if (!isBreakableBlock(seedState)) {
             return new java.util.ArrayDeque<>();
         }
         if (!creative) {
-            if (!hasValidDestroySpeed(startingState, player.serverLevel(), seed)) {
+            if (!hasValidDestroySpeed(seedState, player.serverLevel(), seed)) {
                 return new java.util.ArrayDeque<>();
             }
-            if (RtsMiningStateMachine.computeRemoteDestroyStep(
-                    player, startingState, seed, toolSlot, linkedTool, selectedToolRequested) <= 0.0F) {
+            // 连锁收集阶段只验证种子块能开挖；后续候选的工具判定留给批处理，
+            // 避免铺开一片候选时重复计算整批工具速度。
+            if (MiningSpeedCalculator.computeRemoteDestroyStep(player, seedState, seed, toolSlot, linkedTool,
+                    selectedToolRequested) <= 0.0F) {
                 return new java.util.ArrayDeque<>();
             }
-            if (!canUltimineWithTool(startingState, resolveMiningTool(player, toolSlot, linkedTool), false)) {
+            if (!canUltimineWithTool(
+                    seedState, resolveMiningTool(player, toolSlot, linkedTool), false)) {
                 return new java.util.ArrayDeque<>();
             }
         }
@@ -398,11 +419,11 @@ public final class RtsMiningValidator {
                 player.serverLevel(),
                 seed,
                 limit,
-                (candidatePos, state, seedState) -> isUltimineCandidate(
+                (candidatePos, state, seedBlockState) -> isUltimineCandidate(
                         player,
                         candidatePos,
                         state,
-                        seedState,
+                        seedBlockState,
                         toolSlot,
                         linkedTool,
                         selectedToolRequested,
@@ -412,13 +433,12 @@ public final class RtsMiningValidator {
     }
 
     // =========================================================================
-    //  Placed Block Recovery
+    //  已放置方块恢复
     // =========================================================================
 
     /**
-     * Attempts to recover a RTS-placed block at the given position.  If the
-     * block was placed by RTS and disappears after break, returns {@code true}
-     * to indicate that mining should stop (the recovery succeeded).
+     * 尝试恢复给定位置的 RTS 已放置方块。如果该方块由 RTS 放置且破坏后消失，
+     * 返回 {@code true} 指示挖掘应停止（恢复成功）。
      */
     public static boolean tryRecoverPlacedBlock(ServerPlayer player, RtsStorageSession session, BlockPos pos, Direction face) {
         if (PlacedBlockTrackerData.get(player.serverLevel()).isPlaced(pos)

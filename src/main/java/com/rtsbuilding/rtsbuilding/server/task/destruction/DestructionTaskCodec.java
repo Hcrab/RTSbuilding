@@ -63,7 +63,7 @@ public final class DestructionTaskCodec {
         if (dimensionId == null || !dimensionId.toString().equals(tag.getString("dimension"))) {
             throw new IllegalArgumentException("destruction task 维度无效");
         }
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
+        ResourceKey<Level> dimension = RtsDimensionKeys.create(dimensionId);
 
         List<BlockPos> targets = decodePositions(tag.getLongArray("targets"),
                 DestructionTaskState.MAX_TARGETS, "targets");

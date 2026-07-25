@@ -7,40 +7,39 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
-import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * 单个工作流条目的可变状态容器。
+ * 单个工作流条目，封装了可变状态。
  *
- * <p>外部代码不应该直接修改它，而是通过 {@link RtsWorkflowToken} 或
- * {@link IWorkflowEngine} 访问。entryId 是稳定标识，客户端按钮必须使用它，
- * 不能使用列表位置。</p>
+ * <p>取代了旧的有公共字段的可变 Entry 类。
+ * 所有修改操作通过包级私有方法进行，只有引擎（{@link RtsWorkflowEngine}）
+ * 可以调用——外部消费者必须使用 {@link RtsWorkflowToken} 或 {@link IWorkflowEngine}。</p>
+ *
+ * <p>每个条目有一个<b>不可变</b>的 {@link #id()}，它在早期条目被删除导致
+ * 索引偏移后仍然有效。{@link #createdAt()} 和 {@link #lastUpdatedAt()} 时间戳
+ * 支持基于超时的僵尸工作流清理。</p>
  */
 public final class RtsWorkflowEntry {
-    private static final String NBT_ID = "id";
-    private static final String NBT_TYPE = "type";
-    private static final String NBT_PRIORITY = "priority";
-    private static final String NBT_TOTAL_BLOCKS = "total_blocks";
-    private static final String NBT_COMPLETED_BLOCKS = "completed_blocks";
-    private static final String NBT_FAILED_BLOCKS = "failed_blocks";
-    private static final String NBT_MISSING_ITEMS = "missing_items";
-    private static final String NBT_DETAIL = "detail";
-    private static final String NBT_SUSPENDED = "suspended";
-    private static final String NBT_PAUSED = "paused";
-    private static final String NBT_PROTECTED = "protected";
-    private static final String NBT_CREATED_AT = "created_at";
-    private static final String NBT_LAST_UPDATED_AT = "last_updated_at";
-    private static final String NBT_EXTRA_DATA = "extra_data";
+
+    // ──────────────────────────────────────────────────────────────────
+    //  不可变字段
+    // ──────────────────────────────────────────────────────────────────
 
     private final int id;
     private long createdAt;
     private long lastUpdatedAt;
+
+    // ──────────────────────────────────────────────────────────────────
+    //  可变字段
+    // ──────────────────────────────────────────────────────────────────
+
     private @Nullable RtsWorkflowType type;
-    private RtsWorkflowPriority priority = RtsWorkflowPriority.NORMAL;
+    private RtsWorkflowPriority priority;
     private int totalBlocks;
     private int completedBlocks;
     private int failedBlocks;
@@ -49,100 +48,127 @@ public final class RtsWorkflowEntry {
     private boolean suspended;
     private boolean paused;
     private boolean protectedWorkflow;
+    private boolean terminal;
+
+    /** 工作流类型特定的额外持久化数据（如蓝图蓝图源数据、剩余队列等）。 */
     private @Nullable CompoundTag extraData;
+
+    // ──────────────────────────────────────────────────────────────────
+    //  构造
+    // ──────────────────────────────────────────────────────────────────
 
     public RtsWorkflowEntry(int id) {
         this.id = id;
+        this.priority = RtsWorkflowPriority.NORMAL;
         this.createdAt = System.currentTimeMillis();
         this.lastUpdatedAt = this.createdAt;
     }
 
-    public int id() {
-        return this.id;
-    }
+    // ──────────────────────────────────────────────────────────────────
+    //  公共 Getter（对外只读）
+    // ──────────────────────────────────────────────────────────────────
 
-    public @Nullable RtsWorkflowType type() {
-        return this.type;
-    }
+    /** 该条目在玩家会话中的唯一不可变标识符。 */
+    public int id() { return id; }
 
-    public RtsWorkflowPriority priority() {
-        return this.priority;
-    }
+    /** 工作流类型，若该槽位空闲则为 {@code null}。 */
+    public @Nullable RtsWorkflowType type() { return type; }
 
-    public int totalBlocks() {
-        return this.totalBlocks;
-    }
+    /** 此工作流的优先级。 */
+    public RtsWorkflowPriority priority() { return priority; }
 
-    public int completedBlocks() {
-        return this.completedBlocks;
-    }
+    /** 待处理的总方块数（未知则为 0）。 */
+    public int totalBlocks() { return totalBlocks; }
 
-    public int failedBlocks() {
-        return this.failedBlocks;
-    }
+    /** 已成功处理的方块数。 */
+    public int completedBlocks() { return completedBlocks; }
 
-    public List<String> missingItems() {
-        return List.copyOf(this.missingItems);
-    }
+    /** 处理失败的方块数。 */
+    public int failedBlocks() { return failedBlocks; }
 
-    public String detailMessage() {
-        return this.detailMessage;
-    }
+    /** 当前缺少的物品 ID 列表。 */
+    public List<String> missingItems() { return List.copyOf(missingItems); }
 
-    public boolean suspended() {
-        return this.suspended;
-    }
+    /** 关于当前工作流的可选人类可读详情。 */
+    public String detailMessage() { return detailMessage; }
 
-    public boolean paused() {
-        return this.paused;
-    }
+    /** {@code true} 表示此工作流已挂起（等待物品）。 */
+    public boolean suspended() { return suspended; }
 
-    public boolean protectedWorkflow() {
-        return this.protectedWorkflow;
-    }
+    /** {@code true} 表示此工作流已被用户暂停。 */
+    public boolean paused() { return paused; }
 
-    public long createdAt() {
-        return this.createdAt;
-    }
+    /** {@code true} 表示此工作流不会被新工作流自动覆盖。 */
+    public boolean protectedWorkflow() { return protectedWorkflow; }
 
-    public long lastUpdatedAt() {
-        return this.lastUpdatedAt;
-    }
+    /** {@code true} 表示取消或失败等最终状态正在面板中短暂保留。 */
+    public boolean terminal() { return terminal; }
 
-    public @Nullable CompoundTag getExtraData() {
-        return this.extraData == null ? null : this.extraData.copy();
-    }
+    /** 返回工作流类型特定的额外持久化数据，可能为 null。 */
+    public @Nullable CompoundTag getExtraData() { return extraData; }
 
+    /** 设置工作流类型特定的额外持久化数据。 */
     public void setExtraData(@Nullable CompoundTag extraData) {
-        this.extraData = extraData == null ? null : extraData.copy();
+        this.extraData = extraData;
         touch();
     }
 
-    public boolean isOccupied() {
-        return this.type != null;
-    }
+    /** 此条目创建时的时间戳（毫秒）。 */
+    public long createdAt() { return createdAt; }
 
+    /** 最近一次状态变更的时间戳（毫秒）。 */
+    public long lastUpdatedAt() { return lastUpdatedAt; }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  派生查询
+    // ──────────────────────────────────────────────────────────────────
+
+    /** 返回 {@code true} 表示此条目代表一个运行中（未暂停、未挂起）的工作流。 */
     public boolean hasActiveWorkflow() {
-        return this.type != null && !this.suspended && !this.paused;
+        return type != null && !terminal && !suspended && !paused;
     }
 
+    /** 返回 {@code true} 表示此条目占用了一个槽位（活动或挂起）。 */
+    public boolean isOccupied() {
+        return type != null;
+    }
+
+    /** 返回总体进度，范围为 [0.0, 1.0]。总数为 0 时返回 0。 */
+    public float progress() {
+        if (totalBlocks <= 0) return 0.0F;
+        return Math.min(1.0F, (float) (completedBlocks + failedBlocks) / (float) totalBlocks);
+    }
+
+    /** 返回剩余方块数，若总数为 0 或全部完成则返回 0。 */
+    public int remainingBlocks() {
+        if (totalBlocks <= 0) return 0;
+        return Math.max(0, totalBlocks - (completedBlocks + failedBlocks));
+    }
+
+    /** 返回 {@code true} 表示所有方块均已处理完毕。 */
+    public boolean isComplete() {
+        return totalBlocks > 0 && (completedBlocks + failedBlocks) >= totalBlocks;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  快照
+    // ──────────────────────────────────────────────────────────────────
+
+    /**
+     * 创建此条目的不可变快照，用于网络传输和 UI 消费。
+     */
     public RtsWorkflowStatus snapshot() {
-        if (this.type == null) {
+        if (type == null) {
             return RtsWorkflowStatus.idle();
         }
         return RtsWorkflowStatus.fromRaw(
-                this.type,
-                this.priority,
-                this.totalBlocks,
-                this.completedBlocks,
-                this.failedBlocks,
-                this.missingItems,
-                this.detailMessage,
-                this.suspended,
-                this.paused,
-                this.protectedWorkflow,
-                this.id);
+                type, priority, totalBlocks, completedBlocks, failedBlocks,
+                List.copyOf(missingItems), detailMessage, suspended, paused, protectedWorkflow, id);
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  包级私有修改器（仅引擎可调用）
+    // ──────────────────────────────────────────────────────────────────
 
     void setType(RtsWorkflowType type) {
         this.type = Objects.requireNonNull(type);
@@ -150,38 +176,37 @@ public final class RtsWorkflowEntry {
     }
 
     public void setPriority(RtsWorkflowPriority priority) {
-        this.priority = priority == null ? RtsWorkflowPriority.NORMAL : priority;
+        this.priority = Objects.requireNonNull(priority);
         touch();
     }
 
     void setTotalBlocks(int totalBlocks) {
         this.totalBlocks = Math.max(0, totalBlocks);
-        this.completedBlocks = Math.min(this.completedBlocks, this.totalBlocks);
         touch();
     }
 
     void addCompletedBlocks(int delta) {
-        this.completedBlocks = Math.min(this.totalBlocks, this.completedBlocks + Math.max(0, delta));
+        this.completedBlocks = Math.max(0, Math.min(this.totalBlocks, this.completedBlocks + Math.max(0, delta)));
         touch();
     }
 
+    /** 将已完成方块数设置为绝对值（用于世界扫描刷新）。 */
     void setCompletedBlocks(int absoluteValue) {
         this.completedBlocks = Math.max(0, Math.min(this.totalBlocks, absoluteValue));
         touch();
     }
 
     void addFailedBlocks(int delta) {
-        this.failedBlocks = Math.max(0, this.failedBlocks + Math.max(0, delta));
+        this.failedBlocks = Math.max(0, this.failedBlocks + delta);
         touch();
     }
 
-    void addMissingItems(@Nullable List<String> items) {
-        if (items == null) {
-            return;
-        }
-        for (String item : items) {
-            if (item != null && !item.isBlank() && !this.missingItems.contains(item)) {
-                this.missingItems.add(item);
+    void addMissingItems(List<String> items) {
+        if (items != null) {
+            for (String item : items) {
+                if (!missingItems.contains(item)) {
+                    missingItems.add(item);
+                }
             }
         }
         touch();
@@ -192,8 +217,8 @@ public final class RtsWorkflowEntry {
         touch();
     }
 
-    void setDetailMessage(@Nullable String detailMessage) {
-        this.detailMessage = detailMessage == null ? "" : detailMessage;
+    void setDetailMessage(String detailMessage) {
+        this.detailMessage = detailMessage != null ? detailMessage : "";
         touch();
     }
 
@@ -212,78 +237,188 @@ public final class RtsWorkflowEntry {
         touch();
     }
 
+    /**
+     * 标记真实任务已经结束。
+     *
+     * <p>取消或失败路径会短暂保留这个终态；成功路径发出最终事件后会立即删除条目。</p>
+     */
+    void markTerminal() {
+        if (this.terminal) return;
+        this.terminal = true;
+        this.suspended = false;
+        this.paused = false;
+        touch();
+    }
+
+    /** 将此条目重置为默认（空闲）状态——用于回收槽位时。 */
+    void reset() {
+        this.type = null;
+        this.priority = RtsWorkflowPriority.NORMAL;
+        this.totalBlocks = 0;
+        this.completedBlocks = 0;
+        this.failedBlocks = 0;
+        this.missingItems.clear();
+        this.detailMessage = "";
+        this.suspended = false;
+        this.paused = false;
+        this.protectedWorkflow = false;
+        this.terminal = false;
+        touch();
+    }
+
+    /** 标记条目已更新（刷新空闲超时时钟）。 */
     void touch() {
         this.lastUpdatedAt = System.currentTimeMillis();
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    //  NBT 序列化
+    // ──────────────────────────────────────────────────────────────────
+
+    private static final String NBT_ID = "id";
+    private static final String NBT_TYPE = "type";
+    private static final String NBT_PRIORITY = "priority";
+    private static final String NBT_TOTAL_BLOCKS = "total_blocks";
+    private static final String NBT_COMPLETED_BLOCKS = "completed_blocks";
+    private static final String NBT_FAILED_BLOCKS = "failed_blocks";
+    private static final String NBT_MISSING_ITEMS = "missing_items";
+    private static final String NBT_DETAIL = "detail";
+    private static final String NBT_SUSPENDED = "suspended";
+    private static final String NBT_PAUSED = "paused";
+    private static final String NBT_PROTECTED = "protected";
+    private static final String NBT_TERMINAL = "terminal";
+    private static final String NBT_CREATED_AT = "created_at";
+    private static final String NBT_EXTRA_DATA = "extra_data";
+    private static final String NBT_LAST_UPDATED_AT = "last_updated_at";
+
+    /**
+     * 将此条目序列化为 {@link CompoundTag}。
+     */
     public CompoundTag toNbt() {
         CompoundTag tag = new CompoundTag();
-        tag.putInt(NBT_ID, this.id);
-        if (this.type != null) {
-            tag.putString(NBT_TYPE, this.type.name());
+        tag.putInt(NBT_ID, id);
+        if (type != null) {
+            tag.putString(NBT_TYPE, type.name());
         }
-        tag.putInt(NBT_PRIORITY, this.priority.rank());
-        tag.putInt(NBT_TOTAL_BLOCKS, this.totalBlocks);
-        tag.putInt(NBT_COMPLETED_BLOCKS, this.completedBlocks);
-        tag.putInt(NBT_FAILED_BLOCKS, this.failedBlocks);
-        if (!this.missingItems.isEmpty()) {
-            ListTag list = new ListTag();
-            for (String item : this.missingItems) {
-                list.add(StringTag.valueOf(item));
+        tag.putInt(NBT_PRIORITY, priority.rank());
+        tag.putInt(NBT_TOTAL_BLOCKS, totalBlocks);
+        tag.putInt(NBT_COMPLETED_BLOCKS, completedBlocks);
+        tag.putInt(NBT_FAILED_BLOCKS, failedBlocks);
+        if (!missingItems.isEmpty()) {
+            ListTag items = new ListTag();
+            for (String item : missingItems) {
+                items.add(StringTag.valueOf(item));
             }
-            tag.put(NBT_MISSING_ITEMS, list);
+            tag.put(NBT_MISSING_ITEMS, items);
         }
-        tag.putString(NBT_DETAIL, this.detailMessage);
-        tag.putBoolean(NBT_SUSPENDED, this.suspended);
-        tag.putBoolean(NBT_PAUSED, this.paused);
-        tag.putBoolean(NBT_PROTECTED, this.protectedWorkflow);
-        tag.putLong(NBT_CREATED_AT, this.createdAt);
-        tag.putLong(NBT_LAST_UPDATED_AT, this.lastUpdatedAt);
-        if (this.extraData != null && !this.extraData.isEmpty()) {
-            tag.put(NBT_EXTRA_DATA, this.extraData.copy());
+        if (!detailMessage.isEmpty()) {
+            tag.putString(NBT_DETAIL, detailMessage);
         }
+        tag.putBoolean(NBT_SUSPENDED, suspended);
+        tag.putBoolean(NBT_PAUSED, paused);
+        tag.putBoolean(NBT_PROTECTED, protectedWorkflow);
+        tag.putBoolean(NBT_TERMINAL, terminal);
+        if (extraData != null && !extraData.isEmpty()) {
+            tag.put(NBT_EXTRA_DATA, extraData.copy());
+        }
+        tag.putLong(NBT_CREATED_AT, createdAt);
+        tag.putLong(NBT_LAST_UPDATED_AT, lastUpdatedAt);
         return tag;
     }
 
+    /**
+     * 从 {@link CompoundTag} 反序列化条目。
+     *
+     * @param tag 之前由 {@link #toNbt()} 生成的 NBT 标签
+     * @return 恢复了所有字段的新条目
+     */
     public static RtsWorkflowEntry fromNbt(CompoundTag tag) {
-        RtsWorkflowEntry entry = new RtsWorkflowEntry(tag.getInt(NBT_ID));
+        int id = tag.getInt(NBT_ID);
+        RtsWorkflowEntry entry = new RtsWorkflowEntry(id);
+
         if (tag.contains(NBT_TYPE, Tag.TAG_STRING)) {
             try {
                 entry.type = RtsWorkflowType.valueOf(tag.getString(NBT_TYPE));
             } catch (IllegalArgumentException ignored) {
-                entry.type = null;
+                // Unknown type — leave as null (idle)
             }
         }
-        entry.priority = RtsWorkflowPriority.byRank(tag.getInt(NBT_PRIORITY));
+
+        // 优先级以 rank 形式存储；查找匹配的枚举值
+        int priorityRank = tag.getInt(NBT_PRIORITY);
+        for (RtsWorkflowPriority p : RtsWorkflowPriority.values()) {
+            if (p.rank() == priorityRank) {
+                entry.priority = p;
+                break;
+            }
+        }
+
         entry.totalBlocks = Math.max(0, tag.getInt(NBT_TOTAL_BLOCKS));
-        entry.completedBlocks = Math.max(0, Math.min(entry.totalBlocks, tag.getInt(NBT_COMPLETED_BLOCKS)));
+        entry.completedBlocks = Math.max(0, tag.getInt(NBT_COMPLETED_BLOCKS));
         entry.failedBlocks = Math.max(0, tag.getInt(NBT_FAILED_BLOCKS));
+
         if (tag.contains(NBT_MISSING_ITEMS, Tag.TAG_LIST)) {
-            ListTag list = tag.getList(NBT_MISSING_ITEMS, Tag.TAG_STRING);
-            for (int i = 0; i < list.size(); i++) {
-                String item = list.getString(i);
+            ListTag items = tag.getList(NBT_MISSING_ITEMS, Tag.TAG_STRING);
+            for (int i = 0; i < items.size(); i++) {
+                String item = items.getString(i);
                 if (item != null && !item.isBlank()) {
                     entry.missingItems.add(item);
                 }
             }
         }
-        entry.detailMessage = tag.getString(NBT_DETAIL);
+
+        entry.detailMessage = tag.contains(NBT_DETAIL, Tag.TAG_STRING)
+                ? tag.getString(NBT_DETAIL) : "";
         entry.suspended = tag.getBoolean(NBT_SUSPENDED);
         entry.paused = tag.getBoolean(NBT_PAUSED);
         entry.protectedWorkflow = tag.getBoolean(NBT_PROTECTED);
-        if (tag.contains(NBT_CREATED_AT)) {
-            entry.createdAt = tag.getLong(NBT_CREATED_AT);
-        }
-        if (tag.contains(NBT_LAST_UPDATED_AT)) {
-            entry.lastUpdatedAt = tag.getLong(NBT_LAST_UPDATED_AT);
-        }
+        entry.terminal = tag.getBoolean(NBT_TERMINAL);
+
+        // 恢复工作流类型特定的额外数据
         if (tag.contains(NBT_EXTRA_DATA, Tag.TAG_COMPOUND)) {
             entry.extraData = tag.getCompound(NBT_EXTRA_DATA).copy();
         }
+
+        // 恢复时间戳——仅在存在时覆盖
+        if (tag.contains(NBT_CREATED_AT, Tag.TAG_ANY_NUMERIC)) {
+            entry.setCreatedAtRaw(tag.getLong(NBT_CREATED_AT));
+        }
+        if (tag.contains(NBT_LAST_UPDATED_AT, Tag.TAG_ANY_NUMERIC)) {
+            entry.lastUpdatedAt = tag.getLong(NBT_LAST_UPDATED_AT);
+        }
+
         return entry;
     }
 
+    /** 包级私有 setter，用于反序列化时覆盖创建时间戳。 */
     void setCreatedAtRaw(long createdAt) {
         this.createdAt = createdAt;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Object 方法
+    // ──────────────────────────────────────────────────────────────────
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (!(obj instanceof RtsWorkflowEntry other)) return false;
+        return this.id == other.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(id);
+    }
+
+    @Override
+    public String toString() {
+        return "RtsWorkflowEntry{id=" + id + ", type=" + type
+                + ", progress=" + completedBlocks + "/" + totalBlocks
+                + (suspended ? ", SUSPENDED" : "")
+                + (paused ? ", PAUSED" : "")
+                + (protectedWorkflow ? ", PROTECTED" : "")
+                + (terminal ? ", TERMINAL" : "")
+                + "}";
     }
 }

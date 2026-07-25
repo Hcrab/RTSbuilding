@@ -189,7 +189,7 @@ public final class RtsOperationDiagnostics {
         if (targets > 1) return true;
         if (type == null) return false;
         return switch (type) {
-            case ULTIMINE, AREA_MINE, AREA_DESTROY, PLACE_BATCH, QUICK_BUILD -> true;
+            case ULTIMINE, AREA_MINE, AREA_DESTROY, PLACE_BATCH, QUICK_BUILD, BLUEPRINT_BUILD -> true;
             case MINE_SINGLE, PLACE_SINGLE, STOP_MINING -> false;
         };
     }

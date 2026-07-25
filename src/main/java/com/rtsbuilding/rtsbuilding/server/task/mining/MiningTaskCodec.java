@@ -85,7 +85,7 @@ public final class MiningTaskCodec {
                 Direction.from3DDataValue(tag.getByte("face")), tag.getInt("tool_slot"),
                 tag.getBoolean("selected_tool"), tag.getBoolean("protect_tool"),
                 tag.getFloat("progress"), tag.getInt("stage"), history);
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
+        ResourceKey<Level> dimension = RtsDimensionKeys.create(dimensionId);
         return new MiningTaskPayload(tag.getUUID("owner"), dimension, workflow, state);
     }
 
@@ -103,7 +103,7 @@ public final class MiningTaskCodec {
             throw new IllegalArgumentException("mining history record 不完整");
         }
         BlockState state = NbtUtils.readBlockState(
-                registryAccess.lookupOrThrow(Registries.BLOCK), tag.getCompound("state"));
+                registryAccess.registryOrThrow(Registries.BLOCK), tag.getCompound("state"));
         if (state.isAir()) throw new IllegalArgumentException("mining history 不能记录空气");
         CompoundTag blockEntity = tag.contains("block_entity", Tag.TAG_COMPOUND)
                 ? tag.getCompound("block_entity").copy() : null;

@@ -15,11 +15,12 @@ class RtsClaimProtectionWiringTest {
         List<String> protectedFiles = List.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementQuickBuild.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsInteractionService.java",
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/impl/RtsInteractionServiceImpl.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/mining/MiningExecutePipe.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsMiningStateMachine.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsUltimineProcessor.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/blueprint/server/BlueprintPlacementService.java",
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/destruction/RtsDestructionBatch.java",
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/blueprint/BlueprintTickPipe.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/RtsStorageFluids.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/history/HistoryExecutor.java");
 
@@ -33,9 +34,9 @@ class RtsClaimProtectionWiringTest {
     @Test
     void forgeStorageAndRemoteGuiInteractionsUseInteractionProtection() throws IOException {
         List<String> interactionFiles = List.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsBindingService.java",
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/bindings/RtsLinkedStorageBindingService.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/RtsGuiBindingHelper.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsFunnelService.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/impl/RtsFunnelServiceImpl.java");
 
         for (String file : interactionFiles) {
             String source = Files.readString(Path.of(file));

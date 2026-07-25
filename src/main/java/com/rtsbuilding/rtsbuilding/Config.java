@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.fluids.FluidType;
 
 public final class Config {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
@@ -131,6 +132,14 @@ public final class Config {
             .translation("rtsbuilding.configuration.maxStoragePageSize")
             .defineInRange("storage.maxStoragePageSize", 180, 1, 8192);
 
+    public static final ForgeConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = BUILDER
+            .comment("Maximum queued remote placement targets processed per player per server tick.")
+            .defineInRange("placement.buildBatchBlocksPerTick", 64, 1, 512);
+
+    public static final ForgeConfigSpec.IntValue BUILD_BATCH_MAX_QUEUED_JOBS = BUILDER
+            .comment("Maximum queued quick-build placement jobs per player.")
+            .defineInRange("placement.buildBatchMaxQueuedJobs", 4, 1, 32);
+
     public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = BUILDER
             .comment("Hard global RTS work-unit limit across all players in one server tick.")
             .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
@@ -143,9 +152,21 @@ public final class Config {
             .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
             .defineInRange("taskEngine.maxNanosPerTick", 8_000_000L, 250_000L, 20_000_000L);
 
+    public static final ForgeConfigSpec.DoubleValue DROP_SCAN_RADIUS = BUILDER
+            .comment("Radius used to absorb drops around remotely mined blocks.")
+            .defineInRange("mining.dropScanRadius", 1.25D, 0.25D, 8.0D);
+
+    public static final ForgeConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = BUILDER
+            .comment("Temporary interaction reach used while RTSBuilding replays a remote player action.")
+            .defineInRange("interaction.remotePovBlockReach", 4.0D, 1.0D, 16.0D);
+
     public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = BUILDER
             .comment("Maximum RTS remote block action sounds sent per player per tick. Excess sounds are dropped.")
             .defineInRange("placement.remoteBlockActionSoundsPerTick", 16, 0, 16);
+
+    public static final ForgeConfigSpec.IntValue INTERNAL_FLUID_CAPACITY_BUCKETS = BUILDER
+            .comment("Fallback internal fluid buffer capacity in buckets when progression data is unavailable.")
+            .defineInRange("fluid.internalFluidCapacityBuckets", 100, 1, 4096);
 
     private static final ForgeConfigSpec.IntValue SERVER_CONFIG_REVISION = BUILDER
             .comment("Internal RTSBuilding server configuration migration revision. Do not edit manually.")
@@ -409,6 +430,14 @@ public final class Config {
         return MAX_STORAGE_PAGE_SIZE.get();
     }
 
+    public static int buildBatchBlocksPerTick() {
+        return BUILD_BATCH_BLOCKS_PER_TICK.get();
+    }
+
+    public static int buildBatchMaxQueuedJobs() {
+        return BUILD_BATCH_MAX_QUEUED_JOBS.get();
+    }
+
     public static int taskEngineMaxUnitsPerTick() {
         return TASK_ENGINE_MAX_UNITS_PER_TICK.get();
     }
@@ -419,6 +448,18 @@ public final class Config {
 
     public static long taskEngineMaxNanosPerTick() {
         return TASK_ENGINE_MAX_NANOS_PER_TICK.get();
+    }
+
+    public static double dropScanRadius() {
+        return DROP_SCAN_RADIUS.get();
+    }
+
+    public static double remotePovBlockReach() {
+        return REMOTE_POV_BLOCK_REACH.get();
+    }
+
+    public static long internalFluidCapacityMb() {
+        return Math.max(1L, (long) INTERNAL_FLUID_CAPACITY_BUCKETS.get()) * FluidType.BUCKET_VOLUME;
     }
 
     /**

@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
-import com.rtsbuilding.rtsbuilding.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -58,9 +59,9 @@ public final class RtsPluginService {
     }
 
     /**
-     * 返回玩家所在队伍当前生效的范围采掘等级；关闭生存平衡时视为无限，
-     * 开启生存平衡但没有等级插件时返回 {@code null}。
-     */
+     * 杩斿洖鐜╁鎵€鍦ㄩ槦浼嶅綋鍓嶇敓鏁堢殑鑼冨洿鎸栨帢閲囨帢绛夌骇銆?     *
+     * <p>杩斿洖 {@code null} 琛ㄧず鐢熷瓨骞宠　宸插紑鍚紝浣嗛槦浼嶆病鏈夊畨瑁呴噰鎺樼瓑绾ф彃浠讹紱
+     * 鍏抽棴鐢熷瓨骞宠　鏃跺垯鐩存帴瑙嗕负鏃犻檺鍒讹紝涓嶈姹傛彃浠剁墿鍝併€?     */
     public static RangeMiningHarvestTier rangeMiningHarvestTier(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled()) {
             return RangeMiningHarvestTier.UNLIMITED;
@@ -151,8 +152,8 @@ public final class RtsPluginService {
                 return fail(player, "message.rtsbuilding.plugin.inventory_full");
             }
             installed.remove(i);
-            RtsPluginTeamService.saveInstalledPlugins(player, installed);
             player.getInventory().setChanged();
+            RtsPluginTeamService.saveInstalledPlugins(player, installed);
             syncRelatedPlayers(player);
             syncInventory(player);
             success(player, "message.rtsbuilding.plugin.uninstalled");
@@ -162,6 +163,11 @@ public final class RtsPluginService {
     }
 
     public static void syncToPlayer(ServerPlayer player) {
+        if (player != null) RtsEffectAccumulator.INSTANCE.markPluginState(player.getUUID());
+    }
+
+    /** 浠呯敱 Tick 鏈?Effect Committer 璋冪敤锛屾櫘閫氫笟鍔″叆鍙ｅ彧鐧昏鏈€鏂板畬鏁村揩鐓с€?*/
+    public static void syncToPlayerNow(ServerPlayer player) {
         if (player == null) {
             return;
         }
@@ -187,7 +193,7 @@ public final class RtsPluginService {
             ownerNames.add(effective.ownerName());
             stacks.add(entry.stack().copyWithCount(1));
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsPluginStatePayload(
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsPluginStatePayload(
                 pluginIds, families, radii, fieldDeployment, personal, ownerNames, stacks,
                 RtsPluginTeamService.teamLabel(player)));
     }
@@ -243,9 +249,8 @@ public final class RtsPluginService {
     }
 
     /**
-     * 安装插件并原子替换同一互斥家族的旧插件。旧物品优先退回背包，
-     * 背包已满时落在玩家脚边，不能静默吞掉。
-     */
+     * 瀹夎鎻掍欢锛屽苟鍦ㄥ悓涓€娆′繚瀛樹腑鏇挎崲鍚屼竴浜掓枼瀹舵棌鐨勬棫鎻掍欢銆?     *
+     * <p>鏃ф彃浠朵紭鍏堥€€鍥炲畨瑁呰€呰儗鍖咃紱鑳屽寘纭疄鏀句笉涓嬫椂鎺夊湪鐜╁鑴氳竟锛岀粷涓嶉潤榛樺悶鎺夈€?     */
     private static boolean addInstalled(
             ServerPlayer player, RtsPluginDefinition definition, ItemStack installedStack) {
         List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
@@ -315,7 +320,8 @@ public final class RtsPluginService {
         return false;
     }
 
-    /** 立刻同步插件装卸造成的背包槽位变化，避免客户端继续提交旧工具。 */
+    /**
+     * 鎻掍欢瑁呭嵏浼氱洿鎺ユ敼鐜╁鑳屽寘锛涚珛鍗冲悓姝ユЫ浣嶏紝閬垮厤瀹㈡埛绔户缁妸宸插畨瑁呮彃浠?     * 褰撲綔蹇嵎鏍忛噷鐨勬寲鎺樺伐鍏峰彂閫佺粰鏈嶅姟绔€?     */
     private static void syncInventory(ServerPlayer player) {
         player.inventoryMenu.broadcastChanges();
         if (player.containerMenu != player.inventoryMenu) {

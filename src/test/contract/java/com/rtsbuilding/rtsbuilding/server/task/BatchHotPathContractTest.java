@@ -62,7 +62,7 @@ class BatchHotPathContractTest {
         String handlers = readMain("network/builder/handler/RtsInteractionHandlers.java");
         assertTrue(handlers.contains("RtsTaskEngine.INSTANCE.cancelWorkflowTask"));
         assertTrue(handlers.contains("RtsTaskEngine.INSTANCE.setWorkflowPaused"));
-        String session = readMain("server/service/RtsSessionService.java");
+        String session = readMain("server/service/impl/RtsSessionServiceImpl.java");
         assertTrue(session.indexOf("RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player)")
                 < session.indexOf("RtsWorkflowEngine.getInstance().pauseAllActive"));
     }

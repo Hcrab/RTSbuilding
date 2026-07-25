@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
+import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -19,12 +21,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 旧技能树到插件系统的一次性迁移器。
- *
- * <p>旧版本把解锁节点保存在 {@code unlocked_nodes}。当前版本以插件物品作为生存平衡入口，
- * 所以这里在玩家首次登录新版本时把旧节点折算为已安装插件，并写入迁移版本标记。
- * 该类只处理旧数据兼容，不参与后续插件安装、卸载或功能判定。
- */
+ * 鏃ф妧鑳芥爲鍒版彃浠剁郴缁熺殑涓€娆℃€ц縼绉诲櫒銆? *
+ * <p>鏃х増鏈妸瑙ｉ攣鑺傜偣淇濆瓨鍦?{@code unlocked_nodes}銆傚綋鍓嶇増鏈互鎻掍欢鐗╁搧浣滀负鐢熷瓨骞宠　鍏ュ彛锛? * 鎵€浠ヨ繖閲屽湪鐜╁棣栨鐧诲綍鏂扮増鏈椂鎶婃棫鑺傜偣鎶樼畻涓哄凡瀹夎鎻掍欢锛屽苟鍐欏叆杩佺Щ鐗堟湰鏍囪銆? * 璇ョ被鍙鐞嗘棫鏁版嵁鍏煎锛屼笉鍙備笌鍚庣画鎻掍欢瀹夎銆佸嵏杞芥垨鍔熻兘鍒ゅ畾銆? */
 final class RtsLegacySkillTreeMigration {
     private static final int MIGRATION_VERSION = 2;
     private static final String OLD_PERSISTENT_ROOT = "rtsbuilding_progression";
@@ -81,10 +79,12 @@ final class RtsLegacySkillTreeMigration {
             }
         }
 
-        CompoundTag personalRoot = player.getPersistentData().getCompound(OLD_PERSISTENT_ROOT);
-        if (personalRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION) < MIGRATION_VERSION) {
+        CompoundTag currentRoot = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
+        CompoundTag oldPersistentRoot = player.getPersistentData().getCompound(OLD_PERSISTENT_ROOT);
+        if (migrationVersion(currentRoot, oldPersistentRoot) < MIGRATION_VERSION) {
             needsHarvestTierCompatibility = true;
-            LinkedHashSet<ResourceLocation> personalNodes = readUnlockedNodes(personalRoot);
+            LinkedHashSet<ResourceLocation> personalNodes = readUnlockedNodes(currentRoot);
+            personalNodes.addAll(readUnlockedNodes(oldPersistentRoot));
             changed |= addMigratedPlugins(
                     player,
                     installed,
@@ -92,8 +92,12 @@ final class RtsLegacySkillTreeMigration {
                     personalNodes,
                     player.getUUID(),
                     player.getGameProfile().getName());
-            personalRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
-            player.getPersistentData().put(OLD_PERSISTENT_ROOT, personalRoot);
+            currentRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
+            SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, currentRoot);
+            if (!oldPersistentRoot.isEmpty()) {
+                oldPersistentRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
+                player.getPersistentData().put(OLD_PERSISTENT_ROOT, oldPersistentRoot);
+            }
         }
 
         if (needsHarvestTierCompatibility) {
@@ -106,9 +110,7 @@ final class RtsLegacySkillTreeMigration {
     }
 
     /**
-     * 插件系统 v1 的范围破坏不要求独立采掘等级插件。升级旧存档时，为已经
-     * 拥有范围破坏插件的队伍补发石制档，避免现有能力在迁移后无故消失。
-     */
+     * 鎻掍欢绯荤粺 v1 鐨勮寖鍥寸牬鍧忎笉闇€瑕佺嫭绔嬮噰鎺樼瓑绾ф彃浠躲€?     * 鏃у瓨妗ｅ崌绾ф椂琛ュ彂鍚屼竴璐＄尞鑰呭悕涓嬬殑鏈ㄧ骇鎻掍欢锛岄伩鍏嶅凡鏈夎兘鍔涙棤鏁呮秷澶便€?     */
     private static boolean addLegacyHarvestTierIfNeeded(ServerPlayer player,
             List<RtsPluginTeamService.StoredPlugin> installed,
             List<RtsPluginDefinition> added) {
@@ -236,6 +238,12 @@ final class RtsLegacySkillTreeMigration {
             }
         }
         return nodes;
+    }
+
+    private static int migrationVersion(CompoundTag currentRoot, CompoundTag oldPersistentRoot) {
+        return Math.max(
+                currentRoot == null ? 0 : currentRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION),
+                oldPersistentRoot == null ? 0 : oldPersistentRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION));
     }
 
     private static ItemStack pluginStack(RtsPluginDefinition definition) {

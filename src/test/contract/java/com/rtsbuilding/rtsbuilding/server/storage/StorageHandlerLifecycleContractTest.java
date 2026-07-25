@@ -16,7 +16,7 @@ class StorageHandlerLifecycleContractTest {
 
     @Test
     void endpointOwnerMustDetachTickBorrowerBeforeDestructiveRelease() throws IOException {
-        String source = read("server/storage/RtsEndpointLeaseCache.java");
+        String source = read("server/storage/cache/RtsEndpointLeaseCache.java");
         int detach = source.indexOf("detachHandler(playerId, handler)");
         int release = source.indexOf("releaseNetworkHandler(handler)");
 
@@ -36,7 +36,7 @@ class StorageHandlerLifecycleContractTest {
 
     @Test
     void playerLifecycleMustClearBorrowerBeforeInvalidatingEndpointOwner() throws IOException {
-        String session = read("server/service/RtsSessionService.java");
+        String session = read("server/service/impl/RtsSessionServiceImpl.java");
         assertOrderedInMethod(session, "void onRtsDisabled", "unregisterPlayer(player)",
                 "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "关闭 RTS");
         assertOrderedInMethod(session, "void onPlayerLogout", "unregisterPlayer(player)",

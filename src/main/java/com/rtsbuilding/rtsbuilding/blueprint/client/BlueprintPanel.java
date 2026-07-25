@@ -1125,6 +1125,7 @@ public final class BlueprintPanel {
                 return true;
             }
             PacketDistributor.sendToServer(new C2SBlueprintPlacePayload(
+                    java.util.UUID.randomUUID(),
                     entry.fileName(),
                     data,
                     anchor,

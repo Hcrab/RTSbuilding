@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.progression;
 
-import com.rtsbuilding.rtsbuilding.progression.RtsProgressionNodes;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager.HomeAnchor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -15,16 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/**
- * 家的管理与家选择状态管???
- * <p>包私有——仅??{@link RtsProgressionManager} 内部委托??
- */
 final class RtsHomeManager {
-
-    // ======================================================================
-    //  家选择???
-    // ======================================================================
-
     private static final ConcurrentMap<UUID, HomeSelection> HOME_SELECTIONS = new ConcurrentHashMap<>();
 
     private RtsHomeManager() {
@@ -60,13 +51,6 @@ final class RtsHomeManager {
                 && Math.abs(chunkZ - selection.centerChunkZ()) <= 1;
     }
 
-    // ======================================================================
-    //  家位置读??
-    // ======================================================================
-
-    /**
-     * 获取玩家已保存的个人???
-     */
     static HomeAnchor personalHome(ServerPlayer player) {
         if (player == null) {
             return null;
@@ -81,16 +65,13 @@ final class RtsHomeManager {
         if (dimensionId == null) {
             return null;
         }
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
+        ResourceKey<Level> dimension = RtsDimensionKeys.create(dimensionId);
         return new HomeAnchor(
                 BlockPos.of(root.getLong(RtsProgressionPersistence.NBT_HOME_POS)).immutable(),
                 dimension,
                 root.getLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME));
     }
 
-    /**
-     * 获取玩家的家（共??> 个人???
-     */
     static HomeAnchor getHome(ServerPlayer player) {
         if (player == null) {
             return null;
@@ -106,19 +87,13 @@ final class RtsHomeManager {
         return personalHome(player);
     }
 
-    // ======================================================================
-    //  家访问控??
-    // ======================================================================
-
     static boolean hasHome(ServerPlayer player) {
         return getHome(player) != null;
     }
 
     /**
-     * 检查玩家当前位置是否在 RTS 家园周围的 3×3 区块内。
-     *
-     * <p>该限制只决定能否启动一次普通 RTS 会话。会话启动后，世界操作范围只由
-     * 本次相机锚点与操作半径决定，不能再与家园位置取交集。</p>
+     * 妫€鏌ョ帺瀹跺綋鍓嶆墍鍦ㄥ尯鍧楁槸鍚︿綅浜庡鍥尯鍧楀懆鍥寸殑 3x3 鍖哄潡鍐呫€?     *
+     * <p>杩欎釜闄愬埗鍙喅瀹氱帺瀹惰兘鍚﹀紑鍚竴娆℃櫘閫?RTS 浼氳瘽銆備細璇濆紑鍚悗锛?     * 涓栫晫鎿嶄綔鑼冨洿鐢辩浉鏈洪敋鐐瑰拰鎻掍欢鎻愪緵鐨勬搷浣滃崐寰勫喅瀹氾紝涓嶅啀涓庡鍥綅缃彇浜ら泦銆?/p>
      */
     static boolean canOpenRtsNearHome(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled() || RtsProgressionManager.canBypassHomeRadius(player)) {
@@ -146,27 +121,16 @@ final class RtsHomeManager {
                 && Math.abs(playerChunkZ - homeChunkZ) <= 1;
     }
 
-    // ======================================================================
-    //  家变更控??
-    // ======================================================================
-
     static boolean canChangeHome(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled()) {
             return true;
         }
         HomeAnchor home = getHome(player);
-        if (home == null) {
-            return true;
-        }
-        return RtsProgressionPersistence.unlockedNodes(player).contains(RtsProgressionNodes.FIELD_DEPLOYMENT)
-                || remainingHomeCooldownTicks(player) <= 0L;
+        return home == null || remainingHomeCooldownTicks(player) <= 0L;
     }
 
     static long remainingHomeCooldownTicks(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled() || player == null) {
-            return 0L;
-        }
-        if (RtsProgressionPersistence.unlockedNodes(player).contains(RtsProgressionNodes.FIELD_DEPLOYMENT)) {
             return 0L;
         }
         HomeAnchor home = getHome(player);
@@ -181,10 +145,6 @@ final class RtsHomeManager {
         long ticks = remainingHomeCooldownTicks(player);
         return ticks <= 0L ? 0L : (ticks + RtsProgressionManager.TICKS_PER_GAME_DAY - 1L) / RtsProgressionManager.TICKS_PER_GAME_DAY;
     }
-
-    // ======================================================================
-    //  家提??
-    // ======================================================================
 
     static boolean commitHome(ServerPlayer player, BlockPos pos) {
         if (!RtsProgressionManager.isEnabled()) {
@@ -204,7 +164,7 @@ final class RtsHomeManager {
             root.putString(RtsProgressionPersistence.NBT_HOME_DIMENSION,
                     player.serverLevel().dimension().location().toString());
             root.putLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.serverLevel().getGameTime());
-            player.getPersistentData().put(RtsProgressionPersistence.NBT_ROOT, root);
+            RtsProgressionPersistence.save(player, root);
         } else {
             RtsProgressionPersistence.sharedProgressionData(player).setHome(
                     sharedKey, pos, player.serverLevel().dimension(), player.serverLevel().getGameTime());
@@ -212,10 +172,6 @@ final class RtsHomeManager {
         endHomeSelection(player);
         return true;
     }
-
-    // ======================================================================
-    //  内部记录
-    // ======================================================================
 
     private record HomeSelection(ResourceKey<Level> dimension, int centerChunkX, int centerChunkZ) {
     }

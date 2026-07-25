@@ -1,22 +1,22 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
-import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsStorageUiPayloads;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import com.rtsbuilding.rtsbuilding.server.storage.*;
+import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
@@ -24,22 +24,31 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.*;
 
 /**
- * Builds the read-only storage browser page from a session and linked storage snapshot.
+ * 储存浏览器页面构建器核心，从会话和链接存储快照构建只读的储存浏览器页面。
+ *
+ * <p>这是页面系统的核心编排器，负责：
+ * <ul>
+ *   <li><b>页面构建</b>（{@link #build}）— 从链接处理器、聚合缓存、玩家背包中收集物品计数，
+ *   构建精确条目、流体条目、类别列表，执行搜索过滤和排序，组装完整的
+ *   {@link com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload}</li>
+ *   <li><b>缓存集成</b>— 先检查 LRU 缓存（{@link RtsPageCache}），命中时直接返回缓存结果；
+ *   缓存未命中或 dataVersion 过期时执行完全重建并更新缓存</li>
+ *   <li><b>快速路径</b>— 优先使用 {@link com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage}
+ *   聚合缓存加速大量物品的统计，回退到逐处理器、逐槽位扫描</li>
+ * </ul>
+ *
+ * <p>数据包组装委托给 {@link RtsPagePayloadFactory}，
+ * 搜索/排序/类别逻辑委托给 {@link RtsPageSharedHelpers}。
  */
 public final class RtsPageCore {
 
     private RtsPageCore() {
     }
 
-    // ======================================================================
-    //  Page cache: avoids O(n log n) sort + filter rebuild on pure pagination
-    // ======================================================================
-
     /**
-     * Removes a player's cached page data so the GC can reclaim memory
-     * when they disable RTS or log out.
+     * 移除玩家的缓存页面数据，以便在禁用 RTS 或退出时 GC 可以回收内存。
      */
-    public static void clearCache(java.util.UUID playerUuid) {
+    public static void clearCache(UUID playerUuid) {
         RtsPageCache.INSTANCE.remove(playerUuid);
     }
 
@@ -53,14 +62,14 @@ public final class RtsPageCore {
         List<LinkedHandler> itemHandlers = activeHandlers == null ? List.of() : activeHandlers;
         List<LinkedFluidHandler> fluidHandlers = activeFluidHandlers == null ? List.of() : activeFluidHandlers;
         boolean includePlayerMainInventory = RtsPageSharedHelpers.shouldIncludePlayerMainInventoryInStorageView(player, session);
-        LinkedRefPayload linkedRefs = buildLinkedRefPayload(player, session);
+        LinkedRefPayload linkedRefs = RtsPagePayloadFactory.buildLinkedRefPayload(player, session);
         List<Long> linkedPackedPositions = linkedRefs.positions();
-        if (session.linkedStorages.isEmpty()
+        if (session.linkedStorageInfo.isEmpty()
                 && itemHandlers.isEmpty()
                 && fluidHandlers.isEmpty()
                 && !hasPositiveInternalFluid(session)
                 && !includePlayerMainInventory) {
-            return new PageResult(buildEmptyPayload(player, session), 0);
+            return new PageResult(RtsPagePayloadFactory.buildEmpty(player, session), 0);
         }
 
         // ── Page cache check: avoid O(n log n) sort + filter rebuild on pure pagination ──
@@ -88,7 +97,8 @@ public final class RtsPageCore {
             sortedFluidEntries = cached.sortedFluidEntries();
             totalEntries = sortedEntries.size();
         } else {
-            // ── Full build: counts ??exactEntries ??fluid ??categories ??sort ??filter ──
+            RtsDeveloperMetrics.recordPageBuild(player);
+            // ── Full build: counts → exactEntries → fluid → categories → sort → filter ──
             Map<String, Long> localCounts = new HashMap<>();
             List<Entry> exactEntries = new ArrayList<>();
             Map<String, Long> localNamespaceTotals = new HashMap<>();
@@ -139,7 +149,7 @@ public final class RtsPageCore {
             // Build fluid entries
             Map<String, Long> fluidAmounts = new HashMap<>();
             Map<String, Long> fluidCapacities = new HashMap<>();
-            for (var entry : session.internalFluidMb.entrySet()) {
+            for (var entry : session.sessionFlags.internalFluidMb.entrySet()) {
                 if (entry.getValue() == null || entry.getValue() <= 0L) continue;
                 mergeCount(fluidAmounts, entry.getKey(), entry.getValue());
             }
@@ -283,18 +293,19 @@ public final class RtsPageCore {
         int qSlotCount = RtsStorageBindings.QUICK_SLOT_COUNT;
         int gbSlotCount = RtsStorageBindings.GUI_BINDING_SLOT_COUNT;
 
-        List<String> recentIds = new ArrayList<>(session.recentEntries.size());
-        List<Long> recentAmounts = new ArrayList<>(session.recentEntries.size());
-        List<Long> recentCapacities = new ArrayList<>(session.recentEntries.size());
-        List<Byte> recentKinds = new ArrayList<>(session.recentEntries.size());
-        for (var recent : session.recentEntries) {
+        var recentEntries = session.uiMemory.getRecentEntries();
+        List<String> recentIds = new ArrayList<>(recentEntries.size());
+        List<Long> recentAmounts = new ArrayList<>(recentEntries.size());
+        List<Long> recentCapacities = new ArrayList<>(recentEntries.size());
+        List<Byte> recentKinds = new ArrayList<>(recentEntries.size());
+        for (var recent : recentEntries) {
             recentIds.add(recent.id());
             recentAmounts.add(recent.amount());
             recentCapacities.add(recent.capacity());
             recentKinds.add(recent.kind());
         }
 
-        Map<String, Long> funnelBufferSummary = summarizeFunnelBuffer(session);
+        Map<String, Long> funnelBufferSummary = RtsPagePayloadFactory.summarizeFunnelBuffer(session);
         List<String> funnelBufferItemIds = new ArrayList<>(funnelBufferSummary.size());
         List<Long> funnelBufferCounts = new ArrayList<>(funnelBufferSummary.size());
         for (var entry : funnelBufferSummary.entrySet()) {
@@ -309,9 +320,10 @@ public final class RtsPageCore {
                 linkedRefs.names(), linkedRefs.modes(), linkedRefs.priorities(),
                 linkedRefs.iconItemIds(), linkedRefs.worldAvailable(),
                 safePage, totalPages, totalEntries,
+                totalCountsSnapshot,
                 session.browser.search, session.browser.category,
                 (byte) session.browser.sort.ordinal(), session.browser.ascending,
-                session.autoStoreMinedDrops, session.useBdNetwork,
+                session.sessionFlags.autoStoreMinedDrops, session.sessionFlags.useBdNetwork,
                 categories,
                 itemStacks, itemCounts,
                 totalItemIds, totalItemCounts,
@@ -331,9 +343,6 @@ public final class RtsPageCore {
     }
 
     public static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
-        if (handler instanceof ReportedCountItemHandler reported) {
-            return sanitizeCount(reported.getReportedCount(slot));
-        }
         return sanitizeCount(RtsAe2Compat.getReportedCount(handler, slot, stack));
     }
 
@@ -354,85 +363,6 @@ public final class RtsPageCore {
 
     public static long sanitizeCount(long value) {
         return RtsCountUtil.sanitizeCount(value);
-    }
-
-    // ---- empty payload ---------------------------------------------------------
-
-    private static S2CRtsStoragePagePayload buildEmptyPayload(ServerPlayer player, RtsStorageSession session) {
-        LinkedRefPayload linkedRefs = buildLinkedRefPayload(player, session);
-        int qSlotCount = RtsStorageBindings.QUICK_SLOT_COUNT;
-        int gbSlotCount = RtsStorageBindings.GUI_BINDING_SLOT_COUNT;
-        return new S2CRtsStoragePagePayload(
-                RtsLinkedStorageResolver.hasAnyStorage(player, session),
-                RtsLinkedStorageResolver.buildAnyStorageSummary(player, session),
-                linkedRefs.positions(), linkedRefs.names(), linkedRefs.modes(),
-                linkedRefs.priorities(), linkedRefs.iconItemIds(), linkedRefs.worldAvailable(),
-                0, 1, 0,
-                session.browser.search, session.browser.category,
-                (byte) session.browser.sort.ordinal(), session.browser.ascending,
-                session.autoStoreMinedDrops, session.useBdNetwork,
-                List.of(RtsPageSharedHelpers.CATEGORY_ALL),
-                List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.<Byte>of(),
-                RtsStorageUiPayloads.buildQuickSlotPayload(session, qSlotCount),
-                RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),
-                RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, gbSlotCount),
-                RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount),
-                session.funnel.funnelEnabled, List.of(), List.of());
-    }
-
-    // ---- linked ref payload ----------------------------------------------------
-
-    private static LinkedRefPayload buildLinkedRefPayload(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.linkedStorages.isEmpty()) {
-            return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
-        }
-        ResourceKey<Level> currentDimension = player.serverLevel().dimension();
-        ServerLevel level = player.serverLevel();
-        List<Long> positions = new ArrayList<>(session.linkedStorages.size());
-        List<String> names = new ArrayList<>(session.linkedStorages.size());
-        List<Byte> modes = new ArrayList<>(session.linkedStorages.size());
-        List<Integer> priorities = new ArrayList<>(session.linkedStorages.size());
-        List<String> iconItemIds = new ArrayList<>(session.linkedStorages.size());
-        List<Boolean> worldAvailable = new ArrayList<>(session.linkedStorages.size());
-        for (LinkedStorageRef ref : session.linkedStorages) {
-            boolean backpackLink = ref != null && session.linkedBackpackUuids.containsKey(ref);
-            if (ref == null || ref.pos() == null || (!backpackLink && !currentDimension.equals(ref.dimension()))) {
-                continue;
-            }
-            BlockPos pos = ref.pos();
-            boolean visible = RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref);
-            positions.add(pos.asLong());
-            names.add(resolveLinkedRefName(level, session, ref, visible));
-            modes.add(session.linkedModes.getOrDefault(ref, C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL));
-            priorities.add(RtsLinkedStorageResolver.sanitizeLinkedStoragePriority(
-                    session.linkedPriorities.getOrDefault(ref, 0)));
-            iconItemIds.add(resolveLinkedRefIconItemId(level, session, ref, visible));
-            worldAvailable.add(visible);
-        }
-        return new LinkedRefPayload(positions, names, modes, priorities, iconItemIds, worldAvailable);
-    }
-
-    private static String resolveLinkedRefName(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref,
-            boolean worldVisible) {
-        if (worldVisible && level != null && ref != null && ref.pos() != null && level.hasChunkAt(ref.pos())) {
-            return RtsLinkedStorageResolver.resolveDisplayName(level, ref.pos());
-        }
-        String cached = session == null || ref == null ? "" : session.linkedNames.get(ref);
-        return cached == null || cached.isBlank() ? "Linked Storage" : cached;
-    }
-
-    private static String resolveLinkedRefIconItemId(ServerLevel level, RtsStorageSession session, LinkedStorageRef ref,
-            boolean worldVisible) {
-        if (!worldVisible) {
-            String backpackItemId = session == null || ref == null ? "" : session.linkedBackpackItemIds.get(ref);
-            return backpackItemId == null ? "" : backpackItemId;
-        }
-        BlockPos pos = ref.pos();
-        Item item = level.getBlockState(pos).getBlock().asItem();
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-        return id == null ? "" : id.toString();
     }
 
     // ---- entry aggregation ----------------------------------------------------
@@ -473,7 +403,7 @@ public final class RtsPageCore {
         }
     }
 
-    private static void mergeExactEntry(List<Entry> entries, ItemStack stack, long count) {
+    static void mergeExactEntry(List<Entry> entries, ItemStack stack, long count) {
         if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
             return;
         }
@@ -498,36 +428,17 @@ public final class RtsPageCore {
                 prototype.getHoverName().getString(), count));
     }
 
+    // ---- internal fluid check -------------------------------------------------
+
     private static boolean hasPositiveInternalFluid(RtsStorageSession session) {
         if (session == null) {
             return false;
         }
-        for (Long amount : session.internalFluidMb.values()) {
+        for (Long amount : session.sessionFlags.internalFluidMb.values()) {
             if (amount != null && amount > 0L) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static Map<String, Long> summarizeFunnelBuffer(RtsStorageSession session) {
-        Map<String, Long> counts = new HashMap<>();
-        for (ItemStack stack : session.funnel.funnelBuffer) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (id == null) {
-                continue;
-            }
-            mergeCount(counts, id.toString(), stack.getCount());
-        }
-        List<Map.Entry<String, Long>> sorted = new ArrayList<>(counts.entrySet());
-        sorted.sort(Map.Entry.comparingByKey());
-        Map<String, Long> ordered = new LinkedHashMap<>();
-        for (var entry : sorted) {
-            ordered.put(entry.getKey(), entry.getValue());
-        }
-        return ordered;
     }
 }
