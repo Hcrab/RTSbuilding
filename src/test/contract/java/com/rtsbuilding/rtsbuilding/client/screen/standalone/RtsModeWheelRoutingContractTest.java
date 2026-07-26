@@ -11,15 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RtsModeWheelRoutingContractTest {
     @Test
     void wheelSelectionUpdatesTheStateReadByTopBarActiveStyle() throws IOException {
-        String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = owner("BuilderScreenModeSessionOwner.java");
         String topBar = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
         String topBarAdapter = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java");
 
-        String selection = methodBody(screen, "private void selectModeFromWheel(BuilderMode mode)");
-        assertTrue(selection.contains("this.controller.setMode(mode)"),
+        String selection = methodBody(screen, "void selectModeFromWheel(BuilderMode mode)");
+        assertTrue(selection.contains("screen.controller.setMode(mode)"),
                 "轮盘必须提交到统一 BuilderMode，不能维护独立显示状态");
         assertTrue(topBar.contains("TopBarUiAdapter.snapshot(screen, controller)"));
         assertTrue(topBarAdapter.contains("mode(controller.getMode())"));
@@ -35,14 +34,14 @@ class RtsModeWheelRoutingContractTest {
     void altWheelUsesOneStableTickEdgeInsteadOfThreeCompetingInputPaths() throws IOException {
         String screen = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
-        String altState = methodBody(screen, "private void updateModeWheelAltState()");
-        String tick = methodBody(screen, "public void tick()");
+        String altState = methodBody(owner("BuilderScreenModeSessionOwner.java"), "void updateModeWheelAltState()");
+        String tick = methodBody(owner("BuilderScreenLifecycleOwner.java"), "void tick()");
         String keyPressed = methodBody(
                 screen, "public boolean keyPressed(int keyCode, int scanCode, int modifiers)");
         String render = methodBody(
-                screen, "public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)");
+                owner("BuilderScreenRenderOwner.java"), "public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)");
 
-        assertTrue(altState.contains("this.cameraInput.cancelPointerGestures()"),
+        assertTrue(altState.contains("screen.cameraInput.cancelPointerGestures()"),
                 "轮盘打开时必须取消此前未完成的鼠标手势");
         assertTrue(tick.contains("updateModeWheelAltState()"),
                 "Alt 轮盘只从客户端 tick 读取稳定的物理按键边沿");
@@ -55,8 +54,7 @@ class RtsModeWheelRoutingContractTest {
 
     @Test
     void linkAndRotateActionsKeepTheRightDragCameraArbitration() throws IOException {
-        String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = owner("BuilderScreenPointerActionOwner.java");
         String cameraInput = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
         String mouseDown = methodBody(
@@ -66,11 +64,11 @@ class RtsModeWheelRoutingContractTest {
                 cameraInput,
                 "public boolean handleRightDrag(double mouseX, double mouseY, int button, double dragX, double dragY)");
 
-        assertTrue(mouseDown.contains("this.cameraInput.beginRightPress("),
+        assertTrue(mouseDown.contains("screen.cameraInput.beginRightPress("),
                 "世界右键必须先进入点击/拖动仲裁");
-        assertTrue(!mouseDown.contains("this.controller.rotateBlockStep("),
+        assertTrue(!mouseDown.contains("screen.controller.rotateBlockStep("),
                 "旋转箭头只响应左键，不能在鼠标按下时抢走右键拖动");
-        assertTrue(!mouseDown.contains("this.controller.linkStorage("),
+        assertTrue(!mouseDown.contains("screen.controller.linkStorage("),
                 "关联模式不能在鼠标按下时抢走右键拖动");
         assertTrue(rightDrag.contains("if (this.rightDragDistance <= 1.5D)"));
         assertTrue(rightDrag.contains("queueRotateDrag(this.pendingRightDragX, this.pendingRightDragY)"));
@@ -78,50 +76,47 @@ class RtsModeWheelRoutingContractTest {
 
     @Test
     void closingDuringTemporaryFunnelRestoresPreviousMode() throws IOException {
-        String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
-        String onClose = methodBody(screen, "public void onClose()");
+        String screen = owner("BuilderScreenLifecycleOwner.java");
+        String onClose = methodBody(screen, "void onClose()");
 
-        int restore = onClose.indexOf("this.controller.setMode(this.modeBeforeFunnelHotkey)");
-        int clearTemporary = onClose.indexOf("this.funnelHotkeyTemporaryMode = false");
+        int restore = onClose.indexOf("screen.controller.setMode(screen.modeBeforeFunnelHotkey)");
+        int clearTemporary = onClose.indexOf("screen.funnelHotkeyTemporaryMode = false");
         assertTrue(restore >= 0 && clearTemporary > restore,
                 "按住 F 关闭界面时，必须先恢复旧模式再清除临时漏斗标记");
     }
 
     @Test
     void funnelUsesRightMouseAndFAsIndependentHoldSources() throws IOException {
-        String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = owner("BuilderScreenPointerActionOwner.java");
         String mouseDown = methodBody(
                 screen,
                 "boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
         String mouseUp = methodBody(
-                screen,
+                owner("BuilderScreenPointerGestureOwner.java"),
                 "public boolean mouseReleased(double mouseX, double mouseY, int button)");
-        String sync = methodBody(screen, "private void syncFunnelHoldState()");
+        String sync = methodBody(owner("BuilderScreenModeSessionOwner.java"), "void syncFunnelHoldState()");
 
         assertTrue(mouseDown.contains("beginFunnelMouseHold(button)"));
         assertTrue(mouseDown.indexOf("beginFunnelMouseHold(button)")
-                        < mouseDown.indexOf("this.cameraInput.beginRightPress("));
+                        < mouseDown.indexOf("screen.cameraInput.beginRightPress("));
         assertTrue(mouseUp.contains("endFunnelMouseHold(button)"));
-        assertTrue(sync.contains("this.funnelHotkeyHeld || this.funnelMouseHoldButton >= 0"));
-        assertTrue(!screen.contains("funnelClickPulseTicks"));
+        assertTrue(sync.contains("screen.funnelHotkeyHeld || screen.funnelMouseHoldButton >= 0"));
+        assertTrue(!owner("BuilderScreenComponentState.java").contains("funnelClickPulseTicks"));
     }
 
     @Test
     void placedBlockRotationUsesWorldArcsAndSubmitsOneStepIntent() throws IOException {
-        String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = owner("BuilderScreenPointerActionOwner.java");
         String handles = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacedBlockRotationHandles.java");
         String leftClick = methodBody(
                 screen,
                 "boolean handleLeftClickInteractions(double mouseX, double mouseY, int button)");
 
-        assertTrue(screen.contains("private final PlacedBlockRotationHandles rotationHandles"));
-        assertTrue(leftClick.contains("this.rotationHandles.hitGesture("));
-        assertTrue(leftClick.contains("this.controller.rotateBlockStep("));
-        assertTrue(leftClick.contains("this.rotationHandles.select("));
+        assertTrue(owner("BuilderScreenComponentState.java").contains("PlacedBlockRotationHandles rotationHandles"));
+        assertTrue(leftClick.contains("screen.rotationHandles.hitGesture("));
+        assertTrue(leftClick.contains("screen.controller.rotateBlockStep("));
+        assertTrue(leftClick.contains("screen.rotationHandles.select("));
         assertTrue(handles.contains("availableArcs(state, pos, cameraForward)"));
         assertTrue(handles.contains("PlacedBlockRotationStep.supports("),
                 "客户端只显示共享增量旋转器真正支持的小圆弧");
@@ -145,8 +140,7 @@ class RtsModeWheelRoutingContractTest {
 
     @Test
     void rotationKeyboardTrackRunsAfterCameraAndSelectionPriority() throws IOException {
-        String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = owner("BuilderScreenKeyboardActionOwner.java");
         String worldKeys = methodBody(
                 screen,
                 "boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers)");
@@ -156,8 +150,8 @@ class RtsModeWheelRoutingContractTest {
         String keyPressed = methodBody(
                 keyRouter, "boolean keyPressed(int keyCode, int scanCode, int modifiers)");
 
-        assertTrue(worldKeys.indexOf("this.cameraInput.updateCameraVerticalHeldState(")
-                        < worldKeys.indexOf("handlePlacedBlockRotationKey(keyCode)"),
+        assertTrue(worldKeys.indexOf("screen.cameraInput.updateCameraVerticalHeldState(")
+                        < worldKeys.indexOf("screen.handlePlacedBlockRotationKey(keyCode)"),
                 "相机升降绑定必须先于旋转方向键");
         assertTrue(keyPressed.indexOf("handleSelectionBoxKeys(")
                         < keyPressed.indexOf("handleWorldInteractionKeys("),
@@ -199,6 +193,10 @@ class RtsModeWheelRoutingContractTest {
 
     private static String source(String path) throws IOException {
         return Files.readString(Path.of(path));
+    }
+
+    private static String owner(String file) throws IOException {
+        return source("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/" + file);
     }
 
     private static String methodBody(String source, String signatureStart) {

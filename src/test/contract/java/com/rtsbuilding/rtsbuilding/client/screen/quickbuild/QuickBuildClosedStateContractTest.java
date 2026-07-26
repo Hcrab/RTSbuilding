@@ -37,14 +37,14 @@ class QuickBuildClosedStateContractTest {
     @Test
     void storedQuickBuildStateDoesNotActivateWhenWindowIsClosed() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "public void syncQuickBuildActiveState");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java"));
+        String body = methodBody(source, "void syncQuickBuildActiveState");
 
-        assertTrue(body.contains("if (!this.quickBuildPanel.isOpen() || !canUseQuickBuild())"),
+        assertTrue(body.contains("if (!screen.quickBuildPanel.isOpen() || !screen.canUseQuickBuild())"),
                 "hidden or locked quick-build state must not stay active in the controller");
-        assertTrue(body.contains("this.controller.setBuildShape(BuildShape.BLOCK)"));
-        assertTrue(body.contains("this.controller.clearAreaMineSession()"));
-        assertTrue(body.contains("this.shapeController.clearShapeBuildSession()"));
+        assertTrue(body.contains("screen.controller.setBuildShape(BuildShape.BLOCK)"));
+        assertTrue(body.contains("screen.controller.clearAreaMineSession()"));
+        assertTrue(body.contains("screen.shapeController.clearShapeBuildSession()"));
     }
 
     @Test
@@ -52,7 +52,9 @@ class QuickBuildClosedStateContractTest {
         String builderScreen = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String canUseBody = methodBody(builderScreen, "public boolean canUseQuickBuild");
-        String toggleBody = methodBody(builderScreen, "public void toggleQuickBuild");
+        String windowActions = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenWindowActionOwner.java"));
+        String toggleBody = methodBody(windowActions, "void toggleQuickBuild");
         String panelSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
         String canShowBody = methodBody(panelSource, "protected boolean canShowWindow");
@@ -75,7 +77,7 @@ class QuickBuildClosedStateContractTest {
                 "the top status row should not duplicate quick-build shape state");
         assertFalse(topBarSource.contains("screen.rtsbuilding.status.fill"),
                 "the top status row should not duplicate quick-build fill state");
-        assertTrue(toggleBody.contains("showQuickBuildLockedMessage()"),
+        assertTrue(toggleBody.contains("screen.showQuickBuildLockedMessage()"),
                 "direct toggles should tell the player why quick-build did not open");
     }
 
