@@ -149,7 +149,8 @@ public final class RtsDestructionBatch {
             return new DestructionSliceResult(
                     state, 0, 0, 0, 0, DestructionSliceResult.Outcome.COMPLETE);
         }
-        if (state.toolProtectionEnabled() && RtsMiningValidator.isToolNearBreak(player, session)) {
+        if (state.toolProtectionEnabled()
+                && RtsMiningValidator.isToolNearBreak(player, session, state.toolSlot())) {
             return new DestructionSliceResult(
                     state, 0, 0, 0, 0, DestructionSliceResult.Outcome.WAITING_RESOURCE);
         }
@@ -214,7 +215,7 @@ public final class RtsDestructionBatch {
                 dropsToAbsorb.add(target);
             }
             if (job.hasNext() && job.toolProtectionEnabled
-                    && RtsMiningValidator.isToolNearBreak(player, session)) {
+                    && RtsMiningValidator.isToolNearBreak(player, session, job.toolSlot())) {
                 outcome = DestructionSliceResult.Outcome.WAITING_RESOURCE;
                 break;
             }

@@ -334,6 +334,57 @@ public final class RtsServerGameTests {
         });
     }
 
+    /**
+     * 回归范围破坏与连锁挖掘的工具槽位差异：玩家只把镐拿在主手、没有从
+     * RTS 物品面板额外选中工具时，请求不会创建工具租约。范围破坏交给异步
+     * Task 后仍必须使用该作业冻结的快捷栏槽位，不能误读 Session 中的旧槽位。
+     */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 400)
+    public static void areaDestroyUsesHeldNetheritePickaxeWithoutToolLease(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        List<BlockPos> targetsRel = linePositions(4, 1, 4, 6);
+        for (BlockPos targetRel : targetsRel) {
+            helper.setBlock(targetRel, Blocks.STONE);
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        ItemStack tool = new ItemStack(Items.NETHERITE_PICKAXE);
+        tool.setDamageValue(37);
+        int heldToolSlot = 4;
+        player.getInventory().setItem(heldToolSlot, tool.copy());
+        player.getInventory().selected = heldToolSlot;
+
+        RtsStorageSession session = requireSession(helper, player);
+        session.mining.miningToolSlot = 0;
+
+        helper.assertTrue(tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
+                "Netherite pickaxe must be able to harvest stone before the RTS request");
+        RtsAPI.get().mining().areaDestroy(
+                player,
+                asApiPositions(helper, targetsRel),
+                (byte) heldToolSlot,
+                "",
+                ItemStack.EMPTY,
+                false);
+        helper.assertTrue(session.mining.miningToolLease.isEmpty(),
+                "Held-tool range destroy must exercise the no-lease hotbar path");
+
+        helper.succeedWhen(() -> {
+            for (BlockPos targetRel : targetsRel) {
+                helper.assertBlockPresent(Blocks.AIR, targetRel);
+            }
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Hotbar-tool range destroy should finish without a durable task");
+            ItemStack returned = player.getInventory().getItem(heldToolSlot);
+            helper.assertTrue(returned.is(Items.NETHERITE_PICKAXE),
+                    "Held hotbar pickaxe must remain in its original slot");
+            helper.assertTrue(returned.getDamageValue() > tool.getDamageValue(),
+                    "Held hotbar pickaxe must preserve durability damage");
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
+    }
+
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200, batch = "survival_progression")
     public static void chainMineSnowWithoutHarvestTierStillWorks(GameTestHelper helper) {
         Config.setSurvivalProgressionEnabled(false);

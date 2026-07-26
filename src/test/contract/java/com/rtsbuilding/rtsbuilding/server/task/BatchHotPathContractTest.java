@@ -67,8 +67,10 @@ class BatchHotPathContractTest {
         int start = source.indexOf("public static DestructionSliceResult tickDetachedDestructionSlice(");
         int end = source.indexOf("public static void recordDetachedHistory(", start);
         String detached = source.substring(start, end);
-        assertTrue(detached.indexOf("job.destroyedPositions.add(target)")
-                < detached.lastIndexOf("RtsMiningValidator.isToolNearBreak(player, session)"));
+        int successfulBreak = detached.indexOf("job.destroyedPositions.add(target)");
+        int protectionCheck = detached.lastIndexOf(
+                "RtsMiningValidator.isToolNearBreak(player, session, job.toolSlot())");
+        assertTrue(protectionCheck >= 0 && successfulBreak < protectionCheck);
         assertFalse(detached.contains("unconsumeLast()"));
     }
 
