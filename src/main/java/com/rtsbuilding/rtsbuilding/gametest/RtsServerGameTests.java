@@ -1070,15 +1070,16 @@ public final class RtsServerGameTests {
                 "The first task must be able to remove the second task's charged target");
         Set<BlockPos> uniqueTargets = new LinkedHashSet<>(firstTargets);
         uniqueTargets.addAll(secondTargets);
-        List<BlockPos> uniqueTargetsRel = uniqueTargets.stream().map(helper::relativePos).toList();
+        List<BlockPos> uniqueTargetsAbs = List.copyOf(uniqueTargets);
 
         /*
          * 给终态写入、工具归还和掉落入库留出稳定窗口，再移除假玩家。
          * 这同时避免 GameTest 在任务刚转终态的同一 tick 关闭玩家连接。
          */
         helper.runAfterDelay(40, () -> {
-            for (BlockPos targetRel : uniqueTargetsRel) {
-                helper.assertBlockPresent(Blocks.AIR, targetRel);
+            for (BlockPos targetAbs : uniqueTargetsAbs) {
+                helper.assertTrue(helper.getLevel().getBlockState(targetAbs).isAir(),
+                        "Every unique overlapping chain-mining target must be removed: " + targetAbs);
             }
             int chestItems = countChestItem(helper, chestRel, Items.DIRT);
             int bufferItems = countBufferedItem(session, Items.DIRT);

@@ -98,121 +98,121 @@ public class Config {
     public static final ForgeConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = SERVER_BUILDER
             .comment("Maximum blocks collected by one RTS chain mining request.")
             .translation("rtsbuilding.configuration.ultimineMaxBlocks")
-            .defineInRange("mining.ultimineMaxBlocks", 256, 1, 4096);
+            .defineInRange(java.util.List.of("mining", "ultimineMaxBlocks"), 256, 1, 4096);
 
     public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_SIZE = SERVER_BUILDER
             .comment("Maximum block count per dimension for RTS area mining selections.")
             .translation("rtsbuilding.configuration.areaMineMaxSize")
-            .defineInRange("mining.areaMineMaxSize", 36, 1, 64);
+            .defineInRange(java.util.List.of("mining", "areaMineMaxSize"), 36, 1, 64);
 
     public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_VOLUME = SERVER_BUILDER
             .comment("Maximum covered volume, width * height * depth, accepted by one RTS area mining selection.")
             .translation("rtsbuilding.configuration.areaMineMaxVolume")
-            .defineInRange("mining.areaMineMaxVolume", 46656, 1, 262144);
+            .defineInRange(java.util.List.of("mining", "areaMineMaxVolume"), 46656, 1, 262144);
 
     public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_WIDTH = SERVER_BUILDER
             .comment("Maximum X-axis width accepted by one RTS area mining selection.")
             .translation("rtsbuilding.configuration.areaMineMaxWidth")
-            .defineInRange("mining.areaMineMaxWidth", 36, 1, 256);
+            .defineInRange(java.util.List.of("mining", "areaMineMaxWidth"), 36, 1, 256);
 
     public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_HEIGHT = SERVER_BUILDER
             .comment("Maximum Y-axis height accepted by one RTS area mining selection.")
             .translation("rtsbuilding.configuration.areaMineMaxHeight")
-            .defineInRange("mining.areaMineMaxHeight", 36, 1, 256);
+            .defineInRange(java.util.List.of("mining", "areaMineMaxHeight"), 36, 1, 256);
 
     public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_DEPTH = SERVER_BUILDER
             .comment("Maximum Z-axis depth accepted by one RTS area mining selection.")
             .translation("rtsbuilding.configuration.areaMineMaxDepth")
-            .defineInRange("mining.areaMineMaxDepth", 36, 1, 256);
+            .defineInRange(java.util.List.of("mining", "areaMineMaxDepth"), 36, 1, 256);
 
     public static final ForgeConfigSpec.EnumValue<RangeMiningHarvestTier> AREA_MINE_MAX_HARVEST_TIER = SERVER_BUILDER
             .comment("Server ceiling for harvest-tier plugins used by non-chain RTS range mining.")
             .translation("rtsbuilding.configuration.areaMineMaxHarvestTier")
-            .defineEnum("mining.areaMineMaxHarvestTier", RangeMiningHarvestTier.UNLIMITED);
+            .defineEnum(java.util.List.of("mining", "areaMineMaxHarvestTier"), RangeMiningHarvestTier.UNLIMITED);
 
     public static final ForgeConfigSpec.IntValue AE2_NETWORK_REFRESH_THROTTLE = SERVER_BUILDER
             .comment("Number of storage cache refresh cycles between expensive AE2 network snapshots.")
             .translation("rtsbuilding.configuration.ae2NetworkRefreshThrottle")
-            .defineInRange("storage.ae2NetworkRefreshThrottle", 10, 1, 200);
+            .defineInRange(java.util.List.of("storage", "ae2NetworkRefreshThrottle"), 10, 1, 200);
 
     public static final ForgeConfigSpec.IntValue REFINED_STORAGE_NETWORK_REFRESH_THROTTLE = SERVER_BUILDER
             .comment("Number of storage cache refresh cycles between expensive Refined Storage network snapshots.")
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
-            .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
+            .defineInRange(java.util.List.of("storage", "refinedStorageNetworkRefreshThrottle"), 10, 1, 200);
 
     public static final ForgeConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = SERVER_BUILDER
             .comment("Maximum player count retained by the storage page LRU cache.")
             .translation("rtsbuilding.configuration.pageCacheMaxPlayers")
-            .defineInRange("storage.pageCacheMaxPlayers", 256, 1, 4096);
+            .defineInRange(java.util.List.of("storage", "pageCacheMaxPlayers"), 256, 1, 4096);
 
     public static final ForgeConfigSpec.IntValue DEFAULT_STORAGE_PAGE_SIZE = SERVER_BUILDER
             .comment("Default number of item/fluid entries shown per RTS storage page.")
             .translation("rtsbuilding.configuration.defaultStoragePageSize")
-            .defineInRange("storage.defaultStoragePageSize", 90, 1, 4096);
+            .defineInRange(java.util.List.of("storage", "defaultStoragePageSize"), 90, 1, 4096);
 
     public static final ForgeConfigSpec.IntValue MAX_STORAGE_PAGE_SIZE = SERVER_BUILDER
             .comment("Maximum allowed item/fluid entries per RTS storage page request.")
             .translation("rtsbuilding.configuration.maxStoragePageSize")
-            .defineInRange("storage.maxStoragePageSize", 180, 1, 8192);
+            .defineInRange(java.util.List.of("storage", "maxStoragePageSize"), 180, 1, 8192);
 
     public static final ForgeConfigSpec.IntValue AREA_DESTROY_MAX_TARGETS = SERVER_BUILDER
             .comment("Maximum explicit positions accepted by one RTS area destroy request.")
             .translation("rtsbuilding.configuration.areaDestroyMaxTargets")
-            .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
+            .defineInRange(java.util.List.of("mining", "areaDestroyMaxTargets"), 98304, 1, 262144);
 
     public static final ForgeConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued mining targets processed by one mining task slice.")
             .translation("rtsbuilding.configuration.ultimineBlocksPerTick")
-            .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
+            .defineInRange(java.util.List.of("mining", "ultimineBlocksPerTick"), 32, 1, 128);
 
     public static final ForgeConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued remote placement targets processed per player per server tick.")
             .translation("rtsbuilding.configuration.buildBatchBlocksPerTick")
-            .defineInRange("placement.buildBatchBlocksPerTick", 64, 1, 512);
+            .defineInRange(java.util.List.of("placement", "buildBatchBlocksPerTick"), 64, 1, 512);
 
     public static final ForgeConfigSpec.IntValue BUILD_BATCH_MAX_QUEUED_JOBS = SERVER_BUILDER
             .comment("Maximum queued quick-build placement jobs per player.")
             .translation("rtsbuilding.configuration.buildBatchMaxQueuedJobs")
-            .defineInRange("placement.buildBatchMaxQueuedJobs", 4, 1, 32);
+            .defineInRange(java.util.List.of("placement", "buildBatchMaxQueuedJobs"), 4, 1, 32);
 
     public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = SERVER_BUILDER
             .comment("Hard global RTS work-unit limit across all players in one server tick.")
             .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerTick")
-            .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
+            .defineInRange(java.util.List.of("taskEngine", "maxUnitsPerTick"), 256, 1, 4096);
 
     public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_SLICE = SERVER_BUILDER
             .comment("Maximum RTS work units granted to one player before rotating to another player.")
             .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerSlice")
-            .defineInRange("taskEngine.maxUnitsPerSlice", 32, 1, 512);
+            .defineInRange(java.util.List.of("taskEngine", "maxUnitsPerSlice"), 32, 1, 512);
 
     public static final ForgeConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = SERVER_BUILDER
             .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
             .translation("rtsbuilding.configuration.taskEngineMaxNanosPerTick")
-            .defineInRange("taskEngine.maxNanosPerTick", 8_000_000L, 250_000L, 20_000_000L);
+            .defineInRange(java.util.List.of("taskEngine", "maxNanosPerTick"), 8_000_000L, 250_000L, 20_000_000L);
 
     public static final ForgeConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = SERVER_BUILDER
             .comment("Temporary interaction reach used while RTSBuilding replays a remote player action.")
             .translation("rtsbuilding.configuration.remotePovBlockReach")
-            .defineInRange("interaction.remotePovBlockReach", 4.0D, 1.0D, 16.0D);
+            .defineInRange(java.util.List.of("interaction", "remotePovBlockReach"), 4.0D, 1.0D, 16.0D);
 
     public static final ForgeConfigSpec.DoubleValue DROP_SCAN_RADIUS = SERVER_BUILDER
             .comment("Radius used to absorb drops around remotely mined blocks.")
             .translation("rtsbuilding.configuration.dropScanRadius")
-            .defineInRange("mining.dropScanRadius", 1.25D, 0.25D, 8.0D);
+            .defineInRange(java.util.List.of("mining", "dropScanRadius"), 1.25D, 0.25D, 8.0D);
 
     public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = SERVER_BUILDER
             .comment("Maximum RTS remote block action sounds sent per player per tick. Excess sounds are dropped.")
             .translation("rtsbuilding.configuration.remotePlaceSoundsPerTick")
-            .defineInRange("placement.remoteBlockActionSoundsPerTick", 16, 0, 16);
+            .defineInRange(java.util.List.of("placement", "remoteBlockActionSoundsPerTick"), 16, 0, 16);
 
     public static final ForgeConfigSpec.IntValue INTERNAL_FLUID_CAPACITY_BUCKETS = SERVER_BUILDER
             .comment("Fallback internal fluid buffer capacity in buckets when progression data is unavailable.")
             .translation("rtsbuilding.configuration.internalFluidCapacityBuckets")
-            .defineInRange("fluid.internalFluidCapacityBuckets", 100, 1, 4096);
+            .defineInRange(java.util.List.of("fluid", "internalFluidCapacityBuckets"), 100, 1, 4096);
 
     private static final ForgeConfigSpec.IntValue SERVER_CONFIG_REVISION = SERVER_BUILDER
             .comment("Internal RTSBuilding server configuration migration revision. Do not edit manually.")
-            .defineInRange("internal.configRevision", 0, 0, ServerConfigMigration.CURRENT_REVISION);
+            .defineInRange(java.util.List.of("internal", "configRevision"), 0, 0, ServerConfigMigration.CURRENT_REVISION);
 
     public static final ForgeConfigSpec SPEC = COMMON_BUILDER.build();
     public static final ForgeConfigSpec CLIENT_SPEC = CLIENT_BUILDER.build();
