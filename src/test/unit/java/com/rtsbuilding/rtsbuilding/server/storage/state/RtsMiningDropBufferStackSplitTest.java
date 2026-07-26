@@ -1,20 +1,18 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsMiningDropBufferStackSplitTest {
-    private static final Item TEST_ITEM = new Item(new Item.Properties().stacksTo(64));
-
     @Test
     void oversizedLogicalStackIsSplitIntoLegalVanillaStacks() {
         RtsMiningDropBufferState buffer = new RtsMiningDropBufferState();
 
-        int accepted = buffer.enqueueMerged(new ItemStack(TEST_ITEM), 130);
+        int accepted = buffer.enqueueMerged(new ItemStack(Items.COBBLESTONE), 130);
 
         assertEquals(130, accepted);
         assertEquals(130, buffer.bufferedItems);
@@ -27,10 +25,10 @@ class RtsMiningDropBufferStackSplitTest {
     @Test
     void fragmentedExistingStackMergesBeforeCreatingLegalNewStacks() {
         RtsMiningDropBufferState buffer = new RtsMiningDropBufferState();
-        buffer.stacks.add(new ItemStack(TEST_ITEM, 63));
+        buffer.stacks.add(new ItemStack(Items.COBBLESTONE, 63));
         buffer.bufferedItems = 63;
 
-        int accepted = buffer.enqueueMerged(new ItemStack(TEST_ITEM), 130);
+        int accepted = buffer.enqueueMerged(new ItemStack(Items.COBBLESTONE), 130);
 
         assertEquals(130, accepted);
         assertEquals(java.util.List.of(64, 64, 64, 1),

@@ -130,7 +130,7 @@ public final class RtsHandlerCache {
 
     /** 返回指定物品在所有缓存槽位中的总数量。 */
     public long getCount(Item item) {
-        return this.countsByItem.getOrDefault(item.toString(), 0L);
+        return this.countsByItem.getOrDefault(BuiltInRegistries.ITEM.getKey(item).toString(), 0L);
     }
 
     /** 按物品注册字符串 ID 返回总数量。 */

@@ -399,7 +399,6 @@ tasks.matching { it.name in ['runClient', 'runServer', 'runGameTestServer'] }.co
 }
 
 tasks.named('test', Test).configure {
-    // 自动加载统一的 Minecraft/Forge 测试引导，避免测试类初始化顺序污染内建注册表。
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
     useJUnitPlatform {
         excludeTags 'known-performance-debt'

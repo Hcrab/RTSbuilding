@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -177,7 +178,7 @@ public final class RtsAggregateStorage {
 
                 // Mark this handler's cache as dirty
                 cs.cache.invalidate();
-                this.pendingChanges.add(targetItem.toString());
+                this.pendingChanges.add(itemId(targetItem));
             }
 
             return out;
@@ -242,7 +243,7 @@ public final class RtsAggregateStorage {
      * 返回是否有任何缓存处理器报告拥有指定物品。
      */
     public boolean hasItem(Item item) {
-        String itemId = item.toString();
+        String itemId = itemId(item);
         for (CachedHandlerSlot cs : this.flatOrdered) {
             if (cs.cache.getCount(itemId) > 0) {
                 return true;
@@ -256,7 +257,7 @@ public final class RtsAggregateStorage {
      */
     public long getTotalCount(Item item) {
         long total = 0L;
-        String itemId = item.toString();
+        String itemId = itemId(item);
         for (CachedHandlerSlot cs : this.flatOrdered) {
             total += cs.cache.getCount(itemId);
         }
@@ -367,8 +368,13 @@ public final class RtsAggregateStorage {
         // 仅在物品实际被插入时（剩余量减少）才标记待处理变更，
         // 避免失败/部分存储的尝试触发虚假的 UI 刷新。
         if (!simulate && remain.getCount() < original.getCount()) {
-            this.pendingChanges.add(originalItem.toString());
+            this.pendingChanges.add(itemId(originalItem));
         }
+    }
+
+    /** Forge 1.20.1 的 Item#toString() 只返回路径，缓存键必须使用完整注册 ID。 */
+    private static String itemId(Item item) {
+        return BuiltInRegistries.ITEM.getKey(item).toString();
     }
 
     private void applyPendingMutations() {
