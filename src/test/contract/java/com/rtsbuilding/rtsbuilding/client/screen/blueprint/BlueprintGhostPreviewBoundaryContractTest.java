@@ -23,15 +23,19 @@ class BlueprintGhostPreviewBoundaryContractTest {
     void panelDelegatesGeometryAndDoesNotOwnDuplicatePreviewRecords()
             throws IOException {
         String panel = source(BLUEPRINT_ROOT.resolve("BlueprintPanel.java"));
+        String placement = source(BLUEPRINT_ROOT.resolve("BlueprintPlacementSession.java"));
         String factory = source(BLUEPRINT_ROOT.resolve(
                 "BlueprintPlacementPreviewFactory.java"));
         String screen = source(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreen.java"));
 
-        assertTrue(panel.contains(
+        assertTrue(placement.contains(
                 "BlueprintPlacementPreviewFactory.anchorForCursorTarget("));
-        assertTrue(panel.contains("BlueprintPlacementPreviewFactory.create("));
+        assertTrue(placement.contains("BlueprintPlacementPreviewFactory.create("));
+        assertTrue(panel.contains("return PLACEMENT.anchorForCursorTarget(cursorTarget);"));
+        assertTrue(panel.contains("return PLACEMENT.createGhostPreview("));
+        assertFalse(panel.contains("BlueprintPlacementPreviewFactory."));
         assertFalse(panel.contains("record BlueprintGhostBlock"));
         assertFalse(panel.contains("record BlueprintGhostPreview"));
         assertFalse(screen.contains("new BlueprintGhostPreview("),

@@ -40,9 +40,7 @@ class BlueprintCaptureInputRouterContractTest {
         String panel = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/"
                         + "BlueprintPanel.java"));
-        String body = methodBody(panel,
-                "public static boolean keyPressed("
-                        + "int keyCode, int scanCode, ClientRtsController controller)");
+        String body = methodBody(panel, "public static boolean keyPressed(");
 
         assertTrue(body.contains("BlueprintCaptureInputRouter.keyPressed("));
         assertFalse(body.contains("CAPTURE.isSaving()"),
