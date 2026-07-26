@@ -16,6 +16,7 @@ final class QuickBuildPreferenceState {
     private BuildShape buildShape = BuildShape.BLOCK;
     private AreaMineShape destroyShape = AreaMineShape.CHAIN;
     private int chainLimit = 64;
+    private boolean overwrite;
     private final EnumMap<BuildShape, Boolean> advanced =
             new EnumMap<BuildShape, Boolean>(BuildShape.class);
     private final EnumMap<BuildShape, Boolean> vertical =
@@ -51,6 +52,14 @@ final class QuickBuildPreferenceState {
 
     void chainLimit(int value) {
         chainLimit = value;
+    }
+
+    boolean overwrite() {
+        return overwrite;
+    }
+
+    void overwrite(boolean value) {
+        overwrite = value;
     }
 
     boolean advanced(BuildShape shape) {

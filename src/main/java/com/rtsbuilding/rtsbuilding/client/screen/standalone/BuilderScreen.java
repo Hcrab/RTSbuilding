@@ -2194,6 +2194,10 @@ public final class BuilderScreen extends Screen {
     public boolean isQuickBuildRangeDestroyChainMode() {
         return isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
     }
+
+    public boolean isQuickBuildCreativeOverwriteEnabled() {
+        return isQuickBuildOpen() && this.quickBuildPanel.isCreativeOverwriteEnabled();
+    }
     /** 范围破坏的体形状是否正在使用六向手柄高级编辑。 */
     public boolean isAdvancedRangeDestroyBoxMode() {
         return isAdvancedShapeMode();

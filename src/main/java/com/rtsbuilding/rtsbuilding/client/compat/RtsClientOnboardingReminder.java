@@ -22,6 +22,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
+    private static final String STABLE_VERSION = "1.1.5-patch4";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;
@@ -86,7 +87,8 @@ public final class RtsClientOnboardingReminder {
                 Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
         minecraft.player.displayClientMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
-                Component.literal(currentModVersion()),
+                Component.literal(currentDisplayVersion()),
+                Component.literal(STABLE_VERSION),
                 websiteComponent())
                 .withStyle(ChatFormatting.GOLD), false);
         minecraft.player.displayClientMessage(Component.translatable(
@@ -116,12 +118,19 @@ public final class RtsClientOnboardingReminder {
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
     }
 
-    /** 从当前 ModContainer 读取版本，避免语言文件与实际发布包漂移。 */
-    private static String currentModVersion() {
-        return ModList.get()
+    /**
+     * 从实际加载的 ModContainer 读取当前版本系列。
+     *
+     * <p>入门提醒面向普通玩家，只展示 {@code 1.1.6} 这一公开版本号；
+     * Pilot 构建自身仍保留完整的 {@code 1.1.6-pilotN} JAR 元数据，便于日志诊断。
+     */
+    private static String currentDisplayVersion() {
+        String version = ModList.get()
                 .getModContainerById(RtsbuildingMod.MODID)
                 .map(container -> container.getModInfo().getVersion().toString())
                 .orElse("unknown");
+        int qualifier = version.indexOf('-');
+        return qualifier > 0 ? version.substring(0, qualifier) : version;
     }
 
     private static Component websiteComponent() {

@@ -75,6 +75,8 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -934,6 +936,88 @@ public final class RtsServerGameTests {
                     placedRel,
                     BlockStateProperties.SLAB_TYPE,
                     SlabType.TOP);
+            stopPlayers(player);
+        });
+    }
+
+    /** 创造覆盖会替换不可替换方块，并忽略目标格内的实体占位。 */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void creativeQuickBuildOverwriteReplacesOccupiedBlock(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(2, 1, 2);
+        helper.setBlock(targetRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos targetAbs = helper.absolutePos(targetRel);
+
+        ArmorStand stand = EntityType.ARMOR_STAND.create(helper.getLevel());
+        helper.assertTrue(stand != null, "Armor stand fixture should be created");
+        stand.moveTo(Vec3.atCenterOf(targetAbs));
+        helper.getLevel().addFreshEntity(stand);
+
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(targetAbs).subtract(rayOrigin).normalize();
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player,
+                List.of(targetAbs),
+                Direction.UP,
+                0.5D,
+                0.5D,
+                0.5D,
+                (byte) 0,
+                "",
+                false,
+                true,
+                true,
+                "minecraft:dirt",
+                new ItemStack(Items.DIRT),
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z);
+
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.DIRT, targetRel);
+            helper.assertTrue(!stand.isRemoved(), "Overwrite must not delete the occupying entity");
+            stopPlayers(player);
+        });
+    }
+
+    /** 生存玩家即使伪造覆盖字段，也不能替换既有方块。 */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void survivalQuickBuildCannotSpoofOverwrite(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(2, 1, 2);
+        helper.setBlock(targetRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        BlockPos targetAbs = helper.absolutePos(targetRel);
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(targetAbs).subtract(rayOrigin).normalize();
+
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player,
+                List.of(targetAbs),
+                Direction.UP,
+                0.5D,
+                0.5D,
+                0.5D,
+                (byte) 0,
+                "",
+                false,
+                true,
+                true,
+                "minecraft:dirt",
+                new ItemStack(Items.DIRT),
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z);
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                    "Spoofed overwrite job should finish as a skipped placement");
+            helper.assertBlockPresent(Blocks.STONE, targetRel);
             stopPlayers(player);
         });
     }

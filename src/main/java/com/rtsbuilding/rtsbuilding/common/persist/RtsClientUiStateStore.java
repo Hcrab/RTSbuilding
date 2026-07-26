@@ -415,6 +415,7 @@ public final class RtsClientUiStateStore {
                 public String buildFillMode = "FILL";
                 public int buildRotationDegrees = 0;
                 public boolean buildLineConnected = false;
+                public boolean creativeOverwrite = false;
             }
         }
 
@@ -541,6 +542,7 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.building.buildFillMode = sanitizeEnum(this.quickBuild.building.buildFillMode, "FILL");
             clean.quickBuild.building.buildRotationDegrees = Math.floorMod(this.quickBuild.building.buildRotationDegrees, 360);
             clean.quickBuild.building.buildLineConnected = this.quickBuild.building.buildLineConnected;
+            clean.quickBuild.building.creativeOverwrite = this.quickBuild.building.creativeOverwrite;
             // quickBuild — mining
             clean.quickBuild.mining.ultimineLimit = Math.max(1, Math.min(256, this.quickBuild.mining.ultimineLimit));
             clean.quickBuild.mining.areaMineShape = sanitizeEnum(this.quickBuild.mining.areaMineShape, "CHAIN");

@@ -28,4 +28,17 @@ class BuilderScreenInitializationOrderContractTest {
         assertTrue(cursorInit < quickBuildInit,
                 "ScreenCursorPicker must be bound before QuickBuildPanel creates its first snapshot");
     }
+
+    @Test
+    void constructorSnapshotDoesNotReadMinecraftFromUnattachedScreen() throws IOException {
+        String adapter = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
+        String panel = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+
+        assertTrue(!adapter.contains("uiScreen().getMinecraft()"),
+                "BuilderScreen 构造期快照不能读取尚未挂载的 Screen.minecraft");
+        assertTrue(panel.contains("Minecraft.getInstance().player"),
+                "构造期需要玩家模式时应通过客户端单例安全读取");
+    }
 }

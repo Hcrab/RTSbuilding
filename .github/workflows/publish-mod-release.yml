@@ -9,6 +9,15 @@ on:
         description: Existing GitHub release tag to publish
         required: true
         type: string
+      release_type:
+        description: Mod platform release channel for manual publishes
+        required: true
+        default: beta
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
       publish_neoforge:
         description: Publish NeoForge 1.21.1
         required: true
@@ -92,7 +101,7 @@ jobs:
           files: build/libs/rtsbuilding-neoforge-1.21.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for NeoForge 1.21.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: neoforge
           game-versions: 1.21.1
@@ -111,7 +120,7 @@ jobs:
           files: build/libs/rtsbuilding-neoforge-1.21.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for NeoForge 1.21.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: neoforge
           game-versions: 1.21.1
@@ -171,7 +180,7 @@ jobs:
           files: build/libs/rtsbuilding-forge-1.20.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for Forge 1.20.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: forge
           game-versions: 1.20.1
@@ -190,7 +199,7 @@ jobs:
           files: build/libs/rtsbuilding-forge-1.20.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for Forge 1.20.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: forge
           game-versions: 1.20.1

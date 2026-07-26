@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PilotPatchContractTest {
     @Test
-    void pilotVersionKeepsClientDefaultsLocalizedCameraHintAndDynamicVersionText() throws Exception {
+    void pilotVersionKeepsClientDefaultsLocalizedCameraHintAndExplicitStableVersion() throws Exception {
         String properties = Files.readString(Path.of("gradle.properties"));
         String config = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/Config.java"));
@@ -29,9 +29,11 @@ class PilotPatchContractTest {
         assertTrue(zhCn.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(zhCn.contains("\"item.rtsbuilding.rts_control_core\""));
         assertTrue(onboarding.contains("getModContainerById(RtsbuildingMod.MODID)"));
-        assertTrue(onboarding.contains("Component.literal(currentModVersion())"));
-        assertTrue(zhCn.contains("当前版本：%1$s"));
-        assertTrue(zhCn.contains("请使用最新稳定版"));
+        assertTrue(onboarding.contains("Component.literal(currentDisplayVersion())"));
+        assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.5-patch4\""));
+        assertTrue(onboarding.contains("version.indexOf('-')"));
+        assertTrue(zhCn.contains("当前测试版本：%1$s；稳定版：%2$s"));
+        assertTrue(zhCn.contains("请退回稳定版"));
         assertTrue(Files.isRegularFile(Path.of(".github/workflows/publish-mod-release.yml")));
     }
 }

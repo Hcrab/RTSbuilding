@@ -84,6 +84,14 @@ public final class ShapePlacementTargetResolver {
     }
 
     /**
+     * 创造覆盖模式直接把形状几何坐标当作最终放置坐标。
+     * 这条路径只做空值清理和稳定去重，不再根据已有方块把整幅形状推向相邻面。
+     */
+    public static List<BlockPos> resolveOverwriteTargets(List<BlockPos> targets) {
+        return immutableDistinct(targets == null ? List.of() : targets);
+    }
+
+    /**
      * 解析单次点击实际会落到的坐标；世界或点击信息缺失时返回 {@code null}。
      */
     public static BlockPos resolveClickedTarget(

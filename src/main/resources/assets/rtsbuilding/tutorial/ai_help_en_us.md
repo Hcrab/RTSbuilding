@@ -231,6 +231,8 @@ If `latest.log` contains no corresponding server request/workflow at all, inspec
 
 Small actions may finish inside one pipeline run. Large shapes and blueprints are usually validated by the pipeline and then executed across ticks. A visible preview proves only that client selection succeeded.
 
+The durable Task is authoritative for long-running work; Workflow is its player-facing projection. Pausing, leaving a world, or rejoining must not let wall-clock expiry delete a non-terminal Task that still exists. Resume continues from persisted progress. When the last projection disappears, the server sends an idle state to clear stale client progress; deleting an already-missing row also triggers authoritative reconciliation.
+
 ### Structured diagnostic logs
 
 The server writes one-line `[RTS-DIAG]` records at shared Pipeline and Workflow boundaries instead of logging every block or tick:
@@ -257,6 +259,8 @@ The server validates session, dimension, action range, progression/plugins, clai
 Targets pass soft-block classification, plugin harvest tier, real-tool suitability, tool protection, range, claim, and recovery rules. Chain requests obey target-count and per-tick limits; area requests additionally obey per-axis and total-volume limits.
 
 Each chain/area request has independent progress and task identity. Overlap must tolerate a target already becoming air without duplicating drops. “Recover RTS-placed blocks” uses a dedicated recorded-block path that bypasses tool, tier, and Silk Touch requirements.
+
+Area destruction freezes the selected tool slot when the task is submitted. A real tool leased from linked storage takes priority; without a lease, execution reads the task's frozen hotbar slot rather than mutable or stale session state. Harvest checks, tool protection, and durability write-back all use that same real stack.
 
 Drops follow normal break logic, then optionally transfer to linked storage. A failed or partial insertion needs an explicit fallback and must never silently delete items.
 
@@ -293,6 +297,8 @@ Placement/destroy previews, selection boxes, skeletons, ghosts, and confirmed an
 - Place/destroy animation: after server-confirmed mutation.
 
 Preview and execution share shape/rotation/fill/coordinate semantics, but the server independently validates. Renderers must not flush or end Minecraft shared buffers unless lifecycle safety is proven.
+
+UI Core snapshots may be created while `BuilderScreen` is still being constructed. At that point the Screen is not yet attached to Minecraft, so constructor-time code must not read `screen.getMinecraft()`. If current-player state is required, use the nullable client singleton; font- or size-dependent objects wait for normal screen initialization.
 
 ## In-RTS settings
 
@@ -425,6 +431,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | Symptom | Likely checkpoint | Player verification |
 |---|---|---|
 | Click/key does nothing | UI ownership, text focus, wrong mode, pending A/B state, no packet | Close windows, cancel tool with `Esc`, reselect mode, report exact input. |
+| Progress is stuck after rejoin, has no highlight, and X does nothing | Durable Task resume, Workflow projection expiry, or missing client idle sync | Preserve the save and provide logs before/after rejoin; clicking X requests authoritative reconciliation. |
 | Preview appears, confirm does nothing | Confirm key, packet, session/dimension, plugin, range, claim, task admission | Press configured confirm key; check toast/actionbar and whether `latest.log` contains a request/workflow. |
 | Right click needs two attempts | First click became drag, UI/mode consumed it, release did not form interaction | Short-click away from panels and report mode/highlight before and after first release. |
 | Chain cannot mine dirt or snow | Not normally harvest-tier-gated: inspect Remote Control, Chain Break, session, claims, and soft-block classification | Try single-block mining; report progression, installed plugins, and block ID. |

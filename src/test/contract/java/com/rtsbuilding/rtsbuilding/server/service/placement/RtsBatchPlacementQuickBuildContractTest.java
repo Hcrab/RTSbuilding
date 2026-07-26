@@ -27,7 +27,7 @@ class RtsBatchPlacementQuickBuildContractTest {
         String batch = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementBatch.java"));
         String enqueue = methodBody(batch,
-                "enqueuePlaceBatch(ServerPlayer player, RtsStorageSession session");
+                "boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting");
         assertTrue(enqueue.contains("quickBuild && (itemId == null || itemId.isBlank())"));
         assertTrue(enqueue.contains("message.rtsbuilding.quick_build.select_material"));
 

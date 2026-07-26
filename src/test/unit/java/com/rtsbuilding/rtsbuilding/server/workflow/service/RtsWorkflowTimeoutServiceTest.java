@@ -116,7 +116,7 @@ class RtsWorkflowTimeoutServiceTest {
 
     @Test
     void terminalHistoryExpiresWithoutCancellingTaskAgain() {
-        Fixture fixture = fixture(17, true, true);
+        Fixture fixture = fixture(17, true, true, true);
         fixture.service.start(Duration.ofMillis(50L), Duration.ofMillis(1L));
 
         fixture.service.tick(null, 700L);
@@ -128,6 +128,21 @@ class RtsWorkflowTimeoutServiceTest {
         assertEquals(1, fixture.dirtyMarks.size());
     }
 
+    @Test
+    void activeDurableTaskIsNotExpiredByWallClock() {
+        Fixture fixture = fixture(18, true, false, true);
+        fixture.service.start(Duration.ofMillis(50L), Duration.ofMillis(1L));
+
+        fixture.service.tick(null, 800L);
+        fixture.service.tick(null, 801L);
+
+        assertNotNull(fixture.slots.findEntryById(18),
+                "单人游戏暂停或重进不能让墙上时钟误杀仍在运行的 durable task");
+        assertTrue(fixture.events.isEmpty());
+        assertTrue(fixture.cancelMarks.isEmpty());
+        assertTrue(fixture.dirtyMarks.isEmpty());
+    }
+
     private static Fixture fixture(int entryId) {
         return fixture(entryId, true);
     }
@@ -137,6 +152,14 @@ class RtsWorkflowTimeoutServiceTest {
     }
 
     private static Fixture fixture(int entryId, boolean serverThread, boolean terminal) {
+        return fixture(entryId, serverThread, terminal, false);
+    }
+
+    private static Fixture fixture(
+            int entryId,
+            boolean serverThread,
+            boolean terminal,
+            boolean taskBacked) {
         UUID playerId = UUID.randomUUID();
         RtsWorkflowSlotManager slots = staleSlots(entryId, terminal);
         Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> allSlots = new HashMap<>();
@@ -154,7 +177,8 @@ class RtsWorkflowTimeoutServiceTest {
                 (owner, dimension) -> dirtyMarks.add(new DirtyMark(owner, dimension)),
                 ignored -> serverThread,
                 (server, owner, dimension, cancelledEntryId) ->
-                        cancelMarks.add(new CancelMark(owner, dimension, cancelledEntryId)));
+                        cancelMarks.add(new CancelMark(owner, dimension, cancelledEntryId)),
+                (server, owner, dimension, guardedEntryId) -> taskBacked);
         return new Fixture(playerId, slots, service, events, dirtyMarks, cancelMarks);
     }
 

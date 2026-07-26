@@ -36,6 +36,12 @@ final class QuickBuildPersistenceBindings {
                         (state, value) -> state.quickBuild.mining.ultimineLimit = value,
                         preferences::chainLimit,
                         preferences::chainLimit),
+                PersistableProperty.boolField(
+                        "creative_overwrite",
+                        state -> state.quickBuild.building.creativeOverwrite,
+                        (state, value) -> state.quickBuild.building.creativeOverwrite = value,
+                        preferences::overwrite,
+                        preferences::overwrite),
                 PersistableProperty.enumField(
                         "area_mine_shape",
                         state -> state.quickBuild.mining.areaMineShape,

@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
  */
 public final class QuickBuildWindowLayout {
     public static final int WINDOW_W = 178;
-    public static final int BUILD_BASE_H = 222;
+    public static final int BUILD_BASE_H = 260;
     public static final int DESTROY_BASE_H = 260;
     public static final int BOTTOM_INFO_H = 72;
     public static final int TITLE_H = 20;

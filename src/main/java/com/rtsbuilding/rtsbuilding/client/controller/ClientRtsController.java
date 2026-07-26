@@ -1644,8 +1644,14 @@ public final class ClientRtsController {
 
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
             Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
+        placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
+    }
+
+    public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
+            Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean overwriteExisting) {
         String itemId = this.buildPlacementService.getSelectedItemId();
         this.buildPlacementService.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied,
+                overwriteExisting,
                 this::beginRemoteMenuOpenGrace,
                 () -> {
                     if (isLocalPlayerCreative()) return false;

@@ -73,6 +73,19 @@ public final class RtsPlacementBatch {
             double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX, double rayDirY,
             double rayDirZ, boolean quickBuild, boolean forceEmptyHand, boolean sendRemoteHint,
             int workflowEntryId) {
+        return enqueuePlaceBatch(player, session, clickedPositions, face,
+                hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
+                forcePlace, skipIfOccupied, false, itemId, itemPrototype,
+                rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
+                quickBuild, forceEmptyHand, sendRemoteHint, workflowEntryId);
+    }
+
+    public static boolean enqueuePlaceBatch(ServerPlayer player, RtsStorageSession session, List<BlockPos> clickedPositions,
+            Direction face, double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
+            boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId, ItemStack itemPrototype,
+            double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX, double rayDirY,
+            double rayDirZ, boolean quickBuild, boolean forceEmptyHand, boolean sendRemoteHint,
+            int workflowEntryId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             if (sendRemoteHint && player != null) {
                 player.displayClientMessage(
@@ -114,6 +127,7 @@ public final class RtsPlacementBatch {
                 PlacementStatePreset.sanitize(statePreset),
                 forcePlace,
                 skipIfOccupied,
+                overwriteExisting && quickBuild && player.isCreative(),
                 itemId == null ? "" : itemId,
                 RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype),
                 rayOriginX,
@@ -320,8 +334,10 @@ public final class RtsPlacementBatch {
         if (statePlan != null) {
             BlockPos trackedPos = clickedPos;
             BlockState beforeState = player.serverLevel().getBlockState(trackedPos);
-            keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(player, session, clickedPos, statePlan);
-            if (keepGoing && (beforeState.isAir() || beforeState.canBeReplaced())
+            boolean creativeOverwrite = job.overwriteExisting() && player.isCreative();
+            keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(
+                    player, session, clickedPos, statePlan, creativeOverwrite);
+            if (keepGoing && (creativeOverwrite || beforeState.isAir() || beforeState.canBeReplaced())
                     && !player.serverLevel().getBlockState(trackedPos).isAir()) {
                 job.placedPositions.add(trackedPos);
             } else if (keepGoing) {
@@ -384,6 +400,7 @@ public final class RtsPlacementBatch {
         private final String statePreset;
         private final boolean forcePlace;
         private final boolean skipIfOccupied;
+        private final boolean overwriteExisting;
         private final String itemId;
         private final ItemStack itemPrototype;
         private final double rayOriginX;
@@ -409,7 +426,8 @@ public final class RtsPlacementBatch {
         int skippedWhileProcessing;
 
         private PlaceBatchJob(List<BlockPos> clickedPositions, Direction face, double hitOffsetX, double hitOffsetY,
-                double hitOffsetZ, byte rotateSteps, String statePreset, boolean forcePlace, boolean skipIfOccupied, String itemId,
+                double hitOffsetZ, byte rotateSteps, String statePreset, boolean forcePlace, boolean skipIfOccupied,
+                boolean overwriteExisting, String itemId,
                 ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX,
                 double rayDirY, double rayDirZ, boolean quickBuild, boolean forceEmptyHand, boolean sendRemoteHint,
                 int workflowEntryId) {
@@ -422,6 +440,7 @@ public final class RtsPlacementBatch {
             this.statePreset = PlacementStatePreset.sanitize(statePreset);
             this.forcePlace = forcePlace;
             this.skipIfOccupied = skipIfOccupied;
+            this.overwriteExisting = overwriteExisting;
             this.itemId = itemId;
             this.itemPrototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
             this.rayOriginX = rayOriginX;
@@ -516,6 +535,7 @@ public final class RtsPlacementBatch {
         private static final String NBT_STATE_PRESET = "statePreset";
         private static final String NBT_FORCE_PLACE = "forcePlace";
         private static final String NBT_SKIP_IF_OCCUPIED = "skipIfOccupied";
+        private static final String NBT_OVERWRITE_EXISTING = "overwriteExisting";
         private static final String NBT_ITEM_ID = "itemId";
         private static final String NBT_ITEM_PROTOTYPE = "itemPrototype";
         private static final String NBT_RAY_ORIGIN_X = "rayOriginX";
@@ -548,6 +568,7 @@ public final class RtsPlacementBatch {
             tag.putString(NBT_STATE_PRESET, statePreset);
             tag.putBoolean(NBT_FORCE_PLACE, forcePlace);
             tag.putBoolean(NBT_SKIP_IF_OCCUPIED, skipIfOccupied);
+            tag.putBoolean(NBT_OVERWRITE_EXISTING, overwriteExisting);
             tag.putString(NBT_ITEM_ID, itemId);
             if (!itemPrototype.isEmpty()) {
                 tag.put(NBT_ITEM_PROTOTYPE, itemPrototype.save(registryAccess));
@@ -583,6 +604,7 @@ public final class RtsPlacementBatch {
             String statePreset = tag.getString(NBT_STATE_PRESET);
             boolean forcePlace = tag.getBoolean(NBT_FORCE_PLACE);
             boolean skipIfOccupied = tag.getBoolean(NBT_SKIP_IF_OCCUPIED);
+            boolean overwriteExisting = tag.getBoolean(NBT_OVERWRITE_EXISTING);
             String itemId = tag.getString(NBT_ITEM_ID);
             ItemStack itemPrototype = ItemStack.EMPTY;
             if (tag.contains(NBT_ITEM_PROTOTYPE, Tag.TAG_COMPOUND)) {
@@ -602,7 +624,7 @@ public final class RtsPlacementBatch {
 
             PlaceBatchJob job = new PlaceBatchJob(
                     positions, face, hitOffsetX, hitOffsetY, hitOffsetZ,
-                    rotateSteps, statePreset, forcePlace, skipIfOccupied, itemId, itemPrototype,
+                    rotateSteps, statePreset, forcePlace, skipIfOccupied, overwriteExisting, itemId, itemPrototype,
                     rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
                     quickBuild, forceEmptyHand, sendRemoteHint, workflowEntryId);
             job.index = index;
@@ -662,6 +684,10 @@ public final class RtsPlacementBatch {
 
         public boolean skipIfOccupied() {
             return this.skipIfOccupied;
+        }
+
+        public boolean overwriteExisting() {
+            return this.overwriteExisting;
         }
 
         public String itemId() {
