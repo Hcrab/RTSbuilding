@@ -19,6 +19,8 @@ class RtsBackpackRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/resolver/RtsLinkedStorageBlockEventHandler.java"));
+        String remoteMenuMixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/ModdedRemoteStillValidMixin.java"));
 
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("findCarriedBackpack(player, uuid)"),
@@ -34,5 +36,7 @@ class RtsBackpackRoutingContractTest {
                 "Moving a backpack off the ground must preserve its UUID binding.");
         assertFalse(lifecycle.contains("removeBrokenLinkedStorageRef"),
                 "Moving a backpack off the ground must not delete its UUID binding.");
+        assertTrue(remoteMenuMixin.contains("sophisticatedbackpacks.common.gui.BackpackContainer"),
+                "Remote backpack screens must keep their concrete menu valid while the player uses RTS view.");
     }
 }
