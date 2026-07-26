@@ -18,16 +18,22 @@ class ShapePlacementContextContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapePlacementTargetResolver.java"));
         String sessionResolverSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSessionInputResolver.java"));
+        String sessionSource = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
+        String previewSource = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
+        String operationSource = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
 
         assertTrue(controllerSource.contains("ShapePlacementTargetResolver.resolveClickedTarget"),
                 "单方块点击目标应委托给统一放置目标解析器。");
-        assertTrue(controllerSource.contains("ShapePlacementTargetResolver.resolveSingleGhostTarget"),
+        assertTrue(previewSource.contains("ShapePlacementTargetResolver.resolveSingleGhostTarget"),
                 "单方块幽灵预览应复用统一放置目标解析器。");
-        assertTrue(controllerSource.contains("ShapePlacementTargetResolver.resolveTargets"),
+        assertTrue(operationSource.contains("ShapePlacementTargetResolver.resolveTargets"),
                 "批量形状 READY_CONFIRM 过滤应复用统一放置目标解析器。");
-        assertTrue(controllerSource.contains("ShapePlacementTargetResolver.minecraftWorld"),
-                "控制器仍应显式把当前 Minecraft 世界/物品栈作为只读探针交给解析器。");
-        assertTrue(controllerSource.contains("resolveShapePlacementStackForContext()"),
+        assertTrue(operationSource.contains("ShapePlacementTargetResolver.minecraftWorld"),
+                "世界 adapter 应显式把当前 Minecraft 世界/物品栈作为只读探针交给解析器。");
+        assertTrue(operationSource.contains("placementStack()"),
                 "创造模式物品栏/工具栏选中的方块原型要参与形状放置上下文判断。");
         assertFalse(controllerSource.contains("private BlockPlaceContext createShapePlacementContext"),
                 "BlockPlaceContext 适配不应继续留在控制器里。");
@@ -35,9 +41,9 @@ class ShapePlacementContextContractTest {
                 "控制器不应继续维护自己的点击目标解析分支。");
         assertFalse(controllerSource.contains("private BlockPos resolveUniformShapePlacementTargetPos"),
                 "统一平面偏移规则应由新 owner 持有。");
-        assertTrue(controllerSource.contains("ShapeSessionInputResolver.resolve("),
+        assertTrue(sessionSource.contains("ShapeSessionInputResolver.resolve("),
                 "会话到形状输入的转换应委托给纯解析器。");
-        assertTrue(controllerSource.contains("ShapeSessionInputResolver.resolvePlanePoint"),
+        assertTrue(sessionSource.contains("ShapeSessionInputResolver.resolvePlanePoint"),
                 "交互阶段的平面目标也应复用同一解析器。");
         assertFalse(controllerSource.contains("private Vec3 intersectCursorRayWithShapePlane"),
                 "相机射线和平面求交不应继续内联在控制器。");

@@ -17,8 +17,10 @@ class ShapeDestroyTargetClassifierContractTest {
     void previewCostAndConfirmationUseTheSharedClassifier() throws IOException {
         String controller = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+        String preview = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
 
-        assertTrue(controller.contains("ShapeDestroyTargetClassifier.classify"));
+        assertTrue(preview.contains("ShapeDestroyTargetClassifier.classify"));
         assertTrue(controller.contains("ShapeDestroyTargetClassifier.breakableTargets"));
         assertTrue(controller.contains("ShapeDestroyTargetClassifier.envelopeTargets"));
         assertTrue(controller.contains("this::isBreakableDestroyTarget"));

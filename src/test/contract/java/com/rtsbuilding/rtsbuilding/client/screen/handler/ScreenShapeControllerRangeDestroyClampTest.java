@@ -107,9 +107,11 @@ class ScreenShapeControllerRangeDestroyClampTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String geometry = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/AdvancedShapeSelectionGeometry.java"));
+        String session = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
         String readySession = methodBody(
-                controller,
-                "private ShapeBuildTypes.Session readySession");
+                session,
+                "private ShapeBuildTypes.Session ready");
 
         assertTrue(geometry.contains("case CIRCLE -> centeredPlaneBox("),
                 "advanced circle should begin as a centered normal circle envelope");
@@ -130,19 +132,25 @@ class ScreenShapeControllerRangeDestroyClampTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String planner = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
+        String operationPlanner = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+        String selectionBox = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionBoxController.java"));
         String limiter = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
 
-        assertTrue(controller.contains("new ShapeGenerationPlanCache.Request("));
-        assertTrue(controller.contains("currentRangeDestroyLimits()"));
+        assertTrue(operationPlanner.contains("new ShapeGenerationPlanCache.Request("));
+        assertTrue(operationPlanner.contains("currentRangeDestroyLimits()"));
         assertTrue(planner.contains("RangeDestroySelectionLimiter.clampInput("));
         assertTrue(planner.contains("RangeDestroySelectionLimiter.clampRoundPositions("));
         assertTrue(planner.contains("RangeDestroySelectionLimiter.clampPositions("));
-        assertTrue(controller.contains("RangeDestroySelectionLimiter.clampBox("));
+        assertTrue(selectionBox.contains("RangeDestroySelectionLimiter.clampBox("));
         assertTrue(limiter.contains("record Limits("));
         assertFalse(controller.contains("RangeDestroySelectionLimiter.clampInput("));
         assertFalse(controller.contains("RangeDestroySelectionLimiter.clampRoundPositions("));
         assertFalse(controller.contains("RangeDestroySelectionLimiter.clampPositions("));
+        assertFalse(controller.contains("new ShapeGenerationPlanCache.Request("),
+                "顶层控制器不应重新内联形状计划");
         assertFalse(controller.contains("private static AxisBounds clampAxisAroundAnchor("));
         assertFalse(controller.contains("private static RtsCullingBox clampBoxToClientCapsAroundAnchor("));
         assertFalse(controller.contains("private static List<BlockPos> clampRangeDestroyPositionsToClientCaps("));

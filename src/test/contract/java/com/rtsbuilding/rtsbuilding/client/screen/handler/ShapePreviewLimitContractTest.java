@@ -16,11 +16,13 @@ class ShapePreviewLimitContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String planner = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
+        String operations = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
         String limiter = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
         String controllerMethod = methodBody(
-                controller,
-                "private List<BlockPos> generateShapePositions");
+                operations,
+                "public List<BlockPos> generate");
         String planMethod = methodBody(
                 planner,
                 "public List<BlockPos> positions");
@@ -44,7 +46,7 @@ class ShapePreviewLimitContractTest {
                 "范围破坏必须在几何生成前同时限制 XYZ 和覆盖体积");
         assertTrue(cacheLookup >= 0 && cacheLookup < advancedBuild && cacheLookup < normalBuild,
                 "同一预览状态应复用形状计划，避免尺寸、计数和渲染重复生成大列表");
-        assertTrue(controllerMethod.contains("this.shapeGenerationPlans.positions"));
+        assertTrue(controllerMethod.contains("this.generationPlans.positions"));
         assertTrue(controllerMethod.contains("new ShapeGenerationPlanCache.Request"));
         assertTrue(controllerMethod.contains("currentRangeDestroyLimits()"));
         assertTrue(controllerMethod.contains("SHAPE_MAX_DIMENSION"),
@@ -60,11 +62,16 @@ class ShapePreviewLimitContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String selectionRenderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/AdvancedShapeSelectionBoxRenderer.java"));
+        String operations = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+        String selectionBox = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionBoxController.java"));
         String ghostRenderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/ShapeGhostRenderer.java"));
 
-        assertTrue(controller.contains("RtsCullingBox bounds = this.shapeGenerationPlans.bounds()"));
-        assertTrue(controller.contains("this.shapeBoxAnimator.renderAabb(bounds)"));
+        assertTrue(controller.contains("this.worldOperations.generatedBounds()"));
+        assertTrue(operations.contains("return this.generationPlans.bounds()"));
+        assertTrue(selectionBox.contains("this.animator.renderAabb(generatedBounds)"));
         assertTrue(selectionRenderer.contains("shapeSelectionRenderAabb()"));
         assertTrue(selectionRenderer.contains("if (!screen.isAdvancedShapeMode())"),
                 "普通模式应保留平滑范围框，但不显示高级箭头");
