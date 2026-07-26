@@ -75,4 +75,3 @@ class RtsClientInputOwnershipContractTest {
                 fileName + " 超过硬门禁：" + lines + " > " + maxLines);
     }
 }
-

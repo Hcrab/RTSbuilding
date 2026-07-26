@@ -190,13 +190,13 @@ final class BuilderScreenPointerGestureOwner {
             if (screen.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 return true;
             }
-    
+
             // Block all mouse drag operations while area mine selection is active
             if (!BlueprintPanel.isCaptureModeActive()
                     && screen.controller.getAreaMinePhase() != MiningOperationService.AREA_MINE_PHASE_NONE) {
                 return true;
             }
-    
+
             if (screen.cameraInput.handleRightDrag(mouseX, mouseY, button, dragX, dragY)) {
                 return true;
             }

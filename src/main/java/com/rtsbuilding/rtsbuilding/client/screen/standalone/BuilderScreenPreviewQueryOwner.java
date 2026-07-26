@@ -184,7 +184,7 @@ final class BuilderScreenPreviewQueryOwner {
             long now = System.currentTimeMillis();
             boolean isDoubleClick = (now - screen.lastCtrlRightClickTime) < screen.CTRL_DOUBLE_CLICK_THRESHOLD_MS;
             screen.lastCtrlRightClickTime = now;
-    
+
             BlockHitResult hit = screen.cursorPicker.pickBlockHit();
             if (hit != null) {
                 if (isDoubleClick) {

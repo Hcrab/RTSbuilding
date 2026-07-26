@@ -58,7 +58,7 @@ final class ClientRtsLifecycleOwner {
 
     void applyServerCameraState(S2CRtsCameraStatePayload payload) {
             Minecraft minecraft = Minecraft.getInstance();
-    
+
             if (payload.enabled()) {
                 boolean freshEnable = !controller.enabled;
                 controller.enabled = true;
@@ -69,7 +69,7 @@ final class ClientRtsLifecycleOwner {
                 controller.maxRadius = payload.maxRadius();
                 controller.homeSelectionMode = payload.homeSelection();
                 controller.closeRangeAllowed = payload.closeRangeAllowed();
-    
+
                 if (freshEnable) {
                     controller.cameraOrbitService.capturePreviousView(minecraft);
                     // Clear stale player input to prevent WASD presses from before entering RTS mode from affecting movement
@@ -80,13 +80,13 @@ final class ClientRtsLifecycleOwner {
                         localPlayer.input.shiftKeyDown = false;
                     }
                 }
-    
+
                 controller.cameraOrbitService.applyRtsView(minecraft);
-    
+
                 if (!(minecraft.screen instanceof BuilderScreen)) {
                     minecraft.setScreen(new BuilderScreen(controller));
                 }
-    
+
                 controller.cameraOrbitService.applyEnabledPose(
                         payload.anchorX(), payload.anchorY(), payload.anchorZ(),
                         payload.heightOffset(), payload.yawDeg(), payload.pitchDeg());
@@ -102,7 +102,7 @@ final class ClientRtsLifecycleOwner {
                 controller.clearRemoteMenuValidationState();
                 controller.storageStateManager.clearQuickSlotsLocal();
                 controller.storageStateManager.clearGuiBindingsLocal();
-    
+
                 controller.cameraOrbitService.setBounds(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
                 controller.cameraOrbitService.syncVisualCameraFrame(minecraft,
                         payload.anchorX(), payload.anchorY(), payload.anchorZ(),
@@ -110,7 +110,7 @@ final class ClientRtsLifecycleOwner {
                 controller.requestStoragePage(0);
                 return;
             }
-    
+
             controller.enabled = false;
             controller.cameraOrbitService.resetServerCameraEntityId();
             controller.cameraOrbitService.setLocalStateReady(false);
@@ -124,20 +124,20 @@ final class ClientRtsLifecycleOwner {
             controller.pendingRemoteMenuOpenTicks = 0;
             controller.screenlessRemoteMenuTicks = 0;
             controller.clearRemoteMenuValidationState();
-    
+
             controller.cameraOrbitService.endRotateCapture(0.0D, 0.0D);
-    
+
             controller.buildPlacementService.clearPlacementSelectionPreserveMode();
             controller.miningOperationService.clearMiningRenderState();
             controller.storageStateManager.clearQuickSlotsLocal();
             controller.storageStateManager.clearGuiBindingsLocal();
             controller.storageStateManager.clearStorageScanState();
             controller.storageStateManager.clearStorageViewDirty();
-    
+
             if (minecraft.screen instanceof BuilderScreen) {
                 minecraft.setScreen(null);
             }
-    
+
             controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
         }
 
@@ -165,21 +165,21 @@ final class ClientRtsLifecycleOwner {
                 controller.suppressBuilderScreenRestoreUntilRtsRestart = false;
                 return;
             }
-    
+
             if (minecraft.player == null || minecraft.level == null) {
                 return;
             }
             if (controller.handleDeathScreenHandoff(minecraft)) {
                 return;
             }
-    
+
             if (controller.funnelTargetCooldownTicks > 0) {
                 controller.funnelTargetCooldownTicks--;
             }
-    
+
             boolean hasRemoteMenuOpen = minecraft.player.containerMenu != null
                     && minecraft.player.containerMenu.containerId != 0;
-    
+
             if (hasRemoteMenuOpen
                     && minecraft.screen == null
                     && controller.pendingRemoteMenuOpenTicks <= 0) {
@@ -195,7 +195,7 @@ final class ClientRtsLifecycleOwner {
             } else {
                 controller.screenlessRemoteMenuTicks = 0;
             }
-    
+
             if (controller.pendingCraftTerminalOpen
                     && minecraft.player.containerMenu instanceof CraftingMenu pendingMenu
                     && minecraft.player.containerMenu.containerId != 0
@@ -205,7 +205,7 @@ final class ClientRtsLifecycleOwner {
                 controller.pendingCraftTerminalOpen = false;
                 controller.pendingCraftTerminalOpenTicks = 0;
             }
-    
+
             if (minecraft.screen instanceof CraftingScreen craftingScreen
                     && minecraft.player != null
                     && craftingScreen.getMenu() instanceof CraftingMenu craftingMenu
@@ -221,7 +221,7 @@ final class ClientRtsLifecycleOwner {
                     controller.pendingCraftTerminalOpen = false;
                 }
             }
-    
+
             if (hasRemoteMenuOpen) {
                 controller.pendingRemoteMenuOpenTicks = 0;
                 try {
@@ -245,19 +245,19 @@ final class ClientRtsLifecycleOwner {
                 controller.clearRemoteMenuValidationState();
                 controller.relaxedRemoteMenu = null;
             }
-    
+
             if (minecraft.screen == null
                     && !controller.suppressBuilderScreenRestoreUntilRtsRestart
                     && !hasRemoteMenuOpen
                     && controller.pendingRemoteMenuOpenTicks <= 0) {
                 minecraft.setScreen(new BuilderScreen(controller));
             }
-    
+
             controller.cameraOrbitService.tick(minecraft, controller.anchorX, controller.anchorY, controller.anchorZ, controller.maxRadius);
             boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
                     && builderScreen.isStorageViewVisible();
             controller.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
-    
+
             // Don't override player.input in RTS mode so the player entity can
             // properly respond to knockback and physics effects.
             // BuilderScreen intercepts input events preventing KeyMapping updates, but
@@ -272,7 +272,7 @@ final class ClientRtsLifecycleOwner {
                 localPlayer.input.shiftKeyDown = false;
                 localPlayer.input.forwardImpulse = 0.0F;
                 localPlayer.input.leftImpulse = 0.0F;
-    
+
                 // RTS flight vertical control: when player is flying in RTS mode,
                 // Ctrl+Space = ascend, Shift = descend (direct GLFW key state queries)
                 if (localPlayer.getAbilities().flying) {
@@ -282,7 +282,7 @@ final class ClientRtsLifecycleOwner {
                     boolean spaceHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
                     boolean shiftHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
                             || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
-    
+
                     if (ctrlHeld && spaceHeld) {
                         double upSpeed = localPlayer.getAbilities().getFlyingSpeed() * 3.0;
                         localPlayer.setDeltaMovement(
@@ -298,7 +298,7 @@ final class ClientRtsLifecycleOwner {
                     }
                 }
             }
-    
+
         }
 
     boolean handleDeathScreenHandoff(Minecraft minecraft) {
@@ -306,7 +306,7 @@ final class ClientRtsLifecycleOwner {
             if (!dead) {
                 return false;
             }
-    
+
             controller.suppressBuilderScreenRestoreUntilRtsRestart = true;
             controller.homeSelectionMode = false;
             controller.pendingCraftTerminalOpen = false;
@@ -315,15 +315,15 @@ final class ClientRtsLifecycleOwner {
             controller.screenlessRemoteMenuTicks = 0;
             controller.miningOperationService.clearMiningRenderState();
             controller.clearRemoteMenuValidationState();
-    
+
             if (minecraft.screen instanceof BuilderScreen
                     || minecraft.screen instanceof RtsHomeScreen
                     || minecraft.screen instanceof RtsCraftTerminalScreen) {
                 minecraft.setScreen(null);
             }
-    
+
             controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
-    
+
             controller.enabled = false;
             controller.closeRangeAllowed = false;
             controller.cameraOrbitService.clearStateOnDeath();

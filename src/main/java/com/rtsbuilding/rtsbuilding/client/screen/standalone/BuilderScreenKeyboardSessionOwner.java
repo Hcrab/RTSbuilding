@@ -133,16 +133,16 @@ final class BuilderScreenKeyboardSessionOwner {
     void handleRtsFlightToggle() {
             if (screen.getMinecraft() == null || screen.getMinecraft().player == null) return;
             if (!screen.getMinecraft().player.getAbilities().mayfly) return;
-    
+
             boolean wasFlying = screen.getMinecraft().player.getAbilities().flying;
             screen.getMinecraft().player.getAbilities().flying = !wasFlying;
-    
+
             // When enabling flight while on ground, apply a jump impulse to lift off.
             // Vanilla MC won't actually start flying if the player stays on ground.
             if (!wasFlying && screen.getMinecraft().player.onGround()) {
                 screen.getMinecraft().player.jumpFromGround();
             }
-    
+
             screen.getMinecraft().player.onUpdateAbilities();
         }
 

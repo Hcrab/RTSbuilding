@@ -120,7 +120,7 @@ final class BuilderScreenLifecycleOwner {
         }
 
     void init() {
-            
+
             // Enter the RTS scale frame so that clamps in applyStoredUiState use the virtual coordinate space (rather than the GUI-scaled width)
             RtsUiScaleFrame frame = screen.guiScaleCoordinator.enterLayoutFrame();
             try {
@@ -188,7 +188,7 @@ final class BuilderScreenLifecycleOwner {
         }
 
     void removed() {
-            
+
             screen.aiChatPanel.close();
             screen.floatingWindowLayer.clearTransientInputState();
             screen.topBarPanel.clearTransientInputState();
@@ -214,7 +214,7 @@ final class BuilderScreenLifecycleOwner {
         }
 
     void tick() {
-            
+
             // 每 tick 写入脏状态（无脏时零开销）
             screen.uiStateManager.flush();
             screen.enforceBlueprintPlacementModeLock();
