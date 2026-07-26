@@ -10,15 +10,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class RtsFtbCompatImpl {
-    private final Method teamsApiMethod;
-    private final Method getTeamManagerMethod;
-    private final Method getTeamForPlayerMethod;
-    private final boolean teamLookupUsesServerPlayer;
+    private final FtbTeamReflection teamReflection;
     private final Class<?> serverQuestFileClass;
     private final Method serverQuestFileExistsMethod;
     private final Method serverQuestFileGetInstanceMethod;
@@ -38,15 +34,11 @@ final class RtsFtbCompatImpl {
     private final Map<Class<?>, Method> teamDataGetProgressMethodCache = new ConcurrentHashMap<>();
 
     RtsFtbCompatImpl() throws ReflectiveOperationException {
-        Class<?> ftbTeamsApiClass = Class.forName("dev.ftb.mods.ftbteams.api.FTBTeamsAPI");
         Class<?> ftbTeamClass = Class.forName("dev.ftb.mods.ftbteams.api.Team");
         this.serverQuestFileClass = Class.forName("dev.ftb.mods.ftbquests.quest.ServerQuestFile");
         this.itemTaskClass = Class.forName("dev.ftb.mods.ftbquests.quest.task.ItemTask");
 
-        this.teamsApiMethod = ftbTeamsApiClass.getMethod("api");
-        this.getTeamManagerMethod = this.teamsApiMethod.getReturnType().getMethod("getManager");
-        this.getTeamForPlayerMethod = resolveTeamLookupMethod(this.getTeamManagerMethod.getReturnType());
-        this.teamLookupUsesServerPlayer = this.getTeamForPlayerMethod.getParameterTypes()[0].isAssignableFrom(ServerPlayer.class);
+        this.teamReflection = FtbTeamReflection.create();
         this.teamGetIdMethod = findPublicNoArgMethod(ftbTeamClass, "getId", "getTeamId");
 
         this.serverQuestFileExistsMethod = findOptionalMethod(this.serverQuestFileClass, "exists");
@@ -77,7 +69,7 @@ final class RtsFtbCompatImpl {
                 return RtsFtbCompat.QuestDetectResult.unavailable();
             }
 
-            Object team = resolveTeam(player);
+            Object team = this.teamReflection.resolveTeam(player);
             if (team == null) {
                 return RtsFtbCompat.QuestDetectResult.complete(0, 0);
             }
@@ -144,21 +136,6 @@ final class RtsFtbCompatImpl {
             }
         }
         return this.serverQuestFileInstanceField.get(null);
-    }
-
-    private Object resolveTeam(ServerPlayer player) throws ReflectiveOperationException {
-        Object api = this.teamsApiMethod.invoke(null);
-        if (api == null) {
-            return null;
-        }
-        Object manager = this.getTeamManagerMethod.invoke(api);
-        if (manager == null) {
-            return null;
-        }
-        Object rawTeam = this.teamLookupUsesServerPlayer
-                ? this.getTeamForPlayerMethod.invoke(manager, player)
-                : this.getTeamForPlayerMethod.invoke(manager, player.getUUID());
-        return unwrapOptional(rawTeam);
     }
 
     private Object resolveTeamData(Object serverQuestFile, Object team) throws ReflectiveOperationException {
@@ -341,21 +318,6 @@ final class RtsFtbCompatImpl {
         return null;
     }
 
-    private static Method resolveTeamLookupMethod(Class<?> managerClass) throws NoSuchMethodException {
-        for (String name : new String[] { "getTeamForPlayerID", "getTeamForPlayer" }) {
-            for (Method method : managerClass.getMethods()) {
-                if (!name.equals(method.getName()) || method.getParameterCount() != 1) {
-                    continue;
-                }
-                Class<?> parameterType = method.getParameterTypes()[0];
-                if (parameterType == UUID.class || parameterType.isAssignableFrom(ServerPlayer.class)) {
-                    return method;
-                }
-            }
-        }
-        throw new NoSuchMethodException("Missing team lookup method on " + managerClass.getName());
-    }
-
     private static Method findPublicNoArgMethod(Class<?> type, String... names) throws NoSuchMethodException {
         for (String name : names) {
             try {
@@ -365,13 +327,6 @@ final class RtsFtbCompatImpl {
             }
         }
         throw new NoSuchMethodException("Missing no-arg method on " + type.getName());
-    }
-
-    private static Object unwrapOptional(Object value) {
-        if (value instanceof Optional<?> optional) {
-            return optional.orElse(null);
-        }
-        return value;
     }
 
     private static boolean asBoolean(Object value) {

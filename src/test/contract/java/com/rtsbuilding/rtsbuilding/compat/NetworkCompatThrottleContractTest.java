@@ -13,7 +13,7 @@ class NetworkCompatThrottleContractTest {
     void ae2AndRefinedStorageUseSharedConfigurableRefreshGate() throws Exception {
         String config = read("src/main/java/com/rtsbuilding/rtsbuilding/Config.java");
         String ae2 = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/ae2/RtsAe2Compat.java");
-        String rs = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/rs/RtsRsCompat.java");
+        String rs = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/refinedstorage/RtsRefinedStorageCompat.java");
 
         assertTrue(config.contains("storage.ae2NetworkRefreshThrottle"));
         assertTrue(config.contains("storage.refinedStorageNetworkRefreshThrottle"));

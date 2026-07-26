@@ -9,17 +9,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class RtsFtbTeamsCompatImpl {
-    private final Method teamsApiMethod;
-    private final Method getTeamManagerMethod;
-    private final Method getTeamForPlayerMethod;
-    private final boolean teamLookupUsesServerPlayer;
+    private final FtbTeamReflection teamReflection;
 
     RtsFtbTeamsCompatImpl() throws ReflectiveOperationException {
-        Class<?> ftbTeamsApiClass = Class.forName("dev.ftb.mods.ftbteams.api.FTBTeamsAPI");
-        this.teamsApiMethod = ftbTeamsApiClass.getMethod("api");
-        this.getTeamManagerMethod = this.teamsApiMethod.getReturnType().getMethod("getManager");
-        this.getTeamForPlayerMethod = resolveTeamLookupMethod(this.getTeamManagerMethod.getReturnType());
-        this.teamLookupUsesServerPlayer = this.getTeamForPlayerMethod.getParameterTypes()[0].isAssignableFrom(ServerPlayer.class);
+        this.teamReflection = FtbTeamReflection.create();
     }
 
     String teamKey(ServerPlayer player) {
@@ -27,7 +20,7 @@ public final class RtsFtbTeamsCompatImpl {
             return "";
         }
         try {
-            Object team = resolveTeam(player);
+            Object team = this.teamReflection.resolveTeam(player);
             if (team == null) {
                 return "";
             }
@@ -43,26 +36,11 @@ public final class RtsFtbTeamsCompatImpl {
             return "";
         }
         try {
-            Object team = resolveTeam(player);
+            Object team = this.teamReflection.resolveTeam(player);
             return team == null ? "" : resolveTeamLabel(team);
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             return "";
         }
-    }
-
-    private Object resolveTeam(ServerPlayer player) throws ReflectiveOperationException {
-        Object api = this.teamsApiMethod.invoke(null);
-        if (api == null) {
-            return null;
-        }
-        Object manager = this.getTeamManagerMethod.invoke(api);
-        if (manager == null) {
-            return null;
-        }
-        Object rawTeam = this.teamLookupUsesServerPlayer
-                ? this.getTeamForPlayerMethod.invoke(manager, player)
-                : this.getTeamForPlayerMethod.invoke(manager, player.getUUID());
-        return unwrapOptional(rawTeam);
     }
 
     private static String resolveStableTeamId(Object team) {
@@ -116,21 +94,6 @@ public final class RtsFtbTeamsCompatImpl {
                 ? component.getString()
                 : unwrapped == null ? "" : unwrapped.toString();
         return text.trim();
-    }
-
-    private static Method resolveTeamLookupMethod(Class<?> managerClass) throws NoSuchMethodException {
-        for (String name : new String[] { "getTeamForPlayerID", "getTeamForPlayer" }) {
-            for (Method method : managerClass.getMethods()) {
-                if (!name.equals(method.getName()) || method.getParameterCount() != 1) {
-                    continue;
-                }
-                Class<?> parameterType = method.getParameterTypes()[0];
-                if (parameterType == UUID.class || parameterType.isAssignableFrom(ServerPlayer.class)) {
-                    return method;
-                }
-            }
-        }
-        throw new NoSuchMethodException("Missing team lookup method on " + managerClass.getName());
     }
 
     private static Object unwrapOptional(Object value) {

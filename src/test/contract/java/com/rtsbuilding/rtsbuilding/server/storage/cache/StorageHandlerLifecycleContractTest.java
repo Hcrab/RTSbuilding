@@ -56,7 +56,7 @@ class StorageHandlerLifecycleContractTest {
         assertTrue(aeSource.contains("target == null && !Modifier.isStatic(method.getModifiers())"),
                 "反射层不得对空实例调用非静态方法");
 
-        String rsSource = read("compat/rs/RtsRsCompat.java");
+        String rsSource = read("compat/refinedstorage/RtsRefinedStorageCompat.java");
         assertTrue(rsSource.contains("target == null && !java.lang.reflect.Modifier.isStatic(method.getModifiers())"),
                 "RS 网络节点失效时也必须拒绝对空实例执行反射调用");
     }

@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
-import com.rtsbuilding.rtsbuilding.compat.rs.RtsRsCompat;
+import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
@@ -277,7 +277,7 @@ public final class RtsStorageCompatGameTests {
 
     private static HandlerEndpoint requireRsEndpoint(GameTestHelper helper, ServerPlayer player, BlockPos... relPositions) {
         for (BlockPos rel : relPositions) {
-            IItemHandler handler = RtsRsCompat.createNetworkItemHandler(player, helper.absolutePos(rel));
+            IItemHandler handler = RtsRefinedStorageCompat.createNetworkItemHandler(player, helper.absolutePos(rel));
             if (handler != null) {
                 return new HandlerEndpoint(rel, handler);
             }

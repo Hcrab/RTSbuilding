@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.compat.rs;
+package com.rtsbuilding.rtsbuilding.compat.refinedstorage;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
@@ -25,10 +25,10 @@ import net.minecraftforge.items.IItemHandler;
  * 入口拿到 {@code INetwork}，再把网络的 item storage cache 包成 RTS 可用的
  * 虚拟 {@link IItemHandler}。它不直接读写磁盘 NBT，也不假造储存内容。</p>
  */
-public final class RtsRsCompat {
+public final class RtsRefinedStorageCompat {
     private static final RsReflection REFLECTION = RsReflection.tryLoad();
 
-    private RtsRsCompat() {
+    private RtsRefinedStorageCompat() {
     }
 
     public static boolean isAvailable() {
