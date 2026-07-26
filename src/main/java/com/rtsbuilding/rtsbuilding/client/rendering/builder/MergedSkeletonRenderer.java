@@ -171,13 +171,23 @@ public final class MergedSkeletonRenderer {
         float edgeB = RenderingUtil.lerp(0.22F, 0.42F, progress);
 
         UltimineGhostRenderer.renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB, 0.95F * alpha);
-        if (edges.size() <= MAX_MERGED_NO_DEPTH_EDGES) {
+        if (shouldRenderNoDepthBackstop(edges.size())) {
             UltimineGhostRenderer.renderPass2(edges, matrix, edgeR, edgeG, edgeB, noDepthAlpha * alpha);
         }
         if (skeleton.fillBlocks().size() <= MAX_MERGED_FILL_BLOCKS) {
             UltimineGhostRenderer.renderFill(skeleton.fillBlocks(), poseStack, fillBuffer, edgeR, edgeG, edgeB,
                     fillAlpha * alpha);
         }
+    }
+
+    /**
+     * 判断合并骨架是否应绘制无深度遮挡的背衬通道。
+     *
+     * <p>该判断保持与生产渲染路径一致，同时把性能上限暴露为可测试的纯契约：
+     * 空骨架无需提交绘制，超过上限的大型骨架则只保留主通道。</p>
+     */
+    static boolean shouldRenderNoDepthBackstop(int edgeCount) {
+        return edgeCount > 0 && edgeCount <= MAX_MERGED_NO_DEPTH_EDGES;
     }
 
     // ===== Skeleton caching =====

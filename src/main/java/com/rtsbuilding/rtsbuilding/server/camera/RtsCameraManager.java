@@ -294,9 +294,27 @@ public final class RtsCameraManager {
             return false;
         }
 
-        double dx = (pos.getX() + 0.5D) - session.anchor().x;
-        double dz = (pos.getZ() + 0.5D) - session.anchor().z;
         double halfExtent = actionHalfExtent(player, session);
+        return isWithinSessionSquare(session.anchor().x, session.anchor().z, halfExtent, pos);
+    }
+
+    /**
+     * 判断方块中心是否落在一次 RTS 会话的正方形操作范围内。
+     *
+     * <p>该纯函数与相机移动钳位共享“锚点 + 正方形半边长”的几何契约，
+     * 不读取玩家或会话状态，便于用单元测试覆盖边界值。无效坐标、负半径
+     * 或空目标一律拒绝，避免异常数据绕过服务端范围校验。</p>
+     */
+    public static boolean isWithinSessionSquare(double anchorX, double anchorZ, double halfExtent, BlockPos pos) {
+        if (!Double.isFinite(anchorX)
+                || !Double.isFinite(anchorZ)
+                || !Double.isFinite(halfExtent)
+                || halfExtent < 0.0D
+                || pos == null) {
+            return false;
+        }
+        double dx = (pos.getX() + 0.5D) - anchorX;
+        double dz = (pos.getZ() + 0.5D) - anchorZ;
         return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
     }
 

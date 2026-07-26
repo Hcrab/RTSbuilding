@@ -8,7 +8,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.*;
 
-import java.lang.reflect.Field;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -184,7 +183,7 @@ class RtsLinkedStorageResolverBenchmark {
     void benchmarkIsExtractOnlyLinkBulk() {
         int refCount = 10_000;
         RtsStorageSession session = createMockSession(refCount);
-        List<LinkedStorageRef> refs = session.linkedStorageInfo.linkedStorages;
+        List<LinkedStorageRef> refs = session.linkedStorageInfo.getAll();
 
         // Warmup
         for (int w = 0; w < WARMUP; w++) {
@@ -224,37 +223,14 @@ class RtsLinkedStorageResolverBenchmark {
     //  Helpers — mirrors the pattern from RtsLinkedStorageResolverTest
     // ======================================================================
 
-    @SuppressWarnings("unchecked")
     private static RtsStorageSession createMockSession(int refCount) {
-        RtsStorageSession session = mock(RtsStorageSession.class);
-        try {
-            Field storagesField = session.linkedStorageInfo.getClass().getDeclaredField("linkedStorages");
-            storagesField.setAccessible(true);
-            List<LinkedStorageRef> refs = new ArrayList<>(refCount);
-            for (int i = 0; i < refCount; i++) {
-                refs.add(createRef());
-            }
-            storagesField.set(session.linkedStorageInfo, refs);
-
-            // Only populate names/modes if there are refs
-            if (refCount > 0) {
-                Field namesField = session.linkedStorageInfo.getClass().getDeclaredField("linkedNames");
-                namesField.setAccessible(true);
-                Map<LinkedStorageRef, String> names = new HashMap<>();
-                Map<LinkedStorageRef, Byte> modes = new HashMap<>();
-                Random rng = ThreadLocalRandom.current();
-                for (LinkedStorageRef ref : refs) {
-                    names.put(ref, "Chest_" + rng.nextInt(10000));
-                    modes.put(ref, rng.nextBoolean() ? (byte) 0 : (byte) 1);
-                }
-                namesField.set(session.linkedStorageInfo, names);
-
-                Field modesField = session.linkedStorageInfo.getClass().getDeclaredField("linkedModes");
-                modesField.setAccessible(true);
-                modesField.set(session.linkedStorageInfo, modes);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create mock session", e);
+        RtsStorageSession session = new RtsStorageSession();
+        Random rng = ThreadLocalRandom.current();
+        for (int i = 0; i < refCount; i++) {
+            LinkedStorageRef ref = createRef();
+            byte mode = rng.nextBoolean() ? (byte) 0 : (byte) 1;
+            session.linkedStorageInfo.add(ref, mode, 0);
+            session.linkedStorageInfo.setName(ref, "Chest_" + rng.nextInt(10000));
         }
         return session;
     }
