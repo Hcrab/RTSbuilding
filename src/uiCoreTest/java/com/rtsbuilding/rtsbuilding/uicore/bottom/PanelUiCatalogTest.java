@@ -6,6 +6,10 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,5 +44,17 @@ final class PanelUiCatalogTest {
         assertTrue(storage.isVisible(false, false));
         assertFalse(blueprints.isVisible(true, false));
         assertTrue(blueprints.isVisible(false, true));
+    }
+
+    @Test
+    void productionKitLayoutConsumesTheCatalogInsteadOfAParallelTabList() throws Exception {
+        Path path = Paths.get("src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/"
+                + "BottomPanelHeaderLayout.java");
+        String layout = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+
+        assertTrue(layout.contains("PanelUiCatalog.registrations()"));
+        assertTrue(layout.contains("contribution.isVisible(creativeAccess, blueprintAccess)"));
+        assertFalse(layout.contains("if (creativeAccess)"));
+        assertFalse(layout.contains("if (blueprintAccess)"));
     }
 }
