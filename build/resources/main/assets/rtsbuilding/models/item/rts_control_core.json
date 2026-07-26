@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "rtsbuilding:item/rts_control_core"
-  }
-}
