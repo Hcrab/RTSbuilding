@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager.HomeAnchor;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -92,8 +91,10 @@ final class RtsHomeManager {
     }
 
     /**
-     * 妫€鏌ョ帺瀹跺綋鍓嶆墍鍦ㄥ尯鍧楁槸鍚︿綅浜庡鍥尯鍧楀懆鍥寸殑 3x3 鍖哄潡鍐呫€?     *
-     * <p>杩欎釜闄愬埗鍙喅瀹氱帺瀹惰兘鍚﹀紑鍚竴娆℃櫘閫?RTS 浼氳瘽銆備細璇濆紑鍚悗锛?     * 涓栫晫鎿嶄綔鑼冨洿鐢辩浉鏈洪敋鐐瑰拰鎻掍欢鎻愪緵鐨勬搷浣滃崐寰勫喅瀹氾紝涓嶅啀涓庡鍥綅缃彇浜ら泦銆?/p>
+     * 检查玩家当前所在区块是否位于家园区块周围的 3x3 区块内。
+     *
+     * <p>这个限制只决定玩家能否开启一次普通 RTS 会话。会话开启后，
+     * 世界操作范围由相机锚点和插件提供的操作半径决定，不再与家园位置取交集。</p>
      */
     static boolean canOpenRtsNearHome(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled() || RtsProgressionManager.canBypassHomeRadius(player)) {

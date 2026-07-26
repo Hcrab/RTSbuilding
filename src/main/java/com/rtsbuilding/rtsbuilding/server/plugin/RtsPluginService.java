@@ -59,9 +59,11 @@ public final class RtsPluginService {
     }
 
     /**
-     * 杩斿洖鐜╁鎵€鍦ㄩ槦浼嶅綋鍓嶇敓鏁堢殑鑼冨洿鎸栨帢閲囨帢绛夌骇銆?     *
-     * <p>杩斿洖 {@code null} 琛ㄧず鐢熷瓨骞宠　宸插紑鍚紝浣嗛槦浼嶆病鏈夊畨瑁呴噰鎺樼瓑绾ф彃浠讹紱
-     * 鍏抽棴鐢熷瓨骞宠　鏃跺垯鐩存帴瑙嗕负鏃犻檺鍒讹紝涓嶈姹傛彃浠剁墿鍝併€?     */
+     * 返回玩家所在队伍当前生效的范围挖掘采掘等级。
+     *
+     * <p>返回 {@code null} 表示生存平衡已开启，但队伍没有安装采掘等级插件；
+     * 关闭生存平衡时则直接视为无限制，不要求插件物品。
+     */
     public static RangeMiningHarvestTier rangeMiningHarvestTier(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled()) {
             return RangeMiningHarvestTier.UNLIMITED;
@@ -166,7 +168,7 @@ public final class RtsPluginService {
         if (player != null) RtsEffectAccumulator.INSTANCE.markPluginState(player.getUUID());
     }
 
-    /** 浠呯敱 Tick 鏈?Effect Committer 璋冪敤锛屾櫘閫氫笟鍔″叆鍙ｅ彧鐧昏鏈€鏂板畬鏁村揩鐓с€?*/
+    /** 仅由 Tick 末 Effect Committer 调用，普通业务入口只登记最新完整快照。 */
     public static void syncToPlayerNow(ServerPlayer player) {
         if (player == null) {
             return;
@@ -249,8 +251,10 @@ public final class RtsPluginService {
     }
 
     /**
-     * 瀹夎鎻掍欢锛屽苟鍦ㄥ悓涓€娆′繚瀛樹腑鏇挎崲鍚屼竴浜掓枼瀹舵棌鐨勬棫鎻掍欢銆?     *
-     * <p>鏃ф彃浠朵紭鍏堥€€鍥炲畨瑁呰€呰儗鍖咃紱鑳屽寘纭疄鏀句笉涓嬫椂鎺夊湪鐜╁鑴氳竟锛岀粷涓嶉潤榛樺悶鎺夈€?     */
+     * 安装插件，并在同一次保存中替换同一互斥家族的旧插件。
+     *
+     * <p>旧插件优先退回安装者背包；背包确实放不下时掉在玩家脚边，绝不静默吞掉。
+     */
     private static boolean addInstalled(
             ServerPlayer player, RtsPluginDefinition definition, ItemStack installedStack) {
         List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
@@ -321,7 +325,9 @@ public final class RtsPluginService {
     }
 
     /**
-     * 鎻掍欢瑁呭嵏浼氱洿鎺ユ敼鐜╁鑳屽寘锛涚珛鍗冲悓姝ユЫ浣嶏紝閬垮厤瀹㈡埛绔户缁妸宸插畨瑁呮彃浠?     * 褰撲綔蹇嵎鏍忛噷鐨勬寲鎺樺伐鍏峰彂閫佺粰鏈嶅姟绔€?     */
+     * 插件装卸会直接改玩家背包；立即同步槽位，避免客户端继续把已安装插件
+     * 当作快捷栏里的挖掘工具发送给服务端。
+     */
     private static void syncInventory(ServerPlayer player) {
         player.inventoryMenu.broadcastChanges();
         if (player.containerMenu != player.inventoryMenu) {

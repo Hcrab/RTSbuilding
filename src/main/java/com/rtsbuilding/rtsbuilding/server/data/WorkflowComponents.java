@@ -3,22 +3,22 @@ package com.rtsbuilding.rtsbuilding.server.data;
 import net.minecraft.nbt.CompoundTag;
 
 /**
- * 宸ヤ綔娴佹暟鎹紙{@code workflow.dat}锛夌殑鎵€鏈?{@link DataComponent} 娉ㄥ唽琛ㄣ€?
+ * 工作流数据（{@code workflow.dat}）的所有 {@link DataComponent} 注册表。
  *
- * <p>姣忎釜缁勪欢瀵瑰簲 {@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager}
- * 鐨勬寔涔呭寲鏁版嵁銆傜洰鍓嶉€氳繃妗ユ帴缁勪欢 {@link #FULL_WORKFLOW} 灏嗘暣涓淮搴︹啋妲戒綅鏄犲皠
- * 浣滀负鍘熷 NBT 瀛樺偍銆?
+ * <p>每个组件对应 {@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager}
+ * 的持久化数据。目前通过桥接组件 {@link #FULL_WORKFLOW} 将整个维度→槽位映射
+ * 作为原始 NBT 存储。
  */
 public final class WorkflowComponents {
 
-    // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-    //  鍏ㄩ噺宸ヤ綔娴佹ˉ鎺?
-    // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+    // ──────────────────────────────────────────────────────────────────
+    //  全量工作流桥接
+    // ──────────────────────────────────────────────────────────────────
 
     /**
- * 鍏ㄩ噺宸ヤ綔娴佹ˉ鎺ョ粍浠垛€斺€斿皢鐜╁鎵€鏈夌淮搴︾殑宸ヤ綔娴佹Ы浣嶇鐞嗗櫒搴忓垪鍖栦负涓€涓?NBT 鍖呫€?
+ * 全量工作流桥接组件——将玩家所有维度的工作流槽位管理器序列化为一个 NBT 包。
  *
- * <p>NBT 缁撴瀯锛?
+ * <p>NBT 结构：
  * <pre>
  * {
  *   "dimensions": {
@@ -28,15 +28,15 @@ public final class WorkflowComponents {
  * }
  * </pre>
  *
- * <p>妲戒綅绠＄悊鍣ㄧ殑缂栬В鐮佷粛濮旀墭缁?
+ * <p>槽位管理器的编解码仍委托给
  * {@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager#saveToNbt()}
- * 鍜?{@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager#loadFromNbt(CompoundTag)}銆?
+ * 和 {@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager#loadFromNbt(CompoundTag)}。
  */
     public static final DataComponent<CompoundTag> FULL_WORKFLOW = new DataComponent<>(
             "workflow",
             NbtCodec.of(
-                    tag -> tag,                            // decode: 杩斿洖 slot 寮曠敤
-                    (tag, v) -> {                           // encode: 澶嶅埗鎵€鏈夐敭
+                    tag -> tag,                            // decode: 返回 slot 引用
+                    (tag, v) -> {                           // encode: 复制所有键
                         for (String key : v.getAllKeys()) {
                             tag.put(key, v.get(key));
                         }
@@ -48,4 +48,3 @@ public final class WorkflowComponents {
     private WorkflowComponents() {
     }
 }
-

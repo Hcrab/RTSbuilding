@@ -11,19 +11,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 鍖哄煙褰㈢姸鐢熸垚鍣ㄦ敞鍐岃〃锛岀鐞嗘墍鏈夊舰鐘剁被鍨嬪埌瀵瑰簲鐢熸垚鍣ㄧ殑鏄犲皠銆?
+ * 区域形状生成器注册表，管理所有形状类型到对应生成器的映射。
  * <p>
- * 鏀寔閫氳繃 {@link AreaShape} 鏋氫妇鎴?byte 搴忔暟锛坥rdinal锛夋煡鎵剧敓鎴愬櫒锛?
- * byte 鏂瑰紡鐢ㄤ簬鍏煎鐜版湁鐨勭綉缁滃崗璁紙褰㈢姸绫诲瀷浠?byte 搴忔暟浼犺緭锛夈€?
- * 姣忕褰㈢姸绫诲瀷鏄犲皠鍒颁竴涓叡浜敓鎴愬櫒瀹炰緥锛屾墍鏈夎皟鐢ㄦ柟鍏辩敤銆?
+ * 支持通过 {@link AreaShape} 枚举或 byte 序数（ordinal）查找生成器，
+ * byte 方式用于兼容现有的网络协议（形状类型以 byte 序数传输）。
+ * 每种形状类型映射到一个共享生成器实例，所有调用方共用。
  */
 public final class ShapeGeneratorRegistry {
 
-    /** 涓嶅彲淇敼鐨勭敓鎴愬櫒鏄犲皠琛?*/
+    /** 不可修改的生成器映射表 */
     private static final Map<AreaShape, AreaShapeGenerator> GENERATORS = Collections.unmodifiableMap(initGenerators());
 
     /**
-     * 鍒濆鍖栨墍鏈夊舰鐘剁敓鎴愬櫒骞舵敞鍐屽埌鏄犲皠琛ㄤ腑銆?
+     * 初始化所有形状生成器并注册到映射表中。
      */
     private static Map<AreaShape, AreaShapeGenerator> initGenerators() {
         Map<AreaShape, AreaShapeGenerator> map = new EnumMap<>(AreaShape.class);
@@ -42,20 +42,20 @@ public final class ShapeGeneratorRegistry {
     }
 
     /**
-     * 鑾峰彇鎸囧畾褰㈢姸绫诲瀷鐨勭敓鎴愬櫒銆?
+     * 获取指定形状类型的生成器。
      *
-     * @param shape 褰㈢姸绫诲瀷
-     * @return 瀵瑰簲鐨勭敓鎴愬櫒瀹炰緥锛屾湭鐭ョ被鍨嬭繑鍥炲崟鏂瑰潡鐢熸垚鍣ㄤ綔涓洪粯璁ゅ€?
+     * @param shape 形状类型
+     * @return 对应的生成器实例，未知类型返回单方块生成器作为默认值
      */
     public static AreaShapeGenerator getGenerator(AreaShape shape) {
         return GENERATORS.getOrDefault(shape, GENERATORS.get(AreaShape.BLOCK));
     }
 
     /**
-     * 閫氳繃 byte 搴忔暟鑾峰彇褰㈢姸鐢熸垚鍣紙鍏煎缃戠粶鍗忚锛夈€?
+     * 通过 byte 序数获取形状生成器（兼容网络协议）。
      *
-     * @param shapeOrdinal 涓?{@link AreaShape#ordinal()} 瀵瑰簲鐨勫舰鐘跺簭鏁?
-     * @return 瀵瑰簲鐨勭敓鎴愬櫒瀹炰緥
+     * @param shapeOrdinal 与 {@link AreaShape#ordinal()} 对应的形状序数
+     * @return 对应的生成器实例
      */
     public static AreaShapeGenerator getGenerator(byte shapeOrdinal) {
         AreaShape[] values = AreaShape.values();
@@ -66,9 +66,9 @@ public final class ShapeGeneratorRegistry {
     }
 
     /**
-     * 鍗曟柟鍧楃敓鎴愬櫒 鈥斺€?鐢ㄤ簬 {@link AreaShape#BLOCK} 绫诲瀷銆?
+     * 单方块生成器 —— 用于 {@link AreaShape#BLOCK} 类型。
      * <p>
-     * 浠呯敓鎴愰敋鐐逛綅缃殑涓€涓潗鏍囷紝涓嶆墽琛屼换浣曞舰鐘舵墿灞曘€?
+     * 仅生成锚点位置的一个坐标，不执行任何形状扩展。
      */
     private static class SingleBlockGenerator extends AreaShapeGenerator {
         @Override

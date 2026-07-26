@@ -385,7 +385,7 @@ public final class ScreenShapeController {
                 this.controller.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
             } else {
                 this.controller.placeSelected(hit, forcePlace, rayOrigin, rayDir);
-                // Single block pending ghost 鈥?resolve target position for accurate direction
+                // Single block pending ghost — resolve target position for accurate direction
                 BlockPos placePos = ShapePlacementTargetResolver.resolveClickedTarget(
                         hit.getBlockPos(),
                         hit.getDirection(),
@@ -1128,17 +1128,20 @@ public final class ScreenShapeController {
     }
 
     /**
-     * 璁板綍鍗曟鏂瑰潡鏀剧疆鍒版挙鍥炴爤锛堝凡鍦ㄦ湇鍔＄璁板綍锛屽鎴风涓嶅啀鍙備笌锛夈€?     */
+     * 记录单次方块放置到撤回栏（已在服务端记录，客户端不再参与）。
+     */
     public void recordSinglePlacementForUndo(BlockHitResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
     }
 
     /**
-     * 璁板綍鏂瑰潡鐮村潖鎿嶄綔鍒版挙鍥炴爤锛堝凡鍦ㄦ湇鍔＄璁板綍锛屽鎴风涓嶅啀鍙備笌锛夈€?     */
+     * 记录方块破坏操作到撤回栏（已在服务端记录，客户端不再参与）。
+     */
     public void recordBreakForUndo(List<BlockPos> positions, Direction face, int toolSlot) {
     }
 
     /**
-     * 璁板綍寰呮湇鍔＄纭鐨勭牬鍧忔壒娆″埌鎾ゅ洖鏍堬紙宸插湪鏈嶅姟绔褰曪紝瀹㈡埛绔笉鍐嶅弬涓庯級銆?     */
+     * 记录待服务端确认的破坏批次到撤回栏（已在服务端记录，客户端不再参与）。
+     */
     public void recordPendingBreakForUndo(List<BlockPos> positions, Direction face, int toolSlot) {
     }
 

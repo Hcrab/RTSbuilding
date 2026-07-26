@@ -141,7 +141,7 @@ public final class RtsProgressionManager {
         if (player != null) RtsEffectAccumulator.INSTANCE.markProgressionState(player.getUUID());
     }
 
-    /** 浠呯敱 Tick 鏈?Effect Committer 璋冪敤锛屾櫘閫氫笟鍔″叆鍙ｅ彧鐧昏鏈€鏂板畬鏁村揩鐓с€?*/
+    /** 仅由 Tick 末 Effect Committer 调用，普通业务入口只登记最新完整快照。 */
     public static void syncToPlayerNow(ServerPlayer player) {
         if (player == null) {
             return;

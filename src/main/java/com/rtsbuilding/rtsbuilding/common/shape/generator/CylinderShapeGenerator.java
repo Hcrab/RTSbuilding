@@ -10,8 +10,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 鍦嗘煴浣撳舰鐘剁敓鎴愬櫒銆? *
- * <p>鍗婂緞鐢辫捣鐐瑰埌缁堢偣鍦?XZ 骞抽潰鐨勮窛绂诲喅瀹氾紝楂樺害鐢?heightOffset 鍐冲畾銆? * FILL 鐢熸垚瀹炲績鍦嗘煴锛汬OLLOW/SKELETON 鐢熸垚渚у浠ュ強涓婁笅琛ㄩ潰锛屽崟灞傛椂閫€鍖栦负鍦嗙幆銆?/p>
+ * 圆柱体形状生成器。
+ *
+ * <p>半径由起点到终点在 XZ 平面的距离决定，高度由 heightOffset 决定。
+ * FILL 生成实心圆柱；HOLLOW/SKELETON 生成侧壁以及上下表面，单层时退化为圆环。</p>
  */
 public class CylinderShapeGenerator extends AreaShapeGenerator {
     @Override

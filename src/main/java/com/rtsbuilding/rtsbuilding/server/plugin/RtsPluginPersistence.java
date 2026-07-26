@@ -13,10 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Plugin 鍒楄〃鐨勫簭鍒楀寲鈥斺€旀暟鎹瓨鍌ㄤ簬 {@link com.rtsbuilding.rtsbuilding.server.data.DataCluster}锛?
- * 閫氳繃 {@link PlayerComponents#PLUGINS} 缁勪欢璇诲啓锛屾浛浠ｆ棫鐨?{@code player.getPersistentData()} 鏂瑰紡銆?
+ * Plugin 列表的序列化——数据存储于 {@link com.rtsbuilding.rtsbuilding.server.data.DataCluster}，
+ * 通过 {@link PlayerComponents#PLUGINS} 组件读写，替代旧的 {@code player.getPersistentData()} 方式。
  *
- * <p>浠呰礋璐ｅ簭鍒楀寲/鍙嶅簭鍒楀寲锛屼笉鍒ゆ柇瀹夎鏄惁鍚堟硶锛屼笉淇敼鐜╁鑳屽寘銆?
+ * <p>仅负责序列化/反序列化，不判断安装是否合法，不修改玩家背包。
  */
 final class RtsPluginPersistence {
     private static final String NBT_INSTALLED = "installed";

@@ -15,17 +15,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 鍖哄煙鎿嶄綔鎵ц鍣?鈥斺€?鍩轰簬褰㈢姸鐨勫尯鍩熷缓閫犲拰鐮村潖鎿嶄綔涓績銆?
+ * 区域操作执行器 —— 基于形状的区域建造和破坏操作中心。
  * <p>
- * 杩欎釜鏃犵姸鎬佸伐鍏风被缂栨帓瀹屾暣鐨勬祦姘寸嚎锛?
+ * 这个无状态工具类编排完整的流水线：
  * <ol>
- *   <li>鍩轰簬褰㈢姸鐨勪綅缃敓鎴?/li>
- *   <li>閫愪綅缃獙璇侊紙涓栫晫鏉冮檺銆佸彲鐮村潖鎬с€佸彲鏇挎崲鎬э級</li>
- *   <li>鐗╁搧鎻愬彇</li>
- *   <li>閫氳繃 tick 澶勭悊鍣ㄦ垨鐩存帴鏂瑰潡鎿嶄綔鍦ㄦ湇鍔＄鎵ц</li>
- *   <li>鎿嶄綔璁板綍浠ヤ究鎾ら攢</li>
+ *   <li>基于形状的位置生成</li>
+ *   <li>逐位置验证（世界权限、可破坏性、可替换性）</li>
+ *   <li>物品提取</li>
+ *   <li>通过 tick 处理器或直接方块操作在服务端执行</li>
+ *   <li>操作记录以便撤销</li>
  * </ol>
- * 鎵€鏈夌姸鎬佺敱璋冪敤鏂圭殑 Session 绠＄悊銆?
+ * 所有状态由调用方的 Session 管理。
  */
 public final class AreaOperationExecutor {
 
@@ -33,21 +33,21 @@ public final class AreaOperationExecutor {
     }
 
     // ======================================================================
-    // 鍖哄煙浣嶇疆鐢熸垚 鈥斺€?涓轰换浣曟搷浣滄壒閲忕敓鎴愭柟鍧椾綅缃?
+    // 区域位置生成 —— 为任何操作批量生成方块位置
     // ======================================================================
 
     /**
-     * 涓哄尯鍩熸搷浣滐紙鏀剧疆鎴栫牬鍧忥級鐢熸垚鐩爣浣嶇疆銆?
+     * 为区域操作（放置或破坏）生成目标位置。
      * <p>
-     * 鍩轰簬褰㈢姸鐨勪綅缃敓鎴愪笌鏀剧疆鎴栫牬鍧忔棤鍏斥€斺€旇皟鐢ㄦ柟鍐冲畾濡備綍鎿嶄綔杩欎簺浣嶇疆銆?
+     * 基于形状的位置生成与放置或破坏无关——调用方决定如何操作这些位置。
      *
-     * @param shape    褰㈢姸绫诲瀷
-     * @param start    閿氱偣浣嶇疆
-     * @param end      绗簩涓鐐逛綅缃?
-     * @param height   3D 褰㈢姸鐨勯珮搴﹀亸绉?
-     * @param face     鐐瑰嚮/鏀剧疆闈?
-     * @param fillMode 濉厖绛栫暐
-     * @return 缁濆涓栫晫鍧愭爣鍒楄〃
+     * @param shape    形状类型
+     * @param start    锚点位置
+     * @param end      第二个角点位置
+     * @param height   3D 形状的高度偏移
+     * @param face     点击/放置面
+     * @param fillMode 填充策略
+     * @return 绝对世界坐标列表
      */
     public static List<BlockPos> generatePositions(AreaShape shape, BlockPos start, BlockPos end,
                                                    int height, Direction face, ShapeFillMode fillMode) {
@@ -57,22 +57,22 @@ public final class AreaOperationExecutor {
     }
 
     // ======================================================================
-    // 鍖哄煙鐮村潖 鈥斺€?鎵归噺鍦ㄨ澶氫綅缃牬鍧忔柟鍧?
+    // 区域破坏 —— 批量在许多位置破坏方块
     // ======================================================================
 
     /**
-     * 涓哄尯鍩熺牬鍧忔搷浣滅敓鎴愮洰鏍囦綅缃€?
+     * 为区域破坏操作生成目标位置。
      * <p>
-     * 璇箟涓婁笌 {@link #generatePositions} 鐩稿悓鈥斺€斾綅缃垪琛ㄦ槸涓€鏍风殑锛?
-     * 璋冪敤鏂瑰喅瀹氭槸鏀剧疆杩樻槸鐮村潖銆?
+     * 语义上与 {@link #generatePositions} 相同——位置列表是一样的，
+     * 调用方决定是放置还是破坏。
      *
-     * @param shape    褰㈢姸绫诲瀷
-     * @param start    閿氱偣浣嶇疆
-     * @param end      绗簩涓鐐逛綅缃?
-     * @param height   3D 褰㈢姸鐨勯珮搴﹀亸绉?
-     * @param face     鐐瑰嚮闈?
-     * @param fillMode 濉厖绛栫暐
-     * @return 灏濊瘯鐮村潖鐨勭洰鏍囦綅缃垪琛?
+     * @param shape    形状类型
+     * @param start    锚点位置
+     * @param end      第二个角点位置
+     * @param height   3D 形状的高度偏移
+     * @param face     点击面
+     * @param fillMode 填充策略
+     * @return 尝试破坏的目标位置列表
      */
     public static List<BlockPos> generateDestroyPositions(AreaShape shape, BlockPos start, BlockPos end,
                                                            int height, Direction face, ShapeFillMode fillMode) {
@@ -80,14 +80,14 @@ public final class AreaOperationExecutor {
     }
 
     /**
-     * 杩囨护鐮村潖鐩爣鍒楄〃锛屽彧淇濈暀鍙湁鏁堢牬鍧忕殑浣嶇疆銆?
+     * 过滤破坏目标列表，只保留可有效破坏的位置。
      * <p>
-     * 鏉′欢锛氶潪绌烘皵銆佸湪涓栫晫浜や簰鑼冨洿鍐呫€佷笖鍏锋湁鏈夋晥鐨勭牬鍧忛€熷害銆?
+     * 条件：非空气、在世界交互范围内、且具有有效的破坏速度。
      *
-     * @param level   鏈嶅姟绔笘鐣?
-     * @param targets 鍘熷浣嶇疆鍒楄〃
-     * @param player  鎵ц鎿嶄綔鐨勭帺瀹?
-     * @return 杩囨护鍚庡彲鐮村潖鐨勪綅缃垪琛?
+     * @param level   服务端世界
+     * @param targets 原始位置列表
+     * @param player  执行操作的玩家
+     * @return 过滤后可破坏的位置列表
      */
     public static List<BlockPos> filterBreakableTargets(ServerLevel level, List<BlockPos> targets, ServerPlayer player) {
         List<BlockPos> valid = new ArrayList<>();
@@ -102,15 +102,15 @@ public final class AreaOperationExecutor {
     }
 
     /**
-     * 杩囨护鏀剧疆鐩爣鍒楄〃锛屽彧淇濈暀鍙湁鏁堟斁缃殑浣嶇疆銆?
+     * 过滤放置目标列表，只保留可有效放置的位置。
      * <p>
-     * 鏉′欢锛氬湪寤虹瓚楂樺害鍐呫€佸彲鏇挎崲銆佷笘鐣屽彲浜や簰銆?
+     * 条件：在建筑高度内、可替换、世界可交互。
      *
-     * @param level   鏈嶅姟绔笘鐣?
-     * @param targets 鍘熷浣嶇疆鍒楄〃
-     * @param state   瑕佹斁缃殑鏂瑰潡鐘舵€?
-     * @param player  鎵ц鎿嶄綔鐨勭帺瀹?
-     * @return 杩囨护鍚庡彲鏀剧疆鐨勪綅缃垪琛?
+     * @param level   服务端世界
+     * @param targets 原始位置列表
+     * @param state   要放置的方块状态
+     * @param player  执行操作的玩家
+     * @return 过滤后可放置的位置列表
      */
     public static List<BlockPos> filterPlaceableTargets(ServerLevel level, List<BlockPos> targets,
                                                          BlockState state, ServerPlayer player) {
@@ -127,43 +127,43 @@ public final class AreaOperationExecutor {
     }
 
     /**
-     * 楠岃瘉鍗曚釜浣嶇疆鏄惁鏄湁鏁堢殑鐮村潖鐩爣銆?
+     * 验证单个位置是否是有效的破坏目标。
      *
-     * @param level  鏈嶅姟绔笘鐣?
-     * @param pos    鐩爣鏂瑰潡浣嶇疆
-     * @param player 鐜╁
-     * @return true 濡傛灉璇ユ柟鍧楀彲琚牬鍧?
+     * @param level  服务端世界
+     * @param pos    目标方块位置
+     * @param player 玩家
+     * @return true 如果该方块可被破坏
      */
     public static boolean isValidDestroyTarget(ServerLevel level, BlockPos pos, ServerPlayer player) {
         return AreaShapeGenerator.validateDestroyPosition(level, pos, player);
     }
 
     /**
-     * 楠岃瘉鍗曚釜浣嶇疆鏄惁鏄湁鏁堢殑鏀剧疆鐩爣銆?
+     * 验证单个位置是否是有效的放置目标。
      *
-     * @param level  鏈嶅姟绔笘鐣?
-     * @param pos    鐩爣浣嶇疆
-     * @param state  瑕佹斁缃殑鏂瑰潡鐘舵€?
-     * @param player 鐜╁
-     * @return true 濡傛灉姝ゅ鍙互鏀剧疆鏂瑰潡
+     * @param level  服务端世界
+     * @param pos    目标位置
+     * @param state  要放置的方块状态
+     * @param player 玩家
+     * @return true 如果此处可以放置方块
      */
     public static boolean isValidPlacementTarget(ServerLevel level, BlockPos pos, BlockState state, ServerPlayer player) {
         return AreaShapeGenerator.validatePlacementPosition(level, pos, state, player);
     }
 
     /**
-     * 鎵弿 3D 鍖呭洿鐩掑苟杩斿洖鍏朵腑鎵€鏈夊彲鐮村潖鐨勬柟鍧椾綅缃€?
+     * 扫描 3D 包围盒并返回其中所有可破坏的方块位置。
      * <p>
-     * 搴旂敤褰㈢姸杩囨护鍣紝鐩稿綋浜?GadgetUtils.getDestructionArea()銆?
+     * 应用形状过滤器，相当于 GadgetUtils.getDestructionArea()。
      *
-     * @param level         鏈嶅姟绔笘鐣?
-     * @param minX, maxX    鍖呭惈鐨?X 杈圭晫
-     * @param minY, maxY    鍖呭惈鐨?Y 杈圭晫
-     * @param minZ, maxZ    鍖呭惈鐨?Z 杈圭晫
-     * @param player        鐜╁
-     * @param shapeOrdinal  褰㈢姸绫诲瀷搴忔暟
-     * @param fillOrdinal   濉厖妯″紡搴忔暟
-     * @return 杈圭晫鍐呭彲鐮村潖鐨勬柟鍧椾綅缃垪琛?
+     * @param level         服务端世界
+     * @param minX, maxX    包含的 X 边界
+     * @param minY, maxY    包含的 Y 边界
+     * @param minZ, maxZ    包含的 Z 边界
+     * @param player        玩家
+     * @param shapeOrdinal  形状类型序数
+     * @param fillOrdinal   填充模式序数
+     * @return 边界内可破坏的方块位置列表
      */
     public static List<BlockPos> scanAreaMineTargets(ServerLevel level,
                                                       int minX, int maxX, int minY, int maxY, int minZ, int maxZ,

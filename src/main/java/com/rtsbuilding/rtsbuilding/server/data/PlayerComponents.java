@@ -3,27 +3,27 @@ package com.rtsbuilding.rtsbuilding.server.data;
 import net.minecraft.nbt.CompoundTag;
 
 /**
- * 鐜╁绾у埆鐨勯潪浼氳瘽 {@link DataComponent} 娉ㄥ唽琛ㄣ€?
+ * 玩家级别的非会话 {@link DataComponent} 注册表。
  *
- * <p>涓?{@link SessionComponents} 涓嶅悓锛屾澶勭殑缁勪欢涓嶅綊灞炰簬瀛樺偍浼氳瘽锛?
- * 鑰屾槸姣忎釜鐜╁鐙珛鐨勬瑕佹暟鎹紙濡傛彃浠躲€佽澶囨爮銆佽繘搴︾瓑锛夈€?
- * 鎵€鏈夌粍浠跺啓鍏ュ悓涓€浠?{@code session.dat}锛岀粺涓€鐢?{@link SaveScheduler} 绠＄悊銆?
+ * <p>与 {@link SessionComponents} 不同，此处的组件不归属于存储会话，
+ * 而是每个玩家独立的次要数据（如插件、装备栏、进度等）。
+ * 所有组件写入同一份 {@code session.dat}，统一由 {@link SaveScheduler} 管理。
  */
 public final class PlayerComponents {
 
-    /** 宸插畨瑁呮彃浠跺垪琛ㄢ€斺€擟ompoundTag 妗ユ帴锛屽吋瀹?{@code RtsPluginPersistence} 鏍煎紡 */
+    /** 已安装插件列表——CompoundTag 桥接，兼容 {@code RtsPluginPersistence} 格式 */
     public static final DataComponent<CompoundTag> PLUGINS = bridge("plugins");
 
-    /** 鎸栨帢瑁呭鏍忕粦瀹氣€斺€擟ompoundTag 妗ユ帴锛屽吋瀹?{@code MiningLoadoutState} 鏍煎紡 */
+    /** 挖掘装备栏绑定——CompoundTag 桥接，兼容 {@code MiningLoadoutState} 格式 */
     public static final DataComponent<CompoundTag> MINING_LOADOUT = bridge("mining_loadout");
 
-    /** 鐜╁杩涘害鏁版嵁鈥斺€擟ompoundTag 妗ユ帴锛屽吋瀹?{@code RtsProgressionPersistence} 鏍煎紡 */
+    /** 玩家进度数据——CompoundTag 桥接，兼容 {@code RtsProgressionPersistence} 格式 */
     public static final DataComponent<CompoundTag> PROGRESSION = bridge("progression");
 
-    /** 鎸夌淮搴︿繚瀛樼殑瀹㈡埛绔寖鍥村墧闄ょ洅锛涙枃浠舵湰韬殢鐜╁涓庡瓨妗ｉ殧绂汇€?*/
+    /** 按维度保存的客户端范围剔除盒；文件本身随玩家与存档隔离。 */
     public static final DataComponent<CompoundTag> CULLING = bridge("culling");
 
-    /** 鍒涘缓鐩撮€氭ˉ鎺ョ粍浠?*/
+    /** 创建直通桥接组件 */
     private static DataComponent<CompoundTag> bridge(String key) {
         return new DataComponent<>(
                 key,
@@ -42,4 +42,3 @@ public final class PlayerComponents {
     private PlayerComponents() {
     }
 }
-
