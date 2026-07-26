@@ -33,6 +33,8 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
@@ -432,10 +434,10 @@ public final class RtsServerGameTests {
                 RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
 
         RtsStorageSession session = requireSession(helper, player);
-        helper.assertValueEqual(1, session.linkedStorageInfo.size(),
+        assertValueEqual(helper, 1, session.linkedStorageInfo.size(),
                 "RTS should keep one linked storage after linking a chest");
         long stoneCount = RtsAPI.get().storage().countItemsMatching(player, stack -> stack.getItem() == Items.STONE);
-        helper.assertValueEqual(19L, stoneCount,
+        assertValueEqual(helper, 19L, stoneCount,
                 "RTS linked storage should count items in the linked chest");
         stopPlayers(player);
         helper.succeed();
@@ -454,7 +456,7 @@ public final class RtsServerGameTests {
 
         helper.assertTrue(player.getInventory().getItem(0).isEmpty(),
                 "Storing a hotbar slot should clear the player's original slot");
-        helper.assertValueEqual(12, countChestItem(helper, chestRel, Items.DIRT),
+        assertValueEqual(helper, 12, countChestItem(helper, chestRel, Items.DIRT),
                 "Storing a hotbar slot should move the items into the linked chest");
         stopPlayers(player);
         helper.succeed();
@@ -579,7 +581,7 @@ public final class RtsServerGameTests {
             for (BlockPos targetRel : targetsRel) {
                 helper.assertBlockPresent(Blocks.AIR, targetRel);
             }
-            helper.assertValueEqual(targetsRel.size(), countChestItem(helper, chestRel, Items.DIRT),
+            assertValueEqual(helper, targetsRel.size(), countChestItem(helper, chestRel, Items.DIRT),
                     "Auto-store should put range-destroy drops into the linked chest");
             helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
                     "Auto-store area destroy should finish without an active durable task");
@@ -608,11 +610,11 @@ public final class RtsServerGameTests {
 
         helper.succeedWhen(() -> {
             helper.assertBlockPresent(Blocks.WATER, targetRel);
-            helper.assertValueEqual(1, countChestItem(helper, chestRel, Items.DIRT),
+            assertValueEqual(helper, 1, countChestItem(helper, chestRel, Items.DIRT),
                     "Underwater range-destroy drops should enter linked storage");
-            helper.assertValueEqual(0, countPlayerItem(player, Items.DIRT),
+            assertValueEqual(helper, 0, countPlayerItem(player, Items.DIRT),
                     "Underwater drops should not fall back to the player inventory");
-            helper.assertValueEqual(0, countWorldItem(helper, List.of(targetRel), Items.DIRT),
+            assertValueEqual(helper, 0, countWorldItem(helper, List.of(targetRel), Items.DIRT),
                     "Underwater drops should not remain in or drift through the world");
             helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
                     "Underwater auto-store destruction should finish without an active task");
@@ -968,7 +970,7 @@ public final class RtsServerGameTests {
                         chestItems, bufferItems, inventoryItems, worldItems,
                         chestItems + bufferItems + inventoryItems + worldItems);
             }
-            helper.assertValueEqual(targetsRel.size(), chestItems,
+            assertValueEqual(helper, targetsRel.size(), chestItems,
                     "Chain mining should put every drop into linked storage without escrow delay"
                             + " (buffer=" + bufferItems + ", inventory=" + inventoryItems
                             + ", world=" + worldItems + ")");
@@ -1006,7 +1008,7 @@ public final class RtsServerGameTests {
                 .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
                 .map(snapshot -> MiningTaskCodec.decode(snapshot.payload()).state())
                 .toList();
-        helper.assertValueEqual(2, activeMiningStates.size(),
+        assertValueEqual(helper, 2, activeMiningStates.size(),
                 "Two separate chain-mining inputs should create two independent tasks");
         for (MiningTaskState state : activeMiningStates) {
             helper.assertTrue(state.mode() == MiningTaskState.Mode.PROGRESSIVE_SINGLE,
@@ -1056,7 +1058,7 @@ public final class RtsServerGameTests {
                 .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
                 .map(snapshot -> MiningTaskCodec.decode(snapshot.payload()).state())
                 .toList();
-        helper.assertValueEqual(2, states.size(),
+        assertValueEqual(helper, 2, states.size(),
                 "Overlapping chain inputs should remain two independent tasks");
         Set<BlockPos> firstTargets = new LinkedHashSet<>(states.get(0).remainingTargets());
         Set<BlockPos> secondTargets = new LinkedHashSet<>(states.get(1).remainingTargets());
@@ -1082,14 +1084,14 @@ public final class RtsServerGameTests {
             int bufferItems = countBufferedItem(session, Items.DIRT);
             int inventoryItems = countPlayerItem(player, Items.DIRT);
             int worldItems = countWorldItem(helper, chainRel, Items.DIRT);
-            helper.assertValueEqual(uniqueTargets.size(),
+            assertValueEqual(helper, uniqueTargets.size(),
                     chestItems + bufferItems + inventoryItems + worldItems,
                     "Overlapping chain tasks must conserve exactly one drop per unique world block");
-            helper.assertValueEqual(0, bufferItems + inventoryItems + worldItems,
+            assertValueEqual(helper, 0, bufferItems + inventoryItems + worldItems,
                     "Completed overlapping chain drops should settle in linked storage");
             helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
                     "Both overlapping chain-mining tasks must reach a terminal state");
-            helper.assertValueEqual(2, countPlayerItem(player, Items.DIAMOND_SHOVEL),
+            assertValueEqual(helper, 2, countPlayerItem(player, Items.DIAMOND_SHOVEL),
                     "Overlapping chain tasks must return the borrowed tool exactly once");
             stopPlayers(player);
             helper.succeed();
@@ -1106,9 +1108,9 @@ public final class RtsServerGameTests {
         linkChests(helper, player, List.of(chestRel));
 
         S2CRtsStoragePagePayload firstPage = buildStoragePage(helper, player, 0, "", 8, false, List.of());
-        helper.assertValueEqual(expected.size(), firstPage.totalEntries(),
+        assertValueEqual(helper, expected.size(), firstPage.totalEntries(),
                 "Single chest junk storage should preserve every distinct item");
-        helper.assertValueEqual(3, firstPage.totalPages(),
+        assertValueEqual(helper, 3, firstPage.totalPages(),
                 "24 junk entries at 8 entries per page should produce three pages");
         assertPageCount(helper, firstPage, 8, "First page should contain the requested page size");
         assertTotalCount(helper, firstPage, Items.DIAMOND, expected.get(Items.DIAMOND),
@@ -1157,11 +1159,11 @@ public final class RtsServerGameTests {
         S2CRtsStoragePagePayload allSecond = buildStoragePage(helper, player, 1, "", 12, false, List.of());
         long secondNanos = System.nanoTime() - secondStart;
 
-        helper.assertValueEqual(expected.size(), allFirst.totalEntries(),
+        assertValueEqual(helper, expected.size(), allFirst.totalEntries(),
                 "Multi-chest junk storage should preserve every distinct item");
         helper.assertTrue(allSecond.page() == 1 && allSecond.totalEntries() == allFirst.totalEntries(),
                 "Same search parameters should reuse the same aggregate boundary while paging");
-        helper.assertValueEqual(versionBeforeRead, session.transfer.pageDataVersion.get(),
+        assertValueEqual(helper, versionBeforeRead, session.transfer.pageDataVersion.get(),
                 "Read-only page/search requests should not dirty the storage data version");
         helper.assertTrue(allFirst.totalPages() >= 4,
                 "48 junk entries at 12 entries per page should produce multiple pages");
@@ -1175,7 +1177,7 @@ public final class RtsServerGameTests {
 
         S2CRtsStoragePagePayload minecraftNamespace = buildStoragePage(helper, player,
                 0, "@minecraft", 16, false, List.of());
-        helper.assertValueEqual(expected.size(), minecraftNamespace.totalEntries(),
+        assertValueEqual(helper, expected.size(), minecraftNamespace.totalEntries(),
                 "@minecraft should match every vanilla junk entry");
 
         S2CRtsStoragePagePayload localizedEmerald = buildStoragePage(helper, player,
@@ -1198,7 +1200,7 @@ public final class RtsServerGameTests {
         long storedHoneycomb = chestsRel.stream()
                 .mapToLong(chestRel -> countChestItem(helper, chestRel, Items.HONEYCOMB))
                 .sum();
-        helper.assertValueEqual(11L, storedHoneycomb,
+        assertValueEqual(helper, 11L, storedHoneycomb,
                 "Newly stored honeycomb should keep its stored count in the backing storage");
 
         stopPlayers(player);
@@ -1226,9 +1228,9 @@ public final class RtsServerGameTests {
         // 同步 command 返回只代表进入有界 admission；本次服务器 tick 的 root ACK 尚未发生。
         helper.assertTrue(TaskPersistenceRuntime.INSTANCE.coordinator().query().get(taskId).isEmpty(),
                 "Blueprint root must not be visible before the durability ACK");
-        helper.assertValueEqual(0, RtsWorkflowEngine.getInstance().activeWorkflowCount(player),
+        assertValueEqual(helper, 0, RtsWorkflowEngine.getInstance().activeWorkflowCount(player),
                 "Workflow projection must not exist before the durability ACK");
-        helper.assertValueEqual(0,
+        assertValueEqual(helper, 0,
                 RtsTaskEngine.INSTANCE.diagnostics(player.getUUID()).activeByType()
                         .getOrDefault(TaskType.BLUEPRINT, 0),
                 "Blueprint executor must not exist before the durability ACK");
@@ -1244,14 +1246,14 @@ public final class RtsServerGameTests {
             var query = TaskPersistenceRuntime.INSTANCE.coordinator().query();
             var activeRoot = query.get(taskId);
             var terminalReceipt = query.receipt(taskId);
-            helper.assertValueEqual(1,
+            assertValueEqual(helper, 1,
                     (activeRoot.isPresent() ? 1 : 0) + (terminalReceipt.isPresent() ? 1 : 0),
                     "The deterministic TaskId must have exactly one active root or terminal receipt");
             long sameSubmissionRoots = query.ownedBy(player.getUUID()).stream()
                     .filter(snapshot -> snapshot.submissionId().equals(submissionId))
                     .count();
             long sameSubmissionFacts = sameSubmissionRoots + (terminalReceipt.isPresent() ? 1L : 0L);
-            helper.assertValueEqual(1L, sameSubmissionFacts,
+            assertValueEqual(helper, 1L, sameSubmissionFacts,
                     "Repeating one blueprint submission must leave exactly one durable fact");
             stopPlayers(player);
         });
@@ -1281,11 +1283,11 @@ public final class RtsServerGameTests {
 
         var bounded = ServiceRegistry.getInstance().funnel().tickBudgeted(
                 player, session, 7, Long.MAX_VALUE);
-        helper.assertValueEqual(7, bounded.processedUnits(),
+        assertValueEqual(helper, 7, bounded.processedUnits(),
                 "A funnel slice must obey the caller's smaller unit budget");
-        helper.assertValueEqual(7, countChestItem(helper, chestRel, Items.COBBLESTONE),
+        assertValueEqual(helper, 7, countChestItem(helper, chestRel, Items.COBBLESTONE),
                 "One bounded funnel slice should move only seven one-item entities");
-        helper.assertValueEqual(entityCount - 7, countLiveDrops(helper, scanBox),
+        assertValueEqual(helper, entityCount - 7, countLiveDrops(helper, scanBox),
                 "Entities outside the current slice budget must remain in the world");
 
         session.funnel.funnelTickCooldown = 0;
@@ -1294,20 +1296,20 @@ public final class RtsServerGameTests {
         int liveBeforeWrongDimension = countLiveDrops(helper, scanBox);
         var wrongDimension = ServiceRegistry.getInstance().funnel().tickBudgeted(
                 player, session, 7, Long.MAX_VALUE);
-        helper.assertValueEqual(0, wrongDimension.processedUnits(),
+        assertValueEqual(helper, 0, wrongDimension.processedUnits(),
                 "A funnel target from another dimension must yield without scanning this world");
-        helper.assertValueEqual(storedBeforeWrongDimension,
+        assertValueEqual(helper, storedBeforeWrongDimension,
                 countChestItem(helper, chestRel, Items.COBBLESTONE),
                 "Wrong-dimension funnel work must not mutate linked storage");
-        helper.assertValueEqual(liveBeforeWrongDimension, countLiveDrops(helper, scanBox),
+        assertValueEqual(helper, liveBeforeWrongDimension, countLiveDrops(helper, scanBox),
                 "Wrong-dimension funnel work must not consume same-coordinate entities");
 
         session.funnel.funnelTargetDimension = player.serverLevel().dimension();
         session.funnel.funnelTickCooldown = 0;
         helper.succeedWhen(() -> {
-            helper.assertValueEqual(entityCount, countChestItem(helper, chestRel, Items.COBBLESTONE),
+            assertValueEqual(helper, entityCount, countChestItem(helper, chestRel, Items.COBBLESTONE),
                     "The real Task Engine should eventually drain all reachable funnel drops");
-            helper.assertValueEqual(0, countLiveDrops(helper, scanBox),
+            assertValueEqual(helper, 0, countLiveDrops(helper, scanBox),
                     "Fully stored funnel drops should leave no live ItemEntity behind");
             stopPlayers(player);
         });
@@ -1341,11 +1343,11 @@ public final class RtsServerGameTests {
         session.placement.recoveryJobs.addLast(matching);
 
         var result = RtsPlacedRecoveryService.tickBudgeted(player, session, 1, Long.MAX_VALUE);
-        helper.assertValueEqual(1, result.processedUnits(),
+        assertValueEqual(helper, 1, result.processedUnits(),
                 "One recovery slice should consume exactly one runnable matching claim");
         helper.assertTrue(!exact.isAlive(),
                 "A matching loaded claim should release its source ItemEntity after insertion");
-        helper.assertValueEqual(5, countChestItem(helper, chestRel, Items.IRON_INGOT),
+        assertValueEqual(helper, 5, countChestItem(helper, chestRel, Items.IRON_INGOT),
                 "Recovered items should reach the linked storage exactly once");
         helper.assertTrue(mismatch.isAlive() && mismatch.getItem().is(Items.DIRT),
                 "A stale claim must not consume an entity whose stack identity changed");
@@ -1391,11 +1393,11 @@ public final class RtsServerGameTests {
             helper.assertBlockPresent(Blocks.GOLD_BLOCK, firstRel);
             helper.assertBlockPresent(Blocks.DIAMOND_BLOCK, secondRel);
             var query = TaskPersistenceRuntime.INSTANCE.coordinator().query();
-            helper.assertValueEqual(1,
+            assertValueEqual(helper, 1,
                     (query.get(firstTask).isPresent() ? 1 : 0)
                             + (query.receipt(firstTask).isPresent() ? 1 : 0),
                     "First player must own exactly one active root or terminal receipt");
-            helper.assertValueEqual(1,
+            assertValueEqual(helper, 1,
                     (query.get(secondTask).isPresent() ? 1 : 0)
                             + (query.receipt(secondTask).isPresent() ? 1 : 0),
                     "Second player must own exactly one active root or terminal receipt");
@@ -1441,7 +1443,7 @@ public final class RtsServerGameTests {
     private static ServerPlayer startRegisteredRtsPlayer(
             GameTestHelper helper, GameType gameType, Vec3 relativePos, String name) {
         // GameTest 配置目录会跨运行保留；普通测试必须从关闭生存门禁的确定状态开始。
-        if (Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean()) {
+        if (Config.ENABLE_SURVIVAL_PROGRESSION.get()) {
             Config.setSurvivalProgressionEnabled(false);
         }
         ensureCoreServices();
@@ -1631,7 +1633,7 @@ public final class RtsServerGameTests {
                     RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
         }
         RtsStorageSession session = requireSession(helper, player);
-        helper.assertValueEqual(chestsRel.size(), session.linkedStorageInfo.size(),
+        assertValueEqual(helper, chestsRel.size(), session.linkedStorageInfo.size(),
                 "Linked storage count should equal the test chest count");
     }
 
@@ -1685,15 +1687,24 @@ public final class RtsServerGameTests {
                 message);
     }
 
+    /**
+     * Forge 1.20.1 的 GameTestHelper 尚未提供 1.21 的 assertValueEqual。
+     * 这里保留同样的值比较语义与失败信息，让同一批服务端测试无需降级断言强度。
+     */
+    private static <T> void assertValueEqual(GameTestHelper helper, T expected, T actual, String message) {
+        helper.assertTrue(java.util.Objects.equals(expected, actual),
+                message + " (expected=" + expected + ", actual=" + actual + ")");
+    }
+
     private static void assertTotalCount(GameTestHelper helper, S2CRtsStoragePagePayload payload,
             Item item, long expected, String message) {
         long actual = totalCount(payload, item);
-        helper.assertValueEqual(expected, actual, message);
+        assertValueEqual(helper, expected, actual, message);
     }
 
     private static void assertSingleSearchResult(GameTestHelper helper, S2CRtsStoragePagePayload payload,
             Item expectedItem, String message) {
-        helper.assertValueEqual(1, payload.totalEntries(), message);
+        assertValueEqual(helper, 1, payload.totalEntries(), message);
         helper.assertTrue(payload.itemStacks().size() == 1 && payload.itemStacks().get(0).getItem() == expectedItem,
                 message);
     }

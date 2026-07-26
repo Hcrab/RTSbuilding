@@ -41,7 +41,8 @@ public final class BlueprintMaterialResolver {
             return Items.DIRT;
         }
         if (block == Blocks.TALL_GRASS) {
-            return Items.SHORT_GRASS;
+            // 1.20.1 中“矮草”仍使用 GRASS 注册名；1.21 才更名为 SHORT_GRASS。
+            return Items.GRASS;
         }
         if (block == Blocks.LARGE_FERN) {
             return Items.FERN;

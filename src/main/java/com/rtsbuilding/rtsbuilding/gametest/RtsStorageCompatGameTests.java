@@ -15,6 +15,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExtractor;
+import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.view.RtsLinkedHandlerViews;
@@ -298,10 +299,10 @@ public final class RtsStorageCompatGameTests {
 
     private static void linkStorageAndAssert(GameTestHelper helper, ServerPlayer player, BlockPos rel) {
         RtsStorageSession session = requireSession(helper, player);
-        int before = session.linkedStorages.size();
+        int before = session.linkedStorageInfo.size();
         RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(rel),
                 RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
-        helper.assertTrue(session.linkedStorages.size() > before,
+        helper.assertTrue(session.linkedStorageInfo.size() > before,
                 "RTS 应该能链接真实网络 endpoint: " + rel);
     }
 
@@ -386,11 +387,11 @@ public final class RtsStorageCompatGameTests {
                 label + " 应该已经包含大数量泥土，实际 " + before);
 
         RtsStorageSession session = requireSession(helper, player);
-        session.bdHandlerStale = true;
-        session.bdFluidHandlerStale = true;
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
         List<LinkedHandler> linkedHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         helper.assertTrue(!linkedHandlers.isEmpty(), label + " 应该能被 RTS 解析为 linked storage");
-        RtsLinkedStorageResolver.registerStorageCaches(player, linkedHandlers);
+        RtsLinkedHandlerResolutionService.registerStorageCaches(player, linkedHandlers);
         RtsStorageTickService.INSTANCE.forceRefresh(player);
 
         ItemStack extracted = RtsPlacementExtractor.extractSelectedFromNetwork(
@@ -408,8 +409,8 @@ public final class RtsStorageCompatGameTests {
 
     private static long visibleCountFromResolvedHandlers(GameTestHelper helper, ServerPlayer player, Item item) {
         RtsStorageSession session = requireSession(helper, player);
-        session.bdHandlerStale = true;
-        session.bdFluidHandlerStale = true;
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
         List<LinkedHandler> linkedHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         helper.assertTrue(!linkedHandlers.isEmpty(), "RTS 应该能解析用于计数的 linked storage");
         long total = 0L;
@@ -501,13 +502,13 @@ public final class RtsStorageCompatGameTests {
         session.browser.localizedSearchMatches.addAll(
                 RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches));
         if (refreshStorageSnapshot) {
-            session.bdHandlerStale = true;
-            session.bdFluidHandlerStale = true;
+            session.bdCache.handlerStale = true;
+            session.bdCache.fluidHandlerStale = true;
         }
 
         List<LinkedHandler> itemHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> fluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
-        RtsLinkedStorageResolver.registerStorageCaches(player, itemHandlers);
+        RtsLinkedHandlerResolutionService.registerStorageCaches(player, itemHandlers);
         if (refreshStorageSnapshot) {
             RtsStorageTickService.INSTANCE.forceRefresh(player);
         }

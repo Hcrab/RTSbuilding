@@ -45,7 +45,7 @@ final class BuildingGadgetsTemplateReader {
     static RtsBlueprint parse(byte[] data, String fileName, RegistryAccess registryAccess)
             throws BlueprintParseException {
         JsonObject root = readJsonObject(data, fileName);
-        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
+        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         String name = readName(root, fileName);
 
         // 新版格式：statePosArrayList

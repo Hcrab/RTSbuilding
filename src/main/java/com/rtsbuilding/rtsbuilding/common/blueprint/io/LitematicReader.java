@@ -43,7 +43,7 @@ final class LitematicReader {
             throw new BlueprintParseException("Litematic 文件缺少 Regions 数据: " + fileName);
         }
 
-        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
+        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         CompoundTag regions = root.getCompound("Regions");
         List<PendingBlock> pending = new ArrayList<>();
 

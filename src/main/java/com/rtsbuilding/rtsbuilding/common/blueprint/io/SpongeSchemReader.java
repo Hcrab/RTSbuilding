@@ -57,7 +57,7 @@ final class SpongeSchemReader {
         CompoundTag blocksRoot = schematic.getCompound("Blocks");
         CompoundTag paletteTag = blocksRoot.getCompound("Palette");
         byte[] packed = readBlockData(blocksRoot);
-        HolderLookup<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK);
+        HolderLookup<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         Map<Integer, PaletteEntry> palette = readPalette(paletteTag, blockLookup);
 
         // 解码变长整型数组并生成方块列表

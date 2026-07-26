@@ -56,7 +56,7 @@ public final class VanillaStructureNbtReader {
             return RtsBlueprint.create(name, sourceName, BlueprintFormat.VANILLA_NBT, Vec3i.ZERO, List.of());
         }
 
-        HolderGetter<Block> blocks = registryAccess.registryOrThrow(Registries.BLOCK);
+        HolderGetter<Block> blocks = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         ListTag paletteTag = root.getList("palette", Tag.TAG_COMPOUND);
         List<PaletteEntry> palette = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
