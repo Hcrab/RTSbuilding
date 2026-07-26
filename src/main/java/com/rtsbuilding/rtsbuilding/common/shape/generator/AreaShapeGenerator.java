@@ -167,16 +167,17 @@ public abstract class AreaShapeGenerator {
     }
 
     /**
-     * 杩囨护浣嶇疆鍒楄〃锛屼粎淇濈暀杈圭晫浣嶇疆锛堢敤浜?HOLLOW / SKELETON 妯″紡锛夈€?
-     * <p>
-     * 鍘熺悊锛氬鏋滀竴涓柟鍧楀湪 X銆乊銆乑 涓换涓€鏂瑰悜涓婄殑閭诲眳涓嶅湪闆嗗悎涓紝鍒欎负杈圭晫鏂瑰潡銆?
+     * 过滤位置列表，仅保留边界位置（用于 HOLLOW / SKELETON 模式）。
+     *
+     * <p>如果一个方块在 X、Y、Z 任一方向上的邻居不在集合中，就把它视为边界方块。</p>
      */
     protected static List<BlockPos> filterBoundary(List<BlockPos> full, int minY, int maxY) {
         java.util.Set<BlockPos> set = new java.util.HashSet<>(full);
         List<BlockPos> boundary = new ArrayList<>();
         for (BlockPos pos : full) {
             boolean xEdge = !set.contains(pos.east()) || !set.contains(pos.west());
-            // 鍗曞眰 2D 褰㈢姸娌℃湁涓婁笅閭诲眳锛屼笉鑳藉洜姝ゆ妸鍐呴儴鏍煎瓙璇垽鎴愯竟鐣屻€?            boolean yEdge = minY != maxY && (!set.contains(pos.above()) || !set.contains(pos.below()));
+            // 单层 2D 形状没有上下邻居，不能因此把内部格子误判成边界。
+            boolean yEdge = minY != maxY && (!set.contains(pos.above()) || !set.contains(pos.below()));
             boolean zEdge = !set.contains(pos.north()) || !set.contains(pos.south());
             int edges = (xEdge ? 1 : 0) + (yEdge ? 1 : 0) + (zEdge ? 1 : 0);
             if (edges >= 1) {

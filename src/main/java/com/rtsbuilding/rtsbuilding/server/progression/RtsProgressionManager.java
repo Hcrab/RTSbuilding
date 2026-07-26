@@ -24,7 +24,7 @@ public final class RtsProgressionManager {
     }
 
     public static boolean isEnabled() {
-        return Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean();
+        return Config.ENABLE_SURVIVAL_PROGRESSION.get();
     }
 
     public static boolean canUse(ServerPlayer player, RtsFeature feature) {

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
-    @Inject(method = "m_109093_(FJZ)V", at = @At("HEAD"), remap = false)
+    @Inject(method = { "render", "m_109093_" }, at = @At("HEAD"), remap = false)
     private void rtsbuilding$syncVisualCameraBeforeFrame(float partialTick, long nanoTime,
             boolean renderLevel, CallbackInfo ci) {
         RtsCameraRenderSync.beforeRenderFrame();

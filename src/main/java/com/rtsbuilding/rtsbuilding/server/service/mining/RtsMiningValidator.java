@@ -162,7 +162,7 @@ public final class RtsMiningValidator {
      * 非连锁范围挖掘的生存平衡上限。关闭生存平衡时只保留实际工具保护。
      */
     public static int rangeMiningMaxRequiredLevel(ServerPlayer player, boolean creative) {
-        if (creative || !Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean()) {
+        if (creative || !Config.ENABLE_SURVIVAL_PROGRESSION.get()) {
             return Integer.MAX_VALUE;
         }
         RangeMiningHarvestTier pluginTier = RtsPluginService.rangeMiningHarvestTier(player);

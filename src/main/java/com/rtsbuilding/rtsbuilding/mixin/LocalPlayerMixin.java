@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(LocalPlayer.class)
 abstract class LocalPlayerMixin {
-    @Inject(method = "m_108636_()Z", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = { "isControlledCamera", "m_108636_" }, at = @At("HEAD"), cancellable = true, remap = false)
     private void rtsbuilding$isControlledCamera(CallbackInfoReturnable<Boolean> callback) {
         if (ClientRtsController.get().isEnabled()) {
             callback.setReturnValue(true);

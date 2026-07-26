@@ -1,188 +1,222 @@
 package com.rtsbuilding.rtsbuilding;
 
-
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
-
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fluids.FluidType;
 
-public final class Config {
-    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+public class Config {
+    private static final ForgeConfigSpec.Builder COMMON_BUILDER = new ForgeConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder CLIENT_BUILDER = new ForgeConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder SERVER_BUILDER = new ForgeConfigSpec.Builder();
 
-    public static final ForgeConfigSpec.BooleanValue ENABLE_SURVIVAL_PROGRESSION = BUILDER
-            .comment("Enable RTS Building survival progression, feature unlocks, home anchors, and progression radius limits.")
+    public static final ForgeConfigSpec.BooleanValue ENABLE_SURVIVAL_PROGRESSION = COMMON_BUILDER
+            .comment("Enable RTS Home anchors and home-radius limits.")
+            .translation("rtsbuilding.configuration.enableSurvivalProgression")
             .define("enableSurvivalProgression", false);
 
-    public static final ForgeConfigSpec.BooleanValue SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS = BUILDER
-            .comment("When survival progression is enabled, share unlocked progression nodes and RTS home anchors with the player's FTB Team, or vanilla scoreboard team when FTB Teams is unavailable.")
+    public static final ForgeConfigSpec.BooleanValue SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS = COMMON_BUILDER
+            .comment("When RTS Home is enabled, share RTS home anchors and team plugins with the player's FTB Team, OpenPAC party, or vanilla scoreboard team.")
+            .translation("rtsbuilding.configuration.shareSurvivalProgressionWithTeams")
             .define("shareSurvivalProgressionWithTeams", false);
 
-    public static final ForgeConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = BUILDER
-            .comment("Maximum RTS action radius in blocks. Used directly when survival progression is disabled, and by the Radius Max skill when survival progression is enabled.")
+    public static final ForgeConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = COMMON_BUILDER
+            .comment("Maximum RTS action radius in blocks.")
+            .translation("rtsbuilding.configuration.maxActionRadiusBlocks")
             .defineInRange("maxActionRadiusBlocks", 128, 48, 512);
 
-    public static final ForgeConfigSpec.BooleanValue ENABLE_BLUEPRINTS = BUILDER
-            .comment("Enable the experimental RTS blueprint panel and direct blueprint placement.")
+    public static final ForgeConfigSpec.BooleanValue ENABLE_BLUEPRINTS = COMMON_BUILDER
+            .comment("Enable the RTS blueprint library tab, local blueprint upload, and server-side blueprint placement.")
+            .translation("rtsbuilding.configuration.enableBlueprints")
             .define("enableBlueprints", true);
 
-    public static final ForgeConfigSpec.IntValue MAX_BLUEPRINT_BLOCKS = BUILDER
+    public static final ForgeConfigSpec.IntValue MAX_BLUEPRINT_BLOCKS = COMMON_BUILDER
             .comment("Maximum non-air blocks allowed in one RTS blueprint import, capture, or placement job.")
+            .translation("rtsbuilding.configuration.maxBlueprintBlocks")
             .defineInRange("maxBlueprintBlocks", 20000, 1, 200000);
 
-    public static final ForgeConfigSpec.BooleanValue ENABLE_UI_ANIMATIONS = BUILDER
+    // ---- Rendering options ----
+
+    public static final ForgeConfigSpec.BooleanValue ENABLE_UI_ANIMATIONS = CLIENT_BUILDER
             .comment("Enable short visual-only hover and selection transitions in the RTS UI.")
             .translation("rtsbuilding.configuration.enableUiAnimations")
             .define("enableUiAnimations", true);
 
-    public static final ForgeConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = BUILDER
-            .comment("Render translucent block ghost models before the player confirms placement.")
+    public static final ForgeConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = CLIENT_BUILDER
+            .comment("Render translucent block ghost models for placement previews before the player confirms placement.")
+            .translation("rtsbuilding.configuration.useBlockGhostPreview")
             .define("useBlockGhostPreview", false);
 
-    public static final ForgeConfigSpec.BooleanValue USE_PLACE_BLOCK_GHOST_ANIMATION = BUILDER
+    public static final ForgeConfigSpec.BooleanValue USE_PLACE_BLOCK_GHOST_ANIMATION = CLIENT_BUILDER
             .comment("Render translucent grow-in block ghosts after server-confirmed block placement.")
+            .translation("rtsbuilding.configuration.usePlaceBlockGhostAnimation")
             .define("usePlaceBlockGhostAnimation", true);
 
-    public static final ForgeConfigSpec.BooleanValue USE_DESTROY_BLOCK_GHOST_ANIMATION = BUILDER
+    public static final ForgeConfigSpec.BooleanValue USE_DESTROY_BLOCK_GHOST_ANIMATION = CLIENT_BUILDER
             .comment("Render translucent shrink-out block ghosts after server-confirmed block destruction.")
+            .translation("rtsbuilding.configuration.useDestroyBlockGhostAnimation")
             .define("useDestroyBlockGhostAnimation", true);
 
-    public static final ForgeConfigSpec.BooleanValue USE_WIREFRAME_PREVIEW = BUILDER
-            .comment("Render wireframe outlines before the player confirms placement.")
+    public static final ForgeConfigSpec.BooleanValue USE_WIREFRAME_PREVIEW = CLIENT_BUILDER
+            .comment("Render wireframe outlines for placement previews before the player confirms placement.")
+            .translation("rtsbuilding.configuration.useWireframePreview")
             .define("useWireframePreview", false);
 
-    public static final ForgeConfigSpec.BooleanValue USE_PLACE_WIREFRAME_ANIMATION = BUILDER
+    public static final ForgeConfigSpec.BooleanValue USE_PLACE_WIREFRAME_ANIMATION = CLIENT_BUILDER
             .comment("Render grow-in wireframe outlines after server-confirmed block placement.")
+            .translation("rtsbuilding.configuration.usePlaceWireframeAnimation")
             .define("usePlaceWireframeAnimation", false);
 
-    public static final ForgeConfigSpec.BooleanValue USE_DESTROY_WIREFRAME_ANIMATION = BUILDER
+    public static final ForgeConfigSpec.BooleanValue USE_DESTROY_WIREFRAME_ANIMATION = CLIENT_BUILDER
             .comment("Render shrink-out wireframe outlines after server-confirmed block destruction.")
+            .translation("rtsbuilding.configuration.useDestroyWireframeAnimation")
             .define("useDestroyWireframeAnimation", false);
 
-    public static final ForgeConfigSpec.BooleanValue USE_RANGE_DESTROY_SKELETON = BUILDER
+    public static final ForgeConfigSpec.BooleanValue USE_RANGE_DESTROY_SKELETON = CLIENT_BUILDER
             .comment("Render merged skeleton borders for non-chain range destroy previews. Chain mining always uses the skeleton style.")
+            .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
             .define("useRangeDestroySkeleton", true);
 
-    public static final ForgeConfigSpec.BooleanValue SHOW_INVENTORY_RTS_BUTTON = BUILDER
+    public static final ForgeConfigSpec.BooleanValue SHOW_INVENTORY_RTS_BUTTON = CLIENT_BUILDER
             .comment("Show the RTS plugin button on the vanilla inventory screen.")
             .translation("rtsbuilding.configuration.showInventoryRtsButton")
             .define("showInventoryRtsButton", true);
 
-    public static final ForgeConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = BUILDER
+    // ---- Control options ----
+
+    public static final ForgeConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = CLIENT_BUILDER
             .comment("Require a configurable keyboard key for the final multi-block placement/destroy confirmation instead of confirming with the mouse click used to select the range.")
+            .translation("rtsbuilding.configuration.requireKeyboardBatchConfirm")
             .define("requireKeyboardBatchConfirm", true);
 
-    public static final ForgeConfigSpec.BooleanValue DEVELOPER_MODE = BUILDER
+    public static final ForgeConfigSpec.BooleanValue DEVELOPER_MODE = CLIENT_BUILDER
             .comment("Show the developer scenario task entry and write local diagnostic logs.")
             .translation("rtsbuilding.configuration.developerMode")
             .define("developerMode", false);
 
-    // ---- 服务端运行限制 ----
+    // ---- Server runtime limits ----
 
-    public static final ForgeConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = BUILDER
+    public static final ForgeConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = SERVER_BUILDER
             .comment("Maximum blocks collected by one RTS chain mining request.")
+            .translation("rtsbuilding.configuration.ultimineMaxBlocks")
             .defineInRange("mining.ultimineMaxBlocks", 256, 1, 4096);
 
-    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_SIZE = BUILDER
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_SIZE = SERVER_BUILDER
             .comment("Maximum block count per dimension for RTS area mining selections.")
+            .translation("rtsbuilding.configuration.areaMineMaxSize")
             .defineInRange("mining.areaMineMaxSize", 36, 1, 64);
 
-    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_VOLUME = BUILDER
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_VOLUME = SERVER_BUILDER
             .comment("Maximum covered volume, width * height * depth, accepted by one RTS area mining selection.")
+            .translation("rtsbuilding.configuration.areaMineMaxVolume")
             .defineInRange("mining.areaMineMaxVolume", 46656, 1, 262144);
 
-    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_WIDTH = BUILDER
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_WIDTH = SERVER_BUILDER
             .comment("Maximum X-axis width accepted by one RTS area mining selection.")
+            .translation("rtsbuilding.configuration.areaMineMaxWidth")
             .defineInRange("mining.areaMineMaxWidth", 36, 1, 256);
 
-    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_HEIGHT = BUILDER
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_HEIGHT = SERVER_BUILDER
             .comment("Maximum Y-axis height accepted by one RTS area mining selection.")
+            .translation("rtsbuilding.configuration.areaMineMaxHeight")
             .defineInRange("mining.areaMineMaxHeight", 36, 1, 256);
 
-    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_DEPTH = BUILDER
+    public static final ForgeConfigSpec.IntValue AREA_MINE_MAX_DEPTH = SERVER_BUILDER
             .comment("Maximum Z-axis depth accepted by one RTS area mining selection.")
+            .translation("rtsbuilding.configuration.areaMineMaxDepth")
             .defineInRange("mining.areaMineMaxDepth", 36, 1, 256);
 
-    public static final ForgeConfigSpec.EnumValue<RangeMiningHarvestTier> AREA_MINE_MAX_HARVEST_TIER = BUILDER
-            .comment("Maximum harvest tier allowed for RTS area mining. The installed harvest-tier plugin may impose a lower limit.")
+    public static final ForgeConfigSpec.EnumValue<RangeMiningHarvestTier> AREA_MINE_MAX_HARVEST_TIER = SERVER_BUILDER
+            .comment("Server ceiling for harvest-tier plugins used by non-chain RTS range mining.")
+            .translation("rtsbuilding.configuration.areaMineMaxHarvestTier")
             .defineEnum("mining.areaMineMaxHarvestTier", RangeMiningHarvestTier.UNLIMITED);
 
-    public static final ForgeConfigSpec.IntValue AREA_DESTROY_MAX_TARGETS = BUILDER
-            .comment("Maximum explicit positions accepted by one RTS area destroy request.")
-            .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
-
-    public static final ForgeConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = BUILDER
-            .comment("Maximum queued mining targets processed by one mining task slice.")
-            .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
-
-    public static final ForgeConfigSpec.IntValue AE2_NETWORK_REFRESH_THROTTLE = BUILDER
+    public static final ForgeConfigSpec.IntValue AE2_NETWORK_REFRESH_THROTTLE = SERVER_BUILDER
             .comment("Number of storage cache refresh cycles between expensive AE2 network snapshots.")
             .translation("rtsbuilding.configuration.ae2NetworkRefreshThrottle")
             .defineInRange("storage.ae2NetworkRefreshThrottle", 10, 1, 200);
 
-    public static final ForgeConfigSpec.IntValue REFINED_STORAGE_NETWORK_REFRESH_THROTTLE = BUILDER
+    public static final ForgeConfigSpec.IntValue REFINED_STORAGE_NETWORK_REFRESH_THROTTLE = SERVER_BUILDER
             .comment("Number of storage cache refresh cycles between expensive Refined Storage network snapshots.")
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
 
-    public static final ForgeConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = BUILDER
+    public static final ForgeConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = SERVER_BUILDER
             .comment("Maximum player count retained by the storage page LRU cache.")
             .translation("rtsbuilding.configuration.pageCacheMaxPlayers")
             .defineInRange("storage.pageCacheMaxPlayers", 256, 1, 4096);
 
-    public static final ForgeConfigSpec.IntValue DEFAULT_STORAGE_PAGE_SIZE = BUILDER
+    public static final ForgeConfigSpec.IntValue DEFAULT_STORAGE_PAGE_SIZE = SERVER_BUILDER
             .comment("Default number of item/fluid entries shown per RTS storage page.")
             .translation("rtsbuilding.configuration.defaultStoragePageSize")
             .defineInRange("storage.defaultStoragePageSize", 90, 1, 4096);
 
-    public static final ForgeConfigSpec.IntValue MAX_STORAGE_PAGE_SIZE = BUILDER
+    public static final ForgeConfigSpec.IntValue MAX_STORAGE_PAGE_SIZE = SERVER_BUILDER
             .comment("Maximum allowed item/fluid entries per RTS storage page request.")
             .translation("rtsbuilding.configuration.maxStoragePageSize")
             .defineInRange("storage.maxStoragePageSize", 180, 1, 8192);
 
-    public static final ForgeConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = BUILDER
+    public static final ForgeConfigSpec.IntValue AREA_DESTROY_MAX_TARGETS = SERVER_BUILDER
+            .comment("Maximum explicit positions accepted by one RTS area destroy request.")
+            .translation("rtsbuilding.configuration.areaDestroyMaxTargets")
+            .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
+
+    public static final ForgeConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = SERVER_BUILDER
+            .comment("Maximum queued mining targets processed by one mining task slice.")
+            .translation("rtsbuilding.configuration.ultimineBlocksPerTick")
+            .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
+
+    public static final ForgeConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued remote placement targets processed per player per server tick.")
+            .translation("rtsbuilding.configuration.buildBatchBlocksPerTick")
             .defineInRange("placement.buildBatchBlocksPerTick", 64, 1, 512);
 
-    public static final ForgeConfigSpec.IntValue BUILD_BATCH_MAX_QUEUED_JOBS = BUILDER
+    public static final ForgeConfigSpec.IntValue BUILD_BATCH_MAX_QUEUED_JOBS = SERVER_BUILDER
             .comment("Maximum queued quick-build placement jobs per player.")
+            .translation("rtsbuilding.configuration.buildBatchMaxQueuedJobs")
             .defineInRange("placement.buildBatchMaxQueuedJobs", 4, 1, 32);
 
-    public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = BUILDER
+    public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = SERVER_BUILDER
             .comment("Hard global RTS work-unit limit across all players in one server tick.")
+            .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerTick")
             .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
 
-    public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_SLICE = BUILDER
+    public static final ForgeConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_SLICE = SERVER_BUILDER
             .comment("Maximum RTS work units granted to one player before rotating to another player.")
+            .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerSlice")
             .defineInRange("taskEngine.maxUnitsPerSlice", 32, 1, 512);
 
-    public static final ForgeConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = BUILDER
+    public static final ForgeConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = SERVER_BUILDER
             .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
+            .translation("rtsbuilding.configuration.taskEngineMaxNanosPerTick")
             .defineInRange("taskEngine.maxNanosPerTick", 8_000_000L, 250_000L, 20_000_000L);
 
-    public static final ForgeConfigSpec.DoubleValue DROP_SCAN_RADIUS = BUILDER
-            .comment("Radius used to absorb drops around remotely mined blocks.")
-            .defineInRange("mining.dropScanRadius", 1.25D, 0.25D, 8.0D);
-
-    public static final ForgeConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = BUILDER
+    public static final ForgeConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = SERVER_BUILDER
             .comment("Temporary interaction reach used while RTSBuilding replays a remote player action.")
+            .translation("rtsbuilding.configuration.remotePovBlockReach")
             .defineInRange("interaction.remotePovBlockReach", 4.0D, 1.0D, 16.0D);
 
-    public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = BUILDER
+    public static final ForgeConfigSpec.DoubleValue DROP_SCAN_RADIUS = SERVER_BUILDER
+            .comment("Radius used to absorb drops around remotely mined blocks.")
+            .translation("rtsbuilding.configuration.dropScanRadius")
+            .defineInRange("mining.dropScanRadius", 1.25D, 0.25D, 8.0D);
+
+    public static final ForgeConfigSpec.IntValue REMOTE_PLACE_SOUNDS_PER_TICK = SERVER_BUILDER
             .comment("Maximum RTS remote block action sounds sent per player per tick. Excess sounds are dropped.")
+            .translation("rtsbuilding.configuration.remotePlaceSoundsPerTick")
             .defineInRange("placement.remoteBlockActionSoundsPerTick", 16, 0, 16);
 
-    public static final ForgeConfigSpec.IntValue INTERNAL_FLUID_CAPACITY_BUCKETS = BUILDER
+    public static final ForgeConfigSpec.IntValue INTERNAL_FLUID_CAPACITY_BUCKETS = SERVER_BUILDER
             .comment("Fallback internal fluid buffer capacity in buckets when progression data is unavailable.")
+            .translation("rtsbuilding.configuration.internalFluidCapacityBuckets")
             .defineInRange("fluid.internalFluidCapacityBuckets", 100, 1, 4096);
 
-    private static final ForgeConfigSpec.IntValue SERVER_CONFIG_REVISION = BUILDER
+    private static final ForgeConfigSpec.IntValue SERVER_CONFIG_REVISION = SERVER_BUILDER
             .comment("Internal RTSBuilding server configuration migration revision. Do not edit manually.")
             .defineInRange("internal.configRevision", 0, 0, ServerConfigMigration.CURRENT_REVISION);
 
-    public static final ForgeConfigSpec SPEC = BUILDER.build();
-
-    private Config() {
-    }
+    public static final ForgeConfigSpec SPEC = COMMON_BUILDER.build();
+    public static final ForgeConfigSpec CLIENT_SPEC = CLIENT_BUILDER.build();
+    public static final ForgeConfigSpec SERVER_SPEC = SERVER_BUILDER.build();
 
     public static void setSurvivalProgressionEnabled(boolean enabled) {
         ENABLE_SURVIVAL_PROGRESSION.set(enabled);
@@ -198,16 +232,6 @@ public final class Config {
         SPEC.save();
     }
 
-    public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
-            boolean blueprintsEnabled, int maxBlueprintBlocks) {
-        ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
-        SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
-        MAX_ACTION_RADIUS_BLOCKS.set(clampInt(radiusBlocks, 48, 512));
-        ENABLE_BLUEPRINTS.set(blueprintsEnabled);
-        MAX_BLUEPRINT_BLOCKS.set(Math.max(1, Math.min(200000, maxBlueprintBlocks)));
-        SPEC.save();
-    }
-
     public static boolean areBlueprintsEnabled() {
         return ENABLE_BLUEPRINTS.get();
     }
@@ -216,21 +240,13 @@ public final class Config {
         return MAX_BLUEPRINT_BLOCKS.get();
     }
 
-    public static boolean isBlockGhostPreviewEnabled() {
-        return USE_BLOCK_GHOST_PREVIEW.get();
-    }
-
-    public static boolean isUiAnimationsEnabled() {
-        return ENABLE_UI_ANIMATIONS.get();
-    }
-
-    public static void setUiAnimationsEnabled(boolean enabled) {
-        ENABLE_UI_ANIMATIONS.set(enabled);
-        SPEC.save();
-    }
-
-    public static void setBlockGhostPreviewEnabled(boolean enabled) {
-        USE_BLOCK_GHOST_PREVIEW.set(enabled);
+    public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
+            boolean blueprintsEnabled, int maxBlueprintBlocks) {
+        ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
+        SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
+        MAX_ACTION_RADIUS_BLOCKS.set(clampInt(radiusBlocks, 48, 512));
+        ENABLE_BLUEPRINTS.set(blueprintsEnabled);
+        MAX_BLUEPRINT_BLOCKS.set(clampInt(maxBlueprintBlocks, 1, 200000));
         SPEC.save();
     }
 
@@ -247,21 +263,25 @@ public final class Config {
         AREA_MINE_MAX_HARVEST_TIER.set(
                 maxHarvestTier == null ? RangeMiningHarvestTier.UNLIMITED : maxHarvestTier);
         AREA_MINE_MAX_SIZE.set(clampInt(Math.max(width, Math.max(height, depth)), 1, 64));
-        SPEC.save();
-    }
-
-    /** 保留旧调用点，并让未显式传入工具等级时沿用当前配置值。 */
-    public static void saveAreaMineLimitSettings(int maxWidth, int maxHeight, int maxDepth,
-            int maxVolume, int maxTargets) {
-        saveAreaMineLimitSettings(maxWidth, maxHeight, maxDepth, maxVolume, maxTargets, areaMineMaxHarvestTier());
+        SERVER_SPEC.save();
     }
 
     public static boolean isPlacementBlockGhostPreviewEnabled() {
-        return isBlockGhostPreviewEnabled();
+        return USE_BLOCK_GHOST_PREVIEW.get();
+    }
+
+    public static boolean isUiAnimationsEnabled() {
+        return ENABLE_UI_ANIMATIONS.get();
+    }
+
+    public static void setUiAnimationsEnabled(boolean enabled) {
+        ENABLE_UI_ANIMATIONS.set(enabled);
+        CLIENT_SPEC.save();
     }
 
     public static void setPlacementBlockGhostPreviewEnabled(boolean enabled) {
-        setBlockGhostPreviewEnabled(enabled);
+        USE_BLOCK_GHOST_PREVIEW.set(enabled);
+        CLIENT_SPEC.save();
     }
 
     public static boolean isPlaceBlockGhostAnimationEnabled() {
@@ -270,7 +290,7 @@ public final class Config {
 
     public static void setPlaceBlockGhostAnimationEnabled(boolean enabled) {
         USE_PLACE_BLOCK_GHOST_ANIMATION.set(enabled);
-        SPEC.save();
+        CLIENT_SPEC.save();
     }
 
     public static boolean isDestroyBlockGhostAnimationEnabled() {
@@ -279,24 +299,16 @@ public final class Config {
 
     public static void setDestroyBlockGhostAnimationEnabled(boolean enabled) {
         USE_DESTROY_BLOCK_GHOST_ANIMATION.set(enabled);
-        SPEC.save();
-    }
-
-    public static boolean isWireframePreviewEnabled() {
-        return USE_WIREFRAME_PREVIEW.get();
-    }
-
-    public static void setWireframePreviewEnabled(boolean enabled) {
-        USE_WIREFRAME_PREVIEW.set(enabled);
-        SPEC.save();
+        CLIENT_SPEC.save();
     }
 
     public static boolean isPlacementWireframePreviewEnabled() {
-        return isWireframePreviewEnabled();
+        return USE_WIREFRAME_PREVIEW.get();
     }
 
     public static void setPlacementWireframePreviewEnabled(boolean enabled) {
-        setWireframePreviewEnabled(enabled);
+        USE_WIREFRAME_PREVIEW.set(enabled);
+        CLIENT_SPEC.save();
     }
 
     public static boolean isPlaceWireframeAnimationEnabled() {
@@ -305,7 +317,7 @@ public final class Config {
 
     public static void setPlaceWireframeAnimationEnabled(boolean enabled) {
         USE_PLACE_WIREFRAME_ANIMATION.set(enabled);
-        SPEC.save();
+        CLIENT_SPEC.save();
     }
 
     public static boolean isDestroyWireframeAnimationEnabled() {
@@ -314,11 +326,16 @@ public final class Config {
 
     public static void setDestroyWireframeAnimationEnabled(boolean enabled) {
         USE_DESTROY_WIREFRAME_ANIMATION.set(enabled);
-        SPEC.save();
+        CLIENT_SPEC.save();
     }
 
     public static boolean isRangeDestroySkeletonEnabled() {
         return USE_RANGE_DESTROY_SKELETON.get();
+    }
+
+    public static void setRangeDestroySkeletonEnabled(boolean enabled) {
+        USE_RANGE_DESTROY_SKELETON.set(enabled);
+        CLIENT_SPEC.save();
     }
 
     public static boolean isInventoryRtsButtonEnabled() {
@@ -327,34 +344,16 @@ public final class Config {
 
     public static void setInventoryRtsButtonEnabled(boolean enabled) {
         SHOW_INVENTORY_RTS_BUTTON.set(enabled);
-        SPEC.save();
-    }
-
-    public static boolean isDeveloperModeEnabled() {
-        return DEVELOPER_MODE.get();
-    }
-
-    public static void setDeveloperModeEnabled(boolean enabled) {
-        DEVELOPER_MODE.set(enabled);
-        SPEC.save();
-    }
-
-    public static void setRangeDestroySkeletonEnabled(boolean enabled) {
-        USE_RANGE_DESTROY_SKELETON.set(enabled);
-        SPEC.save();
+        CLIENT_SPEC.save();
     }
 
     public static boolean isKeyboardBatchConfirmEnabled() {
         return REQUIRE_KEYBOARD_BATCH_CONFIRM.get();
     }
 
-    public static int remotePlaceSoundsPerTick() {
-        return REMOTE_PLACE_SOUNDS_PER_TICK.get();
-    }
-
     public static void setKeyboardBatchConfirmEnabled(boolean enabled) {
         REQUIRE_KEYBOARD_BATCH_CONFIRM.set(enabled);
-        SPEC.save();
+        CLIENT_SPEC.save();
     }
 
     public static int ultimineMaxBlocks() {
@@ -385,14 +384,6 @@ public final class Config {
         return AREA_MINE_MAX_HARVEST_TIER.get();
     }
 
-    public static int areaDestroyMaxTargets() {
-        return AREA_DESTROY_MAX_TARGETS.get();
-    }
-
-    public static int ultimineBlocksPerTick() {
-        return ULTIMINE_BLOCKS_PER_TICK.get();
-    }
-
     public static int ae2NetworkRefreshThrottle() {
         return AE2_NETWORK_REFRESH_THROTTLE.get();
     }
@@ -413,10 +404,26 @@ public final class Config {
         return MAX_STORAGE_PAGE_SIZE.get();
     }
 
+    public static int areaDestroyMaxTargets() {
+        return AREA_DESTROY_MAX_TARGETS.get();
+    }
+
+    public static int ultimineBlocksPerTick() {
+        return ULTIMINE_BLOCKS_PER_TICK.get();
+    }
+
     public static int buildBatchBlocksPerTick() {
         return BUILD_BATCH_BLOCKS_PER_TICK.get();
     }
 
+    public static boolean isDeveloperModeEnabled() {
+        return DEVELOPER_MODE.get();
+    }
+
+    public static void setDeveloperModeEnabled(boolean enabled) {
+        DEVELOPER_MODE.set(enabled);
+        CLIENT_SPEC.save();
+    }
     public static int buildBatchMaxQueuedJobs() {
         return BUILD_BATCH_MAX_QUEUED_JOBS.get();
     }
@@ -433,12 +440,16 @@ public final class Config {
         return TASK_ENGINE_MAX_NANOS_PER_TICK.get();
     }
 
+    public static double remotePovBlockReach() {
+        return REMOTE_POV_BLOCK_REACH.get();
+    }
+
     public static double dropScanRadius() {
         return DROP_SCAN_RADIUS.get();
     }
 
-    public static double remotePovBlockReach() {
-        return REMOTE_POV_BLOCK_REACH.get();
+    public static int remotePlaceSoundsPerTick() {
+        return REMOTE_PLACE_SOUNDS_PER_TICK.get();
     }
 
     public static long internalFluidCapacityMb() {
@@ -446,7 +457,7 @@ public final class Config {
     }
 
     /**
-     * 将旧版确实落盘的保守默认值迁移到当前默认值，同时保留服主主动设置的其他数值。
+     * 把旧版本真正落盘的保守默认值迁移到当前默认值，同时保留玩家主动设置的其他数值。
      *
      * @return 本次是否写入了新的迁移版本
      */
@@ -461,12 +472,13 @@ public final class Config {
         ULTIMINE_BLOCKS_PER_TICK.set(migrated.miningSlice());
         TASK_ENGINE_MAX_NANOS_PER_TICK.set(migrated.taskBudgetNanos());
         SERVER_CONFIG_REVISION.set(migrated.revision());
-        SPEC.save();
+        SERVER_SPEC.save();
         return true;
     }
 
     private static int clampInt(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
     }
+
 }
 

@@ -44,7 +44,7 @@ final class RtsProgressionPersistence {
 
     static TeamProgressionContext sharedProgressionContext(ServerPlayer player) {
         if (!RtsProgressionManager.isEnabled() || player == null
-                || !Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean()) {
+                || !Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.get()) {
             return TeamProgressionContext.NONE;
         }
         String ftbTeamKey = RtsFtbCompat.progressionTeamKey(player);

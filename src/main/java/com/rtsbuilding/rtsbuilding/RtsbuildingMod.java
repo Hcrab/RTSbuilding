@@ -77,6 +77,8 @@ public final class RtsbuildingMod {
         RtsForgePayloadRegistrar.register();
         MinecraftForge.EVENT_BUS.register(this);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, Config.SERVER_SPEC);
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap
                         .registerConfigUi(ModLoadingContext.get()));
@@ -99,7 +101,7 @@ public final class RtsbuildingMod {
     }
 
     private void migrateServerConfigIfNeeded(ModConfig config) {
-        if (config != null && config.getSpec() == Config.SPEC && Config.migrateLegacyServerDefaults()) {
+        if (config != null && config.getSpec() == Config.SERVER_SPEC && Config.migrateLegacyServerDefaults()) {
             LOGGER.info("已迁移 RTSBuilding 旧版服务端默认值。");
         }
     }
