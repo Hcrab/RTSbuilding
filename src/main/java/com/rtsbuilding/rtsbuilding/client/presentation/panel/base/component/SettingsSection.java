@@ -94,8 +94,10 @@ public abstract class SettingsSection {
             g.fill(headerX + 5, headerBottom - 2, headerX + headerW - 5, headerBottom, getSeparatorColor());
 
             int contentTop = headerBottom + CONTENT_TOP_GAP;
+            g.flush();
             enableScissor(g, headerX, contentTop, headerX + headerW, contentTop + animH);
             renderContent(g, mouseX, mouseY, headerX, contentTop, headerW, lineCount);
+            g.flush();
             g.disableScissor();
         }
     }

@@ -74,6 +74,7 @@ public class CollapsibleSection {
     
     private final AnimFloat contentAnim = AnimFloat.expand();
     private int contentFullHeight;
+    private float cachedProgress;
 
     
 
@@ -104,6 +105,7 @@ public class CollapsibleSection {
     
     public void drawHeader(GuiGraphics g, int mouseX, int mouseY, int x, int y, int sectionWidth, int contentHeight) {
         this.contentFullHeight = contentHeight;
+        this.cachedProgress = contentAnim.get();
         updateHoverState(mouseX, mouseY, x, y, sectionWidth, contentHeight);
         renderHoverBackground(g, x, y, sectionWidth);
         renderArrow(g, x, y);
@@ -128,7 +130,7 @@ public class CollapsibleSection {
     private void renderStateBackground(GuiGraphics g, int x, int y, int sectionWidth, int vOffset) {
         
         
-        int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * getContentProgress());
+        int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * this.cachedProgress);
         SpriteRenderer.drawNineSlice(g, FOLD_NINE_SLICE.withTheme().withVOffset(vOffset),
                 x, y, sectionWidth, bgH);
     }
@@ -171,7 +173,7 @@ public class CollapsibleSection {
 
     
     public float getContentProgress() {
-        return this.contentAnim.get();
+        return this.cachedProgress;
     }
 
     
