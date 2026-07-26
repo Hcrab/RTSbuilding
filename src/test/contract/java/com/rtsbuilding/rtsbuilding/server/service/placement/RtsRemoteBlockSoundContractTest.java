@@ -78,7 +78,8 @@ class RtsRemoteBlockSoundContractTest {
                 "客户端收到声音后应立即播放，不得跨 tick 缓存。");
         assertFalse(clientSource.contains("isActive(activeSound)"),
                 "当前样本仍在播放时也不应吞掉后续方块声音。");
-        assertTrue(configSource.contains("remoteBlockActionSoundsPerTick\", 16, 0, 16"),
+        assertTrue(configSource.contains(
+                        "java.util.List.of(\"placement\", \"remoteBlockActionSoundsPerTick\"), 16, 0, 16"),
                 "新的配置键应默认允许每 tick 最多 16 声，避免旧默认值 1 延续到已有运行目录。");
         assertFalse(modSource.contains("RtsPlacementSound.tickPlayer(serverPlayer)"),
                 "玩家 tick 不应再驱动任何声音队列。");

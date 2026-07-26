@@ -19,6 +19,8 @@ class RtsBackpackRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/resolver/RtsLinkedStorageBlockEventHandler.java"));
+        String remoteMenuMixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/ModdedRemoteStillValidMixin.java"));
 
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("CapabilityBackpackWrapper")
@@ -34,5 +36,7 @@ class RtsBackpackRoutingContractTest {
                 "背包被挖走后必须保留 UUID 绑定并切换到随身解析状态。");
         assertFalse(lifecycle.contains("removeBrokenLinkedStorageRef"),
                 "背包被挖走不能删除 UUID 绑定。");
+        assertTrue(remoteMenuMixin.contains("sophisticatedbackpacks.common.gui.BackpackContainer"),
+                "远程打开背包时必须让实际 BackpackContainer 保持有效。");
     }
 }

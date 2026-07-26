@@ -1,5 +1,5 @@
 {
-  "required": false,
+  "required": true,
   "minVersion": "0.8.5",
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_17",
@@ -9,8 +9,6 @@
     "EmbeddiumWorldSliceMixin",
     "GameRendererMixin",
     "RenderChunkRegionMixin",
-    "JadeClientProxyMixin",
-    "WailaTickHandlerMixin",
     "LocalPlayerMixin"
   ],
   "mixins": [
@@ -18,6 +16,6 @@
     "ModdedRemoteStillValidMixin"
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }

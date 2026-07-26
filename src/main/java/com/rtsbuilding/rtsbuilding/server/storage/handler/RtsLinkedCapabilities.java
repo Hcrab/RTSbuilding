@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
+import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -56,8 +57,10 @@ public final class RtsLinkedCapabilities {
         if (ae2Network != null) {
             return ae2Network;
         }
-        // Forge 1.20.1 使用 Refined Storage 1.x；它没有主线 RS2 的网络节点能力 API。
-        // 这里继续走标准 Forge capability，避免把 RS2 反射实现伪装成可用的 1.20.1 适配。
+        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
+        if (refinedStorageNetwork != null) {
+            return refinedStorageNetwork;
+        }
         return findHandler(player, pos);
     }
 

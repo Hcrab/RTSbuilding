@@ -22,27 +22,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(BlockRenderDispatcher.class)
 public abstract class BlockRenderDispatcherMixin {
     @Inject(
-            method = {
-                    "renderBatched(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/BlockAndTintGetter;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;)V",
-                    "m_234355_(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/BlockAndTintGetter;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;)V"
-            },
-            at = @At("HEAD"),
-            cancellable = true,
-            remap = false)
-    private void rtsbuilding$skipCulledBlockLegacy(BlockState state, BlockPos pos, BlockAndTintGetter level,
-            PoseStack poseStack, VertexConsumer consumer, boolean checkSides, RandomSource random,
-            CallbackInfo ci) {
-        if (RtsCullingClientState.shouldCull(pos)) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(
             method = "renderBatched(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/BlockAndTintGetter;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;Lnet/minecraftforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V",
             at = @At("HEAD"),
             cancellable = true,
             remap = false,
-            require = 0)
+            require = 1)
     private void rtsbuilding$skipCulledBlock(BlockState state, BlockPos pos, BlockAndTintGetter level,
             PoseStack poseStack, VertexConsumer consumer, boolean checkSides, RandomSource random,
             ModelData modelData, RenderType renderType, CallbackInfo ci) {

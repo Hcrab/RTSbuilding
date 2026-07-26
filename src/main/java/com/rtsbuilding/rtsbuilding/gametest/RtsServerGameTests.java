@@ -376,6 +376,7 @@ public final class RtsServerGameTests {
                 snowLayersRel.size(),
                 (byte) 0,
                 false);
+        TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
 
         helper.succeedWhen(() -> {
             for (BlockPos snowRel : snowLayersRel) {
@@ -554,6 +555,37 @@ public final class RtsServerGameTests {
                         "Completed area destroy should not leave an active durable task");
             }
             stopPlayers(players);
+        });
+    }
+
+    /**
+     * 连续提交相同规模的范围破坏时，每一轮都必须在相同的固定窗口内结束。
+     * 这个回归测试专门防止旧终态、旧队列或累计扫描成本让后续批次越来越慢。
+     */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 280)
+    public static void repeatedAreaDestroyBatchesDoNotAccumulateDelay(GameTestHelper helper) {
+        List<BlockPos> targetsRel = new ArrayList<>();
+        for (int x = 2; x < 8; x++) {
+            for (int z = 2; z < 8; z++) {
+                targetsRel.add(new BlockPos(x, 1, z));
+            }
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        submitAreaDestroyRound(helper, player, targetsRel);
+
+        helper.runAfterDelay(80, () -> {
+            assertAreaDestroyRoundFinished(helper, player, targetsRel, "first");
+            submitAreaDestroyRound(helper, player, targetsRel);
+        });
+        helper.runAfterDelay(160, () -> {
+            assertAreaDestroyRoundFinished(helper, player, targetsRel, "second");
+            submitAreaDestroyRound(helper, player, targetsRel);
+        });
+        helper.runAfterDelay(240, () -> {
+            assertAreaDestroyRoundFinished(helper, player, targetsRel, "third");
+            stopPlayers(player);
+            helper.succeed();
         });
     }
 
@@ -1052,6 +1084,7 @@ public final class RtsServerGameTests {
         RtsAPI.get().mining().startUltimine(
                 player, helper.absolutePos(chainRel.get(2)), Direction.UP,
                 (byte) 1, "", secondShovel, 5, (byte) 0, false);
+        TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
 
         var states = TaskPersistenceRuntime.INSTANCE.coordinator().query()
                 .ownedBy(player.getUUID()).stream()
@@ -1516,6 +1549,32 @@ public final class RtsServerGameTests {
             positions.add(new BlockPos(startX + i, y, z));
         }
         return positions;
+    }
+
+    private static void submitAreaDestroyRound(GameTestHelper helper, ServerPlayer player,
+            List<BlockPos> targetsRel) {
+        for (BlockPos targetRel : targetsRel) {
+            helper.setBlock(targetRel, Blocks.STONE);
+        }
+        helper.assertTrue(RtsCameraManager.isActive(player),
+                "Repeated area-destroy submission requires an active RTS camera session");
+        helper.assertTrue(RtsLinkedStorageResolver.canAccessWorldTarget(
+                        player, helper.absolutePos(targetsRel.get(0))),
+                "Repeated area-destroy target must remain inside the active RTS action range");
+        RtsAPI.get().mining().areaDestroy(player, asApiPositions(helper, targetsRel),
+                (byte) 0, "", ItemStack.EMPTY, false);
+        TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+        helper.assertTrue(hasActiveTask(player, TaskType.DESTRUCTION),
+                "Repeated area-destroy submission must create a fresh destruction task");
+    }
+
+    private static void assertAreaDestroyRoundFinished(GameTestHelper helper, ServerPlayer player,
+            List<BlockPos> targetsRel, String round) {
+        for (BlockPos targetRel : targetsRel) {
+            helper.assertBlockPresent(Blocks.AIR, targetRel);
+        }
+        helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                round + " area-destroy batch exceeded the fixed completion window");
     }
 
     /** 创建只包含同一种方块的最小蓝图，避免 GameTest 依赖外部蓝图文件。 */

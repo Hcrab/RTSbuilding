@@ -21,9 +21,9 @@ class StoragePageConfigContractTest {
         String cache = read("src/main/java/com/rtsbuilding/rtsbuilding/server/service/page/RtsPageCache.java");
         String browser = read("src/main/java/com/rtsbuilding/rtsbuilding/server/storage/session/RtsBrowserState.java");
 
-        assertTrue(config.contains("\"storage.pageCacheMaxPlayers\", 256, 1, 4096"));
-        assertTrue(config.contains("\"storage.defaultStoragePageSize\", 90, 1, 4096"));
-        assertTrue(config.contains("\"storage.maxStoragePageSize\", 180, 1, 8192"));
+        assertTrue(config.contains("java.util.List.of(\"storage\", \"pageCacheMaxPlayers\"), 256, 1, 4096"));
+        assertTrue(config.contains("java.util.List.of(\"storage\", \"defaultStoragePageSize\"), 90, 1, 4096"));
+        assertTrue(config.contains("java.util.List.of(\"storage\", \"maxStoragePageSize\"), 180, 1, 8192"));
         assertTrue(helpers.contains("Config.defaultStoragePageSize()"));
         assertTrue(helpers.contains("Config.maxStoragePageSize()"));
         assertTrue(core.contains("RtsPageCache.INSTANCE.get(player.getUUID())"));

@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
         // Iron Furnaces 1.20.1 的实际菜单类没有 Base 后缀；不能照搬 1.21.1 目标名。
         "ironfurnaces.container.BlockWirelessEnergyHeaterContainer",
         "cy.jdkdigital.generatorgalore.common.container.GeneratorMenu",
-        "net.p3pp3rf1y.sophisticatedcore.common.gui.StorageContainerMenuBase",
+        "net.p3pp3rf1y.sophisticatedbackpacks.common.gui.BackpackContainer",
         "net.p3pp3rf1y.sophisticatedstorage.common.gui.StorageContainerMenu"
 }, remap = false)
 abstract class ModdedRemoteStillValidMixin {

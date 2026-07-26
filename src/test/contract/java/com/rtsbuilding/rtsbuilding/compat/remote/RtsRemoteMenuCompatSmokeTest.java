@@ -39,6 +39,8 @@ class RtsRemoteMenuCompatSmokeTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/mixin/ModdedRemoteStillValidMixin.java"));
         String mixinConfig = Files.readString(Path.of(
                 "src/main/resources/rtsbuilding.mixins.json"));
+        String jadeMixinConfig = Files.readString(Path.of(
+                "src/main/resources/rtsbuilding.jade_mixins.json"));
 
         assertTrue(unified.contains("new RemoteMenuTracker(RtsRemoteMenuCompat::isSupportedRemoteMenu)")
                         && unified.contains("\"ironfurnaces.container.BlockWirelessEnergyHeaterContainer\"")
@@ -48,10 +50,18 @@ class RtsRemoteMenuCompatSmokeTest {
                         && mixin.contains("\"ironfurnaces.container.BlockWirelessEnergyHeaterContainer\"")
                         && !mixin.contains("BlockWirelessEnergyHeaterContainerBase")
                         && mixin.contains("GeneratorMenu")
-                        && mixin.contains("StorageContainerMenuBase")
+                        && mixin.contains("sophisticatedbackpacks.common.gui.BackpackContainer")
+                        && mixin.contains("sophisticatedstorage.common.gui.StorageContainerMenu")
                         && mixin.contains("RtsRemoteMenuCompat.shouldForceStillValid")
                         && mixinConfig.contains("\"ModdedRemoteStillValidMixin\""),
                 "所有已支持第三方远程容器都必须接入统一且已注册的 stillValid Mixin");
+        assertTrue(mixinConfig.contains("\"required\": true")
+                        && mixinConfig.contains("\"defaultRequire\": 1")
+                        && !mixinConfig.contains("JadeClientProxyMixin")
+                        && jadeMixinConfig.contains("\"required\": false")
+                        && jadeMixinConfig.contains("JadeClientProxyMixin")
+                        && jadeMixinConfig.contains("WailaTickHandlerMixin"),
+                "核心 Mixin 必须失败即停；可选 Jade 注入必须保留在独立的非必需配置中");
         assertTrue(client.contains("RtsRemoteMenuCompat.wrapRemoteMenu(menu)")
                         && !client.contains("RtsSophisticatedStorageCompat.markClientRemoteMenu"),
                 "客户端菜单安装链只能写入一次统一追踪状态");

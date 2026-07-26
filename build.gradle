@@ -193,6 +193,7 @@ minecraft {
             jvmArg "-Dmixin.env.refMapRemappingFile=${refMapRemapFile}"
             // Forge userdev 直接从 classes/resources 启动，没有生产 jar 的 Manifest，必须显式注册 Mixin 配置。
             arg "-mixin.config=${mod_id}.mixins.json"
+            arg "-mixin.config=${mod_id}.jade_mixins.json"
 
             mods {
                 "${mod_id}" {
@@ -357,7 +358,7 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
                 'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-                'MixinConfigs'            : "${mod_id}.mixins.json"
+                'MixinConfigs'            : "${mod_id}.mixins.json,${mod_id}.jade_mixins.json"
         ])
     }
 

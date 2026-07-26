@@ -14,13 +14,15 @@ class NetworkCompatThrottleContractTest {
         String config = read("src/main/java/com/rtsbuilding/rtsbuilding/Config.java");
         String ae2 = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/ae2/RtsAe2Compat.java");
         String rs = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/refinedstorage/RtsRefinedStorageCompat.java");
+        String linked = read("src/main/java/com/rtsbuilding/rtsbuilding/server/storage/handler/RtsLinkedCapabilities.java");
 
-        assertTrue(config.contains("storage.ae2NetworkRefreshThrottle"));
-        assertTrue(config.contains("storage.refinedStorageNetworkRefreshThrottle"));
+        assertTrue(config.contains("java.util.List.of(\"storage\", \"ae2NetworkRefreshThrottle\")"));
+        assertTrue(config.contains("java.util.List.of(\"storage\", \"refinedStorageNetworkRefreshThrottle\")"));
         assertTrue(ae2.contains("implements IItemHandler") && ae2.contains("RefreshableSnapshotHandler"));
         assertTrue(ae2.contains("Config.ae2NetworkRefreshThrottle()"));
         assertTrue(rs.contains("RefreshableSnapshotHandler"));
         assertTrue(rs.contains("Config.refinedStorageNetworkRefreshThrottle()"));
+        assertTrue(linked.contains("RtsRefinedStorageCompat.createNetworkItemHandler(player, pos)"));
     }
 
     private static String read(String relative) throws Exception {
