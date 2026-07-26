@@ -536,6 +536,7 @@
   "screen.rtsbuilding.quick_build.chain_limit": "上限：%s",
   "screen.rtsbuilding.quick_build.chain_limit_label": "上限",
   "screen.rtsbuilding.quick_build.connect": "連接",
+  "screen.rtsbuilding.quick_build.overwrite": "覆蓋",
   "screen.rtsbuilding.quick_build.vertical": "垂直",
   "screen.rtsbuilding.quick_build.advanced_box": "進階",
   "screen.rtsbuilding.storage.title": "RTS 存儲",

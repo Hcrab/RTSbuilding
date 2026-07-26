@@ -390,12 +390,12 @@ public final class RtsClientPacketGateway {
 
     public static void sendPlaceBatch(List<BlockHitResult> hits, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, int rotateSteps, Vec3 rayOrigin, Vec3 rayDir) {
-        sendPlaceBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, skipIfOccupied,
+        sendPlaceBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, skipIfOccupied, false,
                 itemId, itemPrototype, rotateSteps, "", rayOrigin, rayDir);
     }
 
     public static void sendPlaceBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
-            boolean skipIfOccupied, String itemId, ItemStack itemPrototype, int rotateSteps, String statePreset,
+            boolean skipIfOccupied, boolean overwriteExisting, String itemId, ItemStack itemPrototype, int rotateSteps, String statePreset,
             Vec3 rayOrigin, Vec3 rayDir) {
         if (hits == null || hits.isEmpty()) {
             return;
@@ -433,6 +433,7 @@ public final class RtsClientPacketGateway {
                 statePreset == null ? "" : statePreset,
                 forcePlace,
                 skipIfOccupied,
+                overwriteExisting,
                 itemId == null ? "" : itemId,
                 prototype,
                 rayOrigin.x,

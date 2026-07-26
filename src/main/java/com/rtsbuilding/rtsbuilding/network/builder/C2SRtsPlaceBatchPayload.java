@@ -22,6 +22,7 @@ public record C2SRtsPlaceBatchPayload(
         String statePreset,
         boolean forcePlace,
         boolean skipIfOccupied,
+        boolean overwriteExisting,
         String itemId,
         ItemStack itemPrototype,
         double rayOriginX,
@@ -49,6 +50,7 @@ public record C2SRtsPlaceBatchPayload(
                 buf.writeUtf(payload.statePreset() == null ? "" : payload.statePreset(), 512);
                 buf.writeBoolean(payload.forcePlace());
                 buf.writeBoolean(payload.skipIfOccupied());
+                buf.writeBoolean(payload.overwriteExisting());
                 buf.writeUtf(payload.itemId(), 128);
                 ItemStack itemPrototype = payload.itemPrototype() == null ? ItemStack.EMPTY : payload.itemPrototype();
                 buf.writeBoolean(!itemPrototype.isEmpty());
@@ -79,6 +81,7 @@ public record C2SRtsPlaceBatchPayload(
                         buf.readDouble(),
                         buf.readByte(),
                         buf.readUtf(512),
+                        buf.readBoolean(),
                         buf.readBoolean(),
                         buf.readBoolean(),
                         buf.readUtf(128),

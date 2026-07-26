@@ -17,21 +17,21 @@ class QuickBuildWindowLayoutTest {
         assertEquals(148, g.shapeX(1));
         assertEquals(108, g.shapeX(2));
         assertEquals(154, g.shapeY(2));
-        assertEquals(294, g.windowH);
+        assertEquals(332, g.windowH);
         assertEquals(new UiRect(108, 75, 79, 18), g.buildMode);
-        assertEquals(new UiRect(108, 276, 162, 4), g.progress);
+        assertEquals(new UiRect(108, 314, 162, 4), g.progress);
         assertEquals(118, g.chainLabelY);
         assertEquals(132, g.chainSliderY);
-        assertEquals(284, g.statusTextY);
-        assertEquals(280, g.statusItemY);
+        assertEquals(322, g.statusTextY);
+        assertEquals(318, g.statusItemY);
         assertEquals(244, g.chainValueX(50));
         assertEquals(208, g.missingTextX(200));
         assertEquals(224, g.missingIconX(208, 12));
     }
 
     @Test
-    void destroyAddsExactlyOneShapeRow() {
-        assertEquals(38, QuickBuildWindowLayout.windowHeight(true)
+    void buildAndDestroyReserveTheSameFiveRowBody() {
+        assertEquals(0, QuickBuildWindowLayout.windowHeight(true)
                 - QuickBuildWindowLayout.windowHeight(false));
     }
 

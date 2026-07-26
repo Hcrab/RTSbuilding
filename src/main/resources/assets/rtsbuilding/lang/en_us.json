@@ -460,6 +460,7 @@
   "screen.rtsbuilding.quick_build.chain_limit": "Limit: %s",
   "screen.rtsbuilding.quick_build.chain_limit_label": "Limit",
   "screen.rtsbuilding.quick_build.connect": "Connect",
+  "screen.rtsbuilding.quick_build.overwrite": "Overwrite",
   "screen.rtsbuilding.quick_build.vertical": "Vertical",
   "screen.rtsbuilding.quick_build.advanced_box": "Advanced",
   "screen.rtsbuilding.storage.title": "RTS Storage",

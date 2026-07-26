@@ -3,7 +3,7 @@
 
 **Language / 语言:** [English](#english) | [中文](#chinese)
 
-Join the Discord to chat and provide feedback: https://discord.gg/9Pw6vZfAm
+Join the Discord to chat and provide feedback: https://discord.gg/Bz5HU9YQuj
 
 ---
 

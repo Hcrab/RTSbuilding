@@ -21,6 +21,9 @@ import java.util.List;
  */
 public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
                                      RtsFloatingWindowInputRouter inputRouter) {
+    /** 底栏数量覆盖位于 Z=300；浮窗必须从更高层开始，并为内部物品/数量预留完整深度。 */
+    private static final float WINDOW_BASE_Z = 400.0F;
+    private static final float WINDOW_Z_STRIDE = 400.0F;
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
         this(new ArrayList<>(List.of(frontToBackWindows)));
@@ -65,14 +68,18 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
                     && window.isVisibleWindow()
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);
-            window.render(g, mouseX, mouseY, 0.0F);
-            window.setSkipHoverDetection(false);
-            // 安全冲刷：RtsWindowPanel.render() 已在 scissor 内 flush 了内容，
-            // 此处额外冲刷共享渲染缓冲区，确保 item 渲染这类立即提交的数据
-            // 已经在 scissor 完成时被放入帧缓冲区。
-            // GUI 层只提交自己积累的绘制；共享 BufferSource 的生命周期由 Minecraft 管理。
-            // 主动 endBatch 会把其他模组或后续渲染阶段的批次一并结束。
-            g.flush();
+            g.pose().pushPose();
+            try {
+                // renderItem 和数量覆盖会在当前 Pose 上继续增加约 150/300 Z。
+                // 每个浮窗使用独立深度带，后面的窗口背景才能真正遮住前一个窗口和底栏物品。
+                g.pose().translate(0.0F, 0.0F, windowLayerZ(i));
+                window.render(g, mouseX, mouseY, 0.0F);
+                // 必须在恢复 Pose 前提交，确保缓冲顶点携带本窗口的真实深度。
+                g.flush();
+            } finally {
+                g.pose().popPose();
+                window.setSkipHoverDetection(false);
+            }
         }
     }
 
@@ -91,10 +98,23 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
             if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
-                window.renderOverlays(g, mouseX, mouseY);
+                g.pose().pushPose();
+                try {
+                    // 覆盖层位于所属窗口深度带顶部，避免提示再次被窗口内物品遮挡。
+                    g.pose().translate(0.0F, 0.0F,
+                            windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F);
+                    window.renderOverlays(g, mouseX, mouseY);
+                    g.flush();
+                } finally {
+                    g.pose().popPose();
+                }
                 return;
             }
         }
+    }
+
+    private static float windowLayerZ(int index) {
+        return WINDOW_BASE_Z + Math.max(0, index) * WINDOW_Z_STRIDE;
     }
 
     public RtsWindowPanel.ResizeCursor resizeCursorAt(double mouseX, double mouseY) {

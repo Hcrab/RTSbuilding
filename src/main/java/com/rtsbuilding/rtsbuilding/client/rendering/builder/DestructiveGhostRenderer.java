@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
+import com.rtsbuilding.rtsbuilding.client.rendering.RtsPrivateBufferLifecycle;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -272,10 +273,10 @@ public final class DestructiveGhostRenderer extends RenderStateShard {
     private static void renderEnvelopeNoDepthLineBox(PoseStack poseStack,
             double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
             float r, float g, float b, float alpha) {
-        if (LINES_NO_DEPTH_BUFFER.building()) {
-            LINES_NO_DEPTH_BUFFER.discard();
-        }
-        LINES_NO_DEPTH_BUFFER.begin(LINES_NO_DEPTH.mode(), LINES_NO_DEPTH.format());
+        RtsPrivateBufferLifecycle.begin(
+                LINES_NO_DEPTH_BUFFER,
+                LINES_NO_DEPTH.mode(),
+                LINES_NO_DEPTH.format());
         LevelRenderer.renderLineBox(poseStack, LINES_NO_DEPTH_BUFFER,
                 minX, minY, minZ, maxX, maxY, maxZ,
                 r, g, b, alpha);

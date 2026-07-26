@@ -75,6 +75,8 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -330,6 +332,57 @@ public final class RtsServerGameTests {
                     "Snow range destroy should finish without an active mining task");
             helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
                     "Snow range destroy should finish without an active destruction task");
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
+    }
+
+    /**
+     * 回归范围破坏与连锁挖掘的工具槽位差异：玩家只把镐拿在主手、没有从
+     * RTS 物品面板额外选中工具时，请求不会创建工具租约。范围破坏交给异步
+     * Task 后仍必须使用该作业冻结的快捷栏槽位，不能误读 Session 中的旧槽位。
+     */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 400)
+    public static void areaDestroyUsesHeldNetheritePickaxeWithoutToolLease(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        List<BlockPos> targetsRel = linePositions(4, 1, 4, 6);
+        for (BlockPos targetRel : targetsRel) {
+            helper.setBlock(targetRel, Blocks.STONE);
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        ItemStack tool = new ItemStack(Items.NETHERITE_PICKAXE);
+        tool.setDamageValue(37);
+        int heldToolSlot = 4;
+        player.getInventory().setItem(heldToolSlot, tool.copy());
+        player.getInventory().selected = heldToolSlot;
+
+        RtsStorageSession session = requireSession(helper, player);
+        session.mining.miningToolSlot = 0;
+
+        helper.assertTrue(tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
+                "Netherite pickaxe must be able to harvest stone before the RTS request");
+        RtsAPI.get().mining().areaDestroy(
+                player,
+                asApiPositions(helper, targetsRel),
+                (byte) heldToolSlot,
+                "",
+                ItemStack.EMPTY,
+                false);
+        helper.assertTrue(session.mining.miningToolLease.isEmpty(),
+                "Held-tool range destroy must exercise the no-lease hotbar path");
+
+        helper.succeedWhen(() -> {
+            for (BlockPos targetRel : targetsRel) {
+                helper.assertBlockPresent(Blocks.AIR, targetRel);
+            }
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Hotbar-tool range destroy should finish without a durable task");
+            ItemStack returned = player.getInventory().getItem(heldToolSlot);
+            helper.assertTrue(returned.is(Items.NETHERITE_PICKAXE),
+                    "Held hotbar pickaxe must remain in its original slot");
+            helper.assertTrue(returned.getDamageValue() > tool.getDamageValue(),
+                    "Held hotbar pickaxe must preserve durability damage");
             Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
         });
@@ -884,6 +937,62 @@ public final class RtsServerGameTests {
                     placedRel,
                     BlockStateProperties.SLAB_TYPE,
                     SlabType.TOP);
+            stopPlayers(player);
+        });
+    }
+
+    /** 创造覆盖会替换不可替换方块，并忽略目标格内的实体占位。 */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void creativeQuickBuildOverwriteReplacesOccupiedBlock(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(2, 1, 2);
+        helper.setBlock(targetRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos targetAbs = helper.absolutePos(targetRel);
+
+        ArmorStand stand = EntityType.ARMOR_STAND.create(helper.getLevel());
+        helper.assertTrue(stand != null, "Armor stand fixture should be created");
+        stand.moveTo(Vec3.atCenterOf(targetAbs));
+        helper.getLevel().addFreshEntity(stand);
+
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(targetAbs).subtract(rayOrigin).normalize();
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player, List.of(targetAbs), Direction.UP,
+                0.5D, 0.5D, 0.5D, (byte) 0, "",
+                false, true, true,
+                "minecraft:dirt", new ItemStack(Items.DIRT),
+                rayOrigin.x, rayOrigin.y, rayOrigin.z,
+                rayDir.x, rayDir.y, rayDir.z);
+
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.DIRT, targetRel);
+            helper.assertTrue(!stand.isRemoved(), "Overwrite must not delete the occupying entity");
+            stopPlayers(player);
+        });
+    }
+
+    /** 生存玩家即使伪造覆盖字段，也不能替换既有方块。 */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void survivalQuickBuildCannotSpoofOverwrite(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(2, 1, 2);
+        helper.setBlock(targetRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        BlockPos targetAbs = helper.absolutePos(targetRel);
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(targetAbs).subtract(rayOrigin).normalize();
+
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player, List.of(targetAbs), Direction.UP,
+                0.5D, 0.5D, 0.5D, (byte) 0, "",
+                false, true, true,
+                "minecraft:dirt", new ItemStack(Items.DIRT),
+                rayOrigin.x, rayOrigin.y, rayOrigin.z,
+                rayDir.x, rayDir.y, rayDir.z);
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                    "Spoofed overwrite job should finish as a skipped placement");
+            helper.assertBlockPresent(Blocks.STONE, targetRel);
             stopPlayers(player);
         });
     }

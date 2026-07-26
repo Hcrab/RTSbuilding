@@ -58,9 +58,21 @@ public interface PlacementService {
      * @param rayOriginX,rayOriginY,rayOriginZ 射线起点
      * @param rayDirX,rayDirY,rayDirZ 射线方向
      */
-    void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+    default void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
                            double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
                            boolean forcePlace, boolean skipIfOccupied, String itemId,
+                           ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
+                           double rayDirX, double rayDirY, double rayDirZ) {
+        enqueuePlaceBatch(player, clickedPositions, face,
+                hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
+                forcePlace, skipIfOccupied, false, itemId, itemPrototype,
+                rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
+    }
+
+    /** 带创造覆盖策略的批量建造入口；实现必须在服务端重新核验创造模式。 */
+    void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+                           double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
+                           boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId,
                            ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
                            double rayDirX, double rayDirY, double rayDirZ);
 

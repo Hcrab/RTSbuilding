@@ -211,10 +211,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
 
     /** Forge 1.20.1 的 BufferBuilder 复用入口；生产渲染语义由上层保持不变。 */
     private static BufferBuilder beginBuffer(RenderType type, BufferBuilder buffer) {
-        if (buffer.building()) {
-            buffer.discard();
-        }
-        buffer.begin(type.mode(), type.format());
+        RtsPrivateBufferLifecycle.begin(buffer, type.mode(), type.format());
         return buffer;
     }
 
@@ -229,24 +226,30 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
 
     /** Draws interaction target bounding boxes (uses polygon offset to prevent Z-fighting) */
     private static void drawBrackets(BufferBuilder buffer) {
-        if (buffer.building() && !buffer.isCurrentBatchEmpty()) {
-            RenderSystem.enablePolygonOffset();
-            RenderSystem.polygonOffset(-1.0F, -1.0F);
-            BRACKET_QUADS.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
-            RenderSystem.polygonOffset(0.0F, 0.0F);
-            RenderSystem.disablePolygonOffset();
+        if (!buffer.building()) return;
+        if (buffer.isCurrentBatchEmpty()) {
+            buffer.endOrDiscardIfEmpty();
+            return;
         }
+        RenderSystem.enablePolygonOffset();
+        RenderSystem.polygonOffset(-1.0F, -1.0F);
+        BRACKET_QUADS.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
+        RenderSystem.polygonOffset(0.0F, 0.0F);
+        RenderSystem.disablePolygonOffset();
     }
 
     /** Draws with depth test disabled (X-ray see-through effect) */
     private static void drawNoDepth(RenderType type, BufferBuilder buffer) {
-        if (buffer.building() && !buffer.isCurrentBatchEmpty()) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            type.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL_LEQUAL);
+        if (!buffer.building()) return;
+        if (buffer.isCurrentBatchEmpty()) {
+            buffer.endOrDiscardIfEmpty();
+            return;
         }
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        type.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL_LEQUAL);
     }
 }

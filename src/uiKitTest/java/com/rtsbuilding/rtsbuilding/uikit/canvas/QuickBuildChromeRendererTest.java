@@ -45,7 +45,11 @@ class QuickBuildChromeRendererTest {
         assertEquals(3, idle.rects.size());
         assertEquals(layout.divider, idle.rects.get(0));
         assertEquals(layout.progress, idle.rects.get(1));
-        assertEquals(new UiRect(108, 276, 1, 4), idle.rects.get(2));
+        assertEquals(new UiRect(
+                layout.progress.getX(),
+                layout.progress.getY(),
+                1,
+                layout.progress.getHeight()), idle.rects.get(2));
         assertEquals(QuickBuildStyle.PROGRESS_IDLE_TICK, idle.colors.get(2));
     }
 

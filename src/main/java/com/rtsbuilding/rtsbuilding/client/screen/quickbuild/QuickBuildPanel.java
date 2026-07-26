@@ -14,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -191,8 +192,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
                 g, canvas, screen, core, sharedLayout,
                 this.windowWidth, mouseX, mouseY, partialTick);
 
-        boolean creative = screen.getMinecraft().player != null
-                && screen.getMinecraft().player.isCreative();
+        boolean creative = hasCreativePlayer();
         QuickBuildStatusRenderer.render(
                 g, canvas, screen, core, sharedLayout, resolveShapeBuildItem(), creative);
     }
@@ -358,6 +358,21 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     public boolean isRangeDestroyChainMode() {
         return isRangeDestroyMode() && effectiveRangeDestroyShape() == AreaMineShape.CHAIN;
+    }
+
+    /** 创造覆盖只在建造模式且本地玩家仍处于创造模式时生效。 */
+    public boolean isCreativeOverwriteEnabled() {
+        return !isDestroyModeActive()
+                && this.preferences.overwrite()
+                && hasCreativePlayer();
+    }
+
+    boolean isOverwriteSelected() {
+        return this.preferences.overwrite();
+    }
+
+    void setOverwriteSelected(boolean value) {
+        this.preferences.overwrite(value);
     }
 
     public boolean isAdvancedRangeDestroyBoxMode() {
@@ -534,10 +549,18 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (!selected.isEmpty()) {
             return selected;
         }
-        var mc = screen.getMinecraft();
+        var mc = Minecraft.getInstance();
         if (mc.player == null) {
             return ItemStack.EMPTY;
         }
         return mc.player.getInventory().getItem(mc.player.getInventory().selected);
+    }
+
+    /**
+     * 构造期安全地读取本地玩家模式，不依赖尚未挂载到 Minecraft 的 Screen 字段。
+     */
+    boolean hasCreativePlayer() {
+        var player = Minecraft.getInstance().player;
+        return player != null && player.isCreative();
     }
 }

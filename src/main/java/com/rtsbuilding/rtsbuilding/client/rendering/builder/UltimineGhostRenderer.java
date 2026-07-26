@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
+import com.rtsbuilding.rtsbuilding.client.rendering.RtsPrivateBufferLifecycle;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
@@ -245,10 +246,7 @@ public final class UltimineGhostRenderer extends RenderStateShard {
 
     /** 复用 Forge 1.20.1 的旧 BufferBuilder 生命周期。 */
     private static void begin(RenderType type, BufferBuilder buffer) {
-        if (buffer.building()) {
-            buffer.discard();
-        }
-        buffer.begin(type.mode(), type.format());
+        RtsPrivateBufferLifecycle.begin(buffer, type.mode(), type.format());
     }
 
     // ===== Private helpers =====

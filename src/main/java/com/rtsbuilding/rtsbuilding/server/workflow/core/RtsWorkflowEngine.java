@@ -212,8 +212,14 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     public void flushPlayerNow(UUID playerId, ResourceKey<Level> dimension) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         ServerPlayer player = findPlayerByUUID(playerId);
-        if (slots != null && player != null) {
+        if (player == null) {
+            return;
+        }
+        if (slots != null) {
             syncService.notifyPlayer(player, slots);
+        } else {
+            // 最后一条记录被超时清理后，服务端容器已经不存在；仍要显式清空客户端旧投影。
+            syncService.sendIdle(player);
         }
     }
 
@@ -575,10 +581,17 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (player == null) return;
         ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
-        if (slots == null) return;
+        if (slots == null) {
+            // 客户端可能仍显示服务端已经清理的旧条目；叉号同时承担一次权威状态对账。
+            syncService.sendIdle(player);
+            return;
+        }
 
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
-        if (entry == null || !entry.isOccupied()) return;
+        if (entry == null || !entry.isOccupied()) {
+            syncService.notifyPlayer(player, slots);
+            return;
+        }
 
         RtsbuildingMod.LOGGER.info("[Workflow] {} 删除工作流 #{}: {}",
                 player.getGameProfile().getName(), entry.id(), entry.type());

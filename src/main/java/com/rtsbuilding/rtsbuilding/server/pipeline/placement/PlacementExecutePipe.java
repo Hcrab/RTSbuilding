@@ -52,6 +52,8 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
             new TypedKey<>("forcePlace", Boolean.class);
     public static final TypedKey<Boolean> ARG_SKIP_IF_OCCUPIED =
             new TypedKey<>("skipIfOccupied", Boolean.class);
+    public static final TypedKey<Boolean> ARG_OVERWRITE_EXISTING =
+            new TypedKey<>("overwriteExisting", Boolean.class);
     public static final TypedKey<String> ARG_ITEM_ID =
             new TypedKey<>("itemId", String.class);
     public static final TypedKey<ItemStack> ARG_ITEM_PROTOTYPE =
@@ -98,6 +100,7 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
         String statePreset = pctx.getStatePreset();
         boolean forcePlace = pctx.isForcePlace();
         boolean skipIfOccupied = pctx.isSkipIfOccupied();
+        boolean overwriteExisting = pctx.isOverwriteExisting();
         String itemId = pctx.getItemId();
         ItemStack itemPrototype = pctx.getItemPrototype();
         double rayOriginX = pctx.getRayOriginX();
@@ -115,7 +118,7 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
 
         boolean enqueued = RtsPlacementBatch.enqueuePlaceBatch(player, session, clickedPositions,
                 face, hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
-                forcePlace, skipIfOccupied, itemId, itemPrototype,
+                forcePlace, skipIfOccupied, overwriteExisting, itemId, itemPrototype,
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ,
                 quickBuild, forceEmptyHand, sendRemoteHint,

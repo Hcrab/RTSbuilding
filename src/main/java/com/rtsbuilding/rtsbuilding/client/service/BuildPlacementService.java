@@ -226,7 +226,7 @@ public final class BuildPlacementService {
 
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit,
                                    boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
-                                   boolean skipIfOccupied,
+                                   boolean skipIfOccupied, boolean overwriteExisting,
                                    Runnable beginRemoteMenuOpenGrace,
                                    BooleanSupplier shouldAutoClearSelectedItemWhenUnavailable,
                                    Runnable requestStoragePage,
@@ -260,7 +260,7 @@ public final class BuildPlacementService {
             }
         }
 
-        RtsClientPacketGateway.sendPlaceBatch(hits, templateHit, forcePlace, skipIfOccupied,
+        RtsClientPacketGateway.sendPlaceBatch(hits, templateHit, forcePlace, skipIfOccupied, overwriteExisting,
                 payloadItemId,
                 payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
                 payloadItemId.isBlank() ? 0 : this.placeRotateSteps,

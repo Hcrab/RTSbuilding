@@ -79,6 +79,12 @@ final class QuickBuildUiAdapter {
                 controls.add(new QuickBuildUiControl(QuickBuildUiControl.Id.CONNECT,
                         panel.uiScreen().text("screen.rtsbuilding.quick_build.connect"), connected, true));
             }
+            if (mode == QuickBuildUiMode.BUILD
+                    && panel.hasCreativePlayer()) {
+                controls.add(new QuickBuildUiControl(QuickBuildUiControl.Id.OVERWRITE,
+                        panel.uiScreen().text("screen.rtsbuilding.quick_build.overwrite"),
+                        panel.isOverwriteSelected(), true));
+            }
         }
 
         RtsWorkflowStatus workflow = panel.uiController().findActiveDestroyWorkflow();
@@ -161,6 +167,10 @@ final class QuickBuildUiAdapter {
                 panel.uiScreen().getShapeController().setBuildLineConnected(
                         !panel.uiScreen().getShapeController().isBuildLineConnected());
             }
+        } else if (id == QuickBuildUiControl.Id.OVERWRITE && mode == QuickBuildUiMode.BUILD
+                && panel.hasCreativePlayer()) {
+            panel.setOverwriteSelected(!panel.isOverwriteSelected());
+            panel.uiScreen().clearShapeBuildSession();
         }
         panel.uiScreen().persistUiState();
         panel.rebuildFillModeButtons();

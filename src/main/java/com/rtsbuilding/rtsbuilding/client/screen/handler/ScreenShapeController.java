@@ -961,7 +961,8 @@ public final class ScreenShapeController {
                             this.controller.placeSelectedFluid(shapedHit, forcePlace, rayOrigin, rayDir);
                         }
                     } else {
-                        this.controller.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, true);
+                        this.controller.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, true,
+                                this.screen.isQuickBuildCreativeOverwriteEnabled());
                     }
                 });
     }
@@ -1538,6 +1539,9 @@ public final class ScreenShapeController {
     }
 
     private List<BlockPos> filterOccupiedReadyShapeTargets(ShapeBuildTypes.Input input, List<BlockPos> targets) {
+        if (this.screen.isQuickBuildCreativeOverwriteEnabled()) {
+            return ShapePlacementTargetResolver.resolveOverwriteTargets(targets);
+        }
         boolean strictEmptyLock = shouldSkipOccupiedReadyShapeTargets(input);
         ItemStack placementStack = resolveShapePlacementStackForContext();
         return ShapePlacementTargetResolver.resolveTargets(

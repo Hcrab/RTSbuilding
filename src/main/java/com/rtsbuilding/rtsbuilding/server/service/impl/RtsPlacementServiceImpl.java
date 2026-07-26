@@ -111,7 +111,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     @Override
     public void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
                                   double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
-                                  boolean forcePlace, boolean skipIfOccupied, String itemId,
+                                  boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId,
                                   ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
                                   double rayDirX, double rayDirY, double rayDirZ) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
@@ -138,6 +138,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                             .statePreset(statePreset)
                             .forcePlace(forcePlace)
                             .skipIfOccupied(skipIfOccupied)
+                            .overwriteExisting(overwriteExisting)
                             .itemId(itemId == null ? "" : itemId)
                             .itemPrototype(itemPrototype)
                             .rayOriginX(rayOriginX)
@@ -167,6 +168,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 statePreset,
                 forcePlace,
                 skipIfOccupied,
+                overwriteExisting,
                 itemId == null ? "" : itemId,
                 itemPrototype,
                 rayOriginX,

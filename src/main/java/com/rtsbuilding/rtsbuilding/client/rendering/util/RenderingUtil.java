@@ -4,6 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -109,6 +111,25 @@ public final class RenderingUtil {
         consumer.vertex(matrix, (float) x2, (float) y2, (float) z2).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) x3, (float) y3, (float) z3).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) x4, (float) y4, (float) z4).color(r, g, b, a).endVertex();
+    }
+
+    /**
+     * 向 Forge 1.20.1 的 POSITION_COLOR_NORMAL 线缓冲写入一条完整线段。
+     * 旧版 {@link VertexConsumer} 不会自动补齐法线；遗漏 normal 会在 endVertex 时直接崩溃。
+     */
+    public static void line(VertexConsumer consumer, PoseStack poseStack,
+            Vec3 first, Vec3 second, float r, float g, float b, float a) {
+        Vec3 direction = second.subtract(first).normalize();
+        Matrix4f pose = poseStack.last().pose();
+        Matrix3f normal = poseStack.last().normal();
+        consumer.vertex(pose, (float) first.x, (float) first.y, (float) first.z)
+                .color(r, g, b, a)
+                .normal(normal, (float) direction.x, (float) direction.y, (float) direction.z)
+                .endVertex();
+        consumer.vertex(pose, (float) second.x, (float) second.y, (float) second.z)
+                .color(r, g, b, a)
+                .normal(normal, (float) direction.x, (float) direction.y, (float) direction.z)
+                .endVertex();
     }
 
     // ===== Bounds (used by ShapeGhostRenderer & DestructiveGhostRenderer) =====

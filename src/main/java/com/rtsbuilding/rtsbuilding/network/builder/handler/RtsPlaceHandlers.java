@@ -108,6 +108,7 @@ public final class RtsPlaceHandlers {
                         payload.statePreset(),
                         payload.forcePlace(),
                         payload.skipIfOccupied(),
+                        payload.overwriteExisting(),
                         payload.itemId(),
                         payload.itemPrototype(),
                         payload.rayOriginX(),

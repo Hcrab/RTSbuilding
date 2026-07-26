@@ -67,8 +67,10 @@ class BatchHotPathContractTest {
         int start = source.indexOf("public static DestructionSliceResult tickDetachedDestructionSlice(");
         int end = source.indexOf("public static void recordDetachedHistory(", start);
         String detached = source.substring(start, end);
-        assertTrue(detached.indexOf("job.destroyedPositions.add(target)")
-                < detached.lastIndexOf("RtsMiningValidator.isToolNearBreak(player, session)"));
+        int successfulBreak = detached.indexOf("job.destroyedPositions.add(target)");
+        int protectionCheck = detached.lastIndexOf(
+                "RtsMiningValidator.isToolNearBreak(player, session, job.toolSlot())");
+        assertTrue(protectionCheck >= 0 && successfulBreak < protectionCheck);
         assertFalse(detached.contains("unconsumeLast()"));
     }
 
@@ -234,6 +236,25 @@ class BatchHotPathContractTest {
         String session = readMain("server/service/impl/RtsSessionServiceImpl.java");
         assertTrue(session.indexOf("RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player)")
                 < session.indexOf("RtsWorkflowEngine.getInstance().pauseAllActive"));
+    }
+
+    @Test
+    void missingWorkflowProjectionStillClearsOrReconcilesClient() throws IOException {
+        String workflows = readMain("server/workflow/core/RtsWorkflowEngine.java");
+        int flush = workflows.indexOf("public void flushPlayerNow(");
+        int fireEvent = workflows.indexOf("void fireEvent(", flush);
+        String flushBody = workflows.substring(flush, fireEvent);
+        assertTrue(flushBody.contains("syncService.sendIdle(player)"),
+                "最后一个服务端条目被清理后仍必须清空客户端旧投影");
+
+        int delete = workflows.indexOf("public void deleteWorkflow(");
+        int cancelAll = workflows.indexOf("public void cancelAll(", delete);
+        String deleteBody = workflows.substring(delete, cancelAll);
+        assertTrue(deleteBody.contains("if (slots == null)"));
+        assertTrue(deleteBody.contains("syncService.sendIdle(player)"),
+                "点击叉号时，即使服务端条目已经消失也必须让客户端自愈");
+        assertTrue(deleteBody.contains("syncService.notifyPlayer(player, slots)"),
+                "只有目标条目缺失时也要回传其余权威条目");
     }
 
     private static String readMain(String relative) throws IOException {

@@ -137,6 +137,17 @@ class ShapePlacementTargetResolverTest {
     }
 
     @Test
+    void overwriteKeepsExactGeometryCoordinatesWithoutAdjacentFaceShift() {
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos(1, 0, 0);
+        List<BlockPos> resolved = ShapePlacementTargetResolver.resolveOverwriteTargets(
+                List.of(BlockPos.ZERO, mutable, BlockPos.ZERO));
+
+        assertEquals(List.of(BlockPos.ZERO, new BlockPos(1, 0, 0)), resolved);
+        mutable.set(8, 8, 8);
+        assertEquals(new BlockPos(1, 0, 0), resolved.get(1));
+    }
+
+    @Test
     void uniformShapeCatalogMatchesProductionIntent() {
         assertTrue(ShapePlacementTargetResolver.usesUniformPlanePlacement(BuildShape.LINE));
         assertTrue(ShapePlacementTargetResolver.usesUniformPlanePlacement(BuildShape.SQUARE));

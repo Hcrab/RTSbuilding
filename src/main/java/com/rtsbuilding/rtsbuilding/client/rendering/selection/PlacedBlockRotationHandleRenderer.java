@@ -84,8 +84,10 @@ public final class PlacedBlockRotationHandleRenderer {
                     secondInner.x, secondInner.y, secondInner.z,
                     firstInner.x, firstInner.y, firstInner.z,
                     color.r(), color.g(), color.b(), fillAlpha);
-            addLine(poseStack, lineBuffer, firstOuter, secondOuter, color, lineAlpha);
-            addLine(poseStack, lineBuffer, firstInner, secondInner, color, lineAlpha);
+            RenderingUtil.line(lineBuffer, poseStack, firstOuter, secondOuter,
+                    color.r(), color.g(), color.b(), lineAlpha);
+            RenderingUtil.line(lineBuffer, poseStack, firstInner, secondInner,
+                    color.r(), color.g(), color.b(), lineAlpha);
         }
 
         Vec3 last = points.get(points.size() - 1);
@@ -104,33 +106,14 @@ public final class PlacedBlockRotationHandleRenderer {
                 back.x, back.y, back.z,
                 right.x, right.y, right.z,
                 color.r(), color.g(), color.b(), hovered ? 0.90F : 0.62F);
-        addLine(poseStack, lineBuffer, tip, left, color, lineAlpha);
-        addLine(poseStack, lineBuffer, left, back, color, lineAlpha);
-        addLine(poseStack, lineBuffer, back, right, color, lineAlpha);
-        addLine(poseStack, lineBuffer, right, tip, color, lineAlpha);
-    }
-
-    private static void addLine(
-            PoseStack poseStack,
-            VertexConsumer buffer,
-            Vec3 first,
-            Vec3 second,
-            Color color,
-            float alpha) {
-        buffer.vertex(
-                        poseStack.last().pose(),
-                        (float) first.x,
-                        (float) first.y,
-                        (float) first.z)
-                .color(color.r(), color.g(), color.b(), alpha)
-                .endVertex();
-        buffer.vertex(
-                        poseStack.last().pose(),
-                        (float) second.x,
-                        (float) second.y,
-                        (float) second.z)
-                .color(color.r(), color.g(), color.b(), alpha)
-                .endVertex();
+        RenderingUtil.line(lineBuffer, poseStack, tip, left,
+                color.r(), color.g(), color.b(), lineAlpha);
+        RenderingUtil.line(lineBuffer, poseStack, left, back,
+                color.r(), color.g(), color.b(), lineAlpha);
+        RenderingUtil.line(lineBuffer, poseStack, back, right,
+                color.r(), color.g(), color.b(), lineAlpha);
+        RenderingUtil.line(lineBuffer, poseStack, right, tip,
+                color.r(), color.g(), color.b(), lineAlpha);
     }
 
     private static Color axisColor(Vec3 planeNormal, boolean hovered) {

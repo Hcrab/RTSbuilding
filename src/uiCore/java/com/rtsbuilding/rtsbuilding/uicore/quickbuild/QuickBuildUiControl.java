@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.uicore.quickbuild;
 
 /** 右栏的填充、朝向、高级框和连接按钮。 */
 public final class QuickBuildUiControl {
-    public enum Id { FILL, HOLLOW, SKELETON, VERTICAL, ADVANCED, CONNECT }
+    public enum Id { FILL, HOLLOW, SKELETON, VERTICAL, ADVANCED, CONNECT, OVERWRITE }
     public final Id id;
     public final String label;
     public final boolean selected;

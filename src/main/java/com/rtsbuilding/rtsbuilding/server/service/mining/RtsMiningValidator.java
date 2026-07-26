@@ -317,10 +317,21 @@ public final class RtsMiningValidator {
      * 当保护启用时，挖掘系统应停止以避免破坏工具。
      */
     public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session) {
+        int toolSlot = session == null ? 0 : session.mining.miningToolSlot;
+        return isToolNearBreak(player, session, toolSlot);
+    }
+
+    /**
+     * 使用指定作业冻结的快捷栏槽位检查工具耐久。
+     *
+     * <p>范围破坏由独立 Task 跨 Tick 执行，其槽位属于 Task 快照，不保证与
+     * Session 中最近一次连锁挖掘的槽位相同。</p>
+     */
+    public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session, int toolSlot) {
         if (session == null || !session.mining.miningToolProtectionEnabled) {
             return false;
         }
-        ItemStack tool = activeMiningTool(player, session);
+        ItemStack tool = activeMiningTool(player, session, toolSlot);
         if (tool.isEmpty() || !tool.isDamageableItem()) {
             return false;
         }
@@ -341,13 +352,24 @@ public final class RtsMiningValidator {
         if (session == null) {
             return ItemStack.EMPTY;
         }
+        return activeMiningTool(player, session, session.mining.miningToolSlot);
+    }
+
+    /**
+     * 返回当前租约工具；没有租约时，使用调用方提供的作业快捷栏槽位。
+     * 该重载用于范围破坏等把槽位冻结在 Task 中的异步操作。
+     */
+    public static ItemStack activeMiningTool(ServerPlayer player, RtsStorageSession session, int toolSlot) {
+        if (session == null) {
+            return ItemStack.EMPTY;
+        }
         if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
             return session.mining.miningToolLease.stack();
         }
         if (player == null) {
             return ItemStack.EMPTY;
         }
-        int slot = clampHotbarSlot(session.mining.miningToolSlot);
+        int slot = clampHotbarSlot(toolSlot);
         if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
             return ItemStack.EMPTY;
         }
