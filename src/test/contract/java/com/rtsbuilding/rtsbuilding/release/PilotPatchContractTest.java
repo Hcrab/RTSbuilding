@@ -10,12 +10,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PilotPatchContractTest {
     @Test
-    void pilotVersionKeepsPatch4ClientDefaultsAndLocalizedCameraHint() throws Exception {
+    void pilotVersionKeepsClientDefaultsLocalizedCameraHintAndDynamicVersionText() throws Exception {
         String properties = Files.readString(Path.of("gradle.properties"));
         String config = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/Config.java"));
         String camera = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/camera/RtsCameraManager.java"));
+        String onboarding = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/compat/RtsClientOnboardingReminder.java"));
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
@@ -26,8 +28,10 @@ class PilotPatchContractTest {
         assertFalse(camera.contains("Component.literal(\"RTS camera is not unlocked.\")"));
         assertTrue(zhCn.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(zhCn.contains("\"item.rtsbuilding.rts_control_core\""));
-        assertTrue(zhCn.contains("当前版本为 1.1.6-pilot"));
-        assertTrue(zhCn.contains("请退回 1.1.5-patch4"));
+        assertTrue(onboarding.contains("getModContainerById(RtsbuildingMod.MODID)"));
+        assertTrue(onboarding.contains("Component.literal(currentModVersion())"));
+        assertTrue(zhCn.contains("当前版本：%1$s"));
+        assertTrue(zhCn.contains("请使用最新稳定版"));
         assertTrue(Files.isRegularFile(Path.of(".github/workflows/publish-mod-release.yml")));
     }
 }
