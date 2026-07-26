@@ -17,7 +17,7 @@ class StorageDirtyRefreshContractTest {
 
     @Test
     void clientUsesEffectiveStorageTabInsteadOfTreatingBuilderScreenAsVisible() throws IOException {
-        String controller = source("com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java");
+        String controller = source("com/rtsbuilding/rtsbuilding/client/controller/ClientRtsLifecycleOwner.java");
         String screen = source("com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String bottomPanel = source("com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
 
@@ -25,7 +25,7 @@ class StorageDirtyRefreshContractTest {
         assertTrue(screen.contains("this.bottomPanel.isStorageBrowserVisible()"));
         assertTrue(bottomPanel.contains("activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.STORAGE"),
                 "BuilderScreen 虽已打开，创造/蓝图标签仍必须保持 0 次自动构页");
-        assertFalse(controller.contains("tickStorageAutoRefresh(this.storageStateManager.isStorageViewDirty())"));
+        assertFalse(controller.contains("tickStorageAutoRefresh(controller.storageStateManager.isStorageViewDirty())"));
     }
 
     @Test

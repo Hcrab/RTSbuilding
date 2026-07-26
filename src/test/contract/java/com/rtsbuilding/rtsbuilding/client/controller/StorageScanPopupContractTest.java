@@ -13,10 +13,12 @@ class StorageScanPopupContractTest {
     void disabledStorageReadyPopupClearsAndSuppressesLongRunningScanUiState() throws IOException {
         String storageState = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/StorageStateManager.java"));
+        String refreshState = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/StorageRefreshState.java"));
         String builderScreen = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
 
-        assertTrue(storageState.contains("if (!RtsClientUiStateStore.isShowStorageReadyPopupEnabled())")
+        assertTrue(refreshState.contains("if (!RtsClientUiStateStore.isShowStorageReadyPopupEnabled())")
                         && storageState.contains("clearStorageScanState();"),
                 "Starting a storage page request must not keep the scan popup alive when the user disabled it.");
         assertTrue(builderScreen.contains("toggleShowStorageReadyPopup()")
