@@ -13,22 +13,13 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.items.IItemHandler;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-@Disabled("Forge 1.20.1 unit-test classpath cannot bootstrap BuiltInRegistries.ITEM reliably; covered by RtsAggregateStorageTest and runtime compile.")
 class RtsNetworkStorageOptimizationTest {
-    @BeforeAll
-    static void bootstrapMinecraftRegistries() {
-        // ForgeGradle's unit-test classpath already exposes vanilla registries for these cache tests.
-        // Calling Bootstrap.bootStrap() here trips Forge networking reflection in 1.20.1.
-    }
-
     @Test
     void ae2BdAndRsStyleHandlersStoreThroughAnySlotPath() {
         for (NetworkKind kind : NetworkKind.values()) {
