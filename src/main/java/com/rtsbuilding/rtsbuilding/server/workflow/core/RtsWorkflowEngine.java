@@ -310,13 +310,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
         }
 
-        if (slots.isFull()) {
-            RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
-            if (replaced == null) return Optional.empty();
-            com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                    .cancelWorkflowTask(player, replaced.id());
-            fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
-        }
+        // 旧持久任务的恢复不能反过来淘汰已经可见的新工作流。
+        // 满槽时由 Task Engine 终止这个未显示、因而也不可能被玩家钉住的旧任务。
+        if (slots.isFull()) return Optional.empty();
 
         RtsWorkflowEntry restored = new RtsWorkflowEntry(entryId);
         restored.setPriority(RtsWorkflowPriority.NORMAL);

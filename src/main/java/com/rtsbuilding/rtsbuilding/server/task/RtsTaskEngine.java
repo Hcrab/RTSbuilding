@@ -683,18 +683,16 @@ public final class RtsTaskEngine {
         if (player == null || job == null) return false;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
-        if (job.quickBuild()) {
-            long queued = coordinator.query().ownedBy(player.getUUID()).stream()
-                    .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT && !snapshot.state().terminal())
-                    .count();
-            if (queued >= Config.buildBatchMaxQueuedJobs()) {
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable(
-                                "message.rtsbuilding.quick_build.queue_full",
-                                Config.buildBatchMaxQueuedJobs()),
-                        true);
-                return false;
-            }
+        reconcileHiddenDurableWorkflows(player, coordinator);
+        if (job.quickBuild() && !makeRoomForDurableTaskFamily(
+                player, coordinator, TaskType.PLACEMENT, Config.buildBatchMaxQueuedJobs(),
+                RtsTaskEngine::occupiesQuickBuildSlot)) {
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable(
+                            "message.rtsbuilding.quick_build.queue_full",
+                            Config.buildBatchMaxQueuedJobs()),
+                    true);
+            return false;
         }
         PlacementTaskPayload payload = new PlacementTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
@@ -718,15 +716,111 @@ public final class RtsTaskEngine {
         return true;
     }
 
+    /**
+     * 为新的玩家工作流任务整理对应任务族容量。
+     *
+     * <p>工作流槽位允许新任务淘汰未保护的旧任务；各持久化任务族不能再用另一套硬上限
+     * 推翻这条规则。只有当前维度、仍未终结且符合该任务族谓词的任务才占用容量。
+     * 达到上限时优先终止最旧的未保护任务；缺失工作流投影的孤儿任务没有可保留的
+     * “钉住”状态，因此同样必须允许新任务将其回收。</p>
+     */
+    private boolean makeRoomForDurableTaskFamily(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            TaskType taskType,
+            int limit,
+            java.util.function.Predicate<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
+                    occupiesFamilySlot) {
+        String dimensionId = player.serverLevel().dimension().location().toString();
+        while (true) {
+            var queued = coordinator.query().ownedBy(player.getUUID()).stream()
+                    .filter(snapshot -> snapshot.type() == taskType)
+                    .filter(snapshot -> !snapshot.state().terminal())
+                    .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
+                    .filter(occupiesFamilySlot)
+                    .toList();
+            if (queued.size() < limit) return true;
+
+            var workflowEngine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
+            var replaceable = queued.stream()
+                    .filter(snapshot -> {
+                        var entry = workflowEngine.findEntryByPlayer(player, snapshot.workflowEntryId());
+                        return entry == null || !entry.protectedWorkflow();
+                    })
+                    .min(java.util.Comparator
+                            .comparingLong(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::createdGameTime)
+                            .thenComparing(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::id))
+                    .orElse(null);
+            if (replaceable == null) return false;
+
+            cancelDurableSnapshot(player, coordinator, replaceable);
+        }
+    }
+
+    /**
+     * 新任务进入前清理当前维度里没有工作流投影的真实任务。
+     *
+     * <p>玩家无法在面板中钉住、暂停或删除一个不可见任务，因此这种孤儿任务不能享有保护权，
+     * 更不能继续占用任何任务族容量。放置、破坏和挖掘都在同一入口执行这项对账。</p>
+     */
+    private void reconcileHiddenDurableWorkflows(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
+        String dimensionId = player.serverLevel().dimension().location().toString();
+        var workflowEngine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
+        var hiddenTasks = coordinator.query().ownedBy(player.getUUID()).stream()
+                .filter(snapshot -> !snapshot.state().terminal())
+                .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT
+                        || snapshot.type() == TaskType.DESTRUCTION
+                        || snapshot.type() == TaskType.MINING)
+                .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
+                .filter(snapshot -> snapshot.workflowEntryId() < 0
+                        || workflowEngine.findEntryByPlayer(player, snapshot.workflowEntryId()) == null)
+                .toList();
+        for (var hiddenTask : hiddenTasks) {
+            cancelDurableSnapshot(player, coordinator, hiddenTask);
+        }
+    }
+
+    /** 通过工作流统一入口终止任务；旧存档没有合法工作流 ID 时直接写入同一持久终态。 */
+    private void cancelDurableSnapshot(
+            net.minecraft.server.level.ServerPlayer player,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        if (snapshot.workflowEntryId() >= 0
+                && cancelWorkflowTask(player, player.serverLevel().dimension(), snapshot.workflowEntryId())) {
+            return;
+        }
+        var current = coordinator.query().get(snapshot.id()).orElse(null);
+        if (current == null || current.state().terminal()) return;
+        var cancelled = current.nextRevision(
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
+                null, player.serverLevel().getGameTime(), current.cursorUnits(),
+                current.succeededUnits(), current.failedUnits(), current.payload());
+        coordinator.replace(cancelled);
+        coordinator.requestTombstone(cancelled.id(), cancelled.updatedGameTime());
+    }
+
+    /** 无法解码的旧放置任务按占位处理，随后由统一淘汰路径回收，不能静默绕过清理。 */
+    private static boolean occupiesQuickBuildSlot(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        try {
+            return com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                    .decode(snapshot.payload()).state().definition().getBoolean("quickBuild");
+        } catch (RuntimeException malformed) {
+            return true;
+        }
+    }
+
     public boolean submitDestructionJob(net.minecraft.server.level.ServerPlayer player,
             RtsDestructionBatch.DestructionJob job) {
         if (player == null || job == null) return false;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
-        long queued = coordinator.query().ownedBy(player.getUUID()).stream()
-                .filter(snapshot -> snapshot.type() == TaskType.DESTRUCTION && !snapshot.state().terminal())
-                .count();
-        if (queued >= RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS) return false;
+        reconcileHiddenDurableWorkflows(player, coordinator);
+        if (!makeRoomForDurableTaskFamily(
+                player, coordinator, TaskType.DESTRUCTION,
+                RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) return false;
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
                 RtsDestructionBatch.snapshotDetachedState(job));
@@ -781,6 +875,9 @@ public final class RtsTaskEngine {
 
     private boolean submitMiningState(net.minecraft.server.level.ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState state) {
+        var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator();
+        reconcileHiddenDurableWorkflows(player, coordinator);
         MiningTaskPayload payload = new MiningTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), state.workflowEntryId(), state);
         /*
@@ -799,8 +896,7 @@ public final class RtsTaskEngine {
                 state.workflowEntryId(), null, 1L, gameTime, gameTime,
                 state.totalUnits(), state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.encode(payload));
-        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
-                .coordinator().submit(snapshot);
+        coordinator.submit(snapshot);
         return true;
     }
 
@@ -925,7 +1021,15 @@ public final class RtsTaskEngine {
                 continue;
             }
             var token = workflowToken(record, entryId);
-            if (token == null) continue;
+            if (token == null) {
+                if (record.payload() instanceof BlueprintTaskPayload payload) {
+                    cancelWorkflowTask(payload.player(), payload.dimension(), entryId);
+                    RtsbuildingMod.LOGGER.warn(
+                            "[TaskEngine] 已终止缺失可见工作流投影的蓝图任务 {}（工作流 #{}）",
+                            record.id(), entryId);
+                }
+                continue;
+            }
             var status = token.getProgress();
             switch (record.status()) {
                 case PAUSED -> {
@@ -961,7 +1065,16 @@ public final class RtsTaskEngine {
                 if (!snapshot.dimensionId().equals(
                         player.serverLevel().dimension().location().toString())) continue;
                 activeIds.add(snapshot.id());
-                if (snapshot.workflowEntryId() < 0) continue;
+                if (snapshot.workflowEntryId() < 0) {
+                    if (snapshot.state().terminal()) {
+                        coordinator.requestTombstone(snapshot.id(), snapshot.updatedGameTime());
+                    } else {
+                        cancelDurableSnapshot(player, coordinator, snapshot);
+                        RtsbuildingMod.LOGGER.warn(
+                                "[TaskEngine] 已终止没有合法工作流 ID 的隐藏任务 {}", snapshot.id());
+                    }
+                    continue;
+                }
 
                 var workflowEngine =
                         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
@@ -973,18 +1086,7 @@ public final class RtsTaskEngine {
                         coordinator.requestTombstone(snapshot.id(), snapshot.updatedGameTime());
                         continue;
                     }
-                    if (token == null) {
-                        DurableWorkflowProjection projection = inspectDurableProjection(player, snapshot);
-                        if (!projection.poisoned()) {
-                            token = workflowEngine.restoreDurableProjection(
-                                    player,
-                                    snapshot.workflowEntryId(),
-                                    projection.type(),
-                                    snapshot.totalUnits(),
-                                    snapshot.succeededUnits(),
-                                    snapshot.failedUnits()).orElse(null);
-                        }
-                    }
+                    // 终态旧任务只收口已有投影，绝不能复活后淘汰更新的可见工作流。
                     if (token != null) {
                         projectDurableProgress(token, snapshot);
                         if (snapshot.state()
@@ -1019,7 +1121,16 @@ public final class RtsTaskEngine {
                             snapshot.failedUnits()).orElse(null);
                     restored = token != null;
                 }
-                if (token == null) continue;
+                if (token == null) {
+                    // 面板已被全部保护条目占满时，无法显示的新旧任务本身并未被钉住。
+                    // 它不能作为隐藏工作流继续运行或占住后续任务容量。
+                    if (cancelWorkflowTask(player, snapshot.workflowEntryId())) {
+                        RtsbuildingMod.LOGGER.warn(
+                                "[TaskEngine] 已终止无法恢复可见投影的隐藏任务 {}（工作流 #{}）",
+                                snapshot.id(), snapshot.workflowEntryId());
+                    }
+                    continue;
+                }
                 if (!restored && java.util.Objects.equals(
                         projectedDurableStates.get(snapshot.id()), snapshot.revision())) {
                     continue;
