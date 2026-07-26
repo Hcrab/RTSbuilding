@@ -4,14 +4,13 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.popup.BasePopup;
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -148,7 +147,7 @@ public final class ModeSwitcher {
     private Mode currentMode = Mode.INTERACTIVE;
 
     
-    private final HoverStateManager hoverState = new HoverStateManager();
+    private final AnimFloat hoverState = AnimFloat.hover();
 
     
     private Consumer<Mode> onModeChange;
@@ -160,7 +159,7 @@ public final class ModeSwitcher {
     private final int fixedWidth;
 
     
-    private final FloatAnimation arrowAnim = AnimationFactory.newHoverAnim();
+    private final AnimFloat arrowAnim = AnimFloat.hover();
 
     public ModeSwitcher() {
         this.popup = new ModePopup(this);
@@ -267,12 +266,12 @@ public final class ModeSwitcher {
 
         
         boolean hovering = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + SWITCHER_HEIGHT;
-        hoverState.update(hovering);
+        hoverState.track(hovering);
 
         
         NineSliceRegion bgNormal = MODE_BG_NINE_SLICE.withTheme();
         NineSliceRegion bgHover = MODE_BG_NINE_SLICE.withVOffset(MODE_BG_NORMAL_H).withTheme();
-        hoverState.renderCrossFade(g,
+        CrossFadeRenderer.render(g, hoverState.get(),
                 () -> SpriteRenderer.drawNineSlice(g, bgNormal, x, y, w, SWITCHER_HEIGHT),
                 () -> SpriteRenderer.drawNineSlice(g, bgHover, x, y, w, SWITCHER_HEIGHT));
 
@@ -311,14 +310,14 @@ public final class ModeSwitcher {
 
     
     private void renderArrow(GuiGraphics g, int x, int y) {
-        this.arrowAnim.tick();
+
         SpriteRegion arrowRegion = new SpriteRegion(
                 FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();
         g.pose().pushPose();
         g.pose().translate(x, y, 0);
         float half = ARROW_SIZE / 2.0f;
         g.pose().translate(half, half, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.getValue()) * 90.0f));
+        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.get()) * 90.0f));
         g.pose().translate(-half, -half, 0);
         SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, ARROW_SIZE, ARROW_SIZE);
         g.pose().popPose();
@@ -338,14 +337,14 @@ public final class ModeSwitcher {
                 return popup.handleClick(mx, my);
             }
             popup.close();
-            arrowAnim.start(0.0f);
+            arrowAnim.target(0.0f);
             return true;
         }
 
         
         if (mx >= x && mx < x + w && my >= y && my < y + SWITCHER_HEIGHT) {
             popup.toggle();
-            arrowAnim.start(1.0f);
+            arrowAnim.target(1.0f);
             return true;
         }
 

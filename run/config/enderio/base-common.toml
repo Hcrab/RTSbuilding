@@ -1,0 +1,84 @@
+[blocks]
+	#The explosion resistance of explosion resistant blocks.
+	# Default: 1200.0
+	# Range: 0.0 ~ 1.7976931348623157E308
+	explosionResistance = 1200.0
+	#The speed boost granted by the Dark Steel ladder.
+	# Default: 0.15
+	# Range: 0.0 ~ 1.0
+	darkSteelLadderBoost = 0.15
+
+	[blocks.brokenSpawner]
+		#The chance of a spawner dropping a broken spawner.
+		# Default: 1.0
+		# Range: 0.0 ~ 1.0
+		dropChance = 1.0
+
+	[items.food]
+		#The chance of enderios teleporting the player
+		# Default: 0.3
+		# Range: 0.0 ~ 1.0
+		enderioChance = 0.3
+		#The range of an enderio teleport
+		# Default: 16.0
+		# Range: 4.0 ~ 128.0
+		enderioRange = 16.0
+
+	[items.electromagnet]
+		# Default: 1
+		# Range: > 1
+		energyUse = 1
+		# Default: 100000
+		# Range: > 100
+		maxEnergy = 100000
+		# Default: 5
+		# Range: 4 ~ 32
+		range = 5
+		# Default: 20
+		# Range: 1 ~ 64
+		maxItems = 20
+
+	[items.levitationstaff]
+		# Default: 1
+		# Range: > 1
+		energyUse = 1
+		# Default: 10000
+		# Range: > 100
+		maxEnergy = 10000
+
+	[items.travelling]
+		# Default: 24
+		# Range: 4 ~ 512
+		blinkRange = 24
+		# Default: 5
+		# Range: 0 ~ 1200
+		disabledTime = 5
+		# Default: 1000
+		# Range: > 1
+		energyUse = 1000
+		# Default: 100000
+		# Range: > 100
+		maxEnergy = 100000
+		#the following config values are only used if EIOMachines is loaded
+		# Default: 192
+		# Range: 4 ~ 512
+		itemToBlockRange = 192
+		# Default: 96
+		# Range: 4 ~ 512
+		blockToBlockRange = 96
+
+	[items.soulVials]
+		#If true, soul vials can change spawners
+		allowSpawners = false
+
+[grainsOfInfinity]
+	#Should it make a sound when Grains of Infinity drops from a fire?
+	makesSound = true
+	#How old (in ticks) does a fire have to be to be able to spawn Infinity Powder?
+	# Default: 260
+	# Range: 1 ~ 1000
+	fireMinAge = 260
+	#The maximum number of fires being tracked for fire crafting per-dimension. Once exceeded, older fires are pruned first.
+	# Default: 500
+	# Range: > 1
+	maxTrackedFires = 500

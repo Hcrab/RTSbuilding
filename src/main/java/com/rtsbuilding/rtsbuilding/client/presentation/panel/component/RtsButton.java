@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.component;
 
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -39,7 +39,7 @@ public class RtsButton extends AbstractButton {
     private static final int BORDER_DARK = 0xFF0D1117;
 
     
-    private final HoverStateManager hoverState = new HoverStateManager();
+    private final AnimFloat hoverState = AnimFloat.hover();
 
 
     
@@ -74,8 +74,6 @@ public class RtsButton extends AbstractButton {
         Minecraft minecraft = Minecraft.getInstance();
 
         
-        this.hoverState.update(isHovered);
-
         if (normalRegion != null && hoveredRegion != null) {
             
             renderWithSprite(guiGraphics);
@@ -85,7 +83,7 @@ public class RtsButton extends AbstractButton {
         }
 
         
-        float hoverT = this.hoverState.getValue();
+        float hoverT = this.hoverState.track(isHovered);
         int textColor = this.active
                 ? ColorAnimation.lerpRGB(TEXT_COLOR, TEXT_COLOR_HOVER, hoverT)
                 : TEXT_COLOR_DISABLED;
@@ -103,7 +101,7 @@ public class RtsButton extends AbstractButton {
 
     
     private void renderWithSprite(GuiGraphics guiGraphics) {
-        float t = this.hoverState.getValue();
+        float t = this.hoverState.get();
         CrossFadeRenderer.render(guiGraphics, t,
                 () -> SpriteRenderer.drawSprite(guiGraphics, normalRegion.withTheme(), this.getX(), this.getY(), this.width, this.height),
                 () -> SpriteRenderer.drawSprite(guiGraphics, hoveredRegion.withTheme(), this.getX(), this.getY(), this.width, this.height));
@@ -112,7 +110,7 @@ public class RtsButton extends AbstractButton {
     
     private void renderWithSolidColor(GuiGraphics guiGraphics) {
         
-        float t = this.hoverState.getValue();
+        float t = this.hoverState.get();
         int backgroundColor = ColorAnimation.lerpRGB(BUTTON_BACKGROUND, BUTTON_HOVER, t);
         guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, backgroundColor);
         guiGraphics.hLine(this.getX(), this.getX() + this.width, this.getY(), BORDER_LIGHT);

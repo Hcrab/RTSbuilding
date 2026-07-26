@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -55,7 +55,7 @@ public class ColorPickerButton {
     
 
     
-    private final HoverStateManager hoverState = new HoverStateManager();
+    private final AnimFloat hoverState = AnimFloat.hover();
 
     
     private int areaX, areaY;
@@ -108,7 +108,7 @@ public class ColorPickerButton {
         
         boolean hovering = mouseX >= btnX && mouseX < btnX + BTN_SIZE
                 && mouseY >= btnY && mouseY < btnY + BTN_SIZE;
-        float t = this.hoverState.update(hovering);
+        float t = this.hoverState.track(hovering);
 
         
         CrossFadeRenderer.render(g, t,

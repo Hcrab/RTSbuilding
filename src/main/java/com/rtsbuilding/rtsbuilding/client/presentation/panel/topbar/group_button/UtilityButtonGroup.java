@@ -5,9 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.button.AbstractButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.popup.DebugMenuPopup;
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
@@ -58,7 +57,7 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
     private final TooltipController chunkBtnTooltip = TooltipController.builder().build();
 
     
-    private final FloatAnimation arrowRotateAnim = AnimationFactory.newExpandAnim();
+    private final AnimFloat arrowRotateAnim = AnimFloat.expand();
     private boolean prevArrowActive;
 
     public UtilityButtonGroup(DebugMenuPopup debugPopup) {
@@ -115,16 +114,15 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         boolean arrowActive = debugPopup != null && debugPopup.isOpen();
         if (arrowActive != prevArrowActive) {
             prevArrowActive = arrowActive;
-            arrowRotateAnim.start(arrowActive ? 1.0f : 0.0f);
+            arrowRotateAnim.target(arrowActive ? 1.0f : 0.0f);
         }
-        arrowRotateAnim.tick();
 
         int arrowX = rect.x() + (rect.width() - FOLD_ARROW_SIZE) / 2;
         int arrowY = rect.y() + (rect.height() - FOLD_ARROW_SIZE) / 2;
         g.pose().pushPose();
         float halfArrow = FOLD_ARROW_SIZE / 2.0f;
         g.pose().translate(arrowX + halfArrow, arrowY + halfArrow, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + arrowRotateAnim.getValue()) * 90.0f));
+        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + arrowRotateAnim.get()) * 90.0f));
         g.pose().translate(-halfArrow, -halfArrow, 0);
         SpriteRegion arrowRegion = new SpriteRegion(
                 FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();

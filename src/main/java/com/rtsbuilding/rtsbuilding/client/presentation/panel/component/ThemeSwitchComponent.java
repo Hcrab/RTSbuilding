@@ -1,12 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -74,14 +72,14 @@ public class ThemeSwitchComponent {
     private int areaX, areaY;
 
     
-    private final HoverStateManager hoverState = new HoverStateManager();
+    private final AnimFloat hoverState = AnimFloat.hover();
 
     
-    private final FloatAnimation slideAnim;
+    private final AnimFloat slideAnim;
     private boolean lastOn;
 
     public ThemeSwitchComponent() {
-        this.slideAnim = AnimationFactory.newSlideAnim();
+        this.slideAnim = AnimFloat.slide();
         this.slideAnim.snapTo(-1.0f);
     }
 
@@ -98,10 +96,9 @@ public class ThemeSwitchComponent {
         
         if (on != lastOn) {
             lastOn = on;
-            slideAnim.start(on ? (float) (SLIDER_FRAME_W + 1) : -1.0f);
+            slideAnim.target(on ? (float) (SLIDER_FRAME_W + 1) : -1.0f);
         }
-        slideAnim.tick();
-        float slideOffset = slideAnim.getValue();
+        float slideOffset = slideAnim.get();
 
         int sliderX = switchX + Math.round(slideOffset);
 
@@ -109,7 +106,7 @@ public class ThemeSwitchComponent {
         boolean hovered = mouseX >= areaX && mouseX < areaX + AREA_W
                 && mouseY >= areaY && mouseY < areaY + AREA_H;
 
-        float hoverT = this.hoverState.update(hovered);
+        float hoverT = this.hoverState.track(hovered);
 
         
         int bgHalfW = SWITCH_TEX_INFO.halfWidth();  

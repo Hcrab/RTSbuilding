@@ -1,13 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.animate.EasingFunctions;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.animate.Easing;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -78,7 +77,7 @@ public class HexInputComponent {
     
     private boolean hexDisplayMode = true;
     
-    private final HoverStateManager modeBtnHoverState = new HoverStateManager();
+    private final AnimFloat modeBtnHoverState = AnimFloat.hover();
     
     private boolean hexEditFirstInput;
     
@@ -87,12 +86,7 @@ public class HexInputComponent {
     private int scrollOffset;
 
     
-    private final FloatAnimation inputFocusAnim = FloatAnimation.builder()
-            .from(0f).to(0f)
-            .duration(100L)
-            .easing(EasingFunctions.EASE_OUT_QUAD)
-            .startFromCurrent(true)
-            .build();
+    private final AnimFloat inputFocusAnim = AnimFloat.of(0f, 100L, Easing.EASE_OUT_QUAD);
     
     private boolean prevHexEditMode;
 
@@ -134,14 +128,13 @@ public class HexInputComponent {
         int inputX = previewX + labelW + LABEL_GAP;
 
         
-        inputFocusAnim.tick();
         if (hexEditMode != prevHexEditMode) {
-            inputFocusAnim.start(hexEditMode ? 1f : 0f);
+            inputFocusAnim.target(hexEditMode ? 1f : 0f);
             prevHexEditMode = hexEditMode;
         }
         NineSliceRegion normalSpec = INPUT_BOX_NINE_SLICE.withTheme();
         NineSliceRegion focusSpec = INPUT_BOX_NINE_SLICE.withTheme().withVOffset(INPUT_BOX_STATE_H);
-        CrossFadeRenderer.render(g, inputFocusAnim.getValue(),
+        CrossFadeRenderer.render(g, inputFocusAnim.get(),
                 () -> SpriteRenderer.drawNineSlice(g, normalSpec, inputX, inputY, inputW, INPUT_H),
                 () -> SpriteRenderer.drawNineSlice(g, focusSpec, inputX, inputY, inputW, INPUT_H));
 
@@ -204,7 +197,7 @@ public class HexInputComponent {
         int btnY = inputY;
         boolean modeBtnHovered = mouseX >= btnX && mouseX < btnX + modeBtnW
                 && mouseY >= btnY && mouseY < btnY + INPUT_H;
-        float modeBtnT = this.modeBtnHoverState.update(modeBtnHovered);
+        float modeBtnT = this.modeBtnHoverState.track(modeBtnHovered);
         CrossFadeRenderer.render(g, modeBtnT,
                 () -> SpriteRenderer.drawNineSlice(g,
                         MODE_BTN_NINE_SLICE.withTheme(), btnX, btnY, modeBtnW, INPUT_H),

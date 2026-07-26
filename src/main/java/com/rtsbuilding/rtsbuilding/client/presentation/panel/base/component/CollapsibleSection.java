@@ -1,15 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component;
 
 import com.mojang.math.Axis;
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -70,11 +68,11 @@ public class CollapsibleSection {
     private String cachedTitle;
 
     
-    private final FloatAnimation arrowAnim = AnimationFactory.newHoverAnim();
+    private final AnimFloat arrowAnim = AnimFloat.hover();
     
-    private final HoverStateManager hoverState = new HoverStateManager();
+    private final AnimFloat hoverState = AnimFloat.hover();
     
-    private final FloatAnimation contentAnim = AnimationFactory.newExpandAnim();
+    private final AnimFloat contentAnim = AnimFloat.expand();
     private int contentFullHeight;
 
     
@@ -90,22 +88,21 @@ public class CollapsibleSection {
     public void setExpanded(boolean expanded) {
         if (this.expanded != expanded) {
             this.expanded = expanded;
-            this.arrowAnim.start(this.expanded ? 1.0f : 0.0f);
-            this.contentAnim.start(this.expanded ? 1.0f : 0.0f);
+            this.arrowAnim.target(this.expanded ? 1.0f : 0.0f);
+            this.contentAnim.target(this.expanded ? 1.0f : 0.0f);
         }
     }
 
     public void toggle() {
         this.expanded = !this.expanded;
-        this.arrowAnim.start(this.expanded ? 1.0f : 0.0f);
-        this.contentAnim.start(this.expanded ? 1.0f : 0.0f);
+        this.arrowAnim.target(this.expanded ? 1.0f : 0.0f);
+        this.contentAnim.target(this.expanded ? 1.0f : 0.0f);
     }
 
     
 
     
     public void drawHeader(GuiGraphics g, int mouseX, int mouseY, int x, int y, int sectionWidth, int contentHeight) {
-        this.contentAnim.tick();
         this.contentFullHeight = contentHeight;
         updateHoverState(mouseX, mouseY, x, y, sectionWidth, contentHeight);
         renderHoverBackground(g, x, y, sectionWidth);
@@ -116,12 +113,12 @@ public class CollapsibleSection {
     
     private void updateHoverState(int mouseX, int mouseY, int x, int y, int sectionWidth, int contentHeight) {
         int detectH = this.expanded && contentHeight > 0 ? SECTION_HEADER_H + contentHeight : SECTION_HEADER_H;
-        this.hoverState.update(isMouseOver(mouseX, mouseY, x, y, sectionWidth, detectH));
+        this.hoverState.track(isMouseOver(mouseX, mouseY, x, y, sectionWidth, detectH));
     }
 
     
     private void renderHoverBackground(GuiGraphics g, int x, int y, int sectionWidth) {
-        float t = this.hoverState.getValue();
+        float t = this.hoverState.get();
         CrossFadeRenderer.render(g, t,
                 () -> renderStateBackground(g, x, y, sectionWidth, 0),
                 () -> renderStateBackground(g, x, y, sectionWidth, FOLD_TEX_STATE_H));
@@ -138,13 +135,13 @@ public class CollapsibleSection {
 
     
     private void renderArrow(GuiGraphics g, int x, int y) {
-        this.arrowAnim.tick();
+
         g.pose().pushPose();
         g.pose().translate(x + ARROW_X_OFFSET, y + ARROW_Y_OFFSET, 0);
         
         float halfBtn = FOLD_BTN_SIZE / 2.0f;
         g.pose().translate(halfBtn, halfBtn, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.getValue()) * 90.0f));
+        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.get()) * 90.0f));
         g.pose().translate(-halfBtn, -halfBtn, 0);
         SpriteRegion arrowRegion = new SpriteRegion(FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_TEX_W, FOLD_ARROW_STATE_H)
                 .withTheme();
@@ -174,7 +171,7 @@ public class CollapsibleSection {
 
     
     public float getContentProgress() {
-        return this.contentAnim.getValue();
+        return this.contentAnim.get();
     }
 
     

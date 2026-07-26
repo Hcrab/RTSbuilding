@@ -10,7 +10,6 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;

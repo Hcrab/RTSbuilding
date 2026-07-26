@@ -1,0 +1,33 @@
+[general]
+	#Volume of machine sounds [0-1]
+	# Default: 1.0
+	# Range: 0.0 ~ 1.0
+	machineVolume = 1.0
+
+[blocks]
+	#The color of the range box of the Vacuum Chest
+	vacuumChestRangeColor = "0000FF"
+	#The color of the range box of the XP Vacuum
+	vacuumXpRangeColor = "00FF00"
+	#The color of the range box of the Powered Spawner
+	poweredSpawnerRangeColor = "FF0000"
+	#The color of the range box of the Drain
+	drainRangeColor = "FFA500"
+	#The color of the range box of the Niard
+	niardRangeColor = "FFA500"
+	#The color of the range box of the Inhibitor Obelisk
+	inhibitorRangeColor = "8B0000"
+	#The color of the range box of the Relocator Obelisk
+	relocatorRangeColor = "8B0000"
+	#The color of the range box of the Aversion Obelisk
+	aversionRangeColor = "8B0000"
+	#The color of the range box of the Attractor Obelisk
+	attractorRangeColor = "8B0000"
+	#The color of the range box of the Wireless Charger
+	wirelessChargerRangeColor = "C7CC2A"
+
+[ioconfig]
+	#Neighbour Transparency [0-1]
+	# Default: 0.4
+	# Range: 0.0 ~ 1.0
+	neighbourTransparency = 0.4

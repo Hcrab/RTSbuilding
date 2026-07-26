@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.popup;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import net.minecraft.client.gui.GuiGraphics;
 
 
@@ -17,7 +17,7 @@ public abstract class BasePopup {
     protected int y;
 
     
-    private HoverStateManager[] hoverStates;
+    private AnimFloat[] hoverStates;
 
     
     private int[] itemContentWidths;
@@ -66,9 +66,9 @@ public abstract class BasePopup {
 
     
     protected void initAnims(int count) {
-        hoverStates = new HoverStateManager[count];
+        hoverStates = new AnimFloat[count];
         for (int i = 0; i < count; i++) {
-            hoverStates[i] = new HoverStateManager();
+            hoverStates[i] = AnimFloat.hover();
         }
     }
 
@@ -136,8 +136,8 @@ public abstract class BasePopup {
     
     private void resetAllHoverAnims() {
         if (hoverStates != null) {
-            for (HoverStateManager hs : hoverStates) {
-                hs.snapTo(false);
+            for (AnimFloat hs : hoverStates) {
+                hs.snapTo(0f);
             }
         }
     }
@@ -190,7 +190,7 @@ public abstract class BasePopup {
         
         for (int i = 0; i < getItemCount(); i++) {
             int iy = itemY(i);
-            float t = hoverStates[i].update(i == hoveredIndex);
+            float t = hoverStates[i].track(i == hoveredIndex);
 
             
             if (t > 0.001f) {

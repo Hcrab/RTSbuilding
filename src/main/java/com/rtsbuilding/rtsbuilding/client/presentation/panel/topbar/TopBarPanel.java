@@ -10,11 +10,12 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.group_button
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.popup.DebugMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.popup.LogoMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import java.util.List;
@@ -45,7 +46,7 @@ public final class TopBarPanel implements RtsPanelApi {
     
 
     
-    private final HoverStateManager logoHoverState = new HoverStateManager();
+    private final AnimFloat logoHoverState = AnimFloat.hover();
 
     
     private boolean logoPressed;
@@ -218,7 +219,7 @@ public final class TopBarPanel implements RtsPanelApi {
         
         boolean hovering = layout.logoRect().contains(mouseX, mouseY);
         boolean shouldHighlight = hovering || logoPressed;
-        this.logoHoverState.update(shouldHighlight);
+        this.logoHoverState.track(shouldHighlight);
         if (logoPressed) {
             logoPressed = false;
         }
@@ -272,7 +273,7 @@ public final class TopBarPanel implements RtsPanelApi {
         SpriteRegion highlighted = normal.withVOffset(halfH);
         Runnable normalRender = () -> SpriteRenderer.drawSprite(g, normal.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
         Runnable highlightedRender = () -> SpriteRenderer.drawSprite(g, highlighted.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
-        logoHoverState.renderCrossFade(g, normalRender, highlightedRender);
+        CrossFadeRenderer.render(g, logoHoverState.get(), normalRender, highlightedRender);
     }
 
     

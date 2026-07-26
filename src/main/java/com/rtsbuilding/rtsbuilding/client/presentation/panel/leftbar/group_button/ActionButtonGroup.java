@@ -165,7 +165,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
     private void renderOnlyBg(GuiGraphics g, int mouseX, int mouseY, int index, int bx, int by) {
         boolean hovering = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
-        float hoverT = this.hoverStates[index].update(hovering);
+        float hoverT = this.hoverStates[index].track(hovering);
 
         SpriteRenderer.drawStateSprite(g,
                 onlyRegions[0],     

@@ -1,0 +1,764 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="274802ab-1f5f-45fe-8de0-a80ec70013aa" name="更改" comment="移除了所有的客户端持久化策略，并且修改了持久化的架构，后续再添加">
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/layout/PanelRegistry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/layout/PanelRegistry.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/button/AbstractButtonGroup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/button/AbstractButtonGroup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/component/CollapsibleSection.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/component/CollapsibleSection.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/overlay/DownOverlayLayer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/overlay/DownOverlayLayer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/popup/BasePopup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/popup/BasePopup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/window/RtsPanel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/base/window/RtsPanel.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/color/ColorPickerPanel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/color/ColorPickerPanel.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/color/ColorWheelComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/color/ColorWheelComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/color/GrayscaleBarComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/color/GrayscaleBarComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/ColorPickerButton.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/ColorPickerButton.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/HexInputComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/HexInputComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/ResetButton.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/ResetButton.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/RtsButton.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/RtsButton.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/ThemeSwitchComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/component/ThemeSwitchComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/gear/GearMenuPanel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/gear/GearMenuPanel.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/gear/RenderingSection.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/gear/RenderingSection.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/leftbar/group_button/ActionButtonGroup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/leftbar/group_button/ActionButtonGroup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/select/SelectFilterTabs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/select/SelectFilterTabs.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/select/SelectPanel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/select/SelectPanel.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/topbar/ModeSwitcher.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/topbar/ModeSwitcher.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/topbar/TopBarPanel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/topbar/TopBarPanel.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/topbar/group_button/UtilityButtonGroup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/panel/topbar/group_button/UtilityButtonGroup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/plugin/binding/BindingRenderer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/plugin/binding/BindingRenderer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/plugin/binding/PriorityEditController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/presentation/plugin/binding/PriorityEditController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/animate/AnimationEngine.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/animate/AnimationFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/animate/AnimationGroup.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/animate/EasingFunctions.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/animate/FloatAnimation.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/animate/Tween.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/state/HoverStateManager.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/state/HoverSuppression.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/state/HoverSuppression.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/state/TooltipController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/util/state/TooltipController.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <task path="$PROJECT_DIR$">
+          <activation />
+        </task>
+        <projects_view>
+          <tree_state>
+            <expand>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="RTSbuilding" type="f1a62948:ProjectNode" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="RTSbuilding" type="f1a62948:ProjectNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="RTSbuilding" type="f1a62948:ProjectNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
+                <item name="build" type="c8890929:TasksNode$1" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="RTSbuilding" type="f1a62948:ProjectNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
+                <item name="mod development" type="c8890929:TasksNode$1" />
+              </path>
+            </expand>
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Yiran-cr&quot;
+  }
+}</component>
+  <component name="GiteeDefaultAccount">
+    <option name="defaultAccountId" value="49efbfa6-7cc1-42e0-bc36-cd777566c486" />
+  </component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Hcrab/RTSbuilding.git&quot;,
+    &quot;accountId&quot;: &quot;7b94543e-ab49-466d-b159-b22598c7316d&quot;
+  }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/base/RtsPanel.java" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/topbar/TopBarPanel.java" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/src/main/java/com/rtsbuilding/rtsbuilding/common/persist/RtsClientUiStateStore.java" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;284141ff&quot;,
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="3FM4FbuYWgr6r3HlZ6lotUpGLKi" />
+  <component name="ProjectViewState">
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.RTSbuilding [:com.rtsbuilding.rtsbuilding.client.util.render.TestBigUiRenderer.main()].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding [buildDependents].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding [build].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding [clean].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding [jar].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding [runClient].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding [startBenchmarkServer].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RTSbuilding.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.构建 RTSbuilding.executor&quot;: &quot;Run&quot;,
+    &quot;JUnit.整个项目 (1).executor&quot;: &quot;Run&quot;,
+    &quot;JUnit.整个项目 (2).executor&quot;: &quot;Run&quot;,
+    &quot;JUnit.整个项目.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Don't-choose-me&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/Minecraft/Minecraft Modding/RTSbuilding/src/main/resources/assets/rtsbuilding/textures/gui/down&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;项目&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\resources\assets\rtsbuilding\textures\gui\down" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\run\saves" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\resources\assets\rtsbuilding\textures\gui\base\base_ui" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\resources\assets\rtsbuilding\textures\gui\base" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\java\com\rtsbuilding\rtsbuilding\client" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\resources\assets\rtsbuilding\textures\gui\base\base_ui" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\resources\assets\rtsbuilding\textures\gui\base" />
+      <recent name="E:\Minecraft\Minecraft Modding\RTSbuilding\src\main\resources\assets\rtsbuilding\textures\gui\top\button" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Gradle.RTSbuilding [runClient]">
+    <configuration name="Client" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="net.neoforged.devlaunch.Main" />
+      <module name="RTSbuilding.main" />
+      <option name="PROGRAM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\clientRunProgramArgs.txt&quot;" />
+      <option name="VM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\clientRunVmArgs.txt&quot; &quot;-Dfml.modFolders=rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\classes\\java\\main;rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\resources\\main&quot;" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/run" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Data" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="net.neoforged.devlaunch.Main" />
+      <module name="RTSbuilding.main" />
+      <option name="PROGRAM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\dataRunProgramArgs.txt&quot;" />
+      <option name="VM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\dataRunVmArgs.txt&quot; &quot;-Dfml.modFolders=rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\classes\\java\\main;rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\resources\\main&quot;" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/run" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="GameTestServer" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="net.neoforged.devlaunch.Main" />
+      <module name="RTSbuilding.main" />
+      <option name="PROGRAM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\gameTestServerRunProgramArgs.txt&quot;" />
+      <option name="VM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\gameTestServerRunVmArgs.txt&quot; &quot;-Dfml.modFolders=rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\classes\\java\\main;rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\resources\\main&quot;" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/run" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Server" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="net.neoforged.devlaunch.Main" />
+      <module name="RTSbuilding.main" />
+      <option name="PROGRAM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\serverRunProgramArgs.txt&quot;" />
+      <option name="VM_PARAMETERS" value="&quot;@E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\moddev\\serverRunVmArgs.txt&quot; &quot;-Dfml.modFolders=rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\classes\\java\\main;rtsbuilding%%E:\\Minecraft\\Minecraft Modding\\RTSbuilding\\build\\resources\\main&quot;" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/run" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="RTSbuilding [build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="build" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="RTSbuilding [clean]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="clean" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="RTSbuilding [jar]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="jar" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="RTSbuilding [runClient]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value="runClient" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>false</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="整个项目" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+      <option name="PACKAGE_NAME" value="" />
+      <option name="TEST_OBJECT" value="package" />
+      <option name="TEST_SEARCH_SCOPE">
+        <value defaultName="wholeProject" />
+      </option>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="JetRunConfigurationType">
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Gradle.RTSbuilding [runClient]" />
+        <item itemvalue="JUnit.整个项目" />
+        <item itemvalue="Gradle.RTSbuilding [clean]" />
+        <item itemvalue="Gradle.RTSbuilding [jar]" />
+        <item itemvalue="Gradle.RTSbuilding [build]" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.23892.409" />
+        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-IU-252.23892.409" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="274802ab-1f5f-45fe-8de0-a80ec70013aa" name="更改" comment="" />
+      <created>1781871502771</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1781871502771</updated>
+      <workItem from="1781871505153" duration="23820000" />
+      <workItem from="1781900476141" duration="38000" />
+      <workItem from="1781900524877" duration="4467000" />
+      <workItem from="1781939442582" duration="3806000" />
+      <workItem from="1781943298727" duration="26195000" />
+      <workItem from="1781980553148" duration="27132000" />
+      <workItem from="1782040299732" duration="24789000" />
+      <workItem from="1782083060092" duration="14013000" />
+      <workItem from="1782106956477" duration="16010000" />
+      <workItem from="1782150692098" duration="3139000" />
+      <workItem from="1782256822344" duration="18834000" />
+      <workItem from="1782277321070" duration="19997000" />
+      <workItem from="1782301503675" duration="11996000" />
+      <workItem from="1782349543215" duration="18384000" />
+      <workItem from="1782442035486" duration="43799000" />
+      <workItem from="1782536961836" duration="1624000" />
+      <workItem from="1782539666155" duration="958000" />
+      <workItem from="1782541310546" duration="6494000" />
+      <workItem from="1782548638053" duration="15756000" />
+      <workItem from="1782624489607" duration="6432000" />
+      <workItem from="1782635062373" duration="21681000" />
+      <workItem from="1782721612144" duration="27615000" />
+      <workItem from="1782803575149" duration="190000" />
+      <workItem from="1782803778557" duration="27834000" />
+      <workItem from="1782883474805" duration="26676000" />
+      <workItem from="1782920328944" duration="122000" />
+      <workItem from="1782920565045" duration="11446000" />
+      <workItem from="1782984401225" duration="12545000" />
+      <workItem from="1783007023601" duration="9954000" />
+      <workItem from="1783069204958" duration="34616000" />
+      <workItem from="1783154427091" duration="8647000" />
+      <workItem from="1783166977170" duration="18588000" />
+      <workItem from="1783205722093" duration="1556000" />
+      <workItem from="1783240205140" duration="17913000" />
+      <workItem from="1783316623499" duration="17221000" />
+      <workItem from="1783343931361" duration="159000" />
+      <workItem from="1783344110964" duration="76000" />
+      <workItem from="1783344198739" duration="9592000" />
+      <workItem from="1783408573689" duration="20109000" />
+      <workItem from="1783433901920" duration="15000" />
+      <workItem from="1783434169658" duration="3614000" />
+      <workItem from="1783481849308" duration="12485000" />
+      <workItem from="1783602939256" duration="6854000" />
+      <workItem from="1783678653188" duration="10326000" />
+      <workItem from="1783699004277" duration="6524000" />
+      <workItem from="1783738297695" duration="8407000" />
+      <workItem from="1783750068574" duration="8814000" />
+      <workItem from="1783780069271" duration="10077000" />
+      <workItem from="1783850429880" duration="2826000" />
+      <workItem from="1783863578246" duration="5898000" />
+      <workItem from="1783941278602" duration="2790000" />
+      <workItem from="1783951386385" duration="877000" />
+      <workItem from="1783987631224" duration="2617000" />
+      <workItem from="1784039139277" duration="310000" />
+      <workItem from="1784077997467" duration="20000" />
+      <workItem from="1784078036027" duration="1925000" />
+      <workItem from="1784095749399" duration="7810000" />
+      <workItem from="1784114066470" duration="195000" />
+      <workItem from="1784114289934" duration="5352000" />
+      <workItem from="1784160153023" duration="6299000" />
+      <workItem from="1784170826775" duration="52000" />
+      <workItem from="1784259322440" duration="5775000" />
+      <workItem from="1784277427834" duration="25000" />
+      <workItem from="1784277503557" duration="567000" />
+      <workItem from="1784278496048" duration="20000" />
+      <workItem from="1784278533734" duration="3347000" />
+      <workItem from="1784285246417" duration="12776000" />
+      <workItem from="1784340808466" duration="20732000" />
+      <workItem from="1784379239170" duration="394000" />
+      <workItem from="1784379648975" duration="10041000" />
+      <workItem from="1784436430752" duration="26549000" />
+      <workItem from="1784512289250" duration="20693000" />
+      <workItem from="1784591627685" duration="4020000" />
+      <workItem from="1784680787725" duration="12231000" />
+      <workItem from="1784853285131" duration="23947000" />
+      <workItem from="1784906279020" duration="5430000" />
+      <workItem from="1784960925682" duration="6221000" />
+      <workItem from="1785066116602" duration="4976000" />
+    </task>
+    <task id="LOCAL-00001" summary="将api方法改到主文件底下">
+      <option name="closed" value="true" />
+      <created>1781872137041</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1781872137041</updated>
+    </task>
+    <task id="LOCAL-00002" summary="优化代码">
+      <option name="closed" value="true" />
+      <created>1781897597774</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1781897597774</updated>
+    </task>
+    <task id="LOCAL-00003" summary="优化代码">
+      <option name="closed" value="true" />
+      <created>1781898487512</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1781898487512</updated>
+    </task>
+    <task id="LOCAL-00004" summary="将toml位置更改到模组文件夹下">
+      <option name="closed" value="true" />
+      <created>1781898710155</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1781898710155</updated>
+    </task>
+    <task id="LOCAL-00005" summary="将toml位置更改到模组文件夹下">
+      <option name="closed" value="true" />
+      <created>1781899096019</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1781899096019</updated>
+    </task>
+    <task id="LOCAL-00006" summary="重新设计了按钮以及ui状态的持久化架构">
+      <option name="closed" value="true" />
+      <created>1781902672609</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1781902672609</updated>
+    </task>
+    <task id="LOCAL-00007" summary="优化了持久化架构">
+      <option name="closed" value="true" />
+      <created>1781949249286</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1781949249286</updated>
+    </task>
+    <task id="LOCAL-00008" summary="完善了持久化">
+      <option name="closed" value="true" />
+      <created>1781962208756</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1781962208756</updated>
+    </task>
+    <task id="LOCAL-00009" summary="给持久化文件加入编译功能">
+      <option name="closed" value="true" />
+      <created>1781966232858</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1781966232858</updated>
+    </task>
+    <task id="LOCAL-00010" summary="15%">
+      <option name="closed" value="true" />
+      <created>1782299024972</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1782299024972</updated>
+    </task>
+    <task id="LOCAL-00011" summary="20%">
+      <option name="closed" value="true" />
+      <created>1782299326399</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1782299326399</updated>
+    </task>
+    <task id="LOCAL-00012" summary="修了个小毛病">
+      <option name="closed" value="true" />
+      <created>1782301359566</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1782301359566</updated>
+    </task>
+    <task id="LOCAL-00013" summary="25%">
+      <option name="closed" value="true" />
+      <created>1782354199833</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1782354199833</updated>
+    </task>
+    <task id="LOCAL-00014" summary="30%">
+      <option name="closed" value="true" />
+      <created>1782454280526</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1782454280526</updated>
+    </task>
+    <task id="LOCAL-00015" summary="35%">
+      <option name="closed" value="true" />
+      <created>1782811222175</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1782811222175</updated>
+    </task>
+    <task id="LOCAL-00016" summary="36%">
+      <option name="closed" value="true" />
+      <created>1782822372135</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1782822372135</updated>
+    </task>
+    <task id="LOCAL-00017" summary="40%">
+      <option name="closed" value="true" />
+      <created>1782887819095</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1782887819095</updated>
+    </task>
+    <task id="LOCAL-00018" summary="42%">
+      <option name="closed" value="true" />
+      <created>1782922749519</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1782922749519</updated>
+    </task>
+    <task id="LOCAL-00019" summary="45%">
+      <option name="closed" value="true" />
+      <created>1782928211909</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1782928211909</updated>
+    </task>
+    <task id="LOCAL-00020" summary="50%">
+      <option name="closed" value="true" />
+      <created>1783348918607</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1783348918607</updated>
+    </task>
+    <task id="LOCAL-00021" summary="整理了代码">
+      <option name="closed" value="true" />
+      <created>1783417344039</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1783417344039</updated>
+    </task>
+    <task id="LOCAL-00022" summary="60%">
+      <option name="closed" value="true" />
+      <created>1783437771091</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1783437771091</updated>
+    </task>
+    <task id="LOCAL-00023" summary="修复了点问题">
+      <option name="closed" value="true" />
+      <created>1783482651203</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1783482651203</updated>
+    </task>
+    <task id="LOCAL-00024" summary="优化了物品网格显示">
+      <option name="closed" value="true" />
+      <created>1784166361577</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1784166361577</updated>
+    </task>
+    <task id="LOCAL-00025" summary="优化了贴图渲染">
+      <option name="closed" value="true" />
+      <created>1784293067217</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1784293067217</updated>
+    </task>
+    <task id="LOCAL-00026" summary="给物品网格添加显示当前使用物品的功能">
+      <option name="closed" value="true" />
+      <created>1784377511418</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1784377511418</updated>
+    </task>
+    <task id="LOCAL-00027" summary="测试前备份">
+      <option name="closed" value="true" />
+      <created>1784478071790</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1784478071790</updated>
+    </task>
+    <task id="LOCAL-00028" summary="找出了开启rts模式卡顿的问题原因：九宫格绘制">
+      <option name="closed" value="true" />
+      <created>1784525738113</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1784525738113</updated>
+    </task>
+    <task id="LOCAL-00029" summary="添加了容器双向和仅提取的物品显示筛选按钮">
+      <option name="closed" value="true" />
+      <created>1784862974134</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1784862974134</updated>
+    </task>
+    <task id="LOCAL-00030" summary="添加了容器双向和仅提取的物品显示筛选按钮">
+      <option name="closed" value="true" />
+      <created>1784862995359</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1784862995359</updated>
+    </task>
+    <task id="LOCAL-00031" summary="基本完善了物品储存网格功能">
+      <option name="closed" value="true" />
+      <created>1784880247242</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1784880247242</updated>
+    </task>
+    <task id="LOCAL-00032" summary="完成了物品小图标的显示">
+      <option name="closed" value="true" />
+      <created>1784881359815</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1784881359815</updated>
+    </task>
+    <task id="LOCAL-00033" summary="实现了嵌层组件的插件化">
+      <option name="closed" value="true" />
+      <created>1784885301102</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1784885301102</updated>
+    </task>
+    <task id="LOCAL-00034" summary="修复了一些bug">
+      <option name="closed" value="true" />
+      <created>1784910499278</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1784910499278</updated>
+    </task>
+    <task id="LOCAL-00035" summary="实现了摄像机视角的360度旋转">
+      <option name="closed" value="true" />
+      <created>1784911030981</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1784911030981</updated>
+    </task>
+    <task id="LOCAL-00036" summary="移除了所有的客户端持久化策略，并且修改了持久化的架构，后续再添加">
+      <option name="closed" value="true" />
+      <created>1784995878921</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1784995878921</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="20%" />
+    <MESSAGE value="修了个小毛病" />
+    <MESSAGE value="25%" />
+    <MESSAGE value="30%" />
+    <MESSAGE value="35%" />
+    <MESSAGE value="36%" />
+    <MESSAGE value="40%" />
+    <MESSAGE value="42%" />
+    <MESSAGE value="45%" />
+    <MESSAGE value="50%" />
+    <MESSAGE value="整理了代码" />
+    <MESSAGE value="60%" />
+    <MESSAGE value="修复了点问题" />
+    <MESSAGE value="优化了物品网格显示" />
+    <MESSAGE value="优化了贴图渲染" />
+    <MESSAGE value="给物品网格添加显示当前使用物品的功能" />
+    <MESSAGE value="测试前备份" />
+    <MESSAGE value="找出了开启rts模式卡顿的问题原因：九宫格绘制" />
+    <MESSAGE value="添加了容器双向和仅提取的物品显示筛选按钮" />
+    <MESSAGE value="基本完善了物品储存网格功能" />
+    <MESSAGE value="完成了物品小图标的显示" />
+    <MESSAGE value="实现了嵌层组件的插件化" />
+    <MESSAGE value="修复了一些bug" />
+    <MESSAGE value="实现了摄像机视角的360度旋转" />
+    <MESSAGE value="移除了所有的客户端持久化策略，并且修改了持久化的架构，后续再添加" />
+    <option name="LAST_COMMIT_MESSAGE" value="移除了所有的客户端持久化策略，并且修改了持久化的架构，后续再添加" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

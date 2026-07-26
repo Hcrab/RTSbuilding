@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.animate.EasingFunctions;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
@@ -69,13 +68,7 @@ public abstract class DownOverlayLayer implements OverlayContext {
     private boolean dividerDragging;
 
     
-    private final FloatAnimation hoverAnim = FloatAnimation.builder()
-            .from(0f).to(0f)
-            .duration(150L)
-            .easing(EasingFunctions.LINEAR)
-            .startFromCurrent(true)
-            .build();
-    
+    private final AnimFloat hoverAnim = AnimFloat.fade();
     private boolean prevHovered;
 
     
@@ -124,11 +117,10 @@ public abstract class DownOverlayLayer implements OverlayContext {
 
         
         if (hovered != prevHovered) {
-            hoverAnim.start(hovered ? 1f : 0f);
+            hoverAnim.target(hovered ? 1f : 0f);
             prevHovered = hovered;
         }
-        hoverAnim.tick();
-        float hoverT = hoverAnim.getValue();
+        float hoverT = hoverAnim.get();
 
         
         CrossFadeRenderer.render(g, hoverT,

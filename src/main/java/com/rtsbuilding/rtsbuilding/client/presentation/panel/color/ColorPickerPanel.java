@@ -6,8 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.HexInputC
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ScaleSliderComponent;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.SwatchSelectorComponent;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
@@ -177,9 +176,9 @@ public class ColorPickerPanel extends RtsPanel {
     
 
     
-    private final FloatAnimation indicatorStateAnim = AnimationFactory.newHoverAnim();
+    private final AnimFloat indicatorStateAnim = AnimFloat.hover();
     
-    private final FloatAnimation grayscaleIndicatorStateAnim = AnimationFactory.newHoverAnim();
+    private final AnimFloat grayscaleIndicatorStateAnim = AnimFloat.hover();
 
     public ColorPickerPanel() {
     }

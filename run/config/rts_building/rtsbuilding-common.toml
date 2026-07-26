@@ -1,0 +1,28 @@
+#Enable RTS Home anchors and home-radius limits.
+enableSurvivalProgression = false
+#When RTS Home is enabled, share RTS home anchors with the player's FTB Team, or vanilla scoreboard team when FTB Teams is unavailable.
+shareSurvivalProgressionWithTeams = false
+#Maximum RTS action radius in blocks.
+# Default: 128
+# Range: 48 ~ 512
+maxActionRadiusBlocks = 128
+#Enable the RTS blueprint library tab, local blueprint upload, and server-side blueprint placement.
+enableBlueprints = true
+#Maximum non-air blocks allowed in one RTS blueprint import, capture, or placement job.
+# Default: 20000
+# Range: 1 ~ 200000
+maxBlueprintBlocks = 20000
+#Render translucent block ghost models for placement previews before the player confirms placement.
+useBlockGhostPreview = true
+#Render translucent grow-in block ghosts after server-confirmed block placement.
+usePlaceBlockGhostAnimation = true
+#Render translucent shrink-out block ghosts after server-confirmed block destruction.
+useDestroyBlockGhostAnimation = true
+#Render wireframe outlines for placement previews before the player confirms placement.
+useWireframePreview = false
+#Render grow-in wireframe outlines after server-confirmed block placement.
+usePlaceWireframeAnimation = false
+#Render shrink-out wireframe outlines after server-confirmed block destruction.
+useDestroyWireframeAnimation = false
+#Render merged skeleton borders for non-chain range destroy previews. Chain mining always uses the skeleton style.
+useRangeDestroySkeleton = true

@@ -1,0 +1,7 @@
+[conduits]
+	#Whether players can mix and match energy conduits
+	canMixEnergyConduitTiers = true
+	#Whether players can mix and match fluid conduits
+	canMixFluidConduitTiers = true
+	#Whether players can mix and match item conduits
+	canMixItemConduitTiers = true

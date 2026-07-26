@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": {"item": "minecraft:emerald"},
+    "P": {"item": "rtsbuilding:range_extension_i"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "pattern": [
+    " E ",
+    "RPR",
+    " E "
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:range_extension_ii"}
+}

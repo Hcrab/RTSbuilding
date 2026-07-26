@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.color;
 
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
@@ -57,7 +57,7 @@ public class GrayscaleBarComponent {
 
     
     public void renderIndicator(GuiGraphics g, int barX, int barY,
-                                 float relY, FloatAnimation animator,
+                                 float relY, AnimFloat animator,
                                  int mouseX, int mouseY, boolean dragging) {
         int targetState;
         if (dragging) {
@@ -69,10 +69,8 @@ public class GrayscaleBarComponent {
             targetState = 0;
         }
 
-        animator.start(targetState);
-        animator.tick();
-
-        float stateF = animator.getValue();
+        animator.target(targetState);
+        float stateF = animator.get();
         int stateVOffset = Math.round(stateF * GRAYSCALE_INDICATOR_STATE_H);
         stateVOffset = Math.max(0, Math.min(
                 GRAYSCALE_INDICATOR_TEX_H - GRAYSCALE_INDICATOR_STATE_H, stateVOffset));

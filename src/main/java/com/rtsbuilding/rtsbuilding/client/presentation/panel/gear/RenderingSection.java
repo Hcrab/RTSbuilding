@@ -12,8 +12,7 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.LinkedStoragePass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.animate.AnimationFactory;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import net.minecraft.client.Minecraft;
@@ -131,7 +130,7 @@ public class RenderingSection extends SettingsSection {
     private final TooltipController linkedExtTooltip = TooltipController.builder().build();
 
     private final Map<String, String> translationCache = new HashMap<>();
-    private final FloatAnimation heightAnim = AnimationFactory.newExpandAnim();
+    private final AnimFloat heightAnim = AnimFloat.expand();
     private boolean lastDepthEnabled;
 
     public RenderingSection() {
@@ -142,7 +141,7 @@ public class RenderingSection extends SettingsSection {
 
         flowResetBtn.setResetAction(() -> BoxSelectionPass.flowAnimationEnabled = true);
         smoothResetBtn.setResetAction(() -> CornerBracketRenderer.SmoothTarget.enabled = true);
-        uiSmoothResetBtn.setResetAction(() -> FloatAnimation.setEnabled(true));
+        uiSmoothResetBtn.setResetAction(() -> AnimFloat.setEnabled(true));
         depthResetBtn.setResetAction(() -> BoxSelectionPass.depthTestEnabled = true);
         alphaResetBtn.setResetAction(() -> CornerBracketRenderer.DEFAULT_NO_DEPTH_ALPHA = 0.10f);
         barrierResetBtn.setResetAction(() -> BoundaryPass.barrierColor = 0xFFFFCC00);
@@ -167,7 +166,7 @@ public class RenderingSection extends SettingsSection {
 
     @Override
     protected int getEffectiveContentHeight() {
-        return MIN_CONTENT_H + Math.round(EXTRA_ROWS_H * heightAnim.getValue());
+        return MIN_CONTENT_H + Math.round(EXTRA_ROWS_H * heightAnim.get());
     }
 
     private String t(String key) {
@@ -208,9 +207,8 @@ public class RenderingSection extends SettingsSection {
 
     @Override
     protected void renderContent(GuiGraphics g, int mx, int my, int x, int y, int w, int lineCount) {
-        heightAnim.tick();
         boolean depthOn = BoxSelectionPass.depthTestEnabled;
-        if (depthOn != lastDepthEnabled) { lastDepthEnabled = depthOn; heightAnim.start(depthOn ? 1.0f : 0.0f); }
+        if (depthOn != lastDepthEnabled) { lastDepthEnabled = depthOn; heightAnim.target(depthOn ? 1.0f : 0.0f); }
 
         int cursorY = y + 4, lh = getLineHeight();
 
@@ -218,7 +216,7 @@ public class RenderingSection extends SettingsSection {
         cursorY += lh;
         renderToggleRow(g, mx, my, x, w, cursorY, t("screen.rtsbuilding.settings.smooth_animation"), smoothToggle, CornerBracketRenderer.SmoothTarget.enabled, smoothResetBtn);
         cursorY += lh;
-        renderToggleRow(g, mx, my, x, w, cursorY, t("screen.rtsbuilding.settings.ui_smooth_animation"), uiSmoothToggle, FloatAnimation.isEnabled(), uiSmoothResetBtn);
+        renderToggleRow(g, mx, my, x, w, cursorY, t("screen.rtsbuilding.settings.ui_smooth_animation"), uiSmoothToggle, AnimFloat.isEnabled(), uiSmoothResetBtn);
         cursorY += lh;
         renderToggleRow(g, mx, my, x, w, cursorY, t("screen.rtsbuilding.settings.depth_test"), depthToggle, BoxSelectionPass.depthTestEnabled, depthResetBtn);
         cursorY += lh;
@@ -272,7 +270,7 @@ public class RenderingSection extends SettingsSection {
                                           int contentX, int contentY, int contentW) {
         if (smoothToggle.handleClick(mouseX, mouseY)) { CornerBracketRenderer.SmoothTarget.enabled = !CornerBracketRenderer.SmoothTarget.enabled; return true; }
         if (flowToggle.handleClick(mouseX, mouseY)) { BoxSelectionPass.flowAnimationEnabled = !BoxSelectionPass.flowAnimationEnabled; return true; }
-        if (uiSmoothToggle.handleClick(mouseX, mouseY)) { FloatAnimation.setEnabled(!FloatAnimation.isEnabled()); return true; }
+        if (uiSmoothToggle.handleClick(mouseX, mouseY)) { AnimFloat.setEnabled(!AnimFloat.isEnabled()); return true; }
         if (depthToggle.handleClick(mouseX, mouseY)) { BoxSelectionPass.depthTestEnabled = !BoxSelectionPass.depthTestEnabled; return true; }
 
         if (flowResetBtn.handleClick(mouseX, mouseY) || smoothResetBtn.handleClick(mouseX, mouseY)

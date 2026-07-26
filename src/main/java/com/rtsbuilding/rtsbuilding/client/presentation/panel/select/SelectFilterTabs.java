@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -58,11 +58,11 @@ public final class SelectFilterTabs {
     private FilterMode filterMode = FilterMode.ALL;
 
     
-    private final HoverStateManager[] hoverStates = initHoverStates();
+    private final AnimFloat[] hoverStates = initHoverStates();
 
-    private static HoverStateManager[] initHoverStates() {
-        HoverStateManager[] arr = new HoverStateManager[FilterMode.values().length];
-        for (int i = 0; i < arr.length; i++) arr[i] = new HoverStateManager();
+    private static AnimFloat[] initHoverStates() {
+        AnimFloat[] arr = new AnimFloat[FilterMode.values().length];
+        for (int i = 0; i < arr.length; i++) arr[i] = AnimFloat.hover();
         return arr;
     }
 
@@ -124,7 +124,7 @@ public final class SelectFilterTabs {
             boolean selected = filterMode == modes[i];
 
             
-            float hoverT = hoverStates[i].update(hovered);
+            float hoverT = hoverStates[i].track(hovered);
 
             
             final int fTabX = tabX;

@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "package": "com.rtsbuilding.rtsbuilding.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "LocalPlayerMixin",
+    "ScreenRenderBgMixin"
+  ],
+  "mixins": [
+    "ChestMenuMixin",
+    "ModdedRemoteStillValidMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

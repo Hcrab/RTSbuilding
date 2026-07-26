@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.layout;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.dispatcher.EventDispatcher;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverSuppression;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
@@ -79,7 +79,7 @@ public final class PanelRegistry {
     public void renderContentPanels(GuiGraphics g, int mouseX, int mouseY, float partialTick,
                                      boolean mouseOverFloating) {
         if (mouseOverFloating) {
-            HoverStateManager.floatingWindowSuppression().setSuppressed(true);
+            HoverSuppression.floatingWindow().setSuppressed(true);
         }
         try {
             for (PanelEntry entry : entries) {
@@ -89,7 +89,7 @@ public final class PanelRegistry {
             }
         } finally {
             if (mouseOverFloating) {
-                HoverStateManager.floatingWindowSuppression().setSuppressed(false);
+                HoverSuppression.floatingWindow().setSuppressed(false);
             }
         }
     }

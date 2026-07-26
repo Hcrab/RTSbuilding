@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.util.state;
 
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
@@ -78,7 +79,7 @@ public class TooltipController {
     private final int padH;
     private final int padV;
 
-    private final HoverStateManager hoverState = new HoverStateManager();
+    private final AnimFloat hoverState = AnimFloat.hover();
     private long hoverStartTime = -1L;
     private boolean tooltipShown;
 
@@ -106,12 +107,12 @@ public class TooltipController {
             tooltipShown = false;
         }
 
-        this.hoverState.update(tooltipShown);
+        this.hoverState.track(tooltipShown);
     }
 
     
     public float getAlpha() {
-        return hoverState.getValue();
+        return hoverState.get();
     }
 
     

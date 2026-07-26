@@ -6,7 +6,8 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.handler
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.model.PanelBounds;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.state.HoverSuppression;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -43,7 +44,7 @@ public abstract class RtsPanel implements RtsPanelApi {
     private boolean skipHoverDetection;
     private RtsPanel parentPanel;
     private final List<RtsPanel> children = new ArrayList<>();
-    private final HoverStateManager panelHoverState = new HoverStateManager();
+    private final AnimFloat panelHoverState = AnimFloat.hover();
     private final PanelInputHandler inputHandler = new PanelInputHandler(this);
 
     public RtsPanel getParentPanel() { return parentPanel; }
@@ -83,7 +84,7 @@ public abstract class RtsPanel implements RtsPanelApi {
         if (!this.resizeHandler.isResizing()) clampWindowToScreen();
         updatePanelHoverState(mouseX, mouseY);
 
-        if (this.skipHoverDetection) HoverStateManager.floatingWindowSuppression().setSuppressed(true);
+        if (this.skipHoverDetection) HoverSuppression.floatingWindow().setSuppressed(true);
         boolean needScissor = shouldClipContent();
         try {
             renderWindowFrame(g, mouseX, mouseY);
@@ -91,7 +92,7 @@ public abstract class RtsPanel implements RtsPanelApi {
             renderContent(g, mouseX, mouseY, partialTick);
             g.flush();
         } finally {
-            if (this.skipHoverDetection) HoverStateManager.floatingWindowSuppression().setSuppressed(false);
+            if (this.skipHoverDetection) HoverSuppression.floatingWindow().setSuppressed(false);
             if (needScissor) g.disableScissor();
         }
     }
@@ -237,7 +238,7 @@ public abstract class RtsPanel implements RtsPanelApi {
                 bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
                 getTitleBarHeight(), getPanelBgColor(), getPanelHoverBgColor(),
                 getTitleBarBgColor(), getTitleTextColor(), getTitle(), this.closable, this.closeButton,
-                this.panelHoverState.getValue()));
+                this.panelHoverState.get()));
     }
 
     private void enableContentScissor(GuiGraphics g) {
@@ -248,7 +249,7 @@ public abstract class RtsPanel implements RtsPanelApi {
 
     private void updatePanelHoverState(int mx, int my) {
         this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mx, my);
-        this.panelHoverState.update(this.mouseHovering);
+        this.panelHoverState.track(this.mouseHovering);
     }
 
     void initializePosition() {

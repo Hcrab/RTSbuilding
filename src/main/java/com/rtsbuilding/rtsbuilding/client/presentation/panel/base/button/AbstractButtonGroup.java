@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayout
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
@@ -71,10 +71,7 @@ public abstract class AbstractButtonGroup {
     protected final boolean[] selected;
 
     
-    protected final HoverStateManager[] hoverStates;
-
-    
-    private final float[] hoverProgressCache;
+    protected final AnimFloat[] hoverStates;
 
     
     protected final int buttonSize;
@@ -101,10 +98,9 @@ public abstract class AbstractButtonGroup {
 
         
         this.selected = new boolean[n];
-        this.hoverStates = new HoverStateManager[n];
-        this.hoverProgressCache = new float[n];
+        this.hoverStates = new AnimFloat[n];
         for (int i = 0; i < n; i++) {
-            this.hoverStates[i] = new HoverStateManager();
+            this.hoverStates[i] = AnimFloat.hover();
         }
 
         
@@ -235,8 +231,7 @@ public abstract class AbstractButtonGroup {
     protected void renderSingleBg(GuiGraphics g, int mouseX, int mouseY, int index, int bx, int by) {
         boolean hovering = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
-        float hoverT = this.hoverStates[index].update(hovering);
-        hoverProgressCache[index] = hoverT; 
+        float hoverT = this.hoverStates[index].track(hovering);
 
         int bt = bgTypeForButton[index]; 
         int bsi = bt * 3;
@@ -279,7 +274,7 @@ public abstract class AbstractButtonGroup {
                     bx, by, buttonSize, buttonSize);
         } else {
             
-            float hoverT = this.hoverStates[index].update(hovering);
+            float hoverT = this.hoverStates[index].track(hovering);
             int si = index * 3;
             SpriteRenderer.drawStateSprite(g,
                     patternRegions[si],     

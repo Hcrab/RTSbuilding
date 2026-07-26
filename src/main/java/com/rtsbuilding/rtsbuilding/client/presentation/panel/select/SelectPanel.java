@@ -4,7 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsPanel;
-import com.rtsbuilding.rtsbuilding.client.util.state.HoverStateManager;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -80,7 +80,7 @@ public final class SelectPanel extends RtsPanel {
             .withOrientation(ScrollBar.Orientation.HORIZONTAL);
 
     
-    private HoverStateManager[] hoverStates;
+    private AnimFloat[] hoverStates;
 
     
     private final SelectFilterTabs filterTabs;
@@ -129,9 +129,9 @@ public final class SelectPanel extends RtsPanel {
     
 
     private void initHoverStates(int count) {
-        hoverStates = new HoverStateManager[count];
+        hoverStates = new AnimFloat[count];
         for (int i = 0; i < count; i++) {
-            hoverStates[i] = new HoverStateManager();
+            hoverStates[i] = AnimFloat.hover();
         }
     }
 
@@ -140,11 +140,11 @@ public final class SelectPanel extends RtsPanel {
     
     public void updateEntries(List<SelectableEntry> newEntries) {
         List<SelectableEntry> safeCopy = List.copyOf(newEntries);
-        HoverStateManager[] newStates = new HoverStateManager[safeCopy.size()];
+        AnimFloat[] newStates = new AnimFloat[safeCopy.size()];
         for (int i = 0; i < safeCopy.size(); i++) {
             SelectableEntry newEntry = safeCopy.get(i);
             int oldIdx = findEntryByIdentifier(newEntry.identifier());
-            newStates[i] = oldIdx >= 0 ? hoverStates[oldIdx] : new HoverStateManager();
+            newStates[i] = oldIdx >= 0 ? hoverStates[oldIdx] : AnimFloat.hover();
         }
         this.entries = safeCopy;
         this.hoverStates = newStates;
@@ -308,7 +308,7 @@ public final class SelectPanel extends RtsPanel {
             if (itemX + entryW >= cx && itemX <= cx + cw) {
                 boolean isHovered = mouseX >= itemX && mouseX < itemX + entryW
                         && mouseY >= itemY - 5 && mouseY < itemY + ih + 5;
-                float t = hoverStates[i].update(isHovered);
+                float t = hoverStates[i].track(isHovered);
 
                 
                 SelectEntryRenderer.renderEntryBg(g, itemX, itemY - 5, entryW, ih + 10, t);

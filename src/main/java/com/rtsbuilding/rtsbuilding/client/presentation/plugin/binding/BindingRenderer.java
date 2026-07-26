@@ -6,8 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.di.CompositionRoot;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
-import com.rtsbuilding.rtsbuilding.client.util.animate.EasingFunctions;
-import com.rtsbuilding.rtsbuilding.client.util.animate.FloatAnimation;
+
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
