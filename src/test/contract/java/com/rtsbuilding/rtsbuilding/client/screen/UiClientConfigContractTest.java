@@ -27,14 +27,14 @@ class UiClientConfigContractTest {
         String inventoryEvents = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/plugin/RtsPluginInventoryScreenEvents.java"));
 
-        assertTrue(config.contains("ENABLE_UI_ANIMATIONS = BUILDER"));
+        assertTrue(config.contains("ENABLE_UI_ANIMATIONS = CLIENT_BUILDER"));
         assertTrue(config.contains(".define(\"enableUiAnimations\", true)"));
         assertTrue(config.contains("return ENABLE_UI_ANIMATIONS.get()"));
         assertTrue(config.contains("ENABLE_UI_ANIMATIONS.set(enabled)"));
         assertTrue(topBar.contains("Config.isUiAnimationsEnabled()"));
         assertTrue(bottomPanel.contains("Config.isUiAnimationsEnabled()"));
 
-        assertTrue(config.contains("SHOW_INVENTORY_RTS_BUTTON = BUILDER"));
+        assertTrue(config.contains("SHOW_INVENTORY_RTS_BUTTON = CLIENT_BUILDER"));
         assertTrue(config.contains(".define(\"showInventoryRtsButton\", true)"));
         assertTrue(config.contains("return SHOW_INVENTORY_RTS_BUTTON.get()"));
         assertTrue(config.contains("SHOW_INVENTORY_RTS_BUTTON.set(enabled)"));

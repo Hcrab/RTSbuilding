@@ -16,8 +16,10 @@ class BlueprintCreatePlacementCompatContractTest {
     void blueprintPlacementUsesCreateLifecycleAtEveryRequiredStage() throws Exception {
         String compat = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/create/BlueprintCreatePlacementCompat.java");
-        String placement = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/blueprint/server/BlueprintPlacementService.java");
+        String tickPipe = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/blueprint/BlueprintTickPipe.java");
+        String blockPlacer = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/BlockPlacer.java");
 
         assertTrue(compat.contains("prepareBlockEntityData")
                         && compat.contains("BlockState.class")
@@ -25,9 +27,9 @@ class BlueprintCreatePlacementCompatContractTest {
                         && compat.contains("\"Controller\"")
                         && compat.contains("\"LastKnownPos\""),
                 "Create 插头必须兼容 1.20.1 写出器并清理旧世界拓扑");
-        assertTrue(placement.contains("BlueprintCreatePlacementCompat.placementFlags(state)")
-                        && placement.contains("BlueprintCreatePlacementCompat.prepareBlockEntityTag")
-                        && placement.contains("BlueprintCreatePlacementCompat.finishPlacement"),
+        assertTrue(blockPlacer.contains("BlueprintCreatePlacementCompat.placementFlags(state)")
+                        && tickPipe.contains("BlueprintCreatePlacementCompat.prepareBlockEntityTag")
+                        && blockPlacer.contains("BlueprintCreatePlacementCompat.finishPlacement"),
                 "蓝图生产链必须接入更新标志、NBT 准备和放置完成回调");
     }
 

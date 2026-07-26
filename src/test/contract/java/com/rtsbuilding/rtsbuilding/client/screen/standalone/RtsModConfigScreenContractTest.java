@@ -45,10 +45,10 @@ class RtsModConfigScreenContractTest {
         String generalSave = slice(config, "public static void saveGeneralSettings", "public static void saveAreaMineLimitSettings");
         String areaSave = slice(config, "public static void saveAreaMineLimitSettings", "public static boolean isPlacementBlockGhostPreviewEnabled");
 
-        assertFalse(generalSave.contains("SPEC.save()"));
+        assertFalse(generalSave.contains("CLIENT_SPEC.save()"));
         assertFalse(generalSave.contains("USE_BLOCK_GHOST_PREVIEW"));
         assertFalse(generalSave.contains("USE_WIREFRAME_PREVIEW"));
-        assertTrue(areaSave.contains("SPEC.save()"));
+        assertTrue(areaSave.contains("SERVER_SPEC.save()"));
         assertTrue(areaSave.contains("AREA_MINE_MAX_WIDTH.set"));
         assertTrue(areaSave.contains("AREA_DESTROY_MAX_TARGETS.set"));
     }

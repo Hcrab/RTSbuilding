@@ -21,7 +21,8 @@ class RtsIntroReminderScopeContractTest {
                 "多人提醒必须绑定当前服务器地址");
         assertFalse(source.contains("\"level:\""),
                 "维度不能成为独立提醒作用域，否则跨维度后会重复提醒");
-        assertFalse(source.contains("\"unknown\""),
+        String identityMethod = methodBody(source, "private static String currentReminderKey");
+        assertFalse(identityMethod.contains("\"unknown\""),
                 "身份未稳定时不能写入跨存档共享的 unknown 键");
     }
 
@@ -43,5 +44,19 @@ class RtsIntroReminderScopeContractTest {
             assertTrue(line.chars().filter(value -> value == '%').count() >= 2,
                     language + " 必须为当前版本与教程链接保留参数");
         }
+    }
+
+    private static String methodBody(String source, String signatureStart) {
+        int start = source.indexOf(signatureStart);
+        assertTrue(start >= 0, "method not found: " + signatureStart);
+        int bodyStart = source.indexOf('{', start);
+        assertTrue(bodyStart >= 0, "method body not found: " + signatureStart);
+        int depth = 0;
+        for (int i = bodyStart; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '{') depth++;
+            if (c == '}' && --depth == 0) return source.substring(bodyStart, i + 1);
+        }
+        throw new AssertionError("method body is not closed: " + signatureStart);
     }
 }

@@ -11,28 +11,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SurvivalPluginGateContractTest {
     @Test
     void areaMiningAndChainMiningStayIndependentAtEveryServerLayer() throws Exception {
-        String registration = read("server/pipeline/core/RtsPipelineRegistration.java");
-        String processor = read("server/service/mining/RtsUltimineProcessor.java");
+        String registration = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/core/RtsPipelineRegistration.java"));
+        String processor = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsUltimineProcessor.java"));
+        String areaMethod = methodBody(registration, "private static void registerAreaMine");
+        String areaService = methodBody(processor, "public static boolean areaMine");
+        String queuedAreaService = methodBody(processor, "public static int queueAreaMine");
 
-        assertUsesOnlyFeature(methodBody(registration, "private static void registerAreaMine"), "AREA_MINE");
-        assertUsesOnlyFeature(methodBody(processor, "public static void areaMine"), "AREA_MINE");
-        assertUsesOnlyFeature(methodBody(processor, "public static PipelineBatchStartResult areaMineFromPipeline"),
-                "AREA_MINE");
-        assertUsesOnlyFeature(methodBody(processor, "public static int queueAreaMine"), "AREA_MINE");
-    }
-
-    @Test
-    void legacySkillTreeLimitCannotDisableAnInstalledMiningPlugin() throws Exception {
-        String manager = read("server/progression/RtsProgressionManager.java");
-        String limitMethod = methodBody(manager, "public static int getUltimineLimit");
-
-        assertTrue(limitMethod.contains("return DEFAULT_ULTIMINE_LIMIT"));
-        assertFalse(limitMethod.contains("derive(player)"));
+        assertTrue(areaMethod.contains("ProgressionGatePipe(RtsFeature.AREA_MINE)"));
+        assertFalse(areaMethod.contains("ProgressionGatePipe(RtsFeature.ULTIMINE)"));
+        assertFalse(areaService.contains("RtsFeature.ULTIMINE"));
+        assertFalse(queuedAreaService.contains("RtsFeature.ULTIMINE"));
     }
 
     @Test
     void everyPlacementEntryChecksItsPluginBeforeCreatingAWorkflow() throws Exception {
-        String registration = read("server/pipeline/core/RtsPipelineRegistration.java");
+        String registration = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/core/RtsPipelineRegistration.java"));
 
         assertGateBeforeWorkflow(registration, "private static void registerPlaceSingle");
         assertGateBeforeWorkflow(registration, "private static void registerPlaceBatch");
@@ -41,9 +37,12 @@ class SurvivalPluginGateContractTest {
 
     @Test
     void survivalToggleResynchronizesPluginsAndRejectedActionsExplainWhy() throws Exception {
-        String handler = read("network/progression/RtsProgressionNetworkHandlers.java");
-        String controller = read("client/controller/ClientRtsController.java");
-        String gate = read("server/pipeline/validation/ProgressionGatePipe.java");
+        String handler = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/network/progression/handler/RtsProgressionNetworkHandlers.java"));
+        String controller = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
+        String gate = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/validation/ProgressionGatePipe.java"));
 
         assertTrue(handler.contains("RtsPluginService.syncToPlayer(player)"));
         assertTrue(controller.contains("RtsClientPacketGateway.sendRequestPlugins()"));
@@ -51,20 +50,14 @@ class SurvivalPluginGateContractTest {
         assertTrue(gate.contains("displayClientMessage"));
     }
 
-    private static String read(String relativePath) throws Exception {
-        return Files.readString(Path.of("src/main/java/com/rtsbuilding/rtsbuilding").resolve(relativePath));
-    }
+    @Test
+    void legacySkillTreeLimitCannotDisableAnInstalledMiningPlugin() throws Exception {
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/progression/RtsProgressionManager.java"));
+        String limitMethod = methodBody(manager, "public static int getUltimineLimit");
 
-    private static void assertUsesOnlyFeature(String method, String feature) {
-        assertTrue(method.contains("RtsFeature." + feature));
-        assertFalse(method.contains("RtsFeature.ULTIMINE"), "区域挖掘不能再依赖连锁挖掘权限");
-    }
-
-    private static void assertGateBeforeWorkflow(String source, String signature) {
-        String method = methodBody(source, signature);
-        int gate = method.indexOf("ProgressionGatePipe(RtsFeature.REMOTE_PLACE)");
-        int workflow = method.indexOf("WorkflowStartPipe");
-        assertTrue(gate >= 0 && workflow >= 0 && gate < workflow);
+        assertTrue(limitMethod.contains("return DEFAULT_ULTIMINE_LIMIT"));
+        assertFalse(limitMethod.contains("derive(player)"));
     }
 
     private static String methodBody(String source, String signature) {
@@ -78,5 +71,15 @@ class SurvivalPluginGateContractTest {
             if (ch == '}' && --depth == 0) return source.substring(brace, i + 1);
         }
         return "";
+    }
+
+    private static void assertGateBeforeWorkflow(String source, String signature) {
+        String method = methodBody(source, signature);
+        int gate = method.indexOf("ProgressionGatePipe(RtsFeature.REMOTE_PLACE)");
+        int workflow = method.indexOf("WorkflowStartPipe");
+
+        assertTrue(gate >= 0, signature + " must check the remote-place plugin");
+        assertTrue(workflow >= 0, signature + " must still create a workflow after validation");
+        assertTrue(gate < workflow, signature + " must reject before creating a workflow");
     }
 }

@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class NetworkHandlerOwnershipContractTest {
     private static final Path NETWORK_ROOT = Path.of(
             "src/main/java/com/rtsbuilding/rtsbuilding/network");
-    private static final Path ROOT_REGISTRAR = NETWORK_ROOT.resolve("RtsPayloadRegistrar.java");
+    private static final Path ROOT_REGISTRAR = NETWORK_ROOT.resolve("RtsForgePayloadRegistrar.java");
     private static final Pattern C2S_REGISTRATION = Pattern.compile(
             "registrar\\s*\\.\\s*playToServer\\s*\\(\\s*"
                     + "(C2S[A-Za-z0-9_]+Payload)\\s*\\.\\s*TYPE\\s*,\\s*"

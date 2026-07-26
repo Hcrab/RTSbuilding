@@ -14,20 +14,23 @@ class RtsAreaDestroyInstantStartContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsUltimineProcessor.java"));
 
-        String ultimine = methodBody(source, "public static PipelineBatchStartResult startUltimineFromPipeline");
-        String areaMine = methodBody(source, "public static PipelineBatchStartResult areaMineFromPipeline");
-        String areaDestroy = methodBody(source, "public static PipelineBatchStartResult areaDestroyFromPipeline");
-        String batchStart = methodBody(source, "private static PipelineBatchStartResult beginPipelineBatch");
+        String ultimine = methodBody(source, "public static boolean startUltimine");
+        String areaMine = methodBody(source, "public static boolean areaMine");
+        String areaDestroy = methodBody(source, "public static void areaDestroy");
+        String queuedAreaDestroy = methodBody(source, "public static int queueAreaDestroy");
 
-        assertTrue(ultimine.contains("BatchStartMode.WAIT_FOR_SEED"),
+        assertTrue(usesProgressiveMode(ultimine, true),
                 "连锁挖掘仍应等待玩家挖完种子方块");
-        assertTrue(areaMine.contains("BatchStartMode.WAIT_FOR_SEED"),
+        assertTrue(usesProgressiveMode(areaMine, true),
                 "旧体积挖掘的首块进度语义不应被范围破坏修改");
-        assertTrue(areaDestroy.contains("BatchStartMode.IMMEDIATE"),
+        assertTrue(usesProgressiveMode(areaDestroy, false),
                 "范围破坏确认后必须立即进入批量处理");
-        assertTrue(batchStart.contains("startMode == BatchStartMode.WAIT_FOR_SEED")
-                        && batchStart.contains("RtsMiningStateMachine.beginRemoteMining"),
-                "只有显式等待种子方块的批量模式才能启动首块挖掘进度");
+        assertTrue(usesProgressiveMode(queuedAreaDestroy, false),
+                "排队的范围破坏也不能重新落回首块蓄力模式");
+    }
+
+    private static boolean usesProgressiveMode(String methodBody, boolean progressive) {
+        return methodBody.matches("(?s).*toolProtectionEnabled\\s*,\\s*" + progressive + ".*");
     }
 
     private static String methodBody(String source, String signatureStart) {

@@ -14,11 +14,11 @@ class RtsBackpackRoutingContractTest {
         String compat = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/sophisticatedbackpacks/RtsBackpackCompat.java"));
         String screen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String placement = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/RtsLinkedStorageResolver.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/resolver/RtsLinkedStorageResolver.java"));
 
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("CapabilityBackpackWrapper")

@@ -19,7 +19,7 @@ class StoragePageConfigContractTest {
         String helpers = read("src/main/java/com/rtsbuilding/rtsbuilding/server/service/page/RtsPageSharedHelpers.java");
         String core = read("src/main/java/com/rtsbuilding/rtsbuilding/server/service/page/RtsPageCore.java");
         String cache = read("src/main/java/com/rtsbuilding/rtsbuilding/server/service/page/RtsPageCache.java");
-        String browser = read("src/main/java/com/rtsbuilding/rtsbuilding/server/storage/RtsBrowserState.java");
+        String browser = read("src/main/java/com/rtsbuilding/rtsbuilding/server/storage/session/RtsBrowserState.java");
 
         assertTrue(config.contains("\"storage.pageCacheMaxPlayers\", 256, 1, 4096"));
         assertTrue(config.contains("\"storage.defaultStoragePageSize\", 90, 1, 4096"));

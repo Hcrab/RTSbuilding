@@ -45,7 +45,9 @@ class RtsCameraSmoothRotationContractTest {
         String controllerSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
 
-        assertTrue(mixinSource.contains("@Inject(method = \"render(FJZ)V\", at = @At(\"HEAD\"))"),
+        assertTrue(mixinSource.contains("method = { \"render\", \"m_109093_\" }")
+                        && mixinSource.contains("at = @At(\"HEAD\")")
+                        && mixinSource.contains("remap = false"),
                 "视觉镜头必须在 GameRenderer 开始本帧之前更新。");
         assertTrue(mixinSource.contains("RtsCameraRenderSync.beforeRenderFrame()"));
         assertFalse(renderSyncSource.contains("RenderLevelStageEvent"),

@@ -21,7 +21,8 @@ class LocalPlayerCameraSyncContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
 
         assertTrue(mixin.contains("@Mixin(LocalPlayer.class)")
-                        && mixin.contains("method = \"isControlledCamera\"")
+                        && mixin.contains("method = { \"isControlledCamera\", \"m_108636_\" }")
+                        && mixin.contains("remap = false")
                         && mixin.contains("ClientRtsController.get().isEnabled()")
                         && config.contains("\"LocalPlayerMixin\""),
                 "Forge 必须注册 LocalPlayerMixin，保证 RTS 镜头期间继续发送玩家移动包");

@@ -7,22 +7,38 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class DropBufferHotPathContractTest {
     @Test
-    void timeoutFallbackDoesNotResolveStorageAndLimitsDroppedEntities() throws IOException {
+    void timeoutMakesOneFinalStorageAttemptAndLimitsDroppedEntities() throws IOException {
         String source = read("server/service/mining/RtsDropAbsorber.java");
-        assertTrue(source.contains("DropInsertContext insertContext = timeout ? null : createInsertContext"));
-        assertTrue(source.contains("int stackLimit = timeout ? Math.min(maxStacks, 16) : maxStacks"));
+        assertTrue(source.contains("DropInsertContext insertContext = createInsertContext"));
+        assertTrue(source.contains("int stackLimit = fallbackEligible ? Math.min(maxStacks, 16) : maxStacks"));
+        assertTrue(source.contains("if (stored <= 0 && fallbackEligible"));
         assertTrue(source.contains("mergeRemainder(timedOutRemainders, remainder)"));
     }
 
     @Test
     void bufferIsPersistedWithFullStackComponents() throws IOException {
-        String source = read("server/storage/RtsStorageSessionCodec.java");
-        assertTrue(source.contains("saveDropBuffer"));
-        assertTrue(source.contains("stack.copyWithCount(accepted).save(new CompoundTag())"));
+        String source = read("server/data/SessionSerializer.java");
+        assertTrue(source.contains("serializeDropBuffer"));
+        assertTrue(source.contains("stack.copyWithCount(chunkSize).save(new CompoundTag())"));
         assertTrue(source.contains("ItemStack.of(stacks.getCompound(i))"));
+    }
+
+    @Test
+    void miningCapturesExactPreSpawnDropsInsteadOfScanningWorldEntities() throws IOException {
+        String capture = read("server/service/mining/RtsMiningDropCapture.java");
+        String mining = read("server/service/mining/RtsMiningStateMachine.java");
+
+        assertTrue(capture.contains("EntityJoinLevelEvent"));
+        assertTrue(capture.contains("EventPriority.LOWEST"));
+        assertTrue(capture.contains("enqueueCapturedDrops"));
+        assertTrue(capture.contains("event.setCanceled(true)"));
+        assertTrue(mining.contains("RtsMiningDropCapture.capture(player, session"));
+        assertFalse(mining.contains("absorbMinedDropsImmediately"));
+        assertFalse(mining.contains("dropsToAbsorb"));
     }
 
     private static String read(String relative) throws IOException {

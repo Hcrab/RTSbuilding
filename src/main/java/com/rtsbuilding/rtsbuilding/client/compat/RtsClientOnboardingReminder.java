@@ -123,8 +123,7 @@ public final class RtsClientOnboardingReminder {
 
     /** 从当前 Forge ModContainer 读取版本，避免语言文件与实际发布包漂移。 */
     private static String currentModVersion() {
-        return ModList.get()
-                .getModContainerById(RtsbuildingMod.MODID)
+        return ModList.get().getModContainerById(RtsbuildingMod.MODID)
                 .map(container -> container.getModInfo().getVersion().toString())
                 .orElse("unknown");
     }

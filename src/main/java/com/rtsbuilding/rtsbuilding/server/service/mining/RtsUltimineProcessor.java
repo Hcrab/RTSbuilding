@@ -215,7 +215,7 @@ public final class RtsUltimineProcessor {
         int workflowEntryId = session.mining.workflowEntryId;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .submitMiningTargets(player, workflowEntryId, targets,
-                        Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
+                        Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, false);
         if (submitted) session.mining.workflowEntryId = -1;
     }
 
@@ -280,7 +280,7 @@ public final class RtsUltimineProcessor {
 
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
                 player, workflowEntryId, targets,
-                Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
+                Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, false);
         RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
                 targets.size(), player.getGameProfile().getName());
         return submitted ? targets.size() : 0;
