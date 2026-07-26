@@ -43,7 +43,7 @@ class StorageHandlerLifecycleContractTest {
                 "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "玩家退出");
 
         String mod = read("RtsbuildingMod.java");
-        assertOrderedInMethod(mod, "void onPlayerChangedDimension", "unregisterPlayer(serverPlayer)",
+        assertOrderedInMethod(mod, "void onPlayerChangedDimension", "unregisterPlayer(player)",
                 "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "切换维度");
     }
 

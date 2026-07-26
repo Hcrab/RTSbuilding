@@ -88,7 +88,8 @@ class RtsRemoteBlockSoundContractTest {
                 "声音实例必须相对监听器播放，跟随当前 RTS 相机。");
         assertTrue(packetRegistry.contains("S2CRtsBlockActionSoundPayload.STREAM_CODEC"),
                 "相对方块声音必须注册为 S2C 数据包。");
-        assertTrue(dispatcher.contains("case S2CRtsBlockActionSoundPayload p ->"),
+        assertTrue(dispatcher.contains("payload instanceof S2CRtsBlockActionSoundPayload p")
+                        && dispatcher.contains("handleBlockActionSound(p, ctx)"),
                 "专用服务端也必须能安全分发声音包，而不直接加载客户端类。");
     }
 

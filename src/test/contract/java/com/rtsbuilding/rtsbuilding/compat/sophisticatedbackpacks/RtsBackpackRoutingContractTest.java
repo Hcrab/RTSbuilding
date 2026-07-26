@@ -18,7 +18,7 @@ class RtsBackpackRoutingContractTest {
         String placement = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/server/storage/resolver/RtsLinkedStorageResolver.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/resolver/RtsLinkedStorageBlockEventHandler.java"));
 
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("CapabilityBackpackWrapper")
@@ -30,7 +30,7 @@ class RtsBackpackRoutingContractTest {
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
                         && placement.contains("!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()"),
                 "服务端精妙背包放置失败时不得回退到 useItem 打开界面。");
-        assertTrue(lifecycle.contains("detachedBackpackRefs.add(ref)"),
+        assertTrue(lifecycle.contains("markDetached(ref)"),
                 "背包被挖走后必须保留 UUID 绑定并切换到随身解析状态。");
         assertFalse(lifecycle.contains("removeBrokenLinkedStorageRef"),
                 "背包被挖走不能删除 UUID 绑定。");
