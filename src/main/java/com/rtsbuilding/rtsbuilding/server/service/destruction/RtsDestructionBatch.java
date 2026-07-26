@@ -373,7 +373,8 @@ public final class RtsDestructionBatch {
 
     private static HistoryBlockRecord decodeHistoryRecord(ServerPlayer player, CompoundTag tag) {
         BlockState state = NbtUtils.readBlockState(
-                player.registryAccess().registryOrThrow(Registries.BLOCK), tag.getCompound("state"));
+                player.serverLevel().registryAccess().registryOrThrow(Registries.BLOCK).asLookup(),
+                tag.getCompound("state"));
         if (state.isAir()) throw new IllegalArgumentException("detached destruction history 方块状态无效");
         CompoundTag blockEntity = tag.contains("blockEntity", net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? tag.getCompound("blockEntity").copy() : null;

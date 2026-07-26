@@ -5,8 +5,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -95,12 +95,7 @@ public final class MiningSpeedCalculator {
      * 获取给定工具栈的效率附魔等级。
      */
     private static int getEfficiencyLevel(ItemStack stack) {
-        for (var entry : stack.getEnchantments().entrySet()) {
-            if (entry.getKey().is(Enchantments.EFFICIENCY)) {
-                return entry.getValue();
-            }
-        }
-        return 0;
+        return EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_EFFICIENCY, stack);
     }
 
     // ======================================================================
@@ -108,18 +103,18 @@ public final class MiningSpeedCalculator {
     // ======================================================================
 
     /**
-     * 消除水下挖掘速度惩罚（{@code SUBMERGED_MINING_SPEED}），保留正面修饰。
+     * 消除 1.20.1 原版固定的水下挖掘速度惩罚，同时保留水下速掘等正面修饰。
      */
     static float removeMiningSpeedPenalty(ServerPlayer player, float destroyStep) {
         if (destroyStep <= 0.0F) {
             return destroyStep;
         }
         float adjusted = destroyStep;
-        if (player.isEyeInFluid(FluidTags.WATER)) {
-            double submergedMiningSpeed = player.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED);
-            if (submergedMiningSpeed > 0.0D && submergedMiningSpeed < 1.0D) {
-                adjusted *= (float) (1.0D / submergedMiningSpeed);
-            }
+        if (player.isEyeInFluid(FluidTags.WATER)
+                && !EnchantmentHelper.hasAquaAffinity(player)) {
+            // 1.20.1 尚未把水下挖掘速度暴露为属性；原版固定应用 0.2 倍惩罚。
+            // RTS 远程挖掘需要消除此惩罚，因此乘回 5，行为与 1.21.1 主线一致。
+            adjusted *= 5.0F;
         }
         return adjusted;
     }

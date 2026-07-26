@@ -40,7 +40,7 @@ public final class BlueprintNetworkHandlers {
             }
             try {
                 RtsBlueprint blueprint = BlueprintReaders.parse(
-                        payload.data(), payload.fileName(), player.registryAccess());
+                        payload.data(), payload.fileName(), player.serverLevel().registryAccess());
                 BlueprintContext blueprintContext = BlueprintContext.builder(player)
                         .submissionId(payload.submissionId())
                         .blueprint(blueprint)

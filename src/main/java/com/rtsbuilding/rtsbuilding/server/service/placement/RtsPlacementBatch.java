@@ -194,7 +194,7 @@ public final class RtsPlacementBatch {
         if (player == null || session == null || state == null) {
             throw new IllegalArgumentException("player/session/state 不能为空");
         }
-        PlaceBatchJob job = restoreDetachedJob(state, player.registryAccess());
+        PlaceBatchJob job = restoreDetachedJob(state, player.serverLevel().registryAccess());
         Block expectedBlock = expectedPlacementBlock(job);
         List<BlockPos> overwriteDropPositions = new ArrayList<>();
 
@@ -303,7 +303,8 @@ public final class RtsPlacementBatch {
      */
     public static void recordDetachedHistory(ServerPlayer player, PlacementTaskState state) {
         if (player == null || state == null) return;
-        PlaceBatchJob definition = PlaceBatchJob.fromNbt(state.definition(), player.registryAccess());
+        PlaceBatchJob definition = PlaceBatchJob.fromNbt(
+                state.definition(), player.serverLevel().registryAccess());
         if (!state.placedPositions().isEmpty()) {
             ServerHistoryManager.recordPlacement(player, state.placedPositions(), definition.face());
         }

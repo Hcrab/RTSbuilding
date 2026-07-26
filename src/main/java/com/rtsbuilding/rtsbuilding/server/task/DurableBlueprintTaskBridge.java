@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.io.VanillaStructureNbtReader
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
@@ -366,7 +367,7 @@ public final class DurableBlueprintTaskBridge {
     private BlueprintContext materializeFromDurableRoot(ServerPlayer player, TaskSnapshot snapshot) {
         var blob = persistence.loadDurableBlueprint(snapshot.id());
         RtsBlueprint blueprint = VanillaStructureNbtReader.parse(
-                blob.structure(), blob.name(), blob.sourceName(), player.registryAccess());
+                blob.structure(), blob.name(), blob.sourceName(), player.serverLevel().registryAccess());
         if (blueprint.blockCount() != snapshot.totalUnits()) {
             throw new IllegalStateException("恢复蓝图方块数与 durable root 不一致");
         }

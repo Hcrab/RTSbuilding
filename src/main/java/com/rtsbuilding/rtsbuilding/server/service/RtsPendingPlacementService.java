@@ -91,7 +91,7 @@ public final class RtsPendingPlacementService {
         }
         var state = view.state();
         RtsPlacementBatch.PlaceBatchJob job = RtsPlacementBatch.restoreDetachedJob(
-                state, player.registryAccess());
+                state, player.serverLevel().registryAccess());
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 

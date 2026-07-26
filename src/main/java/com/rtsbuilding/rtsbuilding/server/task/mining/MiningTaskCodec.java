@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.mining;
 
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.task.MiningTaskPayload;
 import net.minecraft.core.BlockPos;
@@ -103,7 +104,7 @@ public final class MiningTaskCodec {
             throw new IllegalArgumentException("mining history record 不完整");
         }
         BlockState state = NbtUtils.readBlockState(
-                registryAccess.registryOrThrow(Registries.BLOCK), tag.getCompound("state"));
+                registryAccess.registryOrThrow(Registries.BLOCK).asLookup(), tag.getCompound("state"));
         if (state.isAir()) throw new IllegalArgumentException("mining history 不能记录空气");
         CompoundTag blockEntity = tag.contains("block_entity", Tag.TAG_COMPOUND)
                 ? tag.getCompound("block_entity").copy() : null;

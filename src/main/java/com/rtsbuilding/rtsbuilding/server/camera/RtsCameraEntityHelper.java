@@ -40,7 +40,7 @@ final class RtsCameraEntityHelper {
     //  丢弃
     // ======================================================================
 
-    static void discardOwnedCameras(ServerPlayer player, UUID keepUuid) {
+    static void discardOwnedCameras(ServerPlayer player) {
         if (player == null || player.getServer() == null) {
             return;
         }
@@ -48,8 +48,7 @@ final class RtsCameraEntityHelper {
         for (ServerLevel level : player.getServer().getAllLevels()) {
             for (Entity entity : level.getAllEntities()) {
                 if (entity instanceof RtsCameraEntity camera
-                        && ownerUuid.equals(camera.getOwnerUuid())
-                        && !camera.getUUID().equals(keepUuid)) {
+                        && ownerUuid.equals(camera.getOwnerUuid())) {
                     camera.discard();
                 }
             }

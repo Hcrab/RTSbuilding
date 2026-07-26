@@ -353,7 +353,7 @@ public final class RtsMiningStateMachine {
                 waitHint = MiningWaitHint.tool();
             } else if (!canDetachedMineTarget(player, target, state.face())) {
                 clearDetachedProgress(player, target);
-                remaining.removeFirst();
+                remaining.remove(0);
                 processed++;
                 failed++;
                 progress = 0.0F;
@@ -378,7 +378,7 @@ public final class RtsMiningStateMachine {
                     } else {
                         boolean broken = destroyDetachedTarget(player, session, target, history);
                         clearDetachedProgress(player, target);
-                        remaining.removeFirst();
+                        remaining.remove(0);
                         processed++;
                         if (broken) {
                             succeeded++;
@@ -409,7 +409,7 @@ public final class RtsMiningStateMachine {
                 break;
             }
             if (!canDetachedMineTarget(player, target, state.face())) {
-                remaining.removeFirst();
+                remaining.remove(0);
                 processed++;
                 failed++;
                 continue;
@@ -423,7 +423,7 @@ public final class RtsMiningStateMachine {
                 break;
             }
             boolean broken = destroyDetachedTarget(player, session, target, history);
-            remaining.removeFirst();
+            remaining.remove(0);
             processed++;
             if (broken) {
                 succeeded++;
@@ -496,7 +496,7 @@ public final class RtsMiningStateMachine {
     private static List<HistoryBlockRecord> decodeDetachedHistory(
             ServerPlayer player, List<net.minecraft.nbt.CompoundTag> history) {
         return history.stream()
-                .map(tag -> MiningTaskCodec.decodeHistory(player.registryAccess(), tag))
+                .map(tag -> MiningTaskCodec.decodeHistory(player.serverLevel().registryAccess(), tag))
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 

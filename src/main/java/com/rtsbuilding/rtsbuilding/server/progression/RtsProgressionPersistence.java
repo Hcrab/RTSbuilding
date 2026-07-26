@@ -10,7 +10,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Team;
 
 final class RtsProgressionPersistence {
     static final String NBT_VERSION = "version";
@@ -55,7 +55,7 @@ final class RtsProgressionPersistence {
         if (openPacTeamKey != null && !openPacTeamKey.isBlank()) {
             return new TeamProgressionContext(openPacTeamKey, RtsOpenPacCompat.progressionTeamLabel(player));
         }
-        PlayerTeam vanillaTeam = player.getTeam();
+        Team vanillaTeam = player.getTeam();
         return vanillaTeam == null
                 ? TeamProgressionContext.NONE
                 : new TeamProgressionContext("scoreboard:" + vanillaTeam.getName(), vanillaTeam.getName());

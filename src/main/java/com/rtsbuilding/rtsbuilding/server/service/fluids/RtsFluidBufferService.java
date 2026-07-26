@@ -120,7 +120,7 @@ public final class RtsFluidBufferService {
             return DrainOutcome.EMPTY;
         }
         ItemStack single = container.copyWithCount(1);
-        Optional<IFluidHandlerItem> optHandler = FluidUtil.getFluidHandler(single);
+        Optional<IFluidHandlerItem> optHandler = FluidUtil.getFluidHandler(single).resolve();
         if (optHandler.isEmpty()) {
             return DrainOutcome.EMPTY;
         }

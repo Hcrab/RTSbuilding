@@ -70,6 +70,22 @@ public final class RtsCullingPersistence {
         SaveScheduler.INSTANCE.player(player).set(PlayerComponents.CULLING, root);
     }
 
+    /**
+     * 玩家死亡后 Forge 会创建新的 {@link ServerPlayer} 实例；将存档级剔除数据复制给替代实例。
+     *
+     * <p>这里复制整个按维度分组的根标签，而不是只复制当前维度，避免玩家死亡后丢掉其它维度已保存的
+     * 剔除框。NBT 必须深拷贝，不能让新旧实体共享可变标签。</p>
+     */
+    public static void copyFrom(ServerPlayer original, ServerPlayer replacement) {
+        if (original == null || replacement == null) {
+            return;
+        }
+        CompoundTag source = SaveScheduler.INSTANCE.player(original)
+                .get(PlayerComponents.CULLING)
+                .copy();
+        SaveScheduler.INSTANCE.player(replacement).set(PlayerComponents.CULLING, source);
+    }
+
     static void encode(CompoundTag root, String dimensionKey,
             List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
         if (root == null || dimensionKey == null || dimensionKey.isBlank()) {

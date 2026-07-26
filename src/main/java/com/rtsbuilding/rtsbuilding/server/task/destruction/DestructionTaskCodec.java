@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.destruction;
 
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import com.rtsbuilding.rtsbuilding.server.task.DestructionTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;

@@ -698,7 +698,7 @@ public final class RtsTaskEngine {
         }
         PlacementTaskPayload payload = new PlacementTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
-                RtsPlacementBatch.snapshotDetachedState(job, player.registryAccess()));
+                RtsPlacementBatch.snapshotDetachedState(job, player.serverLevel().registryAccess()));
         /*
          * workflowEntryId 只属于当前工作流存档代次。玩家每次新放置都必须获得新的
          * submission，否则旧世界中相同编号的终态回执会把合法操作误判为任务重放。
@@ -1072,7 +1072,8 @@ public final class RtsTaskEngine {
                 case PLACEMENT -> {
                     var state = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                             .decode(snapshot.payload()).state();
-                    var job = RtsPlacementBatch.restoreDetachedJob(state, player.registryAccess());
+                    var job = RtsPlacementBatch.restoreDetachedJob(
+                            state, player.serverLevel().registryAccess());
                     if (job.quickBuild() && job.itemId().isBlank()) {
                         yield DurableWorkflowProjection.poison();
                     }

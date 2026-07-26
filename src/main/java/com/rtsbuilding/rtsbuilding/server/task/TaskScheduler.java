@@ -47,6 +47,22 @@ public final class TaskScheduler {
         if (lane != null) lane.forEach(task -> task.cancel(nowNanos));
     }
 
+    /**
+     * 将玩家的在线调度队列摘除，但不改变任务生命周期。
+     *
+     * <p>持久任务会由落盘快照在玩家重新登录后恢复，断开网络会话不能把它们误记为已取消。</p>
+     */
+    public synchronized List<TaskRecord> detachOwner(UUID ownerId) {
+        ArrayDeque<TaskRecord> lane = lanes.remove(ownerId);
+        return lane == null ? List.of() : List.copyOf(lane);
+    }
+
+    /** 世界切换时清除在线执行绑定；持久任务由下一世界重新装载。 */
+    public synchronized void clear() {
+        lanes.clear();
+        playerCursor = 0;
+    }
+
     public synchronized TickStats tick(long maxNanos, int maxUnitsPerTick, int maxUnitsPerSlice) {
         long start = nanoClock.getAsLong();
         long deadline = start + Math.max(1L, maxNanos);
