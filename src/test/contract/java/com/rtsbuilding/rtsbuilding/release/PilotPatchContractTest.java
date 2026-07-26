@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PilotPatchContractTest {
     @Test
-    void pilotVersionKeepsClientDefaultsLocalizedCameraHintAndExplicitStableVersion() throws Exception {
+    void releaseVersionKeepsClientDefaultsLocalizedCameraHintAndExplicitStableVersion() throws Exception {
         String properties = Files.readString(Path.of("gradle.properties"));
         String config = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/Config.java"));
@@ -21,7 +21,7 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.contains("mod_version=1.1.6-pilot"));
+        assertTrue(properties.lines().anyMatch("mod_version=1.1.6"::equals));
         assertTrue(config.contains(".define(\"useBlockGhostPreview\", false)"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(camera.contains("\"item.rtsbuilding.rts_control_core\""));
