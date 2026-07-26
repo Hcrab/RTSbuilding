@@ -37,10 +37,13 @@ class QuickBuildHintContractTest {
     void buildAndDestroyUseTheSameAutoSubmitPolicyAfterSelection() throws IOException {
         String controller = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+        String session = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
 
         assertEquals(2, occurrences(controller, "if (shouldSubmitShapeAfterSelection())"),
                 "范围建造和范围破坏都必须在最后一个选点后经过同一自动提交策略");
-        assertTrue(controller.contains("ShapeConfirmationPolicy.shouldSubmitAfterSelection("));
+        assertTrue(controller.contains("this.selectionSession.shouldSubmitAfterSelection("));
+        assertTrue(session.contains("ShapeConfirmationPolicy.shouldSubmitAfterSelection("));
     }
 
     private static int occurrences(String text, String needle) {

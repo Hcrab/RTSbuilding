@@ -24,10 +24,13 @@ class BlueprintSubmissionIdentityContractTest {
     @Test
     void oneExplicitClientSubmissionCreatesOneIdentityAndSendsThatPayload() throws IOException {
         String panel = read("client/screen/blueprint/BlueprintPanel.java");
+        String placement = read("client/screen/blueprint/BlueprintPlacementSession.java");
 
-        assertTrue(panel.contains("C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload("));
-        assertTrue(panel.contains("UUID.randomUUID()"));
-        assertTrue(panel.contains("PacketDistributor.sendToServer(payload)"));
+        assertTrue(panel.contains("return PLACEMENT.place("));
+        assertTrue(panel.contains("PLACEMENT.confirmPinnedPreview()"));
+        assertTrue(placement.contains("C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload("));
+        assertTrue(placement.contains("UUID.randomUUID()"));
+        assertTrue(placement.contains("PacketDistributor.sendToServer(payload)"));
     }
 
     @Test
