@@ -3,7 +3,7 @@
 
 **Language / 语言:** [English](#english) | [中文](#chinese)
 
-Join the Discord to chat and provide feedback: https://discord.gg/9Pw6vZfAm
+Join the Discord to chat and provide feedback: https://discord.gg/Bz5HU9YQuj
 
 License: source code and non-media project files are LGPL-3.0-only. Original
 RTS Building textures and audio are All Rights Reserved under

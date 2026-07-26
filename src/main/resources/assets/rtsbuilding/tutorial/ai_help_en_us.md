@@ -56,6 +56,8 @@ Lines, squares, circles, and balls use A/B points. Lines and circles can be hori
 
 Chain is a Range Destroy shape. Left click the starting block to find connected blocks of the same type. The Limit control caps the block count. With Survival Balance enabled, Chain is unlocked independently by the Chain Break Plugin. Soft blocks such as dirt, snow, and sand need no harvest-tier plugin; stone and harder blocks still require the matching tier plugin and a usable real tool. Placement and destruction wireframes, ghosts, and animations can be toggled separately in Settings.
 
+Creative Range Build also shows Overwrite. When enabled, the submitted shape directly replaces existing blocks at its targets and ignores entity obstruction. Survival players neither see nor can request this capability.
+
 ### Range Culling
 
 Range Culling hides existing blocks locally and lets RTS rays pass through them. It does not destroy server blocks.
@@ -183,7 +185,7 @@ Open RTS Settings and enable Jade Follow Mouse or Hide Jade in RTS.
 
 - Website: https://rts.ciallo.ltd
 - GitHub: https://github.com/Hcrab/RTSbuilding
-- Discord: https://discord.gg/9Pw6vZfAm
+- Discord: https://discord.gg/Bz5HU9YQuj
 - QQ group: 910318076
 
 ---
