@@ -1,5 +1,7 @@
 ﻿{
   "key.categories.rtsbuilding": "RTSbuilding",
+  "rtsbuilding.configuration.enableUiAnimations": "RTS UI transitions",
+  "rtsbuilding.configuration.enableUiAnimations.tooltip": "Animate hover and selection transitions without delaying input or actions.",
   "screen.rtsbuilding.ai_help.title": "Need help controlling?",
   "screen.rtsbuilding.ai_help.description": "Copy your version, RTS mode, tutorials and recent logs; paste them into any AI, then ask.",
   "screen.rtsbuilding.ai_help.chat": "Ask AI in game",
@@ -361,7 +363,7 @@
   "screen.rtsbuilding.topbar.tooltip.developer": "Open developer scenarios",
   "screen.rtsbuilding.topbar.tooltip.gear": "Open RTS settings",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
-  "chat.rtsbuilding.intro.version_warning": "Current RTS Building version: 1.1.6-pilot. Usage guide: %s. If it proves unstable, return to 1.1.5-patch4.",
+  "chat.rtsbuilding.intro.version_warning": "Current RTS Building version: %1$s. Detailed guide: %2$s. If this build is unstable in your modpack, use the latest stable release.",
   "chat.rtsbuilding.intro.feedback": "Feedback links: Discord %s | GitHub %s | QQ group %s. If RTSBuilding helps you, a GitHub star would mean a lot.",
   "chat.rtsbuilding.intro.config_hint": "Small i buttons open tutorials for panels and overlays.",
   "chat.rtsbuilding.intro.dismiss": "[Don't remind me again]",

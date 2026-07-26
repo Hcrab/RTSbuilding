@@ -14,6 +14,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
@@ -85,6 +86,7 @@ public final class RtsClientOnboardingReminder {
                 Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
         minecraft.player.displayClientMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
+                Component.literal(currentModVersion()),
                 websiteComponent())
                 .withStyle(ChatFormatting.GOLD), false);
         minecraft.player.displayClientMessage(Component.translatable(
@@ -112,6 +114,14 @@ public final class RtsClientOnboardingReminder {
                 .withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.DISCORD_INVITE))
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
+    }
+
+    /** 从当前 ModContainer 读取版本，避免语言文件与实际发布包漂移。 */
+    private static String currentModVersion() {
+        return ModList.get()
+                .getModContainerById(RtsbuildingMod.MODID)
+                .map(container -> container.getModInfo().getVersion().toString())
+                .orElse("unknown");
     }
 
     private static Component websiteComponent() {
