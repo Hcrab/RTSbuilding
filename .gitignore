@@ -1,2 +1,5 @@
-/benchmark-visualization/benchmark.db
-/old_client/
+/.idea/
+/build/
+/.gradle/
+/.github/
+/run/
